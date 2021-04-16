@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "**.go"
+      - "hack/test.sh"
+      - ".github/workflows/release.yaml"
+
+jobs:
+  test:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Set up Go 1.15
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.15
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v1
+      - name: Test
+        run: ./hack/test.sh
+  publish-cli:
+    if: startsWith(github.ref, 'refs/tags/v') == true
+    runs-on: macos-latest
+    steps:
+      - name: Set up Go 1.16
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+      - id: get_version
+        run: |
+          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
+          echo "::set-output name=release_version::$RELEASE_VERSION"
+      - name: Compile binaries
+        run: |
+          chmod +x ./hack/build-cli.sh
+          ./hack/build-cli.sh
+        env:
+          RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}
+      - name: Save release assets
+        uses: actions/upload-artifact@v1
+        with:
+          name: release-assets
+          path: release/
+      - name: Attach assets to release
+        uses: FabianKramm/release-asset-action@v1
+        with:
+          pattern: "release/*"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+  publish-images:
+    if: startsWith(github.ref, 'refs/tags/v') == true
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - id: get_version
+        run: |
+          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
+          echo "::set-output name=release_version::$RELEASE_VERSION"
+      - name: Get Docker tags
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v2
+        with:
+          images: |
+            loftsh/vcluster
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and push the image
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64,linux/arm
+          push: true
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+      - name: Images digests
+        run: echo ${{ steps.docker_build.outputs.digest }}
+  publish-chart:
+    if: startsWith(github.ref, 'refs/tags/v') == true
+    needs: [publish-images]
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - uses: azure/setup-helm@v1
+        with:
+          version: 'v3.0.2'
+      - run: |
+          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/v!!p')
+          helm plugin install https://github.com/chartmuseum/helm-push.git
+          helm repo add chartmuseum $CHART_MUSEUM_URL --username $CHART_MUSEUM_USER --password $CHART_MUSEUM_PASSWORD
+          helm push --force --version="$RELEASE_VERSION" chart/ chartmuseum
+        env:
+          CHART_MUSEUM_URL: "https://charts.loft.sh/"
+          CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
+          CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v') == true
+    needs: [publish-chart]
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Check out private repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 300
+          path: private
+      - name: Check out public repo
+        uses: actions/checkout@v2
+        with:
+          path: public
+          fetch-depth: 300
+          repository: ${{ secrets.VCLUSTER_REPO_PUBLIC }}
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+      - id: get_version
+        run: |
+          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
+          echo "::set-output name=release_version::$RELEASE_VERSION"
+      - uses: geertvdc/setup-hub@v1.0.0
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      - working-directory: ./public
+        run: |
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+      - working-directory: ./private
+        run: |
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+      - working-directory: ./private
+        run: |
+          STATE=$(hub release show "$RELEASE_VERSION" --format="%S" | sed -En "s/-//p")
+
+          EXTRA_ARGS=""
+
+          if [ "$STATE" != "" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS --$STATE"
+          else
+            EXTRA_ARGS="$EXTRA_ARGS --prerelease=false --draft=false"
+          fi
+
+          hub release create -m "$RELEASE_VERSION" -m "" $EXTRA_ARGS "$RELEASE_VERSION" 2>/dev/null || hub release edit -m "$RELEASE_VERSION" -m "" $EXTRA_ARGS "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}

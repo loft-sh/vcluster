@@ -1,0 +1,26 @@
+name: Sync-Delete-Release
+
+on:
+  release:
+    types: [deleted]
+
+jobs:
+  sync-release:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Check out public repo
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ secrets.VCLUSTER_REPO_PUBLIC }}
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+      - id: get_version
+        run: |
+          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
+          echo "::set-output name=release_version::$RELEASE_VERSION"
+      - uses: geertvdc/setup-hub@v1.0.0
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      - run: hub release delete "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
