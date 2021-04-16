@@ -1,0 +1,59 @@
+version: v1beta9
+images:
+  vcluster:
+    image: loftsh/vcluster
+    preferSyncOverRebuild: true
+    entrypoint: ["sleep", "99999999"]
+    build:
+      docker:
+        skipPush: true
+        options:
+          target: builder
+deployments:
+  - name: vcluster
+    helm:
+      chart:
+        name: ./chart
+      values:
+        rbac:
+          clusterRole:
+            create: true
+        syncer:
+          image: loftsh/vcluster
+          noArgs: true
+dev:
+  interactive:
+    defaultEnabled: true
+  sync:
+    - imageName: vcluster
+      disableDownload: true
+      excludePaths:
+        - bin/
+        - .vscode/
+        - .idea/
+        - .git/
+        - docs/
+        - examples/
+        - /chart
+        - /helm
+        - /kubectl
+        - /vendor/github.com/devspace-cloud/
+commands:
+  - name: dev
+    command: "devspace dev -n vcluster"
+  - name: deploy
+    command: "devspace deploy --profile deploy -n vcluster -d"
+profiles:
+  - name: deploy
+    replace:
+      images:
+        manager:
+          image: loftsh/vcluster
+      deployments:
+        - name: vcluster
+          helm:
+            chart:
+              name: ./chart
+            values:
+              syncer:
+                image: loftsh/vcluster

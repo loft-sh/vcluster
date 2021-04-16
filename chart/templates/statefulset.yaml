@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  serviceName: {{ .Release.Name }}-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vcluster
+      release: {{ .Release.Name }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.storage.className }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
+  template:
+    metadata:
+      labels:
+        app: vcluster
+        release: {{ .Release.Name }}
+    spec:
+      terminationGracePeriodSeconds: 10
+      serviceAccountName: vc-{{ .Release.Name }}
+      containers:
+      - image: {{ .Values.vcluster.image }}
+        name: vcluster
+        command:
+          {{- range $f := .Values.vcluster.command }}
+          - {{ $f | quote }}
+          {{- end }}
+        args:
+          {{- range $f := .Values.vcluster.baseArgs }}
+          - {{ $f | quote }}
+          {{- end }}
+          {{- range $f := .Values.vcluster.extraArgs }}
+          - {{ $f | quote }}
+          {{- end }}
+        env:
+{{ toYaml .Values.vcluster.env | indent 10 }}
+        volumeMounts:
+{{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
+        resources:
+{{ toYaml .Values.vcluster.resources | indent 10 }}
+      - name: syncer
+        {{- if .Values.syncer.image }}
+        image: "{{ .Values.syncer.image }}"
+        {{- else }}
+        image: "loftsh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
+        {{- if not .Values.syncer.noArgs }}
+        args:
+          - --service-name={{ .Release.Name }}
+          - --suffix={{ .Release.Name }}
+          - --owning-statefulset={{ .Release.Name }}
+          - --out-kube-config-secret=vc-{{ .Release.Name }}
+          {{- range $f := .Values.syncer.extraArgs }}
+          - {{ $f | quote }}
+          {{- end }}
+        {{- else }}
+        args:
+{{ toYaml .Values.syncer.extraArgs | indent 10 }}
+        {{- end }}
+        env:
+{{ toYaml .Values.syncer.env | indent 10 }}
+        volumeMounts:
+{{ toYaml .Values.syncer.volumeMounts | indent 10 }}
+        resources:
+{{ toYaml .Values.syncer.resources | indent 10 }}

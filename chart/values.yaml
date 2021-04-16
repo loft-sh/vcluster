@@ -1,0 +1,46 @@
+# Default values for loft.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+syncer:
+  extraArgs: []
+  env: []
+  volumeMounts:
+    - mountPath: /data
+      name: data
+  resources: {}
+
+vcluster:
+  image: rancher/k3s:v1.19.1-k3s1
+  command:
+    - /bin/k3s
+  baseArgs:
+    - server
+    - --write-kubeconfig=/k3s-config/kube-config.yaml
+    - --data-dir=/data
+    - --disable=traefik,servicelb,metrics-server,local-storage
+    - --disable-network-policy
+    - --disable-agent
+    - --disable-scheduler
+    - --disable-cloud-controller
+    - --flannel-backend=none
+    - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
+  extraArgs:
+    - --service-cidr=10.96.0.0/12
+  volumeMounts:
+    - mountPath: /data
+      name: data
+  env: []
+  resources: {}
+
+storage:
+  size: 5Gi
+  mountPath: /data
+
+serviceAccount:
+  create: true
+
+rbac:
+  clusterRole:
+    create: false
+  role:
+    create: true

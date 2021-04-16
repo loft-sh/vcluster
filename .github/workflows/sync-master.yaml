@@ -1,0 +1,46 @@
+name: Repo-Sync
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "chart/**"
+      - ".github/workflows/sync.yaml"
+
+jobs:
+  sync:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Check out private repo
+        uses: actions/checkout@v2
+        with:
+          path: private
+      - name: Check out public repo
+        uses: actions/checkout@v2
+        with:
+          path: public
+          repository: ${{ secrets.VCLUSTER_REPO_PUBLIC }}
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+      - name: Copy, commit and push changes from private to public repo
+        run: |
+          FOLDER="chart"
+          rm -Rf public/$FOLDER
+          cp -r private/$FOLDER public/
+
+          cd private
+          COMMIT_MESSAGE=$(git log -1 --format="%s" $FOLDER)
+
+          cd ../public
+
+          PUSH_CHANGES=true
+
+          git config --global user.email "noreply@loft.sh"
+          git config --global user.name "Repo Sync Bot"
+
+          git add -A $FOLDER
+          git commit -m "$COMMIT_MESSAGE" || PUSH_CHANGES=false
+
+          if [ "$PUSH_CHANGES" = "true" ]; then
+            git push --force
+          fi
