@@ -1,0 +1,34 @@
+---
+title: Network
+sidebar_label: Network
+---
+
+<figure>
+  <img src="/docs/media/diagrams/vcluster-networking.svg" alt="vcluster Networking" />
+  <figcaption>vcluster - Networking</figcaption>
+</figure>
+
+By default, resources such as `Service` and `Ingress` are synced from the virtual cluster to the host cluster in order to enable correct network functionality for the vcluster.
+
+
+## Pod-To-Pod Traffic
+Since pods are synchronized by the [syncer component](./scheduling) of the vcluster, they actually run inside the host namespace of the underlying cluster. That means that these pods have regular cluster-internal IP addresses and can communicate with each other via IP-based networking.
+
+## Pod-To-Service Traffic
+By default, the vcluster also synchronizes Services (while stripping away unnecessary information from the resource) to allow pods to communicate with services. However, instead of using the DNS names of the services inside the host cluster, the vcluster has its own DNS service which allows the vcluster pods to use much more intuitive DNS mappings just as in a regular cluster.
+
+### Resolving DNS Hostnames
+Each vcluster has its own DNS service (CoreDNS by default) which allows pods in the vcluster to get the IP addresses of services that are also running in this vcluster. The vcluster syncer ensures that the intuitive naming logic of Kubernetes DNS names for services applies and users can connect to these DNS names which in fact map the the IP address of the synchronized services that are present in the underlying host cluster.
+
+## Ingress Controller Traffic
+By default (this can be disabled), the vcluster also synchronizes Ingress resources. That means that you can create an ingress in a vcluster to make a service in this vcluster available via a hostname/domain. However, instead of having to run a separate ingress controller in each vcluster, the ingress resource will be synchronized to the underlying cluster (by default) which means that vcluster can use a shared ingress controller that is running inside the host cluster. This helps to share resources across different vclusters and is easier for users of vclusters because otherwise, they would need to install an ingress controller and manually configure DNS for each vcluster.
+
+### Disable Ingress Sync
+If you do **not** want ingresses to be synchronized and instead, you want to use a separate ingress controller within a vcluster, you can add the following syncer configuration in the vcluster configuration:
+```yaml
+syncer:
+  extraArgs: ["--disable-sync-resources=ingresses"]
+```
+
+### SSL Certificates
+Because the syncer keeps typical SSL provisioning related annotations for ingresses, you may also set the cert-manager ingress annotations on an ingress in your vclusters to use the cert-manager of the underlying host cluster to automatically provision SSL certificates from Let's Encrypt.

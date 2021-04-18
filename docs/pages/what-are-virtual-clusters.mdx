@@ -1,0 +1,11 @@
+---
+title: What are Virtual Kubernetes Clusters?
+sidebar_label: What Are Virtual Clusters?
+---
+
+Virtual clusters are Kubernetes clusters that run on top of other Kubernetes clusters. Compared to fully separate "real" clusters, virtual clusters do not have their own node pools. Instead, they are scheduling workloads inside the underlying cluster while having their control plane.
+
+<figure>
+  <img src="/docs/media/diagrams/vcluster-architecture.svg" alt="vcluster Architecture" />
+  <figcaption>vcluster - Architecture</figcaption>
+</figure>

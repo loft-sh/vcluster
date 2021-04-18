@@ -1,0 +1,64 @@
+/**
+ * Copyright (c) 2017-present, Facebook, Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+module.exports = {
+  adminSidebar: [
+    {
+      type: 'doc',
+      id: 'what-are-virtual-clusters',
+    },
+    {
+      type: 'category',
+      label: 'Getting Started',
+      collapsed: false,
+      items: [
+        {
+          type: 'doc',
+          id: 'quickstart',
+        },
+        {
+          type: 'category',
+          label: 'Full Guide',
+          collapsed: false,
+          items: [
+            'getting-started/setup',
+            'getting-started/deployment',
+            'getting-started/connect',
+            'getting-started/cleanup',
+          ],
+        },
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Architecture',
+      collapsed: false,
+      items: [
+        'architecture/basics',
+        'architecture/scheduling',
+        'architecture/networking',
+        'architecture/storage',
+        'architecture/nodes',
+      ],
+    },
+    {
+      type: 'doc',
+      id: 'config-reference',
+    },
+    {
+      type: 'category',
+      label: 'CLI Reference',
+      items: [
+      ],
+    },
+    {
+      type: 'link',
+      label: 'Originally created by Loft',
+      href: 'https://loft.sh/',
+    },
+  ],
+};

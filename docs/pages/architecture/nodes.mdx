@@ -1,0 +1,15 @@
+---
+title: Nodes
+sidebar_label: Nodes
+---
+
+The vcluster, by default, shows one node, which is the node that the vcluster pod is running on. Although pods synchronized from the vcluster to the underlying cluster may be scheduled on other nodes. 
+
+vcluster provides a variety of flags to adjust this behavior, including:
+
+```bash
+--sync-all-nodes                  If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones
+--fake-nodes                      If enabled, the virtual cluster will create fake nodes instead of copying the actual physical nodes config (default true) (if false make sure rbac.clusterRole.create is true in the options)
+--enforce-node-selector           If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector (default true)
+--node-selector string            If set, nodes with the given node selector will be synced to the virtual cluster. This will implicitly set --fake-nodes=false (make sure rbac.clusterRole.create is true in the options)
+```

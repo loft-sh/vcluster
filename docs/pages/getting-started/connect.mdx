@@ -1,0 +1,123 @@
+---
+title: Connect to and use vclusters
+sidebar_label: 3. Use vclusters
+---
+
+import ConnectSegment from '../fragments/connect.mdx'
+
+Now that we deployed a vcluster, let's connect to it, run a couple of `kubectl` commands inside of it and then understand what happens behind the scenes inside our vcluster's host namespace that is part of the underlying host cluster.
+
+## Connect to vcluster
+The easiest option to connect to your vcluster is by starting port-forwarding to the vcluster's service via:
+<ConnectSegment/>
+
+:::caution Keep Connection Open
+If you terminate the `vcluster connect` command, port-forwarding will be terminated, so keep this command open while you are working with your vcluster. Alternatively, you could configure an ingress to route to the vcluster service. This would allow you to connect via an ingress instead of having to start port-forwarding every time you want to interact with the vcluster.
+:::
+
+## Prepare kube-config
+To run `kubectl` commands in this vcluster, you need to tell kubectl to use the `kubeconfig.yaml` file that the `vcluster connect` command creates for you by default. Alternatively, you can use the `--update-current` flag for `vcluster connect` which will add a new kube-context to your regular kube-config file instead of creating a new file in your current working directory.
+```bash
+# Open a second terminal session and run:
+export KUBECONFIG=./kubeconfig.yaml
+```
+
+## Run kubectl commands
+A virtual cluster behaves the same way as a regular Kubernetes cluster. That means you can run any `kubectl` command and since you are admin of this vcluster, you can even run commands like these:
+```bash
+kubectl get namespace
+kubectl get pods -n kube-system
+```
+
+Let's create a namespace and a demo nginx deployment to understand how vclusters work:
+```bash
+kubectl create namespace demo-nginx
+kubectl create deployment nginx-deployment -n demo-nginx --image=nginx
+```
+
+You can check that this demo deployment will create pods inside the vcluster:
+```bash
+kubectl get pods -n demo-nginx
+```
+
+## What happens in the host cluster?
+The first thing to understand is that **most** resources inside your vcluster will only exist in your vcluster and **not** make it to the underlying host cluster / host namespace.
+
+### 1. Use Host Cluster Kube-Context
+Let's verify this and switch our kube-context back to the host cluster:
+```bash
+# Use your regular kube-config file again (leave empty for th default file ~/.kube/config)
+export KUBECONFIG=
+```
+
+### 2. Check Namespaces
+Now, let's check the namespaces in our host cluster:
+```bash
+kubectl get namespaces
+```
+```bash {3}
+NAME               STATUS   AGE
+default            Active   11d
+host-namespace-1   Active   9m17s
+kube-node-lease    Active   11d
+kube-public        Active   11d
+kube-system        Active   11d
+```
+You will notice that there is **no namespace `demo-nginx`** because this namespace only exists inside the vcluster. Everything that belongs to the vcluster will always remain inside the vcluster's host namespace `host-namespace-1`.
+
+### 3. Check Deployments
+So, let's check to see if our deployment `nginx-deployment` has made it to the underlying host cluster:
+```bash
+kubectl get deployments -n host-namespace-1
+```
+```bash
+No resources found in host-namespace-1 namespace.
+```
+
+You will see that there is **no deployment `nginx-deployment`** because it also just lives inside the virtual cluster.
+
+### 4. Check Pods
+The last thing to check is pods:
+```bash
+kubectl get pods -n host-namespace-1
+```
+
+```bash {3}
+NAME                                                          READY   STATUS    RESTARTS   AGE
+coredns-66c464876b-p275l-x-kube-system-x-vcluster-1           1/1     Running   0          14m
+nginx-deployment-84cd76b964-mnvzz-x-demo-nginx-x-vcluster-1   1/1     Running   0          10m
+vcluster-1-0                                                  2/2     Running   0          14m
+```
+
+And there it is! The pod that has been scheduled for our `nginx-deployment` has actually made it to the underlying host cluster.
+
+The reason for this is that vclusters do **not** have a scheduler\*. Instead, they have a **syncer** which synchronized resources from the vcluster to the underlying host namespace to actually get the pods of the vcluster scheduled and the containers started inside the underlying host namespace. 
+
+:::info Renaming
+As you can see above in line 3, the names of pods get rewritten during the sync process since we are mapping pods from X namespaces inside the vcluster into one single host namespace in the underlying host cluster.
+:::
+
+## Benefits of Virtual Clusters
+Virtual clusters provide immense benefits for large-scale Kubernetes deployments and multi-tenancy:
+- **Low Overhead:**
+    - vclusters are super lightweight and only reside in a single namespace.
+    - vclusters run with k3s, a super low-footprint k8s distribution, but they can also run with "real" k8s.
+    - The control plane of a vcluster runs inside a single pod (+1 CoreDNS pod for vcluster-internal DNS capabilities).
+- **<u>No</u> Network Degregation:**
+    - Since the pods and services inside a vcluster are actually being synchronized down to the host cluster\*, they are effectively using the underlying cluster's pod and service networking and are therefore not a bit slower than any other pods in the underlying host cluster.
+- **API Server Compatibility:**
+    - vclusters run with the k3s API server which is certified k8s distro which ensures 100% Kubernetes API server compliance.
+    - vcluster have their own API server, controller-manager and a separate, isolated data store (sqlite for easiest option but this is configurable, you can also deploy a full-blown etcd if needed). 
+- **Cost Savings:**
+    - You can create lightweight vclusters that share the underlying host cluster instead of creating separate "real" clusters.
+    - vclusters are just deployments, so they can be easily auto-scaled, purged, snapshotted and moved.
+- **Security:**
+    - vcluster users need much fewer permissions in the underlying host cluster / host namespace.
+    - vcluster users can manage their own CRDs independently and can even mess with RBAC inside their own vclusters.
+    - vclusters provide an extra layer of isolation because each vcluster has its own API server and control plane (much fewer requests to the underlying cluster that need to be secured\*).
+- **Scalability:**
+    - Less pressure / fewer requests on the k8s API server in large-scale cluster\*
+    - Higher scalability of cluster via cluster sharding / API server sharding into smaller vclusters
+    - No need for cluster admins to worry about conflicting CRDs or CRD versions with growing number of users and deployments
+
+\* Only very few resources and API server requests actually reach the underlying Kubernetes API server. Only scheduling-related resources (e.g. Pod) and networking-related resources (e.g. Service) need to be synchronized down to the host cluster since the vcluster does **not** have a scheduler or a real overlay network on its own.

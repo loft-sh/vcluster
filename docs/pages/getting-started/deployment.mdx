@@ -1,0 +1,24 @@
+---
+title: Deploy vclusters
+sidebar_label: 2. Deploy vclusters
+---
+
+import DeploySegment from '../fragments/deploy-vcluster.mdx'
+
+Let's create a virtual cluster `vcluster-1` in namespace `host-namespace-1`:
+
+<DeploySegment/>
+
+:::info Host Namespace
+No matter if we are creating namespaces within the virtual cluster, everything will be encapsulated inside the host namespace that the virtual cluster runs inside.
+:::
+
+:::caution Air-gapped Clusters
+If you want to deploy vclusters in an air-gapped environment, use the `kubectl` tab and make sure to download and import all required images to your internal container registry first.
+:::
+
+
+## Admin Permissions Required?
+One of the biggest benefits of vcluster compared to other virtual cluster approaches is that it does not require any special permissions. Even if you are not cluster-admin and only have access to deploy applications to one specific namespace, you will very likely be able to spin up a virtual cluster.
+
+Check out the `kubectl` tab above to see what `vcluster create` is actually deploying to the host-namespace.

@@ -1,0 +1,19 @@
+---
+title: Storage
+sidebar_label: Storage
+---
+
+<figure>
+  <img src="/docs/media/diagrams/vcluster-persistent-volume-provisioning.svg" alt="vcluster Persistent Volume Provisioning" />
+  <figcaption>vcluster - Persistent Volume Provisioning</figcaption>
+</figure>
+
+Since the vcluster's syncer synchronizes pods to the underlying host cluster to schedule them, vcluster users can (by default, this can be configured in advanced options) use the storage classes of the underlying host cluster to create persistent volume claims and to mount persistent volumes.
+
+
+vcluster provides a variety of flags to adjust this behavior, including:
+
+```bash
+--enable-storage-classes          If enabled, the virtual cluster will sync storage classes (make sure rbac.clusterRole.create is true in the options)
+--fake-persistent-volumes         If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config (default true) (if false make sure rbac.clusterRole.create is true in the options)
+```

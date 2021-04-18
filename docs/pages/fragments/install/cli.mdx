@@ -1,0 +1,75 @@
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+
+<Tabs
+  groupId="platform"
+  defaultValue="mac"
+  values={[
+    { label: 'Mac (Intel/AMD)', value: 'mac', },
+    { label: 'Mac (Silicon/ARM)', value: 'mac-arm', },
+    { label: 'Linux (AMD)', value: 'linux', },
+    { label: 'Linux (ARM)', value: 'linux-arm', },
+    { label: 'Windows Powershell', value: 'windows', },
+  ]
+}>
+<TabItem value="mac">
+
+```bash
+curl -s -L "https://github.com/loft-sh/vcluster/releases/latest" | sed -nE 's!.*"([^"]*vcluster-darwin-amd64)".*!https://github.com\1!p' | xargs -n 1 curl -L -o vcluster && chmod +x vcluster;
+sudo mv vcluster /usr/local/bin;
+```
+
+</TabItem>
+<TabItem value="mac-arm">
+
+```bash
+curl -s -L "https://github.com/loft-sh/vcluster/releases/latest" | sed -nE 's!.*"([^"]*vcluster-darwin-arm64)".*!https://github.com\1!p' | xargs -n 1 curl -L -o vcluster && chmod +x vcluster;
+sudo mv vcluster /usr/local/bin;
+```
+
+</TabItem>
+<TabItem value="linux">
+
+```bash
+curl -s -L "https://github.com/loft-sh/vcluster/releases/latest" | sed -nE 's!.*"([^"]*vcluster-linux-amd64)".*!https://github.com\1!p' | xargs -n 1 curl -L -o vcluster && chmod +x vcluster;
+sudo mv vcluster /usr/local/bin;
+```
+
+</TabItem>
+<TabItem value="linux-arm">
+
+```bash
+curl -s -L "https://github.com/loft-sh/vcluster/releases/latest" | sed -nE 's!.*"([^"]*vcluster-linux-arm64)".*!https://github.com\1!p' | xargs -n 1 curl -L -o vcluster && chmod +x vcluster;
+sudo mv vcluster /usr/local/bin;
+```
+
+</TabItem>
+<TabItem value="windows">
+
+```powershell {4}
+md -Force "$Env:APPDATA\vcluster"; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]'Tls,Tls11,Tls12';
+Invoke-WebRequest -UseBasicParsing ((Invoke-WebRequest -URI "https://github.com/loft-sh/vcluster/releases/latest" -UseBasicParsing).Content -replace "(?ms).*`"([^`"]*vcluster-windows-amd64.exe)`".*","https://github.com/`$1") -o $Env:APPDATA\vcluster\vcluster.exe;
+$env:Path += ";" + $Env:APPDATA + "\vcluster";
+[Environment]::SetEnvironmentVariable("Path", $env:Path, [System.EnvironmentVariableTarget]::User);
+```
+
+:::caution Reboot Required
+You may need to reboot your computer to use the CLI due to changes to the PATH variable (see below).
+:::
+
+:::info Check Environment Variable $PATH
+Line 4 of this install script adds the install directory `%APPDATA%\vcluster` to the `$PATH` environment variable. This is only effective for the current Powershell session, i.e. when opening a new terminal window, `vcluster` may not be found.
+
+**Make sure to add the folder `%APPDATA%\vcluster` to the `PATH` environment variable after installing vcluster CLI via Powershell. Afterward, a reboot might be necessary.**
+:::
+
+</TabItem>
+</Tabs>
+
+Alternatively, you can download the binary for your platform from the [GitHub Releases](https://github.com/loft-sh/vcluster/releases) page and add this binary to your PATH.
+
+To confirm that vcluster CLI is successfully installed, test via:
+```bash
+vcluster --version
+```

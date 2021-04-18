@@ -1,0 +1,223 @@
+---
+title: Configuration Reference
+sidebar_label: Config Reference
+---
+
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+
+## Syncer
+
+
+<Tabs
+  defaultValue="helm"
+  values={[
+    { label: 'helm', value: 'helm', },
+    { label: 'kubectl', value: 'kubectl', },
+  ]
+}>
+<TabItem value="helm">
+
+```yaml
+syncer:
+  extraArgs:
+  # See below for full list of available syncer flags
+  --disable-sync-resources=ingresses
+```
+
+</TabItem>
+<TabItem value="kubectl">
+
+```yaml {40-49}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vcluster-1
+  labels:
+    app: vcluster-1
+spec:
+  serviceName: vcluster-1-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vcluster-1
+  template:
+    metadata:
+      labels:
+        app: vcluster-1
+    spec:
+      terminationGracePeriodSeconds: 10
+      serviceAccountName: vcluster-1
+      containers:
+      - image: rancher/k3s:v1.19.5-k3s2
+        name: vcluster
+        command:
+          - "/bin/k3s"
+        args:
+          - "server"
+          - "--write-kubeconfig=/k3s-config/kube-config.yaml"
+          - "--data-dir=/data"
+          - "--disable=traefik,servicelb,metrics-server,local-storage"
+          - "--disable-network-policy"
+          - "--disable-agent"
+          - "--disable-scheduler"
+          - "--disable-cloud-controller"
+          - "--flannel-backend=none"
+          - "--kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle"  
+          - "--service-cidr=10.96.0.0/12"
+        volumeMounts:
+          - mountPath: /data
+            name: data
+      - name: syncer
+        image: "loftsh/vcluster:0.0.27"
+        args:
+          - --service-name=vcluster-1
+          - --suffix=vcluster-1
+          - --owning-statefulset=vcluster-1
+          - --out-kube-config-secret=vcluster-1
+        volumeMounts:
+          - mountPath: /data
+            name: data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 5Gi
+```
+
+</TabItem>
+</Tabs>
+
+### Syncer Flags
+
+```
+--bind-address string             The address to bind the server to (default "0.0.0.0")
+--client-ca-cert string           The path to the client ca certificate (default "/data/server/tls/client-ca.crt")
+--disable-sync-resources string   The resources that shouldn't be synced by the virtual cluster (e.g. --disable-sync-resources=ingresses,nodes)
+--enable-storage-classes          If enabled, the virtual cluster will sync storage classes (make sure rbac.clusterRole.create is true in the options)
+--enforce-node-selector           If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector (default true)
+--fake-nodes                      If enabled, the virtual cluster will create fake nodes instead of copying the actual physical nodes config (default true) (if false make sure rbac.clusterRole.create is true in the options)
+--fake-persistent-volumes         If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config (default true) (if false make sure rbac.clusterRole.create is true in the options)
+--kube-config string              The path to the virtual cluster admin kube config (default "/data/server/cred/admin.kubeconfig")
+--log-flush-frequency duration    Maximum number of seconds between log flushes (default 5s)
+--node-selector string            If set, nodes with the given node selector will be synced to the virtual cluster. This will implicitly set --fake-nodes=false (make sure rbac.clusterRole.create is true in the options)
+--out-kube-config-secret string   If specified, the virtual cluster will write the generated kube config to the given secret (default "kubeconfig")
+--owning-statefulset string       If configured, all synced resources will have this statefulset as owner reference
+--port int                        The port to bind to (default 8443)
+--request-header-ca-cert string   The path to the request header ca certificate (default "/data/server/tls/request-header-ca.crt")
+--server-ca-cert string           The path to the server ca certificate (default "/data/server/tls/server-ca.crt")
+--server-ca-key string            The path to the server ca key (default "/data/server/tls/server-ca.key")
+--service-name string             The service name where the vcluster proxy will be available (default "vcluster")
+--suffix string                   The suffix to append to the synced resources in the namespace (default "suffix")
+--sync-all-nodes                  If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones
+--target-namespace string         The namespace to run the virtual cluster in (defaults to current namespace)
+--tls-san strings                 Add additional hostname or IP as a Subject Alternative Name in the TLS cert
+--translate-image strings         Translates image names from the virtual pod to the physical pod (e.g. --translate-image=coredns/coredns=mirror.io/coredns/coredns)
+```
+
+## Control Plane (k3s)
+You can use any k3s version and all arguments/flags that the k3s binary of this specific version provides. See [k3s](https://k3s.io/) for more information and adjust the vcluster's StatefulSet accordingly:
+
+<Tabs
+  defaultValue="helm"
+  values={[
+    { label: 'helm', value: 'helm', },
+    { label: 'kubectl', value: 'kubectl', },
+  ]
+}>
+<TabItem value="helm">
+
+```yaml
+vcluster:
+  image: rancher/k3s:v1.18.4-k3s1
+  command:
+    - /bin/k3s
+  baseArgs:
+    - server
+    - --write-kubeconfig=/k3s-config/kube-config.yaml
+    - --data-dir=/data
+    - --disable=traefik,servicelb,metrics-server,local-storage
+    - --disable-network-policy
+    - --disable-agent
+    - --disable-scheduler
+    - --disable-cloud-controller
+    - --flannel-backend=none
+    - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
+  extraArgs:
+    - --service-cidr=10.96.0.0/12 
+  volumeMounts:
+    - mountPath: /data
+      name: data
+  env: []
+  resources: {}
+```
+
+</TabItem>
+<TabItem value="kubectl">
+
+```yaml {21-39}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vcluster-1
+  labels:
+    app: vcluster-1
+spec:
+  serviceName: vcluster-1-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vcluster-1
+  template:
+    metadata:
+      labels:
+        app: vcluster-1
+    spec:
+      terminationGracePeriodSeconds: 10
+      serviceAccountName: vcluster-1
+      containers:
+      - image: rancher/k3s:v1.19.5-k3s2
+        name: vcluster
+        command:
+          - "/bin/k3s"
+        args:
+          - "server"
+          - "--write-kubeconfig=/k3s-config/kube-config.yaml"
+          - "--data-dir=/data"
+          - "--disable=traefik,servicelb,metrics-server,local-storage"
+          - "--disable-network-policy"
+          - "--disable-agent"
+          - "--disable-scheduler"
+          - "--disable-cloud-controller"
+          - "--flannel-backend=none"
+          - "--kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle"  
+          - "--service-cidr=10.96.0.0/12"
+        volumeMounts:
+          - mountPath: /data
+            name: data
+      - name: syncer
+        image: "loftsh/vcluster:0.0.27"
+        args:
+          - --service-name=vcluster-1
+          - --suffix=vcluster-1
+          - --owning-statefulset=vcluster-1
+          - --out-kube-config-secret=vcluster-1
+        volumeMounts:
+          - mountPath: /data
+            name: data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 5Gi
+```
+
+</TabItem>
+</Tabs>
