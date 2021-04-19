@@ -1,6 +1,7 @@
+<br>
 <img src="docs/static/media/vcluster-logo-dark.svg">
 
-### **[Website](https://vcluster.com)** • **[Quickstart](https://vcluster.com/docs/getting-started/setup)** • **[Documentation](https://vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
+### **[Website](https://vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/getting-started/setup)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
 
 ![Latest Release](https://img.shields.io/github/v/release/loft-sh/vcluster?style=for-the-badge&label=Latest%20Release&color=%23007ec6)
 ![License: Apache-2.0](https://img.shields.io/github/license/loft-sh/vcluster?style=for-the-badge&color=%23007ec6)
@@ -21,7 +22,7 @@ Learn more on [www.vcluster.com](https://vcluster.com).
 <br>
 
 ## Architecture 
-[![vcluster Intro](docs/static/media/diagrams/vcluster-architecture.svg)](https://vcluster.com)
+[![vcluster Intro](docs/static/media/diagrams/vcluster-architecture.svg)](https://www.vcluster.com)
 
 ![vcluster Compatibility](docs/static/media/cluster-compatibility.png)
 
@@ -37,7 +38,7 @@ Learn more in the [documentation](https://vcluster.com/docs/what-are-virtual-clu
 <br>
 
 ## Quick Start
-To learn more about vcluster, [**open the full getting started guide**](/docs/getting-started/setup).
+To learn more about vcluster, [**open the full getting started guide**](https://www.vcluster.com/docs/getting-started/setup).
 
 ### 1. Download vcluster CLI
 Use one of the following commands to download the Loft CLI binary from GitHub:
@@ -308,3 +309,5 @@ kubectl get pods -n demo-nginx
 ```bash
 vcluster delete vcluster-1 -n host-namespace-1
 ```
+
+Alternatively, you could also delete the host-namespace using kubectl.
