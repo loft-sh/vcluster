@@ -103,7 +103,7 @@ Virtual clusters provide immense benefits for large-scale Kubernetes deployments
     - vclusters are super lightweight and only reside in a single namespace.
     - vclusters run with k3s, a super low-footprint k8s distribution, but they can also run with "real" k8s.
     - The control plane of a vcluster runs inside a single pod (+1 CoreDNS pod for vcluster-internal DNS capabilities).
-- **<u>No</u> Network Degregation:**
+- **<u>No</u> Network Degradation:**
     - Since the pods and services inside a vcluster are actually being synchronized down to the host cluster\*, they are effectively using the underlying cluster's pod and service networking and are therefore not a bit slower than any other pods in the underlying host cluster.
 - **API Server Compatibility:**
     - vclusters run with the k3s API server which is certified k8s distro which ensures 100% Kubernetes API server compliance.

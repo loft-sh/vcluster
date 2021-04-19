@@ -49,7 +49,7 @@ vclusters should be as lightweight as possibl to minimize resource overhead insi
 
 **Implementation:** This is mainly achieved by bundling the vcluster inside a single Pod using k3s as a control plane.
 
-### 2. No Performance Degregation
+### 2. No Performance Degradation
 Workloads running inside a vcluster (even inside [nested vclusters](#host-cluster--namespace--namespace)) should run with the same performance as workloads which are running directly on the underlying host cluster. The computing power, the access to underlying persistent storage as well as the network performance should not be degraded at all.
 
 **Implementation:** This is mainly achieved by synchonizing pods which means that the pods are actually being scheduled and started just like regular pods of the underlying host cluster, i.e. if you run a pod inside the vcluster and you run the same pod directly on the host cluster will be exactly the same in terms of computing power, storage access and networking. 

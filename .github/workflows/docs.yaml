@@ -1,0 +1,64 @@
+name: Documentation
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yaml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yaml"
+
+env:
+  NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+  NETLIFY_ACCESS_TOKEN: ${{ secrets.NETLIFY_ACCESS_TOKEN }}
+  OUT_DIR: build/
+  TARGET_OUT_DIR: build/
+
+jobs:
+  run:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+      - name: Build Docs
+        run: |
+          yarn
+          node ./node_modules/mdx-link-checker/index.js pages
+          yarn build
+        working-directory: ./docs
+      - name: Prepare Deployment
+        run: |
+          if [ ! -z "$NETLIFY_ACCESS_TOKEN" ]
+          then
+            rm -rf $OUT_DIR/docs/fragments $OUT_DIR/docs/**/fragments
+            mkdir -p tmp-$TARGET_OUT_DIR
+            mv $OUT_DIR/* tmp-$TARGET_OUT_DIR
+            mkdir -p $TARGET_OUT_DIR
+            mv tmp-$TARGET_OUT_DIR/* $TARGET_OUT_DIR
+            
+            npm install -g netlify-cli
+          fi
+        working-directory: ./docs
+      - name: Deploy Preview Site
+        if: github.ref != 'refs/heads/master'
+        run: |
+          if [ ! -z "$NETLIFY_ACCESS_TOKEN" ]
+          then
+            netlify deploy --auth=$NETLIFY_ACCESS_TOKEN --site=$NETLIFY_SITE_ID --dir=$OUT_DIR
+          fi
+        working-directory: ./docs
+      - name: Deploy Production Site
+        if: github.ref == 'refs/heads/master'
+        run: |
+          if [ ! -z "$NETLIFY_ACCESS_TOKEN" ]
+          then
+            netlify deploy --auth=$NETLIFY_ACCESS_TOKEN --site=$NETLIFY_SITE_ID --dir=$OUT_DIR --prod
+          fi
+        working-directory: ./docs
