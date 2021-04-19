@@ -1,11 +1,11 @@
-__webpack_public_path__ = "/"
+__webpack_public_path__ = "/docs/"
 
 module.exports = {
   title: 'vcluster docs | Virtual Clusters for Kubernetes',
   tagline: 'Virtual Clusters for Kubernetes',
   url: 'https://vcluster.com',
   baseUrl: __webpack_public_path__,
-  favicon: '/docs/media/vcluster-favicon.png',
+  favicon: '/media/vcluster-favicon.png',
   organizationName: 'loft-sh', // Usually your GitHub org/user name.
   projectName: 'vcluster', // Usually your repo name.
   themeConfig: {
@@ -15,7 +15,7 @@ module.exports = {
     navbar: {
       logo: {
         alt: 'vcluster',
-        src: '/docs/media/vcluster-logo-dark.svg',
+        src: '/media/vcluster-logo-dark.svg',
         href: 'https://vcluster.com/',
         target: '_self',
       },
@@ -69,7 +69,7 @@ module.exports = {
       {
         docs: {
           path: 'pages',
-          routeBasePath: 'docs',
+          routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl:
             'https://github.com/loft-sh/vcluster/edit/master/docs/',
