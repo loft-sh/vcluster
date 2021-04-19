@@ -279,14 +279,14 @@ Create vcluster using kubectl:
 kubectl apply -f vcluster.yaml
 ```
 
-<br>
 </details>
-
-
-Alternative C: Get the Helm chart or Kubernetes manifest and use any tool you like for the deployment of a vcluster, e.g. Argo, Flux etc.
-
 <br>
 
+<details>
+<summary><b>Alternative C: Other</b></summary> 
+Get the Helm chart or Kubernetes manifest and use any tool you like for the deployment of a vcluster, e.g. Argo, Flux etc.
+</details>
+<br>
 
 ### 3. Use the vcluster
 ```bash
