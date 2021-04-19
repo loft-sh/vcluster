@@ -115,18 +115,10 @@ jobs:
     needs: [publish-chart]
     runs-on: ubuntu-18.04
     steps:
-      - name: Check out private repo
+      - name: Check out repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 300
-          path: private
-      - name: Check out public repo
-        uses: actions/checkout@v2
-        with:
-          path: public
-          fetch-depth: 300
-          repository: ${{ secrets.VCLUSTER_REPO_PUBLIC }}
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
@@ -134,16 +126,9 @@ jobs:
       - uses: geertvdc/setup-hub@v1.0.0
         env:
           ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      - working-directory: ./public
-        run: |
+      - run: |
           git fetch --depth=1 origin +refs/tags/*:refs/tags/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-      - working-directory: ./private
-        run: |
-          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
-      - working-directory: ./private
-        run: |
+      - run: |
           STATE=$(hub release show "$RELEASE_VERSION" --format="%S" | sed -En "s/-//p")
 
           EXTRA_ARGS=""
