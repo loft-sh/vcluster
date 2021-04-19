@@ -280,7 +280,6 @@ kubectl apply -f vcluster.yaml
 ```
 
 </details>
-<br>
 
 <details>
 <summary><b>Alternative C: Other</b></summary> 
