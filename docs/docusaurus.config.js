@@ -5,7 +5,7 @@ module.exports = {
   tagline: 'Virtual Clusters for Kubernetes',
   url: 'https://vcluster.com',
   baseUrl: __webpack_public_path__,
-  favicon: '/media/loft-favicon.png',
+  favicon: '/docs/media/vcluster-favicon.png',
   organizationName: 'loft-sh', // Usually your GitHub org/user name.
   projectName: 'vcluster', // Usually your repo name.
   themeConfig: {
@@ -15,7 +15,7 @@ module.exports = {
     navbar: {
       logo: {
         alt: 'vcluster',
-        src: '/media/vcluster-logo-dark.svg',
+        src: '/docs/media/vcluster-logo-dark.svg',
         href: 'https://vcluster.com/',
         target: '_self',
       },
@@ -27,7 +27,7 @@ module.exports = {
           target: '_self'
         },
         {
-          to: 'what-are-virtual-clusters',
+          to: '/docs/what-are-virtual-clusters',
           label: 'Docs',
           position: 'left'
         },
