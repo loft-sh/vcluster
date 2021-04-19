@@ -18,7 +18,7 @@ env:
   NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
   NETLIFY_ACCESS_TOKEN: ${{ secrets.NETLIFY_ACCESS_TOKEN }}
   OUT_DIR: build/
-  TARGET_OUT_DIR: build/
+  TARGET_OUT_DIR: build/docs
 
 jobs:
   run:
