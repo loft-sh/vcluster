@@ -1,4 +1,4 @@
-__webpack_public_path__ = "/docs/"
+__webpack_public_path__ = "/"
 
 module.exports = {
   title: 'vcluster docs | Virtual Clusters for Kubernetes',
@@ -69,7 +69,7 @@ module.exports = {
       {
         docs: {
           path: 'pages',
-          routeBasePath: '/',
+          routeBasePath: 'docs',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl:
             'https://github.com/loft-sh/vcluster/edit/master/docs/',
