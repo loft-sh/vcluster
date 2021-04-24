@@ -50,13 +50,13 @@ module.exports = {
           position: 'right',
         },
       ],
-    },/*
+    },
     algolia: {
-      apiKey: "09508883e8b218e06b0e1aacc0867550",
-      indexName: "loft-sh",
+      apiKey: "107aff89c55ec52fca3d15dbb824d91c",
+      indexName: "vcluster",
       placeholder: "Search...",
       algoliaOptions: {}
-    },*/
+    },
     footer: {
       style: 'light',
       links: [],
