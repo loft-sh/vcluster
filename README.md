@@ -104,7 +104,7 @@ Alternatively, you can download the binary for your platform from the [GitHub Re
 <br>
 
 
-### 2. Create a vcluser
+### 2. Create a vcluster
 ```vash
 vcluster create vcluster-1 -n host-namespace-1
 ```
