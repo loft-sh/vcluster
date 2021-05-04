@@ -41,7 +41,7 @@ Learn more in the [documentation](https://vcluster.com/docs/what-are-virtual-clu
 To learn more about vcluster, [**open the full getting started guide**](https://www.vcluster.com/docs/getting-started/setup).
 
 ### 1. Download vcluster CLI
-Use one of the following commands to download the Loft CLI binary from GitHub:
+Use one of the following commands to download the vcluster CLI binary from GitHub:
 
 <details>
 <summary>Mac (Intel/AMD)</summary>
@@ -310,3 +310,10 @@ vcluster delete vcluster-1 -n host-namespace-1
 ```
 
 Alternatively, you could also delete the host-namespace using kubectl.
+
+
+<br>
+
+---
+
+This project is open-source and licensed under Apache 2.0, so you can use it in any private or commercial projects.
