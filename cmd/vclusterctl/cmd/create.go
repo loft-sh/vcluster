@@ -22,6 +22,7 @@ import (
 )
 
 var VersionMap = map[string]string{
+	"1.21": "rancher/k3s:v1.21.0-k3s1",
 	"1.20": "rancher/k3s:v1.20.4-k3s1",
 	"1.19": "rancher/k3s:v1.19.8-k3s1",
 	"1.18": "rancher/k3s:v1.18.16-k3s1",
@@ -208,10 +209,10 @@ func getReleaseValues(client kubernetes.Interface, namespace string, disableIngr
 
 	image, ok := VersionMap[serverVersionString]
 	if !ok {
-		if serverMinorInt > 20 {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.20", serverVersionString)
-			image = VersionMap["1.20"]
-			serverVersionString = "1.20"
+		if serverMinorInt > 21 {
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.21", serverVersionString)
+			image = VersionMap["1.21"]
+			serverVersionString = "1.21"
 		} else {
 			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.16", serverVersionString)
 			image = VersionMap["1.16"]

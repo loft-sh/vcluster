@@ -261,7 +261,7 @@ func (s *syncer) translatePod(vPod *corev1.Pod, pPod *corev1.Pod) error {
 		ptrServiceList = append(ptrServiceList, &s)
 	}
 
-	return translatePod(pPod, vPod, ptrServiceList, s.clusterDomain, dnsIP, kubeIP, s.serviceAccountName, s.translateImages, s.overrideHosts, s.overrideHostsImage)
+	return translatePod(pPod, vPod, s.virtualClient, ptrServiceList, s.clusterDomain, dnsIP, kubeIP, s.serviceAccountName, s.translateImages, s.overrideHosts, s.overrideHostsImage)
 }
 
 func (s *syncer) findKubernetesIP() (string, error) {

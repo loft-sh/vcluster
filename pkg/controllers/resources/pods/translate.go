@@ -1,7 +1,10 @@
 package pods
 
 import (
+	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
 	"strings"
 
@@ -25,7 +28,7 @@ const (
 	HostsRewriteContainerName         = "vcluster-rewrite-hosts"
 )
 
-func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, services []*corev1.Service, clusterDomain, dnsIP, kubeIP, serviceAccount string, translator ImageTranslator, enableOverrideHosts bool, overrideHostsImage string) error {
+func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, services []*corev1.Service, clusterDomain, dnsIP, kubeIP, serviceAccount string, translator ImageTranslator, enableOverrideHosts bool, overrideHostsImage string) error {
 	pPod.Status = corev1.PodStatus{}
 	pPod.Spec.DeprecatedServiceAccount = ""
 	pPod.Spec.ServiceAccountName = serviceAccount
@@ -188,6 +191,13 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, services []*corev1.Service
 		if pPod.Spec.Volumes[i].PersistentVolumeClaim != nil {
 			pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName = translate.PhysicalName(pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName, vPod.Namespace)
 		}
+		if pPod.Spec.Volumes[i].Projected != nil {
+			// get old service account name
+			err := translateProjectedVolume(pPod.Spec.Volumes[i].Projected, vClient, vPod)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// we add an annotation if the pod has a replica set or statefulset owner
@@ -203,6 +213,85 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, services []*corev1.Service
 	}
 
 	return nil
+}
+
+func secretNameFromServiceAccount(vClient client.Client, vPod *corev1.Pod) (string, error) {
+	vServiceAccount := ""
+	if vPod.Spec.ServiceAccountName != "" {
+		vServiceAccount = vPod.Spec.ServiceAccountName
+	} else if vPod.Spec.DeprecatedServiceAccount != "" {
+		vServiceAccount = vPod.Spec.DeprecatedServiceAccount
+	}
+
+	secretList := &corev1.SecretList{}
+	err := vClient.List(context.Background(), secretList, client.InNamespace(vPod.Namespace))
+	if err != nil {
+		return "", errors.Wrap(err, "list secrets in "+vPod.Namespace)
+	}
+	for _, secret := range secretList.Items {
+		if secret.Annotations["kubernetes.io/service-account.name"] == vServiceAccount {
+			return secret.Name, nil
+		}
+	}
+
+	return "", nil
+}
+
+func translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, vClient client.Client, vPod *corev1.Pod) error {
+	for i := range projectedVolume.Sources {
+		if projectedVolume.Sources[i].Secret != nil {
+			projectedVolume.Sources[i].Secret.Name = translate.PhysicalName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace)
+		}
+		if projectedVolume.Sources[i].ConfigMap != nil {
+			projectedVolume.Sources[i].ConfigMap.Name = translate.PhysicalName(projectedVolume.Sources[i].ConfigMap.Name, vPod.Namespace)
+		}
+		if projectedVolume.Sources[i].DownwardAPI != nil {
+			for j := range projectedVolume.Sources[i].DownwardAPI.Items {
+				translateFieldRef(projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef)
+			}
+		}
+		if projectedVolume.Sources[i].ServiceAccountToken != nil {
+			secretName, err := secretNameFromServiceAccount(vClient, vPod)
+			if err != nil {
+				return err
+			} else if secretName == "" {
+				return fmt.Errorf("couldn't find service account secret for pod %s/%s", vPod.Namespace, vPod.Name)
+			}
+
+			allRights := int32(0644)
+			projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: translate.PhysicalName(secretName, vPod.Namespace),
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Path: projectedVolume.Sources[i].ServiceAccountToken.Path,
+						Key:  "token",
+						Mode: &allRights,
+					},
+				},
+			}
+			projectedVolume.Sources[i].ServiceAccountToken = nil
+		}
+	}
+
+	return nil
+}
+
+func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
+	if fieldSelector == nil {
+		return
+	}
+	switch fieldSelector.FieldPath {
+	case "metadata.name":
+		fieldSelector.FieldPath = "metadata.annotations['" + NameAnnotation + "']"
+	case "metadata.namespace":
+		fieldSelector.FieldPath = "metadata.annotations['" + NamespaceAnnotation + "']"
+	case "metadata.uid":
+		fieldSelector.FieldPath = "metadata.annotations['" + UIDAnnotation + "']"
+	case "spec.serviceAccountName":
+		fieldSelector.FieldPath = "metadata.annotations['" + ServiceAccountNameAnnotation + "']"
+	}
 }
 
 func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {
