@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"io/ioutil"
 	"os/exec"
 	"regexp"
@@ -89,6 +90,9 @@ vcluster create test --namespace test
 	`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// Check for newer version
+			upgrade.PrintNewerVersionWarning()
+
 			return cmd.Run(cobraCmd, args)
 		},
 	}
