@@ -30,21 +30,27 @@ import (
 	"time"
 )
 
-func indexPodBySecret(rawObj client.Object) []string {
-	pod := rawObj.(*corev1.Pod)
-	return pods.SecretNamesFromPod(pod)
+func isSecretUsedByPods(ctx context.Context, vClient client.Client, secretName string) (bool, error) {
+	podList := &corev1.PodList{}
+	err := vClient.List(ctx, podList)
+	if err != nil {
+		return false, err
+	}
+	for _, pod := range podList.Items {
+		for _, secret := range pods.SecretNamesFromPod(vClient, &pod) {
+			if secret == secretName {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func Register(ctx *context2.ControllerContext) error {
-	// index pods by their used secrets
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexBySecret, indexPodBySecret)
-	if err != nil {
-		return err
-	}
-
 	includeIngresses := strings.Contains(ctx.Options.DisableSyncResources, "ingresses") == false
 	if includeIngresses {
-		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1beta1.Ingress{}, constants.IndexBySecret, func(rawObj client.Object) []string {
+		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1beta1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
 			ingress := rawObj.(*networkingv1beta1.Ingress)
 			return ingresses.SecretNamesFromIngress(ingress)
 		})
@@ -68,7 +74,9 @@ func Register(ctx *context2.ControllerContext) error {
 				builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
 			}
 
-			return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(mapPods))
+			return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+				return mapPods(object, ctx.VirtualManager.GetClient())
+			}))
 		},
 	})
 }
@@ -96,14 +104,14 @@ func mapIngresses(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func mapPods(obj client.Object) []reconcile.Request {
+func mapPods(obj client.Object, vClient client.Client) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return nil
 	}
 
 	requests := []reconcile.Request{}
-	names := pods.SecretNamesFromPod(pod)
+	names := pods.SecretNamesFromPod(vClient, pod)
 	for _, name := range names {
 		splitted := strings.Split(name, "/")
 		if len(splitted) == 2 {
@@ -185,20 +193,18 @@ func (s *syncer) isSecretUsed(vObj runtime.Object) (bool, error) {
 		return false, fmt.Errorf("%#v is not a secret", vObj)
 	}
 
-	podList := &corev1.PodList{}
-	err := s.virtualClient.List(context.TODO(), podList, client.MatchingFields{constants.IndexBySecret: secret.Namespace + "/" + secret.Name})
+	isUsed, err := isSecretUsedByPods(context.TODO(), s.virtualClient, secret.Namespace+"/"+secret.Name)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "is secret used by pods")
 	}
-
-	if len(podList.Items) > 0 {
+	if isUsed {
 		return true, nil
 	}
 
 	// check if we also sync ingresses
 	if s.includeIngresses {
 		ingressesList := &networkingv1beta1.IngressList{}
-		err := s.virtualClient.List(context.TODO(), ingressesList, client.MatchingFields{constants.IndexBySecret: secret.Namespace + "/" + secret.Name})
+		err := s.virtualClient.List(context.TODO(), ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
 			return false, err
 		}

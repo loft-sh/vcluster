@@ -3,6 +3,7 @@ package pods
 import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func ConfigNamesFromPod(pod *corev1.Pod) []string {
@@ -20,11 +21,18 @@ func ConfigNamesFromPod(pod *corev1.Pod) []string {
 		if pod.Spec.Volumes[i].ConfigMap != nil {
 			configMaps = append(configMaps, pod.Namespace+"/"+pod.Spec.Volumes[i].ConfigMap.Name)
 		}
+		if pod.Spec.Volumes[i].Projected != nil {
+			for j := range pod.Spec.Volumes[i].Projected.Sources {
+				if pod.Spec.Volumes[i].Projected.Sources[j].ConfigMap != nil {
+					configMaps = append(configMaps, pod.Namespace+"/"+pod.Spec.Volumes[i].Projected.Sources[j].ConfigMap.Name)
+				}
+			}
+		}
 	}
 	return translate.UniqueSlice(configMaps)
 }
 
-func SecretNamesFromPod(pod *corev1.Pod) []string {
+func SecretNamesFromPod(vClient client.Client, pod *corev1.Pod) []string {
 	secrets := []string{}
 	for _, c := range pod.Spec.Containers {
 		secrets = append(secrets, SecretNamesFromContainer(pod.Namespace, &c)...)
@@ -41,6 +49,19 @@ func SecretNamesFromPod(pod *corev1.Pod) []string {
 	for i := range pod.Spec.Volumes {
 		if pod.Spec.Volumes[i].Secret != nil {
 			secrets = append(secrets, pod.Namespace+"/"+pod.Spec.Volumes[i].Secret.SecretName)
+		}
+		if pod.Spec.Volumes[i].Projected != nil {
+			for j := range pod.Spec.Volumes[i].Projected.Sources {
+				if pod.Spec.Volumes[i].Projected.Sources[j].Secret != nil {
+					secrets = append(secrets, pod.Namespace+"/"+pod.Spec.Volumes[i].Projected.Sources[j].Secret.Name)
+				}
+				if pod.Spec.Volumes[i].Projected.Sources[j].ServiceAccountToken != nil {
+					secretName, err := secretNameFromServiceAccount(vClient, pod)
+					if err == nil && secretName != "" {
+						secrets = append(secrets, pod.Namespace+"/"+secretName)
+					}
+				}
+			}
 		}
 	}
 	return translate.UniqueSlice(secrets)

@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -17,11 +16,6 @@ import (
 )
 
 func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	err := vClient.IndexField(ctx, &corev1.Pod{}, constants.IndexBySecret, indexPodBySecret)
-	if err != nil {
-		panic(err)
-	}
-
 	return &syncer{
 		eventRecoder:     &testingutil.FakeEventRecorder{},
 		targetNamespace:  "test",
@@ -242,7 +236,7 @@ func TestMapping(t *testing.T) {
 			},
 		},
 	}
-	requests = mapPods(pod)
+	requests = mapPods(pod, testingutil.NewFakeClient(testingutil.NewScheme()))
 	if len(requests) != 2 || requests[0].Name != "a" || requests[0].Namespace != "test" || requests[1].Name != "b" || requests[1].Namespace != "test" {
 		t.Fatalf("Wrong pod requests returned: %#+v", requests)
 	}
