@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
@@ -54,6 +55,9 @@ vcluster connect test --namespace test
 	`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// Check for newer version
+			upgrade.PrintNewerVersionWarning()
+
 			return cmd.Run(cobraCmd, args)
 		},
 	}

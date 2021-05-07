@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -48,11 +49,15 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags)
 
+	// Set version for --version flag
+	rootCmd.Version = upgrade.GetVersion()
+
 	// add top level commands
 	rootCmd.AddCommand(NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(NewCreateCmd(globalFlags))
 	rootCmd.AddCommand(NewListCmd(globalFlags))
 	rootCmd.AddCommand(NewDeleteCmd(globalFlags))
+	rootCmd.AddCommand(NewUpgradeCmd())
 
 	return rootCmd
 }
