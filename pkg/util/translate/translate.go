@@ -216,12 +216,12 @@ func TranslateLabels(virtualNamespace string, labels map[string]string) map[stri
 }
 
 func NamespaceLabelValue(virtualNamespace string) string {
-	return virtualNamespace + "x" + Suffix
+	return SafeConcatName(virtualNamespace, "x", Suffix)
 }
 
 func ConvertLabelKey(key string, virtualNamespace string) string {
 	digest := sha256.Sum256([]byte(key))
-	return SafeConcatName("vcluster.loft.sh/label", virtualNamespace, "x", Suffix, "x", string(digest[:]))
+	return SafeConcatName("vcluster.loft.sh/label", virtualNamespace, "x", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
 var OwningStatefulSet *appsv1.StatefulSet

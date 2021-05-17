@@ -92,10 +92,10 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	vService := vObj.(*corev1.Service)
 	pService := pObj.(*corev1.Service)
 
-	// did ports change?
+	// did the service change?
 	updated := calcServiceDiff(pService, vService)
 	if updated != nil {
-		log.Debugf("updating physical service %s/%s, because virtual service ports or annotations have changed", updated.Namespace, updated.Name)
+		log.Debugf("updating physical service %s/%s, because virtual service has changed", updated.Namespace, updated.Name)
 		err = s.localClient.Update(ctx, updated)
 		if err != nil {
 			s.eventRecoder.Eventf(vService, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -192,14 +192,6 @@ func calcServiceDiff(pObj, vObj *corev1.Service) *corev1.Service {
 			updated = pObj.DeepCopy()
 		}
 		updated.Spec.HealthCheckNodePort = vObj.Spec.HealthCheckNodePort
-	}
-
-	// IPFamilies
-	if !equality.Semantic.DeepEqual(vObj.Spec.IPFamilies, pObj.Spec.IPFamilies) {
-		if updated == nil {
-			updated = pObj.DeepCopy()
-		}
-		updated.Spec.IPFamilies = vObj.Spec.IPFamilies
 	}
 
 	// TopologyKeys

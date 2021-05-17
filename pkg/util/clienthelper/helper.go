@@ -120,36 +120,6 @@ var (
 	applyAnnotation = "vcluster.loft.sh/apply"
 )
 
-func AppliedObjectsEqual(oldObj runtime.Object, obj runtime.Object) (bool, error) {
-	om, err := meta.Accessor(oldObj)
-	if err != nil {
-		return false, err
-	}
-
-	annotations := om.GetAnnotations()
-	var originalJS []byte
-	if annotations != nil && annotations[applyAnnotation] != "" {
-		originalJS = []byte(annotations[applyAnnotation])
-	}
-
-	// create patch if changed
-	currentJS, err := encode(oldObj)
-	if err != nil {
-		return false, err
-	}
-
-	editedJS, err := encode(obj)
-	if err != nil {
-		return false, err
-	}
-
-	if originalJS != nil {
-		return reflect.DeepEqual(originalJS, editedJS), nil
-	}
-
-	return reflect.DeepEqual(currentJS, editedJS), nil
-}
-
 func Apply(ctx context.Context, c client.Client, obj runtime.Object, log loghelper.Logger) error {
 	gvk, err := GVKFrom(obj, DefaultScheme)
 	if err != nil {

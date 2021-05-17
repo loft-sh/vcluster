@@ -7,11 +7,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -117,7 +117,8 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 		return ctrl.Result{}, err
 	}
 
-	err = clienthelper.Apply(ctx, s.localClient, newConfigMap, log)
+	log.Debugf("create physical configmap %s/%s", newConfigMap.Namespace, newConfigMap.Name)
+	err = s.localClient.Create(ctx, newConfigMap)
 	if err != nil {
 		log.Infof("error syncing %s/%s to physical cluster: %v", vConfigMap.Namespace, vConfigMap.Name, err)
 		s.eventRecoder.Eventf(vConfigMap, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -162,7 +163,20 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 		return ctrl.Result{}, nil
 	}
 
-	return s.ForwardCreate(ctx, vObj, log)
+	// did the configmap change?
+	pConfigMap := pObj.(*corev1.ConfigMap)
+	vConfigMap := vObj.(*corev1.ConfigMap)
+	updated := calcConfigMapDiff(pConfigMap, vConfigMap)
+	if updated != nil {
+		log.Debugf("updating physical configmap %s/%s, because virtual configmap has changed", updated.Namespace, updated.Name)
+		err = s.localClient.Update(ctx, updated)
+		if err != nil {
+			s.eventRecoder.Eventf(vConfigMap, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
@@ -173,17 +187,42 @@ func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bo
 		return true, nil
 	}
 
-	newSecret, err := s.translate(vObj)
-	if err != nil {
-		return false, err
+	updated := calcConfigMapDiff(pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
+	return updated != nil, nil
+}
+
+func calcConfigMapDiff(pObj, vObj *corev1.ConfigMap) *corev1.ConfigMap {
+	var updated *corev1.ConfigMap
+
+	// check data
+	if !equality.Semantic.DeepEqual(vObj.Data, pObj.Data) {
+		updated = pObj.DeepCopy()
+		updated.Data = vObj.Data
 	}
 
-	equal, err := clienthelper.AppliedObjectsEqual(pObj, newSecret)
-	if err != nil {
-		return false, err
+	// check binary data
+	if !equality.Semantic.DeepEqual(vObj.BinaryData, pObj.BinaryData) {
+		updated = pObj.DeepCopy()
+		updated.BinaryData = vObj.BinaryData
 	}
 
-	return equal == false, nil
+	// check annotations
+	if !equality.Semantic.DeepEqual(vObj.Annotations, pObj.Annotations) {
+		if updated == nil {
+			updated = pObj.DeepCopy()
+		}
+		updated.Annotations = vObj.Annotations
+	}
+
+	// check labels
+	if !translate.LabelsEqual(vObj.Namespace, vObj.Labels, pObj.Labels) {
+		if updated == nil {
+			updated = pObj.DeepCopy()
+		}
+		updated.Labels = translate.TranslateLabels(vObj.Namespace, vObj.Labels)
+	}
+
+	return updated
 }
 
 func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {

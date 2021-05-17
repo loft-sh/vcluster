@@ -51,8 +51,8 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, ser
 		pPod.Annotations[NameAnnotation] = vPod.Annotations[NameAnnotation]
 		pPod.Annotations[UIDAnnotation] = vPod.Annotations[UIDAnnotation]
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Annotations[ServiceAccountNameAnnotation]
-		if labels, ok := vPod.Annotations[LabelsAnnotation]; ok {
-			pPod.Annotations[LabelsAnnotation] = labels
+		if _, ok := vPod.Annotations[LabelsAnnotation]; ok {
+			pPod.Annotations[LabelsAnnotation] = vPod.Annotations[LabelsAnnotation]
 		}
 	}
 	if pPod.Annotations[NamespaceAnnotation] == "" {
@@ -68,18 +68,7 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, ser
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Spec.ServiceAccountName
 	}
 	if _, ok := pPod.Annotations[LabelsAnnotation]; !ok {
-		labelsString := []string{}
-		for k, v := range vPod.Labels {
-			// escape pod labels
-			out, err := json.Marshal(v)
-			if err != nil {
-				return errors.Wrap(err, "escape label "+k)
-			}
-
-			labelsString = append(labelsString, k+"="+string(out))
-		}
-
-		pPod.Annotations[LabelsAnnotation] = strings.Join(labelsString, "\n")
+		pPod.Annotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	}
 
 	// translate services to environment variables
@@ -240,6 +229,21 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, ser
 	translateTopologySpreadConstraints(vPod, pPod)
 
 	return nil
+}
+
+func translateLabelsAnnotation(vPod *corev1.Pod) string {
+	labelsString := []string{}
+	for k, v := range vPod.Labels {
+		// escape pod labels
+		out, err := json.Marshal(v)
+		if err != nil {
+			continue
+		}
+
+		labelsString = append(labelsString, k+"="+string(out))
+	}
+
+	return strings.Join(labelsString, "\n")
 }
 
 func secretNameFromServiceAccount(vClient client.Client, vPod *corev1.Pod) (string, error) {
