@@ -27,7 +27,6 @@ type ConnectCmd struct {
 	Namespace     string
 	UpdateCurrent bool
 	Print         bool
-	SetActive     bool
 	LocalPort     int
 
 	log log.Logger
@@ -66,7 +65,6 @@ vcluster connect test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", false, "If true updates the current kube config")
 	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	cobraCmd.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace the vcluster is in")
-	cobraCmd.Flags().BoolVar(&cmd.SetActive, "set-active", true, "If true, makes the created kube context the active context")
 	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 8443, "The local port to forward the virtual cluster to")
 	return cobraCmd
 }
@@ -145,12 +143,13 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			authConfig = a
 		}
 
-		err = updateKubeConfig("vcluster_"+cmd.Namespace+"_"+args[0], clusterConfig, authConfig, cmd.SetActive)
+		contextName := "vcluster_" + cmd.Namespace + "_" + args[0]
+		err = updateKubeConfig(contextName, clusterConfig, authConfig, false)
 		if err != nil {
 			return err
 		}
 
-		cmd.log.Done("Current kube context updated. You can access the virtual cluster via `kubectl get namespaces`")
+		cmd.log.Donef("Successfully created kube context %s. You can access the vcluster with `kubectl get namespaces --context %s`", contextName, contextName)
 	} else if cmd.Print {
 		_, err = os.Stdout.Write(out)
 		if err != nil {
