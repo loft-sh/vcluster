@@ -22,9 +22,7 @@ type Syncer interface {
 	Object
 
 	ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
-	ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
-	ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error)
-
+	ForwardUpdate
 	BackwardUpdate
 }
 
@@ -33,11 +31,17 @@ type ForwardCreate interface {
 	ForwardCreateNeeded(vObj client.Object) (bool, error)
 }
 
+type ForwardUpdate interface {
+	ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
+	ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error)
+}
+
 type ClusterSyncer interface {
 	Object
 
 	BackwardCreate(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error)
 	BackwardCreateNeeded(pObj client.Object) (bool, error)
+	ForwardUpdate
 	BackwardUpdate
 }
 

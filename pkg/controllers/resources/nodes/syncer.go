@@ -35,12 +35,14 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 		virtualClient:    ctx.VirtualManager.GetClient(),
 		scheme:           ctx.LocalManager.GetScheme(),
 		nodeSelector:     nodeSelector,
+		syncNodeChanges:  ctx.Options.SyncNodeChanges,
 	}, "node")
 }
 
 type syncer struct {
 	sharedNodesMutex sync.Locker
 	nodeSelector     labels.Selector
+	syncNodeChanges  bool
 
 	localClient   client.Client
 	virtualClient client.Client
@@ -169,4 +171,35 @@ func (s *syncer) BackwardStart(ctx context.Context, req ctrl.Request) (bool, err
 
 func (s *syncer) BackwardEnd() {
 	s.sharedNodesMutex.Unlock()
+}
+
+func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+	pNode := pObj.(*corev1.Node)
+	vNode := vObj.(*corev1.Node)
+	updateNeeded, err := s.ForwardUpdateNeeded(pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if !updateNeeded {
+		return ctrl.Result{}, nil
+	}
+
+	pNode.Labels = vNode.Labels
+	pNode.Spec.Taints = vNode.Spec.Taints
+	log.Debugf("update physical node %s, because taints or labels have changed", pNode.Name)
+	err = s.localClient.Update(ctx, pNode)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
+	if !s.syncNodeChanges {
+		return false, nil
+	}
+
+	pNode := pObj.(*corev1.Node)
+	vNode := vObj.(*corev1.Node)
+	return !equality.Semantic.DeepEqual(vNode.Spec.Taints, pNode.Spec.Taints) || !equality.Semantic.DeepEqual(vNode.Labels, pNode.Labels), nil
 }

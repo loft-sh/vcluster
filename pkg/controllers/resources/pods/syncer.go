@@ -198,7 +198,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	// update the virtual pod if the spec has changed
 	updatedPod := calcPodDiff(pPod, vPod, s.translateImages)
 	if updatedPod != nil {
-		log.Debugf("update physical pod %s/%s, because spec or annotations have changed", pPod.Namespace, pPod.Name)
+		log.Debugf("update physical pod %s/%s, because spec, labels or annotations have changed", pPod.Namespace, pPod.Name)
 		err := s.localClient.Update(ctx, updatedPod)
 		if err != nil {
 			s.eventRecoder.Eventf(vPod, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)

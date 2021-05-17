@@ -42,6 +42,9 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.PhysicalName(baseSecret.Name, baseSecret.Namespace),
 			Namespace: "test",
+			Labels: map[string]string{
+				translate.NamespaceLabel: translate.NamespaceLabelValue(baseSecret.Namespace),
+			},
 		},
 	}
 	updatedSyncedSecret := &corev1.Secret{

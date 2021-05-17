@@ -153,3 +153,11 @@ func buildVirtualPV(vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, 
 	vObj.Spec.ClaimRef.Namespace = vPvc.Namespace
 	return vObj
 }
+
+func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
+	return false, nil
+}

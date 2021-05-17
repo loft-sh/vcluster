@@ -6,3 +6,4 @@
 /api
 /kubeconfig.yaml
 /cmd/virtualclusterctl
+devspace.yaml

@@ -49,6 +49,9 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.PhysicalName(baseEndpoints.Name, baseEndpoints.Namespace),
 			Namespace: "test",
+			Labels: map[string]string{
+				translate.NamespaceLabel: translate.NamespaceLabelValue(baseEndpoints.Namespace),
+			},
 		},
 	}
 	syncedUpdatedEndpoints := &corev1.Endpoints{

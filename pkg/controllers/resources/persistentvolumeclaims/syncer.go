@@ -267,6 +267,14 @@ func calcPVCDiff(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVol
 		updated.Annotations = translate.SetExcept(vObj.Annotations, updated.Annotations, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation)
 	}
 
+	// check labels
+	if !translate.LabelsEqual(vObj.Namespace, vObj.Labels, pObj.Labels) {
+		if updated == nil {
+			updated = pObj.DeepCopy()
+		}
+		updated.Labels = translate.TranslateLabels(vObj.Namespace, vObj.Labels)
+	}
+
 	return updated
 }
 

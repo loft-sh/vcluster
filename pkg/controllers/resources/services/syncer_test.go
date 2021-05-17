@@ -37,7 +37,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.PhysicalName("testservice", "testns"),
 		Namespace: "test",
 		Labels: map[string]string{
-			translate.MarkerLabel: translate.Suffix,
+			translate.NamespaceLabel: translate.NamespaceLabelValue(vObjectMeta.Namespace),
+			translate.MarkerLabel:    translate.Suffix,
 		},
 	}
 	vKubernetesObjectMeta := metav1.ObjectMeta{
@@ -70,7 +71,6 @@ func TestSync(t *testing.T) {
 			ClientIP: &corev1.ClientIPConfig{},
 		},
 		HealthCheckNodePort: 112,
-		IPFamilies:          []corev1.IPFamily{corev1.IPv4Protocol},
 		TopologyKeys:        []string{"someKey"},
 	}
 	updateForwardService := &corev1.Service{
@@ -88,6 +88,7 @@ func TestSync(t *testing.T) {
 			Namespace:   pObjectMeta.Namespace,
 			ClusterName: pObjectMeta.ClusterName,
 			Annotations: map[string]string{"a": "b"},
+			Labels:      pObjectMeta.Labels,
 		},
 		Spec: updateForwardSpec,
 	}
@@ -109,6 +110,7 @@ func TestSync(t *testing.T) {
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
 			ClusterName: pObjectMeta.ClusterName,
+			Labels:      pObjectMeta.Labels,
 		},
 		Spec: updateBackwardSpec,
 	}
@@ -125,6 +127,7 @@ func TestSync(t *testing.T) {
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
 			ClusterName: pObjectMeta.ClusterName,
+			Labels:      pObjectMeta.Labels,
 		},
 		Spec: updateBackwardRecreateSpec,
 	}
