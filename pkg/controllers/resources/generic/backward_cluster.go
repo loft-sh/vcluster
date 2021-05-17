@@ -13,8 +13,7 @@ import (
 )
 
 type backwardClusterController struct {
-	synced          func()
-	targetNamespace string
+	synced func()
 
 	target    ClusterSyncer
 	lifecycle BackwardLifecycle

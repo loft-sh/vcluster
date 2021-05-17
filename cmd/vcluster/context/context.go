@@ -27,6 +27,7 @@ type VirtualClusterOptions struct {
 	OwningStatefulSet    string
 
 	SyncAllNodes             bool
+	SyncNodeTaints           bool
 	UseFakeNodes             bool
 	UseFakePersistentVolumes bool
 	EnableStorageClasses     bool

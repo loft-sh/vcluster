@@ -73,6 +73,14 @@ func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (b
 	return false, nil
 }
 
+func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
+	return false, nil
+}
+
 func calcSCDiff(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
 	pObjCopy := pObj.DeepCopy()
 	pObjCopy.ObjectMeta = vObj.ObjectMeta

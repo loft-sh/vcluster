@@ -1,7 +1,7 @@
 version: v1beta9
 images:
   vcluster:
-    image: loftsh/vcluster
+    image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
     preferSyncOverRebuild: true
     entrypoint: ["sleep", "99999999"]
     build:
@@ -19,7 +19,7 @@ deployments:
           clusterRole:
             create: true
         syncer:
-          image: loftsh/vcluster
+          image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
           noArgs: true
 dev:
   interactive:
@@ -27,6 +27,7 @@ dev:
   sync:
     - imageName: vcluster
       disableDownload: true
+      waitInitialSync: true
       excludePaths:
         - bin/
         - .vscode/
@@ -48,12 +49,22 @@ profiles:
     replace:
       images:
         manager:
-          image: loftsh/vcluster
+          image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
       deployments:
         - name: vcluster
           helm:
             chart:
               name: ./chart
             values:
+              vcluster:
+                image: rancher/k3s:v1.19.8-k3s1
+              rbac:
+                clusterRole:
+                  create: true
               syncer:
-                image: loftsh/vcluster
+                image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+                extraArgs:
+                  - --service-cidr=10.120.0.0/20
+                  - --sync-all-nodes
+                  - --sync-node-taints
+                  - --fake-nodes=false

@@ -34,22 +34,37 @@ func RegisterFakeSyncer(ctx *context.ControllerContext, syncer FakeSyncer, name 
 func RegisterClusterSyncer(ctx *context.ControllerContext, clusterSyncer ClusterSyncer, name string) error {
 	// register handlers
 	backwardController := &backwardClusterController{
-		synced:          ctx.CacheSynced,
-		target:          clusterSyncer,
-		targetNamespace: ctx.Options.TargetNamespace,
-		log:             loghelper.New(name + "-syncer"),
-		localClient:     ctx.LocalManager.GetClient(),
-		virtualClient:   ctx.VirtualManager.GetClient(),
+		synced:        ctx.CacheSynced,
+		target:        clusterSyncer,
+		log:           loghelper.New(name + "-backward"),
+		localClient:   ctx.LocalManager.GetClient(),
+		virtualClient: ctx.VirtualManager.GetClient(),
 	}
 	bl, ok := clusterSyncer.(BackwardLifecycle)
 	if ok {
 		backwardController.lifecycle = bl
 	}
 	err := ctrl.NewControllerManagedBy(ctx.LocalManager).
-		Named(name+"-syncer").
+		Named(name+"-backward").
 		Watches(garbagecollect.NewGarbageCollectSource(backwardController, ctx.StopChan, backwardController.log), nil).
 		For(clusterSyncer.New()).
 		Complete(backwardController)
+	if err != nil {
+		return err
+	}
+
+	forwardController := &forwardClusterController{
+		synced:        ctx.CacheSynced,
+		target:        clusterSyncer,
+		log:           loghelper.New(name + "-forward"),
+		localClient:   ctx.LocalManager.GetClient(),
+		virtualClient: ctx.VirtualManager.GetClient(),
+	}
+	err = ctrl.NewControllerManagedBy(ctx.VirtualManager).
+		Named(name+"-forward").
+		Watches(garbagecollect.NewGarbageCollectSource(forwardController, ctx.StopChan, forwardController.log), nil).
+		For(clusterSyncer.New()).
+		Complete(forwardController)
 	if err != nil {
 		return err
 	}
