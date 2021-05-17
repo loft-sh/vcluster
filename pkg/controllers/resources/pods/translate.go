@@ -211,6 +211,11 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, ser
 				return err
 			}
 		}
+		if pPod.Spec.Volumes[i].DownwardAPI != nil {
+			for j := range pPod.Spec.Volumes[i].DownwardAPI.Items {
+				translateFieldRef(vPod, pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef)
+			}
+		}
 	}
 
 	// we add an annotation if the pod has a replica set or statefulset owner
@@ -317,7 +322,7 @@ func translateFieldRef(vPod *corev1.Pod, fieldSelector *corev1.ObjectFieldSelect
 	// check if its a label we have to rewrite
 	labelsMatch := FieldPathLabelRegEx.FindStringSubmatch(fieldSelector.FieldPath)
 	if len(labelsMatch) == 2 {
-		fieldSelector.FieldPath = "metadata.labels['" + translate.ConvertLabelKey(labelsMatch[0], vPod.Namespace) + "']"
+		fieldSelector.FieldPath = "metadata.labels['" + translate.ConvertLabelKey(labelsMatch[0]) + "']"
 		return
 	}
 
@@ -523,7 +528,15 @@ func hasClusterIP(service *corev1.Service) bool {
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 	for i := range pPod.Spec.TopologySpreadConstraints {
-		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.TranslateLabelSelector(vPod.Namespace, pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
+		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.TranslateLabelSelector(pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
+
+		// make sure we only select pods in the current namespace
+		if pPod.Spec.TopologySpreadConstraints[i].LabelSelector != nil {
+			if pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels == nil {
+				pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels = map[string]string{}
+			}
+			pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels[translate.NamespaceLabel] = translate.NamespaceLabelValue(vPod.Namespace)
+		}
 	}
 }
 

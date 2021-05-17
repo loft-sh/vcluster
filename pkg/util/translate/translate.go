@@ -85,7 +85,7 @@ func LabelsEqual(virtualNamespace string, virtualLabels map[string]string, physi
 	return EqualExcept(physicalLabelsToCompare, physicalLabels)
 }
 
-func TranslateLabelSelector(virtualNamespace string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+func TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
 	if labelSelector == nil {
 		return nil
 	}
@@ -94,14 +94,14 @@ func TranslateLabelSelector(virtualNamespace string, labelSelector *metav1.Label
 	if labelSelector.MatchLabels != nil {
 		newLabelSelector.MatchLabels = map[string]string{}
 		for k, v := range labelSelector.MatchLabels {
-			newLabelSelector.MatchLabels[ConvertLabelKey(k, virtualNamespace)] = v
+			newLabelSelector.MatchLabels[ConvertLabelKey(k)] = v
 		}
 	}
 	if len(labelSelector.MatchExpressions) > 0 {
 		newLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
 		for _, r := range labelSelector.MatchExpressions {
 			newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
-				Key:      ConvertLabelKey(r.Key, virtualNamespace),
+				Key:      ConvertLabelKey(r.Key),
 				Operator: r.Operator,
 				Values:   r.Values,
 			})
@@ -205,7 +205,7 @@ func TranslateLabels(virtualNamespace string, labels map[string]string) map[stri
 			continue
 		}
 
-		newLabels[ConvertLabelKey(k, virtualNamespace)] = v
+		newLabels[ConvertLabelKey(k)] = v
 	}
 	newLabels[MarkerLabel] = Suffix
 	if virtualNamespace != "" && newLabels[NamespaceLabel] == "" {
@@ -219,9 +219,9 @@ func NamespaceLabelValue(virtualNamespace string) string {
 	return SafeConcatName(virtualNamespace, "x", Suffix)
 }
 
-func ConvertLabelKey(key string, virtualNamespace string) string {
+func ConvertLabelKey(key string) string {
 	digest := sha256.Sum256([]byte(key))
-	return SafeConcatName("vcluster.loft.sh/label", virtualNamespace, "x", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
+	return SafeConcatName("vcluster.loft.sh/label", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
 var OwningStatefulSet *appsv1.StatefulSet

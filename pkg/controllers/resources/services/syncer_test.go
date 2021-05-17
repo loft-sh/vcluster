@@ -71,7 +71,6 @@ func TestSync(t *testing.T) {
 			ClientIP: &corev1.ClientIPConfig{},
 		},
 		HealthCheckNodePort: 112,
-		IPFamilies:          []corev1.IPFamily{corev1.IPv4Protocol},
 		TopologyKeys:        []string{"someKey"},
 	}
 	updateForwardService := &corev1.Service{
