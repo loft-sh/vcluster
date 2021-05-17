@@ -39,7 +39,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.PhysicalName("testpvc", "testns"),
 		Namespace: "test",
 		Labels: map[string]string{
-			translate.MarkerLabel: translate.Suffix,
+			translate.MarkerLabel:    translate.Suffix,
+			translate.NamespaceLabel: translate.NamespaceLabelValue(vObjectMeta.Namespace),
 		},
 	}
 	changedResources := corev1.ResourceRequirements{
@@ -84,6 +85,7 @@ func TestSync(t *testing.T) {
 			Annotations: map[string]string{
 				"otherAnnotationKey": "update this",
 			},
+			Labels: pObjectMeta.Labels,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			Resources: changedResources,
@@ -99,6 +101,7 @@ func TestSync(t *testing.T) {
 				storageProvisionerAnnotation: "testannotation3",
 				"otherAnnotationKey":         "don't update this",
 			},
+			Labels: pObjectMeta.Labels,
 		},
 	}
 	backwardUpdatedAnnotationsPvc := &corev1.PersistentVolumeClaim{

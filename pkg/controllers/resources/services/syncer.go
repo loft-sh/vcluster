@@ -130,6 +130,14 @@ func calcServiceDiff(pObj, vObj *corev1.Service) *corev1.Service {
 		updated.Annotations = vObj.Annotations
 	}
 
+	// check labels
+	if !translate.LabelsEqual(vObj.Namespace, vObj.Labels, pObj.Labels) {
+		if updated == nil {
+			updated = pObj.DeepCopy()
+		}
+		updated.Labels = translate.TranslateLabels(vObj.Namespace, vObj.Labels)
+	}
+
 	// publish not ready addresses
 	if vObj.Spec.PublishNotReadyAddresses != pObj.Spec.PublishNotReadyAddresses {
 		if updated == nil {

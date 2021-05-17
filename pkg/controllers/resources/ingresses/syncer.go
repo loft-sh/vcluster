@@ -78,6 +78,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	if updateNeeded {
 		pIngress = pIngress.DeepCopy()
 		pIngress.Annotations = vIngress.Annotations
+		pIngress.Labels = translate.TranslateLabels(vIngress.Namespace, vIngress.Labels)
 		pIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
 		log.Debugf("updating physical ingress %s/%s, because virtual ingress spec or annotations have changed", pIngress.Namespace, pIngress.Name)
 		err = s.localClient.Update(ctx, pIngress)
@@ -94,7 +95,9 @@ func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bo
 	vIngress := vObj.(*networkingv1beta1.Ingress)
 	pIngress := pObj.(*networkingv1beta1.Ingress)
 
-	return !equality.Semantic.DeepEqual(*translateSpec(vIngress.Namespace, &vIngress.Spec), pIngress.Spec) || !equality.Semantic.DeepEqual(vIngress.Annotations, pIngress.Annotations), nil
+	return !equality.Semantic.DeepEqual(*translateSpec(vIngress.Namespace, &vIngress.Spec), pIngress.Spec) ||
+		!equality.Semantic.DeepEqual(vIngress.Annotations, pIngress.Annotations) ||
+		!translate.LabelsEqual(vIngress.Namespace, vIngress.Labels, pIngress.Labels), nil
 }
 
 func translateSpec(namespace string, vIngressSpec *networkingv1beta1.IngressSpec) *networkingv1beta1.IngressSpec {

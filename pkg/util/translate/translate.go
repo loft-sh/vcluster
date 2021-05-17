@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	MarkerLabel = "vcluster.loft.sh/managed-by"
-	Suffix      = "suffix"
+	NamespaceLabel = "vcluster.loft.sh/namespace"
+	MarkerLabel    = "vcluster.loft.sh/managed-by"
+	Suffix         = "suffix"
 )
 
 func Split(s, sep string) (string, string) {
@@ -79,6 +80,37 @@ func UniqueSlice(stringSlice []string) []string {
 	return list
 }
 
+func LabelsEqual(virtualNamespace string, virtualLabels map[string]string, physicalLabels map[string]string) bool {
+	physicalLabelsToCompare := TranslateLabels(virtualNamespace, virtualLabels)
+	return EqualExcept(physicalLabelsToCompare, physicalLabels)
+}
+
+func TranslateLabelSelector(virtualNamespace string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	if labelSelector == nil {
+		return nil
+	}
+
+	newLabelSelector := &metav1.LabelSelector{}
+	if labelSelector.MatchLabels != nil {
+		newLabelSelector.MatchLabels = map[string]string{}
+		for k, v := range labelSelector.MatchLabels {
+			newLabelSelector.MatchLabels[ConvertLabelKey(k, virtualNamespace)] = v
+		}
+	}
+	if len(labelSelector.MatchExpressions) > 0 {
+		newLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
+		for _, r := range labelSelector.MatchExpressions {
+			newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+				Key:      ConvertLabelKey(r.Key, virtualNamespace),
+				Operator: r.Operator,
+				Values:   r.Values,
+			})
+		}
+	}
+
+	return newLabelSelector
+}
+
 func EqualExcept(a map[string]string, b map[string]string, except ...string) bool {
 	for k, v := range a {
 		if exists(except, k) {
@@ -124,12 +156,12 @@ func IsManaged(obj runtime.Object) bool {
 	return meta.GetLabels()[MarkerLabel] == Suffix
 }
 
-// Returns the physical name of the name / namespace resource
+// PhysicalName returns the physical name of the name / namespace resource
 func PhysicalName(name, namespace string) string {
 	return SafeConcatName(name, "x", namespace, "x", Suffix)
 }
 
-// Returns the translated physical name of this object
+// ObjectPhysicalName returns the translated physical name of this object
 func ObjectPhysicalName(obj runtime.Object) string {
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
@@ -162,7 +194,34 @@ func ResetObjectMetadata(obj metav1.Object) {
 	obj.SetFinalizers(nil)
 	obj.SetClusterName("")
 	obj.SetManagedFields(nil)
-	obj.SetLabels(nil)
+}
+
+// TranslateLabels transforms the virtual labels into physical ones
+func TranslateLabels(virtualNamespace string, labels map[string]string) map[string]string {
+	newLabels := map[string]string{}
+	for k, v := range labels {
+		if k == NamespaceLabel {
+			newLabels[k] = v
+			continue
+		}
+
+		newLabels[ConvertLabelKey(k, virtualNamespace)] = v
+	}
+	newLabels[MarkerLabel] = Suffix
+	if virtualNamespace != "" && newLabels[NamespaceLabel] == "" {
+		newLabels[NamespaceLabel] = NamespaceLabelValue(virtualNamespace)
+	}
+
+	return newLabels
+}
+
+func NamespaceLabelValue(virtualNamespace string) string {
+	return virtualNamespace + "x" + Suffix
+}
+
+func ConvertLabelKey(key string, virtualNamespace string) string {
+	digest := sha256.Sum256([]byte(key))
+	return SafeConcatName("vcluster.loft.sh/label", virtualNamespace, "x", Suffix, "x", string(digest[:]))
 }
 
 var OwningStatefulSet *appsv1.StatefulSet
@@ -178,14 +237,7 @@ func initMetadata(targetNamespace string, target runtime.Object) error {
 	ResetObjectMetadata(m)
 	m.SetName(PhysicalName(name, namespace))
 	m.SetNamespace(targetNamespace)
-
-	// make sure the annotations are set
-	labels := m.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	labels[MarkerLabel] = Suffix
-	m.SetLabels(labels)
+	m.SetLabels(TranslateLabels(namespace, m.GetLabels()))
 
 	// set owning stateful set if defined
 	if OwningStatefulSet != nil {

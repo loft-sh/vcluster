@@ -2,8 +2,10 @@ package pods
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
 	"strings"
@@ -18,6 +20,7 @@ const (
 	OwnerSetKind                 = "vcluster.loft.sh/owner-set-kind"
 	NamespaceAnnotation          = "vcluster.loft.sh/namespace"
 	NameAnnotation               = "vcluster.loft.sh/name"
+	LabelsAnnotation             = "vcluster.loft.sh/labels"
 	UIDAnnotation                = "vcluster.loft.sh/uid"
 	ServiceAccountNameAnnotation = "vcluster.loft.sh/service-account-name"
 
@@ -26,6 +29,10 @@ const (
 	HostsVolumeName                   = "vcluster-rewrite-hosts"
 	HostsRewriteImage                 = "alpine:3.13.1"
 	HostsRewriteContainerName         = "vcluster-rewrite-hosts"
+)
+
+var (
+	FieldPathLabelRegEx = regexp.MustCompile("^metadata\\.labels\\['(.+)'\\]$")
 )
 
 func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, services []*corev1.Service, clusterDomain, dnsIP, kubeIP, serviceAccount string, translator ImageTranslator, enableOverrideHosts bool, overrideHostsImage string) error {
@@ -44,6 +51,9 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, ser
 		pPod.Annotations[NameAnnotation] = vPod.Annotations[NameAnnotation]
 		pPod.Annotations[UIDAnnotation] = vPod.Annotations[UIDAnnotation]
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Annotations[ServiceAccountNameAnnotation]
+		if labels, ok := vPod.Annotations[LabelsAnnotation]; ok {
+			pPod.Annotations[LabelsAnnotation] = labels
+		}
 	}
 	if pPod.Annotations[NamespaceAnnotation] == "" {
 		pPod.Annotations[NamespaceAnnotation] = vPod.Namespace
@@ -56,6 +66,20 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, ser
 	}
 	if pPod.Annotations[ServiceAccountNameAnnotation] == "" {
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Spec.ServiceAccountName
+	}
+	if _, ok := pPod.Annotations[LabelsAnnotation]; !ok {
+		labelsString := []string{}
+		for k, v := range vPod.Labels {
+			// escape pod labels
+			out, err := json.Marshal(v)
+			if err != nil {
+				return errors.Wrap(err, "escape label "+k)
+			}
+
+			labelsString = append(labelsString, k+"="+string(out))
+		}
+
+		pPod.Annotations[LabelsAnnotation] = strings.Join(labelsString, "\n")
 	}
 
 	// translate services to environment variables
@@ -212,6 +236,9 @@ func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, ser
 		}
 	}
 
+	// translate topology spread constraints
+	translateTopologySpreadConstraints(vPod, pPod)
+
 	return nil
 }
 
@@ -247,7 +274,7 @@ func translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, vCl
 		}
 		if projectedVolume.Sources[i].DownwardAPI != nil {
 			for j := range projectedVolume.Sources[i].DownwardAPI.Items {
-				translateFieldRef(projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef)
+				translateFieldRef(vPod, projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef)
 			}
 		}
 		if projectedVolume.Sources[i].ServiceAccountToken != nil {
@@ -278,11 +305,21 @@ func translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, vCl
 	return nil
 }
 
-func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
+func translateFieldRef(vPod *corev1.Pod, fieldSelector *corev1.ObjectFieldSelector) {
 	if fieldSelector == nil {
 		return
 	}
+
+	// check if its a label we have to rewrite
+	labelsMatch := FieldPathLabelRegEx.FindStringSubmatch(fieldSelector.FieldPath)
+	if len(labelsMatch) == 2 {
+		fieldSelector.FieldPath = "metadata.labels['" + translate.ConvertLabelKey(labelsMatch[0], vPod.Namespace) + "']"
+		return
+	}
+
 	switch fieldSelector.FieldPath {
+	case "metadata.labels":
+		fieldSelector.FieldPath = "metadata.annotations['" + LabelsAnnotation + "']"
 	case "metadata.name":
 		fieldSelector.FieldPath = "metadata.annotations['" + NameAnnotation + "']"
 	case "metadata.namespace":
@@ -317,7 +354,7 @@ func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {
 func translateEphemerealContainerEnv(c *corev1.EphemeralContainer, vPod *corev1.Pod, serviceEnvMap map[string]string) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range c.Env {
-		translateDownwardAPI(&c.Env[j])
+		translateDownwardAPI(vPod, &c.Env[j])
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
 			c.Env[j].ValueFrom.ConfigMapKeyRef.Name = translate.PhysicalName(c.Env[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace)
 		}
@@ -361,7 +398,7 @@ func translateEphemerealContainerEnv(c *corev1.EphemeralContainer, vPod *corev1.
 func translateContainerEnv(c *corev1.Container, vPod *corev1.Pod, serviceEnvMap map[string]string) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range c.Env {
-		translateDownwardAPI(&c.Env[j])
+		translateDownwardAPI(vPod, &c.Env[j])
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
 			c.Env[j].ValueFrom.ConfigMapKeyRef.Name = translate.PhysicalName(c.Env[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace)
 		}
@@ -402,23 +439,14 @@ func translateContainerEnv(c *corev1.Container, vPod *corev1.Pod, serviceEnvMap 
 	}
 }
 
-func translateDownwardAPI(env *corev1.EnvVar) {
+func translateDownwardAPI(vPod *corev1.Pod, env *corev1.EnvVar) {
 	if env.ValueFrom == nil {
 		return
 	}
 	if env.ValueFrom.FieldRef == nil {
 		return
 	}
-	switch env.ValueFrom.FieldRef.FieldPath {
-	case "metadata.name":
-		env.ValueFrom.FieldRef.FieldPath = "metadata.annotations['" + NameAnnotation + "']"
-	case "metadata.namespace":
-		env.ValueFrom.FieldRef.FieldPath = "metadata.annotations['" + NamespaceAnnotation + "']"
-	case "metadata.uid":
-		env.ValueFrom.FieldRef.FieldPath = "metadata.annotations['" + UIDAnnotation + "']"
-	case "spec.serviceAccountName":
-		env.ValueFrom.FieldRef.FieldPath = "metadata.annotations['" + ServiceAccountNameAnnotation + "']"
-	}
+	translateFieldRef(vPod, env.ValueFrom.FieldRef)
 }
 
 func translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterDomain, nameServer string) {
@@ -487,6 +515,12 @@ func deleteDuplicates(strs []string) []string {
 
 func hasClusterIP(service *corev1.Service) bool {
 	return service.Spec.ClusterIP != "None" && service.Spec.ClusterIP != ""
+}
+
+func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
+	for i := range pPod.Spec.TopologySpreadConstraints {
+		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.TranslateLabelSelector(vPod.Namespace, pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
+	}
 }
 
 func translateServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1.Service, kubeIP string) map[string]string {

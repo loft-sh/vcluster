@@ -45,6 +45,9 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.PhysicalName(baseConfigMap.Name, baseConfigMap.Namespace),
 			Namespace: "test",
+			Labels: map[string]string{
+				translate.NamespaceLabel: translate.NamespaceLabelValue(baseConfigMap.Namespace),
+			},
 		},
 	}
 	updatedSyncedConfigMap := &corev1.ConfigMap{

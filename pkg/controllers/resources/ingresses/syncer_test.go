@@ -109,7 +109,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.PhysicalName("testingress", "testns"),
 		Namespace: "test",
 		Labels: map[string]string{
-			translate.MarkerLabel: translate.Suffix,
+			translate.MarkerLabel:    translate.Suffix,
+			translate.NamespaceLabel: translate.NamespaceLabelValue(vObjectMeta.Namespace),
 		},
 	}
 	baseIngress := &networkingv1beta1.Ingress{

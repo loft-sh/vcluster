@@ -60,9 +60,9 @@ profiles:
                 create: false
                 name: default
               vcluster:
-                image: rancher/k3s:v1.19.8-k3s1
+                image: rancher/k3s:v1.20.5-k3s1
                 extraArgs:
-                  - --service-cidr=10.120.0.0/20
+                  - --service-cidr=10.84.0.0/20
               rbac:
                 clusterRole:
                   create: true
@@ -70,5 +70,5 @@ profiles:
                 image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
                 extraArgs:
                   - --sync-all-nodes
-                  - --sync-node-taints
+                  - --sync-node-changes
                   - --fake-nodes=false

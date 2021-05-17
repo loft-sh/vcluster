@@ -15,11 +15,19 @@ func calcPodDiff(pPod, vPod *corev1.Pod, translateImages ImageTranslator) *corev
 	}
 
 	// check annotations
-	if !translate.EqualExcept(pPod.Annotations, vPod.Annotations, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation) {
+	if !translate.EqualExcept(pPod.Annotations, vPod.Annotations, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, LabelsAnnotation) {
 		if updatedPod == nil {
 			updatedPod = pPod.DeepCopy()
 		}
-		updatedPod.Annotations = translate.SetExcept(vPod.Annotations, pPod.Annotations, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation)
+		updatedPod.Annotations = translate.SetExcept(vPod.Annotations, pPod.Annotations, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, LabelsAnnotation)
+	}
+
+	// check labels
+	if !translate.LabelsEqual(vPod.Namespace, vPod.Labels, pPod.Labels) {
+		if updatedPod == nil {
+			updatedPod = pPod.DeepCopy()
+		}
+		updatedPod.Labels = translate.TranslateLabels(vPod.Namespace, vPod.Labels)
 	}
 
 	return updatedPod
