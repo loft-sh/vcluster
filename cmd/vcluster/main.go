@@ -97,7 +97,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().IntVar(&options.Port, "port", 8443, "The port to bind to")
 
 	cmd.Flags().BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
-	cmd.Flags().BoolVar(&options.SyncNodeTaints, "sync-node-taints", false, "If enabled and --fake-nodes is false, the virtual cluster will sync new node taints from the virtual cluster to the host cluster")
+	cmd.Flags().BoolVar(&options.SyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync node changes from the virtual cluster to the host cluster")
 	cmd.Flags().BoolVar(&options.UseFakeNodes, "fake-nodes", true, "If enabled, the virtual cluster will create fake nodes instead of copying the actual physical nodes config")
 	cmd.Flags().BoolVar(&options.UseFakePersistentVolumes, "fake-persistent-volumes", true, "If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config")
 	cmd.Flags().BoolVar(&options.EnableStorageClasses, "enable-storage-classes", false, "If enabled, the virtual cluster will sync storage classes")

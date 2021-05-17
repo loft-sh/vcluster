@@ -48,7 +48,7 @@ profiles:
   - name: deploy
     replace:
       images:
-        manager:
+        vcluster:
           image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
       deployments:
         - name: vcluster
@@ -56,15 +56,19 @@ profiles:
             chart:
               name: ./chart
             values:
+              serviceAccount:
+                create: false
+                name: default
               vcluster:
                 image: rancher/k3s:v1.19.8-k3s1
+                extraArgs:
+                  - --service-cidr=10.120.0.0/20
               rbac:
                 clusterRole:
                   create: true
               syncer:
                 image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
                 extraArgs:
-                  - --service-cidr=10.120.0.0/20
                   - --sync-all-nodes
                   - --sync-node-taints
                   - --fake-nodes=false

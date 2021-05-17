@@ -31,7 +31,11 @@ spec:
         release: {{ .Release.Name }}
     spec:
       terminationGracePeriodSeconds: 10
+      {{- if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
+      {{- end }}
       containers:
       - image: {{ .Values.vcluster.image }}
         name: vcluster
