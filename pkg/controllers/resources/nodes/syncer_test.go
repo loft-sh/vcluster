@@ -28,10 +28,11 @@ func newFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, pClient *
 	}
 
 	return &syncer{
-		sharedNodesMutex: lockFactory.GetLock("ingress-controller"),
-		virtualClient:    vClient,
-		localClient:      pClient,
-		scheme:           testingutil.NewScheme(),
+		sharedNodesMutex:    lockFactory.GetLock("ingress-controller"),
+		nodeServiceProvider: &fakeNodeServiceProvider{},
+		virtualClient:       vClient,
+		localClient:         pClient,
+		scheme:              testingutil.NewScheme(),
 	}, nil
 }
 
@@ -51,6 +52,13 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+		},
 	}
 	editedNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -63,6 +71,17 @@ func TestSync(t *testing.T) {
 			},
 		},
 		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: KubeletPort,
+				},
+			},
 			NodeInfo: corev1.NodeSystemInfo{
 				Architecture: "amd64",
 			},

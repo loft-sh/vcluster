@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"reflect"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -114,6 +115,10 @@ func GVKFrom(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersionKin
 	}
 
 	return gvks[0], nil
+}
+
+func CurrentPodName() (string, error) {
+	return os.Hostname()
 }
 
 var (

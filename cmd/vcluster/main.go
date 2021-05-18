@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/indices"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -177,6 +179,9 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 		return fmt.Errorf("suffix cannot be empty")
 	}
 
+	// set kubelet port
+	nodes.KubeletPort = int32(options.Port)
+
 	// retrieve current namespace
 	if options.TargetNamespace == "" {
 		currentNamespace, err := clienthelper.CurrentNamespace()
@@ -233,6 +238,12 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	err = syncKubernetesService(ctx)
 	if err != nil {
 		return err
+	}
+
+	// register the extra indices
+	err = indices.AddIndices(ctx)
+	if err != nil {
+		return errors.Wrap(err, "register extra indices")
 	}
 
 	// register the controllers

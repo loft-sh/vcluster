@@ -29,6 +29,15 @@ func safeIndex(parts []string, idx int) string {
 	return parts[idx]
 }
 
+func SafeConcatGenerateName(name ...string) string {
+	fullPath := strings.Join(name, "-")
+	if len(fullPath) > 53 {
+		digest := sha256.Sum256([]byte(fullPath))
+		return fullPath[0:42] + "-" + hex.EncodeToString(digest[0:])[0:10]
+	}
+	return fullPath
+}
+
 func SafeConcatName(name ...string) string {
 	fullPath := strings.Join(name, "-")
 	if len(fullPath) > 63 {

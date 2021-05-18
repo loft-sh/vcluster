@@ -52,37 +52,6 @@ func Encode(metricsFamilies []*dto.MetricFamily, format expfmt.Format) ([]byte, 
 	return buffer.Bytes(), nil
 }
 
-// Merge merges the metrics in a into b
-func Merge(metricsFamiliesA []*dto.MetricFamily, metricsFamiliesB *[]*dto.MetricFamily) {
-	for _, mA := range metricsFamiliesA {
-		found := false
-		for _, mB := range *metricsFamiliesB {
-			if mB.Name != nil && mA.Name != nil && *mA.Name == *mB.Name {
-				for _, m := range mA.Metric {
-					mB.Metric = append(mB.Metric, m)
-				}
-
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			*metricsFamiliesB = append(*metricsFamiliesB, mA)
-		}
-	}
-}
-
-func AddLabels(metricsFamilies []*dto.MetricFamily, labels []*dto.LabelPair) {
-	for _, fam := range metricsFamilies {
-		for _, m := range fam.Metric {
-			for _, newLabel := range labels {
-				m.Label = append(m.Label, newLabel)
-			}
-		}
-	}
-}
-
 func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, targetNamespace string, vClient client.Client) ([]*dto.MetricFamily, error) {
 	resultMetricsFamily := []*dto.MetricFamily{}
 

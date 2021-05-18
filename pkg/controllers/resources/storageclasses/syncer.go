@@ -81,6 +81,10 @@ func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bo
 	return false, nil
 }
 
+func (s *syncer) ForwardOnDelete(ctx context.Context, req ctrl.Request) error {
+	return nil
+}
+
 func calcSCDiff(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
 	pObjCopy := pObj.DeepCopy()
 	pObjCopy.ObjectMeta = vObj.ObjectMeta

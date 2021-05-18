@@ -93,7 +93,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	vEndpoints := vObj.(*corev1.Endpoints)
 	updated := calcEndpointsDiff(pEndpoints, vEndpoints)
 	if updated != nil {
-		log.Debugf("updating physical endpoints %s/%s, because virtual configmap has changed", updated.Namespace, updated.Name)
+		log.Debugf("updating physical endpoints %s/%s, because virtual endpoints have changed", updated.Namespace, updated.Name)
 		err := s.localClient.Update(ctx, updated)
 		if err != nil {
 			s.eventRecoder.Eventf(vEndpoints, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
