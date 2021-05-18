@@ -28,15 +28,13 @@ type kubeletAuthorizer struct {
 	virtualManager ctrl.Manager
 }
 
-func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	if applies(ctx) == false {
+func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) { // get node name
+	nodeName, ok := filters.NodeNameFrom(ctx)
+	if !ok {
 		return authorizer.DecisionNoOpinion, "", nil
 	} else if a.IsResourceRequest() {
 		return authorizer.DecisionDeny, "forbidden", nil
 	}
-
-	// get node name
-	nodeName, _ := filters.NodeNameFrom(ctx)
 
 	// get cluster client
 	client := l.virtualManager.GetClient()
@@ -86,13 +84,4 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 	}
 
 	return authorizer.DecisionDeny, accessReview.Status.Reason, nil
-}
-
-func applies(ctx context.Context) bool {
-	_, found := filters.NodeNameFrom(ctx)
-	if !found {
-		return false
-	}
-
-	return true
 }
