@@ -111,6 +111,8 @@ func (r *forwardClusterController) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if vExists && pExists {
 		return r.target.ForwardUpdate(ctx, pObj, vObj, r.log)
+	} else if !vExists {
+		return ctrl.Result{}, r.target.ForwardOnDelete(ctx, req)
 	}
 
 	return ctrl.Result{}, nil

@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
@@ -30,12 +31,13 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 	}
 
 	return generic.RegisterClusterSyncer(ctx, &syncer{
-		sharedNodesMutex: ctx.LockFactory.GetLock("nodes-controller"),
-		localClient:      ctx.LocalManager.GetClient(),
-		virtualClient:    ctx.VirtualManager.GetClient(),
-		scheme:           ctx.LocalManager.GetScheme(),
-		nodeSelector:     nodeSelector,
-		syncNodeChanges:  ctx.Options.SyncNodeChanges,
+		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
+		localClient:         ctx.LocalManager.GetClient(),
+		virtualClient:       ctx.VirtualManager.GetClient(),
+		nodeServiceProvider: NewNodeServiceProvider(ctx.LocalManager.GetClient()),
+		scheme:              ctx.LocalManager.GetScheme(),
+		nodeSelector:        nodeSelector,
+		syncNodeChanges:     ctx.Options.SyncNodeChanges,
 	}, "node")
 }
 
@@ -44,9 +46,10 @@ type syncer struct {
 	nodeSelector     labels.Selector
 	syncNodeChanges  bool
 
-	localClient   client.Client
-	virtualClient client.Client
-	scheme        *runtime.Scheme
+	localClient         client.Client
+	virtualClient       client.Client
+	nodeServiceProvider NodeServiceProvider
+	scheme              *runtime.Scheme
 }
 
 func (s *syncer) New() client.Object {
@@ -116,9 +119,33 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
 	}
 
+	// make sure we ignore the kubelet addresses and port as we will set our own anyways
+	pNode = pNode.DeepCopy()
+	pNode.Status.Addresses = vNode.Status.Addresses
+	pNode.Status.DaemonEndpoints = vNode.Status.DaemonEndpoints
+
 	if !equality.Semantic.DeepEqual(vNode.Status, pNode.Status) {
 		newNode := vNode.DeepCopy()
 		newNode.Status = pNode.Status
+		if len(newNode.Status.Addresses) == 0 {
+			// create a new service for this node
+			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, types.NamespacedName{Name: newNode.Name})
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			newNode.Status.Addresses = []corev1.NodeAddress{
+				{
+					Address: nodeIP,
+					Type:    corev1.NodeInternalIP,
+				},
+			}
+			newNode.Status.DaemonEndpoints = corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: KubeletPort,
+				},
+			}
+		}
+
 		log.Debugf("update virtual node %s, because status has changed", pNode.Name)
 		err = s.virtualClient.Status().Update(ctx, newNode)
 		if err != nil {
@@ -202,4 +229,8 @@ func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bo
 	pNode := pObj.(*corev1.Node)
 	vNode := vObj.(*corev1.Node)
 	return !equality.Semantic.DeepEqual(vNode.Spec.Taints, pNode.Spec.Taints) || !equality.Semantic.DeepEqual(vNode.Labels, pNode.Labels), nil
+}
+
+func (s *syncer) ForwardOnDelete(ctx context.Context, req ctrl.Request) error {
+	return s.nodeServiceProvider.CleanupNodeServices(ctx, req.NamespacedName)
 }

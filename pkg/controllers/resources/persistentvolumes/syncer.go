@@ -161,3 +161,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
 	return false, nil
 }
+
+func (s *syncer) ForwardOnDelete(ctx context.Context, req ctrl.Request) error {
+	return nil
+}

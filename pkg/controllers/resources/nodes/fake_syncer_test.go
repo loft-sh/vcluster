@@ -22,6 +22,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+type fakeNodeServiceProvider struct{}
+
+func (f *fakeNodeServiceProvider) CleanupNodeServices(ctx context.Context, name types.NamespacedName) error {
+	return nil
+}
+func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
+	return "127.0.0.1", nil
+}
+
 func newFakeFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, vClient *testingutil.FakeIndexClient) (*fakeSyncer, error) {
 	err := vClient.IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
@@ -32,8 +41,9 @@ func newFakeFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, vClie
 	}
 
 	return &fakeSyncer{
-		sharedNodesMutex: lockFactory.GetLock("nodes-controller"),
-		virtualClient:    vClient,
+		sharedNodesMutex:    lockFactory.GetLock("nodes-controller"),
+		nodeServiceProvider: &fakeNodeServiceProvider{},
+		virtualClient:       vClient,
 	}, nil
 }
 
@@ -112,17 +122,13 @@ func TestFakeSync(t *testing.T) {
 			},
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "192.168.1.12",
+					Address: "127.0.0.1",
 					Type:    corev1.NodeInternalIP,
-				},
-				{
-					Address: baseName.Name,
-					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: 10250,
+					Port: KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{

@@ -6,6 +6,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
+	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
@@ -27,6 +28,7 @@ import (
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
 type Server struct {
 	virtualManager ctrl.Manager
+	localManager   ctrl.Manager
 	handler        *http.ServeMux
 
 	redirectResources   []delegatingauthorizer.GroupVersionResourceVerb
@@ -39,6 +41,7 @@ type Server struct {
 func NewServer(ctx *context.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
 	s := &Server{
 		virtualManager: ctx.VirtualManager,
+		localManager:   ctx.LocalManager,
 		handler:        http.NewServeMux(),
 
 		requestHeaderCaFile: requestHeaderCaFile,
@@ -85,8 +88,8 @@ func NewServer(ctx *context.ControllerContext, requestHeaderCaFile, clientCaFile
 	h := handler.ImpersonatingHandler("", ctx.VirtualManager.GetConfig())
 	h = filters.WithServiceCreateRedirect(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace, ctx.LockFactory.GetLock("service-controller"))
 	h = filters.WithRedirect(h, ctx.LocalManager, ctx.Options.TargetNamespace, s.redirectResources)
-	h = filters.WithMetricsRewrite(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
-	h = filters.WithInjectedMetrics(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
+	h = filters.WithNodesProxy(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
+	h = filters.WithFakeKubelet(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
 	serverhelper.HandleRoute(s.handler, "/", h)
 
 	return s, nil
@@ -109,24 +112,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, certFile, keyFile 
 		},
 	}
 	redirectAuthResources = append(redirectAuthResources, s.redirectResources...)
-	serverConfig.Authorization.Authorizer = union.New(delegatingauthorizer.New(s.virtualManager, redirectAuthResources, []delegatingauthorizer.PathVerb{
-		{
-			Path: "/metrics/cadvisor",
-			Verb: "*",
-		},
-		{
-			Path: "/metrics/probes",
-			Verb: "*",
-		},
-		{
-			Path: "/metrics/resource",
-			Verb: "*",
-		},
-		{
-			Path: "/metrics/resource/v1alpha1",
-			Verb: "*",
-		},
-	}), impersonationauthorizer.New(s.virtualManager.GetClient()), allowall.New())
+	serverConfig.Authorization.Authorizer = union.New(kubeletauthorizer.New(s.localManager, s.virtualManager), delegatingauthorizer.New(s.virtualManager, redirectAuthResources, nil), impersonationauthorizer.New(s.virtualManager.GetClient()), allowall.New())
 
 	sso := options.NewSecureServingOptions()
 	sso.HTTP2MaxStreamsPerConnection = 1000
@@ -154,11 +140,17 @@ func (s *Server) ServeOnListenerTLS(address string, port int, certFile, keyFile 
 
 	// create server
 	klog.Info("Starting tls proxy server at " + address + ":" + strconv.Itoa(port))
-	stopped, err := serverConfig.SecureServing.Serve(server.DefaultBuildHandlerChain(s.handler, serverConfig), serverConfig.RequestTimeout, stopChan)
+	stopped, err := serverConfig.SecureServing.Serve(s.buildHandlerChain(serverConfig), serverConfig.RequestTimeout, stopChan)
 	if err != nil {
 		return err
 	}
 
 	<-stopped
 	return nil
+}
+
+func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
+	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
+	defaultHandler = filters.WithNodeName(defaultHandler, s.localManager)
+	return defaultHandler
 }

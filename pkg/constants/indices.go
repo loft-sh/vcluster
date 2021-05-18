@@ -6,4 +6,5 @@ const (
 	IndexByStorageClass  = "IndexByStorageClass"
 	IndexByIngressSecret = "IndexByIngressSecret"
 	IndexByConfigMap     = "IndexByConfigMap"
+	IndexByClusterIP     = "IndexByClusterIP"
 )

@@ -3,9 +3,8 @@ package nodes
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"github.com/pkg/errors"
 	"sync"
-	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -21,14 +20,16 @@ import (
 
 func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
 	return generic.RegisterFakeSyncer(ctx, &fakeSyncer{
-		sharedNodesMutex: ctx.LockFactory.GetLock("nodes-controller"),
-		virtualClient:    ctx.VirtualManager.GetClient(),
+		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
+		nodeServiceProvider: NewNodeServiceProvider(ctx.LocalManager.GetClient()),
+		virtualClient:       ctx.VirtualManager.GetClient(),
 	}, "fake-node")
 }
 
 type fakeSyncer struct {
-	sharedNodesMutex sync.Locker
-	virtualClient    client.Client
+	sharedNodesMutex    sync.Locker
+	virtualClient       client.Client
+	nodeServiceProvider NodeServiceProvider
 }
 
 func (r *fakeSyncer) New() client.Object {
@@ -64,11 +65,19 @@ func (r *fakeSyncer) ReconcileEnd() {
 }
 
 func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName) error {
-	return CreateFakeNode(ctx, r.virtualClient, name)
+	return CreateFakeNode(ctx, r.nodeServiceProvider, r.virtualClient, name)
 }
 
 func (r *fakeSyncer) CreateNeeded(ctx context.Context, name types.NamespacedName) (bool, error) {
-	return r.nodeNeeded(ctx, name.Name)
+	needed, err := r.nodeNeeded(ctx, name.Name)
+	if err != nil {
+		return false, err
+	} else if !needed {
+		// make sure we cleanup node services
+		return false, r.nodeServiceProvider.CleanupNodeServices(ctx, name)
+	}
+
+	return true, nil
 }
 
 func (r *fakeSyncer) Delete(ctx context.Context, obj client.Object) error {
@@ -104,7 +113,12 @@ func newGuid() string {
 	return random.RandomString(8) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(12)
 }
 
-func CreateFakeNode(ctx context.Context, virtualClient client.Client, name types.NamespacedName) error {
+func CreateFakeNode(ctx context.Context, nodeServiceProvider NodeServiceProvider, virtualClient client.Client, name types.NamespacedName) error {
+	nodeIP, err := nodeServiceProvider.GetNodeIP(ctx, name)
+	if err != nil {
+		return errors.Wrap(err, "create fake node ip")
+	}
+
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name.Name,
@@ -123,7 +137,7 @@ func CreateFakeNode(ctx context.Context, virtualClient client.Client, name types
 		},
 	}
 
-	err := virtualClient.Create(ctx, node)
+	err = virtualClient.Create(ctx, node)
 	if err != nil {
 		return err
 	}
@@ -182,17 +196,13 @@ func CreateFakeNode(ctx context.Context, virtualClient client.Client, name types
 		},
 		Addresses: []corev1.NodeAddress{
 			{
-				Address: fmt.Sprintf("192.%d.%d.%d", randomBetween(1, 255), randomBetween(1, 255), randomBetween(1, 255)),
+				Address: nodeIP,
 				Type:    corev1.NodeInternalIP,
-			},
-			{
-				Address: name.Name,
-				Type:    corev1.NodeHostName,
 			},
 		},
 		DaemonEndpoints: corev1.NodeDaemonEndpoints{
 			KubeletEndpoint: corev1.DaemonEndpoint{
-				Port: 10250,
+				Port: KubeletPort,
 			},
 		},
 		NodeInfo: corev1.NodeSystemInfo{
@@ -218,8 +228,4 @@ func CreateFakeNode(ctx context.Context, virtualClient client.Client, name types
 	orig = node.DeepCopy()
 	node.Spec.Taints = []corev1.Taint{}
 	return virtualClient.Patch(ctx, node, client.MergeFrom(orig))
-}
-func randomBetween(min, max int) int {
-	rand.Seed(time.Now().UnixNano())
-	return rand.Intn(max-min+1) + min
 }
