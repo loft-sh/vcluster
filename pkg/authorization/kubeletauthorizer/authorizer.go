@@ -2,7 +2,6 @@ package kubeletauthorizer
 
 import (
 	"context"
-	"fmt"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	authv1 "k8s.io/api/authorization/v1"
@@ -38,8 +37,6 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 
 	// get node name
 	nodeName, _ := filters.NodeNameFrom(ctx)
-
-	fmt.Println("Welcome " + nodeName)
 
 	// get cluster client
 	client := l.virtualManager.GetClient()

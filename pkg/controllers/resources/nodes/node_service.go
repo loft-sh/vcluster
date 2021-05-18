@@ -107,6 +107,10 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    namespace,
 			GenerateName: translate.SafeConcatGenerateName(translate.Suffix, "node", name.Name),
+			Labels: map[string]string{
+				ServiceClusterLabel: translate.Suffix,
+				ServiceNodeLabel:    name.Name,
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{

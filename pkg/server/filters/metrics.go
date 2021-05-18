@@ -2,7 +2,10 @@ package filters
 
 import (
 	"compress/gzip"
+	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/metrics"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
@@ -15,6 +18,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
+	statsv1alpha1 "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 	"net/http"
 	"net/http/httptest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -129,13 +133,58 @@ func handleNodeRequest(localConfig *rest.Config, vClient client.Client, targetNa
 			return false, err
 		}
 	} else if IsKubeletStats(req.URL.Path) {
-		// TODO: rewrite stats summary
+		newData, err = rewriteStats(req.Context(), data, targetNamespace, vClient)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	w.Header().Set("Content-Type", string(expfmt.Negotiate(req.Header)))
 	w.WriteHeader(code)
 	w.Write(newData)
 	return true, nil
+}
+
+func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vClient client.Client) ([]byte, error) {
+	stats := &statsv1alpha1.Summary{}
+	err := json.Unmarshal(data, stats)
+	if err != nil {
+		return nil, err
+	}
+
+	// rewrite pods
+	newPods := []statsv1alpha1.PodStats{}
+	for _, pod := range stats.Pods {
+		if pod.PodRef.Namespace != targetNamespace {
+			continue
+		}
+
+		// search if we can find the pod by name in the virtual cluster
+		podList := &corev1.PodList{}
+		err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByVName: pod.PodRef.Name})
+		if err != nil {
+			return nil, err
+		}
+
+		// skip the metric if the pod couldn't be found in the virtual cluster
+		if len(podList.Items) == 0 {
+			continue
+		}
+
+		vPod := podList.Items[0]
+		pod.PodRef.Name = vPod.Name
+		pod.PodRef.Namespace = vPod.Namespace
+		pod.PodRef.UID = string(vPod.UID)
+		newPods = append(newPods, pod)
+	}
+	stats.Pods = newPods
+
+	out, err := json.MarshalIndent(stats, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func executeRequest(req *http.Request, h http.Handler) (int, http.Header, []byte, error) {
