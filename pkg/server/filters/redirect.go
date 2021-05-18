@@ -36,7 +36,6 @@ func WithRedirect(h http.Handler, localManager ctrl.Manager, targetNamespace str
 					return
 				}
 
-				targetName := translate.PhysicalName(info.Name, info.Namespace)
 				splitted := strings.Split(req.URL.Path, "/")
 				if len(splitted) < 6 {
 					responsewriters.ErrorNegotiated(kerrors.NewBadRequest("unexpected url"), s, corev1.SchemeGroupVersion, w, req)
@@ -45,6 +44,19 @@ func WithRedirect(h http.Handler, localManager ctrl.Manager, targetNamespace str
 
 				// exchange namespace & name
 				splitted[4] = targetNamespace
+
+				// make sure we keep the prefix and suffix
+				targetName := translate.PhysicalName(splitted[6], info.Namespace)
+				if info.Subresource == "proxy" {
+					splittedName := strings.Split(splitted[6], ":")
+					switch {
+					case len(splittedName) == 2:
+						targetName = strings.Join([]string{translate.PhysicalName(splittedName[0], info.Namespace), splittedName[1]}, ":")
+					case len(splittedName) == 3:
+						targetName = strings.Join([]string{splittedName[0], translate.PhysicalName(splittedName[1], info.Namespace), splittedName[2]}, ":")
+					}
+				}
+
 				splitted[6] = targetName
 				req.URL.Path = strings.Join(splitted, "/")
 			}
