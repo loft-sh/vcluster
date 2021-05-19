@@ -28,6 +28,7 @@ type VirtualClusterOptions struct {
 
 	SyncAllNodes             bool
 	SyncNodeChanges          bool
+	UseFakeKubelets          bool
 	UseFakeNodes             bool
 	UseFakePersistentVolumes bool
 	EnableStorageClasses     bool

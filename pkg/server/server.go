@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
+	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
@@ -29,6 +30,7 @@ import (
 type Server struct {
 	virtualManager ctrl.Manager
 	localManager   ctrl.Manager
+	certSyncer     cert.Syncer
 	handler        *http.ServeMux
 
 	redirectResources   []delegatingauthorizer.GroupVersionResourceVerb
@@ -42,6 +44,7 @@ func NewServer(ctx *context.ControllerContext, requestHeaderCaFile, clientCaFile
 	s := &Server{
 		virtualManager: ctx.VirtualManager,
 		localManager:   ctx.LocalManager,
+		certSyncer:     cert.NewSyncer(ctx),
 		handler:        http.NewServeMux(),
 
 		requestHeaderCaFile: requestHeaderCaFile,
@@ -96,7 +99,7 @@ func NewServer(ctx *context.ControllerContext, requestHeaderCaFile, clientCaFile
 }
 
 // ServeOnListenerTLS starts the server using given listener with TLS, loops forever until an error occurs
-func (s *Server) ServeOnListenerTLS(address string, port int, certFile, keyFile string, stopChan <-chan struct{}) error {
+func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan struct{}) error {
 	// kubernetes build handler configuration
 	serverConfig := server.NewConfig(serializer.NewCodecFactory(s.virtualManager.GetScheme()))
 	serverConfig.RequestInfoResolver = &request.RequestInfoFactory{
@@ -116,8 +119,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, certFile, keyFile 
 
 	sso := options.NewSecureServingOptions()
 	sso.HTTP2MaxStreamsPerConnection = 1000
-	sso.ServerCert.CertKey.CertFile = certFile
-	sso.ServerCert.CertKey.KeyFile = keyFile
+	sso.ServerCert.GeneratedCert = s.certSyncer
 	sso.BindPort = port
 	sso.BindAddress = net.ParseIP(address)
 	err := sso.WithLoopback().ApplyTo(&serverConfig.SecureServing, &serverConfig.LoopbackClientConfig)

@@ -32,7 +32,7 @@ func impersonate(rw http.ResponseWriter, req *http.Request, prefix string, cfg *
 	cfg.Impersonate.Groups = user.GetGroups()
 	cfg.Impersonate.Extra = user.GetExtra()
 
-	handler, err := Handler(prefix, cfg)
+	handler, err := Handler(prefix, cfg, nil)
 	if err != nil {
 		klog.Errorf("failed to impersonate %v for proxy: %v", user, err)
 		rw.WriteHeader(http.StatusInternalServerError)
@@ -50,7 +50,7 @@ func (r *responder) Error(w http.ResponseWriter, req *http.Request, err error) {
 }
 
 // Mostly copied from "kubectl proxy" code
-func Handler(prefix string, cfg *rest.Config) (http.Handler, error) {
+func Handler(prefix string, cfg *rest.Config, transport http.RoundTripper) (http.Handler, error) {
 	host := cfg.Host
 	if !strings.HasSuffix(host, "/") {
 		host = host + "/"
@@ -60,10 +60,13 @@ func Handler(prefix string, cfg *rest.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	transport, err := rest.TransportFor(cfg)
-	if err != nil {
-		return nil, err
+	if transport == nil {
+		transport, err = rest.TransportFor(cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	upgradeTransport, err := makeUpgradeTransport(cfg)
 	if err != nil {
 		return nil, err

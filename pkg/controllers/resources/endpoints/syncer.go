@@ -50,15 +50,6 @@ func (s *syncer) NewList() client.ObjectList {
 	return &corev1.EndpointsList{}
 }
 
-func (s *syncer) translate(vObj runtime.Object) (*corev1.Endpoints, error) {
-	newObj, err := translate.SetupMetadata(s.targetNamespace, vObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	return newObj.(*corev1.Endpoints), nil
-}
-
 func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	vEndpoints := vObj.(*corev1.Endpoints)
 	newEndpoints, err := s.translate(vObj)
@@ -91,7 +82,10 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	// did the configmap change?
 	pEndpoints := pObj.(*corev1.Endpoints)
 	vEndpoints := vObj.(*corev1.Endpoints)
-	updated := calcEndpointsDiff(pEndpoints, vEndpoints)
+	updated, err := s.calcEndpointsDiff(pEndpoints, vEndpoints)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	if updated != nil {
 		log.Debugf("updating physical endpoints %s/%s, because virtual endpoints have changed", updated.Namespace, updated.Name)
 		err := s.localClient.Update(ctx, updated)
@@ -105,17 +99,55 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 }
 
 func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
-	updated := calcEndpointsDiff(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
-	return updated != nil, nil
+	updated, err := s.calcEndpointsDiff(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+	return updated != nil, err
 }
 
-func calcEndpointsDiff(pObj, vObj *corev1.Endpoints) *corev1.Endpoints {
+func (s *syncer) translate(vObj runtime.Object) (*corev1.Endpoints, error) {
+	newObj, err := translate.SetupMetadata(s.targetNamespace, vObj)
+	if err != nil {
+		return nil, errors.Wrap(err, "error setting metadata")
+	}
+
+	// translate the addresses
+	endpoints := newObj.(*corev1.Endpoints)
+	for i, subset := range endpoints.Subsets {
+		for j, addr := range subset.Addresses {
+			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
+				endpoints.Subsets[i].Addresses[j].TargetRef.Name = translate.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
+				endpoints.Subsets[i].Addresses[j].TargetRef.Namespace = s.targetNamespace
+
+				// TODO: set the actual values here
+				endpoints.Subsets[i].Addresses[j].TargetRef.UID = ""
+				endpoints.Subsets[i].Addresses[j].TargetRef.ResourceVersion = ""
+			}
+		}
+		for j, addr := range subset.NotReadyAddresses {
+			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
+				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Name = translate.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
+				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Namespace = s.targetNamespace
+
+				// TODO: set the actual values here
+				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.UID = ""
+				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.ResourceVersion = ""
+			}
+		}
+	}
+
+	return newObj.(*corev1.Endpoints), nil
+}
+
+func (s *syncer) calcEndpointsDiff(pObj, vObj *corev1.Endpoints) (*corev1.Endpoints, error) {
 	var updated *corev1.Endpoints
 
 	// check subsets
-	if !equality.Semantic.DeepEqual(vObj.Subsets, pObj.Subsets) {
+	translated, err := s.translate(vObj)
+	if err != nil {
+		return nil, err
+	}
+	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
 		updated = pObj.DeepCopy()
-		updated.Subsets = vObj.Subsets
+		updated.Subsets = translated.Subsets
 	}
 
 	// check annotations
@@ -134,7 +166,7 @@ func calcEndpointsDiff(pObj, vObj *corev1.Endpoints) *corev1.Endpoints {
 		updated.Labels = translate.TranslateLabels(vObj.Namespace, vObj.Labels)
 	}
 
-	return updated
+	return updated, nil
 }
 
 func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {

@@ -112,7 +112,7 @@ func rewritePrometheusMetrics(req *http.Request, data []byte, targetNamespace st
 func handleNodeRequest(localConfig *rest.Config, vClient client.Client, targetNamespace string, w http.ResponseWriter, req *http.Request) (bool, error) {
 	// authorization was done here already so we will just go forward with the rewrite
 	req.Header.Del("Authorization")
-	h, err := handler.Handler("", localConfig)
+	h, err := handler.Handler("", localConfig, nil)
 	if err != nil {
 		return false, err
 	}

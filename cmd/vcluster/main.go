@@ -6,7 +6,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/indices"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/loft-sh/kiosk/pkg/manager/blockingcacheclient"
@@ -17,7 +16,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/server"
-	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -55,8 +53,7 @@ import (
 )
 
 var (
-	certPath = "/var/lib/vcluster/tls"
-	scheme   = runtime.NewScheme()
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -101,6 +98,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
 	cmd.Flags().BoolVar(&options.SyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync node changes from the virtual cluster to the host cluster")
 	cmd.Flags().BoolVar(&options.UseFakeNodes, "fake-nodes", true, "If enabled, the virtual cluster will create fake nodes instead of copying the actual physical nodes config")
+	cmd.Flags().BoolVar(&options.UseFakeKubelets, "fake-kubelets", true, "If enabled, the virtual cluster will create fake kubelet endpoints to support metrics-servers")
 	cmd.Flags().BoolVar(&options.UseFakePersistentVolumes, "fake-persistent-volumes", true, "If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config")
 	cmd.Flags().BoolVar(&options.EnableStorageClasses, "enable-storage-classes", false, "If enabled, the virtual cluster will sync storage classes")
 	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
@@ -283,13 +281,8 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 		return err
 	}
 
-	tlsCert, tlsKey, err := genServingCerts(ctx, localManager.GetClient(), options)
-	if err != nil {
-		return err
-	}
-
 	// start the proxy server in secure mode
-	err = proxyServer.ServeOnListenerTLS(options.BindAddress, options.Port, tlsCert, tlsKey, ctx.StopChan)
+	err = proxyServer.ServeOnListenerTLS(options.BindAddress, options.Port, ctx.StopChan)
 	if err != nil {
 		return err
 	}
@@ -329,35 +322,6 @@ func syncKubernetesService(ctx *context.ControllerContext) error {
 	}
 
 	return nil
-}
-
-func genServingCerts(ctx *context.ControllerContext, client client.Client, options *context.VirtualClusterOptions) (string, string, error) {
-	err := os.MkdirAll(certPath, 0755)
-	if err != nil {
-		return "", "", err
-	}
-
-	// get cluster ip of target service
-	svc := &corev1.Service{}
-	err = client.Get(ctx.Context, types.NamespacedName{
-		Namespace: options.TargetNamespace,
-		Name:      options.ServiceName,
-	}, svc)
-	if err != nil {
-		return "", "", fmt.Errorf("error getting vcluster service %s/%s: %v", options.TargetNamespace, options.ServiceName, err)
-	} else if svc.Spec.ClusterIP == "" {
-		return "", "", fmt.Errorf("target service %s/%s is missing a clusterIP", options.TargetNamespace, options.ServiceName)
-	}
-
-	options.TlsSANs = append(options.TlsSANs, svc.Spec.ClusterIP)
-	klog.Infof("Generating serving cert for service ip: %s", svc.Spec.ClusterIP)
-	tlsCert := filepath.Join(certPath, "serving-tls.crt")
-	tlsKey := filepath.Join(certPath, "serving-tls.key")
-	_, err = cert.GenServingCerts(options.ServerCaCert, options.ServerCaKey, tlsCert, tlsKey, options.TlsSANs)
-	if err != nil {
-		return "", "", err
-	}
-	return tlsCert, tlsKey, nil
 }
 
 func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config) error {

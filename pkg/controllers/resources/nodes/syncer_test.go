@@ -33,6 +33,7 @@ func newFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, pClient *
 		virtualClient:       vClient,
 		localClient:         pClient,
 		scheme:              testingutil.NewScheme(),
+		useFakeKubelets:     true,
 	}, nil
 }
 
@@ -56,6 +57,24 @@ func TestSync(t *testing.T) {
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
 					Port: 0,
+				},
+			},
+		},
+	}
+	baseVNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: KubeletPort,
 				},
 			},
 		},
@@ -181,14 +200,14 @@ func TestSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.BackwardUpdateNeeded(baseNode, baseNode)
+				needed, err := syncer.BackwardUpdateNeeded(baseNode, baseVNode)
 				if err != nil {
 					t.Fatal(err)
 				} else if needed {
 					t.Fatal("Expected update to be not needed")
 				}
 
-				_, err = syncer.BackwardUpdate(ctx, baseNode, baseNode, log)
+				_, err = syncer.BackwardUpdate(ctx, baseNode, baseVNode, log)
 				if err != nil {
 					t.Fatal(err)
 				}

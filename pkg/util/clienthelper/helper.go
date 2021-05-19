@@ -39,6 +39,11 @@ func init() {
 }
 
 func CurrentNamespace() (string, error) {
+	namespaceEnv := os.Getenv("NAMESPACE")
+	if namespaceEnv != "" {
+		return namespaceEnv, nil
+	}
+
 	namespace, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		return "", err
@@ -118,6 +123,11 @@ func GVKFrom(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersionKin
 }
 
 func CurrentPodName() (string, error) {
+	podNameEnv := os.Getenv("POD_NAME")
+	if podNameEnv != "" {
+		return podNameEnv, nil
+	}
+
 	return os.Hostname()
 }
 

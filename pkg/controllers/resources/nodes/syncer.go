@@ -38,6 +38,7 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 		scheme:              ctx.LocalManager.GetScheme(),
 		nodeSelector:        nodeSelector,
 		syncNodeChanges:     ctx.Options.SyncNodeChanges,
+		useFakeKubelets:     ctx.Options.UseFakeKubelets,
 	}, "node")
 }
 
@@ -45,6 +46,7 @@ type syncer struct {
 	sharedNodesMutex sync.Locker
 	nodeSelector     labels.Selector
 	syncNodeChanges  bool
+	useFakeKubelets  bool
 
 	localClient         client.Client
 	virtualClient       client.Client
@@ -119,40 +121,17 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
 	}
 
-	// make sure we ignore the kubelet addresses and port as we will set our own anyways
-	pNode = pNode.DeepCopy()
-	pNode.Status.Addresses = vNode.Status.Addresses
-	pNode.Status.DaemonEndpoints = vNode.Status.DaemonEndpoints
-
-	if !equality.Semantic.DeepEqual(vNode.Status, pNode.Status) {
-		newNode := vNode.DeepCopy()
-		newNode.Status = pNode.Status
-		if len(newNode.Status.Addresses) == 0 {
-			// create a new service for this node
-			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, types.NamespacedName{Name: newNode.Name})
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			newNode.Status.Addresses = []corev1.NodeAddress{
-				{
-					Address: nodeIP,
-					Type:    corev1.NodeInternalIP,
-				},
-			}
-			newNode.Status.DaemonEndpoints = corev1.NodeDaemonEndpoints{
-				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: KubeletPort,
-				},
-			}
-		}
-
+	updatedVNode, err := s.calcStatusDiff(ctx, pNode, vNode)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "update node status")
+	} else if updatedVNode != nil {
 		log.Debugf("update virtual node %s, because status has changed", pNode.Name)
-		err = s.virtualClient.Status().Update(ctx, newNode)
+		err := s.virtualClient.Status().Update(ctx, updatedVNode)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 
-		vNode = newNode
+		vNode = updatedVNode
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Spec, pNode.Spec) || !equality.Semantic.DeepEqual(vNode.Annotations, pNode.Annotations) || !equality.Semantic.DeepEqual(vNode.Labels, pNode.Labels) {
@@ -170,6 +149,48 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	return ctrl.Result{}, nil
 }
 
+func (s *syncer) calcStatusDiff(ctx context.Context, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
+	// translate node status first
+	translatedStatus := pNode.Status.DeepCopy()
+	if s.useFakeKubelets {
+		translatedStatus.DaemonEndpoints = corev1.NodeDaemonEndpoints{
+			KubeletEndpoint: corev1.DaemonEndpoint{
+				Port: KubeletPort,
+			},
+		}
+
+		// translate addresses
+		// create a new service for this node
+		nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, types.NamespacedName{Name: vNode.Name})
+		if err != nil {
+			return nil, errors.Wrap(err, "get vNode IP")
+		}
+		newAddresses := []corev1.NodeAddress{
+			{
+				Address: nodeIP,
+				Type:    corev1.NodeInternalIP,
+			},
+		}
+		for _, oldAddress := range translatedStatus.Addresses {
+			if oldAddress.Type == corev1.NodeInternalIP || oldAddress.Type == corev1.NodeInternalDNS || oldAddress.Type == corev1.NodeHostName {
+				continue
+			}
+
+			newAddresses = append(newAddresses, oldAddress)
+		}
+		translatedStatus.Addresses = newAddresses
+	}
+
+	// check if the status has changed
+	if !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus) {
+		newNode := vNode.DeepCopy()
+		newNode.Status = *translatedStatus
+		return newNode, nil
+	}
+
+	return nil, nil
+}
+
 func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
 	pNode := pObj.(*corev1.Node)
 	vNode := vObj.(*corev1.Node)
@@ -180,7 +201,10 @@ func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (b
 		return true, nil
 	}
 
-	if !equality.Semantic.DeepEqual(vNode.Status, pNode.Status) {
+	updated, err := s.calcStatusDiff(context.TODO(), pNode, vNode)
+	if err != nil {
+		return false, err
+	} else if updated != nil {
 		return true, nil
 	}
 
