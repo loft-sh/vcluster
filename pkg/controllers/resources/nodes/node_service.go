@@ -40,8 +40,13 @@ type nodeServiceProvider struct {
 }
 
 func (n *nodeServiceProvider) CleanupNodeServices(ctx context.Context, name types.NamespacedName) error {
+	namespace, err := clienthelper.CurrentNamespace()
+	if err != nil {
+		return errors.Wrap(err, "get current namespace")
+	}
+
 	serviceList := &corev1.ServiceList{}
-	err := n.localClient.List(ctx, serviceList, client.MatchingLabels{
+	err = n.localClient.List(ctx, serviceList, client.InNamespace(namespace), client.MatchingLabels{
 		ServiceClusterLabel: translate.Suffix,
 		ServiceNodeLabel:    name.Name,
 	})
@@ -62,8 +67,13 @@ func (n *nodeServiceProvider) CleanupNodeServices(ctx context.Context, name type
 }
 
 func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
+	namespace, err := clienthelper.CurrentNamespace()
+	if err != nil {
+		return "", errors.Wrap(err, "get current namespace")
+	}
+
 	serviceList := &corev1.ServiceList{}
-	err := n.localClient.List(ctx, serviceList, client.MatchingLabels{
+	err = n.localClient.List(ctx, serviceList, client.InNamespace(namespace), client.MatchingLabels{
 		ServiceClusterLabel: translate.Suffix,
 		ServiceNodeLabel:    name.Name,
 	})
@@ -77,10 +87,6 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 	podName, err := clienthelper.CurrentPodName()
 	if err != nil {
 		return "", errors.Wrap(err, "get current pod name")
-	}
-	namespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return "", errors.Wrap(err, "get current namespace")
 	}
 
 	// find out the labels to select ourself
