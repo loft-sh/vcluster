@@ -33,6 +33,7 @@ func newFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, pClient *
 		virtualClient:       vClient,
 		localClient:         pClient,
 		scheme:              testingutil.NewScheme(),
+		useFakeKubelets:     true,
 	}, nil
 }
 

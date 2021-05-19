@@ -38,6 +38,7 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 		scheme:              ctx.LocalManager.GetScheme(),
 		nodeSelector:        nodeSelector,
 		syncNodeChanges:     ctx.Options.SyncNodeChanges,
+		useFakeKubelets:     ctx.Options.UseFakeKubelets,
 	}, "node")
 }
 
@@ -45,6 +46,7 @@ type syncer struct {
 	sharedNodesMutex sync.Locker
 	nodeSelector     labels.Selector
 	syncNodeChanges  bool
+	useFakeKubelets  bool
 
 	localClient         client.Client
 	virtualClient       client.Client
@@ -150,32 +152,34 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 func (s *syncer) calcStatusDiff(ctx context.Context, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
-	translatedStatus.DaemonEndpoints = corev1.NodeDaemonEndpoints{
-		KubeletEndpoint: corev1.DaemonEndpoint{
-			Port: KubeletPort,
-		},
-	}
-
-	// translate addresses
-	// create a new service for this node
-	nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, types.NamespacedName{Name: vNode.Name})
-	if err != nil {
-		return nil, errors.Wrap(err, "get vNode IP")
-	}
-	newAddresses := []corev1.NodeAddress{
-		{
-			Address: nodeIP,
-			Type:    corev1.NodeInternalIP,
-		},
-	}
-	for _, oldAddress := range translatedStatus.Addresses {
-		if oldAddress.Type == corev1.NodeInternalIP || oldAddress.Type == corev1.NodeInternalDNS || oldAddress.Type == corev1.NodeHostName {
-			continue
+	if s.useFakeKubelets {
+		translatedStatus.DaemonEndpoints = corev1.NodeDaemonEndpoints{
+			KubeletEndpoint: corev1.DaemonEndpoint{
+				Port: KubeletPort,
+			},
 		}
 
-		newAddresses = append(newAddresses, oldAddress)
+		// translate addresses
+		// create a new service for this node
+		nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, types.NamespacedName{Name: vNode.Name})
+		if err != nil {
+			return nil, errors.Wrap(err, "get vNode IP")
+		}
+		newAddresses := []corev1.NodeAddress{
+			{
+				Address: nodeIP,
+				Type:    corev1.NodeInternalIP,
+			},
+		}
+		for _, oldAddress := range translatedStatus.Addresses {
+			if oldAddress.Type == corev1.NodeInternalIP || oldAddress.Type == corev1.NodeInternalDNS || oldAddress.Type == corev1.NodeHostName {
+				continue
+			}
+
+			newAddresses = append(newAddresses, oldAddress)
+		}
+		translatedStatus.Addresses = newAddresses
 	}
-	translatedStatus.Addresses = newAddresses
 
 	// check if the status has changed
 	if !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus) {

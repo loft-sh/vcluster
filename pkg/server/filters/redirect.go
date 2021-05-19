@@ -79,7 +79,6 @@ func WithRedirect(h http.Handler, localManager ctrl.Manager, targetNamespace str
 				}
 			}
 
-			fmt.Println("REDIRECT", req.URL.String(), req.Header)
 			req.Header.Del("Authorization")
 			transport, err := rest.TransportFor(localManager.GetConfig())
 			if err != nil {
