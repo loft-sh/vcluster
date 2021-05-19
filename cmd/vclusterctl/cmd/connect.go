@@ -25,6 +25,7 @@ type ConnectCmd struct {
 
 	KubeConfig    string
 	Namespace     string
+	PodName       string
 	UpdateCurrent bool
 	Print         bool
 	LocalPort     int
@@ -52,7 +53,7 @@ Example:
 vcluster connect test --namespace test
 #######################################################
 	`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
@@ -65,6 +66,7 @@ vcluster connect test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", false, "If true updates the current kube config")
 	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	cobraCmd.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace the vcluster is in")
+	cobraCmd.Flags().StringVar(&cmd.PodName, "pod", "", "The pod to connect to")
 	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 8443, "The local port to forward the virtual cluster to")
 	return cobraCmd
 }
@@ -82,7 +84,14 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
-	podName := args[0] + "-0"
+	if len(args) == 0 && cmd.PodName == "" {
+		return fmt.Errorf("please specify either --pod or a name for the vcluster")
+	}
+
+	podName := cmd.PodName
+	if podName == "" {
+		podName = args[0] + "-0"
+	}
 
 	// get the kube config from the container
 	var out []byte
@@ -143,7 +152,12 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			authConfig = a
 		}
 
-		contextName := "vcluster_" + cmd.Namespace + "_" + args[0]
+		contextName := ""
+		if len(args) > 0 {
+			contextName = "vcluster_" + cmd.Namespace + "_" + args[0]
+		} else {
+			contextName = "vcluster_" + cmd.Namespace + "_" + cmd.PodName
+		}
 		err = updateKubeConfig(contextName, clusterConfig, authConfig, false)
 		if err != nil {
 			return err

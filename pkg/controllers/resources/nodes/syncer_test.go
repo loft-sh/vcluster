@@ -60,6 +60,24 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
+	baseVNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: KubeletPort,
+				},
+			},
+		},
+	}
 	editedNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
@@ -181,14 +199,14 @@ func TestSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.BackwardUpdateNeeded(baseNode, baseNode)
+				needed, err := syncer.BackwardUpdateNeeded(baseNode, baseVNode)
 				if err != nil {
 					t.Fatal(err)
 				} else if needed {
 					t.Fatal("Expected update to be not needed")
 				}
 
-				_, err = syncer.BackwardUpdate(ctx, baseNode, baseNode, log)
+				_, err = syncer.BackwardUpdate(ctx, baseNode, baseVNode, log)
 				if err != nil {
 					t.Fatal(err)
 				}

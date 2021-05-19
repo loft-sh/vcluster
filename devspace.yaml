@@ -1,8 +1,8 @@
-version: v1beta9
+version: v1beta10
 images:
   vcluster:
     image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
-    preferSyncOverRebuild: true
+    rebuildStrategy: ignoreContextChanges
     entrypoint: ["sleep", "99999999"]
     build:
       docker:
@@ -15,6 +15,13 @@ deployments:
       chart:
         name: ./chart
       values:
+        serviceAccount:
+          create: false
+          name: default
+        vcluster:
+          image: rancher/k3s:v1.20.5-k3s1
+          extraArgs:
+            - --service-cidr=10.68.0.0/20
         rbac:
           clusterRole:
             create: true
@@ -22,8 +29,8 @@ deployments:
           image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
           noArgs: true
 dev:
-  interactive:
-    defaultEnabled: true
+  terminal:
+    imageName: vcluster
   sync:
     - imageName: vcluster
       disableDownload: true
@@ -35,6 +42,9 @@ dev:
         - .git/
         - docs/
         - examples/
+        - /conformance
+        - /hack
+        - /test
         - /chart
         - /helm
         - /kubectl
@@ -42,9 +52,44 @@ dev:
 commands:
   - name: dev
     command: "devspace dev -n vcluster"
+  - name: gke
+    command: "devspace dev -n vcluster -p gke"
   - name: deploy
     command: "devspace deploy --profile deploy -n vcluster -d"
 profiles:
+  - name: gke
+    patches:
+      - path: dev.terminal
+        op: replace
+        value:
+          containerName: syncer
+          labelSelector:
+            app: vcluster
+      - path: dev.replacePods
+        op: replace
+        value:
+          - labelSelector:
+              app: vcluster
+            containerName: syncer
+            replaceImage: golang:1.16
+            patches:
+              - path: spec.containers[1].workingDir
+                op: replace
+                value: /vcluster
+              - path: spec.containers[1].command
+                op: replace
+                value: ["sleep", "99999999999"]
+      - path: dev.sync[0].imageName
+        op: remove
+      - path: images.vcluster
+        op: remove
+      - path: dev.sync[0].containerName
+        op: replace
+        value: syncer
+      - path: dev.sync[0].labelSelector
+        op: replace
+        value:
+          app: vcluster
   - name: deploy
     replace:
       images:
