@@ -119,8 +119,6 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 
 	sso := options.NewSecureServingOptions()
 	sso.HTTP2MaxStreamsPerConnection = 1000
-	// sso.ServerCert.CertKey.CertFile = certFile
-	// sso.ServerCert.CertKey.KeyFile = keyFile
 	sso.ServerCert.GeneratedCert = s.certSyncer
 	sso.BindPort = port
 	sso.BindAddress = net.ParseIP(address)
