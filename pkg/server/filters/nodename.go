@@ -3,7 +3,7 @@ package filters
 import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/pkg/errors"
@@ -59,8 +59,8 @@ func NodeNameFromHost(ctx context.Context, host string, localClient client.Clien
 		// we found a service?
 		if len(serviceList.Items) > 0 {
 			serviceLabels := serviceList.Items[0].Labels
-			if len(serviceLabels) > 0 && serviceLabels[nodes.ServiceNodeLabel] != "" {
-				return serviceLabels[nodes.ServiceNodeLabel], nil
+			if len(serviceLabels) > 0 && serviceLabels[nodeservice.ServiceNodeLabel] != "" {
+				return serviceLabels[nodeservice.ServiceNodeLabel], nil
 			}
 		}
 	}

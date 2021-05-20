@@ -43,9 +43,6 @@ type ForwardUpdate interface {
 type ClusterSyncer interface {
 	Object
 
-	ForwardOnDelete(ctx context.Context, req ctrl.Request) error
-	ForwardUpdate
-
 	BackwardCreate(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error)
 	BackwardCreateNeeded(pObj client.Object) (bool, error)
 	BackwardUpdate

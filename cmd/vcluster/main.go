@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/indices"
 	"io/ioutil"
 	"k8s.io/client-go/discovery"
@@ -97,7 +98,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().IntVar(&options.Port, "port", 8443, "The port to bind to")
 
 	cmd.Flags().BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
-	cmd.Flags().BoolVar(&options.SyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync node changes from the virtual cluster to the host cluster")
+	cmd.Flags().BoolVar(&options.SyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
 	cmd.Flags().BoolVar(&options.UseFakeNodes, "fake-nodes", true, "If enabled, the virtual cluster will create fake nodes instead of copying the actual physical nodes config")
 	cmd.Flags().BoolVar(&options.UseFakeKubelets, "fake-kubelets", true, "If enabled, the virtual cluster will create fake kubelet endpoints to support metrics-servers")
 	cmd.Flags().BoolVar(&options.UseFakePersistentVolumes, "fake-persistent-volumes", true, "If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config")
@@ -180,7 +181,7 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	}
 
 	// set kubelet port
-	nodes.KubeletPort = int32(options.Port)
+	nodeservice.KubeletPort = int32(options.Port)
 
 	// retrieve current namespace
 	if options.TargetNamespace == "" {
@@ -245,12 +246,15 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	klog.Infof("Can connect to virtual cluster with version " + serverVersion.GitVersion)
 
 	// create controller context
-	ctx := context.NewControllerContext(localManager, virtualClusterManager, options)
+	ctx, err := context.NewControllerContext(localManager, virtualClusterManager, options)
+	if err != nil {
+		return errors.Wrap(err, "create controller context")
+	}
 
 	// make sure the kubernetes service is synced
 	err = syncKubernetesService(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "sync kubernetes service")
 	}
 
 	// register the extra indices
@@ -284,6 +288,11 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	// Wait for caches to be synced
 	localManager.GetCache().WaitForCacheSync(ctx.Context)
 	virtualClusterManager.GetCache().WaitForCacheSync(ctx.Context)
+
+	// start the node service provider
+	go func() {
+		ctx.NodeServiceProvider.Start(ctx.Context)
+	}()
 
 	// start the proxy
 	proxyServer, err := server.NewServer(ctx, options.RequestHeaderCaCert, options.ClientCaCert)

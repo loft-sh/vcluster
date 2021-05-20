@@ -10,8 +10,8 @@ metadata:
     heritage: "{{ .Release.Service }}"
 rules:
   - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "watch", "list", "update"]
+    resources: ["nodes", "nodes/status"]
+    verbs: ["get", "watch", "list", "update", "patch"]
   - apiGroups: [""]
     resources: ["pods", "nodes/proxy", "persistentvolumes"]
     verbs: ["get", "watch", "list"]

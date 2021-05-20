@@ -53,22 +53,6 @@ func RegisterClusterSyncer(ctx *context.ControllerContext, clusterSyncer Cluster
 		return err
 	}
 
-	forwardController := &forwardClusterController{
-		synced:        ctx.CacheSynced,
-		target:        clusterSyncer,
-		log:           loghelper.New(name + "-forward"),
-		localClient:   ctx.LocalManager.GetClient(),
-		virtualClient: ctx.VirtualManager.GetClient(),
-	}
-	err = ctrl.NewControllerManagedBy(ctx.VirtualManager).
-		Named(name+"-forward").
-		Watches(garbagecollect.NewGarbageCollectSource(forwardController, ctx.StopChan, forwardController.log), nil).
-		For(clusterSyncer.New()).
-		Complete(forwardController)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

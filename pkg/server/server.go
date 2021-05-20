@@ -91,7 +91,10 @@ func NewServer(ctx *context.ControllerContext, requestHeaderCaFile, clientCaFile
 	h := handler.ImpersonatingHandler("", ctx.VirtualManager.GetConfig())
 	h = filters.WithServiceCreateRedirect(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
 	h = filters.WithRedirect(h, ctx.LocalManager, ctx.Options.TargetNamespace, s.redirectResources)
-	h = filters.WithNodesProxy(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
+	h = filters.WithMetricsProxy(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
+	if ctx.Options.SyncNodeChanges {
+		h = filters.WithNodeChanges(h, ctx.LocalManager, ctx.VirtualManager)
+	}
 	h = filters.WithFakeKubelet(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
 	serverhelper.HandleRoute(s.handler, "/", h)
 

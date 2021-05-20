@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/metrics"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
@@ -27,7 +27,7 @@ import (
 	"strings"
 )
 
-func WithNodesProxy(h http.Handler, localManager ctrl.Manager, virtualManager ctrl.Manager, targetNamespace string) http.Handler {
+func WithMetricsProxy(h http.Handler, localManager ctrl.Manager, virtualManager ctrl.Manager, targetNamespace string) http.Handler {
 	s := serializer.NewCodecFactory(virtualManager.GetScheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
@@ -54,7 +54,7 @@ func WithNodesProxy(h http.Handler, localManager ctrl.Manager, virtualManager ct
 				}
 
 				// delete port if it is the default one
-				if port == strconv.Itoa(int(nodes.KubeletPort)) {
+				if port == strconv.Itoa(int(nodeservice.KubeletPort)) {
 					if len(splittedName) == 2 {
 						targetNode = splittedName[0]
 					} else {

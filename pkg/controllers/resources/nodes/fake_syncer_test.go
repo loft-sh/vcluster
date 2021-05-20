@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"strings"
 	"testing"
 
@@ -24,9 +25,9 @@ import (
 
 type fakeNodeServiceProvider struct{}
 
-func (f *fakeNodeServiceProvider) CleanupNodeServices(ctx context.Context, name types.NamespacedName) error {
-	return nil
-}
+func (f *fakeNodeServiceProvider) Start(ctx context.Context) {}
+func (f *fakeNodeServiceProvider) Lock()                     {}
+func (f *fakeNodeServiceProvider) Unlock()                   {}
 func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
 	return "127.0.0.1", nil
 }
@@ -128,7 +129,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: KubeletPort,
+					Port: nodeservice.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{

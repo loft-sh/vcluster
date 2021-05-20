@@ -58,7 +58,7 @@ func WithServiceCreateRedirect(handler http.Handler, localManager ctrl.Manager, 
 		if info.APIVersion == corev1.SchemeGroupVersion.Version && info.APIGroup == corev1.SchemeGroupVersion.Group && info.Resource == "services" && info.Subresource == "" {
 			if info.Verb == "create" {
 				options := &metav1.CreateOptions{}
-				if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, options); err != nil {
+				if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, options); err != nil {
 					responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 					return
 				}
@@ -81,7 +81,7 @@ func WithServiceCreateRedirect(handler http.Handler, localManager ctrl.Manager, 
 				}
 			} else if info.Verb == "update" {
 				options := &metav1.UpdateOptions{}
-				if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, options); err != nil {
+				if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, options); err != nil {
 					responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 					return
 				}
@@ -161,11 +161,11 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 	}
 
 	// we try to patch the service as this has the best chances to go through
-	orignialPService := pService.DeepCopy()
+	originalPService := pService.DeepCopy()
 	pService.Spec.Ports = newVService.Spec.Ports
 	pService.Spec.Type = newVService.Spec.Type
 	pService.Spec.ClusterIP = ""
-	err = localClient.Patch(ctx, pService, client.MergeFrom(orignialPService))
+	err = localClient.Patch(ctx, pService, client.MergeFrom(originalPService))
 	if err != nil {
 		return nil, err
 	}
