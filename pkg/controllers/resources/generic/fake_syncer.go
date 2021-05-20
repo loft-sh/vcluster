@@ -116,7 +116,7 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err != nil {
 			return ctrl.Result{}, err
 		} else if needed {
-			err = r.target.Create(ctx, req.NamespacedName)
+			err = r.target.Create(ctx, req.NamespacedName, r.log)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -133,8 +133,7 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	} else if shouldDelete {
 		accessor, _ := meta.Accessor(vObj)
-		r.log.Debugf("garbage collect virtual %s, because it is not needed any longer", accessor.GetName())
-		err = r.target.Delete(ctx, vObj)
+		err = r.target.Delete(ctx, vObj, r.log)
 		if err != nil {
 			r.log.Infof("cannot delete virtual %s: %v", accessor.GetName(), err)
 		}

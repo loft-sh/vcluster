@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"sync"
 
@@ -64,7 +65,8 @@ func (r *fakeSyncer) ReconcileEnd() {
 	r.sharedNodesMutex.Unlock()
 }
 
-func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName) error {
+func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName, log loghelper.Logger) error {
+	log.Infof("Create fake node %s", name.Name)
 	return CreateFakeNode(ctx, r.nodeServiceProvider, r.virtualClient, name)
 }
 
@@ -80,7 +82,8 @@ func (r *fakeSyncer) CreateNeeded(ctx context.Context, name types.NamespacedName
 	return true, nil
 }
 
-func (r *fakeSyncer) Delete(ctx context.Context, obj client.Object) error {
+func (r *fakeSyncer) Delete(ctx context.Context, obj client.Object, log loghelper.Logger) error {
+	log.Infof("Delete fake node %s as it is not needed anymore", obj.GetName())
 	return r.virtualClient.Delete(ctx, obj)
 }
 

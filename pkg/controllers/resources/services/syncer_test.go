@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
-	"github.com/loft-sh/vcluster/pkg/util/locks"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -16,9 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func newFakeSyncer(lockFactory locks.LockFactory, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
+func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		sharedMutex:     lockFactory.GetLock("ingress-controller"),
 		eventRecoder:    &testingutil.FakeEventRecorder{},
 		targetNamespace: "test",
 		serviceName:     "myservice",
@@ -174,7 +172,6 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	lockFactory := locks.NewDefaultLockFactory()
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
@@ -187,7 +184,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
+				syncer := newFakeSyncer(pClient, vClient)
 
 				needed, err := syncer.ForwardCreateNeeded(baseService)
 				if err != nil {
@@ -212,7 +209,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
+				syncer := newFakeSyncer(pClient, vClient)
 
 				needed, err := syncer.ForwardCreateNeeded(kubernetesService)
 				if err != nil {
@@ -233,7 +230,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {updatedForwardService},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
+				syncer := newFakeSyncer(pClient, vClient)
 
 				needed, err := syncer.ForwardUpdateNeeded(createdService, updateForwardService)
 				if err != nil {
@@ -259,7 +256,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
+				syncer := newFakeSyncer(pClient, vClient)
 
 				needed, err := syncer.ForwardUpdateNeeded(createdService, baseService)
 				if err != nil {
@@ -285,7 +282,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecService},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
+				syncer := newFakeSyncer(pClient, vClient)
 
 				needed, err := syncer.BackwardUpdateNeeded(updateBackwardSpecService, baseService)
 				if err != nil {
@@ -311,7 +308,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecRecreateService},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
+				syncer := newFakeSyncer(pClient, vClient)
 
 				needed, err := syncer.BackwardUpdateNeeded(updateBackwardSpecRecreateService, baseService)
 				if err != nil {
@@ -337,7 +334,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardStatusService},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
+				syncer := newFakeSyncer(pClient, vClient)
 
 				needed, err := syncer.BackwardUpdateNeeded(updateBackwardStatusService, baseService)
 				if err != nil {
@@ -363,7 +360,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
+				syncer := newFakeSyncer(pClient, vClient)
 
 				needed, err := syncer.BackwardUpdateNeeded(createdService, baseService)
 				if err != nil {

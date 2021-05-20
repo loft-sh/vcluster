@@ -70,9 +70,8 @@ func TestBackwardSync(t *testing.T) {
 				err := syncer.GarbageCollect(queue)
 				if err != nil {
 					t.Fatal(err)
-				} else if queue.Len() > 0 {
-					item, _ := queue.Get()
-					t.Fatalf("Unexpected queue item: %v", item)
+				} else if queue.Len() != 1 {
+					t.Fatalf("Queue has wrong size: %d", queue.Len())
 				}
 			},
 		},

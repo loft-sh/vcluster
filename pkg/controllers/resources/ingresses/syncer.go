@@ -57,7 +57,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 
 	newIngress := newObj.(*networkingv1beta1.Ingress)
 	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
-	log.Debugf("create physical ingress %s/%s", newIngress.Namespace, newIngress.Name)
+	log.Infof("create physical ingress %s/%s", newIngress.Namespace, newIngress.Name)
 	err = s.localClient.Create(ctx, newIngress)
 	if err != nil {
 		log.Infof("error syncing %s/%s to physical cluster: %v", vIngress.Namespace, vIngress.Name, err)
@@ -80,7 +80,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 		pIngress.Annotations = vIngress.Annotations
 		pIngress.Labels = translate.TranslateLabels(vIngress.Namespace, vIngress.Labels)
 		pIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
-		log.Debugf("updating physical ingress %s/%s, because virtual ingress spec or annotations have changed", pIngress.Namespace, pIngress.Name)
+		log.Infof("updating physical ingress %s/%s, because virtual ingress spec or annotations have changed", pIngress.Namespace, pIngress.Name)
 		err = s.localClient.Update(ctx, pIngress)
 		if err != nil {
 			s.eventRecoder.Eventf(vIngress, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -142,7 +142,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 		newIngress := vIngress.DeepCopy()
 		newIngress.Spec.IngressClassName = pIngress.Spec.IngressClassName
 
-		log.Debugf("update virtual ingress %s/%s, because ingress class name is out of sync", vIngress.Namespace, vIngress.Name)
+		log.Infof("update virtual ingress %s/%s, because ingress class name is out of sync", vIngress.Namespace, vIngress.Name)
 		err = s.virtualClient.Update(ctx, newIngress)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -154,7 +154,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	if !equality.Semantic.DeepEqual(vIngress.Status, pIngress.Status) {
 		newIngress := vIngress.DeepCopy()
 		newIngress.Status = pIngress.Status
-		log.Debugf("update virtual ingress %s/%s, because status is out of sync", vIngress.Namespace, vIngress.Name)
+		log.Infof("update virtual ingress %s/%s, because status is out of sync", vIngress.Namespace, vIngress.Name)
 		err = s.virtualClient.Status().Update(ctx, newIngress)
 		if err != nil {
 			return ctrl.Result{}, err

@@ -26,6 +26,10 @@ type Syncer interface {
 	BackwardUpdate
 }
 
+type BackwardDelete interface {
+	BackwardDelete(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error)
+}
+
 type ForwardCreate interface {
 	ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
 	ForwardCreateNeeded(vObj client.Object) (bool, error)
@@ -65,9 +69,9 @@ type FakeSyncer interface {
 	ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error)
 	ReconcileEnd()
 
-	Create(ctx context.Context, name types.NamespacedName) error
+	Create(ctx context.Context, name types.NamespacedName, log loghelper.Logger) error
 	CreateNeeded(ctx context.Context, name types.NamespacedName) (bool, error)
 
-	Delete(ctx context.Context, obj client.Object) error
+	Delete(ctx context.Context, obj client.Object, log loghelper.Logger) error
 	DeleteNeeded(ctx context.Context, obj client.Object) (bool, error)
 }

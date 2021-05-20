@@ -117,7 +117,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 		return ctrl.Result{}, err
 	}
 
-	log.Debugf("create physical configmap %s/%s", newConfigMap.Namespace, newConfigMap.Name)
+	log.Infof("create physical configmap %s/%s", newConfigMap.Namespace, newConfigMap.Name)
 	err = s.localClient.Create(ctx, newConfigMap)
 	if err != nil {
 		log.Infof("error syncing %s/%s to physical cluster: %v", vConfigMap.Namespace, vConfigMap.Name, err)
@@ -153,7 +153,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 		return ctrl.Result{}, err
 	} else if used == false {
 		pConfigMap, _ := meta.Accessor(pObj)
-		log.Debugf("delete physical config map %s/%s, because it is not used anymore", pConfigMap.GetNamespace(), pConfigMap.GetName())
+		log.Infof("delete physical config map %s/%s, because it is not used anymore", pConfigMap.GetNamespace(), pConfigMap.GetName())
 		err = s.localClient.Delete(ctx, pObj)
 		if err != nil {
 			log.Infof("error deleting physical object %s/%s in physical cluster: %v", pConfigMap.GetNamespace(), pConfigMap.GetName(), err)
@@ -168,7 +168,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	vConfigMap := vObj.(*corev1.ConfigMap)
 	updated := calcConfigMapDiff(pConfigMap, vConfigMap)
 	if updated != nil {
-		log.Debugf("updating physical configmap %s/%s, because virtual configmap has changed", updated.Namespace, updated.Name)
+		log.Infof("updating physical configmap %s/%s, because virtual configmap has changed", updated.Namespace, updated.Name)
 		err = s.localClient.Update(ctx, updated)
 		if err != nil {
 			s.eventRecoder.Eventf(vConfigMap, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -231,4 +231,8 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 
 func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
 	return false, nil
+}
+
+func (s *syncer) DeleteNeeded(ctx context.Context, obj client.Object) (bool, error) {
+	return true, nil
 }

@@ -71,7 +71,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 	vPvc := vObj.(*corev1.PersistentVolumeClaim)
 	if vPvc.DeletionTimestamp != nil {
 		// delete pvc immediately
-		log.Debugf("delete virtual persistent volume claim %s/%s immediately, because it is being deleted & there is no physical persistent volume claim", vPvc.Namespace, vPvc.Name)
+		log.Infof("delete virtual persistent volume claim %s/%s immediately, because it is being deleted & there is no physical persistent volume claim", vPvc.Namespace, vPvc.Name)
 		err := s.virtualClient.Delete(ctx, vPvc, &client.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
@@ -87,7 +87,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 	}
 
 	newPvc := newObj.(*corev1.PersistentVolumeClaim)
-	log.Debugf("create physical persistent volume claim %s/%s", newPvc.Namespace, newPvc.Name)
+	log.Infof("create physical persistent volume claim %s/%s", newPvc.Namespace, newPvc.Name)
 	err = s.localClient.Create(ctx, newPvc)
 	if err != nil {
 		log.Infof("error syncing %s/%s to physical cluster: %v", vPvc.Namespace, vPvc.Name, err)
@@ -108,7 +108,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 			return ctrl.Result{}, nil
 		}
 
-		log.Debugf("delete physical persistent volume claim %s/%s, because virtual persistent volume claim is being deleted", pPvc.Namespace, pPvc.Name)
+		log.Infof("delete physical persistent volume claim %s/%s, because virtual persistent volume claim is being deleted", pPvc.Namespace, pPvc.Name)
 		err := s.localClient.Delete(ctx, pPvc, &client.DeleteOptions{
 			GracePeriodSeconds: vPvc.DeletionGracePeriodSeconds,
 			Preconditions:      metav1.NewUIDPreconditions(string(pPvc.UID)),
@@ -122,7 +122,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	// update the virtual persistent volume claim if the spec has changed
 	updatedPvc := calcPVCDiff(pPvc, vPvc)
 	if updatedPvc != nil {
-		log.Debugf("update physical persistent volume claim %s/%s, because spec or annotations have changed", updatedPvc.Namespace, updatedPvc.Name)
+		log.Infof("update physical persistent volume claim %s/%s, because spec or annotations have changed", updatedPvc.Namespace, updatedPvc.Name)
 		err := s.localClient.Update(ctx, updatedPvc)
 		if err != nil {
 			s.eventRecoder.Eventf(vPvc, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -153,12 +153,12 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	var err error
 	if pPvc.DeletionTimestamp != nil {
 		if vPvc.DeletionTimestamp == nil {
-			log.Debugf("delete virtual persistent volume claim %s/%s, because the physical persistent volume claim is being deleted", vPvc.Namespace, vPvc.Name)
+			log.Infof("delete virtual persistent volume claim %s/%s, because the physical persistent volume claim is being deleted", vPvc.Namespace, vPvc.Name)
 			if err = s.virtualClient.Delete(ctx, vPvc, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds}); err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if *vPvc.DeletionGracePeriodSeconds != *pPvc.DeletionGracePeriodSeconds {
-			log.Debugf("delete virtual persistent volume claim %s/%s with grace period seconds %v", vPvc.Namespace, vPvc.Name, *pPvc.DeletionGracePeriodSeconds)
+			log.Infof("delete virtual persistent volume claim %s/%s with grace period seconds %v", vPvc.Namespace, vPvc.Name, *pPvc.DeletionGracePeriodSeconds)
 			if err = s.virtualClient.Delete(ctx, vPvc, &client.DeleteOptions{GracePeriodSeconds: pPvc.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(vPvc.UID))}); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -176,7 +176,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 
 	updated := calcPVCDiffBackwards(pPvc, vPvc)
 	if updated != nil {
-		log.Debugf("update virtual persistent volume claim %s/%s, because the spec has changed", vPvc.Namespace, vPvc.Name)
+		log.Infof("update virtual persistent volume claim %s/%s, because the spec has changed", vPvc.Namespace, vPvc.Name)
 		err = s.virtualClient.Update(ctx, updated)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -187,7 +187,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 
 	if !equality.Semantic.DeepEqual(vPvc.Status, pPvc.Status) {
 		vPvc.Status = *pPvc.Status.DeepCopy()
-		log.Debugf("update virtual persistent volume claim %s/%s, because the status has changed", vPvc.Namespace, vPvc.Name)
+		log.Infof("update virtual persistent volume claim %s/%s, because the status has changed", vPvc.Namespace, vPvc.Name)
 		err = s.virtualClient.Status().Update(ctx, vPvc)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -212,7 +212,7 @@ func (s *syncer) ensurePersistentVolume(ctx context.Context, pObj *corev1.Persis
 
 		if s.useFakePersistentVolumes == true {
 			// now insert it into the virtual cluster
-			log.Debugf("create virtual fake pv %s, because pvc %s/%s uses it and it is not available in virtual cluster", pObj.Spec.VolumeName, vObj.Namespace, vObj.Name)
+			log.Infof("create virtual fake pv %s, because pvc %s/%s uses it and it is not available in virtual cluster", pObj.Spec.VolumeName, vObj.Namespace, vObj.Name)
 
 			// create fake persistent volume
 			err = persistentvolumes.CreateFakePersistentVolume(ctx, s.virtualClient, types.NamespacedName{Name: pObj.Spec.VolumeName}, vObj)
@@ -224,7 +224,7 @@ func (s *syncer) ensurePersistentVolume(ctx context.Context, pObj *corev1.Persis
 	}
 
 	if vObj.Spec.VolumeName != pObj.Spec.VolumeName {
-		log.Debugf("update virtual pvc %s/%s volume name to %s", vObj.Namespace, vObj.Name, pObj.Spec.VolumeName)
+		log.Infof("update virtual pvc %s/%s volume name to %s", vObj.Namespace, vObj.Name, pObj.Spec.VolumeName)
 
 		vObj.Spec.VolumeName = pObj.Spec.VolumeName
 		err = s.virtualClient.Update(ctx, vObj)

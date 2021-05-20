@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/rest"
 	"os"
 	"reflect"
 
@@ -269,4 +271,15 @@ func encode(obj runtime.Object) ([]byte, error) {
 		return nil, err
 	}
 	return js, nil
+}
+
+func NewImpersonatingClient(config *rest.Config, mapper meta.RESTMapper, user user.Info, scheme *runtime.Scheme) (client.Client, error) {
+	// Impersonate user
+	restConfig := rest.CopyConfig(config)
+	restConfig.Impersonate.UserName = user.GetName()
+	restConfig.Impersonate.Groups = user.GetGroups()
+	restConfig.Impersonate.Extra = user.GetExtra()
+
+	// Create client
+	return client.New(restConfig, client.Options{Scheme: scheme, Mapper: mapper})
 }

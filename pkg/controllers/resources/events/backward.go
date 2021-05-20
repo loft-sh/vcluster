@@ -111,6 +111,20 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 	vObj.Message = strings.ReplaceAll(vObj.Message, pObj.InvolvedObject.Namespace+"/"+pObj.InvolvedObject.Name, vObj.InvolvedObject.Namespace+"/"+vObj.InvolvedObject.Name)
 	vObj.Message = strings.ReplaceAll(vObj.Message, pObj.InvolvedObject.Name, vObj.InvolvedObject.Name)
 
+	// make sure namespace is not being deleted
+	namespace := &corev1.Namespace{}
+	err = r.virtualClient.Get(ctx, client.ObjectKey{Name: m.GetNamespace()}, namespace)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+
+		return ctrl.Result{}, err
+	} else if namespace.DeletionTimestamp != nil {
+		// cannot create events in terminating namespaces
+		return ctrl.Result{}, nil
+	}
+
 	// check if there is such an event already
 	vOldObj := &corev1.Event{}
 	err = r.virtualClient.Get(ctx, types.NamespacedName{
@@ -122,7 +136,7 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 
-		r.log.Debugf("create virtual event %s/%s", vObj.Namespace, vObj.Name)
+		r.log.Infof("create virtual event %s/%s", vObj.Namespace, vObj.Name)
 		return ctrl.Result{}, r.virtualClient.Create(ctx, vObj)
 	}
 
@@ -130,6 +144,6 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 	vObj.ObjectMeta = *vOldObj.ObjectMeta.DeepCopy()
 
 	// update existing event
-	r.log.Debugf("update virtual event %s/%s", vObj.Namespace, vObj.Name)
+	r.log.Infof("update virtual event %s/%s", vObj.Namespace, vObj.Name)
 	return ctrl.Result{}, r.virtualClient.Update(ctx, vObj)
 }

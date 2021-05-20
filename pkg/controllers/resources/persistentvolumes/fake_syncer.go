@@ -3,6 +3,7 @@ package persistentvolumes
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"sync"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -69,7 +70,7 @@ func (r *fakeSyncer) ReconcileEnd() {
 	r.sharedMutex.Unlock()
 }
 
-func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName) error {
+func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName, log loghelper.Logger) error {
 	pvcList := &corev1.PersistentVolumeClaimList{}
 	err := r.virtualClient.List(ctx, pvcList, client.MatchingFields{constants.IndexByAssigned: name.Name})
 	if err != nil {
@@ -78,6 +79,7 @@ func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName) erro
 		return nil
 	}
 
+	log.Infof("Create fake persistent volume for PVC %s/%s", pvcList.Items[0].Namespace, pvcList.Items[0].Name)
 	return CreateFakePersistentVolume(ctx, r.virtualClient, name, &pvcList.Items[0])
 }
 
@@ -85,7 +87,8 @@ func (r *fakeSyncer) CreateNeeded(ctx context.Context, name types.NamespacedName
 	return r.pvNeeded(ctx, name.Name)
 }
 
-func (r *fakeSyncer) Delete(ctx context.Context, obj client.Object) error {
+func (r *fakeSyncer) Delete(ctx context.Context, obj client.Object, log loghelper.Logger) error {
+	log.Infof("Delete fake persistent volume %s", obj.GetName())
 	err := r.virtualClient.Delete(ctx, obj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {

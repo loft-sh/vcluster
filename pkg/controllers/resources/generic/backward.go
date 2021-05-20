@@ -52,11 +52,13 @@ func (r *backwardController) GarbageCollect(queue workqueue.RateLimitingInterfac
 		pAccessor, _ := meta.Accessor(pObj)
 		err = clienthelper.GetByIndex(ctx, r.virtualClient, vObj, r.scheme, constants.IndexByVName, pAccessor.GetName())
 		if kerrors.IsNotFound(err) {
-			r.log.Debugf("garbage collect physical %s/%s, because there is no corresponding virtual object", pAccessor.GetNamespace(), pAccessor.GetName())
-			err = r.localClient.Delete(ctx, pObj.(client.Object))
-			if err != nil {
-				r.log.Infof("cannot delete physical %s/%s: %v", r.targetNamespace, pAccessor.GetName(), err)
-			}
+			r.log.Debugf("resync physical object %s/%s, because virtual object is missing", pAccessor.GetNamespace(), pAccessor.GetName())
+			queue.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      pAccessor.GetName(),
+					Namespace: pAccessor.GetNamespace(),
+				},
+			})
 			continue
 		} else if err != nil {
 			r.log.Infof("cannot get physical object %s/%s: %v", r.targetNamespace, pAccessor.GetName(), err)
@@ -116,8 +118,11 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 	err = clienthelper.GetByIndex(ctx, r.virtualClient, vObj, r.scheme, constants.IndexByVName, req.Name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			r.log.Debugf("delete physical object %s/%s, because there is no virtual object for it", req.Namespace, req.Name)
-			return ctrl.Result{}, r.localClient.Delete(ctx, pObj)
+			if backwardDeleter, ok := r.target.(BackwardDelete); ok {
+				return backwardDeleter.BackwardDelete(ctx, pObj, r.log)
+			}
+
+			return DeleteObject(ctx, r.localClient, pObj, r.log)
 		}
 
 		return ctrl.Result{}, err

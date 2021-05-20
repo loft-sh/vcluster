@@ -90,7 +90,7 @@ func (s *syncer) BackwardCreate(ctx context.Context, pObj client.Object, log log
 		return ctrl.Result{}, nil
 	}
 
-	log.Debugf("create virtual node %s, because there is a virtual pod with that node", pNode.Name)
+	log.Infof("create virtual node %s, because there is a virtual pod with that node", pNode.Name)
 	err = s.virtualClient.Create(ctx, &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pNode.Name,
@@ -117,7 +117,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if shouldSync == false {
-		log.Debugf("delete virtual node %s, because there is no virtual pod with that node", pNode.Name)
+		log.Infof("delete virtual node %s, because there is no virtual pod with that node", pNode.Name)
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
 	}
 
@@ -125,7 +125,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "update node status")
 	} else if updatedVNode != nil {
-		log.Debugf("update virtual node %s, because status has changed", pNode.Name)
+		log.Infof("update virtual node %s, because status has changed", pNode.Name)
 		err := s.virtualClient.Status().Update(ctx, updatedVNode)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -139,7 +139,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 		newNode.Annotations = pNode.Annotations
 		newNode.Labels = pNode.Labels
 		newNode.Spec = pNode.Spec
-		log.Debugf("update virtual node %s, because spec has changed", pNode.Name)
+		log.Infof("update virtual node %s, because spec has changed", pNode.Name)
 		err = s.virtualClient.Update(ctx, newNode)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -236,7 +236,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 
 	pNode.Labels = vNode.Labels
 	pNode.Spec.Taints = vNode.Spec.Taints
-	log.Debugf("update physical node %s, because taints or labels have changed", pNode.Name)
+	log.Infof("update physical node %s, because taints or labels have changed", pNode.Name)
 	err = s.localClient.Update(ctx, pNode)
 	if err != nil {
 		return ctrl.Result{}, err

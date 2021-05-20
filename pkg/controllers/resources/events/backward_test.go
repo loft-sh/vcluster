@@ -42,6 +42,11 @@ func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vC
 }
 
 func TestSync(t *testing.T) {
+	vNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+	}
 	vPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
@@ -95,6 +100,7 @@ func TestSync(t *testing.T) {
 		{
 			Name: "Create new event",
 			InitialVirtualState: []runtime.Object{
+				vNamespace,
 				vPod,
 			},
 			InitialPhysicalState: []runtime.Object{
@@ -120,6 +126,7 @@ func TestSync(t *testing.T) {
 		{
 			Name: "Update event",
 			InitialVirtualState: []runtime.Object{
+				vNamespace,
 				vPod,
 				vEvent,
 			},

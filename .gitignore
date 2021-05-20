@@ -4,3 +4,4 @@
 /kubeconfig.yaml
 .devspace/
 /test
+.DS_Store

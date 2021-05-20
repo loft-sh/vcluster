@@ -26,7 +26,6 @@ func Register(ctx *context2.ControllerContext) error {
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 
 	return generic.RegisterSyncer(ctx, &syncer{
-		sharedMutex:     ctx.LockFactory.GetLock("service-controller"),
 		eventRecoder:    eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"}),
 		targetNamespace: ctx.Options.TargetNamespace,
 		serviceName:     ctx.Options.ServiceName,
@@ -36,7 +35,7 @@ func Register(ctx *context2.ControllerContext) error {
 }
 
 type syncer struct {
-	sharedMutex  sync.Locker
+	syncMutex    sync.Mutex
 	eventRecoder record.EventRecorder
 
 	targetNamespace string
@@ -66,7 +65,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 	newService.Spec.Selector = nil
 	newService.Spec.ClusterIP = ""
 	newService.Spec.ClusterIPs = nil
-	log.Debugf("create physical service %s/%s", newService.Namespace, newService.Name)
+	log.Infof("create physical service %s/%s", newService.Namespace, newService.Name)
 	err = s.localClient.Create(ctx, newService)
 	if err != nil {
 		log.Infof("error syncing %s/%s to physical cluster: %v", vService.Namespace, vService.Name, err)
@@ -92,10 +91,15 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	vService := vObj.(*corev1.Service)
 	pService := pObj.(*corev1.Service)
 
+	// delay if we are in the middle of a switch operation
+	if isSwitchingFromExternalName(pService, vService) {
+		return ctrl.Result{RequeueAfter: time.Second * 3}, nil
+	}
+
 	// did the service change?
 	updated := calcServiceDiff(pService, vService)
 	if updated != nil {
-		log.Debugf("updating physical service %s/%s, because virtual service has changed", updated.Namespace, updated.Name)
+		log.Infof("updating physical service %s/%s, because virtual service has changed", updated.Namespace, updated.Name)
 		err = s.localClient.Update(ctx, updated)
 		if err != nil {
 			s.eventRecoder.Eventf(vService, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -205,12 +209,20 @@ func calcServiceDiff(pObj, vObj *corev1.Service) *corev1.Service {
 	return updated
 }
 
+func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Service) bool {
+	return vService.Spec.Type == corev1.ServiceTypeExternalName && pService.Spec.Type != vService.Spec.Type && pService.Spec.ClusterIP != ""
+}
+
 func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	vService := vObj.(*corev1.Service)
 	pService := pObj.(*corev1.Service)
 
 	var err error
 	if serviceSpecUpdateNeeded(vService, pService) {
+		if isSwitchingFromExternalName(pService, vService) {
+			return ctrl.Result{RequeueAfter: time.Second * 3}, nil
+		}
+
 		newService := vService.DeepCopy()
 		newService.Spec.ClusterIP = pService.Spec.ClusterIP
 		newService.Spec.ExternalName = pService.Spec.ExternalName
@@ -219,7 +231,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 		newService.Spec.LoadBalancerSourceRanges = pService.Spec.LoadBalancerSourceRanges
 		if vService.Spec.ClusterIP != pService.Spec.ClusterIP {
 			newService.Spec.ClusterIPs = nil
-			log.Debugf("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
+			log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
 
 			// recreate the new service with the correct cluster ip
 			newService, err = recreateService(ctx, s.virtualClient, newService)
@@ -229,7 +241,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 			}
 		} else {
 			// update with correct ports
-			log.Debugf("update virtual service %s/%s, because spec is out of sync", vService.Namespace, vService.Name)
+			log.Infof("update virtual service %s/%s, because spec is out of sync", vService.Namespace, vService.Name)
 			err = s.virtualClient.Update(ctx, newService)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -242,7 +254,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	if !equality.Semantic.DeepEqual(vService.Status, pService.Status) {
 		newService := vService.DeepCopy()
 		newService.Status = pService.Status
-		log.Debugf("update virtual service %s/%s, because status is out of sync", vService.Namespace, vService.Name)
+		log.Infof("update virtual service %s/%s, because status is out of sync", vService.Namespace, vService.Name)
 		err = s.virtualClient.Status().Update(ctx, newService)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -260,7 +272,7 @@ func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (b
 }
 
 func (s *syncer) BackwardStart(ctx context.Context, req ctrl.Request) (bool, error) {
-	s.sharedMutex.Lock()
+	s.syncMutex.Lock()
 
 	// sync the kubernetes service
 	if req.Name == s.serviceName && req.Namespace == s.targetNamespace {
@@ -271,11 +283,11 @@ func (s *syncer) BackwardStart(ctx context.Context, req ctrl.Request) (bool, err
 }
 
 func (s *syncer) BackwardEnd() {
-	s.sharedMutex.Unlock()
+	s.syncMutex.Unlock()
 }
 
 func (s *syncer) ForwardStart(ctx context.Context, req ctrl.Request) (bool, error) {
-	s.sharedMutex.Lock()
+	s.syncMutex.Lock()
 
 	// dont do anything for the kubernetes service
 	if req.Name == "kubernetes" && req.Namespace == "default" {
@@ -286,7 +298,22 @@ func (s *syncer) ForwardStart(ctx context.Context, req ctrl.Request) (bool, erro
 }
 
 func (s *syncer) ForwardEnd() {
-	s.sharedMutex.Unlock()
+	s.syncMutex.Unlock()
+}
+
+func (s *syncer) BackwardDelete(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+	// we have to delay deletion here if a vObj does not (yet) exist for a service that was just
+	// created, because vcluster intercepts those calls and first creates a service inside the host
+	// cluster and then inside the virtual cluster.
+	//
+	// We also don't need to care about the forwarding part deleting the physical object, because as soon as
+	// that controller gets a delete event for a virtual service, we can safely delete the physical object.
+	pService := pObj.(*corev1.Service)
+	if pService.DeletionTimestamp == nil && pService.CreationTimestamp.Add(time.Second*180).After(time.Now()) {
+		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+	}
+
+	return generic.DeleteObject(ctx, s.localClient, pObj, log)
 }
 
 func serviceSpecUpdateNeeded(vService *corev1.Service, pService *corev1.Service) bool {
@@ -313,7 +340,7 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 	// create the new service with the correct cluster ip
 	err = virtualClient.Create(ctx, vService)
 	if err != nil {
-		klog.Errorf("error recreating virtual service: %s/%s", vService.Namespace, vService.Name)
+		klog.Errorf("error recreating virtual service: %s/%s: %v", vService.Namespace, vService.Name, err)
 		return nil, err
 	}
 
