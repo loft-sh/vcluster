@@ -31,6 +31,7 @@ func newFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, pClient *
 		sharedNodesMutex:    lockFactory.GetLock("ingress-controller"),
 		nodeServiceProvider: &fakeNodeServiceProvider{},
 		virtualClient:       vClient,
+		podCache:            pClient,
 		localClient:         pClient,
 		scheme:              testingutil.NewScheme(),
 		useFakeKubelets:     true,

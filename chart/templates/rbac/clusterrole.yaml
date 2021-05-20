@@ -13,7 +13,7 @@ rules:
     resources: ["nodes"]
     verbs: ["get", "watch", "list", "update"]
   - apiGroups: [""]
-    resources: ["nodes/proxy", "persistentvolumes"]
+    resources: ["pods", "nodes/proxy", "persistentvolumes"]
     verbs: ["get", "watch", "list"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]

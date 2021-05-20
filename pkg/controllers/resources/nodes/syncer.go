@@ -6,14 +6,18 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
@@ -30,9 +34,25 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 		}
 	}
 
+	// create a global pod cache for calculating the correct node resources
+	podCache, err := cache.New(ctx.LocalManager.GetConfig(), cache.Options{
+		Scheme: ctx.LocalManager.GetScheme(),
+		Mapper: ctx.LocalManager.GetRESTMapper(),
+	})
+	if err != nil {
+		return errors.Wrap(err, "create cache")
+	}
+	go func() {
+		err := podCache.Start(ctx.Context)
+		if err != nil {
+			klog.Fatalf("error starting pod cache: %v", err)
+		}
+	}()
+	podCache.WaitForCacheSync(ctx.Context)
 	return generic.RegisterClusterSyncer(ctx, &syncer{
 		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
 		localClient:         ctx.LocalManager.GetClient(),
+		podCache:            podCache,
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		nodeServiceProvider: NewNodeServiceProvider(ctx.LocalManager.GetClient()),
 		scheme:              ctx.LocalManager.GetScheme(),
@@ -48,6 +68,7 @@ type syncer struct {
 	syncNodeChanges  bool
 	useFakeKubelets  bool
 
+	podCache            client.Reader
 	localClient         client.Client
 	virtualClient       client.Client
 	nodeServiceProvider NodeServiceProvider
@@ -179,6 +200,50 @@ func (s *syncer) calcStatusDiff(ctx context.Context, pNode *corev1.Node, vNode *
 			newAddresses = append(newAddresses, oldAddress)
 		}
 		translatedStatus.Addresses = newAddresses
+	}
+
+	// calculate whats really allocatable
+	if translatedStatus.Allocatable != nil {
+		cpu := translatedStatus.Allocatable.Cpu().MilliValue()
+		memory := translatedStatus.Allocatable.Memory().Value()
+		storageEphemeral := translatedStatus.Allocatable.StorageEphemeral().Value()
+
+		podList := &corev1.PodList{}
+		err := s.podCache.List(context.TODO(), podList)
+		if err != nil {
+			klog.Errorf("Error listing pods: %v", err)
+		} else {
+			for _, pod := range podList.Items {
+				if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+					continue
+				} else if pod.Labels != nil && pod.Labels[translate.MarkerLabel] == translate.Suffix {
+					continue
+				} else if pod.Spec.NodeName != pNode.Name {
+					continue
+				}
+
+				for _, container := range pod.Spec.InitContainers {
+					cpu -= container.Resources.Requests.Cpu().MilliValue()
+					memory -= container.Resources.Requests.Memory().Value()
+					storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
+				}
+				for _, container := range pod.Spec.Containers {
+					cpu -= container.Resources.Requests.Cpu().MilliValue()
+					memory -= container.Resources.Requests.Memory().Value()
+					storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
+				}
+			}
+		}
+
+		if cpu > 0 {
+			translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(cpu, resource.DecimalSI)
+		}
+		if memory > 0 {
+			translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(memory, resource.BinarySI)
+		}
+		if storageEphemeral > 0 {
+			translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageEphemeral, resource.BinarySI)
+		}
 	}
 
 	// check if the status has changed

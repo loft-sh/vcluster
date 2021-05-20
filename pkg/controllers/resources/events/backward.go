@@ -107,6 +107,11 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 	vObj.InvolvedObject.UID = m.GetUID()
 	vObj.InvolvedObject.ResourceVersion = m.GetResourceVersion()
 
+	// replace name of object
+	if strings.HasPrefix(vObj.Name, pObj.InvolvedObject.Name) {
+		vObj.Name = strings.Replace(vObj.Name, pObj.InvolvedObject.Name, vObj.InvolvedObject.Name, 1)
+	}
+
 	// we replace namespace/name & name in messages so that it seems correct
 	vObj.Message = strings.ReplaceAll(vObj.Message, pObj.InvolvedObject.Namespace+"/"+pObj.InvolvedObject.Name, vObj.InvolvedObject.Namespace+"/"+vObj.InvolvedObject.Name)
 	vObj.Message = strings.ReplaceAll(vObj.Message, pObj.InvolvedObject.Name, vObj.InvolvedObject.Name)
@@ -129,7 +134,7 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 	vOldObj := &corev1.Event{}
 	err = r.virtualClient.Get(ctx, types.NamespacedName{
 		Namespace: m.GetNamespace(),
-		Name:      pObj.Name,
+		Name:      vObj.Name,
 	}, vOldObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) == false {
