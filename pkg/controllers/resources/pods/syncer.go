@@ -74,8 +74,9 @@ func Register(ctx *context2.ControllerContext) error {
 		serviceAccountName: ctx.Options.ServiceAccount,
 		nodeSelector:       nodeSelector,
 
-		overrideHosts:      ctx.Options.OverrideHosts,
-		overrideHostsImage: ctx.Options.OverrideHostsContainerImage,
+		overrideHosts:          ctx.Options.OverrideHosts,
+		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
+		priorityClassesEnabled: ctx.Options.EnablePriorityClasses,
 
 		clusterDomain: ctx.Options.ClusterDomain,
 	}, "pod", generic.RegisterSyncerOptions{})
@@ -101,6 +102,8 @@ type syncer struct {
 
 	overrideHosts      bool
 	overrideHostsImage string
+
+	priorityClassesEnabled bool
 }
 
 func (s *syncer) New() client.Object {
@@ -263,7 +266,7 @@ func (s *syncer) translatePod(vPod *corev1.Pod, pPod *corev1.Pod) error {
 		ptrServiceList = append(ptrServiceList, &s)
 	}
 
-	return translatePod(pPod, vPod, s.virtualClient, ptrServiceList, s.clusterDomain, dnsIP, kubeIP, s.serviceAccountName, s.translateImages, s.overrideHosts, s.overrideHostsImage)
+	return translatePod(pPod, vPod, s.virtualClient, ptrServiceList, s.clusterDomain, dnsIP, kubeIP, s.serviceAccountName, s.translateImages, s.overrideHosts, s.overrideHostsImage, s.priorityClassesEnabled)
 }
 
 func (s *syncer) findKubernetesIP() (string, error) {

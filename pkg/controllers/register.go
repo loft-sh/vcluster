@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumeclaims"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
@@ -30,6 +31,7 @@ var Resources = map[string]func(*context.ControllerContext) error{
 	"nodes":                  nodes.Register,
 	"persistentvolumes":      persistentvolumes.Register,
 	"storageclasses":         storageclasses.Register,
+	"priorityclasses":        priorityclasses.Register,
 }
 
 func Register(ctx *context.ControllerContext) error {

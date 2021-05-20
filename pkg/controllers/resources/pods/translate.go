@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	"github.com/pkg/errors"
 	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,14 +34,37 @@ const (
 
 var (
 	FieldPathLabelRegEx = regexp.MustCompile("^metadata\\.labels\\['(.+)'\\]$")
+
+	maxPriority = int32(1000000000)
 )
 
-func translatePod(pPod *corev1.Pod, vPod *corev1.Pod, vClient client.Client, services []*corev1.Service, clusterDomain, dnsIP, kubeIP, serviceAccount string, translator ImageTranslator, enableOverrideHosts bool, overrideHostsImage string) error {
+func translatePod(pPod *corev1.Pod,
+	vPod *corev1.Pod,
+	vClient client.Client,
+	services []*corev1.Service,
+	clusterDomain,
+	dnsIP,
+	kubeIP,
+	serviceAccount string,
+	translator ImageTranslator,
+	enableOverrideHosts bool,
+	overrideHostsImage string,
+	priorityClassesEnabled bool) error {
+	// override pod fields
 	pPod.Status = corev1.PodStatus{}
 	pPod.Spec.DeprecatedServiceAccount = ""
 	pPod.Spec.ServiceAccountName = serviceAccount
 	pPod.Spec.AutomountServiceAccountToken = &False
 	pPod.Spec.EnableServiceLinks = &False
+	if !priorityClassesEnabled {
+		pPod.Spec.PriorityClassName = ""
+		pPod.Spec.Priority = nil
+	} else if pPod.Spec.PriorityClassName != "" {
+		pPod.Spec.PriorityClassName = priorityclasses.TranslatePriorityClassName(pPod.Spec.PriorityClassName, pPod.Namespace)
+		if pPod.Spec.Priority != nil && *pPod.Spec.Priority > maxPriority {
+			pPod.Spec.Priority = &maxPriority
+		}
+	}
 
 	// Add an annotation for namespace, name and uid
 	if pPod.Annotations == nil {

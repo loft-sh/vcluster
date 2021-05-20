@@ -32,6 +32,7 @@ type VirtualClusterOptions struct {
 	UseFakeNodes             bool
 	UseFakePersistentVolumes bool
 	EnableStorageClasses     bool
+	EnablePriorityClasses    bool
 
 	TranslateImages []string
 

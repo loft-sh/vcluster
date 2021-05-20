@@ -102,6 +102,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&options.UseFakeKubelets, "fake-kubelets", true, "If enabled, the virtual cluster will create fake kubelet endpoints to support metrics-servers")
 	cmd.Flags().BoolVar(&options.UseFakePersistentVolumes, "fake-persistent-volumes", true, "If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config")
 	cmd.Flags().BoolVar(&options.EnableStorageClasses, "enable-storage-classes", false, "If enabled, the virtual cluster will sync storage classes")
+	cmd.Flags().BoolVar(&options.EnablePriorityClasses, "enable-priority-classes", false, "If enabled, the virtual cluster will sync priority classes from and to the host cluster")
 	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
 
 	cmd.Flags().BoolVar(&options.EnforceNodeSelector, "enforce-node-selector", true, "If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector")
