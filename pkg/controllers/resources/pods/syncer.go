@@ -6,6 +6,7 @@ import (
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -66,7 +67,7 @@ func Register(ctx *context2.ControllerContext) error {
 		localClient:          ctx.LocalManager.GetClient(),
 		virtualClient:        ctx.VirtualManager.GetClient(),
 		virtualClusterClient: virtualClusterClient,
-		nodeServiceProvider:  nodes.NewNodeServiceProvider(ctx.LocalManager.GetClient()),
+		nodeServiceProvider:  ctx.NodeServiceProvider,
 
 		translateImages: imageTranslator,
 		useFakeNodes:    ctx.Options.UseFakeNodes,
@@ -74,8 +75,9 @@ func Register(ctx *context2.ControllerContext) error {
 		serviceAccountName: ctx.Options.ServiceAccount,
 		nodeSelector:       nodeSelector,
 
-		overrideHosts:      ctx.Options.OverrideHosts,
-		overrideHostsImage: ctx.Options.OverrideHostsContainerImage,
+		overrideHosts:          ctx.Options.OverrideHosts,
+		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
+		priorityClassesEnabled: ctx.Options.EnablePriorityClasses,
 
 		clusterDomain: ctx.Options.ClusterDomain,
 	}, "pod", generic.RegisterSyncerOptions{})
@@ -93,7 +95,7 @@ type syncer struct {
 	localClient          client.Client
 	virtualClient        client.Client
 	virtualClusterClient kubernetes.Interface
-	nodeServiceProvider  nodes.NodeServiceProvider
+	nodeServiceProvider  nodeservice.NodeServiceProvider
 
 	clusterDomain string
 
@@ -101,6 +103,8 @@ type syncer struct {
 
 	overrideHosts      bool
 	overrideHostsImage string
+
+	priorityClassesEnabled bool
 }
 
 func (s *syncer) New() client.Object {
@@ -263,7 +267,7 @@ func (s *syncer) translatePod(vPod *corev1.Pod, pPod *corev1.Pod) error {
 		ptrServiceList = append(ptrServiceList, &s)
 	}
 
-	return translatePod(pPod, vPod, s.virtualClient, ptrServiceList, s.clusterDomain, dnsIP, kubeIP, s.serviceAccountName, s.translateImages, s.overrideHosts, s.overrideHostsImage)
+	return translatePod(pPod, vPod, s.virtualClient, ptrServiceList, s.clusterDomain, dnsIP, kubeIP, s.serviceAccountName, s.translateImages, s.overrideHosts, s.overrideHostsImage, s.priorityClassesEnabled)
 }
 
 func (s *syncer) findKubernetesIP() (string, error) {

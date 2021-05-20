@@ -1,4 +1,4 @@
-package nodes
+package nodeservice
 
 import (
 	"context"
@@ -8,11 +8,15 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sync"
+	"time"
 )
 
 var (
@@ -25,21 +29,42 @@ var (
 )
 
 type NodeServiceProvider interface {
-	CleanupNodeServices(ctx context.Context, name types.NamespacedName) error
+	sync.Locker
+	// Start starts the node service garbage collector
+	Start(ctx context.Context)
+	// GetNodeIP returns a new fake node ip
 	GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error)
 }
 
-func NewNodeServiceProvider(localClient client.Client) NodeServiceProvider {
+func NewNodeServiceProvider(localClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
 	return &nodeServiceProvider{
-		localClient: localClient,
+		localClient:           localClient,
+		virtualClient:         virtualClient,
+		uncachedVirtualClient: uncachedVirtualClient,
 	}
 }
 
 type nodeServiceProvider struct {
-	localClient client.Client
+	localClient           client.Client
+	virtualClient         client.Client
+	uncachedVirtualClient client.Client
+
+	serviceMutex sync.Mutex
 }
 
-func (n *nodeServiceProvider) CleanupNodeServices(ctx context.Context, name types.NamespacedName) error {
+func (n *nodeServiceProvider) Start(ctx context.Context) {
+	wait.Until(func() {
+		err := n.cleanupNodeServices(ctx)
+		if err != nil {
+			klog.Errorf("error cleaning up node services: %v", err)
+		}
+	}, time.Second*4, ctx.Done())
+}
+
+func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
+	n.serviceMutex.Lock()
+	defer n.serviceMutex.Unlock()
+
 	namespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
 		return errors.Wrap(err, "get current namespace")
@@ -48,7 +73,6 @@ func (n *nodeServiceProvider) CleanupNodeServices(ctx context.Context, name type
 	serviceList := &corev1.ServiceList{}
 	err = n.localClient.List(ctx, serviceList, client.InNamespace(namespace), client.MatchingLabels{
 		ServiceClusterLabel: translate.Suffix,
-		ServiceNodeLabel:    name.Name,
 	})
 	if err != nil {
 		return errors.Wrap(err, "list services")
@@ -56,14 +80,44 @@ func (n *nodeServiceProvider) CleanupNodeServices(ctx context.Context, name type
 
 	errors := []error{}
 	for _, s := range serviceList.Items {
-		klog.Infof("Cleaning up kubelet service for node %s", s.Labels[ServiceNodeLabel])
-		err = n.localClient.Delete(ctx, &s)
-		if err != nil {
-			errors = append(errors, err)
+		exist := false
+		if s.Labels[ServiceNodeLabel] != "" {
+			// check if node still exists
+			err = n.virtualClient.Get(ctx, client.ObjectKey{Name: s.Labels[ServiceNodeLabel]}, &corev1.Node{})
+			if err != nil {
+				if kerrors.IsNotFound(err) == false {
+					klog.Infof("error retrieving node %s: %v", s.Labels[ServiceNodeLabel], err)
+					continue
+				}
+
+				// make sure node really does not exist
+				err = n.uncachedVirtualClient.Get(ctx, client.ObjectKey{Name: s.Labels[ServiceNodeLabel]}, &corev1.Node{})
+				if err == nil {
+					exist = true
+				}
+			} else {
+				exist = true
+			}
+		}
+
+		if exist == false {
+			klog.Infof("Cleaning up kubelet service for node %s", s.Labels[ServiceNodeLabel])
+			err = n.localClient.Delete(ctx, &s)
+			if err != nil {
+				errors = append(errors, err)
+			}
 		}
 	}
 
 	return utilerrors.NewAggregate(errors)
+}
+
+func (n *nodeServiceProvider) Lock() {
+	n.serviceMutex.Lock()
+}
+
+func (n *nodeServiceProvider) Unlock() {
+	n.serviceMutex.Unlock()
 }
 
 func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {

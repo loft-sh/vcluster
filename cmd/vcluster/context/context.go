@@ -2,8 +2,10 @@ package context
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
 
@@ -32,6 +34,7 @@ type VirtualClusterOptions struct {
 	UseFakeNodes             bool
 	UseFakePersistentVolumes bool
 	EnableStorageClasses     bool
+	EnablePriorityClasses    bool
 
 	TranslateImages []string
 
@@ -51,21 +54,31 @@ type ControllerContext struct {
 	LocalManager   ctrl.Manager
 	VirtualManager ctrl.Manager
 
+	NodeServiceProvider nodeservice.NodeServiceProvider
+
 	CacheSynced func()
 	LockFactory locks.LockFactory
 	Options     *VirtualClusterOptions
 	StopChan    <-chan struct{}
 }
 
-func NewControllerContext(localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) *ControllerContext {
+func NewControllerContext(localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
 	stopChan := make(<-chan struct{})
 	cacheSynced := sync.Once{}
 	ctx := context.Background()
+	uncachedVirtualClient, err := client.New(virtualManager.GetConfig(), client.Options{
+		Scheme: virtualManager.GetScheme(),
+		Mapper: virtualManager.GetRESTMapper(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &ControllerContext{
-		Context:        ctx,
-		LocalManager:   localManager,
-		VirtualManager: virtualManager,
-		LockFactory:    locks.NewDefaultLockFactory(),
+		Context:             ctx,
+		LocalManager:        localManager,
+		VirtualManager:      virtualManager,
+		NodeServiceProvider: nodeservice.NewNodeServiceProvider(localManager.GetClient(), virtualManager.GetClient(), uncachedVirtualClient),
+		LockFactory:         locks.NewDefaultLockFactory(),
 		CacheSynced: func() {
 			cacheSynced.Do(func() {
 				localManager.GetCache().WaitForCacheSync(ctx)
@@ -74,5 +87,5 @@ func NewControllerContext(localManager ctrl.Manager, virtualManager ctrl.Manager
 		},
 		StopChan: stopChan,
 		Options:  options,
-	}
+	}, nil
 }

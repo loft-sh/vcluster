@@ -79,7 +79,7 @@ func (s *syncer) ForwardCreateNeeded(vObj client.Object) (bool, error) {
 }
 
 func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	// did the configmap change?
+	// did the endpoints change?
 	pEndpoints := pObj.(*corev1.Endpoints)
 	vEndpoints := vObj.(*corev1.Endpoints)
 	updated, err := s.calcEndpointsDiff(pEndpoints, vEndpoints)
@@ -134,7 +134,7 @@ func (s *syncer) translate(vObj runtime.Object) (*corev1.Endpoints, error) {
 		}
 	}
 
-	return newObj.(*corev1.Endpoints), nil
+	return endpoints, nil
 }
 
 func (s *syncer) calcEndpointsDiff(pObj, vObj *corev1.Endpoints) (*corev1.Endpoints, error) {

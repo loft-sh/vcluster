@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"io/ioutil"
@@ -107,7 +107,7 @@ func (s *syncer) getSANs() ([]string, error) {
 
 	// get cluster ips of node services
 	svcs := &corev1.ServiceList{}
-	err = s.pClient.List(context.TODO(), svcs, client.InNamespace(namespace), client.MatchingLabels{nodes.ServiceClusterLabel: translate.Suffix})
+	err = s.pClient.List(context.TODO(), svcs, client.InNamespace(namespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
 	if err != nil {
 		return nil, err
 	}

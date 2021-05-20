@@ -45,7 +45,7 @@ func (r *backwardClusterController) GarbageCollect(queue workqueue.RateLimitingI
 		err = r.localClient.Get(ctx, types.NamespacedName{Name: vAccessor.GetName()}, pObj)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				r.log.Debugf("garbage collect virtual objecte %s", vAccessor.GetName())
+				r.log.Debugf("garbage collect virtual object %s", vAccessor.GetName())
 				err = r.virtualClient.Delete(ctx, vObj.(client.Object))
 				if err != nil {
 					if kerrors.IsNotFound(err) {

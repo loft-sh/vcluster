@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"sync"
@@ -19,10 +20,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	// FakeNodesVersion is the default version that will be used for fake nodes
+	FakeNodesVersion = "v1.19.1"
+)
+
 func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
 	return generic.RegisterFakeSyncer(ctx, &fakeSyncer{
 		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
-		nodeServiceProvider: NewNodeServiceProvider(ctx.LocalManager.GetClient()),
+		nodeServiceProvider: ctx.NodeServiceProvider,
 		virtualClient:       ctx.VirtualManager.GetClient(),
 	}, "fake-node")
 }
@@ -30,7 +36,7 @@ func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
 type fakeSyncer struct {
 	sharedNodesMutex    sync.Locker
 	virtualClient       client.Client
-	nodeServiceProvider NodeServiceProvider
+	nodeServiceProvider nodeservice.NodeServiceProvider
 }
 
 func (r *fakeSyncer) New() client.Object {
@@ -75,8 +81,7 @@ func (r *fakeSyncer) CreateNeeded(ctx context.Context, name types.NamespacedName
 	if err != nil {
 		return false, err
 	} else if !needed {
-		// make sure we cleanup node services
-		return false, r.nodeServiceProvider.CleanupNodeServices(ctx, name)
+		return false, nil
 	}
 
 	return true, nil
@@ -116,11 +121,9 @@ func newGuid() string {
 	return random.RandomString(8) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(12)
 }
 
-func CreateFakeNode(ctx context.Context, nodeServiceProvider NodeServiceProvider, virtualClient client.Client, name types.NamespacedName) error {
-	nodeIP, err := nodeServiceProvider.GetNodeIP(ctx, name)
-	if err != nil {
-		return errors.Wrap(err, "create fake node ip")
-	}
+func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeServiceProvider, virtualClient client.Client, name types.NamespacedName) error {
+	nodeServiceProvider.Lock()
+	defer nodeServiceProvider.Unlock()
 
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -140,9 +143,14 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider NodeServiceProvider
 		},
 	}
 
-	err = virtualClient.Create(ctx, node)
+	err := virtualClient.Create(ctx, node)
 	if err != nil {
 		return err
+	}
+
+	nodeIP, err := nodeServiceProvider.GetNodeIP(ctx, name)
+	if err != nil {
+		return errors.Wrap(err, "create fake node ip")
 	}
 
 	orig := node.DeepCopy()
@@ -205,7 +213,7 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider NodeServiceProvider
 		},
 		DaemonEndpoints: corev1.NodeDaemonEndpoints{
 			KubeletEndpoint: corev1.DaemonEndpoint{
-				Port: KubeletPort,
+				Port: nodeservice.KubeletPort,
 			},
 		},
 		NodeInfo: corev1.NodeSystemInfo{
@@ -213,8 +221,8 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider NodeServiceProvider
 			BootID:                  newGuid(),
 			ContainerRuntimeVersion: "docker://19.3.12",
 			KernelVersion:           "4.19.76-fakelinux",
-			KubeProxyVersion:        "v1.19.1",
-			KubeletVersion:          "v1.19.1",
+			KubeProxyVersion:        FakeNodesVersion,
+			KubeletVersion:          FakeNodesVersion,
 			MachineID:               newGuid(),
 			SystemUUID:              newGuid(),
 			OperatingSystem:         "linux",
@@ -230,5 +238,10 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider NodeServiceProvider
 	// remove not ready taints
 	orig = node.DeepCopy()
 	node.Spec.Taints = []corev1.Taint{}
-	return virtualClient.Patch(ctx, node, client.MergeFrom(orig))
+	err = virtualClient.Patch(ctx, node, client.MergeFrom(orig))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

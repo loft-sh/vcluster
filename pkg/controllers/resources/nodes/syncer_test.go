@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 
@@ -75,7 +76,7 @@ func TestSync(t *testing.T) {
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: KubeletPort,
+					Port: nodeservice.KubeletPort,
 				},
 			},
 		},
@@ -99,7 +100,7 @@ func TestSync(t *testing.T) {
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: KubeletPort,
+					Port: nodeservice.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
