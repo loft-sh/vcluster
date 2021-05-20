@@ -125,7 +125,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 
 	if vPod.DeletionTimestamp != nil {
 		// delete pod immediately
-		log.Debugf("delete pod %s/%s immediately, because it is being deleted & there is no physical pod", vPod.Namespace, vPod.Name)
+		log.Infof("delete pod %s/%s immediately, because it is being deleted & there is no physical pod", vPod.Namespace, vPod.Name)
 		err = s.virtualClient.Delete(ctx, vPod, &client.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
@@ -175,7 +175,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 			return ctrl.Result{}, nil
 		}
 
-		log.Debugf("delete physical pod %s/%s, because virtual pod is being deleted", pPod.Namespace, pPod.Name)
+		log.Infof("delete physical pod %s/%s, because virtual pod is being deleted", pPod.Namespace, pPod.Name)
 		err := s.localClient.Delete(ctx, pPod, &client.DeleteOptions{
 			GracePeriodSeconds: vPod.DeletionGracePeriodSeconds,
 			Preconditions:      metav1.NewUIDPreconditions(string(pPod.UID)),
@@ -188,7 +188,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 
 	// if physical pod nodeName is different from virtual pod nodeName, we delete the virtual one
 	if pPod.Spec.NodeName != "" && vPod.Spec.NodeName != "" && pPod.Spec.NodeName != vPod.Spec.NodeName {
-		log.Debugf("delete virtual pod %s/%s, because node name is different between the two", vPod.Namespace, vPod.Name)
+		log.Infof("delete virtual pod %s/%s, because node name is different between the two", vPod.Namespace, vPod.Name)
 		err := s.virtualClient.Delete(ctx, vPod, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
 		if err != nil {
 			return ctrl.Result{}, err
@@ -200,7 +200,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	// update the virtual pod if the spec has changed
 	updatedPod := calcPodDiff(pPod, vPod, s.translateImages)
 	if updatedPod != nil {
-		log.Debugf("update physical pod %s/%s, because spec, labels or annotations have changed", pPod.Namespace, pPod.Name)
+		log.Infof("update physical pod %s/%s, because spec, labels or annotations have changed", pPod.Namespace, pPod.Name)
 		err := s.localClient.Update(ctx, updatedPod)
 		if err != nil {
 			s.eventRecoder.Eventf(vPod, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -313,12 +313,12 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 			if vPod.Spec.TerminationGracePeriodSeconds != nil {
 				gracePeriod = *vPod.Spec.TerminationGracePeriodSeconds
 			}
-			log.Debugf("delete virtual pod %s/%s, because the physical pod is being deleted", vPod.Namespace, vPod.Name)
+			log.Infof("delete virtual pod %s/%s, because the physical pod is being deleted", vPod.Namespace, vPod.Name)
 			if err = s.virtualClient.Delete(ctx, vPod, &client.DeleteOptions{GracePeriodSeconds: &gracePeriod}); err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if *vPod.DeletionGracePeriodSeconds != *pPod.DeletionGracePeriodSeconds {
-			log.Debugf("delete virtual pPod %s/%s with grace period seconds %v", vPod.Namespace, vPod.Name, *pPod.DeletionGracePeriodSeconds)
+			log.Infof("delete virtual pPod %s/%s with grace period seconds %v", vPod.Namespace, vPod.Name, *pPod.DeletionGracePeriodSeconds)
 			if err = s.virtualClient.Delete(ctx, vPod, &client.DeleteOptions{GracePeriodSeconds: pPod.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(vPod.UID))}); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -337,7 +337,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	if !equality.Semantic.DeepEqual(vPod.Status, pPod.Status) {
 		newPod := vPod.DeepCopy()
 		newPod.Status = pPod.Status
-		log.Debugf("update virtual pod %s/%s, because status has changed", vPod.Namespace, vPod.Name)
+		log.Infof("update virtual pod %s/%s, because status has changed", vPod.Namespace, vPod.Name)
 		err = s.virtualClient.Status().Update(ctx, newPod)
 		if err != nil {
 			if kerrors.IsConflict(err) == false {
@@ -383,7 +383,7 @@ func (s *syncer) ensureNode(ctx context.Context, pObj *corev1.Pod, vObj *corev1.
 			}
 
 			// now insert it into the virtual cluster
-			log.Debugf("create virtual node %s, because pod %s/%s uses it and it is not available in virtual cluster", pObj.Spec.NodeName, vObj.Namespace, vObj.Name)
+			log.Infof("create virtual node %s, because pod %s/%s uses it and it is not available in virtual cluster", pObj.Spec.NodeName, vObj.Namespace, vObj.Name)
 			vNode = pNode.DeepCopy()
 			vNode.ObjectMeta = metav1.ObjectMeta{
 				Name: pNode.Name,
@@ -396,7 +396,7 @@ func (s *syncer) ensureNode(ctx context.Context, pObj *corev1.Pod, vObj *corev1.
 			}
 		} else {
 			// now insert it into the virtual cluster
-			log.Debugf("create virtual fake node %s, because pod %s/%s uses it and it is not available in virtual cluster", pObj.Spec.NodeName, vObj.Namespace, vObj.Name)
+			log.Infof("create virtual fake node %s, because pod %s/%s uses it and it is not available in virtual cluster", pObj.Spec.NodeName, vObj.Namespace, vObj.Name)
 
 			// create fake node
 			err = nodes.CreateFakeNode(ctx, s.nodeServiceProvider, s.virtualClient, types.NamespacedName{Name: pObj.Spec.NodeName})
@@ -418,7 +418,7 @@ func (s *syncer) ensureNode(ctx context.Context, pObj *corev1.Pod, vObj *corev1.
 }
 
 func (s *syncer) assignNodeToPod(ctx context.Context, pObj *corev1.Pod, vObj *corev1.Pod, log loghelper.Logger) error {
-	log.Debugf("bind virtual pod %s/%s to node %s, because node name between physical and virtual is different", vObj.Namespace, vObj.Name, pObj.Spec.NodeName)
+	log.Infof("bind virtual pod %s/%s to node %s, because node name between physical and virtual is different", vObj.Namespace, vObj.Name, pObj.Spec.NodeName)
 	err := s.virtualClusterClient.CoreV1().Pods(vObj.Namespace).Bind(ctx, &corev1.Binding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vObj.Name,

@@ -173,7 +173,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 		return ctrl.Result{}, err
 	}
 
-	log.Debugf("create physical secret %s/%s", newSecret.Namespace, newSecret.Name)
+	log.Infof("create physical secret %s/%s", newSecret.Namespace, newSecret.Name)
 	err = s.localClient.Create(ctx, newSecret)
 	if err != nil {
 		log.Infof("error syncing %s/%s to physical cluster: %v", vSecret.Namespace, vSecret.Name, err)
@@ -222,7 +222,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 		return ctrl.Result{}, err
 	} else if used == false {
 		pSecret, _ := meta.Accessor(pObj)
-		log.Debugf("delete physical secret %s/%s, because it is not used anymore", pSecret.GetNamespace(), pSecret.GetName())
+		log.Infof("delete physical secret %s/%s, because it is not used anymore", pSecret.GetNamespace(), pSecret.GetName())
 		err = s.localClient.Delete(ctx, pObj)
 		if err != nil {
 			log.Infof("error deleting physical object %s/%s in physical cluster: %v", pSecret.GetNamespace(), pSecret.GetName(), err)
@@ -237,7 +237,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	vSecret := vObj.(*corev1.Secret)
 	updated := calcSecretsDiff(pSecret, vSecret)
 	if updated != nil {
-		log.Debugf("updating physical secret %s/%s, because virtual secret has changed", updated.Namespace, updated.Name)
+		log.Infof("updating physical secret %s/%s, because virtual secret has changed", updated.Namespace, updated.Name)
 		err = s.localClient.Update(ctx, updated)
 		if err != nil {
 			s.eventRecoder.Eventf(vSecret, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)

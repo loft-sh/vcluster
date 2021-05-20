@@ -113,7 +113,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal("Expected create to be needed")
 				}
 
-				err = syncer.Create(ctx, basePvName)
+				err = syncer.Create(ctx, basePvName, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -139,7 +139,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal("Expected create to be not needed")
 				}
 
-				err = syncer.Create(ctx, basePvName)
+				err = syncer.Create(ctx, basePvName, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -165,7 +165,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal("Expected delete to be needed")
 				}
 
-				err = syncer.Delete(ctx, pvWithFinalizers)
+				err = syncer.Delete(ctx, pvWithFinalizers, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -236,7 +236,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal("Expected delete to be needed")
 				}
 
-				err = syncer.Delete(ctx, basePv)
+				err = syncer.Delete(ctx, basePv, log)
 				if err != nil {
 					t.Fatal(err)
 				}

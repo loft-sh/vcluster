@@ -166,7 +166,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal("Expected create to be needed")
 				}
 
-				err = syncer.Create(ctx, baseName)
+				err = syncer.Create(ctx, baseName, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -236,7 +236,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal("Expected create to be needed")
 				}
 
-				err = syncer.Delete(ctx, baseNode)
+				err = syncer.Delete(ctx, baseNode, log)
 				if err != nil {
 					t.Fatal(err)
 				}

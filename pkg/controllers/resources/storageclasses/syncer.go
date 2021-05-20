@@ -38,7 +38,7 @@ func (s *syncer) BackwardCreate(ctx context.Context, pObj client.Object, log log
 	vObj.ResourceVersion = ""
 	vObj.UID = ""
 	vObj.ManagedFields = nil
-	log.Debugf("create storage class %s, because it is not exist in virtual cluster", vObj.Name)
+	log.Infof("create storage class %s, because it is not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, s.virtualClient.Create(ctx, vObj)
 }
 
@@ -53,7 +53,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	// check if there is a change
 	newObj := calcSCDiff(pStorageClass, vStorageClass)
 	if newObj != nil {
-		log.Debugf("update storage class %s", vStorageClass.Name)
+		log.Infof("update storage class %s", vStorageClass.Name)
 		return ctrl.Result{}, s.virtualClient.Update(ctx, newObj)
 	}
 

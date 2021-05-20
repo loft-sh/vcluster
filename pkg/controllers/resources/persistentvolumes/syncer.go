@@ -72,7 +72,7 @@ func (s *syncer) BackwardCreate(ctx context.Context, pObj client.Object, log log
 	vObj.UID = ""
 	vObj.ManagedFields = nil
 
-	log.Debugf("create persistent volume %s, because it belongs to virtual pvc %s/%s and does not exist in virtual cluster", vObj.Name, vPvc.Namespace, vPvc.Name)
+	log.Infof("create persistent volume %s, because it belongs to virtual pvc %s/%s and does not exist in virtual cluster", vObj.Name, vPvc.Namespace, vPvc.Name)
 	return ctrl.Result{}, s.virtualClient.Create(ctx, vObj)
 }
 
@@ -95,14 +95,14 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if vPvc == nil {
-		log.Debugf("delete virtual persistent volume %s, because there is no virtual persistent volume claim with that volume", pPersistentVolume.Name)
+		log.Infof("delete virtual persistent volume %s, because there is no virtual persistent volume claim with that volume", pPersistentVolume.Name)
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
 	}
 
 	// check if there is a corresponding virtual pvc
 	vNewObj := buildVirtualPV(vPersistentVolume, pPersistentVolume, vPvc)
 	if !equality.Semantic.DeepEqual(vPersistentVolume.Spec, vNewObj.Spec) {
-		log.Debugf("update virtual persistent volume %s, because spec has changed", pPersistentVolume.Name)
+		log.Infof("update virtual persistent volume %s, because spec has changed", pPersistentVolume.Name)
 		err = s.virtualClient.Update(ctx, vNewObj)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -110,7 +110,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 	}
 
 	if !equality.Semantic.DeepEqual(vPersistentVolume.Status, vNewObj.Status) {
-		log.Debugf("update virtual persistent volume %s, because status has changed", pPersistentVolume.Name)
+		log.Infof("update virtual persistent volume %s, because status has changed", pPersistentVolume.Name)
 		err = s.virtualClient.Status().Update(ctx, vNewObj)
 		if err != nil {
 			return ctrl.Result{}, err

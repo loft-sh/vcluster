@@ -57,7 +57,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 		return ctrl.Result{}, err
 	}
 
-	log.Debugf("create physical endpoints %s/%s", newEndpoints.Namespace, newEndpoints.Name)
+	log.Infof("create physical endpoints %s/%s", newEndpoints.Namespace, newEndpoints.Name)
 	err = s.localClient.Create(ctx, newEndpoints)
 	if err != nil {
 		log.Infof("error syncing %s/%s to physical cluster: %v", vEndpoints.Namespace, vEndpoints.Name, err)
@@ -87,7 +87,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 		return ctrl.Result{}, err
 	}
 	if updated != nil {
-		log.Debugf("updating physical endpoints %s/%s, because virtual endpoints have changed", updated.Namespace, updated.Name)
+		log.Infof("updating physical endpoints %s/%s, because virtual endpoints have changed", updated.Namespace, updated.Name)
 		err := s.localClient.Update(ctx, updated)
 		if err != nil {
 			s.eventRecoder.Eventf(vEndpoints, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)

@@ -2,8 +2,6 @@ package generic
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -91,39 +89,6 @@ func (r *forwardController) GarbageCollect(queue workqueue.RateLimitingInterface
 		}
 	}
 
-	// list all physical objects
-	pList := r.target.NewList()
-	err = r.localClient.List(ctx, pList, client.InNamespace(r.targetNamespace))
-	if err != nil {
-		return err
-	}
-
-	// check if virtual object exists
-	pItems, err := meta.ExtractList(pList)
-	if err != nil {
-		return err
-	}
-	for _, pObj := range pItems {
-		if !translate.IsManaged(pObj) {
-			continue
-		}
-
-		pAccessor, _ := meta.Accessor(pObj)
-		vObj := r.target.New()
-		err = clienthelper.GetByIndex(ctx, r.virtualClient, vObj, r.scheme, constants.IndexByVName, pAccessor.GetName())
-		if kerrors.IsNotFound(err) {
-			r.log.Debugf("garbage collect physical object %s/%s, because virtual object is missing", r.targetNamespace, pAccessor.GetName())
-			err = r.localClient.Delete(ctx, pObj.(client.Object))
-			if err != nil {
-				return err
-			}
-			continue
-		} else if err != nil {
-			r.log.Infof("cannot get virtual object from physical %s/%s: %v", r.targetNamespace, pAccessor.GetName(), err)
-			continue
-		}
-	}
-
 	return nil
 }
 
@@ -173,30 +138,30 @@ func (r *forwardController) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	} else if vExists && pExists {
 		return r.target.ForwardUpdate(ctx, pObj, vObj, r.log)
 	} else if !vExists && pExists {
-		return r.remove(ctx, pObj)
+		if !translate.IsManaged(pObj) {
+			return ctrl.Result{}, nil
+		}
+
+		return DeleteObject(ctx, r.localClient, pObj, r.log)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *forwardController) remove(ctx context.Context, pObj runtime.Object) (ctrl.Result, error) {
-	if !translate.IsManaged(pObj) {
-		return ctrl.Result{}, nil
-	}
-
+func DeleteObject(ctx context.Context, localClient client.Client, pObj runtime.Object, log loghelper.Logger) (ctrl.Result, error) {
 	accessor, err := meta.Accessor(pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	r.log.Debugf("delete physical %s/%s, because virtual object was deleted", accessor.GetNamespace(), accessor.GetName())
-	err = r.localClient.Delete(ctx, pObj.(client.Object))
+	log.Infof("delete physical %s/%s, because virtual object was deleted", accessor.GetNamespace(), accessor.GetName())
+	err = localClient.Delete(ctx, pObj.(client.Object))
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 
-		r.log.Infof("error deleting physical object %s/%s in physical cluster: %v", accessor.GetNamespace(), accessor.GetName(), err)
+		log.Infof("error deleting physical object %s/%s in physical cluster: %v", accessor.GetNamespace(), accessor.GetName(), err)
 		return ctrl.Result{}, err
 	}
 
