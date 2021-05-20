@@ -19,6 +19,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	// FakeNodesVersion is the default version that will be used for fake nodes
+	FakeNodesVersion = "v1.19.1"
+)
+
 func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
 	return generic.RegisterFakeSyncer(ctx, &fakeSyncer{
 		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
@@ -213,8 +218,8 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider NodeServiceProvider
 			BootID:                  newGuid(),
 			ContainerRuntimeVersion: "docker://19.3.12",
 			KernelVersion:           "4.19.76-fakelinux",
-			KubeProxyVersion:        "v1.19.1",
-			KubeletVersion:          "v1.19.1",
+			KubeProxyVersion:        FakeNodesVersion,
+			KubeletVersion:          FakeNodesVersion,
 			MachineID:               newGuid(),
 			SystemUUID:              newGuid(),
 			OperatingSystem:         "linux",

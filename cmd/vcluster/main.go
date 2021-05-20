@@ -5,6 +5,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/indices"
 	"io/ioutil"
+	"k8s.io/client-go/discovery"
 	"os"
 	"time"
 
@@ -230,6 +231,19 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 		return err
 	}
 
+	// get virtual cluster version
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(virtualClusterConfig)
+	if err != nil {
+		return errors.Wrap(err, "create discovery client")
+	}
+	serverVersion, err := discoveryClient.ServerVersion()
+	if err != nil {
+		return errors.Wrap(err, "get virtual cluster version")
+	}
+	nodes.FakeNodesVersion = serverVersion.GitVersion
+	klog.Infof("Can connect to virtual cluster with version " + serverVersion.GitVersion)
+
+	// create controller context
 	ctx := context.NewControllerContext(localManager, virtualClusterManager, options)
 
 	// make sure the kubernetes service is synced
