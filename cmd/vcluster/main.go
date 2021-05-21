@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/indices"
@@ -65,6 +66,9 @@ func init() {
 	_ = apiextensionsv1beta1.AddToScheme(scheme)
 	_ = apiextensionsv1.AddToScheme(scheme)
 	_ = apiregistrationv1.AddToScheme(scheme)
+
+	// Register the fake conversions
+	_ = apis.RegisterConversions(scheme)
 }
 
 func NewCommand() *cobra.Command {

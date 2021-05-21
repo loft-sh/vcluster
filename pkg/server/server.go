@@ -1,7 +1,10 @@
 package server
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"context"
+	"crypto/tls"
+	"fmt"
+	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
@@ -11,15 +14,27 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/admission/initializer"
+	webhookinit "k8s.io/apiserver/pkg/admission/plugin/webhook/initializer"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	unionauthentication "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/options"
+	"k8s.io/apiserver/pkg/util/webhook"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 	"net"
 	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,7 +55,7 @@ type Server struct {
 
 // NewServer creates and installs a new Server.
 // 'filter', if non-nil, protects requests to the api only.
-func NewServer(ctx *context.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
+func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
 	s := &Server{
 		virtualManager: ctx.VirtualManager,
 		localManager:   ctx.LocalManager,
@@ -88,9 +103,15 @@ func NewServer(ctx *context.ControllerContext, requestHeaderCaFile, clientCaFile
 		},
 	}
 
+	// init plugins
+	admissionHandler, err := initAdmission(ctx.Context, ctx.VirtualManager.GetConfig())
+	if err != nil {
+		return nil, errors.Wrap(err, "init admission")
+	}
+
 	h := handler.ImpersonatingHandler("", ctx.VirtualManager.GetConfig())
 	h = filters.WithServiceCreateRedirect(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
-	h = filters.WithRedirect(h, ctx.LocalManager, ctx.Options.TargetNamespace, s.redirectResources)
+	h = filters.WithRedirect(h, ctx.LocalManager, ctx.VirtualManager, admissionHandler, ctx.Options.TargetNamespace, s.redirectResources)
 	h = filters.WithMetricsProxy(h, ctx.LocalManager, ctx.VirtualManager, ctx.Options.TargetNamespace)
 	if ctx.Options.SyncNodeChanges {
 		h = filters.WithNodeChanges(h, ctx.LocalManager, ctx.VirtualManager)
@@ -158,4 +179,40 @@ func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
 	defaultHandler = filters.WithNodeName(defaultHandler, s.localManager)
 	return defaultHandler
+}
+
+func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interface, error) {
+	vClient, err := kubernetes.NewForConfig(vConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	kubeInformerFactory := informers.NewSharedInformerFactory(vClient, 0)
+	plugins := &admission.Plugins{}
+	mutating.Register(plugins)
+	validating.Register(plugins)
+	webhookAuthResolverWrapper := webhook.NewDefaultAuthenticationInfoResolverWrapper(utilnet.SetTransportDefaults(&http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}), nil, vConfig)
+	webhookPluginInitializer := webhookinit.NewPluginInitializer(webhookAuthResolverWrapper, aggregatorapiserver.NewClusterIPServiceResolver(
+		kubeInformerFactory.Core().V1().Services().Lister(),
+	))
+	pluginInitializers := []admission.PluginInitializer{webhookPluginInitializer}
+	pluginNames := plugins.Registered()
+	pluginsConfigProvider, err := admission.ReadAdmissionConfiguration(pluginNames, "", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read plugin config: %v", err)
+	}
+
+	genericInitializer := initializer.New(vClient, kubeInformerFactory, nil, nil)
+	initializersChain := admission.PluginInitializers{}
+	pluginInitializers = append(pluginInitializers, genericInitializer)
+	initializersChain = append(initializersChain, pluginInitializers...)
+	admissionChain, err := plugins.NewFromPlugins(pluginNames, pluginsConfigProvider, initializersChain, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	go kubeInformerFactory.Start(ctx.Done())
+	return admissionChain, nil
 }

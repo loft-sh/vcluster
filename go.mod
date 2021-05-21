@@ -8,6 +8,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
 	github.com/go-openapi/loads v0.19.5
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/loft-sh/kiosk v0.1.25
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
@@ -18,6 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.20.2

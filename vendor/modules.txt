@@ -116,6 +116,7 @@ github.com/googleapis/gnostic/openapiv2
 # github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 github.com/grpc-ecosystem/go-grpc-prometheus
 # github.com/hashicorp/golang-lru v0.5.4
+## explicit
 github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru
 # github.com/imdario/mergo v0.3.10
@@ -267,6 +268,7 @@ golang.org/x/crypto/poly1305
 golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/html
@@ -461,6 +463,7 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
+k8s.io/apimachinery/pkg/api/meta/table
 k8s.io/apimachinery/pkg/api/resource
 k8s.io/apimachinery/pkg/api/validation
 k8s.io/apimachinery/pkg/api/validation/path
@@ -489,6 +492,7 @@ k8s.io/apimachinery/pkg/types
 k8s.io/apimachinery/pkg/util/cache
 k8s.io/apimachinery/pkg/util/clock
 k8s.io/apimachinery/pkg/util/diff
+k8s.io/apimachinery/pkg/util/duration
 k8s.io/apimachinery/pkg/util/errors
 k8s.io/apimachinery/pkg/util/framer
 k8s.io/apimachinery/pkg/util/httpstream
@@ -529,6 +533,7 @@ k8s.io/apiserver/pkg/admission/plugin/webhook/config/apis/webhookadmission/v1
 k8s.io/apiserver/pkg/admission/plugin/webhook/config/apis/webhookadmission/v1alpha1
 k8s.io/apiserver/pkg/admission/plugin/webhook/errors
 k8s.io/apiserver/pkg/admission/plugin/webhook/generic
+k8s.io/apiserver/pkg/admission/plugin/webhook/initializer
 k8s.io/apiserver/pkg/admission/plugin/webhook/mutating
 k8s.io/apiserver/pkg/admission/plugin/webhook/namespace
 k8s.io/apiserver/pkg/admission/plugin/webhook/object
@@ -630,6 +635,7 @@ k8s.io/apiserver/pkg/util/flowcontrol/format
 k8s.io/apiserver/pkg/util/flowcontrol/metrics
 k8s.io/apiserver/pkg/util/flushwriter
 k8s.io/apiserver/pkg/util/openapi
+k8s.io/apiserver/pkg/util/proxy
 k8s.io/apiserver/pkg/util/shufflesharding
 k8s.io/apiserver/pkg/util/webhook
 k8s.io/apiserver/pkg/util/wsstream
@@ -850,8 +856,33 @@ k8s.io/klog/v2
 # k8s.io/kube-aggregator v0.20.2
 ## explicit
 k8s.io/kube-aggregator/pkg/apis/apiregistration
+k8s.io/kube-aggregator/pkg/apis/apiregistration/install
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1
+k8s.io/kube-aggregator/pkg/apis/apiregistration/v1/helper
+k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1
+k8s.io/kube-aggregator/pkg/apis/apiregistration/validation
+k8s.io/kube-aggregator/pkg/apiserver
+k8s.io/kube-aggregator/pkg/apiserver/scheme
+k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset
+k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme
+k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1
+k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
+k8s.io/kube-aggregator/pkg/client/informers/externalversions
+k8s.io/kube-aggregator/pkg/client/informers/externalversions/apiregistration
+k8s.io/kube-aggregator/pkg/client/informers/externalversions/apiregistration/v1
+k8s.io/kube-aggregator/pkg/client/informers/externalversions/apiregistration/v1beta1
+k8s.io/kube-aggregator/pkg/client/informers/externalversions/internalinterfaces
+k8s.io/kube-aggregator/pkg/client/listers/apiregistration/v1
+k8s.io/kube-aggregator/pkg/client/listers/apiregistration/v1beta1
+k8s.io/kube-aggregator/pkg/controllers
+k8s.io/kube-aggregator/pkg/controllers/openapi
+k8s.io/kube-aggregator/pkg/controllers/openapi/aggregator
+k8s.io/kube-aggregator/pkg/controllers/status
+k8s.io/kube-aggregator/pkg/registry/apiservice
+k8s.io/kube-aggregator/pkg/registry/apiservice/etcd
+k8s.io/kube-aggregator/pkg/registry/apiservice/rest
 # k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
+k8s.io/kube-openapi/pkg/aggregator
 k8s.io/kube-openapi/pkg/builder
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/handler

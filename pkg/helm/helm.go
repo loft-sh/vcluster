@@ -24,6 +24,7 @@ type UpgradeOptions struct {
 	Repo            string
 	Version         string
 	Values          string
+	ValuesFiles     []string
 	SetValues       map[string]string
 	SetStringValues map[string]string
 
@@ -119,6 +120,13 @@ func (c *client) run(name, namespace string, options UpgradeOptions, command str
 		time.Sleep(time.Millisecond)
 
 		args = append(args, "--values", tempFile.Name())
+	}
+
+	// Values files
+	if len(options.ValuesFiles) > 0 {
+		for _, file := range options.ValuesFiles {
+			args = append(args, "--values", file)
+		}
 	}
 
 	// Set values
