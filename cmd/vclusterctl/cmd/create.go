@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"io/ioutil"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -57,10 +56,10 @@ type CreateCmd struct {
 
 	Namespace string
 
-	ChartVersion  string
-	ChartName     string
-	ChartRepo     string
-	ReleaseValues string
+	ChartVersion string
+	ChartName    string
+	ChartRepo    string
+	ExtraValues  []string
 
 	CreateNamespace    bool
 	DisableIngressSync bool
@@ -101,7 +100,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", "", "The virtual cluster chart version to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh", "The virtual cluster chart repo to use")
-	cobraCmd.Flags().StringVar(&cmd.ReleaseValues, "release-values", "", "Path where to load the virtual cluster helm release values from")
+	cobraCmd.Flags().StringSliceVar(&cmd.ExtraValues, "extra-values", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cobraCmd.Flags().BoolVar(&cmd.DisableIngressSync, "disable-ingress-sync", false, "If true the virtual cluster will not sync any ingresses")
 	return cobraCmd
@@ -169,27 +168,19 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
-	var values string
-	if cmd.ReleaseValues == "" {
-		values, err = getReleaseValues(client, namespace, cmd.DisableIngressSync, cmd.log)
-		if err != nil {
-			return err
-		}
-	} else {
-		byteValues, err := ioutil.ReadFile(cmd.ReleaseValues)
-		if err != nil {
-			return errors.Wrap(err, "read release values")
-		}
-
-		values = string(byteValues)
+	// load the default values
+	values, err := getReleaseValues(client, namespace, cmd.DisableIngressSync, cmd.log)
+	if err != nil {
+		return err
 	}
 
 	// we have to upgrade / install the chart
 	err = helm.NewClient(&rawConfig, cmd.log).Upgrade(args[0], namespace, helm.UpgradeOptions{
-		Chart:   cmd.ChartName,
-		Repo:    cmd.ChartRepo,
-		Version: cmd.ChartVersion,
-		Values:  values,
+		Chart:       cmd.ChartName,
+		Repo:        cmd.ChartRepo,
+		Version:     cmd.ChartVersion,
+		Values:      values,
+		ValuesFiles: cmd.ExtraValues,
 	})
 	if err != nil {
 		return err
