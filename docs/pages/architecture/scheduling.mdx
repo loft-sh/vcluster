@@ -8,4 +8,7 @@ sidebar_label: Pod Scheduling
   <figcaption>vcluster - Pod Scheduling</figcaption>
 </figure>
 
-By default, certain Kubernetes objects such as Services or Ingresses are synced from the virtual cluster to the host cluster. The syncer removes problematic fields (such as pod labels) and also transforms certain fields of these objects before sending them to the host cluster.
+By default, certain Kubernetes objects such as Services or Ingresses are synced from the virtual cluster to the host cluster. The syncer translates problematic fields (such as pod labels) and also transforms certain fields of these objects before sending them to the host cluster, to ensure integrity of the virtual cluster.
+
+If you need to use priority classes, you can enable this via the `--enable-priority-classes` flag for the syncer. Please make sure you also deploy vcluster with `vcluster create ... --create-cluster-role` as priority classes require cluster permissions.
+

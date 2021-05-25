@@ -48,10 +48,10 @@ syncer:
 Now create the vcluster
 ```
 # Create the vcluster
-vcluster create vcluster -n vcluster --extra-values=./values.yaml
+vcluster create vcluster -n vcluster --chart-version=v0.3.0 --extra-values=./values.yaml
 
 # Connect to the vcluster 
-vcluster connect vcluster -n vcluster --chart-version=v0.3.0 
+vcluster connect vcluster -n vcluster
 ```
 
 ### 3. Run Tests

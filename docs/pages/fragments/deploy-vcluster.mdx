@@ -18,6 +18,13 @@ vcluster create vcluster-1 -n host-namespace-1
 </TabItem>
 <TabItem value="helm">
 
+Make sure you know your host cluster's service CIDR, as vcluster requires you to specify it if you deploy it via helm. You can find out a cluster's service CIDR by deploying a service with an invalid ClusterIP (such as 1.1.1.1). The error message shows the cluster's service CIDR:
+```
+The Service "service-simple-service" is invalid: spec.clusterIPs: Invalid value: []string{"1.1.1.1"}.... The range of valid IPs is 10.96.0.0/12
+```
+
+In this case the service CIDR would be `10.96.0.0/12`.
+
 Create file `vcluster.yaml`:
 ```yaml
 vcluster:
@@ -50,6 +57,13 @@ helm upgrade --install vcluster-1 vcluster \
 
 </TabItem>
 <TabItem value="kubectl">
+
+Make sure you know your host cluster's service CIDR, as vcluster requires you to specify it if you deploy it via kubectl. You can find out a cluster's service CIDR by deploying a service with an invalid ClusterIP (such as 1.1.1.1). The error message shows the cluster's service CIDR:
+```
+The Service "service-simple-service" is invalid: spec.clusterIPs: Invalid value: []string{"1.1.1.1"}.... The range of valid IPs is 10.96.0.0/12
+```
+
+In this case the service CIDR would be `10.96.0.0/12`.
 
 ```bash
 # vcluster-1.yaml

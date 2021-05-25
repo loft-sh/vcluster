@@ -15,8 +15,10 @@ Make sure the vcluster has access to the host clusters nodes (create via the `--
 
 Wait until the metrics server has started. You should be now able to use `kubectl top pods` and `kubectl top nodes` within the vcluster:
 ```
-
-
+kubectl top pods --all-namespaces
+NAMESPACE     NAME                              CPU(cores)   MEMORY(bytes)   
+kube-system   coredns-854c77959c-q5878          3m           17Mi            
+kube-system   metrics-server-5fbdc54f8c-fgrqk   0m           6Mi
 ```
 
 ### How does it work?
@@ -39,4 +41,4 @@ By default, vcluster will create a service for each node which redirects incomin
 
 ## Monitoring the vcluster StatefulSet
 
-vcluster exposes metrics 
+vcluster exposes metrics endpoints on `https://0.0.0.0:8443/metrics` (syncer metrics) and `https://0.0.0.0:6444/metrics` (k3s metrics). In order to scrape those metrics, you will need to send an `Authorization` header with a valid virtual cluster service account token, that has permissions to access the `/metrics` endpoint within the vcluster.

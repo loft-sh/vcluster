@@ -293,9 +293,6 @@ Get the Helm chart or Kubernetes manifest and use any tool you like for the depl
 vcluster connect vcluster-1 -n host-namespace-1
 export KUBECONFIG=./kubeconfig.yaml
 
-# OR: Start port-forwarding and add kube-context to current kube-config file
-vcluster connect vcluster-1 -n host-namespace-1 --update-current
-
 # Run any kubectl, helm, etc. command in your vcluster
 kubectl get namespace
 kubectl get pods -n kube-system
