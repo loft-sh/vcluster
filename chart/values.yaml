@@ -1,5 +1,7 @@
 # Syncer configuration
 syncer:
+  # Image to use for the syncer
+  # image: loftsh/vcluster
   extraArgs: []
   env: []
   volumeMounts:
@@ -7,8 +9,9 @@ syncer:
       name: data
   resources: {}
 
-# vcluster (k3s) configuration
+# Virtual Cluster (k3s) configuration
 vcluster:
+  # Image to use for the virtual cluster
   image: rancher/k3s:v1.21.0-k3s1
   command:
     - /bin/k3s
@@ -50,6 +53,7 @@ volumes: []
 # Service account that should be used by the vcluster
 serviceAccount:
   create: true
+  # Optional name of the service account to use
   # name: default
 
 # Roles & ClusterRoles for the vcluster
@@ -61,3 +65,10 @@ rbac:
   role:
     # This is required for basic functionality of vcluster
     create: true
+
+# The amount of replicas to run the statefulset with
+replicas: 1
+
+# Service configurations
+service:
+  type: ClusterIP

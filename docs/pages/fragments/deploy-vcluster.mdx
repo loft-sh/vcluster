@@ -23,7 +23,7 @@ Create file `vcluster.yaml`:
 vcluster:
   image: rancher/k3s:v1.19.5-k3s2    # Choose k3s version
   extraArgs:
-    - --service-cidr=10.96.0.0/12    # This has to be a sub-CIDR of your main cluster's CIDR
+    - --service-cidr=10.96.0.0/12    # This has to be the service CIDR of your main cluster's service CIDR
   baseArgs:
     - server
     - --write-kubeconfig=/k3s-config/kube-config.yaml
@@ -151,12 +151,12 @@ spec:
           - "--disable-cloud-controller"
           - "--flannel-backend=none"
           - "--kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle"  
-          - "--service-cidr=10.96.0.0/12"  # This has to be a sub-CIDR of your main cluster's CIDR
+          - "--service-cidr=10.96.0.0/12"  # This has to be the service CIDR of your main cluster's service CIDR
         volumeMounts:
           - mountPath: /data
             name: data
       - name: syncer
-        image: "loftsh/virtual-cluster:0.0.27"
+        image: "loftsh/vcluster:0.3.0"
         args:
           - --service-name=vcluster-1
           - --suffix=vcluster-1

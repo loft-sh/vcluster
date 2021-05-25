@@ -10,7 +10,7 @@ metadata:
     heritage: "{{ .Release.Service }}"
 spec:
   serviceName: {{ .Release.Name }}-headless
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: vcluster

@@ -1,0 +1,192 @@
+---
+title: Exposing vcluster (ingress etc.)
+sidebar_label: Exposing vcluster (ingress etc.)
+---
+
+By default, vcluster is only reachable via port-forwarding. However, this means that you need access to the host cluster, where the vcluster is running, in order to access it. To directly access vcluster without port-forwarding, you can use one of the following methods:
+- [LoadBalancer service](#loadbalancer-service)
+- [NodePort service](#nodeport-service)
+- [Ingress](#ingress)
+
+## LoadBalancer service
+
+Create the following `load-balancer.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vcluster-loadbalancer
+  namespace: my-vcluster
+spec:
+  selector:
+    app: vcluster
+    release: my-vcluster
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP
+  type: LoadBalancer
+```
+
+Create the resource in the namespace via:
+```
+kubectl apply -f load-balancer.yaml
+```
+
+Find out the external ip via `kubectl get svc vcluster-loadbalancer -n my-vcluster`:
+```
+kubectl get svc vcluster-loadbalancer -n my-vcluster
+NAME                    TYPE           CLUSTER-IP    EXTERNAL-IP    PORT(S)         AGE
+vcluster-loadbalancer   LoadBalancer   10.68.9.239   x.x.x.x        443:32678/TCP   7m15s
+```
+
+Now create a `values.yaml` to create the vcluster with:
+```yaml
+syncer:
+  extraArgs:
+  - --tls-san=x.x.x.x
+```
+
+Create the virtual cluster with:
+```
+vcluster create my-vcluster -n my-vcluster -f values.yaml
+```
+
+Retrieve the kube config via:
+```
+vcluster connect my-vcluster -n my-vcluster --server=x.x.x.x
+```
+
+Access the vcluster:
+```
+export KUBECONFIG=./kubeconfig.yaml
+
+# Run any kube context command
+kubectl get ns
+```
+
+## NodePort service
+
+You can also expose the vcluster via a NodePort service. Create the following `nodeport.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vcluster-nodeport
+  namespace: my-vcluster
+spec:
+  selector:
+    app: vcluster
+    release: my-vcluster
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP
+  type: NodePort
+```
+
+Create the resource in the namespace via:
+```
+kubectl apply -f nodeport.yaml
+```
+
+Find out the external port via `kubectl get svc vcluster-nodeport -n my-vcluster`:
+```
+kubectl get svc vcluster-nodeport -n my-vcluster
+NAME                TYPE       CLUSTER-IP   EXTERNAL-IP   PORT(S)         AGE
+vcluster-nodeport   NodePort   10.68.9.75   <none>        443:31992/TCP   85s
+```
+
+Find out the node ips via `kubectl get nodes -o wide`:
+```
+NAME                                       STATUS   ROLES    AGE   VERSION            INTERNAL-IP   EXTERNAL-IP     OS-IMAGE                             KERNEL-VERSION   CONTAINER-RUNTIME
+gke-cluster-1-default-pool-8f0bb8bb-p6wx   Ready    <none>   6d    v1.20.6-gke.1000   10.156.0.14   x.x.x.x         Container-Optimized OS from Google   5.4.104+         containerd://1.4.3
+gke-cluster-1-default-pool-8f0bb8bb-vl79   Ready    <none>   6d    v1.20.6-gke.1000   10.156.0.15   y.y.y.y         Container-Optimized OS from Google   5.4.104+         containerd://1.4.3
+gke-cluster-1-default-pool-8f0bb8bb-wpkp   Ready    <none>   6d    v1.20.6-gke.1000   10.156.0.16   z.z.z.z         Container-Optimized OS from Google   5.4.104+         containerd://1.4.3
+```
+
+Now create a `values.yaml` to create the vcluster with:
+```yaml
+syncer:
+  extraArgs:
+  - --tls-san=x.x.x.x,y.y.y.y,z.z.z.z
+```
+
+Create the virtual cluster with:
+```
+vcluster create my-vcluster -n my-vcluster -f values.yaml
+```
+
+Retrieve the kube config via:
+```
+vcluster connect my-vcluster -n my-vcluster --server=x.x.x.x
+```
+
+Access the vcluster:
+```
+export KUBECONFIG=./kubeconfig.yaml
+
+# Run any kube context command
+kubectl get ns
+```
+
+## Ingress
+
+Make sure you have an [ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/) installed into your cluster. Create the following `ingress.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # We need the ingress to pass through ssl traffic to the vcluster
+    # This only works for the nginx-ingress, for other ingress controllers
+    # please check their respective documentation.
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  name: vcluster-ingress
+  namespace: my-vcluster
+spec:
+  rules:
+  - host: my-vcluster.example.com
+    http:
+      paths:
+      - backend:
+          serviceName: my-vcluster
+          servicePort: 8443
+        path: /
+```
+
+Create the resource in the namespace via:
+```
+kubectl apply -f ingress.yaml
+```
+
+Now create a `values.yaml` to create the vcluster with:
+```yaml
+syncer:
+  extraArgs:
+  - --tls-san=my-vcluster.example.com
+```
+
+Create the virtual cluster with:
+```
+vcluster create my-vcluster -n my-vcluster -f values.yaml
+```
+
+Retrieve the kube config via:
+```
+vcluster connect my-vcluster -n my-vcluster --server=my-vcluster.example.com
+```
+
+Access the vcluster:
+```
+export KUBECONFIG=./kubeconfig.yaml
+
+# Run any kube context command
+kubectl get ns
+```

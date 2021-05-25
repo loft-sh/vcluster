@@ -65,6 +65,7 @@ type CreateCmd struct {
 
 	CreateNamespace    bool
 	DisableIngressSync bool
+	CreateClusterRole  bool
 
 	log log.Logger
 }
@@ -103,9 +104,10 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh", "The virtual cluster chart repo to use")
 	cobraCmd.Flags().StringVar(&cmd.ReleaseValues, "release-values", "", "Path where to load the virtual cluster helm release values from")
-	cobraCmd.Flags().StringSliceVar(&cmd.ExtraValues, "extra-values", []string{}, "Path where to load extra helm values from")
+	cobraCmd.Flags().StringSliceVarP(&cmd.ExtraValues, "extra-values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cobraCmd.Flags().BoolVar(&cmd.DisableIngressSync, "disable-ingress-sync", false, "If true the virtual cluster will not sync any ingresses")
+	cobraCmd.Flags().BoolVar(&cmd.CreateClusterRole, "create-cluster-role", false, "If true a cluster role will be created to access nodes, storageclasses and priorityclasses")
 	return cobraCmd
 }
 
@@ -174,7 +176,7 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// load the default values
 	values := ""
 	if cmd.ReleaseValues == "" {
-		values, err = getDefaultReleaseValues(client, namespace, cmd.DisableIngressSync, cmd.log)
+		values, err = cmd.getDefaultReleaseValues(client, namespace, cmd.log)
 		if err != nil {
 			return err
 		}
@@ -203,7 +205,7 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getDefaultReleaseValues(client kubernetes.Interface, namespace string, disableIngressSync bool, log log.Logger) (string, error) {
+func (cmd *CreateCmd) getDefaultReleaseValues(client kubernetes.Interface, namespace string, log log.Logger) (string, error) {
 	serverVersion, err := client.Discovery().ServerVersion()
 	if err != nil {
 		return "", err
@@ -265,10 +267,16 @@ func getDefaultReleaseValues(client kubernetes.Interface, namespace string, disa
 storage:
   size: 5Gi
 `
-	if disableIngressSync {
+	if cmd.DisableIngressSync {
 		values += `
 syncer:
   extraArgs: ["--disable-sync-resources=ingresses"]`
+	}
+	if cmd.CreateClusterRole {
+		values += `
+rbac:
+  clusterRole:
+    create: true`
 	}
 
 	baseArgs := baseArgsMap[serverVersionString]
