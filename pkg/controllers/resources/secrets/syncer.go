@@ -47,7 +47,7 @@ func isSecretUsedByPods(ctx context.Context, vClient client.Client, secretName s
 	return false, nil
 }
 
-func Register(ctx *context2.ControllerContext) error {
+func RegisterIndices(ctx *context2.ControllerContext) error {
 	includeIngresses := strings.Contains(ctx.Options.DisableSyncResources, "ingresses") == false
 	if includeIngresses {
 		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1beta1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
@@ -59,6 +59,16 @@ func Register(ctx *context2.ControllerContext) error {
 		}
 	}
 
+	err := generic.RegisterSyncerIndices(ctx, &corev1.Secret{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Register(ctx *context2.ControllerContext) error {
+	includeIngresses := strings.Contains(ctx.Options.DisableSyncResources, "ingresses") == false
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 	return generic.RegisterSyncer(ctx, &syncer{

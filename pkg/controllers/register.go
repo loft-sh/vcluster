@@ -14,12 +14,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
+	"github.com/loft-sh/vcluster/pkg/indices"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"strings"
 )
 
-var Resources = map[string]func(*context.ControllerContext) error{
+var ResourceControllers = map[string]func(*context.ControllerContext) error{
 	"services":               services.Register,
 	"configmaps":             configmaps.Register,
 	"secrets":                secrets.Register,
@@ -34,9 +35,47 @@ var Resources = map[string]func(*context.ControllerContext) error{
 	"priorityclasses":        priorityclasses.Register,
 }
 
-func Register(ctx *context.ControllerContext) error {
+var ResourceIndices = map[string]func(*context.ControllerContext) error{
+	"services":               services.RegisterIndices,
+	"configmaps":             configmaps.RegisterIndices,
+	"secrets":                secrets.RegisterIndices,
+	"endpoints":              endpoints.RegisterIndices,
+	"pods":                   pods.RegisterIndices,
+	"events":                 events.RegisterIndices,
+	"persistentvolumeclaims": persistentvolumeclaims.RegisterIndices,
+	"ingresses":              ingresses.RegisterIndices,
+	"nodes":                  nodes.RegisterIndices,
+	"persistentvolumes":      persistentvolumes.RegisterIndices,
+	"storageclasses":         storageclasses.RegisterIndices,
+	"priorityclasses":        priorityclasses.RegisterIndices,
+}
+
+func RegisterIndices(ctx *context.ControllerContext) error {
+	// register the extra indices
+	err := indices.AddIndices(ctx)
+	if err != nil {
+		return errors.Wrap(err, "register extra indices")
+	}
+
+	// register the resource indices
 	disabled := parseDisabled(ctx.Options.DisableSyncResources)
-	for k, v := range Resources {
+	for k, v := range ResourceIndices {
+		if disabled[k] {
+			continue
+		}
+
+		err := v(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "register %s indices", k)
+		}
+	}
+
+	return nil
+}
+
+func RegisterControllers(ctx *context.ControllerContext) error {
+	disabled := parseDisabled(ctx.Options.DisableSyncResources)
+	for k, v := range ResourceControllers {
 		if disabled[k] {
 			continue
 		}

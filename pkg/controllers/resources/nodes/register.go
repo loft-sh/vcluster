@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Register(ctx *context2.ControllerContext) error {
+func RegisterIndices(ctx *context2.ControllerContext) error {
 	// index pods by their assigned node
 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
@@ -17,6 +17,10 @@ func Register(ctx *context2.ControllerContext) error {
 		return err
 	}
 
+	return nil
+}
+
+func Register(ctx *context2.ControllerContext) error {
 	if ctx.Options.UseFakeNodes && ctx.Options.NodeSelector == "" {
 		return RegisterFakeSyncer(ctx)
 	}

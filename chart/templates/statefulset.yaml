@@ -15,6 +15,8 @@ spec:
     matchLabels:
       app: vcluster
       release: {{ .Release.Name }}
+  {{- if .Values.storage.persistence }}
+  {{- if not .Values.storage.volumeClaimTemplates }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -24,6 +26,11 @@ spec:
         resources:
           requests:
             storage: {{ .Values.storage.size }}
+  {{- else }}
+  volumeClaimTemplates:
+{{ toYaml .Values.volumeClaimTemplates | indent 4 }}
+  {{- end }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -35,6 +42,16 @@ spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
+      {{- end }}
+      {{- if .Values.volumes }}
+      volumes:
+{{ toYaml .Values.volumes | indent 8 }}
+      {{- else }}
+      {{- if not .Values.storage.persistence }}
+      volumes:
+      - name: data
+        emptyDir: {}
+      {{- end }}
       {{- end }}
       containers:
       - image: {{ .Values.vcluster.image }}

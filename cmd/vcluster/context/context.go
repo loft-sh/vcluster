@@ -46,6 +46,10 @@ type VirtualClusterOptions struct {
 	OverrideHostsContainerImage string
 
 	ClusterDomain string
+
+	LeaseDuration int64
+	RenewDeadline int64
+	RetryPeriod   int64
 }
 
 type ControllerContext struct {

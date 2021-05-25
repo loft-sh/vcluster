@@ -62,12 +62,7 @@ type RegisterSyncerOptions struct {
 }
 
 func RegisterSyncer(ctx *context.ControllerContext, syncer Syncer, name string, options RegisterSyncerOptions) error {
-	err := RegisterSyncerIndices(ctx, syncer)
-	if err != nil {
-		return err
-	}
-
-	err = RegisterForwardSyncer(ctx, syncer, name, options.ModifyForwardSyncer)
+	err := RegisterForwardSyncer(ctx, syncer, name, options.ModifyForwardSyncer)
 	if err != nil {
 		return err
 	}
@@ -80,9 +75,9 @@ func RegisterSyncer(ctx *context.ControllerContext, syncer Syncer, name string, 
 	return nil
 }
 
-func RegisterSyncerIndices(ctx *context.ControllerContext, syncer Syncer) error {
+func RegisterSyncerIndices(ctx *context.ControllerContext, obj client.Object) error {
 	// index objects by their virtual name
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, syncer.New(), constants.IndexByVName, func(rawObj client.Object) []string {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj, constants.IndexByVName, func(rawObj client.Object) []string {
 		return []string{translate.ObjectPhysicalName(rawObj)}
 	})
 }
