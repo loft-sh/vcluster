@@ -61,6 +61,7 @@ type CreateCmd struct {
 	ChartName     string
 	ChartRepo     string
 	ReleaseValues string
+	K3SImage      string
 	ExtraValues   []string
 
 	CreateNamespace    bool
@@ -104,6 +105,8 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh", "The virtual cluster chart repo to use")
 	cobraCmd.Flags().StringVar(&cmd.ReleaseValues, "release-values", "", "Path where to load the virtual cluster helm release values from")
+	cobraCmd.Flags().StringVar(&cmd.ReleaseValues, "release-values", "", "Path where to load the virtual cluster helm release values from")
+	cobraCmd.Flags().StringVar(&cmd.K3SImage, "k3s-image", "", "If specified, use this k3s image version")
 	cobraCmd.Flags().StringSliceVarP(&cmd.ExtraValues, "extra-values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cobraCmd.Flags().BoolVar(&cmd.DisableIngressSync, "disable-ingress-sync", false, "If true the virtual cluster will not sync any ingresses")
@@ -206,32 +209,37 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 }
 
 func (cmd *CreateCmd) getDefaultReleaseValues(client kubernetes.Interface, namespace string, log log.Logger) (string, error) {
-	serverVersion, err := client.Discovery().ServerVersion()
-	if err != nil {
-		return "", err
-	}
+	image := cmd.K3SImage
+	serverVersionString := ""
+	if image == "" {
+		serverVersion, err := client.Discovery().ServerVersion()
+		if err != nil {
+			return "", err
+		}
 
-	serverVersionString := replaceRegEx.ReplaceAllString(serverVersion.Major, "") + "." + replaceRegEx.ReplaceAllString(serverVersion.Minor, "")
-	serverMinorInt, err := strconv.Atoi(replaceRegEx.ReplaceAllString(serverVersion.Minor, ""))
-	if err != nil {
-		return "", err
-	}
+		serverVersionString = replaceRegEx.ReplaceAllString(serverVersion.Major, "") + "." + replaceRegEx.ReplaceAllString(serverVersion.Minor, "")
+		serverMinorInt, err := strconv.Atoi(replaceRegEx.ReplaceAllString(serverVersion.Minor, ""))
+		if err != nil {
+			return "", err
+		}
 
-	image, ok := VersionMap[serverVersionString]
-	if !ok {
-		if serverMinorInt > 21 {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.21", serverVersionString)
-			image = VersionMap["1.21"]
-			serverVersionString = "1.21"
-		} else {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.16", serverVersionString)
-			image = VersionMap["1.16"]
-			serverVersionString = "1.16"
+		var ok bool
+		image, ok = VersionMap[serverVersionString]
+		if !ok {
+			if serverMinorInt > 21 {
+				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.21", serverVersionString)
+				image = VersionMap["1.21"]
+				serverVersionString = "1.21"
+			} else {
+				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.16", serverVersionString)
+				image = VersionMap["1.16"]
+				serverVersionString = "1.16"
+			}
 		}
 	}
 
 	cidr := ""
-	_, err = client.CoreV1().Services(namespace).Create(context.Background(), &corev1.Service{
+	_, err := client.CoreV1().Services(namespace).Create(context.Background(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "test-service-",
 		},
@@ -279,10 +287,12 @@ rbac:
     create: true`
 	}
 
-	baseArgs := baseArgsMap[serverVersionString]
 	values = strings.ReplaceAll(values, "##IMAGE##", image)
 	values = strings.ReplaceAll(values, "##CIDR##", cidr)
-	values = strings.ReplaceAll(values, "##BASEARGS##", baseArgs)
+	if cmd.K3SImage == "" {
+		baseArgs := baseArgsMap[serverVersionString]
+		values = strings.ReplaceAll(values, "##BASEARGS##", baseArgs)
+	}
 	values = strings.TrimSpace(values)
 	return values, nil
 }
