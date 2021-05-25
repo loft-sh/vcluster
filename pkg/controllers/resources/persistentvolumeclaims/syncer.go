@@ -34,6 +34,15 @@ const (
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
 )
 
+func RegisterIndices(ctx *context2.ControllerContext) error {
+	err := generic.RegisterSyncerIndices(ctx, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func Register(ctx *context2.ControllerContext) error {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})

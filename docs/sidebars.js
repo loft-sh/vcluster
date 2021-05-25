@@ -46,6 +46,16 @@ module.exports = {
       ],
     },
     {
+      type: 'category',
+      label: 'Operator Guide',
+      collapsed: false,
+      items: [
+        'operator/external-access',
+        'operator/external-datastore',
+        'operator/monitoring',
+      ],
+    },
+    {
       type: 'doc',
       id: 'config-reference',
     },

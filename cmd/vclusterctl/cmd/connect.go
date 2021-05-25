@@ -30,7 +30,8 @@ type ConnectCmd struct {
 	Print         bool
 	LocalPort     int
 
-	log log.Logger
+	Server string
+	log    log.Logger
 }
 
 // NewConnectCmd creates a new command
@@ -67,6 +68,7 @@ vcluster connect test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	cobraCmd.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace the vcluster is in")
 	cobraCmd.Flags().StringVar(&cmd.PodName, "pod", "", "The pod to connect to")
+	cobraCmd.Flags().StringVar(&cmd.Server, "server", "", "The server to connect to")
 	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 8443, "The local port to forward the virtual cluster to")
 	return cobraCmd
 }
@@ -125,14 +127,18 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	port := ""
 	for k := range kubeConfig.Clusters {
-		splitted := strings.Split(kubeConfig.Clusters[k].Server, ":")
-		if len(splitted) != 3 {
-			return fmt.Errorf("unexpected server in kubeconfig: %s", kubeConfig.Clusters[k].Server)
-		}
+		if cmd.Server != "" {
+			kubeConfig.Clusters[k].Server = cmd.Server
+		} else {
+			splitted := strings.Split(kubeConfig.Clusters[k].Server, ":")
+			if len(splitted) != 3 {
+				return fmt.Errorf("unexpected server in kubeconfig: %s", kubeConfig.Clusters[k].Server)
+			}
 
-		port = splitted[2]
-		splitted[2] = strconv.Itoa(cmd.LocalPort)
-		kubeConfig.Clusters[k].Server = strings.Join(splitted, ":")
+			port = splitted[2]
+			splitted[2] = strconv.Itoa(cmd.LocalPort)
+			kubeConfig.Clusters[k].Server = strings.Join(splitted, ":")
+		}
 	}
 
 	out, err = clientcmd.Write(*kubeConfig)
@@ -178,8 +184,11 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		cmd.log.Donef("Virtual cluster kube config written to: %s. You can access the cluster via `kubectl --kubeconfig %s get namespaces`", cmd.KubeConfig, cmd.KubeConfig)
 	}
 
-	forwardPorts := strconv.Itoa(cmd.LocalPort) + ":" + port
+	if cmd.Server != "" {
+		return nil
+	}
 
+	forwardPorts := strconv.Itoa(cmd.LocalPort) + ":" + port
 	command := []string{"kubectl", "port-forward", "--namespace", cmd.Namespace, podName, forwardPorts}
 	cmd.log.Infof("Starting port forwarding: %s", strings.Join(command, " "))
 	portforwardCmd := exec.Command(command[0], command[1:]...)

@@ -21,10 +21,13 @@ import (
 	"time"
 )
 
+func RegisterIndices(ctx *context2.ControllerContext) error {
+	return generic.RegisterSyncerIndices(ctx, &corev1.Endpoints{})
+}
+
 func Register(ctx *context2.ControllerContext) error {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
-
 	return generic.RegisterSyncer(ctx, &syncer{
 		eventRecoder:    eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "endpoints-syncer"}),
 		targetNamespace: ctx.Options.TargetNamespace,

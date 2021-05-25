@@ -1,0 +1,44 @@
+---
+title: Monitoring & Metrics API
+sidebar_label: Monitoring & Metrics API
+---
+
+You can monitor the vcluster either from the host cluster or directly from within the vcluster.
+
+:::info
+In order to get node metrics from within the vcluster, vcluster will need to have RBAC permissions to access them. You can enable this via `vcluster create myvcluster --create-cluster-role`
+:::
+
+## Installing metrics server
+
+Make sure the vcluster has access to the host clusters nodes (create via the `--create-cluster-role` or set the helm value `rbac.clusterRole.create: true`). Install the [metrics server](https://github.com/kubernetes-sigs/metrics-server#installation) via the official method into the vcluster.
+
+Wait until the metrics server has started. You should be now able to use `kubectl top pods` and `kubectl top nodes` within the vcluster:
+```
+kubectl top pods --all-namespaces
+NAMESPACE     NAME                              CPU(cores)   MEMORY(bytes)   
+kube-system   coredns-854c77959c-q5878          3m           17Mi            
+kube-system   metrics-server-5fbdc54f8c-fgrqk   0m           6Mi
+```
+
+### How does it work?
+
+By default, vcluster will create a service for each node which redirects incoming traffic from within the vcluster to the node kubelet to vcluster itself. This means that if workloads within the vcluster try to scrape node metrics the traffic reaches vcluster first. Vcluster will redirect the incoming request to the host cluster and rewrite the response (pod names, pod namespaces etc) and return it to the requester.
+
+## Monitoring the vcluster
+
+Vcluster is able to rewrite node stats and metrics. This means monitoring a vcluster works similar to monitoring a regular Kubernetes cluster.
+
+:::info
+You need to make sure the vcluster has access to the host clusters nodes (create via the `--create-cluster-role` or set the helm value `rbac.clusterRole.create: true`).
+:::
+
+Please follow the [official Kuberentes documentation](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-usage-monitoring/) on how to monitor a Kubernetes cluster.
+
+### How does it work?
+
+By default, vcluster will create a service for each node which redirects incoming traffic from within the vcluster to the node kubelet to vcluster itself. This means that if workloads within the vcluster try to scrape node metrics the traffic reaches vcluster first. Vcluster will redirect the incoming request to the host cluster and rewrite the response (pod names, pod namespaces etc) and return it to the requester.
+
+## Monitoring the vcluster StatefulSet
+
+vcluster exposes metrics endpoints on `https://0.0.0.0:8443/metrics` (syncer metrics) and `https://0.0.0.0:6444/metrics` (k3s metrics). In order to scrape those metrics, you will need to send an `Authorization` header with a valid virtual cluster service account token, that has permissions to access the `/metrics` endpoint within the vcluster.

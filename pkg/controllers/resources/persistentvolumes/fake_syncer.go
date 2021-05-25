@@ -18,15 +18,6 @@ import (
 )
 
 func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
-	// index pvcs by their assigned pv
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
-		pod := rawObj.(*corev1.PersistentVolumeClaim)
-		return []string{pod.Spec.VolumeName}
-	})
-	if err != nil {
-		return err
-	}
-
 	return generic.RegisterFakeSyncer(ctx, &fakeSyncer{
 		sharedMutex:   ctx.LockFactory.GetLock("persistent-volumes-controller"),
 		virtualClient: ctx.VirtualManager.GetClient(),

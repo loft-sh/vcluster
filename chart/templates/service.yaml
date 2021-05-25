@@ -9,7 +9,7 @@ metadata:
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
 spec:
-  type: ClusterIP
+  type: {{ .Values.service.type }}
   ports:
     - name: https
       port: 443

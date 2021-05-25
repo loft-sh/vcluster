@@ -7,6 +7,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+func RegisterIndices(ctx *context.ControllerContext) error {
+	return nil
+}
+
 func Register(ctx *context.ControllerContext) error {
 	err := ctrl.NewControllerManagedBy(ctx.LocalManager).
 		Named("event-backward").

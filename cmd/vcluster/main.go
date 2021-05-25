@@ -5,7 +5,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"github.com/loft-sh/vcluster/pkg/indices"
+	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"io/ioutil"
 	"k8s.io/client-go/discovery"
 	"os"
@@ -118,6 +118,9 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.OverrideHostsContainerImage, "override-hosts-container-image", pods.HostsRewriteImage, "The image for the init container that is used for creating the override hosts file.")
 
 	cmd.Flags().StringVar(&options.ClusterDomain, "cluster-domain", "cluster.local", "The cluster domain ending that should be used for the virtual cluster")
+	cmd.Flags().Int64Var(&options.LeaseDuration, "lease-duration", 60, "Lease duration of the leader election in seconds")
+	cmd.Flags().Int64Var(&options.RenewDeadline, "renew-deadline", 40, "Renew deadline of the leader election in seconds")
+	cmd.Flags().Int64Var(&options.RetryPeriod, "retry-period", 15, "Retry period of the leader election in seconds")
 	return cmd
 }
 
@@ -255,20 +258,8 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 		return errors.Wrap(err, "create controller context")
 	}
 
-	// make sure the kubernetes service is synced
-	err = syncKubernetesService(ctx)
-	if err != nil {
-		return errors.Wrap(err, "sync kubernetes service")
-	}
-
-	// register the extra indices
-	err = indices.AddIndices(ctx)
-	if err != nil {
-		return errors.Wrap(err, "register extra indices")
-	}
-
-	// register the controllers
-	err = controllers.Register(ctx)
+	// register the indices
+	err = controllers.RegisterIndices(ctx)
 	if err != nil {
 		return errors.Wrap(err, "register controllers")
 	}
@@ -293,18 +284,41 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	localManager.GetCache().WaitForCacheSync(ctx.Context)
 	virtualClusterManager.GetCache().WaitForCacheSync(ctx.Context)
 
-	// start the node service provider
+	// start leader election for controllers
 	go func() {
-		ctx.NodeServiceProvider.Start(ctx.Context)
+		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
+			// make sure the kubernetes service is synced
+			err = syncKubernetesService(ctx)
+			if err != nil {
+				return errors.Wrap(err, "sync kubernetes service")
+			}
+
+			// start the node service provider
+			go func() {
+				ctx.NodeServiceProvider.Start(ctx.Context)
+			}()
+
+			// register controllers
+			err := controllers.RegisterControllers(ctx)
+			if err != nil {
+				return err
+			}
+
+			// write the kube config to secret
+			err = writeKubeConfigToSecret(ctx, &rawConfig)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			klog.Fatalf("Error starting leader election: %v", err)
+		}
 	}()
 
 	// start the proxy
 	proxyServer, err := server.NewServer(ctx, options.RequestHeaderCaCert, options.ClientCaCert)
-	if err != nil {
-		return err
-	}
-
-	err = writeKubeConfigToSecret(ctx, &rawConfig)
 	if err != nil {
 		return err
 	}

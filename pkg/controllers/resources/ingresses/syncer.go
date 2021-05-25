@@ -19,6 +19,10 @@ import (
 	"time"
 )
 
+func RegisterIndices(ctx *context2.ControllerContext) error {
+	return generic.RegisterSyncerIndices(ctx, &networkingv1beta1.Ingress{})
+}
+
 func Register(ctx *context2.ControllerContext) error {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})

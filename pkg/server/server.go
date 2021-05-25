@@ -90,16 +90,6 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 				Verb:                 "*",
 				SubResource:          "log",
 			},
-			{
-				GroupVersionResource: corev1.SchemeGroupVersion.WithResource("pods"),
-				Verb:                 "*",
-				SubResource:          "proxy",
-			},
-			{
-				GroupVersionResource: corev1.SchemeGroupVersion.WithResource("services"),
-				Verb:                 "*",
-				SubResource:          "proxy",
-			},
 		},
 	}
 

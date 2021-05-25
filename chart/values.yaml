@@ -1,7 +1,7 @@
-# Default values for vcluster.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Syncer configuration
 syncer:
+  # Image to use for the syncer
+  # image: loftsh/vcluster
   extraArgs: []
   env: []
   volumeMounts:
@@ -9,7 +9,9 @@ syncer:
       name: data
   resources: {}
 
+# Virtual Cluster (k3s) configuration
 vcluster:
+  # Image to use for the virtual cluster
   image: rancher/k3s:v1.21.0-k3s1
   command:
     - /bin/k3s
@@ -24,6 +26,11 @@ vcluster:
     - --disable-cloud-controller
     - --flannel-backend=none
     - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
+  # Extra arguments for k3s. Make sure the service-cidr is the exact service cidr of the host cluster.
+  # If this does not match, you won't be able to create services within the vcluster. You can find out
+  # the service cidr of the host cluster by creating a service with a not allowed ClusterIP in the host cluster.
+  # This will yield an error message in the form of: 
+  # The Service "faulty-service" is invalid: spec.clusterIP: Invalid value: "1.1.1.1": provided IP is not in the valid range. The range of valid IPs is 10.96.0.0/12
   extraArgs:
     - --service-cidr=10.96.0.0/12
   volumeMounts:
@@ -32,15 +39,36 @@ vcluster:
   env: []
   resources: {}
 
+# Storage settings for the vcluster
 storage:
+  # If this is disabled, vcluster will use an emptyDir instead
+  # of a PersistentVolumeClaim
+  persistence: true
+  # Size of the persistent volume claim
   size: 5Gi
-  mountPath: /data
+  
+# Extra volumes that should be created for the StatefulSet
+volumes: []
 
+# Service account that should be used by the vcluster
 serviceAccount:
   create: true
+  # Optional name of the service account to use
+  # name: default
 
+# Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
+    # Enable this to let the vcluster sync
+    # real nodes, storage classes and priority classes
     create: false
   role:
+    # This is required for basic functionality of vcluster
     create: true
+
+# The amount of replicas to run the statefulset with
+replicas: 1
+
+# Service configurations
+service:
+  type: ClusterIP

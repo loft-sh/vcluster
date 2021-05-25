@@ -3,7 +3,6 @@ package priorityclasses
 import (
 	"context"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -21,17 +20,6 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 		targetNamespace: ctx.Options.TargetNamespace,
 		virtualClient:   ctx.VirtualManager.GetClient(),
 		localClient:     ctx.LocalManager.GetClient(),
-	}
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &schedulingv1.PriorityClass{}, constants.IndexByVName, func(rawObj client.Object) []string {
-		metaAccessor, err := meta.Accessor(rawObj)
-		if err != nil {
-			return nil
-		}
-
-		return []string{s.priorityClassName(metaAccessor.GetName())}
-	})
-	if err != nil {
-		return err
 	}
 
 	return registerForwardSyncer(ctx, s, "priorityclass", func(obj runtime.Object) bool {

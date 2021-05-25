@@ -33,13 +33,22 @@ func indexPodByConfigmap(rawObj client.Object) []string {
 	return pods.ConfigNamesFromPod(pod)
 }
 
-func Register(ctx *context2.ControllerContext) error {
-	// index pods by their used config maps
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, indexPodByConfigmap)
+func RegisterIndices(ctx *context2.ControllerContext) error {
+	err := generic.RegisterSyncerIndices(ctx, &corev1.ConfigMap{})
 	if err != nil {
 		return err
 	}
 
+	// index pods by their used config maps
+	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, indexPodByConfigmap)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Register(ctx *context2.ControllerContext) error {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 	return generic.RegisterSyncer(ctx, &syncer{
