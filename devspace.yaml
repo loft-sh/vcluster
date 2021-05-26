@@ -107,13 +107,10 @@ profiles:
               vcluster:
                 image: rancher/k3s:v1.20.5-k3s1
                 extraArgs:
-                  - --service-cidr=10.108.0.0/20
+                  - --service-cidr=10.68.0.0/20
               rbac:
                 clusterRole:
                   create: true
               syncer:
                 image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
-                extraArgs:
-                  - --sync-all-nodes
-                  - --sync-node-changes
-                  - --fake-nodes=false
+                extraArgs: []

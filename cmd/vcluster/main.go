@@ -188,7 +188,7 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	}
 
 	// set kubelet port
-	nodeservice.KubeletPort = int32(options.Port)
+	nodeservice.KubeletTargetPort = options.Port
 
 	// retrieve current namespace
 	if options.TargetNamespace == "" {

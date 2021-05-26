@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +26,9 @@ var (
 	// ServiceNodeLabel specifies which node this service represents
 	ServiceNodeLabel = "vcluster.loft.sh/node"
 	// KubeletPort is the port we pretend the kubelet is running under
-	KubeletPort = int32(8443)
+	KubeletPort = int32(10250)
+	// KubeletTargetPort is the port vcluster will run under
+	KubeletTargetPort = 8443
 )
 
 type NodeServiceProvider interface {
@@ -175,7 +178,8 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Port: int32(KubeletPort),
+					Port:       int32(KubeletPort),
+					TargetPort: intstr.FromInt(KubeletTargetPort),
 				},
 			},
 			Selector: labelSelector,
