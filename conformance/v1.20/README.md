@@ -16,7 +16,7 @@ export CLUSTER_VERSION=1.20.6-gke.1000
 export CLUSTER_CHANNEL=rapid
 
 # Create the cluster
-gcloud beta container --project $PROJECT_NAME clusters create $CLUSTER_NAME \ 
+gcloud beta container --project $PROJECT_NAME clusters create $CLUSTER_NAME \
    --zone $CLUSTER_ZONE --no-enable-basic-auth --cluster-version $CLUSTER_VERSION \
    --release-channel $CLUSTER_CHANNEL --enable-ip-alias --no-enable-master-authorized-networks \
    --addons GcePersistentDiskCsiDriver --node-locations $CLUSTER_ZONE
@@ -48,7 +48,7 @@ syncer:
 Now create the vcluster
 ```
 # Create the vcluster
-vcluster create vcluster -n vcluster --chart-version=v0.3.0 --extra-values=./values.yaml
+vcluster create vcluster -n vcluster -f values.yaml
 
 # Connect to the vcluster 
 vcluster connect vcluster -n vcluster
