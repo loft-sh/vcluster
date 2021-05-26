@@ -1,7 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"os/exec"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
@@ -16,7 +21,9 @@ type DeleteCmd struct {
 	*flags.GlobalFlags
 
 	Namespace string
-	log       log.Logger
+	KeepPVC   bool
+
+	log log.Logger
 }
 
 // NewDeleteCmd creates a new command
@@ -46,6 +53,7 @@ vcluster delete test --namespace test
 	}
 
 	cobraCmd.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace the vcluster was created in")
+	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
 	return cobraCmd
 }
 
@@ -81,10 +89,29 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		namespace = cmd.Namespace
 	}
 
-	// we have to upgrade / install the chart
+	// we have to delete the chart
 	err = helm.NewClient(&rawConfig, cmd.log).Delete(args[0], namespace)
 	if err != nil {
 		return err
+	}
+
+	// try to delete the pvc
+	if cmd.KeepPVC == false {
+		pvcName := fmt.Sprintf("data-%s-0", args[0])
+		restConfig, err := kubeClientConfig.ClientConfig()
+		if err != nil {
+			return err
+		}
+
+		client, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return err
+		}
+
+		err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+		if err != nil && kerrors.IsNotFound(err) == false {
+			return errors.Wrap(err, "delete pvc")
+		}
 	}
 
 	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], namespace)
