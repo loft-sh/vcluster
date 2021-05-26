@@ -32,6 +32,9 @@ Create a file called `values.yaml` with the following contents:
 ```yaml
 vcluster:
   image: rancher/k3s:v1.20.6-k3s1
+# Tolerate everything as the test will taint some nodes
+tolerations:
+- operator: "Exists"
 rbac:
   clusterRole:
     create: true
