@@ -28,7 +28,7 @@ gcloud compute firewall-rules --project $PROJECT_NAME create conformance-firewal
 
 ### 2. Create the vcluster
 
-Create a file called `values.yaml` with the following contents:
+Create a file called `values.yaml` with the following content:
 ```yaml
 vcluster:
   image: rancher/k3s:v1.20.6-k3s1
