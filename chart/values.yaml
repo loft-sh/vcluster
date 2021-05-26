@@ -69,6 +69,15 @@ rbac:
 # The amount of replicas to run the statefulset with
 replicas: 1
 
+# NodeSelector used to schedule the vcluster
+nodeSelector: {}
+
+# Affinity to apply to the vcluster statefulset
+affinity: {}
+
+# Tolerations to apply to the vcluster statefulset
+tolerations: []
+
 # Service configurations
 service:
   type: ClusterIP

@@ -38,13 +38,15 @@ As mentioned, the format of the value passed to the `K3S_DATASTORE_ENDPOINT` env
         { label: 'Postgresql', value: 'postgresql', },
     ]}>
 <TabItem value="etcd">
-    
+
 In its most common form, the `K3S_DATASTORE_ENDPOINT` environment variable for etcd has the following format:
 
-`https://etcd-host-1:2379,https://etcd-host-2:2379,https://etcd-host-3:2379`
+```
+https://etcd-host-1:2379,https://etcd-host-2:2379,https://etcd-host-3:2379 
+```
 
 The above assumes a typical three node etcd cluster. The environment variable can accept one more comma separated etcd URLs.
-    
+
 </TabItem>
 <TabItem value="mysql">
 
