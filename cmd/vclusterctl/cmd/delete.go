@@ -94,6 +94,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], namespace)
 
 	// try to delete the pvc
 	if cmd.KeepPVC == false {
@@ -109,11 +110,14 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 
 		err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
-		if err != nil && kerrors.IsNotFound(err) == false {
-			return errors.Wrap(err, "delete pvc")
+		if err != nil {
+			if kerrors.IsNotFound(err) == false {
+				return errors.Wrap(err, "delete pvc")
+			}
+		} else {
+			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, namespace)
 		}
 	}
 
-	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], namespace)
 	return nil
 }
