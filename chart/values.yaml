@@ -4,6 +4,10 @@ syncer:
   # image: loftsh/vcluster
   extraArgs: []
   env: []
+  livenessProbe:
+    enabled: true
+  readinessProbe:
+    enabled: true
   volumeMounts:
     - mountPath: /data
       name: data
@@ -77,6 +81,12 @@ affinity: {}
 
 # Tolerations to apply to the vcluster statefulset
 tolerations: []
+
+# Extra Labels for the stateful set
+labels: {}
+
+# Extra Annotations for the stateful set
+annotations: {}
 
 # Service configurations
 service:

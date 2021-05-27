@@ -21,11 +21,15 @@ deployments:
         vcluster:
           image: rancher/k3s:v1.20.5-k3s1
           extraArgs:
-            - --service-cidr=10.68.0.0/20
+            - --service-cidr=10.96.0.0/12
         rbac:
           clusterRole:
             create: true
         syncer:
+          readinessProbe:
+            enabled: false
+          livenessProbe:
+            enabled: false
           image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
           noArgs: true
 dev:
@@ -73,6 +77,10 @@ profiles:
             containerName: syncer
             replaceImage: golang:1.16
             patches:
+              - path: spec.containers[1].livenessProbe
+                op: remove
+              - path: spec.containers[1].readinessProbe
+                op: remove
               - path: spec.containers[1].workingDir
                 op: replace
                 value: /vcluster
@@ -101,16 +109,9 @@ profiles:
             chart:
               name: ./chart
             values:
-              serviceAccount:
-                create: false
-                name: default
               vcluster:
                 image: rancher/k3s:v1.20.5-k3s1
                 extraArgs:
-                  - --service-cidr=10.68.0.0/20
-              rbac:
-                clusterRole:
-                  create: true
+                  - --service-cidr=10.96.0.0/12
               syncer:
                 image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
-                extraArgs: []

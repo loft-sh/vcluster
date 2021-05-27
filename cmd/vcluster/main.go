@@ -175,6 +175,7 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 			return false, nil
 		}
 
+		time.Sleep(time.Second)
 		return true, nil
 	})
 	if err != nil {
