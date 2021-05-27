@@ -8,6 +8,13 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 4 }}
+{{- end }}
+  {{- if .Values.annotations }}
+  annotations:
+{{ toYaml .Values.annotations | indent 4 }}
+  {{- end }}
 spec:
   serviceName: {{ .Release.Name }}-headless
   replicas: {{ .Values.replicas }}
@@ -60,6 +67,7 @@ spec:
       {{- end }}
       {{- end }}
       containers:
+      {{- if not .Values.vcluster.disabled }}
       - image: {{ .Values.vcluster.image }}
         name: vcluster
         command:
@@ -79,6 +87,8 @@ spec:
 {{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
+      {{- end }}
+      {{- if not .Values.syncer.disabled }}
       - name: syncer
         {{- if .Values.syncer.image }}
         image: "{{ .Values.syncer.image }}"
@@ -98,9 +108,34 @@ spec:
         args:
 {{ toYaml .Values.syncer.extraArgs | indent 10 }}
         {{- end }}
+        {{- if .Values.syncer.livenessProbe }}
+        {{- if .Values.syncer.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTPS
+          failureThreshold: 15
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        {{- end }}
+        {{- end }}
+        {{- if .Values.syncer.readinessProbe }}
+        {{- if .Values.syncer.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8443
+            scheme: HTTPS
+          failureThreshold: 15
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        {{- end }}
+        {{- end }}
         env:
 {{ toYaml .Values.syncer.env | indent 10 }}
         volumeMounts:
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}
+      {{- end }}
