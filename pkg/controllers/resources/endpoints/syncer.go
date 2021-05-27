@@ -238,7 +238,6 @@ func SyncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Cl
 	// build new subsets
 	newSubsets := pObj.DeepCopy().Subsets
 	for i := range newSubsets {
-		newSubsets[i].NotReadyAddresses = nil
 		for j := range newSubsets[i].Ports {
 			newSubsets[i].Ports[j].Name = "https"
 		}
@@ -246,6 +245,11 @@ func SyncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Cl
 			newSubsets[i].Addresses[j].Hostname = ""
 			newSubsets[i].Addresses[j].NodeName = nil
 			newSubsets[i].Addresses[j].TargetRef = nil
+		}
+		for j := range pObj.Subsets[i].NotReadyAddresses {
+			newSubsets[i].NotReadyAddresses[j].Hostname = ""
+			newSubsets[i].NotReadyAddresses[j].NodeName = nil
+			newSubsets[i].NotReadyAddresses[j].TargetRef = nil
 		}
 	}
 

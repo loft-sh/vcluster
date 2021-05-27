@@ -115,9 +115,9 @@ spec:
             path: /healthz
             port: 8443
             scheme: HTTPS
-          failureThreshold: 15
-          initialDelaySeconds: 5
-          periodSeconds: 10
+          failureThreshold: 10
+          initialDelaySeconds: 60
+          periodSeconds: 2
         {{- end }}
         {{- end }}
         {{- if .Values.syncer.readinessProbe }}
@@ -127,9 +127,8 @@ spec:
             path: /readyz
             port: 8443
             scheme: HTTPS
-          failureThreshold: 15
-          initialDelaySeconds: 5
-          periodSeconds: 10
+          failureThreshold: 30
+          periodSeconds: 2
         {{- end }}
         {{- end }}
         env:
