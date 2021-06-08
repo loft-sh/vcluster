@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
+	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	intrec "sigs.k8s.io/controller-runtime/pkg/internal/recorder"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -66,6 +67,7 @@ type controllerManager struct {
 	// leaderElectionRunnables is the set of Controllers that the controllerManager injects deps into and Starts.
 	// These Runnables are managed by lead election.
 	leaderElectionRunnables []Runnable
+
 	// nonLeaderElectionRunnables is the set of webhook servers that the controllerManager injects deps into and Starts.
 	// These Runnables will not be blocked by lead election.
 	nonLeaderElectionRunnables []Runnable
@@ -108,6 +110,9 @@ type controllerManager struct {
 	healthzStarted bool
 	errChan        chan error
 
+	// controllerOptions are the global controller options.
+	controllerOptions v1alpha1.ControllerConfigurationSpec
+
 	// Logger is the logger that should be used by this manager.
 	// If none is set, it defaults to log.Log global logger.
 	logger logr.Logger
@@ -141,6 +146,9 @@ type controllerManager struct {
 	certDir string
 
 	webhookServer *webhook.Server
+	// webhookServerOnce will be called in GetWebhookServer() to optionally initialize
+	// webhookServer if unset, and Add() it to controllerManager.
+	webhookServerOnce sync.Once
 
 	// leaseDuration is the duration that non-leader candidates will
 	// wait to force acquire leadership.
@@ -218,6 +226,9 @@ func (cm *controllerManager) Add(r Runnable) error {
 
 // Deprecated: use the equivalent Options field to set a field. This method will be removed in v0.10.
 func (cm *controllerManager) SetFields(i interface{}) error {
+	if err := cm.cluster.SetFields(i); err != nil {
+		return err
+	}
 	if _, err := inject.InjectorInto(cm.SetFields, i); err != nil {
 		return err
 	}
@@ -225,9 +236,6 @@ func (cm *controllerManager) SetFields(i interface{}) error {
 		return err
 	}
 	if _, err := inject.LoggerInto(cm.logger, i); err != nil {
-		return err
-	}
-	if err := cm.cluster.SetFields(i); err != nil {
 		return err
 	}
 
@@ -328,36 +336,27 @@ func (cm *controllerManager) GetAPIReader() client.Reader {
 }
 
 func (cm *controllerManager) GetWebhookServer() *webhook.Server {
-	server, wasNew := func() (*webhook.Server, bool) {
-		cm.mu.Lock()
-		defer cm.mu.Unlock()
-
-		if cm.webhookServer != nil {
-			return cm.webhookServer, false
+	cm.webhookServerOnce.Do(func() {
+		if cm.webhookServer == nil {
+			cm.webhookServer = &webhook.Server{
+				Port:    cm.port,
+				Host:    cm.host,
+				CertDir: cm.certDir,
+			}
 		}
-
-		cm.webhookServer = &webhook.Server{
-			Port:    cm.port,
-			Host:    cm.host,
-			CertDir: cm.certDir,
-		}
-		return cm.webhookServer, true
-	}()
-
-	// only add the server if *we ourselves* just registered it.
-	// Add has its own lock, so just do this separately -- there shouldn't
-	// be a "race" in this lock gap because the condition is the population
-	// of cm.webhookServer, not anything to do with Add.
-	if wasNew {
-		if err := cm.Add(server); err != nil {
+		if err := cm.Add(cm.webhookServer); err != nil {
 			panic("unable to add webhook server to the controller manager")
 		}
-	}
-	return server
+	})
+	return cm.webhookServer
 }
 
 func (cm *controllerManager) GetLogger() logr.Logger {
 	return cm.logger
+}
+
+func (cm *controllerManager) GetControllerOptions() v1alpha1.ControllerConfigurationSpec {
+	return cm.controllerOptions
 }
 
 func (cm *controllerManager) serveMetrics() {
@@ -579,10 +578,27 @@ func (cm *controllerManager) startNonLeaderElectionRunnables() {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
+	// First start any webhook servers, which includes conversion, validation, and defaulting
+	// webhooks that are registered.
+	//
+	// WARNING: Webhooks MUST start before any cache is populated, otherwise there is a race condition
+	// between conversion webhooks and the cache sync (usually initial list) which causes the webhooks
+	// to never start because no cache can be populated.
+	for _, c := range cm.nonLeaderElectionRunnables {
+		if _, ok := c.(*webhook.Server); ok {
+			cm.startRunnable(c)
+		}
+	}
+
+	// Start and wait for caches.
 	cm.waitForCache(cm.internalCtx)
 
 	// Start the non-leaderelection Runnables after the cache has synced
 	for _, c := range cm.nonLeaderElectionRunnables {
+		if _, ok := c.(*webhook.Server); ok {
+			continue
+		}
+
 		// Controllers block, but we want to return an error if any have an error starting.
 		// Write any Start errors to a channel so we can return them
 		cm.startRunnable(c)

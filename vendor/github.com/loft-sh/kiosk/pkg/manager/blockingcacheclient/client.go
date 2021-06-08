@@ -13,24 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 )
-
-func NewCacheClientBuilder() manager.ClientBuilder {
-	return &CacheClientBuilder{}
-}
-
-type CacheClientBuilder struct{}
-
-// TODO: implement this
-func (c *CacheClientBuilder) WithUncached(objs ...client.Object) manager.ClientBuilder {
-	return c
-}
-
-func (c *CacheClientBuilder) Build(cache cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
-	return NewCacheClient(cache, config, options)
-}
 
 // CacheClient makes sure that the Create/Update/Patch/Delete functions block until the local cache is updated
 type CacheClient struct {
@@ -38,7 +22,7 @@ type CacheClient struct {
 	scheme *runtime.Scheme
 }
 
-func NewCacheClient(cache cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
+func NewCacheClient(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
 	// create a normal manager cache client
 	cachedClient, err := defaultNewClient(cache, config, options)
 	if err != nil {

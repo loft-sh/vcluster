@@ -90,6 +90,9 @@ type Manager interface {
 
 	// GetLogger returns this manager's logger.
 	GetLogger() logr.Logger
+
+	// GetControllerOptions returns controller global configuration options.
+	GetControllerOptions() v1alpha1.ControllerConfigurationSpec
 }
 
 // Options are the arguments for creating a new Manager
@@ -108,6 +111,25 @@ type Options struct {
 	// value only if you know what you are doing. Defaults to 10 hours if unset.
 	// there will a 10 percent jitter between the SyncPeriod of all controllers
 	// so that all controllers will not send list requests simultaneously.
+	//
+	// This applies to all controllers.
+	//
+	// A period sync happens for two reasons:
+	// 1. To insure against a bug in the controller that causes an object to not
+	// be requeued, when it otherwise should be requeued.
+	// 2. To insure against an unknown bug in controller-runtime, or its dependencies,
+	// that causes an object to not be requeued, when it otherwise should be
+	// requeued, or to be removed from the queue, when it otherwise should not
+	// be removed.
+	//
+	// If you want
+	// 1. to insure against missed watch events, or
+	// 2. to poll services that cannot be watched,
+	// then we recommend that, instead of changing the default period, the
+	// controller requeue, with a constant duration `t`, whenever the controller
+	// is "done" with an object, and would otherwise not requeue it, i.e., we
+	// recommend the `Reconcile` function return `reconcile.Result{RequeueAfter: t}`,
+	// instead of `reconcile.Result{}`.
 	SyncPeriod *time.Duration
 
 	// Logger is the logger that should be used by this manager.
@@ -187,27 +209,34 @@ type Options struct {
 	LivenessEndpointName string
 
 	// Port is the port that the webhook server serves at.
-	// It is used to set webhook.Server.Port.
+	// It is used to set webhook.Server.Port if WebhookServer is not set.
 	Port int
 	// Host is the hostname that the webhook server binds to.
-	// It is used to set webhook.Server.Host.
+	// It is used to set webhook.Server.Host if WebhookServer is not set.
 	Host string
 
 	// CertDir is the directory that contains the server key and certificate.
-	// if not set, webhook server would look up the server key and certificate in
+	// If not set, webhook server would look up the server key and certificate in
 	// {TempDir}/k8s-webhook-server/serving-certs. The server key and certificate
 	// must be named tls.key and tls.crt, respectively.
+	// It is used to set webhook.Server.CertDir if WebhookServer is not set.
 	CertDir string
+
+	// WebhookServer is an externally configured webhook.Server. By default,
+	// a Manager will create a default server using Port, Host, and CertDir;
+	// if this is set, the Manager will use this server instead.
+	WebhookServer *webhook.Server
+
 	// Functions to all for a user to customize the values that will be injected.
 
 	// NewCache is the function that will create the cache to be used
 	// by the manager. If not set this will use the default new cache function.
 	NewCache cache.NewCacheFunc
 
-	// ClientBuilder is the builder that creates the client to be used by the manager.
+	// NewClient is the func that creates the client to be used by the manager.
 	// If not set this will create the default DelegatingClient that will
 	// use the cache for reads and the client for writes.
-	ClientBuilder ClientBuilder
+	NewClient cluster.NewClientFunc
 
 	// ClientDisableCacheFor tells the client that, if any cache is used, to bypass it
 	// for the given objects.
@@ -229,6 +258,11 @@ type Options struct {
 	// To use graceful shutdown without timeout, set to a negative duration, e.G. time.Duration(-1)
 	// The graceful shutdown is skipped for safety reasons in case the leader election lease is lost.
 	GracefulShutdownTimeout *time.Duration
+
+	// Controller contains global configuration options for controllers
+	// registered within this manager.
+	// +optional
+	Controller v1alpha1.ControllerConfigurationSpec
 
 	// makeBroadcaster allows deferring the creation of the broadcaster to
 	// avoid leaking goroutines if we never call Start on this manager.  It also
@@ -282,7 +316,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		clusterOptions.SyncPeriod = options.SyncPeriod
 		clusterOptions.Namespace = options.Namespace
 		clusterOptions.NewCache = options.NewCache
-		clusterOptions.ClientBuilder = options.ClientBuilder
+		clusterOptions.NewClient = options.NewClient
 		clusterOptions.ClientDisableCacheFor = options.ClientDisableCacheFor
 		clusterOptions.DryRunClient = options.DryRunClient
 		clusterOptions.EventBroadcaster = options.EventBroadcaster
@@ -332,25 +366,28 @@ func New(config *rest.Config, options Options) (Manager, error) {
 	}
 
 	return &controllerManager{
-		cluster:                 cluster,
-		recorderProvider:        recorderProvider,
-		resourceLock:            resourceLock,
-		metricsListener:         metricsListener,
-		metricsExtraHandlers:    metricsExtraHandlers,
-		logger:                  options.Logger,
-		elected:                 make(chan struct{}),
-		port:                    options.Port,
-		host:                    options.Host,
-		certDir:                 options.CertDir,
-		leaseDuration:           *options.LeaseDuration,
-		renewDeadline:           *options.RenewDeadline,
-		retryPeriod:             *options.RetryPeriod,
-		healthProbeListener:     healthProbeListener,
-		readinessEndpointName:   options.ReadinessEndpointName,
-		livenessEndpointName:    options.LivenessEndpointName,
-		gracefulShutdownTimeout: *options.GracefulShutdownTimeout,
-		internalProceduresStop:  make(chan struct{}),
-		leaderElectionStopped:   make(chan struct{}),
+		cluster:                       cluster,
+		recorderProvider:              recorderProvider,
+		resourceLock:                  resourceLock,
+		metricsListener:               metricsListener,
+		metricsExtraHandlers:          metricsExtraHandlers,
+		controllerOptions:             options.Controller,
+		logger:                        options.Logger,
+		elected:                       make(chan struct{}),
+		port:                          options.Port,
+		host:                          options.Host,
+		certDir:                       options.CertDir,
+		webhookServer:                 options.WebhookServer,
+		leaseDuration:                 *options.LeaseDuration,
+		renewDeadline:                 *options.RenewDeadline,
+		retryPeriod:                   *options.RetryPeriod,
+		healthProbeListener:           healthProbeListener,
+		readinessEndpointName:         options.ReadinessEndpointName,
+		livenessEndpointName:          options.LivenessEndpointName,
+		gracefulShutdownTimeout:       *options.GracefulShutdownTimeout,
+		internalProceduresStop:        make(chan struct{}),
+		leaderElectionStopped:         make(chan struct{}),
+		leaderElectionReleaseOnCancel: options.LeaderElectionReleaseOnCancel,
 	}, nil
 }
 
@@ -406,6 +443,16 @@ func (o Options) AndFrom(loader config.ControllerManagerConfiguration) (Options,
 
 	if o.CertDir == "" && newObj.Webhook.CertDir != "" {
 		o.CertDir = newObj.Webhook.CertDir
+	}
+
+	if newObj.Controller != nil {
+		if o.Controller.CacheSyncTimeout == nil && newObj.Controller.CacheSyncTimeout != nil {
+			o.Controller.CacheSyncTimeout = newObj.Controller.CacheSyncTimeout
+		}
+
+		if len(o.Controller.GroupKindConcurrency) == 0 && len(newObj.Controller.GroupKindConcurrency) > 0 {
+			o.Controller.GroupKindConcurrency = newObj.Controller.GroupKindConcurrency
+		}
 	}
 
 	return o, nil

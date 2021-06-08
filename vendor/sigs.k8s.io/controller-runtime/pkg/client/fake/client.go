@@ -23,14 +23,17 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/testing"
 
@@ -45,11 +48,12 @@ type versionedTracker struct {
 }
 
 type fakeClient struct {
-	tracker versionedTracker
-	scheme  *runtime.Scheme
+	tracker         versionedTracker
+	scheme          *runtime.Scheme
+	schemeWriteLock sync.Mutex
 }
 
-var _ client.Client = &fakeClient{}
+var _ client.WithWatch = &fakeClient{}
 
 const (
 	maxNameLength          = 63
@@ -61,7 +65,7 @@ const (
 // You can choose to initialize it with a slice of runtime.Object.
 //
 // Deprecated: Please use NewClientBuilder instead.
-func NewFakeClient(initObjs ...runtime.Object) client.Client {
+func NewFakeClient(initObjs ...runtime.Object) client.WithWatch {
 	return NewClientBuilder().WithRuntimeObjects(initObjs...).Build()
 }
 
@@ -70,7 +74,7 @@ func NewFakeClient(initObjs ...runtime.Object) client.Client {
 // You can choose to initialize it with a slice of runtime.Object.
 //
 // Deprecated: Please use NewClientBuilder instead.
-func NewFakeClientWithScheme(clientScheme *runtime.Scheme, initObjs ...runtime.Object) client.Client {
+func NewFakeClientWithScheme(clientScheme *runtime.Scheme, initObjs ...runtime.Object) client.WithWatch {
 	return NewClientBuilder().WithScheme(clientScheme).WithRuntimeObjects(initObjs...).Build()
 }
 
@@ -113,7 +117,7 @@ func (f *ClientBuilder) WithRuntimeObjects(initRuntimeObjs ...runtime.Object) *C
 }
 
 // Build builds and returns a new fake client.
-func (f *ClientBuilder) Build() client.Client {
+func (f *ClientBuilder) Build() client.WithWatch {
 	if f.scheme == nil {
 		f.scheme = scheme.Scheme
 	}
@@ -248,6 +252,9 @@ func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Ob
 	}
 	intResourceVersion++
 	accessor.SetResourceVersion(strconv.FormatUint(intResourceVersion, 10))
+	if !accessor.GetDeletionTimestamp().IsZero() && len(accessor.GetFinalizers()) == 0 {
+		return t.ObjectTracker.Delete(gvr, accessor.GetNamespace(), accessor.GetName())
+	}
 	return t.ObjectTracker.Update(gvr, obj, ns)
 }
 
@@ -281,19 +288,42 @@ func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.O
 	return err
 }
 
+func (c *fakeClient) Watch(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
+	gvk, err := apiutil.GVKForObject(list, c.scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasSuffix(gvk.Kind, "List") {
+		gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
+	}
+
+	listOpts := client.ListOptions{}
+	listOpts.ApplyOptions(opts)
+
+	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	return c.tracker.Watch(gvr, listOpts.Namespace)
+}
+
 func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) error {
 	gvk, err := apiutil.GVKForObject(obj, c.scheme)
 	if err != nil {
 		return err
 	}
 
-	OriginalKind := gvk.Kind
+	originalKind := gvk.Kind
 
-	if !strings.HasSuffix(gvk.Kind, "List") {
-		return fmt.Errorf("non-list type %T (kind %q) passed as output", obj, gvk)
+	if strings.HasSuffix(gvk.Kind, "List") {
+		gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
 	}
-	// we need the non-list GVK, so chop off the "List" from the end of the kind
-	gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
+
+	if _, isUnstructuredList := obj.(*unstructured.UnstructuredList); isUnstructuredList && !c.scheme.Recognizes(gvk) {
+		// We need tor register the ListKind with UnstructuredList:
+		// https://github.com/kubernetes/kubernetes/blob/7b2776b89fb1be28d4e9203bdeec079be903c103/staging/src/k8s.io/client-go/dynamic/fake/simple.go#L44-L51
+		c.schemeWriteLock.Lock()
+		c.scheme.AddKnownTypeWithName(gvk.GroupVersion().WithKind(gvk.Kind+"List"), &unstructured.UnstructuredList{})
+		c.schemeWriteLock.Unlock()
+	}
 
 	listOpts := client.ListOptions{}
 	listOpts.ApplyOptions(opts)
@@ -308,7 +338,7 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 	if err != nil {
 		return err
 	}
-	ta.SetKind(OriginalKind)
+	ta.SetKind(originalKind)
 	ta.SetAPIVersion(gvk.GroupVersion().String())
 
 	j, err := json.Marshal(o)
@@ -389,8 +419,7 @@ func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...clie
 	delOptions := client.DeleteOptions{}
 	delOptions.ApplyOptions(opts)
 
-	//TODO: implement propagation
-	return c.tracker.Delete(gvr, accessor.GetNamespace(), accessor.GetName())
+	return c.deleteObject(gvr, accessor)
 }
 
 func (c *fakeClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
@@ -421,7 +450,7 @@ func (c *fakeClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ..
 		if err != nil {
 			return err
 		}
-		err = c.tracker.Delete(gvr, accessor.GetNamespace(), accessor.GetName())
+		err = c.deleteObject(gvr, accessor)
 		if err != nil {
 			return err
 		}
@@ -504,6 +533,23 @@ func (c *fakeClient) Patch(ctx context.Context, obj client.Object, patch client.
 
 func (c *fakeClient) Status() client.StatusWriter {
 	return &fakeStatusWriter{client: c}
+}
+
+func (c *fakeClient) deleteObject(gvr schema.GroupVersionResource, accessor metav1.Object) error {
+	old, err := c.tracker.Get(gvr, accessor.GetNamespace(), accessor.GetName())
+	if err == nil {
+		oldAccessor, err := meta.Accessor(old)
+		if err == nil {
+			if len(oldAccessor.GetFinalizers()) > 0 {
+				now := metav1.Now()
+				oldAccessor.SetDeletionTimestamp(&now)
+				return c.tracker.Update(gvr, old, accessor.GetNamespace())
+			}
+		}
+	}
+
+	//TODO: implement propagation
+	return c.tracker.Delete(gvr, accessor.GetNamespace(), accessor.GetName())
 }
 
 func getGVRFromObject(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersionResource, error) {

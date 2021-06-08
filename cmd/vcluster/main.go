@@ -226,7 +226,7 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
 		Namespace:          options.TargetNamespace,
-		ClientBuilder:      blockingcacheclient.NewCacheClientBuilder(),
+		NewClient:          blockingcacheclient.NewCacheClient,
 	})
 	if err != nil {
 		return err
@@ -235,7 +235,7 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 		Scheme:             scheme,
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
-		ClientBuilder:      blockingcacheclient.NewCacheClientBuilder(),
+		NewClient:          blockingcacheclient.NewCacheClient,
 	})
 	if err != nil {
 		return err
