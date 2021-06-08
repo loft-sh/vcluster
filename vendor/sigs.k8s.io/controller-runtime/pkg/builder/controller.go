@@ -23,7 +23,6 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -57,7 +56,6 @@ type Builder struct {
 	watchesInput     []WatchesInput
 	mgr              manager.Manager
 	globalPredicates []predicate.Predicate
-	config           *rest.Config
 	ctrl             controller.Controller
 	ctrlOptions      controller.Options
 	name             string
@@ -166,13 +164,13 @@ func (blder *Builder) Named(name string) *Builder {
 	return blder
 }
 
-// Complete builds the Application ControllerManagedBy.
+// Complete builds the Application Controller.
 func (blder *Builder) Complete(r reconcile.Reconciler) error {
 	_, err := blder.Build(r)
 	return err
 }
 
-// Build builds the Application ControllerManagedBy and returns the Controller it created.
+// Build builds the Application Controller and returns the Controller it created.
 func (blder *Builder) Build(r reconcile.Reconciler) (controller.Controller, error) {
 	if r == nil {
 		return nil, fmt.Errorf("must provide a non-nil Reconciler")
@@ -187,9 +185,6 @@ func (blder *Builder) Build(r reconcile.Reconciler) (controller.Controller, erro
 	if blder.forInput.object == nil {
 		return nil, fmt.Errorf("must provide an object for reconciliation")
 	}
-
-	// Set the Config
-	blder.loadRestConfig()
 
 	// Set the ControllerManagedBy
 	if err := blder.doController(r); err != nil {
@@ -273,12 +268,6 @@ func (blder *Builder) doWatch() error {
 	return nil
 }
 
-func (blder *Builder) loadRestConfig() {
-	if blder.config == nil {
-		blder.config = blder.mgr.GetConfig()
-	}
-}
-
 func (blder *Builder) getControllerName(gvk schema.GroupVersionKind) string {
 	if blder.name != "" {
 		return blder.name
@@ -287,6 +276,8 @@ func (blder *Builder) getControllerName(gvk schema.GroupVersionKind) string {
 }
 
 func (blder *Builder) doController(r reconcile.Reconciler) error {
+	globalOpts := blder.mgr.GetControllerOptions()
+
 	ctrlOptions := blder.ctrlOptions
 	if ctrlOptions.Reconciler == nil {
 		ctrlOptions.Reconciler = r
@@ -297,6 +288,20 @@ func (blder *Builder) doController(r reconcile.Reconciler) error {
 	gvk, err := getGvk(blder.forInput.object, blder.mgr.GetScheme())
 	if err != nil {
 		return err
+	}
+
+	// Setup concurrency.
+	if ctrlOptions.MaxConcurrentReconciles == 0 {
+		groupKind := gvk.GroupKind().String()
+
+		if concurrency, ok := globalOpts.GroupKindConcurrency[groupKind]; ok && concurrency > 0 {
+			ctrlOptions.MaxConcurrentReconciles = concurrency
+		}
+	}
+
+	// Setup cache sync timeout.
+	if ctrlOptions.CacheSyncTimeout == 0 && globalOpts.CacheSyncTimeout != nil {
+		ctrlOptions.CacheSyncTimeout = *globalOpts.CacheSyncTimeout
 	}
 
 	// Setup the logger.
