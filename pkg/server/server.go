@@ -28,6 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
+	apifilters "k8s.io/apiserver/pkg/server/filters"
 	"k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/informers"
@@ -120,6 +121,10 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 		APIPrefixes:          sets.NewString("api", "apis"),
 		GrouplessAPIPrefixes: sets.NewString("api"),
 	}
+	serverConfig.LongRunningFunc = apifilters.BasicLongRunningRequestCheck(
+		sets.NewString("watch", "proxy"),
+		sets.NewString("attach", "exec", "proxy", "log", "portforward"),
+	)
 
 	redirectAuthResources := []delegatingauthorizer.GroupVersionResourceVerb{
 		{
