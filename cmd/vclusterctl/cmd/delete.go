@@ -20,8 +20,7 @@ import (
 type DeleteCmd struct {
 	*flags.GlobalFlags
 
-	Namespace string
-	KeepPVC   bool
+	KeepPVC bool
 
 	log log.Logger
 }
@@ -52,7 +51,6 @@ vcluster delete test --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace the vcluster was created in")
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
 	return cobraCmd
 }
@@ -71,12 +69,17 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+		CurrentContext: cmd.Context,
+	})
 
 	// load the raw config
 	rawConfig, err := kubeClientConfig.RawConfig()
 	if err != nil {
 		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+	if cmd.Context != "" {
+		rawConfig.CurrentContext = cmd.Context
 	}
 
 	namespace, _, err := kubeClientConfig.Namespace()

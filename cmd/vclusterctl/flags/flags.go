@@ -6,9 +6,11 @@ import (
 
 // GlobalFlags is the flags that contains the global flags
 type GlobalFlags struct {
-	Silent bool
-	Debug  bool
-	Config string
+	Silent    bool
+	Debug     bool
+	Config    string
+	Context   string
+	Namespace string
 }
 
 // SetGlobalFlags applies the global flags
@@ -16,6 +18,8 @@ func SetGlobalFlags(flags *flag.FlagSet) *GlobalFlags {
 	globalFlags := &GlobalFlags{}
 
 	flags.BoolVar(&globalFlags.Debug, "debug", false, "Prints the stack trace if an error occurs")
+	flags.StringVar(&globalFlags.Context, "context", "", "The kubernetes config context to use")
+	flags.StringVarP(&globalFlags.Namespace, "namespace", "n", "", "The kubernetes namespace to use")
 	flags.BoolVar(&globalFlags.Silent, "silent", false, "Run in silent mode and prevents any devspace log output except panics & fatals")
 
 	return globalFlags
