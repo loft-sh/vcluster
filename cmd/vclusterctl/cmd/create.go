@@ -55,8 +55,6 @@ var replaceRegEx = regexp.MustCompile("[^0-9]+")
 type CreateCmd struct {
 	*flags.GlobalFlags
 
-	Namespace string
-
 	ChartVersion  string
 	ChartName     string
 	ChartRepo     string
@@ -100,7 +98,6 @@ vcluster create test --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace the vcluster should be created in")
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh", "The virtual cluster chart repo to use")
@@ -127,12 +124,17 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+		CurrentContext: cmd.Context,
+	})
 
 	// load the raw config
 	rawConfig, err := kubeClientConfig.RawConfig()
 	if err != nil {
 		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+	if cmd.Context != "" {
+		rawConfig.CurrentContext = cmd.Context
 	}
 
 	// load the rest config

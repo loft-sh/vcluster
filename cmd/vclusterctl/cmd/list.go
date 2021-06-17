@@ -16,8 +16,7 @@ import (
 type ListCmd struct {
 	*flags.GlobalFlags
 
-	Namespace string
-	log       log.Logger
+	log log.Logger
 }
 
 // NewListCmd creates a new command
@@ -47,14 +46,15 @@ vcluster list --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace the vcluster was created in")
 	return cobraCmd
 }
 
 // Run executes the functionality
 func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+		CurrentContext: cmd.Context,
+	})
 	namespace := metav1.NamespaceAll
 	if cmd.Namespace != "" {
 		namespace = cmd.Namespace

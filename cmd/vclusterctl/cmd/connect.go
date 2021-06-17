@@ -24,7 +24,6 @@ type ConnectCmd struct {
 	*flags.GlobalFlags
 
 	KubeConfig    string
-	Namespace     string
 	PodName       string
 	UpdateCurrent bool
 	Print         bool
@@ -66,7 +65,6 @@ vcluster connect test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.KubeConfig, "kube-config", "./kubeconfig.yaml", "Writes the created kube config to this file")
 	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", false, "If true updates the current kube config")
 	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
-	cobraCmd.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace the vcluster is in")
 	cobraCmd.Flags().StringVar(&cmd.PodName, "pod", "", "The pod to connect to")
 	cobraCmd.Flags().StringVar(&cmd.Server, "server", "", "The server to connect to")
 	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 8443, "The local port to forward the virtual cluster to")
@@ -75,7 +73,9 @@ vcluster connect test --namespace test
 
 // Run executes the functionality
 func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	kubeConfigLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+	kubeConfigLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+		CurrentContext: cmd.Context,
+	})
 
 	// set the namespace correctly
 	var err error
@@ -99,7 +99,14 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	var out []byte
 	printedWaiting := false
 	err = wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
-		out, err = exec.Command("kubectl", "exec", "--namespace", cmd.Namespace, "-c", "syncer", podName, "--", "cat", "/root/.kube/config").CombinedOutput()
+		args := []string{"exec", "--namespace", cmd.Namespace, "-c", "syncer", podName, "--", "cat", "/root/.kube/config"}
+		if cmd.Context != "" {
+			newArgs := []string{"--context", cmd.Context}
+			newArgs = append(newArgs, args...)
+			args = newArgs
+		}
+
+		out, err = exec.Command("kubectl", args...).CombinedOutput()
 		if err != nil {
 			if !printedWaiting {
 				cmd.log.Infof("Waiting for vCluster to come up...")
@@ -190,6 +197,10 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	forwardPorts := strconv.Itoa(cmd.LocalPort) + ":" + port
 	command := []string{"kubectl", "port-forward", "--namespace", cmd.Namespace, podName, forwardPorts}
+	if cmd.Context != "" {
+		command = append(command, "--context", cmd.Context)
+	}
+
 	cmd.log.Infof("Starting port forwarding: %s", strings.Join(command, " "))
 	portforwardCmd := exec.Command(command[0], command[1:]...)
 	if !cmd.Print {
