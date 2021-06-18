@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
@@ -237,7 +238,7 @@ func translatePod(pPod *corev1.Pod,
 		}
 		if pPod.Spec.Volumes[i].DownwardAPI != nil {
 			for j := range pPod.Spec.Volumes[i].DownwardAPI.Items {
-				translateFieldRef(vPod, pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef)
+				translateFieldRef(pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef)
 			}
 		}
 	}
@@ -256,6 +257,9 @@ func translatePod(pPod *corev1.Pod,
 
 	// translate topology spread constraints
 	translateTopologySpreadConstraints(vPod, pPod)
+
+	// translate pod affinity
+	translatePodAffinity(vPod, pPod)
 
 	return nil
 }
@@ -307,7 +311,7 @@ func translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, vCl
 		}
 		if projectedVolume.Sources[i].DownwardAPI != nil {
 			for j := range projectedVolume.Sources[i].DownwardAPI.Items {
-				translateFieldRef(vPod, projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef)
+				translateFieldRef(projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef)
 			}
 		}
 		if projectedVolume.Sources[i].ServiceAccountToken != nil {
@@ -338,7 +342,7 @@ func translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, vCl
 	return nil
 }
 
-func translateFieldRef(vPod *corev1.Pod, fieldSelector *corev1.ObjectFieldSelector) {
+func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	if fieldSelector == nil {
 		return
 	}
@@ -346,7 +350,7 @@ func translateFieldRef(vPod *corev1.Pod, fieldSelector *corev1.ObjectFieldSelect
 	// check if its a label we have to rewrite
 	labelsMatch := FieldPathLabelRegEx.FindStringSubmatch(fieldSelector.FieldPath)
 	if len(labelsMatch) == 2 {
-		fieldSelector.FieldPath = "metadata.labels['" + translate.ConvertLabelKey(labelsMatch[0]) + "']"
+		fieldSelector.FieldPath = "metadata.labels['" + translate.ConvertLabelKey(labelsMatch[1]) + "']"
 		return
 	}
 
@@ -387,7 +391,7 @@ func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {
 func translateEphemerealContainerEnv(c *corev1.EphemeralContainer, vPod *corev1.Pod, serviceEnvMap map[string]string) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range c.Env {
-		translateDownwardAPI(vPod, &c.Env[j])
+		translateDownwardAPI(&c.Env[j])
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
 			c.Env[j].ValueFrom.ConfigMapKeyRef.Name = translate.PhysicalName(c.Env[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace)
 		}
@@ -431,7 +435,7 @@ func translateEphemerealContainerEnv(c *corev1.EphemeralContainer, vPod *corev1.
 func translateContainerEnv(c *corev1.Container, vPod *corev1.Pod, serviceEnvMap map[string]string) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range c.Env {
-		translateDownwardAPI(vPod, &c.Env[j])
+		translateDownwardAPI(&c.Env[j])
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
 			c.Env[j].ValueFrom.ConfigMapKeyRef.Name = translate.PhysicalName(c.Env[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace)
 		}
@@ -472,14 +476,14 @@ func translateContainerEnv(c *corev1.Container, vPod *corev1.Pod, serviceEnvMap 
 	}
 }
 
-func translateDownwardAPI(vPod *corev1.Pod, env *corev1.EnvVar) {
+func translateDownwardAPI(env *corev1.EnvVar) {
 	if env.ValueFrom == nil {
 		return
 	}
 	if env.ValueFrom.FieldRef == nil {
 		return
 	}
-	translateFieldRef(vPod, env.ValueFrom.FieldRef)
+	translateFieldRef(env.ValueFrom.FieldRef)
 }
 
 func translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterDomain, nameServer string) {
@@ -548,6 +552,78 @@ func deleteDuplicates(strs []string) []string {
 
 func hasClusterIP(service *corev1.Service) bool {
 	return service.Spec.ClusterIP != "None" && service.Spec.ClusterIP != ""
+}
+
+func translatePodAffinity(vPod *corev1.Pod, pPod *corev1.Pod) {
+	if pPod.Spec.Affinity != nil {
+		if pPod.Spec.Affinity.PodAffinity != nil {
+			for i, term := range pPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+				pPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = translatePodAffinityTerm(vPod, term.PodAffinityTerm)
+			}
+			for i, term := range pPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
+				pPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = translatePodAffinityTerm(vPod, term)
+			}
+		}
+		if pPod.Spec.Affinity.PodAntiAffinity != nil {
+			for i, term := range pPod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+				pPod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = translatePodAffinityTerm(vPod, term.PodAffinityTerm)
+			}
+			for i, term := range pPod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
+				pPod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = translatePodAffinityTerm(vPod, term)
+			}
+		}
+	}
+}
+
+func translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodAffinityTerm) corev1.PodAffinityTerm {
+	// We never select pods that are not in the vcluster namespace on the host, so we will
+	// omit Namespaces and namespaceSelector here
+	newAffinityTerm := corev1.PodAffinityTerm{
+		LabelSelector: translate.TranslateLabelSelector(term.LabelSelector),
+		TopologyKey:   term.TopologyKey,
+	}
+
+	if term.LabelSelector != nil {
+		if term.NamespaceSelector == nil {
+			if len(term.Namespaces) > 0 {
+				translatedNamespaces := []string{}
+				for _, ns := range term.Namespaces {
+					translatedNamespaces = append(translatedNamespaces, translate.NamespaceLabelValue(ns))
+				}
+				
+				// Match specific namespaces
+				if newAffinityTerm.LabelSelector.MatchExpressions == nil {
+					newAffinityTerm.LabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
+				}
+				newAffinityTerm.LabelSelector.MatchExpressions = append(newAffinityTerm.LabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+					Key:      translate.NamespaceLabel,
+					Operator: metav1.LabelSelectorOpIn,
+					Values:   translatedNamespaces,
+				})
+			} else {
+				// Match namespace where pod is in
+				if newAffinityTerm.LabelSelector.MatchLabels == nil {
+					newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
+				}
+				newAffinityTerm.LabelSelector.MatchLabels[translate.NamespaceLabel] = translate.NamespaceLabelValue(vPod.Namespace)
+			}
+		} else {
+			// TODO: Support selecting namespaces by label here
+			// Match all namespaces
+			if newAffinityTerm.LabelSelector.MatchLabels == nil {
+				newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
+			}
+			newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
+		}
+	} else {
+		// Match all namespaces
+		newAffinityTerm.LabelSelector = &metav1.LabelSelector{}
+		newAffinityTerm.LabelSelector.MatchLabels = map[string]string{
+			translate.MarkerLabel: translate.Suffix,
+		}
+	}
+
+	return newAffinityTerm
 }
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
