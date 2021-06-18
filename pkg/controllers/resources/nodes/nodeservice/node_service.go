@@ -169,7 +169,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 	nodeService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    namespace,
-			GenerateName: translate.SafeConcatGenerateName(translate.Suffix, "node", name.Name),
+			GenerateName: translate.SafeConcatGenerateName(translate.Suffix, "node") + "-",
 			Labels: map[string]string{
 				ServiceClusterLabel: translate.Suffix,
 				ServiceNodeLabel:    name.Name,

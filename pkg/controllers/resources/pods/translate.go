@@ -558,18 +558,18 @@ func translatePodAffinity(vPod *corev1.Pod, pPod *corev1.Pod) {
 	if pPod.Spec.Affinity != nil {
 		if pPod.Spec.Affinity.PodAffinity != nil {
 			for i, term := range pPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-				vPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = translatePodAffinityTerm(vPod, term.PodAffinityTerm)
+				pPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = translatePodAffinityTerm(vPod, term.PodAffinityTerm)
 			}
 			for i, term := range pPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-				vPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = translatePodAffinityTerm(vPod, term)
+				pPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = translatePodAffinityTerm(vPod, term)
 			}
 		}
 		if pPod.Spec.Affinity.PodAntiAffinity != nil {
 			for i, term := range pPod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-				vPod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = translatePodAffinityTerm(vPod, term.PodAffinityTerm)
+				pPod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = translatePodAffinityTerm(vPod, term.PodAffinityTerm)
 			}
 			for i, term := range pPod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-				vPod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = translatePodAffinityTerm(vPod, term)
+				pPod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = translatePodAffinityTerm(vPod, term)
 			}
 		}
 	}
