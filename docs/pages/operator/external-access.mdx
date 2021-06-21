@@ -143,8 +143,9 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
     # We need the ingress to pass through ssl traffic to the vcluster
-    # This only works for the nginx-ingress, for other ingress controllers
-    # please check their respective documentation.
+    # This only works for the nginx-ingress (enable via --enable-ssl-passthrough
+    # https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough )
+    # for other ingress controllers please check their respective documentation.
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
