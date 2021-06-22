@@ -12,7 +12,7 @@ export CLUSTER_ZONE=europe-west3-a
 
 # At the time of writing 1.20.6 was newest in
 # rapid channel
-export CLUSTER_VERSION=1.20.6-gke.1000
+export CLUSTER_VERSION=1.20.6-gke.1400
 export CLUSTER_CHANNEL=rapid
 
 # Create the cluster
