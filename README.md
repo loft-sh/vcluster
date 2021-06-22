@@ -18,7 +18,7 @@ Create fully functional virtual Kubernetes clusters - Each vcluster runs inside 
 - **No Admin Privileges Required** - If you can deploy a web app to a Kubernetes namespace, you will be able to deploy a vcluster as well
 - **Single Namespace Encapsulation** - Every vcluster and all of its workloads are inside a single namespace of the underlying host cluster
 - **Easy Cleanup** - Delete the host namespace and the vcluster plus all of its workloads will be gone immediately
-- **Flexible & Versatile** - vcluster supports different storage backends (such as sqlite, mysql, postgresql & etcd), customizable syncing behaviour, vcluster within vcluster setups, rewritting of kubelet metrics and many more additional configuration options to fit a multitude of use cases
+- **Flexible & Versatile** - vcluster supports different storage backends (such as sqlite, mysql, postgresql & etcd), customizable syncing behaviour, vcluster within vcluster setups, rewriting of kubelet metrics and many more additional configuration options to fit a multitude of use cases
 
 Learn more on [www.vcluster.com](https://vcluster.com).
 
