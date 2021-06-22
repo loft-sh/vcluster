@@ -13,7 +13,7 @@ Create fully functional virtual Kubernetes clusters - Each vcluster runs inside 
 - **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://github.com/cncf/k8s-conformance) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
 - **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption
 - **No Performance Degradation** - Pod are scheduled in the underlying host cluster, so they get no performance hit at all while running
-- **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vcluster to reduce complexity and increase scalability
+- **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vcluster to reduce complexity and increase scalability. Since most vcluster requests and resources will not reach the host cluster at all, vcluster greatly decreases pressure on the underlying Kubernetes cluster
 - **Easy Provisioning** - Create via vcluster CLI, helm, kubectl, Argo any of your favorite tools (it is basically just a StatefulSet)
 - **No Admin Privileges Required** - If you can deploy a web app to a Kubernetes namespace, you will be able to deploy a vcluster as well
 - **Single Namespace Encapsulation** - Every vcluster and all of its workloads are inside a single namespace of the underlying host cluster
