@@ -9,13 +9,16 @@
 [![Join us on Slack!](docs/static/media/slack.svg)](https://slack.loft.sh/)
 
 ### vcluster - Virtual Clusters For Kubernetes
+Create fully functional virtual Kubernetes clusters - Each vcluster runs inside a namespace of the underlying k8s cluster. It's cheaper than creating separate full-blown clusters and it offers better multi-tenancy and isolation than regular namespaces.
+- **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://github.com/cncf/k8s-conformance) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
 - **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption
 - **No Performance Degradation** - Pod are scheduled in the underlying host cluster, so they get no performance hit at all while running
 - **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vcluster to reduce complexity and increase scalability
-- **Flexible & Easy Provisioning** - Create via vcluster CLI, helm, kubectl, Argo any of your favorite tools (it is basically just a StatefulSet)
+- **Easy Provisioning** - Create via vcluster CLI, helm, kubectl, Argo any of your favorite tools (it is basically just a StatefulSet) that runs in **every** Kubernetes cluster
 - **No Admin Privileges Required** - If you can deploy a web app to a Kubernetes namespace, you will be able to deploy a vcluster as well
 - **Single Namespace Encapsulation** - Every vcluster and all of its workloads are inside a single namespace of the underlying host cluster
 - **Easy Cleanup** - Delete the host namespace and the vcluster plus all of its workloads will be gone immediately
+- **Flexible & Versatile** - vcluster supports different storage backends (such as sqlite, mysql, postgresql & etcd), customizable syncing behaviour, vcluster within vcluster setups, rewritting of kubelet metrics and many more additional configuration options to fit a multitude of use cases
 
 Learn more on [www.vcluster.com](https://vcluster.com).
 
