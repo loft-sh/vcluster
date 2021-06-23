@@ -20,5 +20,5 @@ rules:
     verbs: ["get", "watch", "list"]
   - apiGroups: ["scheduling.k8s.io"]
     resources: ["priorityclasses"]
-    verbs: ["*"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
 {{- end }}
