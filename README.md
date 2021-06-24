@@ -112,188 +112,16 @@ Alternatively, you can download the binary for your platform from the [GitHub Re
 vcluster create vcluster-1 -n host-namespace-1
 ```
 
-<details>
-<summary><b>Alternative A: Helm</b></summary>
-<br>
-
-Create file `vcluster.yaml`:
-```bash
-vcluster:
-  image: rancher/k3s:v1.19.5-k3s2    
-  extraArgs:
-    - --service-cidr=10.96.0.0/12    
-  baseArgs:
-    - server
-    - --write-kubeconfig=/k3s-config/kube-config.yaml
-    - --data-dir=/data
-    - --no-deploy=traefik,servicelb,metrics-server,local-storage
-    - --disable-network-policy
-    - --disable-agent
-    - --disable-scheduler
-    - --disable-cloud-controller
-    - --flannel-backend=none
-    - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
-storage:
-  size: 5Gi
-```
-
-Deploy vcluster via helm:
-```bash
-helm upgrade --install vcluster-1 vcluster \
-  --values vcluster.yaml \
-  --repo https://charts.loft.sh \
-  --namespace vcluster-1 \
-  --repository-config=''
-```
-
-<br>
-</details>
-
-<details>
-<summary><b>Alternative B: kubectl</b></summary>
-<br>
-
-Create file `vcluster.yaml`:
-```yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: vcluster-1
----
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: vcluster-1
-rules:
-  - apiGroups: [""]
-    resources: ["configmaps", "secrets", "services", "services/proxy", "pods", "pods/proxy", "pods/attach", "pods/portforward", "pods/exec", "pods/log", "events", "endpoints", "persistentvolumeclaims"]
-    verbs: ["*"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
-    verbs: ["*"]
-  - apiGroups: [""]
-    resources: ["namespaces"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["apps"]
-    resources: ["statefulsets"]
-    verbs: ["get", "list", "watch"]
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: vcluster-1
-subjects:
-  - kind: ServiceAccount
-    name: vcluster-1
-roleRef:
-  kind: Role
-  name: vcluster-1
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: vcluster-1
-spec:
-  type: ClusterIP
-  ports:
-    - name: https
-      port: 443
-      targetPort: 8443
-      protocol: TCP
-  selector:
-    app: vcluster-1
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: vcluster-1-headless
-spec:
-  ports:
-    - name: https
-      port: 443
-      targetPort: 8443
-      protocol: TCP
-  clusterIP: None
-  selector:
-    app: vcluster-1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: vcluster-1
-  labels:
-    app: vcluster-1
-spec:
-  serviceName: vcluster-1-headless
-  replicas: 1
-  selector:
-    matchLabels:
-      app: vcluster-1
-  template:
-    metadata:
-      labels:
-        app: vcluster-1
-    spec:
-      terminationGracePeriodSeconds: 10
-      serviceAccountName: vcluster-1
-      containers:
-      - image: rancher/k3s:v1.19.5-k3s2
-        name: virtual-cluster
-        command:
-          - "/bin/k3s"
-        args:
-          - "server"
-          - "--write-kubeconfig=/k3s-config/kube-config.yaml"
-          - "--data-dir=/data"
-          - "--disable=traefik,servicelb,metrics-server,local-storage"
-          - "--disable-network-policy"
-          - "--disable-agent"
-          - "--disable-scheduler"
-          - "--disable-cloud-controller"
-          - "--flannel-backend=none"
-          - "--kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle"  
-          - "--service-cidr=10.96.0.0/12"  
-        volumeMounts:
-          - mountPath: /data
-            name: data
-      - name: syncer
-        image: "loftsh/virtual-cluster:0.0.27"
-        args:
-          - --service-name=vcluster-1
-          - --suffix=vcluster-1
-          - --owning-statefulset=vcluster-1
-          - --out-kube-config-secret=vcluster-1
-        volumeMounts:
-          - mountPath: /data
-            name: data
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: [ "ReadWriteOnce" ]
-        resources:
-          requests:
-            storage: 5Gi
-```
-
-Create vcluster using kubectl:
-```bash
-kubectl apply -f vcluster.yaml
-```
-
-</details>
-
-<details>
-<summary><b>Alternative C: Other</b></summary> 
-Get the Helm chart or Kubernetes manifest and use any tool you like for the deployment of a vcluster, e.g. Argo, Flux etc.
-</details>
-<br>
+Take a look at the [vcluster docs](https://www.vcluster.com/docs/getting-started/deployment) to see how to deploy a vcluster using Helm or Kubectl instead.
 
 ### 3. Use the vcluster
 ```bash
 # Start port-forwarding to the vcluster service + set kube-config file
 vcluster connect vcluster-1 -n host-namespace-1
+```
+
+Then run in a separate terminal:
+```bash
 export KUBECONFIG=./kubeconfig.yaml
 
 # Run any kubectl, helm, etc. command in your vcluster
@@ -303,6 +131,9 @@ kubectl create namespace demo-nginx
 kubectl create deployment nginx-deployment -n demo-nginx --image=nginx
 kubectl get pods -n demo-nginx
 ```
+
+Take a look at the [vcluster docs](https://www.vcluster.com/docs/operator/external-access) to see how to expose a vcluster with a LoadBalancer or Ingress instead.
+
 
 ### 4. Cleanup
 ```bash
