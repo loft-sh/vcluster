@@ -27,7 +27,7 @@ helm delete vcluster-1 -n host-namespace-1 --repository-config=''
 
 The easiest option to delete a virtual cluster using `kubectl` is to delete the host namespace:
 ```bash
-kubectl delete host-namespace-1
+kubectl delete namespace host-namespace-1
 ```
 
 In case you have multiple vclusters or any other resources in this namespace, you can also just delete the vcluster-related resources:
