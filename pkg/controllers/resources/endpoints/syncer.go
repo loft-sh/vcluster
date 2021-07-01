@@ -137,36 +137,45 @@ func (s *syncer) translate(vObj runtime.Object) (*corev1.Endpoints, error) {
 		}
 	}
 
+	// make sure we delete the control-plane.alpha.kubernetes.io/leader annotation
+	// that will disable endpoint slice mirroring otherwise
+	if endpoints.Annotations != nil {
+		delete(endpoints.Annotations, "control-plane.alpha.kubernetes.io/leader")
+	}
+
 	return endpoints, nil
 }
 
 func (s *syncer) calcEndpointsDiff(pObj, vObj *corev1.Endpoints) (*corev1.Endpoints, error) {
 	var updated *corev1.Endpoints
 
-	// check subsets
+	// translate endpoints
 	translated, err := s.translate(vObj)
 	if err != nil {
 		return nil, err
 	}
+
+	// check subsets
 	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
 		updated = pObj.DeepCopy()
 		updated.Subsets = translated.Subsets
 	}
 
 	// check annotations
-	if !equality.Semantic.DeepEqual(vObj.Annotations, pObj.Annotations) {
+	if !equality.Semantic.DeepEqual(translated.Annotations, pObj.Annotations) {
 		if updated == nil {
 			updated = pObj.DeepCopy()
 		}
-		updated.Annotations = vObj.Annotations
+		updated.Annotations = translated.Annotations
 	}
 
 	// check labels
-	if !translate.LabelsEqual(vObj.Namespace, vObj.Labels, pObj.Labels) {
+	if !equality.Semantic.DeepEqual(translated.Labels, pObj.Labels) {
 		if updated == nil {
 			updated = pObj.DeepCopy()
 		}
-		updated.Labels = translate.TranslateLabels(vObj.Namespace, vObj.Labels)
+
+		updated.Labels = translated.Labels
 	}
 
 	return updated, nil
