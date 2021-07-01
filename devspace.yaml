@@ -1,9 +1,16 @@
 version: v1beta10
+vars:
+  - name: IMAGE
+    value: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+  - name: K3S
+    value: rancher/k3s:v1.20.5-k3s1
+  - name: SERVICE_CIDR
+    value: 10.96.0.0/12
 images:
   vcluster:
-    image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+    image: ${IMAGE}
     rebuildStrategy: ignoreContextChanges
-    entrypoint: ["sleep", "99999999"]
+    entrypoint: ["sleep", "999999999"]
     build:
       docker:
         skipPush: true
@@ -19,9 +26,9 @@ deployments:
           create: false
           name: default
         vcluster:
-          image: rancher/k3s:v1.20.5-k3s1
+          image: ${K3S}
           extraArgs:
-            - --service-cidr=10.96.0.0/12
+            - --service-cidr=${SERVICE_CIDR}
         rbac:
           clusterRole:
             create: true
@@ -30,79 +37,31 @@ deployments:
             enabled: false
           livenessProbe:
             enabled: false
-          image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+          image: ${IMAGE}
           noArgs: true
 dev:
   terminal:
-    imageName: vcluster
+    imageSelector: ${IMAGE}
   sync:
-    - imageName: vcluster
-      disableDownload: true
-      waitInitialSync: true
+    - imageSelector: ${IMAGE}
       excludePaths:
-        - bin/
-        - .vscode/
-        - .idea/
-        - .git/
-        - docs/
-        - examples/
-        - /conformance
-        - /hack
-        - /test
-        - /chart
-        - /helm
-        - /kubectl
-        - /vendor/github.com/devspace-cloud/
+        - '**'
+        - '!/pkg'
+        - '!/cmd'
+        - '!/vendor'
+        - '!/go.mod'
+        - '!/go.sum'
 commands:
   - name: dev
     command: "devspace dev -n vcluster"
-  - name: gke
-    command: "devspace dev -n vcluster -p gke"
   - name: deploy
     command: "devspace deploy --profile deploy -n vcluster -d"
 profiles:
-  - name: gke
-    patches:
-      - path: dev.terminal
-        op: replace
-        value:
-          containerName: syncer
-          labelSelector:
-            app: vcluster
-      - path: dev.replacePods
-        op: replace
-        value:
-          - labelSelector:
-              app: vcluster
-            containerName: syncer
-            replaceImage: golang:1.16
-            patches:
-              - path: spec.containers[1].livenessProbe
-                op: remove
-              - path: spec.containers[1].readinessProbe
-                op: remove
-              - path: spec.containers[1].workingDir
-                op: replace
-                value: /vcluster
-              - path: spec.containers[1].command
-                op: replace
-                value: ["sleep", "99999999999"]
-      - path: dev.sync[0].imageName
-        op: remove
-      - path: images.vcluster
-        op: remove
-      - path: dev.sync[0].containerName
-        op: replace
-        value: syncer
-      - path: dev.sync[0].labelSelector
-        op: replace
-        value:
-          app: vcluster
   - name: deploy
     replace:
       images:
         vcluster:
-          image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+          image: ${IMAGE}
       deployments:
         - name: vcluster
           helm:
@@ -110,8 +69,8 @@ profiles:
               name: ./chart
             values:
               vcluster:
-                image: rancher/k3s:v1.20.5-k3s1
+                image: ${K3S}
                 extraArgs:
-                  - --service-cidr=10.96.0.0/12
+                  - --service-cidr=${SERVICE_CIDR}
               syncer:
-                image: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+                image: ${IMAGE}
