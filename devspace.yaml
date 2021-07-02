@@ -1,16 +1,17 @@
 version: v1beta10
 vars:
-  - name: IMAGE
+  - name: SYNCER_IMAGE
     value: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
-  - name: K3S
+  - name: K3S_IMAGE
     value: rancher/k3s:v1.20.5-k3s1
+  # Replace this with your clusters service CIDR, you can find it out via
+  # kubectl apply -f hack/wrong-cluster-ip-service.yaml
   - name: SERVICE_CIDR
     value: 10.96.0.0/12
 images:
   vcluster:
-    image: ${IMAGE}
+    image: ${SYNCER_IMAGE}
     rebuildStrategy: ignoreContextChanges
-    entrypoint: ["sleep", "999999999"]
     build:
       docker:
         skipPush: true
@@ -26,7 +27,7 @@ deployments:
           create: false
           name: default
         vcluster:
-          image: ${K3S}
+          image: ${K3S_IMAGE}
           extraArgs:
             - --service-cidr=${SERVICE_CIDR}
         rbac:
@@ -37,18 +38,21 @@ deployments:
             enabled: false
           livenessProbe:
             enabled: false
-          image: ${IMAGE}
+          image: ${SYNCER_IMAGE}
           noArgs: true
+          command: ["sleep"]
+          extraArgs: ["99999999999"]
 dev:
   terminal:
-    imageSelector: ${IMAGE}
+    imageSelector: ${SYNCER_IMAGE}
   sync:
-    - imageSelector: ${IMAGE}
+    - imageSelector: ${SYNCER_IMAGE}
       excludePaths:
         - '**'
         - '!/pkg'
         - '!/cmd'
         - '!/vendor'
+        - '!/hack'
         - '!/go.mod'
         - '!/go.sum'
 commands:
@@ -58,19 +62,12 @@ commands:
     command: "devspace deploy --profile deploy -n vcluster -d"
 profiles:
   - name: deploy
-    replace:
-      images:
-        vcluster:
-          image: ${IMAGE}
-      deployments:
-        - name: vcluster
-          helm:
-            chart:
-              name: ./chart
-            values:
-              vcluster:
-                image: ${K3S}
-                extraArgs:
-                  - --service-cidr=${SERVICE_CIDR}
-              syncer:
-                image: ${IMAGE}
+    patches:
+      - op: remove
+        path: images.vcluster.rebuildStrategy
+      - op: remove
+        path: images.vcluster.build
+      - op: replace
+        path: deployments[0].helm.values.syncer
+        value:
+          image: ${SYNCER_IMAGE}

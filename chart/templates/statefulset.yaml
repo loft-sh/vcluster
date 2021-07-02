@@ -95,6 +95,12 @@ spec:
         {{- else }}
         image: "loftsh/vcluster:{{ .Chart.Version }}"
         {{- end }}
+        {{- if .Values.syncer.command }}
+        command:
+        {{- range $f := .Values.syncer.command }}
+        - {{ $f | quote }}
+        {{- end }}
+        {{- end }}
         {{- if not .Values.syncer.noArgs }}
         args:
           - --service-name={{ .Release.Name }}
