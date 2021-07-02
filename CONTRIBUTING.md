@@ -1,8 +1,24 @@
-# Contributing to vcluster
+## Contributing to vcluster
 
 Thank you for contributing to vcluster! Here you can find common questions around developing vcluster.
 
-## Developing
+### How can I get involved?
+
+There are a number of areas where contributions can be accepted:
+
+- Write Golang code for the vcluster syncer, proxy or other components
+- Write examples
+- Review pull requests
+- Test out new features or work-in-progress
+- Get involved in design reviews and technical proof-of-concepts (PoCs)
+- Help release and package vcluster including the helm chart, compose files, `kubectl` YAML, marketplaces and stores
+- Manage, triage and research Issues and Pull Requests
+- Engage with the growing community by providing technical support on GitHub
+- Create docs, guides and write blogs
+
+This is just a short list of ideas, if you have other ideas for contributing please make a suggestion.
+
+### Setup vcluster for Development
 
 We recommend to develop vcluster directly in a Kubernetes cluster as it makes feedback a lot quicker. For the quick setup, you'll need to install [devspace](https://github.com/loft-sh/devspace#1-install-devspace), kubectl, helm and make sure you have a local Kubernetes cluster (such as Docker Desktop, minikube, KinD or similar) installed.
 
@@ -81,6 +97,14 @@ root@vcluster-0:/vcluster#
 
 `kubectl` within the syncer container will point to the virtual cluster and you can access it from there. If you need to recreate the vcluster, delete the `vcluster` namespace and rerun `devspace run dev` again. 
 
-## Tests
+### Running vcluster Tests
 
 You can run the unit test suite with `./hack/test.sh` which should execute all the vcluster tests. For running conformance tests, please take a look at [conformance tests](https://github.com/loft-sh/vcluster/tree/main/conformance/v1.20)
+
+### License
+
+This project is licensed under the Apache 2.0 License.
+
+### Copyright notice
+
+It is important to state that you retain copyright for your contributions, but agree to license them for usage by the project and author(s) under the Apache 2.0 license. Git retains history of authorship, but we use a catch-all statement rather than individual names.
