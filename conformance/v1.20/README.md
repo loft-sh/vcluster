@@ -12,7 +12,7 @@ export CLUSTER_ZONE=europe-west3-a
 
 # At the time of writing 1.20.6 was newest in
 # rapid channel
-export CLUSTER_VERSION=1.20.6-gke.1000
+export CLUSTER_VERSION=1.20.6-gke.1400
 export CLUSTER_CHANNEL=rapid
 
 # Create the cluster
@@ -48,10 +48,10 @@ syncer:
   - --disable-sync-resources=ingresses
 ```
 
-Now create the vcluster with the [vcluster cli](https://github.com/loft-sh/vcluster/releases) (at least version v0.3.0-alpha.1 or newer):
+Now create the vcluster with the [vcluster cli](https://github.com/loft-sh/vcluster/releases) (at least version v0.3.0-beta.0 or newer):
 ```
 # Create the vcluster
-vcluster create vcluster -n vcluster --chart-version v0.3.0-alpha.1 -f values.yaml
+vcluster create vcluster -n vcluster -f values.yaml
 
 # Connect to the vcluster 
 vcluster connect vcluster -n vcluster
