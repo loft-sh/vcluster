@@ -20,7 +20,7 @@ This is just a short list of ideas, if you have other ideas for contributing ple
 
 ### Setup vcluster for Development
 
-We recommend to develop vcluster directly in a Kubernetes cluster as it makes feedback a lot quicker. For the quick setup, you'll need to install [devspace](https://github.com/loft-sh/devspace#1-install-devspace), kubectl, helm and make sure you have a local Kubernetes cluster (such as Docker Desktop, minikube, KinD or similar) installed.
+We recommend to develop vcluster directly in a Kubernetes cluster as it makes feedback a lot quicker. For the quick setup, you'll need to install [devspace](https://github.com/loft-sh/devspace#1-install-devspace), docker, kubectl, helm and make sure you have a local Kubernetes cluster (such as Docker Desktop, minikube, KinD or similar) installed.
 
 Clone the vcluster project into a new folder and make sure the variable `SERIVE_CIDR` in the `devspace.yaml` fits your local clusters service cidr. You can find out the service cidr with:
 
