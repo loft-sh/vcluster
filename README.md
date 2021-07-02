@@ -142,6 +142,10 @@ vcluster delete vcluster-1 -n host-namespace-1
 
 Alternatively, you could also delete the host-namespace using kubectl.
 
+## Contributing
+
+Thank you for your interest in contributing! Please refer to
+[CONTRIBUTING.md](https://github.com/loft-sh/vcluster/blob/main/CONTRIBUTING.md) for guidance.
 
 <br>
 
