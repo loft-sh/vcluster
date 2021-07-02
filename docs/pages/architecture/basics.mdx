@@ -72,7 +72,7 @@ To provision a vcluster, a user should never be required to have any cluster-wid
 ### 6. Single Namespace Encapsulation
 Each vcluster and all the workloads and data inside the vcluster should be encapsulated into a single namespace. Even if the vcluster has hundreds of namespaces, in the underlying [host cluster](#host-cluster--namespace), everything will be encapsulated into a single [host namespace](#host-cluster--namespace).
 
-**Implementation:** This is mainly achieved by using a separate API server and data store and by the design of the syncer which synchronizes everything to a single underlying host namespace while renameing resources during the sync to prevent naming conflicts when mapping from multiple namespaces inside the vcluster to a single namespace in the host cluster.
+**Implementation:** This is mainly achieved by using a separate API server and data store and by the design of the syncer which synchronizes everything to a single underlying host namespace while renaming resources during the sync to prevent naming conflicts when mapping from multiple namespaces inside the vcluster to a single namespace in the host cluster.
 
 ### 7. Easy Cleanup
 vclusters should not have any hard wiring with the underlying cluster. Deleting a vcluster or merely deleting the vcluster's [host namespace](#host-cluster--namespace) should always be possible without any negative impacts on the underlying cluster (no namespaces stuck in terminating state or anything comparable) and should always guarantee that all vcluster-related resources are being deleted cleanly and immediately without leaving any orphan resources behind.
