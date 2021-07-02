@@ -83,4 +83,4 @@ root@vcluster-0:/vcluster#
 
 ## Tests
 
-You can run the test suite with `./hack/test.sh` which should execute all the vcluster tests.
+You can run the unit test suite with `./hack/test.sh` which should execute all the vcluster tests. For running conformance tests, please take a look at [conformance tests](https://github.com/loft-sh/vcluster/tree/main/conformance/v1.20)
