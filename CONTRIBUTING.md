@@ -63,7 +63,7 @@ go run -mod vendor cmd/vcluster/main.go
 
 Now if you change a file locally, DevSpace will automatically sync the file into the container and you just have to rerun `go run -mod vendor cmd/vcluster/main.go` within the terminal to apply the changes.
 
-You can access the vcluster by creating a second terminal with devspace:
+You can access the vcluster by running `devspace enter` in a separate terminal:
 
 ```
 devspace enter -n vcluster
@@ -79,7 +79,7 @@ kube-node-lease   Active   2m18s
 root@vcluster-0:/vcluster#
 ```
 
-`kubectl` within the syncer points to the virtual cluster and you can access it from there. If you need to recreate the vcluster, delete the `vcluster` namespace and rerun `devspace run dev` again. 
+`kubectl` within the syncer container will point to the virtual cluster and you can access it from there. If you need to recreate the vcluster, delete the `vcluster` namespace and rerun `devspace run dev` again. 
 
 ## Tests
 
