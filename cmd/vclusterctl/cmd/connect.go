@@ -1,10 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"os"
 	"os/exec"
 	"strconv"
@@ -30,7 +35,8 @@ type ConnectCmd struct {
 	LocalPort     int
 
 	Server string
-	log    log.Logger
+
+	log log.Logger
 }
 
 // NewConnectCmd creates a new command
@@ -132,9 +138,67 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unexpected kube config")
 	}
 
+	// check if the vcluster is exposed
+	if len(args) > 0 && cmd.Server == "" {
+		restConfig, err := kubeConfigLoader.ClientConfig()
+		if err != nil {
+			return errors.Wrap(err, "load kube config")
+		}
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return errors.Wrap(err, "create kube client")
+		}
+
+		printedWaiting := false
+		err = wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
+			service, err := kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), args[0], metav1.GetOptions{})
+			if err != nil {
+				if kerrors.IsNotFound(err) {
+					return true, nil
+				}
+
+				return false, err
+			}
+
+			// not a load balancer? Then don't wait
+			if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+				return true, nil
+			}
+
+			if len(service.Status.LoadBalancer.Ingress) == 0 {
+				if !printedWaiting {
+					cmd.log.Infof("Waiting for vCluster LoadBalancer ip...")
+					printedWaiting = true
+				}
+
+				return false, nil
+			}
+
+			if service.Status.LoadBalancer.Ingress[0].Hostname != "" {
+				cmd.Server = service.Status.LoadBalancer.Ingress[0].Hostname
+			} else if service.Status.LoadBalancer.Ingress[0].IP != "" {
+				cmd.Server = service.Status.LoadBalancer.Ingress[0].IP
+			}
+
+			if cmd.Server == "" {
+				return false, nil
+			}
+
+			cmd.log.Infof("Using vcluster %s load balancer endpoint: %s", args[0], cmd.Server)
+			return true, nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "wait for vCluster")
+		}
+	}
+
 	port := ""
 	for k := range kubeConfig.Clusters {
 		if cmd.Server != "" {
+			if strings.HasSuffix(cmd.Server, "https://") == false {
+				cmd.Server = "https://" + cmd.Server
+			}
+
 			kubeConfig.Clusters[k].Server = cmd.Server
 		} else {
 			splitted := strings.Split(kubeConfig.Clusters[k].Server, ":")
