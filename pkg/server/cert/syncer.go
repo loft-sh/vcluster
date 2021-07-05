@@ -103,6 +103,17 @@ func (s *syncer) getSANs() ([]string, error) {
 	} else if svc.Spec.ClusterIP == "" {
 		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", namespace, s.serviceName)
 	}
+
+	// get load balancer ip
+	for _, ing := range svc.Status.LoadBalancer.Ingress {
+		if ing.IP != "" {
+			retSANs = append(retSANs, ing.IP)
+		}
+		if ing.Hostname != "" {
+			retSANs = append(retSANs, ing.Hostname)
+		}
+	}
+
 	retSANs = append(retSANs, svc.Spec.ClusterIP)
 
 	// get cluster ips of node services

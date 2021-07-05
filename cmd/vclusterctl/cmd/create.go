@@ -23,10 +23,10 @@ import (
 )
 
 var VersionMap = map[string]string{
-	"1.21": "rancher/k3s:v1.21.0-k3s1",
-	"1.20": "rancher/k3s:v1.20.4-k3s1",
-	"1.19": "rancher/k3s:v1.19.8-k3s1",
-	"1.18": "rancher/k3s:v1.18.16-k3s1",
+	"1.21": "rancher/k3s:v1.21.2-k3s1",
+	"1.20": "rancher/k3s:v1.20.8-k3s1",
+	"1.19": "rancher/k3s:v1.19.12-k3s1",
+	"1.18": "rancher/k3s:v1.18.20-k3s1",
 	"1.17": "rancher/k3s:v1.17.17-k3s1",
 	"1.16": "rancher/k3s:v1.16.15-k3s1",
 }
@@ -65,6 +65,7 @@ type CreateCmd struct {
 	CreateNamespace    bool
 	DisableIngressSync bool
 	CreateClusterRole  bool
+	Expose             bool
 
 	log log.Logger
 }
@@ -107,6 +108,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cobraCmd.Flags().BoolVar(&cmd.DisableIngressSync, "disable-ingress-sync", false, "If true the virtual cluster will not sync any ingresses")
 	cobraCmd.Flags().BoolVar(&cmd.CreateClusterRole, "create-cluster-role", false, "If true a cluster role will be created to access nodes, storageclasses and priorityclasses")
+	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	return cobraCmd
 }
 
@@ -286,6 +288,12 @@ syncer:
 rbac:
   clusterRole:
     create: true`
+	}
+
+	if cmd.Expose {
+		values += `
+service:
+  type: LoadBalancer`
 	}
 
 	values = strings.ReplaceAll(values, "##IMAGE##", image)
