@@ -385,10 +385,11 @@ func SyncKubernetesService(ctx context.Context, virtualClient client.Client, loc
 		return err
 	}
 
-	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
+	translatedPorts := translateKubernetesServicePorts(pObj.Spec.Ports)
+	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.Ports, translatedPorts) {
 		newService := vObj.DeepCopy()
 		newService.Spec.ClusterIP = pObj.Spec.ClusterIP
-		newService.Spec.Ports = pObj.Spec.Ports
+		newService.Spec.Ports = translatedPorts
 		if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP {
 			newService.Spec.ClusterIPs = nil
 
@@ -416,4 +417,20 @@ func SyncKubernetesService(ctx context.Context, virtualClient client.Client, loc
 	}
 
 	return nil
+}
+
+func translateKubernetesServicePorts(ports []corev1.ServicePort) []corev1.ServicePort {
+	retPorts := []corev1.ServicePort{}
+	for _, p := range ports {
+		// Delete the NodePort
+		retPorts = append(retPorts, corev1.ServicePort{
+			Name:        p.Name,
+			Protocol:    p.Protocol,
+			AppProtocol: p.AppProtocol,
+			Port:        p.Port,
+			TargetPort:  p.TargetPort,
+		})
+	}
+
+	return retPorts
 }
