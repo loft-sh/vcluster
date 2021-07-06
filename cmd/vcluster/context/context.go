@@ -11,6 +11,7 @@ import (
 
 // VirtualCluster holds the cmd flags
 type VirtualClusterOptions struct {
+	ServiceAccountKey   string
 	ServerCaCert        string
 	ServerCaKey         string
 	TlsSANs             []string

@@ -20,6 +20,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
+	gopkg.in/square/go-jose.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver v0.21.1
@@ -27,6 +28,7 @@ require (
 	k8s.io/apiserver v0.21.1
 	k8s.io/client-go v0.21.1
 	k8s.io/klog v1.0.0
+	k8s.io/klog/v2 v2.9.0
 	k8s.io/kube-aggregator v0.21.1
 	k8s.io/kubectl v0.21.1
 	k8s.io/kubelet v0.21.1
@@ -35,8 +37,8 @@ require (
 )
 
 replace (
-    k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7 
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 	github.com/kubernetes-incubator/reference-docs => github.com/kubernetes-sigs/reference-docs v0.0.0-20170929004150-fcf65347b256
 	github.com/markbates/inflect => github.com/markbates/inflect v1.0.4
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 )

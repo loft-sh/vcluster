@@ -239,7 +239,7 @@ func TestMapping(t *testing.T) {
 			},
 		},
 	}
-	requests = mapPods(pod, testingutil.NewFakeClient(testingutil.NewScheme()))
+	requests = mapPods(pod)
 	if len(requests) != 2 || requests[0].Name != "a" || requests[0].Namespace != "test" || requests[1].Name != "b" || requests[1].Namespace != "test" {
 		t.Fatalf("Wrong pod requests returned: %#+v", requests)
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -28,7 +29,6 @@ var (
 	// Default grace period in seconds
 	minimumGracePeriodInSeconds int64 = 30
 	zero                              = int64(0)
-	False                             = false
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
@@ -50,11 +50,6 @@ func Register(ctx *context2.ControllerContext) error {
 		return err
 	}
 
-	imageTranslator, err := NewImageTranslator(ctx.Options.TranslateImages)
-	if err != nil {
-		return err
-	}
-
 	// parse node selector
 	var nodeSelector *metav1.LabelSelector
 	if ctx.Options.EnforceNodeSelector && ctx.Options.NodeSelector != "" {
@@ -68,6 +63,12 @@ func Register(ctx *context2.ControllerContext) error {
 		}
 	}
 
+	// create pod translator
+	translator, err := translatepods.NewTranslator(ctx)
+	if err != nil {
+		return errors.Wrap(err, "create pod translator")
+	}
+
 	return generic.RegisterSyncer(ctx, &syncer{
 		sharedNodesMutex:     ctx.LockFactory.GetLock("nodes-controller"),
 		eventRecoder:         eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "pod-syncer"}),
@@ -78,17 +79,10 @@ func Register(ctx *context2.ControllerContext) error {
 		virtualClusterClient: virtualClusterClient,
 		nodeServiceProvider:  ctx.NodeServiceProvider,
 
-		translateImages: imageTranslator,
-		useFakeNodes:    ctx.Options.UseFakeNodes,
+		podTranslator: translator,
+		useFakeNodes:  ctx.Options.UseFakeNodes,
 
-		serviceAccountName: ctx.Options.ServiceAccount,
-		nodeSelector:       nodeSelector,
-
-		overrideHosts:          ctx.Options.OverrideHosts,
-		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
-		priorityClassesEnabled: ctx.Options.EnablePriorityClasses,
-
-		clusterDomain: ctx.Options.ClusterDomain,
+		nodeSelector: nodeSelector,
 	}, "pod", generic.RegisterSyncerOptions{})
 }
 
@@ -99,21 +93,13 @@ type syncer struct {
 	eventRecoder         record.EventRecorder
 	targetNamespace      string
 	serviceName          string
-	serviceAccountName   string
-	translateImages      ImageTranslator
+	podTranslator        translatepods.Translator
 	localClient          client.Client
 	virtualClient        client.Client
 	virtualClusterClient kubernetes.Interface
 	nodeServiceProvider  nodeservice.NodeServiceProvider
 
-	clusterDomain string
-
 	nodeSelector *metav1.LabelSelector
-
-	overrideHosts      bool
-	overrideHostsImage string
-
-	priorityClassesEnabled bool
 }
 
 func (s *syncer) New() client.Object {
@@ -125,14 +111,9 @@ func (s *syncer) NewList() client.ObjectList {
 }
 
 func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	newObj, err := translate.SetupMetadata(s.targetNamespace, vObj)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "error setting metadata")
-	}
-
 	vPod := vObj.(*corev1.Pod)
-	pPod := newObj.(*corev1.Pod)
-	if err := s.translatePod(vPod, pPod); err != nil {
+	pPod, err := s.translatePod(vPod)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -211,8 +192,10 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	}
 
 	// update the virtual pod if the spec has changed
-	updatedPod := calcPodDiff(pPod, vPod, s.translateImages)
-	if updatedPod != nil {
+	updatedPod, err := s.podTranslator.Diff(vPod, pPod)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if updatedPod != nil {
 		log.Infof("update physical pod %s/%s, because spec, labels or annotations have changed", pPod.Namespace, pPod.Name)
 		err := s.localClient.Update(ctx, updatedPod)
 		if err != nil {
@@ -244,30 +227,32 @@ func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bo
 	}
 
 	// update the virtual pod if the spec has changed
-	updatedPod := calcPodDiff(pPod, vPod, s.translateImages)
-	if updatedPod != nil {
+	updatedPod, err := s.podTranslator.Diff(vPod, pPod)
+	if err != nil {
+		return false, err
+	} else if updatedPod != nil {
 		return true, nil
 	}
 
 	return false, nil
 }
 
-func (s *syncer) translatePod(vPod *corev1.Pod, pPod *corev1.Pod) error {
+func (s *syncer) translatePod(vPod *corev1.Pod) (*corev1.Pod, error) {
 	kubeIP, err := s.findKubernetesIP()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	dnsIP, err := s.findKubernetesDNSIP()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// get services for pod
 	serviceList := &corev1.ServiceList{}
 	err = s.virtualClient.List(context.Background(), serviceList, client.InNamespace(vPod.Namespace))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ptrServiceList := make([]*corev1.Service, 0, len(serviceList.Items))
@@ -276,7 +261,7 @@ func (s *syncer) translatePod(vPod *corev1.Pod, pPod *corev1.Pod) error {
 		ptrServiceList = append(ptrServiceList, &s)
 	}
 
-	return translatePod(pPod, vPod, s.virtualClient, ptrServiceList, s.clusterDomain, dnsIP, kubeIP, s.serviceAccountName, s.translateImages, s.overrideHosts, s.overrideHostsImage, s.priorityClassesEnabled)
+	return s.podTranslator.Translate(vPod, ptrServiceList, dnsIP, kubeIP)
 }
 
 func (s *syncer) findKubernetesIP() (string, error) {
@@ -449,4 +434,23 @@ func (s *syncer) assignNodeToPod(ctx context.Context, pObj *corev1.Pod, vObj *co
 	}
 
 	return nil
+}
+
+func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {
+	if pPod.Annotations == nil || pPod.Annotations[translatepods.HostsRewrittenAnnotation] != "true" {
+		return pPod
+	}
+
+	newPod := pPod.DeepCopy()
+	newInitContainerStatuses := []corev1.ContainerStatus{}
+	if len(newPod.Status.InitContainerStatuses) > 0 {
+		for _, v := range newPod.Status.InitContainerStatuses {
+			if v.Name == translatepods.HostsRewriteContainerName {
+				continue
+			}
+			newInitContainerStatuses = append(newInitContainerStatuses, v)
+		}
+		newPod.Status.InitContainerStatuses = newInitContainerStatuses
+	}
+	return newPod
 }

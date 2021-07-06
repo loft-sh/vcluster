@@ -37,7 +37,7 @@ func isSecretUsedByPods(ctx context.Context, vClient client.Client, secretName s
 		return false, err
 	}
 	for _, pod := range podList.Items {
-		for _, secret := range pods.SecretNamesFromPod(vClient, &pod) {
+		for _, secret := range pods.SecretNamesFromPod(&pod) {
 			if secret == secretName {
 				return true, nil
 			}
@@ -85,7 +85,7 @@ func Register(ctx *context2.ControllerContext) error {
 			}
 
 			return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-				return mapPods(object, ctx.VirtualManager.GetClient())
+				return mapPods(object)
 			}))
 		},
 	})
@@ -114,14 +114,14 @@ func mapIngresses(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func mapPods(obj client.Object, vClient client.Client) []reconcile.Request {
+func mapPods(obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return nil
 	}
 
 	requests := []reconcile.Request{}
-	names := pods.SecretNamesFromPod(vClient, pod)
+	names := pods.SecretNamesFromPod(pod)
 	for _, name := range names {
 		splitted := strings.Split(name, "/")
 		if len(splitted) == 2 {
