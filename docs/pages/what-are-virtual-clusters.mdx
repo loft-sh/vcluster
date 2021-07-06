@@ -17,8 +17,8 @@ Besides k3s, there is a Kubernetes hypervisor that replaces the Kubernetes sched
 * **Pods**: All pods that are started in the virtual cluster are rewritten and then started in the namespace of the virtual cluster in the host cluster. Service account tokens, environment variables, DNS and other configurations are exchanged to point to the virtual cluster instead of the host cluster. Within the pod, it so seems that the pod is started within the virtual cluster instead of the host cluster.
 * **Services**: All services and endpoints are rewritten and created in the namespace of the virtual cluster in the host cluster. The virtual and host cluster share the same service cluster IPs. This also means that a service in the host cluster can be reached from within the virtual cluster without any performance penalties.
 * **PersistentVolumeClaims**: If persistent volume claims are created in the virtual cluster, they will be mutated and created in the namespace of the virtual cluster in the host cluster. If they are bound in the host cluster, the corresponding persistent volume information will be synced back to the virtual cluster.
-* **Configmaps & Secrets**: ConfigMaps or secrets in the virtual cluster that are mounted in pods will be synced to the host cluster, all other configmaps or secrets will purely stay in the virtual cluster.
-* **Other Resources**: Deployments, statefulsets, CRDs, service accounts etc. are **NOT** synced to the host cluster and purely exist in the virtual one.
+* **Configmaps & Secrets**: ConfigMaps or secrets in the virtual cluster that are mounted to pods will be synced to the host cluster, all other configmaps or secrets will purely stay in the virtual cluster.
+* **Other Resources**: Deployments, statefulsets, CRDs, service accounts etc. are **NOT** synced to the host cluster and purely exist in the virtual cluster.
 
 In addition to the synchronization of virtual and host cluster resources, the hypervisor proxies certain Kubernetes API requests to the host cluster, such as pod port forwarding or container command execution. It essentially acts as a reverse proxy for the virtual cluster.
 

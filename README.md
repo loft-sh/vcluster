@@ -120,7 +120,7 @@ Take a look at the [vcluster docs](https://www.vcluster.com/docs/getting-started
 
 ### 3. Use the vcluster
 ```bash
-# Start port-forwarding (if --expose was not specified) to the vcluster service + create kube-config
+# Create a kube config for the vcluster and optionally start port-forwarding to it (if --expose was not used)
 vcluster connect vcluster-1 -n host-namespace-1
 ```
 
