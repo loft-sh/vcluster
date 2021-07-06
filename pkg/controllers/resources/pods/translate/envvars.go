@@ -1,4 +1,4 @@
-package pods
+package translate
 
 import (
 	"fmt"

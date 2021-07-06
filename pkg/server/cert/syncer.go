@@ -34,6 +34,8 @@ type Syncer interface {
 
 func NewSyncer(ctx *ctrlcontext.ControllerContext) Syncer {
 	return &syncer{
+		clusterDomain: ctx.Options.ClusterDomain,
+
 		serverCaKey:  ctx.Options.ServerCaKey,
 		serverCaCert: ctx.Options.ServerCaCert,
 
@@ -47,6 +49,8 @@ func NewSyncer(ctx *ctrlcontext.ControllerContext) Syncer {
 }
 
 type syncer struct {
+	clusterDomain string
+
 	serverCaCert string
 	serverCaKey  string
 
@@ -158,7 +162,7 @@ func (s *syncer) regen(extraSANs []string) error {
 	klog.Infof("Generating serving cert for service ips: %v", extraSANs)
 	tlsCert := filepath.Join(certPath, "serving-tls.crt")
 	tlsKey := filepath.Join(certPath, "serving-tls.key")
-	_, err = GenServingCerts(s.serverCaCert, s.serverCaKey, tlsCert, tlsKey, extraSANs)
+	_, err = GenServingCerts(s.serverCaCert, s.serverCaKey, tlsCert, tlsKey, s.clusterDomain, extraSANs)
 	if err != nil {
 		return err
 	}

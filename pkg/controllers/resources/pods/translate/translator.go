@@ -1,30 +1,35 @@
-package pods
+package translate
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
+	"github.com/loft-sh/vcluster/pkg/serviceaccount"
+	"github.com/loft-sh/vcluster/pkg/util/random"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/keyutil"
+	"k8s.io/utils/pointer"
 	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
 	"strings"
-
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 )
 
 const (
-	OwnerSetKind                 = "vcluster.loft.sh/owner-set-kind"
-	NamespaceAnnotation          = "vcluster.loft.sh/namespace"
-	NameAnnotation               = "vcluster.loft.sh/name"
-	LabelsAnnotation             = "vcluster.loft.sh/labels"
-	UIDAnnotation                = "vcluster.loft.sh/uid"
-	ServiceAccountNameAnnotation = "vcluster.loft.sh/service-account-name"
+	OwnerSetKind                  = "vcluster.loft.sh/owner-set-kind"
+	NamespaceAnnotation           = "vcluster.loft.sh/namespace"
+	NameAnnotation                = "vcluster.loft.sh/name"
+	LabelsAnnotation              = "vcluster.loft.sh/labels"
+	UIDAnnotation                 = "vcluster.loft.sh/uid"
+	ServiceAccountNameAnnotation  = "vcluster.loft.sh/service-account-name"
+	ServiceAccountTokenAnnotation = "vcluster.loft.sh/token-"
 
 	DisableSubdomainRewriteAnnotation = "vcluster.loft.sh/disable-subdomain-rewrite"
 	HostsRewrittenAnnotation          = "vcluster.loft.sh/hosts-rewritten"
@@ -34,30 +39,233 @@ const (
 )
 
 var (
-	FieldPathLabelRegEx = regexp.MustCompile("^metadata\\.labels\\['(.+)'\\]$")
+	FieldPathLabelRegEx      = regexp.MustCompile("^metadata\\.labels\\['(.+)'\\]$")
+	FieldPathAnnotationRegEx = regexp.MustCompile("^metadata\\.annotations\\['(.+)'\\]$")
 
+	zero        = int64(0)
+	False       = false
 	maxPriority = int32(1000000000)
 )
 
-func translatePod(pPod *corev1.Pod,
-	vPod *corev1.Pod,
-	vClient client.Client,
-	services []*corev1.Service,
-	clusterDomain,
-	dnsIP,
-	kubeIP,
-	serviceAccount string,
-	translator ImageTranslator,
-	enableOverrideHosts bool,
-	overrideHostsImage string,
-	priorityClassesEnabled bool) error {
+type Translator interface {
+	Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
+	Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error)
+}
+
+func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
+	// create token generator
+	privateKey, err := keyutil.PrivateKeyFromFile(ctx.Options.ServiceAccountKey)
+	if err != nil {
+		return nil, err
+	}
+	tokenGenerator, err := serviceaccount.JWTTokenGenerator("https://kubernetes.default.svc."+ctx.Options.ClusterDomain, privateKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "create token generator")
+	}
+
+	imageTranslator, err := NewImageTranslator(ctx.Options.TranslateImages)
+	if err != nil {
+		return nil, err
+	}
+
+	return &translator{
+		vClient:         ctx.VirtualManager.GetClient(),
+		imageTranslator: imageTranslator,
+		tokenGenerator:  tokenGenerator,
+
+		targetNamespace:        ctx.Options.TargetNamespace,
+		clusterDomain:          ctx.Options.ClusterDomain,
+		serviceAccount:         ctx.Options.ServiceAccount,
+		overrideHosts:          ctx.Options.OverrideHosts,
+		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
+		priorityClassesEnabled: ctx.Options.EnablePriorityClasses,
+	}, nil
+}
+
+type translator struct {
+	vClient         client.Client
+	tokenGenerator  serviceaccount.TokenGenerator
+	imageTranslator ImageTranslator
+
+	targetNamespace        string
+	clusterDomain          string
+	serviceAccount         string
+	overrideHosts          bool
+	overrideHostsImage     string
+	priorityClassesEnabled bool
+}
+
+func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
+	var updatedPod *corev1.Pod
+	updatedPodSpec := t.calcSpecDiff(pPod, vPod)
+	if updatedPodSpec != nil {
+		updatedPod = pPod.DeepCopy()
+		updatedPod.Spec = *updatedPodSpec
+	}
+
+	// there are some annotations which should be excluded
+	excludeAnnotations := getExcludedAnnotations(pPod)
+
+	// check annotations
+	if !translate.EqualExcept(pPod.Annotations, vPod.Annotations, excludeAnnotations...) {
+		if updatedPod == nil {
+			updatedPod = pPod.DeepCopy()
+		}
+		updatedPod.Annotations = translate.SetExcept(vPod.Annotations, pPod.Annotations, excludeAnnotations...)
+	}
+
+	// check labels annotation
+	if (vPod.Labels == nil || vPod.Labels[translate.MarkerLabel] == "") && pPod.Annotations[LabelsAnnotation] != translateLabelsAnnotation(vPod) {
+		if updatedPod == nil {
+			updatedPod = pPod.DeepCopy()
+		}
+		updatedPod.Annotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
+	}
+
+	// check labels
+	if !translate.LabelsEqual(vPod.Namespace, vPod.Labels, pPod.Labels) {
+		if updatedPod == nil {
+			updatedPod = pPod.DeepCopy()
+		}
+		updatedPod.Labels = translate.TranslateLabels(vPod.Namespace, vPod.Labels)
+	}
+
+	return updatedPod, nil
+}
+
+func getExcludedAnnotations(pPod *corev1.Pod) []string {
+	annotations := []string{OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, LabelsAnnotation}
+	for _, v := range pPod.Spec.Volumes {
+		if v.Projected != nil {
+			for _, source := range v.Projected.Sources {
+				if source.DownwardAPI != nil {
+					for _, item := range source.DownwardAPI.Items {
+						if item.FieldRef != nil {
+							// check if its a label we have to rewrite
+							annotationsMatch := FieldPathAnnotationRegEx.FindStringSubmatch(item.FieldRef.FieldPath)
+							if len(annotationsMatch) == 2 {
+								if strings.HasPrefix(annotationsMatch[1], ServiceAccountTokenAnnotation) {
+									annotations = append(annotations, annotationsMatch[1])
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return annotations
+}
+
+// Changeable fields within the pod:
+// - spec.containers[*].image
+// - spec.initContainers[*].image
+// - spec.activeDeadlineSeconds
+//
+// TODO: check for ephemereal containers
+func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) *corev1.PodSpec {
+	var updatedPodSpec *corev1.PodSpec
+
+	// active deadlines different?
+	val, equal := isInt64Different(pObj.Spec.ActiveDeadlineSeconds, vObj.Spec.ActiveDeadlineSeconds)
+	if !equal {
+		updatedPodSpec = pObj.Spec.DeepCopy()
+		updatedPodSpec.ActiveDeadlineSeconds = val
+	}
+
+	// is image different?
+	updatedContainer := calcContainerImageDiff(pObj.Spec.Containers, vObj.Spec.Containers, t.imageTranslator, nil)
+	if len(updatedContainer) != 0 {
+		if updatedPodSpec == nil {
+			updatedPodSpec = pObj.Spec.DeepCopy()
+		}
+		updatedPodSpec.Containers = updatedContainer
+	}
+
+	// we have to skip some init images that are injected by us to change the /etc/hosts file
+	var skipContainers map[string]bool
+	if pObj.Annotations != nil && pObj.Annotations[HostsRewrittenAnnotation] == "true" {
+		skipContainers = map[string]bool{
+			HostsRewriteContainerName: true,
+		}
+	}
+
+	updatedContainer = calcContainerImageDiff(pObj.Spec.InitContainers, vObj.Spec.InitContainers, t.imageTranslator, skipContainers)
+	if len(updatedContainer) != 0 {
+		if updatedPodSpec == nil {
+			updatedPodSpec = pObj.Spec.DeepCopy()
+		}
+		updatedPodSpec.InitContainers = updatedContainer
+	}
+
+	return updatedPodSpec
+}
+
+func calcContainerImageDiff(pContainers, vContainers []corev1.Container, translateImages ImageTranslator, skipContainers map[string]bool) []corev1.Container {
+	newContainers := []corev1.Container{}
+	changed := false
+	for _, p := range pContainers {
+		if skipContainers != nil && skipContainers[p.Name] {
+			newContainers = append(newContainers, p)
+			continue
+		}
+
+		for _, v := range vContainers {
+			if p.Name == v.Name {
+				if p.Image != translateImages.Translate(v.Image) {
+					newContainer := *p.DeepCopy()
+					newContainer.Image = translateImages.Translate(v.Image)
+					newContainers = append(newContainers, newContainer)
+					changed = true
+				} else {
+					newContainers = append(newContainers, p)
+				}
+
+				break
+			}
+		}
+	}
+
+	if changed == false {
+		return nil
+	}
+	return newContainers
+}
+
+func isInt64Different(i1, i2 *int64) (*int64, bool) {
+	if i1 == nil && i2 == nil {
+		return nil, true
+	} else if i1 != nil && i2 != nil {
+		return pointer.Int64Ptr(*i2), *i1 == *i2
+	}
+
+	var updated *int64
+	if i2 != nil {
+		updated = pointer.Int64Ptr(*i2)
+	}
+
+	return updated, false
+}
+
+func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
+	pPodRaw, err := translate.SetupMetadata(t.targetNamespace, vPod)
+	if err != nil {
+		return nil, errors.Wrap(err, "error setting metadata")
+	}
+
+	// convert to core object
+	pPod := pPodRaw.(*corev1.Pod)
+
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}
 	pPod.Spec.DeprecatedServiceAccount = ""
-	pPod.Spec.ServiceAccountName = serviceAccount
+	pPod.Spec.ServiceAccountName = t.serviceAccount
 	pPod.Spec.AutomountServiceAccountToken = &False
 	pPod.Spec.EnableServiceLinks = &False
-	if !priorityClassesEnabled {
+
+	// check if priority classes are enabled
+	if !t.priorityClassesEnabled {
 		pPod.Spec.PriorityClassName = ""
 		pPod.Spec.Priority = nil
 	} else if pPod.Spec.PriorityClassName != "" {
@@ -115,20 +323,20 @@ func translatePod(pPod *corev1.Pod,
 	}
 
 	// translate the dns config
-	translateDNSConfig(pPod, vPod, clusterDomain, dnsIP)
+	t.translateDNSConfig(pPod, vPod, dnsIP)
 
 	// if spec.subdomain is set we have to translate the /etc/hosts
 	// because otherwise we could get a different hostname as if the pod
 	// would be deployed in a non virtual kubernetes cluster
 	overrideHosts := false
 	if pPod.Spec.Subdomain != "" {
-		if enableOverrideHosts == true && (pPod.Annotations == nil || pPod.Annotations[DisableSubdomainRewriteAnnotation] != "true") {
+		if t.overrideHosts == true && (pPod.Annotations == nil || pPod.Annotations[DisableSubdomainRewriteAnnotation] != "true") {
 			overrideHosts = true
 			initContainer := corev1.Container{
 				Name:    HostsRewriteContainerName,
-				Image:   overrideHostsImage,
+				Image:   t.overrideHostsImage,
 				Command: []string{"sh"},
-				Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + pPod.Spec.Hostname + "$/\\1 " + pPod.Spec.Hostname + "." + pPod.Spec.Subdomain + "." + vPod.Namespace + ".svc." + clusterDomain + " " + pPod.Spec.Hostname + "/' /etc/hosts > /hosts/hosts"},
+				Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + pPod.Spec.Hostname + "$/\\1 " + pPod.Spec.Hostname + "." + pPod.Spec.Subdomain + "." + vPod.Namespace + ".svc." + t.clusterDomain + " " + pPod.Spec.Hostname + "/' /etc/hosts > /hosts/hosts"},
 				VolumeMounts: []corev1.VolumeMount{
 					{
 						MountPath: "/hosts",
@@ -165,7 +373,7 @@ func translatePod(pPod *corev1.Pod,
 	// translate containers
 	for i := range pPod.Spec.Containers {
 		translateContainerEnv(&pPod.Spec.Containers[i], vPod, serviceEnv)
-		pPod.Spec.Containers[i].Image = translator.Translate(pPod.Spec.Containers[i].Image)
+		pPod.Spec.Containers[i].Image = t.imageTranslator.Translate(pPod.Spec.Containers[i].Image)
 
 		if overrideHosts {
 			if pPod.Spec.Containers[i].VolumeMounts == nil {
@@ -182,7 +390,7 @@ func translatePod(pPod *corev1.Pod,
 	// translate init containers
 	for i := range pPod.Spec.InitContainers {
 		translateContainerEnv(&pPod.Spec.InitContainers[i], vPod, serviceEnv)
-		pPod.Spec.InitContainers[i].Image = translator.Translate(pPod.Spec.InitContainers[i].Image)
+		pPod.Spec.InitContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.InitContainers[i].Image)
 
 		if pPod.Spec.InitContainers[i].Name != HostsRewriteContainerName && overrideHosts {
 			if pPod.Spec.InitContainers[i].VolumeMounts == nil {
@@ -199,7 +407,7 @@ func translatePod(pPod *corev1.Pod,
 	// translate ephemereal containers
 	for i := range pPod.Spec.EphemeralContainers {
 		translateEphemerealContainerEnv(&pPod.Spec.EphemeralContainers[i], vPod, serviceEnv)
-		pPod.Spec.EphemeralContainers[i].Image = translator.Translate(pPod.Spec.EphemeralContainers[i].Image)
+		pPod.Spec.EphemeralContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.EphemeralContainers[i].Image)
 
 		if overrideHosts {
 			if pPod.Spec.EphemeralContainers[i].VolumeMounts == nil {
@@ -230,10 +438,9 @@ func translatePod(pPod *corev1.Pod,
 			pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName = translate.PhysicalName(pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName, vPod.Namespace)
 		}
 		if pPod.Spec.Volumes[i].Projected != nil {
-			// get old service account name
-			err := translateProjectedVolume(pPod.Spec.Volumes[i].Projected, vClient, vPod)
+			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod, vPod)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 		if pPod.Spec.Volumes[i].DownwardAPI != nil {
@@ -261,7 +468,7 @@ func translatePod(pPod *corev1.Pod,
 	// translate pod affinity
 	translatePodAffinity(vPod, pPod)
 
-	return nil
+	return pPod, nil
 }
 
 func translateLabelsAnnotation(vPod *corev1.Pod) string {
@@ -279,29 +486,7 @@ func translateLabelsAnnotation(vPod *corev1.Pod) string {
 	return strings.Join(labelsString, "\n")
 }
 
-func secretNameFromServiceAccount(vClient client.Client, vPod *corev1.Pod) (string, error) {
-	vServiceAccount := ""
-	if vPod.Spec.ServiceAccountName != "" {
-		vServiceAccount = vPod.Spec.ServiceAccountName
-	} else if vPod.Spec.DeprecatedServiceAccount != "" {
-		vServiceAccount = vPod.Spec.DeprecatedServiceAccount
-	}
-
-	secretList := &corev1.SecretList{}
-	err := vClient.List(context.Background(), secretList, client.InNamespace(vPod.Namespace))
-	if err != nil {
-		return "", errors.Wrap(err, "list secrets in "+vPod.Namespace)
-	}
-	for _, secret := range secretList.Items {
-		if secret.Annotations["kubernetes.io/service-account.name"] == vServiceAccount {
-			return secret.Name, nil
-		}
-	}
-
-	return "", nil
-}
-
-func translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, vClient client.Client, vPod *corev1.Pod) error {
+func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, pPod *corev1.Pod, vPod *corev1.Pod) error {
 	for i := range projectedVolume.Sources {
 		if projectedVolume.Sources[i].Secret != nil {
 			projectedVolume.Sources[i].Secret.Name = translate.PhysicalName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace)
@@ -315,22 +500,53 @@ func translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, vCl
 			}
 		}
 		if projectedVolume.Sources[i].ServiceAccountToken != nil {
-			secretName, err := secretNameFromServiceAccount(vClient, vPod)
-			if err != nil {
-				return err
-			} else if secretName == "" {
-				return fmt.Errorf("couldn't find service account secret for pod %s/%s", vPod.Namespace, vPod.Name)
+			serviceAccountName := "default"
+			if vPod.Spec.ServiceAccountName != "" {
+				serviceAccountName = vPod.Spec.ServiceAccountName
+			} else if vPod.Spec.DeprecatedServiceAccount != "" {
+				serviceAccountName = vPod.Spec.DeprecatedServiceAccount
 			}
 
+			serviceAccount := corev1.ServiceAccount{}
+			err := t.vClient.Get(context.Background(), types.NamespacedName{Namespace: vPod.Namespace, Name: serviceAccountName}, &serviceAccount)
+			if err != nil {
+				return errors.Wrapf(err, "get service account "+serviceAccountName)
+			}
+
+			audience := "https://kubernetes.default.svc." + t.clusterDomain
+			if projectedVolume.Sources[i].ServiceAccountToken.Audience != "" {
+				audience = projectedVolume.Sources[i].ServiceAccountToken.Audience
+			}
+
+			public, private := serviceaccount.Claims(serviceAccount, vPod, nil, 10*365*24*60*60, 0, []string{audience})
+			serviceAccountToken, err := t.tokenGenerator.GenerateToken(public, private)
+			if err != nil {
+				return errors.Wrap(err, "generate token")
+			}
+
+			// set the token as annotation
+			if pPod.Annotations == nil {
+				pPod.Annotations = map[string]string{}
+			}
+			var annotation string
+			for {
+				annotation = ServiceAccountTokenAnnotation + random.RandomString(8)
+				if pPod.Annotations[annotation] == "" {
+					pPod.Annotations[annotation] = serviceAccountToken
+					break
+				}
+			}
+
+			// rewrite projected volume
 			allRights := int32(0644)
-			projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: translate.PhysicalName(secretName, vPod.Namespace),
-				},
-				Items: []corev1.KeyToPath{
+			projectedVolume.Sources[i].DownwardAPI = &corev1.DownwardAPIProjection{
+				Items: []corev1.DownwardAPIVolumeFile{
 					{
 						Path: projectedVolume.Sources[i].ServiceAccountToken.Path,
-						Key:  "token",
+						FieldRef: &corev1.ObjectFieldSelector{
+							APIVersion: "v1",
+							FieldPath:  "metadata.annotations['" + annotation + "']",
+						},
 						Mode: &allRights,
 					},
 				},
@@ -366,25 +582,6 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	case "spec.serviceAccountName":
 		fieldSelector.FieldPath = "metadata.annotations['" + ServiceAccountNameAnnotation + "']"
 	}
-}
-
-func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {
-	if pPod.Annotations == nil || pPod.Annotations[HostsRewrittenAnnotation] != "true" {
-		return pPod
-	}
-
-	newPod := pPod.DeepCopy()
-	newInitContainerStatuses := []corev1.ContainerStatus{}
-	if len(newPod.Status.InitContainerStatuses) > 0 {
-		for _, v := range newPod.Status.InitContainerStatuses {
-			if v.Name == HostsRewriteContainerName {
-				continue
-			}
-			newInitContainerStatuses = append(newInitContainerStatuses, v)
-		}
-		newPod.Status.InitContainerStatuses = newInitContainerStatuses
-	}
-	return newPod
 }
 
 // TODO: refactor this to not duplicate code from translateContainerEnv
@@ -486,18 +683,18 @@ func translateDownwardAPI(env *corev1.EnvVar) {
 	translateFieldRef(env.ValueFrom.FieldRef)
 }
 
-func translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterDomain, nameServer string) {
+func (t *translator) translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, nameServer string) {
 	dnsPolicy := pPod.Spec.DNSPolicy
 
 	switch dnsPolicy {
 	case corev1.DNSNone:
 		return
 	case corev1.DNSClusterFirstWithHostNet:
-		translateDNSClusterFirstConfig(pPod, vPod, clusterDomain, nameServer)
+		translateDNSClusterFirstConfig(pPod, vPod, t.clusterDomain, nameServer)
 		return
 	case corev1.DNSClusterFirst:
 		if !pPod.Spec.HostNetwork {
-			translateDNSClusterFirstConfig(pPod, vPod, clusterDomain, nameServer)
+			translateDNSClusterFirstConfig(pPod, vPod, t.clusterDomain, nameServer)
 			return
 		}
 		// Fallback to DNSDefault for pod on hostnetwork.
@@ -590,7 +787,7 @@ func translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodAffinityTerm) cor
 				for _, ns := range term.Namespaces {
 					translatedNamespaces = append(translatedNamespaces, translate.NamespaceLabelValue(ns))
 				}
-				
+
 				// Match specific namespaces
 				if newAffinityTerm.LabelSelector.MatchExpressions == nil {
 					newAffinityTerm.LabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}

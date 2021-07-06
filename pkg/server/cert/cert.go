@@ -10,12 +10,12 @@ import (
 	"os"
 )
 
-func GenServingCerts(caCertFile, caKeyFile, certFile, keyFile string, SANs []string) (bool, error) {
+func GenServingCerts(caCertFile, caKeyFile, certFile, keyFile, clusterDomain string, SANs []string) (bool, error) {
 	regen := false
 	commonName := "kube-apiserver"
 	extKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 	altNames := &certhelper.AltNames{
-		DNSNames: []string{"kubernetes.default.svc", "kubernetes.default", "kubernetes", "localhost"},
+		DNSNames: []string{"kubernetes.default.svc." + clusterDomain, "kubernetes.default.svc", "kubernetes.default", "kubernetes", "localhost"},
 		IPs:      []net.IP{net.ParseIP("127.0.0.1")},
 	}
 
