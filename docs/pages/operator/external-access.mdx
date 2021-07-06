@@ -10,7 +10,27 @@ By default, vcluster is only reachable via port-forwarding. However, this means 
 
 ## LoadBalancer service
 
-Create the following `load-balancer.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
+The easiest way is to use the flag `--expose` in `vcluster create` to tell vcluster to use a LoadBalancer service:
+
+```bash
+# Create a new vcluster or patch existing one
+vcluster create vcluster-1 -n host-namespace-1 --expose 
+
+# Connect as usual to the vcluster to create a kube config
+vcluster connect vcluster-1 -n host-namespace-1
+
+# Set default kubeconfig
+export KUBECONFIG=./kubeconfig.yaml
+
+# Run any kube command in the vcluster
+kubectl get ns
+```
+
+Thats it, your vcluster is now externally reachable through a LoadBalancer service.
+
+#### Manual LoadBalancer service creation
+
+Instead of using the built-in flag `--expose`, you can also create the following `load-balancer.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster` yourself:
 ```yaml
 apiVersion: v1
 kind: Service

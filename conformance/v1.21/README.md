@@ -48,10 +48,10 @@ syncer:
   - --disable-sync-resources=ingresses
 ```
 
-Now create the vcluster with the [vcluster cli](https://github.com/loft-sh/vcluster/releases) (at least version v0.3.2 or newer):
+Now create the vcluster with the [vcluster cli](https://github.com/loft-sh/vcluster/releases) (at least version v0.3.1 or newer):
 ```
 # Create the vcluster
-vcluster create vcluster -n vcluster -f values.yaml
+vcluster create vcluster -n vcluster -f values.yaml --expose
 
 # Connect to the vcluster 
 vcluster connect vcluster -n vcluster

@@ -109,14 +109,18 @@ Alternatively, you can download the binary for your platform from the [GitHub Re
 
 ### 2. Create a vcluster
 ```vash
+# By default vcluster will connect via port-forwarding
 vcluster create vcluster-1 -n host-namespace-1
+
+# Alternatively you can also create a LoadBalancer for the vcluster and expose it
+# vcluster create vcluster-1 -n host-namespace-1 --expose
 ```
 
 Take a look at the [vcluster docs](https://www.vcluster.com/docs/getting-started/deployment) to see how to deploy a vcluster using Helm or Kubectl instead.
 
 ### 3. Use the vcluster
 ```bash
-# Start port-forwarding to the vcluster service + set kube-config file
+# Start port-forwarding (if --expose was not specified) to the vcluster service + create kube-config
 vcluster connect vcluster-1 -n host-namespace-1
 ```
 
