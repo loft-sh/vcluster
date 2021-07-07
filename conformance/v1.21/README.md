@@ -59,7 +59,7 @@ vcluster connect vcluster -n vcluster
 
 ### 3. Run Tests
 
-Install [sonobuoy](https://github.com/vmware-tanzu/sonobuoy) and run this in a different shell:
+Install [sonobuoy](https://github.com/vmware-tanzu/sonobuoy) and run:
 ```
 export KUBECONFIG=./kubeconfig.yaml
 export CONFORMANCE_VERSION=v1.21.1

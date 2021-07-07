@@ -112,8 +112,8 @@ Alternatively, you can download the binary for your platform from the [GitHub Re
 # By default vcluster will connect via port-forwarding
 vcluster create vcluster-1 -n host-namespace-1
 
-# Alternatively you can also create a LoadBalancer for the vcluster and expose it
-# vcluster create vcluster-1 -n host-namespace-1 --expose
+# OR: Use --expose to create a vcluster with an externally accessible LoadBalancer
+vcluster create vcluster-1 -n host-namespace-1 --expose 
 ```
 
 Take a look at the [vcluster docs](https://www.vcluster.com/docs/getting-started/deployment) to see how to deploy a vcluster using Helm or Kubectl instead.
