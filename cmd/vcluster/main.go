@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
+	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"io/ioutil"
 	"k8s.io/client-go/discovery"
 	"os"
@@ -20,12 +21,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/server"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -91,8 +89,11 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.ServiceAccountKey, "service-account-key", "/data/server/tls/service.key", "The path to the service account token key")
 	cmd.Flags().StringSliceVar(&options.TlsSANs, "tls-san", []string{}, "Add additional hostname or IP as a Subject Alternative Name in the TLS cert")
 	cmd.Flags().StringVar(&options.KubeConfig, "kube-config", "/data/server/cred/admin.kubeconfig", "The path to the virtual cluster admin kube config")
-	cmd.Flags().StringVar(&options.KubeConfigSecret, "out-kube-config-secret", "kubeconfig", "If specified, the virtual cluster will write the generated kube config to the given secret")
 	cmd.Flags().StringVar(&options.DisableSyncResources, "disable-sync-resources", "", "The resources that shouldn't be synced by the virtual cluster (e.g. ingresses)")
+
+	cmd.Flags().StringVar(&options.KubeConfigSecret, "out-kube-config-secret", "kubeconfig", "If specified, the virtual cluster will write the generated kube config to the given secret")
+	cmd.Flags().StringVar(&options.KubeConfigSecretNamespace, "out-kube-config-secret-namespace", "", "If specified, the virtual cluster will write the generated kube config in the given namespace")
+	cmd.Flags().StringVar(&options.KubeConfigServer, "out-kube-config-server", "", "If specified, the virtual cluster will use this server for the generated kube config (e.g. https://my-vcluster.domain.com)")
 
 	cmd.Flags().StringVar(&options.TargetNamespace, "target-namespace", "", "The namespace to run the virtual cluster in (defaults to current namespace)")
 	cmd.Flags().StringVar(&options.ServiceName, "service-name", "vcluster", "The service name where the vcluster proxy will be available")
@@ -370,6 +371,8 @@ func syncKubernetesService(ctx *context.ControllerContext) error {
 
 func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config) error {
 	config = config.DeepCopy()
+
+	// exchange kube config server & resolve certificate
 	for i := range config.Clusters {
 		// fill in data
 		if config.Clusters[i].CertificateAuthorityData == nil && config.Clusters[i].CertificateAuthority != "" {
@@ -382,8 +385,14 @@ func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config)
 			config.Clusters[i].CertificateAuthorityData = o
 		}
 
-		config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", ctx.Options.Port)
+		if ctx.Options.KubeConfigServer != "" {
+			config.Clusters[i].Server = ctx.Options.KubeConfigServer
+		} else {
+			config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", ctx.Options.Port)
+		}
 	}
+
+	// resolve auth info cert & key
 	for i := range config.AuthInfos {
 		// fill in data
 		if config.AuthInfos[i].ClientCertificateData == nil && config.AuthInfos[i].ClientCertificate != "" {
@@ -406,40 +415,15 @@ func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config)
 		}
 	}
 
-	// set kind & version
-	config.APIVersion = "v1"
-	config.Kind = "Config"
-
-	out, err := clientcmd.Write(*config)
+	// which namespace should we create the secret in?
+	secretNamespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
 		return err
+	} else if ctx.Options.KubeConfigSecretNamespace != "" {
+		secretNamespace = ctx.Options.KubeConfigSecretNamespace
+	} else if ctx.Options.TargetNamespace != "" {
+		secretNamespace = ctx.Options.TargetNamespace
 	}
 
-	err = os.MkdirAll("/root/.kube", 0755)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile("/root/.kube/config", out, 0666)
-	if err != nil {
-		return err
-	}
-
-	if ctx.Options.KubeConfigSecret != "" {
-		err = clienthelper.Apply(ctx.Context, ctx.LocalManager.GetClient(), &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ctx.Options.KubeConfigSecret,
-				Namespace: ctx.Options.TargetNamespace,
-			},
-			Type: corev1.SecretTypeOpaque,
-			Data: map[string][]byte{
-				"config": out,
-			},
-		}, loghelper.New("apply-secret"))
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.LocalManager.GetClient(), ctx.Options.KubeConfigSecret, secretNamespace, config, translate.OwningStatefulSet)
 }

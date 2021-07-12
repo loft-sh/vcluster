@@ -18,7 +18,10 @@ type VirtualClusterOptions struct {
 	RequestHeaderCaCert string
 	ClientCaCert        string
 	KubeConfig          string
-	KubeConfigSecret    string
+
+	KubeConfigSecret          string
+	KubeConfigSecretNamespace string
+	KubeConfigServer          string
 
 	BindAddress string
 	Port        int
