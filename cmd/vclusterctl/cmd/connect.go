@@ -79,6 +79,15 @@ vcluster connect test --namespace test
 
 // Run executes the functionality
 func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
+	vclusterName := ""
+	if len(args) > 0 {
+		vclusterName = args[0]
+	}
+
+	return cmd.Connect(vclusterName)
+}
+
+func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	kubeConfigLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: cmd.Context,
 	})
@@ -92,13 +101,13 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if len(args) == 0 && cmd.PodName == "" {
+	if vclusterName == "" && cmd.PodName == "" {
 		return fmt.Errorf("please specify either --pod or a name for the vcluster")
 	}
 
 	podName := cmd.PodName
 	if podName == "" {
-		podName = args[0] + "-0"
+		podName = vclusterName + "-0"
 	}
 
 	// get the kube config from the container
@@ -139,7 +148,7 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// check if the vcluster is exposed
-	if len(args) > 0 && cmd.Server == "" {
+	if vclusterName != "" && cmd.Server == "" {
 		restConfig, err := kubeConfigLoader.ClientConfig()
 		if err != nil {
 			return errors.Wrap(err, "load kube config")
@@ -151,7 +160,7 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 		printedWaiting := false
 		err = wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
-			service, err := kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), args[0], metav1.GetOptions{})
+			service, err := kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), vclusterName, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
 					return true, nil
@@ -184,7 +193,7 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				return false, nil
 			}
 
-			cmd.log.Infof("Using vcluster %s load balancer endpoint: %s", args[0], cmd.Server)
+			cmd.log.Infof("Using vcluster %s load balancer endpoint: %s", vclusterName, cmd.Server)
 			return true, nil
 		})
 		if err != nil {
@@ -230,8 +239,8 @@ func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 
 		contextName := ""
-		if len(args) > 0 {
-			contextName = "vcluster_" + cmd.Namespace + "_" + args[0]
+		if vclusterName != "" {
+			contextName = "vcluster_" + cmd.Namespace + "_" + vclusterName
 		} else {
 			contextName = "vcluster_" + cmd.Namespace + "_" + cmd.PodName
 		}

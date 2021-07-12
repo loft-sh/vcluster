@@ -66,6 +66,7 @@ type CreateCmd struct {
 	DisableIngressSync bool
 	CreateClusterRole  bool
 	Expose             bool
+	Connect            bool
 
 	log log.Logger
 }
@@ -109,6 +110,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.DisableIngressSync, "disable-ingress-sync", false, "If true the virtual cluster will not sync any ingresses")
 	cobraCmd.Flags().BoolVar(&cmd.CreateClusterRole, "create-cluster-role", false, "If true a cluster role will be created to access nodes, storageclasses and priorityclasses")
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
+	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", false, "If true will run vcluster connect directly after the vcluster was created")
 	return cobraCmd
 }
 
@@ -208,6 +210,19 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. Use 'vcluster connect %s --namespace %s' to access the virtual cluster", args[0], namespace, args[0], namespace)
+
+	// check if we should connect to the vcluster
+	if cmd.Connect {
+		connectCmd := &ConnectCmd{
+			GlobalFlags: cmd.GlobalFlags,
+			KubeConfig:  "./kubeconfig.yaml",
+			LocalPort:   8443,
+			log:         cmd.log,
+		}
+
+		return connectCmd.Connect(args[0])
+	}
+
 	return nil
 }
 
