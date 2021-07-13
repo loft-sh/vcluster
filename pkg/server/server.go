@@ -52,16 +52,25 @@ type Server struct {
 	redirectResources   []delegatingauthorizer.GroupVersionResourceVerb
 	requestHeaderCaFile string
 	clientCaFile        string
+
+	targetNamespace string
 }
 
 // NewServer creates and installs a new Server.
 // 'filter', if non-nil, protects requests to the api only.
 func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
+	certSyncer, err := cert.NewSyncer(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "create cert syncer")
+	}
+
 	s := &Server{
 		virtualManager: ctx.VirtualManager,
 		localManager:   ctx.LocalManager,
-		certSyncer:     cert.NewSyncer(ctx),
+		certSyncer:     certSyncer,
 		handler:        http.NewServeMux(),
+
+		targetNamespace: ctx.Options.TargetNamespace,
 
 		requestHeaderCaFile: requestHeaderCaFile,
 		clientCaFile:        clientCaFile,
@@ -172,7 +181,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
-	defaultHandler = filters.WithNodeName(defaultHandler, s.localManager)
+	defaultHandler = filters.WithNodeName(defaultHandler, s.localManager, s.targetNamespace)
 	return defaultHandler
 }
 

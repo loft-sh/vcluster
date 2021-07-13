@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -21,9 +20,9 @@ type nodeName int
 // does not conflict with the keys defined in pkg/api.
 const nodeNameKey nodeName = iota
 
-func WithNodeName(h http.Handler, localManager ctrl.Manager) http.Handler {
+func WithNodeName(h http.Handler, localManager ctrl.Manager, targetNamespace string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		nodeName, err := NodeNameFromHost(req.Context(), req.Host, localManager.GetClient())
+		nodeName, err := NodeNameFromHost(req.Context(), req.Host, targetNamespace, localManager.GetClient())
 		if err != nil {
 			requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, errors.Wrap(err, "find node name from host"))
 			return
@@ -41,17 +40,12 @@ func NodeNameFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-func NodeNameFromHost(ctx context.Context, host string, localClient client.Client) (string, error) {
-	currentNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return "", err
-	}
-
+func NodeNameFromHost(ctx context.Context, host, targetNamespace string, localClient client.Client) (string, error) {
 	addr, err := net.ResolveUDPAddr("udp", host)
 	if err == nil {
 		clusterIP := addr.IP.String()
 		serviceList := &corev1.ServiceList{}
-		err = localClient.List(ctx, serviceList, client.InNamespace(currentNamespace), client.MatchingFields{constants.IndexByClusterIP: clusterIP})
+		err = localClient.List(ctx, serviceList, client.InNamespace(targetNamespace), client.MatchingFields{constants.IndexByClusterIP: clusterIP})
 		if err != nil {
 			return "", err
 		}

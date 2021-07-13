@@ -15,10 +15,12 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		eventRecoder:    &testingutil.FakeEventRecorder{},
-		targetNamespace: "test",
-		virtualClient:   vClient,
-		localClient:     pClient,
+		eventRecoder:     &testingutil.FakeEventRecorder{},
+		targetNamespace:  "test",
+		serviceNamespace: "test",
+		serviceClient:    pClient,
+		virtualClient:    vClient,
+		localClient:      pClient,
 	}
 }
 

@@ -39,11 +39,12 @@ type NodeServiceProvider interface {
 	GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error)
 }
 
-func NewNodeServiceProvider(localClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
+func NewNodeServiceProvider(localClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client, targetNamespace string) NodeServiceProvider {
 	return &nodeServiceProvider{
 		localClient:           localClient,
 		virtualClient:         virtualClient,
 		uncachedVirtualClient: uncachedVirtualClient,
+		targetNamespace:       targetNamespace,
 	}
 }
 
@@ -52,7 +53,8 @@ type nodeServiceProvider struct {
 	virtualClient         client.Client
 	uncachedVirtualClient client.Client
 
-	serviceMutex sync.Mutex
+	targetNamespace string
+	serviceMutex    sync.Mutex
 }
 
 func (n *nodeServiceProvider) Start(ctx context.Context) {
@@ -68,13 +70,8 @@ func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
 	n.serviceMutex.Lock()
 	defer n.serviceMutex.Unlock()
 
-	namespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return errors.Wrap(err, "get current namespace")
-	}
-
 	serviceList := &corev1.ServiceList{}
-	err = n.localClient.List(ctx, serviceList, client.InNamespace(namespace), client.MatchingLabels{
+	err := n.localClient.List(ctx, serviceList, client.InNamespace(n.targetNamespace), client.MatchingLabels{
 		ServiceClusterLabel: translate.Suffix,
 	})
 	if err != nil {
@@ -124,13 +121,8 @@ func (n *nodeServiceProvider) Unlock() {
 }
 
 func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
-	namespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return "", errors.Wrap(err, "get current namespace")
-	}
-
 	serviceList := &corev1.ServiceList{}
-	err = n.localClient.List(ctx, serviceList, client.InNamespace(namespace), client.MatchingLabels{
+	err := n.localClient.List(ctx, serviceList, client.InNamespace(n.targetNamespace), client.MatchingLabels{
 		ServiceClusterLabel: translate.Suffix,
 		ServiceNodeLabel:    name.Name,
 	})
@@ -148,7 +140,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 
 	// find out the labels to select ourself
 	pod := &corev1.Pod{}
-	err = n.localClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: namespace}, pod)
+	err = n.localClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: n.targetNamespace}, pod)
 	if err != nil {
 		return "", errors.Wrap(err, "get pod")
 	} else if len(pod.Labels) == 0 {
@@ -168,7 +160,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 	// create the new service
 	nodeService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    namespace,
+			Namespace:    n.targetNamespace,
 			GenerateName: translate.SafeConcatGenerateName(translate.Suffix, "node") + "-",
 			Labels: map[string]string{
 				ServiceClusterLabel: translate.Suffix,

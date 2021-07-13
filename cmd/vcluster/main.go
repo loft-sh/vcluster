@@ -97,6 +97,7 @@ func NewCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&options.TargetNamespace, "target-namespace", "", "The namespace to run the virtual cluster in (defaults to current namespace)")
 	cmd.Flags().StringVar(&options.ServiceName, "service-name", "vcluster", "The service name where the vcluster proxy will be available")
+	cmd.Flags().StringVar(&options.ServiceNamespace, "service-namespace", "", "The service namespace where the vcluster proxy will be available. If empty defaults to the current namespace")
 	cmd.Flags().StringVar(&options.OwningStatefulSet, "owning-statefulset", "", "If configured, all synced resources will have this statefulset as owner reference")
 
 	cmd.Flags().StringVar(&options.Suffix, "suffix", "suffix", "The suffix to append to the synced resources in the namespace")
@@ -193,14 +194,20 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	// set kubelet port
 	nodeservice.KubeletTargetPort = options.Port
 
-	// retrieve current namespace
-	if options.TargetNamespace == "" {
-		currentNamespace, err := clienthelper.CurrentNamespace()
-		if err != nil {
-			return err
-		}
+	// get current namespace
+	currentNamespace, err := clienthelper.CurrentNamespace()
+	if err != nil {
+		return err
+	}
 
+	// ensure target namespace
+	if options.TargetNamespace == "" {
 		options.TargetNamespace = currentNamespace
+	}
+
+	// set service namespace
+	if options.ServiceNamespace == "" {
+		options.ServiceNamespace = currentNamespace
 	}
 
 	rawConfig, err := clientConfig.RawConfig()
@@ -346,12 +353,12 @@ func syncKubernetesService(ctx *context.ControllerContext) error {
 		return err
 	}
 
-	err = services.SyncKubernetesService(ctx.Context, localClient, virtualClient, ctx.Options.TargetNamespace, ctx.Options.ServiceName)
+	err = services.SyncKubernetesService(ctx.Context, localClient, virtualClient, ctx.Options.ServiceNamespace, ctx.Options.ServiceName)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service")
 	}
 
-	err = endpoints.SyncKubernetesServiceEndpoints(ctx.Context, localClient, virtualClient, ctx.Options.TargetNamespace, ctx.Options.ServiceName)
+	err = endpoints.SyncKubernetesServiceEndpoints(ctx.Context, localClient, virtualClient, ctx.Options.ServiceNamespace, ctx.Options.ServiceName)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service endpoints")
 	}
@@ -363,7 +370,9 @@ func syncKubernetesService(ctx *context.ControllerContext) error {
 			return errors.Wrap(err, "get owning statefulset")
 		}
 
-		translate.OwningStatefulSet = statefulSet
+		if statefulSet.Namespace == ctx.Options.TargetNamespace {
+			translate.OwningStatefulSet = statefulSet
+		}
 	}
 
 	return nil
@@ -416,14 +425,20 @@ func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config)
 	}
 
 	// which namespace should we create the secret in?
-	secretNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return err
-	} else if ctx.Options.KubeConfigSecretNamespace != "" {
-		secretNamespace = ctx.Options.KubeConfigSecretNamespace
-	} else if ctx.Options.TargetNamespace != "" {
+	secretNamespace := ctx.Options.KubeConfigSecretNamespace
+	if secretNamespace == "" {
 		secretNamespace = ctx.Options.TargetNamespace
 	}
 
-	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.LocalManager.GetClient(), ctx.Options.KubeConfigSecret, secretNamespace, config, translate.OwningStatefulSet)
+	// we have to create a new client here, because the cached version will always say
+	// the secret does not exist in another namespace
+	localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{
+		Scheme: ctx.LocalManager.GetScheme(),
+		Mapper: ctx.LocalManager.GetRESTMapper(),
+	})
+	if err != nil {
+		return errors.Wrap(err, "create uncached client")
+	}
+
+	return kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config, translate.OwningStatefulSet)
 }
