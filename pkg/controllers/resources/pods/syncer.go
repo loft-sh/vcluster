@@ -69,11 +69,25 @@ func Register(ctx *context2.ControllerContext) error {
 		return errors.Wrap(err, "create pod translator")
 	}
 
+	// service client
+	serviceClient := ctx.LocalManager.GetClient()
+	if ctx.Options.ServiceNamespace != ctx.Options.TargetNamespace {
+		serviceClient, err = client.New(ctx.LocalManager.GetConfig(), client.Options{
+			Scheme: ctx.LocalManager.GetScheme(),
+			Mapper: ctx.LocalManager.GetRESTMapper(),
+		})
+		if err != nil {
+			return errors.Wrap(err, "create uncached client")
+		}
+	}
+
 	return generic.RegisterSyncer(ctx, &syncer{
 		sharedNodesMutex:     ctx.LockFactory.GetLock("nodes-controller"),
 		eventRecoder:         eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "pod-syncer"}),
 		targetNamespace:      ctx.Options.TargetNamespace,
 		serviceName:          ctx.Options.ServiceName,
+		serviceNamespace:     ctx.Options.ServiceNamespace,
+		serviceClient:        serviceClient,
 		localClient:          ctx.LocalManager.GetClient(),
 		virtualClient:        ctx.VirtualManager.GetClient(),
 		virtualClusterClient: virtualClusterClient,
@@ -93,6 +107,8 @@ type syncer struct {
 	eventRecoder         record.EventRecorder
 	targetNamespace      string
 	serviceName          string
+	serviceNamespace     string
+	serviceClient        client.Client
 	podTranslator        translatepods.Translator
 	localClient          client.Client
 	virtualClient        client.Client
@@ -266,9 +282,9 @@ func (s *syncer) translatePod(vPod *corev1.Pod) (*corev1.Pod, error) {
 
 func (s *syncer) findKubernetesIP() (string, error) {
 	pService := &corev1.Service{}
-	err := s.localClient.Get(context.TODO(), types.NamespacedName{
+	err := s.serviceClient.Get(context.TODO(), types.NamespacedName{
 		Name:      s.serviceName,
-		Namespace: s.targetNamespace,
+		Namespace: s.serviceNamespace,
 	}, pService)
 	if err != nil {
 		return "", err

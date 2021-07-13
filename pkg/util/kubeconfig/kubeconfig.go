@@ -5,6 +5,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -57,7 +58,7 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 
 		err = clienthelper.Apply(ctx, client, kubeConfigSecret, loghelper.New("apply-secret"))
 		if err != nil {
-			return err
+			return errors.Wrap(err, "apply generated kube config secret")
 		}
 	}
 

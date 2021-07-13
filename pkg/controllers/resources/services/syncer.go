@@ -31,15 +31,29 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 }
 
 func Register(ctx *context2.ControllerContext) error {
+	var err error
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 
+	serviceClient := ctx.LocalManager.GetClient()
+	if ctx.Options.ServiceNamespace != ctx.Options.TargetNamespace {
+		serviceClient, err = client.New(ctx.LocalManager.GetConfig(), client.Options{
+			Scheme: ctx.LocalManager.GetScheme(),
+			Mapper: ctx.LocalManager.GetRESTMapper(),
+		})
+		if err != nil {
+			return errors.Wrap(err, "create uncached client")
+		}
+	}
+
 	return generic.RegisterSyncer(ctx, &syncer{
-		eventRecoder:    eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"}),
-		targetNamespace: ctx.Options.TargetNamespace,
-		serviceName:     ctx.Options.ServiceName,
-		localClient:     ctx.LocalManager.GetClient(),
-		virtualClient:   ctx.VirtualManager.GetClient(),
+		eventRecoder:     eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"}),
+		targetNamespace:  ctx.Options.TargetNamespace,
+		serviceNamespace: ctx.Options.ServiceNamespace,
+		serviceName:      ctx.Options.ServiceName,
+		serviceClient:    serviceClient,
+		localClient:      ctx.LocalManager.GetClient(),
+		virtualClient:    ctx.VirtualManager.GetClient(),
 	}, "service", generic.RegisterSyncerOptions{})
 }
 
@@ -48,7 +62,10 @@ type syncer struct {
 	eventRecoder record.EventRecorder
 
 	targetNamespace string
-	serviceName     string
+
+	serviceClient    client.Client
+	serviceNamespace string
+	serviceName      string
 
 	localClient   client.Client
 	virtualClient client.Client
@@ -284,8 +301,8 @@ func (s *syncer) BackwardStart(ctx context.Context, req ctrl.Request) (bool, err
 	s.syncMutex.Lock()
 
 	// sync the kubernetes service
-	if req.Name == s.serviceName && req.Namespace == s.targetNamespace {
-		return true, SyncKubernetesService(ctx, s.virtualClient, s.localClient, s.targetNamespace, s.serviceName)
+	if req.Name == s.serviceName && req.Namespace == s.serviceNamespace {
+		return true, SyncKubernetesService(ctx, s.virtualClient, s.serviceClient, s.serviceNamespace, s.serviceName)
 	}
 
 	return false, nil
@@ -300,7 +317,7 @@ func (s *syncer) ForwardStart(ctx context.Context, req ctrl.Request) (bool, erro
 
 	// dont do anything for the kubernetes service
 	if req.Name == "kubernetes" && req.Namespace == "default" {
-		return true, SyncKubernetesService(ctx, s.virtualClient, s.localClient, s.targetNamespace, s.serviceName)
+		return true, SyncKubernetesService(ctx, s.virtualClient, s.serviceClient, s.serviceNamespace, s.serviceName)
 	}
 
 	return false, nil
@@ -356,11 +373,11 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 	return vService, nil
 }
 
-func SyncKubernetesService(ctx context.Context, virtualClient client.Client, localClient client.Client, targetNamespace, serviceName string) error {
+func SyncKubernetesService(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceNamespace, serviceName string) error {
 	// get physical service
 	pObj := &corev1.Service{}
 	err := localClient.Get(ctx, types.NamespacedName{
-		Namespace: targetNamespace,
+		Namespace: serviceNamespace,
 		Name:      serviceName,
 	}, pObj)
 	if err != nil {
