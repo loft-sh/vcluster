@@ -10,7 +10,7 @@
 
 ### vcluster - Virtual Clusters For Kubernetes
 Create fully functional virtual Kubernetes clusters - Each vcluster runs inside a namespace of the underlying k8s cluster. It's cheaper than creating separate full-blown clusters and it offers better multi-tenancy and isolation than regular namespaces.
-- **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://github.com/cncf/k8s-conformance) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
+- **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://www.cncf.io/certification/software-conformance/) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
 - **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption
 - **No Performance Degradation** - Pods are scheduled in the underlying host cluster, so they get no performance hit at all while running
 - **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vcluster to reduce complexity and increase scalability. Since most vcluster api requests and objects will not reach the host cluster at all, vcluster can greatly decrease pressure on the underlying Kubernetes cluster
