@@ -12,7 +12,7 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - name: https
-      port: 443
+      port: {{ .Values.service.port }}
       targetPort: 8443
       protocol: TCP
   selector:

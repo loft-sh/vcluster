@@ -91,3 +91,4 @@ annotations: {}
 # Service configurations
 service:
   type: ClusterIP
+  port: 443
