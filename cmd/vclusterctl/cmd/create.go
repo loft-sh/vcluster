@@ -67,6 +67,7 @@ type CreateCmd struct {
 	CreateClusterRole  bool
 	Expose             bool
 	Connect            bool
+	Port               int
 
 	log log.Logger
 }
@@ -111,6 +112,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.CreateClusterRole, "create-cluster-role", false, "If true a cluster role will be created to access nodes, storageclasses and priorityclasses")
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", false, "If true will run vcluster connect directly after the vcluster was created")
+	cobraCmd.Flags().IntVar(&cmd.Port, "port", 443, "If specified, use this port in the service")
 	return cobraCmd
 }
 
@@ -309,6 +311,17 @@ rbac:
 		values += `
 service:
   type: LoadBalancer`
+
+	if cmd.Port != 443 {
+		values += 	fmt.Sprintf(`
+  port: %v`, cmd.Port)
+		}
+	} else {
+		if cmd.Port != 443 {
+			values += 	fmt.Sprintf(`
+service:
+  port: %v`, cmd.Port)
+		}
 	}
 
 	values = strings.ReplaceAll(values, "##IMAGE##", image)
