@@ -52,6 +52,7 @@ module.exports = {
       items: [
         'operator/external-access',
         'operator/external-datastore',
+        'operator/accessing-vcluster',
         'operator/monitoring',
       ],
     },
