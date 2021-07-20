@@ -204,7 +204,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	port := ""
 	for k := range kubeConfig.Clusters {
 		if cmd.Server != "" {
-			if strings.HasSuffix(cmd.Server, "https://") == false {
+			if strings.HasPrefix(cmd.Server, "https://") == false {
 				cmd.Server = "https://" + cmd.Server
 			}
 
