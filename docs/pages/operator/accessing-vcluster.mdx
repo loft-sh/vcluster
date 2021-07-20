@@ -1,0 +1,93 @@
+---
+title: Accessing vcluster
+sidebar_label: Accessing vcluster
+---
+
+The are multiple ways how you can access a vcluster with an external application like `kubectl`. 
+
+## Using the vcluster CLI
+
+Please make sure to [install the vcluster CLI](../getting-started/setup.mdx). Create a kubeconfig via:
+
+```
+vcluster connect my-vcluster -n my-vcluster
+```
+
+Depending on if the vcluster was created with the `--expose` flag, the CLI will either start port-forwarding or create a kubeconfig that can be used directly.
+
+If you have manually [exposed the vcluster](./external-access.mdx), you can specify the domain where the vcluster is reachable via the `--server` flag:
+
+```
+# Will create a kube config that uses https://my-domain.org as endpoint
+vcluster connect my-vcluster -n my-vcluster --server my-domain.org
+```
+
+## Retrieving the kube config from the vcluster secret
+
+There might be cases where connecting to a vcluster with the CLI is not feasible or the CLI cannot be installed. For such cases, you can retrieve the vcluster kube config from a secret that is created automatically in the vcluster namespace.
+
+The secret is prefixed with `vc-` and ends with the vcluster name, so a vcluster called `my-vcluster` in namespace `test` would create a secret called `vc-my-vcluster` in the namespace `test`. You can retrieve the kube config after the vcluster has started via:
+
+```
+kubectl get secret vc-my-vcluster -n test --template={{.data.config}} | base64 -D
+```
+
+The secret will hold a kube config in this format:
+
+```yaml
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0t...
+    server: https://localhost:8443
+  name: local
+contexts:
+- context:
+    cluster: local
+    namespace: default
+    user: user
+  name: Default
+current-context: Default
+kind: Config
+users:
+- name: user
+  user:
+    client-certificate-data: LS0tLS...
+    client-key-data: LS0tLS...
+```
+
+By default, the server `https://localhost:8443` is used that would work if you port forward the vcluster with:
+
+```
+kubectl port-forward my-vcluster-0 -n test 8443
+```
+
+:::tip
+With the syncer flag `--out-kube-config-secret-namespace` you can specify a different namespace where the kube config secret should be created in. Keep in mind that you have to manually apply RBAC permissions for the vcluster to allow creation and retrieving of secrets in that namespace.
+:::
+
+### Externally accessible vclusters
+
+If you have [exposed the vcluster](./external-access.mdx), you can also tell the vcluster to create the kube config secret with another server endpoint through the `--out-kube-config-server` flag.
+
+For example, if you want to expose a vcluster at `https://my-domain.org`, you can create a `values.yaml` like this:
+```yaml
+# Make sure vcluster will sign the server certs for my-domain.org
+# and use it in the generated kube config secret.
+syncer:
+  extraArgs:
+  - --tls-san=my-domain.org
+  - --out-kube-config-server=https://my-domain.org
+```
+
+Then you can create the vcluster with:
+
+```
+vcluster create my-vcluster -n my-vcluster -f values.yaml
+```
+
+Wait until the vcluster has started and you can retrieve the kube config via:
+
+```
+kubectl get secret vc-my-vcluster -n my-vcluster --template={{.data.config}} | base64 -D
+```
