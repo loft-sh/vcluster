@@ -110,21 +110,17 @@ Alternatively, you can download the binary for your platform from the [GitHub Re
 ### 2. Create a vcluster
 ```vash
 # By default vcluster will connect via port-forwarding
-vcluster create vcluster-1 -n host-namespace-1
+vcluster create vcluster-1 -n host-namespace-1 --connect
 
 # OR: Use --expose to create a vcluster with an externally accessible LoadBalancer
-vcluster create vcluster-1 -n host-namespace-1 --expose 
+vcluster create vcluster-1 -n host-namespace-1 --connect --expose 
 ```
 
 Take a look at the [vcluster docs](https://www.vcluster.com/docs/getting-started/deployment) to see how to deploy a vcluster using Helm or Kubectl instead.
 
 ### 3. Use the vcluster
-```bash
-# Create a kube config for the vcluster and optionally start port-forwarding to it (if --expose was not used)
-vcluster connect vcluster-1 -n host-namespace-1
-```
 
-Then run in a separate terminal:
+Run in a separate terminal:
 ```bash
 export KUBECONFIG=./kubeconfig.yaml
 
@@ -135,9 +131,6 @@ kubectl create namespace demo-nginx
 kubectl create deployment nginx-deployment -n demo-nginx --image=nginx
 kubectl get pods -n demo-nginx
 ```
-
-Take a look at the [vcluster docs](https://www.vcluster.com/docs/operator/external-access) to see how to expose a vcluster with a LoadBalancer or Ingress instead.
-
 
 ### 4. Cleanup
 ```bash
