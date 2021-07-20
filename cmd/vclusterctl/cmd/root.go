@@ -58,6 +58,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(NewListCmd(globalFlags))
 	rootCmd.AddCommand(NewDeleteCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
+	rootCmd.AddCommand(NewCompletionCmd())
 
 	return rootCmd
 }
