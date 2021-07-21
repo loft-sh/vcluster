@@ -65,7 +65,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	output, err := exec.Command("helm", "version").CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Seems like there are issues with your helm client: \n\n%s", output)
+		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
 	}
 
 	// first load the kube config
