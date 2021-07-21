@@ -8,7 +8,7 @@ import (
 
 const compDesc = `
 #######################################################
-################### vcluster complete #################
+################### vcluster completion ###############	
 #######################################################
 Generates completion scripts for various shells
 
@@ -20,7 +20,7 @@ vcluster completion zsh
 
 const bashCompDesc = `
 #######################################################
-################### vcluster complete bash ############
+################### vcluster completion bash ##########
 #######################################################
 Generate the autocompletion script for bash
 
@@ -28,14 +28,14 @@ Example:
 - Linux:
 vcluster completion bash > /etc/bash_completion.d/vcluster
 - MacOS:
-vcluster completion bash > \ 
+vcluster completion bash > \
 /usr/local/etc/bash_completion.d/vcluster
 #######################################################
 `
 
 const zshCompDesc = `
 #######################################################
-################### vcluster complete zsh #############
+################### vcluster completion zsh ###########
 #######################################################
 Generate the autocompletion script for zsh
 
