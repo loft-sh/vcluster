@@ -11,7 +11,12 @@ syncer:
   volumeMounts:
     - mountPath: /data
       name: data
-  resources: {}
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
 # Virtual Cluster (k3s) configuration
 vcluster:
@@ -41,7 +46,12 @@ vcluster:
     - mountPath: /data
       name: data
   env: []
-  resources: {}
+  resources:
+    limits:
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
 
 # Storage settings for the vcluster
 storage:
