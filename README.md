@@ -10,7 +10,7 @@
 
 ### Why Virtual Clusters?
 
-- **Cost Efficient**: are much cheaper than "real" clusters (single pod and shared resources just like for namespaces)
+- **Cost Efficient**: much cheaper than "real" clusters (single pod and shared resources just like for namespaces)
 - **Fast Provisioning**: can be created and cleaned up again in seconds (great for CI/CD or testing)
 - **Cluster Scoped Resources**: more powerful than simple namespaces (virtual clusters allow users to use CRDs etc.)
 - **Cluster Wide Permissions**: allow users to install apps which require cluster-wide permissions while being limited to actually just one namespace within the host cluster
