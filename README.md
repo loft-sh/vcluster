@@ -8,28 +8,14 @@
 
 [![Join us on Slack!](docs/static/media/slack.svg)](https://slack.loft.sh/)
 
-### Why Use Virtual Clusters?
+### Why Virtual Clusters?
 
-- **Cost Efficient**: are much cheaper than "real" clusters (shared resources just like for namespaces)
+- **Cost Efficient**: are much cheaper than "real" clusters (single pod and shared resources just like for namespaces)
 - **Fast Provisioning**: can be created and cleaned up again in seconds (great for CI/CD or testing)
-- **Cluster Scoped Resources**: more powerful than simple namespace (virtual clusters allow users to use CRDs etc.)
+- **Cluster Scoped Resources**: more powerful than simple namespaces (virtual clusters allow users to use CRDs etc.)
 - **Cluster Wide Permissions**: allow users to install apps which require cluster-wide permissions while being limited to actually just one namespace within the host cluster
 - **Strict isolation**: complete separate Kubernetes control plane and access point for each vcluster while still being able to share certain services of the underlying host cluster
 - **Great for Testing**: allow you to test different Kubernetes versions inside a single host cluster which may have a different version than the virtual clusters
-
-<br>
-
-### vcluster - Features
-
-- **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://www.cncf.io/certification/software-conformance/) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
-- **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption
-- **No Performance Degradation** - Pods are scheduled in the underlying host cluster, so they get no performance hit at all while running
-- **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vcluster to reduce complexity and increase scalability. Since most vcluster api requests and objects will not reach the host cluster at all, vcluster can greatly decrease pressure on the underlying Kubernetes cluster
-- **Easy Provisioning** - Create via vcluster CLI, helm, kubectl, Argo or any of your favorite tools (it is basically just a StatefulSet)
-- **No Admin Privileges Required** - If you can deploy a web app to a Kubernetes namespace, you will be able to deploy a vcluster as well
-- **Single Namespace Encapsulation** - Every vcluster and all of its workloads are inside a single namespace of the underlying host cluster
-- **Easy Cleanup** - Delete the host namespace and the vcluster plus all of its workloads will be gone immediately
-- **Flexible & Versatile** - vcluster supports different storage backends (such as sqlite, mysql, postgresql & etcd), customizable sync behaviour, vcluster within vcluster setups, rewriting of kubelet metrics and has many more additional configuration options to fit a multitude of use cases
 
 Learn more on [www.vcluster.com](https://vcluster.com).
 
@@ -48,6 +34,20 @@ Learn more in the [documentation](https://vcluster.com/docs/what-are-virtual-clu
 <p align="center">
 ⭐️ <strong>Do you like vcluster? Support the project with a star</strong> ⭐️
 </p>
+
+<br>
+
+### Features
+
+- **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://www.cncf.io/certification/software-conformance/) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
+- **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption
+- **No Performance Degradation** - Pods are scheduled in the underlying host cluster, so they get no performance hit at all while running
+- **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vcluster to reduce complexity and increase scalability. Since most vcluster api requests and objects will not reach the host cluster at all, vcluster can greatly decrease pressure on the underlying Kubernetes cluster
+- **Easy Provisioning** - Create via vcluster CLI, helm, kubectl, Argo or any of your favorite tools (it is basically just a StatefulSet)
+- **No Admin Privileges Required** - If you can deploy a web app to a Kubernetes namespace, you will be able to deploy a vcluster as well
+- **Single Namespace Encapsulation** - Every vcluster and all of its workloads are inside a single namespace of the underlying host cluster
+- **Easy Cleanup** - Delete the host namespace and the vcluster plus all of its workloads will be gone immediately
+- **Flexible & Versatile** - vcluster supports different storage backends (such as sqlite, mysql, postgresql & etcd), customizable sync behaviour, vcluster within vcluster setups, rewriting of kubelet metrics and has many more additional configuration options to fit a multitude of use cases
 
 <br>
 
