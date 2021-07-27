@@ -8,8 +8,19 @@
 
 [![Join us on Slack!](docs/static/media/slack.svg)](https://slack.loft.sh/)
 
-### vcluster - Virtual Clusters For Kubernetes
-Create fully functional virtual Kubernetes clusters - Each vcluster runs inside a namespace of the underlying k8s cluster. It's cheaper than creating separate full-blown clusters and it offers better multi-tenancy and isolation than regular namespaces.
+### Why Use Virtual Clusters?
+
+- **Cost Efficient**: are much cheaper than "real" clusters (shared resources just like for namespaces)
+- **Fast Provisioning**: can be created and cleaned up again in seconds (great for CI/CD or testing)
+- **Cluster Scoped Resources**: more powerful than simple namespace (virtual clusters allow users to use CRDs etc.)
+- **Cluster Wide Permissions**: allow users to install apps which require cluster-wide permissions while being limited to actually just one namespace within the host cluster
+- **Strict isolation**: complete separate Kubernetes control plane and access point for each vcluster while still being able to share certain services of the underlying host cluster
+- **Great for Testing**: allow you to test different Kubernetes versions inside a single host cluster which may have a different version than the virtual clusters
+
+<br>
+
+### vcluster - Features
+
 - **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://www.cncf.io/certification/software-conformance/) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
 - **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption
 - **No Performance Degradation** - Pods are scheduled in the underlying host cluster, so they get no performance hit at all while running
