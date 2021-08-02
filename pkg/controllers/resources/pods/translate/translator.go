@@ -427,27 +427,9 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 
 	// translate volumes
-	for i := range pPod.Spec.Volumes {
-		if pPod.Spec.Volumes[i].ConfigMap != nil {
-			pPod.Spec.Volumes[i].ConfigMap.Name = translate.PhysicalName(pPod.Spec.Volumes[i].ConfigMap.Name, vPod.Namespace)
-		}
-		if pPod.Spec.Volumes[i].Secret != nil {
-			pPod.Spec.Volumes[i].Secret.SecretName = translate.PhysicalName(pPod.Spec.Volumes[i].Secret.SecretName, vPod.Namespace)
-		}
-		if pPod.Spec.Volumes[i].PersistentVolumeClaim != nil {
-			pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName = translate.PhysicalName(pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName, vPod.Namespace)
-		}
-		if pPod.Spec.Volumes[i].Projected != nil {
-			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod, vPod)
-			if err != nil {
-				return nil, err
-			}
-		}
-		if pPod.Spec.Volumes[i].DownwardAPI != nil {
-			for j := range pPod.Spec.Volumes[i].DownwardAPI.Items {
-				translateFieldRef(pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef)
-			}
-		}
+	err = t.translateVolumes(pPod, vPod)
+	if err != nil {
+		return nil, err
 	}
 
 	// we add an annotation if the pod has a replica set or statefulset owner
@@ -484,6 +466,60 @@ func translateLabelsAnnotation(vPod *corev1.Pod) string {
 	}
 
 	return strings.Join(labelsString, "\n")
+}
+
+func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error {
+	for i := range pPod.Spec.Volumes {
+		if pPod.Spec.Volumes[i].ConfigMap != nil {
+			pPod.Spec.Volumes[i].ConfigMap.Name = translate.PhysicalName(pPod.Spec.Volumes[i].ConfigMap.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].Secret != nil {
+			pPod.Spec.Volumes[i].Secret.SecretName = translate.PhysicalName(pPod.Spec.Volumes[i].Secret.SecretName, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].PersistentVolumeClaim != nil {
+			pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName = translate.PhysicalName(pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].Projected != nil {
+			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod, vPod)
+			if err != nil {
+				return err
+			}
+		}
+		if pPod.Spec.Volumes[i].DownwardAPI != nil {
+			for j := range pPod.Spec.Volumes[i].DownwardAPI.Items {
+				translateFieldRef(pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef)
+			}
+		}
+		if pPod.Spec.Volumes[i].ISCSI != nil && pPod.Spec.Volumes[i].ISCSI.SecretRef != nil {
+			pPod.Spec.Volumes[i].ISCSI.SecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].ISCSI.SecretRef.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].RBD != nil && pPod.Spec.Volumes[i].RBD.SecretRef != nil {
+			pPod.Spec.Volumes[i].RBD.SecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].RBD.SecretRef.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].FlexVolume != nil && pPod.Spec.Volumes[i].FlexVolume.SecretRef != nil {
+			pPod.Spec.Volumes[i].FlexVolume.SecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].FlexVolume.SecretRef.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].Cinder != nil && pPod.Spec.Volumes[i].Cinder.SecretRef != nil {
+			pPod.Spec.Volumes[i].Cinder.SecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].Cinder.SecretRef.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].CephFS != nil && pPod.Spec.Volumes[i].CephFS.SecretRef != nil {
+			pPod.Spec.Volumes[i].CephFS.SecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].CephFS.SecretRef.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].AzureFile != nil && pPod.Spec.Volumes[i].AzureFile.SecretName != "" {
+			pPod.Spec.Volumes[i].AzureFile.SecretName = translate.PhysicalName(pPod.Spec.Volumes[i].AzureFile.SecretName, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].ScaleIO != nil && pPod.Spec.Volumes[i].ScaleIO.SecretRef != nil {
+			pPod.Spec.Volumes[i].ScaleIO.SecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].ScaleIO.SecretRef.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].StorageOS != nil && pPod.Spec.Volumes[i].StorageOS.SecretRef != nil {
+			pPod.Spec.Volumes[i].StorageOS.SecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].StorageOS.SecretRef.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].CSI != nil && pPod.Spec.Volumes[i].CSI.NodePublishSecretRef != nil {
+			pPod.Spec.Volumes[i].CSI.NodePublishSecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].CSI.NodePublishSecretRef.Name, vPod.Namespace)
+		}
+	}
+
+	return nil
 }
 
 func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, pPod *corev1.Pod, vPod *corev1.Pod) error {
