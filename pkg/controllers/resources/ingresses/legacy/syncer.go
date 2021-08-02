@@ -1,4 +1,4 @@
-package ingresses
+package legacy
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/kubernetes"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -19,11 +19,11 @@ import (
 	"time"
 )
 
-func RegisterSyncerIndices(ctx *context2.ControllerContext) error {
-	return generic.RegisterSyncerIndices(ctx, &networkingv1.Ingress{})
+func RegisterIndices(ctx *context2.ControllerContext) error {
+	return generic.RegisterSyncerIndices(ctx, &networkingv1beta1.Ingress{})
 }
 
-func RegisterSyncer(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext) error {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 
@@ -45,21 +45,21 @@ type syncer struct {
 }
 
 func (s *syncer) New() client.Object {
-	return &networkingv1.Ingress{}
+	return &networkingv1beta1.Ingress{}
 }
 
 func (s *syncer) NewList() client.ObjectList {
-	return &networkingv1.IngressList{}
+	return &networkingv1beta1.IngressList{}
 }
 
 func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	vIngress := vObj.(*networkingv1.Ingress)
+	vIngress := vObj.(*networkingv1beta1.Ingress)
 	newObj, err := translate.SetupMetadata(s.targetNamespace, vIngress)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "error setting metadata")
 	}
 
-	newIngress := newObj.(*networkingv1.Ingress)
+	newIngress := newObj.(*networkingv1beta1.Ingress)
 	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
 	log.Infof("create physical ingress %s/%s", newIngress.Namespace, newIngress.Name)
 	err = s.localClient.Create(ctx, newIngress)
@@ -74,8 +74,8 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 
 func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	var err error
-	vIngress := vObj.(*networkingv1.Ingress)
-	pIngress := pObj.(*networkingv1.Ingress)
+	vIngress := vObj.(*networkingv1beta1.Ingress)
+	pIngress := pObj.(*networkingv1beta1.Ingress)
 
 	// did something change?
 	updateNeeded, _ := s.ForwardUpdateNeeded(pIngress, vIngress)
@@ -96,30 +96,30 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 }
 
 func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
-	vIngress := vObj.(*networkingv1.Ingress)
-	pIngress := pObj.(*networkingv1.Ingress)
+	vIngress := vObj.(*networkingv1beta1.Ingress)
+	pIngress := pObj.(*networkingv1beta1.Ingress)
 
 	return !equality.Semantic.DeepEqual(*translateSpec(vIngress.Namespace, &vIngress.Spec), pIngress.Spec) ||
 		!equality.Semantic.DeepEqual(vIngress.Annotations, pIngress.Annotations) ||
 		!translate.LabelsEqual(vIngress.Namespace, vIngress.Labels, pIngress.Labels), nil
 }
 
-func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {
+func translateSpec(namespace string, vIngressSpec *networkingv1beta1.IngressSpec) *networkingv1beta1.IngressSpec {
 	retSpec := vIngressSpec.DeepCopy()
-	if retSpec.DefaultBackend != nil {
-		if retSpec.DefaultBackend.Service != nil && retSpec.DefaultBackend.Service.Name != "" {
-			retSpec.DefaultBackend.Service.Name = translate.PhysicalName(retSpec.DefaultBackend.Service.Name, namespace)
+	if retSpec.Backend != nil {
+		if retSpec.Backend.ServiceName != "" {
+			retSpec.Backend.ServiceName = translate.PhysicalName(retSpec.Backend.ServiceName, namespace)
 		}
-		if retSpec.DefaultBackend.Resource != nil {
-			retSpec.DefaultBackend.Resource.Name = translate.PhysicalName(retSpec.DefaultBackend.Resource.Name, namespace)
+		if retSpec.Backend.Resource != nil {
+			retSpec.Backend.Resource.Name = translate.PhysicalName(retSpec.Backend.Resource.Name, namespace)
 		}
 	}
 
 	for i, rule := range retSpec.Rules {
 		if rule.HTTP != nil {
 			for j, path := range rule.HTTP.Paths {
-				if path.Backend.Service != nil && path.Backend.Service.Name != "" {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = translate.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace)
+				if path.Backend.ServiceName != "" {
+					retSpec.Rules[i].HTTP.Paths[j].Backend.ServiceName = translate.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.ServiceName, namespace)
 				}
 				if path.Backend.Resource != nil {
 					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
@@ -138,8 +138,8 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 }
 
 func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	vIngress := vObj.(*networkingv1.Ingress)
-	pIngress := pObj.(*networkingv1.Ingress)
+	vIngress := vObj.(*networkingv1beta1.Ingress)
+	pIngress := pObj.(*networkingv1beta1.Ingress)
 
 	var err error
 	if !equality.Semantic.DeepEqual(vIngress.Spec.IngressClassName, pIngress.Spec.IngressClassName) {
@@ -169,8 +169,8 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 }
 
 func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
-	vIngress := vObj.(*networkingv1.Ingress)
-	pIngress := pObj.(*networkingv1.Ingress)
+	vIngress := vObj.(*networkingv1beta1.Ingress)
+	pIngress := pObj.(*networkingv1beta1.Ingress)
 
 	return !equality.Semantic.DeepEqual(vIngress.Spec.IngressClassName, pIngress.Spec.IngressClassName) || !equality.Semantic.DeepEqual(vIngress.Status, pIngress.Status), nil
 }
@@ -195,7 +195,7 @@ func (s *syncer) ForwardEnd() {
 	s.sharedMutex.Unlock()
 }
 
-func SecretNamesFromIngress(ingress *networkingv1.Ingress) []string {
+func SecretNamesFromIngress(ingress *networkingv1beta1.Ingress) []string {
 	secrets := []string{}
 	for _, tls := range ingress.Spec.TLS {
 		if tls.SecretName != "" {

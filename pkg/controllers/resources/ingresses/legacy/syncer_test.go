@@ -1,4 +1,4 @@
-package ingresses
+package legacy
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,25 +28,21 @@ func newFakeSyncer(lockFactory locks.LockFactory, pClient *testingutil.FakeIndex
 }
 
 func TestSync(t *testing.T) {
-	vBaseSpec := networkingv1.IngressSpec{
-		DefaultBackend: &networkingv1.IngressBackend{
-			Service: &networkingv1.IngressServiceBackend{
-				Name: "testservice",
-			},
+	vBaseSpec := networkingv1beta1.IngressSpec{
+		Backend: &networkingv1beta1.IngressBackend{
+			ServiceName: "testservice",
 			Resource: &corev1.TypedLocalObjectReference{
 				Name: "testbackendresource",
 			},
 		},
-		Rules: []networkingv1.IngressRule{
+		Rules: []networkingv1beta1.IngressRule{
 			{
-				IngressRuleValue: networkingv1.IngressRuleValue{
-					HTTP: &networkingv1.HTTPIngressRuleValue{
-						Paths: []networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1beta1.IngressRuleValue{
+					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+						Paths: []networkingv1beta1.HTTPIngressPath{
 							{
-								Backend: networkingv1.IngressBackend{
-									Service: &networkingv1.IngressServiceBackend{
-										Name: "testbackendservice",
-									},
+								Backend: networkingv1beta1.IngressBackend{
+									ServiceName: "testbackendservice",
 									Resource: &corev1.TypedLocalObjectReference{
 										Name: "testbackendresource",
 									},
@@ -57,31 +53,27 @@ func TestSync(t *testing.T) {
 				},
 			},
 		},
-		TLS: []networkingv1.IngressTLS{
+		TLS: []networkingv1beta1.IngressTLS{
 			{
 				SecretName: "testtlssecret",
 			},
 		},
 	}
-	pBaseSpec := networkingv1.IngressSpec{
-		DefaultBackend: &networkingv1.IngressBackend{
-			Service: &networkingv1.IngressServiceBackend{
-				Name: translate.PhysicalName("testservice", "testns"),
-			},
+	pBaseSpec := networkingv1beta1.IngressSpec{
+		Backend: &networkingv1beta1.IngressBackend{
+			ServiceName: translate.PhysicalName("testservice", "testns"),
 			Resource: &corev1.TypedLocalObjectReference{
 				Name: translate.PhysicalName("testbackendresource", "testns"),
 			},
 		},
-		Rules: []networkingv1.IngressRule{
+		Rules: []networkingv1beta1.IngressRule{
 			{
-				IngressRuleValue: networkingv1.IngressRuleValue{
-					HTTP: &networkingv1.HTTPIngressRuleValue{
-						Paths: []networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1beta1.IngressRuleValue{
+					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+						Paths: []networkingv1beta1.HTTPIngressPath{
 							{
-								Backend: networkingv1.IngressBackend{
-									Service: &networkingv1.IngressServiceBackend{
-										Name: translate.PhysicalName("testbackendservice", "testns"),
-									},
+								Backend: networkingv1beta1.IngressBackend{
+									ServiceName: translate.PhysicalName("testbackendservice", "testns"),
 									Resource: &corev1.TypedLocalObjectReference{
 										Name: translate.PhysicalName("testbackendresource", "testns"),
 									},
@@ -92,13 +84,13 @@ func TestSync(t *testing.T) {
 				},
 			},
 		},
-		TLS: []networkingv1.IngressTLS{
+		TLS: []networkingv1beta1.IngressTLS{
 			{
 				SecretName: translate.PhysicalName("testtlssecret", "testns"),
 			},
 		},
 	}
-	changedIngressStatus := networkingv1.IngressStatus{
+	changedIngressStatus := networkingv1beta1.IngressStatus{
 		LoadBalancer: corev1.LoadBalancerStatus{
 			Ingress: []corev1.LoadBalancerIngress{
 				{
@@ -121,46 +113,46 @@ func TestSync(t *testing.T) {
 			translate.NamespaceLabel: translate.NamespaceLabelValue(vObjectMeta.Namespace),
 		},
 	}
-	baseIngress := &networkingv1.Ingress{
+	baseIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: vObjectMeta,
 		Spec:       vBaseSpec,
 	}
-	createdIngress := &networkingv1.Ingress{
+	createdIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: pObjectMeta,
 		Spec:       pBaseSpec,
 	}
-	updateIngress := &networkingv1.Ingress{
+	updateIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: vObjectMeta,
-		Spec: networkingv1.IngressSpec{
+		Spec: networkingv1beta1.IngressSpec{
 			IngressClassName: stringPointer("updatedingressclass"),
 		},
 	}
-	updatedIngress := &networkingv1.Ingress{
+	updatedIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: pObjectMeta,
-		Spec: networkingv1.IngressSpec{
+		Spec: networkingv1beta1.IngressSpec{
 			IngressClassName: stringPointer("updatedingressclass"),
 		},
 	}
-	noUpdateIngress := &networkingv1.Ingress{
+	noUpdateIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: vObjectMeta,
 		Spec:       vBaseSpec,
 		Status:     changedIngressStatus,
 	}
-	backwardUpdateIngress := &networkingv1.Ingress{
+	backwardUpdateIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: pObjectMeta,
-		Spec: networkingv1.IngressSpec{
+		Spec: networkingv1beta1.IngressSpec{
 			IngressClassName: stringPointer("backwardsupdatedingressclass"),
 		},
 		Status: changedIngressStatus,
 	}
-	backwardNoUpdateIngress := &networkingv1.Ingress{
+	backwardNoUpdateIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: pObjectMeta,
-		Spec:       networkingv1.IngressSpec{},
+		Spec:       networkingv1beta1.IngressSpec{},
 	}
-	backwardUpdatedIngress := &networkingv1.Ingress{
+	backwardUpdatedIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: vObjectMeta,
-		Spec: networkingv1.IngressSpec{
-			DefaultBackend:   vBaseSpec.DefaultBackend,
+		Spec: networkingv1beta1.IngressSpec{
+			Backend:          vBaseSpec.Backend,
 			IngressClassName: stringPointer("backwardsupdatedingressclass"),
 			Rules:            vBaseSpec.Rules,
 			TLS:              vBaseSpec.TLS,
@@ -174,10 +166,10 @@ func TestSync(t *testing.T) {
 			Name:                "Create forward",
 			InitialVirtualState: []runtime.Object{baseIngress},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
@@ -193,10 +185,10 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{baseIngress},
 			InitialPhysicalState: []runtime.Object{createdIngress},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {updatedIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {updatedIngress},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
@@ -218,10 +210,10 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{baseIngress},
 			InitialPhysicalState: []runtime.Object{createdIngress},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
@@ -243,10 +235,10 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{baseIngress},
 			InitialPhysicalState: []runtime.Object{createdIngress},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {backwardUpdatedIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {backwardUpdatedIngress},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
@@ -268,10 +260,10 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{baseIngress},
 			InitialPhysicalState: []runtime.Object{createdIngress},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
