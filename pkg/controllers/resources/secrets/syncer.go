@@ -7,11 +7,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/legacy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -50,12 +52,25 @@ func isSecretUsedByPods(ctx context.Context, vClient client.Client, secretName s
 func RegisterIndices(ctx *context2.ControllerContext) error {
 	includeIngresses := strings.Contains(ctx.Options.DisableSyncResources, "ingresses") == false
 	if includeIngresses {
-		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1beta1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
-			ingress := rawObj.(*networkingv1beta1.Ingress)
-			return ingresses.SecretNamesFromIngress(ingress)
-		})
+		useLegacy, err := ingresses.ShouldUseLegacy(ctx.LocalManager.GetConfig())
 		if err != nil {
 			return err
+		}
+
+		if useLegacy {
+			err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1beta1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
+				return legacy.SecretNamesFromIngress(rawObj.(*networkingv1beta1.Ingress))
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
+				return ingresses.SecretNamesFromIngress(rawObj.(*networkingv1.Ingress))
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -69,6 +84,11 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 
 func Register(ctx *context2.ControllerContext) error {
 	includeIngresses := strings.Contains(ctx.Options.DisableSyncResources, "ingresses") == false
+	useLegacy, err := ingresses.ShouldUseLegacy(ctx.LocalManager.GetConfig())
+	if err != nil {
+		return err
+	}
+
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 	return generic.RegisterSyncer(ctx, &syncer{
@@ -81,7 +101,11 @@ func Register(ctx *context2.ControllerContext) error {
 	}, "secret", generic.RegisterSyncerOptions{
 		ModifyForwardSyncer: func(builder *builder.Builder) *builder.Builder {
 			if includeIngresses {
-				builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
+				if useLegacy {
+					builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
+				} else {
+					builder = builder.Watches(&source.Kind{Type: &networkingv1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
+				}
 			}
 
 			return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
@@ -92,13 +116,36 @@ func Register(ctx *context2.ControllerContext) error {
 }
 
 func mapIngresses(obj client.Object) []reconcile.Request {
-	ingress, ok := obj.(*networkingv1beta1.Ingress)
+	ingress, ok := obj.(*networkingv1.Ingress)
 	if !ok {
 		return nil
 	}
 
 	requests := []reconcile.Request{}
 	names := ingresses.SecretNamesFromIngress(ingress)
+	for _, name := range names {
+		splitted := strings.Split(name, "/")
+		if len(splitted) == 2 {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: splitted[0],
+					Name:      splitted[1],
+				},
+			})
+		}
+	}
+
+	return requests
+}
+
+func mapIngressesLegacy(obj client.Object) []reconcile.Request {
+	ingress, ok := obj.(*networkingv1beta1.Ingress)
+	if !ok {
+		return nil
+	}
+
+	requests := []reconcile.Request{}
+	names := legacy.SecretNamesFromIngress(ingress)
 	for _, name := range names {
 		splitted := strings.Split(name, "/")
 		if len(splitted) == 2 {
