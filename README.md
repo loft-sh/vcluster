@@ -5,6 +5,7 @@
 
 ![Latest Release](https://img.shields.io/github/v/release/loft-sh/vcluster?style=for-the-badge&label=Latest%20Release&color=%23007ec6)
 ![License: Apache-2.0](https://img.shields.io/github/license/loft-sh/vcluster?style=for-the-badge&color=%23007ec6)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Floft-sh%2Fvcluster.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Floft-sh%2Fvcluster?ref=badge_shield)
 
 [![Join us on Slack!](docs/static/media/slack.svg)](https://slack.loft.sh/)
 
@@ -160,3 +161,7 @@ Thank you for your interest in contributing! Please refer to
 ---
 
 This project is open-source and licensed under Apache 2.0, so you can use it in any private or commercial projects.
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Floft-sh%2Fvcluster.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Floft-sh%2Fvcluster?ref=badge_large)
