@@ -6126,10 +6126,10 @@ mdurl@^1.0.0:
   resolved "https://registry.yarnpkg.com/mdurl/-/mdurl-1.0.1.tgz#fe85b2ec75a59037f2adfec100fd6c601761152e"
   integrity sha1-/oWy7HWlkDfyrf7BAP1sYBdhFS4=
 
-mdx-link-checker@^0.0.7:
-  version "0.0.7"
-  resolved "https://registry.yarnpkg.com/mdx-link-checker/-/mdx-link-checker-0.0.7.tgz#3196b337460d24d3dea919201e7c0f8c324e8c77"
-  integrity sha512-u3ZaaPi0M8LmlAalyVScUd4DvOUVjFWuPvXDldxzNbWHlq0h6uKbKnTFeJq0a3ia3qaiI7DJmejNhIqBjp7Pyg==
+mdx-link-checker@^0.1.1:
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/mdx-link-checker/-/mdx-link-checker-0.1.1.tgz#c146eada842bb3e8b6ccd0c7f6a5f4146ea5fcea"
+  integrity sha512-ZwHGrZHN1kma3boCP1C+q3hmYmFEmlRCuWkoP/kCEViIU+zF8NM1QbGJKUvPJNv+9n5c+KqfW86y7WTfFb0DIQ==
   dependencies:
     "@mdx-js/mdx" "^1.5.5"
     fs-walk "^0.0.2"
