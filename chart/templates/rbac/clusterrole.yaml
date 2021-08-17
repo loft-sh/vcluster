@@ -20,7 +20,7 @@ rules:
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
-    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+    verbs: ["get", "watch", "list"]
   - apiGroups: ["scheduling.k8s.io"]
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]

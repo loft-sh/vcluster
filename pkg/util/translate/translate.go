@@ -94,6 +94,37 @@ func LabelsEqual(virtualNamespace string, virtualLabels map[string]string, physi
 	return EqualExcept(physicalLabelsToCompare, physicalLabels)
 }
 
+func LabelsClusterEqual(physicalNamespace string, virtualLabels map[string]string, physicalLabels map[string]string) bool {
+	physicalLabelsToCompare := TranslateLabelsCluster(physicalNamespace, virtualLabels)
+	return EqualExcept(physicalLabelsToCompare, physicalLabels)
+}
+
+func TranslateLabelSelectorCluster(physicalNamespace string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	if labelSelector == nil {
+		return nil
+	}
+
+	newLabelSelector := &metav1.LabelSelector{}
+	if labelSelector.MatchLabels != nil {
+		newLabelSelector.MatchLabels = map[string]string{}
+		for k, v := range labelSelector.MatchLabels {
+			newLabelSelector.MatchLabels[ConvertNamespacedLabelKey(physicalNamespace, k)] = v
+		}
+	}
+	if len(labelSelector.MatchExpressions) > 0 {
+		newLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
+		for _, r := range labelSelector.MatchExpressions {
+			newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+				Key:      ConvertNamespacedLabelKey(physicalNamespace, r.Key),
+				Operator: r.Operator,
+				Values:   r.Values,
+			})
+		}
+	}
+
+	return newLabelSelector
+}
+
 func TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
 	if labelSelector == nil {
 		return nil
@@ -178,11 +209,17 @@ func IsManagedCluster(physicalNamespace string, obj runtime.Object) bool {
 
 // PhysicalName returns the physical name of the name / namespace resource
 func PhysicalName(name, namespace string) string {
+	if name == "" {
+		return ""
+	}
 	return SafeConcatName(name, "x", namespace, "x", Suffix)
 }
 
 // PhysicalNameClusterScoped returns the physical name of a cluster scoped object in the host cluster
 func PhysicalNameClusterScoped(name, physicalNamespace string) string {
+	if name == "" {
+		return ""
+	}
 	return SafeConcatName("vcluster", name, "x", physicalNamespace, "x", Suffix)
 }
 
