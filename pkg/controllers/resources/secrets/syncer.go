@@ -97,6 +97,7 @@ func Register(ctx *context2.ControllerContext) error {
 		virtualClient:   ctx.VirtualManager.GetClient(),
 		localClient:     ctx.LocalManager.GetClient(),
 
+		useLegacyIngress: useLegacy,
 		includeIngresses: includeIngresses,
 	}, "secret", generic.RegisterSyncerOptions{
 		ModifyForwardSyncer: func(builder *builder.Builder) *builder.Builder {
@@ -191,6 +192,7 @@ type syncer struct {
 	virtualClient client.Client
 	localClient   client.Client
 
+	useLegacyIngress bool
 	includeIngresses bool
 }
 
@@ -261,13 +263,19 @@ func (s *syncer) isSecretUsed(vObj runtime.Object) (bool, error) {
 
 	// check if we also sync ingresses
 	if s.includeIngresses {
-		ingressesList := &networkingv1beta1.IngressList{}
+		var ingressesList client.ObjectList
+		if s.useLegacyIngress {
+			ingressesList = &networkingv1beta1.IngressList{}
+		} else {
+			ingressesList = &networkingv1.IngressList{}
+		}
+
 		err := s.virtualClient.List(context.TODO(), ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
 			return false, err
 		}
 
-		return len(ingressesList.Items) > 0, nil
+		return meta.LenList(ingressesList) > 0, nil
 	}
 
 	return false, nil
