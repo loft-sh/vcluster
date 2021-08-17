@@ -16,7 +16,7 @@ import (
 )
 
 func RegisterSyncer(ctx *context2.ControllerContext) error {
-	return generic.RegisterClusterSyncer(ctx, &syncer{
+	return generic.RegisterOneWayClusterSyncer(ctx, &syncer{
 		targetNamespace: ctx.Options.TargetNamespace,
 		localClient:     ctx.LocalManager.GetClient(),
 		virtualClient:   ctx.VirtualManager.GetClient(),

@@ -23,7 +23,6 @@ func newFakeForwardSyncer(ctx context.Context, pClient *testingutil.FakeIndexCli
 
 	return &forwardController{
 		log:             loghelper.New("test-forwardcontroller"),
-		synced:          func() {},
 		targetNamespace: targetNamespace,
 		virtualClient:   vClient,
 		localClient:     pClient,

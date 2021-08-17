@@ -2,21 +2,15 @@ package priorityclasses
 
 import (
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	schedulingv1 "k8s.io/api/scheduling/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func RegisterIndices(ctx *context.ControllerContext) error {
 	if ctx.Options.EnablePriorityClasses {
-		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &schedulingv1.PriorityClass{}, constants.IndexByVName, func(rawObj client.Object) []string {
-			metaAccessor, err := meta.Accessor(rawObj)
-			if err != nil {
-				return nil
-			}
-
-			return []string{TranslatePriorityClassName(metaAccessor.GetName(), ctx.Options.TargetNamespace)}
+		err := generic.RegisterTwoWayClusterSyncerIndices(ctx, &schedulingv1.PriorityClass{}, func(vName string, vObj runtime.Object) string {
+			return TranslatePriorityClassName(vName, ctx.Options.TargetNamespace)
 		})
 		if err != nil {
 			return err

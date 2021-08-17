@@ -2,9 +2,12 @@ package generic
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -13,63 +16,58 @@ import (
 )
 
 type backwardClusterController struct {
-	synced func()
-
-	target    ClusterSyncer
-	lifecycle BackwardLifecycle
+	syncer TwoWayClusterSyncer
 
 	log           loghelper.Logger
 	localClient   client.Client
 	virtualClient client.Client
+	scheme        *runtime.Scheme
 }
 
 func (r *backwardClusterController) GarbageCollect(queue workqueue.RateLimitingInterface) error {
 	ctx := context.Background()
 
-	// list all virtual objects first
-	vList := r.target.NewList()
-	err := r.virtualClient.List(ctx, vList)
+	// list all physical objects first
+	pList := r.syncer.NewList()
+	err := r.localClient.List(ctx, pList)
 	if err != nil {
 		return err
 	}
 
-	// extract
-	vItems, err := meta.ExtractList(vList)
+	// check if physical object exists
+	items, err := meta.ExtractList(pList)
 	if err != nil {
 		return err
 	}
-	for _, vObj := range vItems {
-		// get physical object
-		pObj := r.target.New()
-		vAccessor, _ := meta.Accessor(vObj)
-		err = r.localClient.Get(ctx, types.NamespacedName{Name: vAccessor.GetName()}, pObj)
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				r.log.Debugf("garbage collect virtual object %s", vAccessor.GetName())
-				err = r.virtualClient.Delete(ctx, vObj.(client.Object))
-				if err != nil {
-					if kerrors.IsNotFound(err) {
-						continue
-					}
-
-					return err
-				}
-			} else {
-				r.log.Infof("error retrieving physical object %s: %v", vAccessor.GetName(), err)
-			}
-
+	for _, pObj := range items {
+		if r.syncer.IsManaged(pObj) == false {
 			continue
 		}
 
+		vObj := r.syncer.New()
 		pAccessor, _ := meta.Accessor(pObj)
-		updateNeeded, err := r.target.BackwardUpdateNeeded(pObj, vObj.(client.Object))
+		err = clienthelper.GetByIndex(ctx, r.virtualClient, vObj, r.scheme, constants.IndexByVName, pAccessor.GetName())
+		if kerrors.IsNotFound(err) {
+			r.log.Debugf("resync physical object %s, because virtual object is missing", pAccessor.GetName())
+			queue.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: pAccessor.GetName(),
+				},
+			})
+			continue
+		} else if err != nil {
+			r.log.Infof("cannot get physical object %s: %v", pAccessor.GetName(), err)
+			continue
+		}
+
+		updateNeeded, err := r.syncer.BackwardUpdateNeeded(pObj.(client.Object), vObj)
 		if err != nil {
 			r.log.Infof("error in update needed for physical object %s: %v", pAccessor.GetName(), err)
 			continue
 		}
 
 		if updateNeeded {
-			r.log.Debugf("resync physical object %s", pAccessor.GetName())
+			r.log.Debugf("resync physical object %s/%s", pAccessor.GetNamespace(), pAccessor.GetName())
 			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name: pAccessor.GetName(),
@@ -78,93 +76,48 @@ func (r *backwardClusterController) GarbageCollect(queue workqueue.RateLimitingI
 		}
 	}
 
-	// list all physical objects
-	pList := r.target.NewList()
-	err = r.localClient.List(ctx, pList)
-	if err != nil {
-		return err
-	}
-
-	// extract
-	pItems, err := meta.ExtractList(pList)
-	if err != nil {
-		return err
-	}
-	for _, pObj := range pItems {
-		pAccessor, _ := meta.Accessor(pObj)
-		vObj := r.target.New()
-		err = r.virtualClient.Get(ctx, types.NamespacedName{Name: pAccessor.GetName()}, vObj)
-		if err != nil {
-			if kerrors.IsNotFound(err) == false {
-				return err
-			}
-
-			needed, err := r.target.BackwardCreateNeeded(pObj.(client.Object))
-			if err != nil {
-				return err
-			}
-
-			if needed {
-				// requeue object
-				r.log.Debugf("resync physical object %s", pAccessor.GetName())
-				queue.Add(reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name: pAccessor.GetName(),
-					},
-				})
-			}
-		}
-	}
-
 	return nil
 }
 
 func (r *backwardClusterController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// make sure the caches are synced
-	r.synced()
-
 	// check if we should skip reconcile
-	if r.lifecycle != nil {
-		skip, err := r.lifecycle.BackwardStart(ctx, req)
-		defer r.lifecycle.BackwardEnd()
+	lifecycle, ok := r.syncer.(BackwardLifecycle)
+	if ok {
+		skip, err := lifecycle.BackwardStart(ctx, req)
+		defer lifecycle.BackwardEnd()
 		if skip || err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	// get physical object
-	pObj := r.target.New()
+	pObj := r.syncer.New()
 	err := r.localClient.Get(ctx, req.NamespacedName, pObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) == false {
-			return ctrl.Result{}, err
+			r.log.Infof("error retrieving physical object %s: %v", req.Name, err)
 		}
 
-		// got deleted
-		vObj := r.target.New()
-		err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				return ctrl.Result{}, nil
-			}
-
-			return ctrl.Result{}, err
-		}
-
-		r.log.Debugf("delete virtual object %s, because physical got deleted", req.Name)
-		return ctrl.Result{}, r.virtualClient.Delete(ctx, vObj)
+		return ctrl.Result{}, nil
 	}
 
-	// check if there is a virtual object for this
-	vObj := r.target.New()
-	err = r.virtualClient.Get(ctx, req.NamespacedName, vObj)
+	if !r.syncer.IsManaged(pObj) {
+		return ctrl.Result{}, nil
+	}
+
+	vObj := r.syncer.New()
+	err = clienthelper.GetByIndex(ctx, r.virtualClient, vObj, r.scheme, constants.IndexByVName, req.Name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return r.target.BackwardCreate(ctx, pObj, r.log)
+			if backwardDeleter, ok := r.syncer.(BackwardDelete); ok {
+				return backwardDeleter.BackwardDelete(ctx, pObj, r.log)
+			}
+
+			return DeleteObject(ctx, r.localClient, pObj, r.log)
 		}
 
 		return ctrl.Result{}, err
 	}
 
-	return r.target.BackwardUpdate(ctx, pObj, vObj, r.log)
+	return r.syncer.BackwardUpdate(ctx, pObj, vObj, r.log)
 }

@@ -90,12 +90,11 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 		return ctrl.Result{}, err
 	}
 
-	newObj, err := translate.SetupMetadata(s.targetNamespace, vPvc)
+	newPvc, err := translatePVC(s.targetNamespace, vPvc)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "error setting metadata")
+		return ctrl.Result{}, err
 	}
 
-	newPvc := newObj.(*corev1.PersistentVolumeClaim)
 	log.Infof("create physical persistent volume claim %s/%s", newPvc.Namespace, newPvc.Name)
 	err = s.localClient.Create(ctx, newPvc)
 	if err != nil {
@@ -232,7 +231,7 @@ func (s *syncer) ensurePersistentVolume(ctx context.Context, pObj *corev1.Persis
 		}
 	}
 
-	if vObj.Spec.VolumeName != pObj.Spec.VolumeName {
+	if pObj.Spec.VolumeName != "" && vObj.Spec.VolumeName != pObj.Spec.VolumeName {
 		log.Infof("update virtual pvc %s/%s volume name to %s", vObj.Namespace, vObj.Name, pObj.Spec.VolumeName)
 
 		vObj.Spec.VolumeName = pObj.Spec.VolumeName
@@ -255,6 +254,19 @@ func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (b
 	}
 
 	return !equality.Semantic.DeepEqual(vPvc.Status, pPvc.Status), nil
+}
+
+func translatePVC(targetNamespace string, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+	newObj, err := translate.SetupMetadata(targetNamespace, vPvc)
+	if err != nil {
+		return nil, errors.Wrap(err, "error setting metadata")
+	}
+
+	newPvc := newObj.(*corev1.PersistentVolumeClaim)
+	if newPvc.Spec.DataSource != nil {
+		newPvc.Spec.DataSource.Name = translate.PhysicalName(newPvc.Spec.DataSource.Name, targetNamespace)
+	}
+	return newPvc, nil
 }
 
 func calcPVCDiff(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
@@ -282,6 +294,14 @@ func calcPVCDiff(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVol
 			updated = pObj.DeepCopy()
 		}
 		updated.Labels = translate.TranslateLabels(vObj.Namespace, vObj.Labels)
+	}
+
+	// check binding
+	if vObj.Spec.VolumeName != "" && pObj.Spec.VolumeName == "" {
+		if updated == nil {
+			updated = pObj.DeepCopy()
+		}
+		updated.Spec.VolumeName = vObj.Spec.VolumeName
 	}
 
 	return updated

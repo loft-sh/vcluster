@@ -6,6 +6,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/garbagecollect"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,7 +16,6 @@ import (
 func RegisterFakeSyncer(ctx *context.ControllerContext, syncer FakeSyncer, name string) error {
 	// register handlers
 	controller := &fakeSyncer{
-		synced:        ctx.CacheSynced,
 		target:        syncer,
 		log:           loghelper.New(name + "-syncer"),
 		virtualClient: ctx.VirtualManager.GetClient(),
@@ -31,10 +32,9 @@ func RegisterFakeSyncer(ctx *context.ControllerContext, syncer FakeSyncer, name 
 	return nil
 }
 
-func RegisterClusterSyncer(ctx *context.ControllerContext, clusterSyncer ClusterSyncer, name string) error {
+func RegisterOneWayClusterSyncer(ctx *context.ControllerContext, clusterSyncer OneWayClusterSyncer, name string) error {
 	// register handlers
-	backwardController := &backwardClusterController{
-		synced:        ctx.CacheSynced,
+	backwardController := &oneWayClusterController{
 		target:        clusterSyncer,
 		log:           loghelper.New(name + "-backward"),
 		localClient:   ctx.LocalManager.GetClient(),
@@ -49,6 +49,42 @@ func RegisterClusterSyncer(ctx *context.ControllerContext, clusterSyncer Cluster
 		Watches(garbagecollect.NewGarbageCollectSource(backwardController, ctx.StopChan, backwardController.log), nil).
 		For(clusterSyncer.New()).
 		Complete(backwardController)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func RegisterTwoWayClusterSyncer(ctx *context.ControllerContext, clusterSyncer TwoWayClusterSyncer, name string) error {
+	forwardClusterController := &forwardClusterController{
+		syncer:        clusterSyncer,
+		localClient:   ctx.LocalManager.GetClient(),
+		virtualClient: ctx.VirtualManager.GetClient(),
+		scheme:        ctx.LocalManager.GetScheme(),
+		log:           loghelper.New(name + "-forward"),
+	}
+	err := ctrl.NewControllerManagedBy(ctx.VirtualManager).
+		Named(name+"-forward").
+		Watches(garbagecollect.NewGarbageCollectSource(forwardClusterController, ctx.StopChan, forwardClusterController.log), nil).
+		For(clusterSyncer.New()).
+		Complete(forwardClusterController)
+	if err != nil {
+		return err
+	}
+
+	backwardClusterController := &backwardClusterController{
+		syncer:        clusterSyncer,
+		localClient:   ctx.LocalManager.GetClient(),
+		virtualClient: ctx.VirtualManager.GetClient(),
+		scheme:        ctx.LocalManager.GetScheme(),
+		log:           loghelper.New(name + "-backward"),
+	}
+	err = ctrl.NewControllerManagedBy(ctx.LocalManager).
+		Named(name+"-backward").
+		Watches(garbagecollect.NewGarbageCollectSource(backwardClusterController, ctx.StopChan, backwardClusterController.log), nil).
+		For(clusterSyncer.New()).
+		Complete(backwardClusterController)
 	if err != nil {
 		return err
 	}
@@ -82,10 +118,21 @@ func RegisterSyncerIndices(ctx *context.ControllerContext, obj client.Object) er
 	})
 }
 
+func RegisterTwoWayClusterSyncerIndices(ctx *context.ControllerContext, obj client.Object, physicalName func(vName string, vObj runtime.Object) string) error {
+	// index objects by their virtual name
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj, constants.IndexByVName, func(rawObj client.Object) []string {
+		metaAccessor, err := meta.Accessor(rawObj)
+		if err != nil {
+			return nil
+		}
+
+		return []string{physicalName(metaAccessor.GetName(), rawObj)}
+	})
+}
+
 func RegisterForwardSyncer(ctx *context.ControllerContext, syncer Syncer, name string, modifyBuilder func(builder *builder.Builder) *builder.Builder) error {
 	forwardController := &forwardController{
 		target:          syncer,
-		synced:          ctx.CacheSynced,
 		targetNamespace: ctx.Options.TargetNamespace,
 		localClient:     ctx.LocalManager.GetClient(),
 		virtualClient:   ctx.VirtualManager.GetClient(),
@@ -105,7 +152,6 @@ func RegisterForwardSyncer(ctx *context.ControllerContext, syncer Syncer, name s
 func RegisterBackwardSyncer(ctx *context.ControllerContext, syncer Syncer, name string, modifyBuilder func(builder *builder.Builder) *builder.Builder) error {
 	backwardController := &backwardController{
 		target:          syncer,
-		synced:          ctx.CacheSynced,
 		targetNamespace: ctx.Options.TargetNamespace,
 		log:             loghelper.New(name + "-backward"),
 		localClient:     ctx.LocalManager.GetClient(),

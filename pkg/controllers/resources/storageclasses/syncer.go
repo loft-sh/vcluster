@@ -12,7 +12,7 @@ import (
 )
 
 func RegisterSyncer(ctx *context2.ControllerContext) error {
-	return generic.RegisterClusterSyncer(ctx, &syncer{
+	return generic.RegisterOneWayClusterSyncer(ctx, &syncer{
 		localClient:   ctx.LocalManager.GetClient(),
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, "storageclass")
