@@ -23,9 +23,9 @@ import (
 )
 
 var VersionMap = map[string]string{
-	"1.21": "rancher/k3s:v1.21.2-k3s1",
-	"1.20": "rancher/k3s:v1.20.8-k3s1",
-	"1.19": "rancher/k3s:v1.19.12-k3s1",
+	"1.21": "rancher/k3s:v1.21.3-k3s1",
+	"1.20": "rancher/k3s:v1.20.9-k3s1",
+	"1.19": "rancher/k3s:v1.19.13-k3s1",
 	"1.18": "rancher/k3s:v1.18.20-k3s1",
 	"1.17": "rancher/k3s:v1.17.17-k3s1",
 	"1.16": "rancher/k3s:v1.16.15-k3s1",
