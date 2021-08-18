@@ -64,23 +64,24 @@ func (s *syncer) NewList() client.ObjectList {
 }
 
 func (s *syncer) ForwardCreateNeeded(vObj client.Object) (bool, error) {
-	vPersistentVolume := vObj.(*corev1.PersistentVolume)
-	if vPersistentVolume.Annotations != nil || vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] != "" {
-		return false, nil
-	}
-	
 	return true, nil
 }
 
 func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	vPv := vObj.(*corev1.PersistentVolume)
-	if vPv.DeletionTimestamp != nil {
+	if vPv.DeletionTimestamp != nil || (vPv.Annotations != nil && vPv.Annotations[HostClusterPersistentVolumeAnnotation] != "") {
+		if len(vPv.Finalizers) > 0 {
+			// delete the finalizer here so that the object can be deleted
+			vPv.Finalizers = []string{}
+			log.Infof("remove virtual persistent volume %s finalizers, because object should get deleted", vPv.Name)
+			return ctrl.Result{}, s.virtualClient.Update(ctx, vPv)
+		}
+
 		// delete the finalizer here so that the object can be deleted
-		vPv.Finalizers = []string{}
-		log.Infof("remove virtual persistent volume %s finalizers, because object should get deleted", vPv.Name)
-		return ctrl.Result{}, s.virtualClient.Update(ctx, vPv)
+		log.Infof("remove virtual persistent volume %s, because object should get deleted", vPv.Name)
+		return ctrl.Result{}, s.virtualClient.Delete(ctx, vPv)
 	}
-	
+
 	pPv, err := s.translatePV(vPv)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -98,7 +99,7 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
 	vPersistentVolume := vObj.(*corev1.PersistentVolume)
-	if vPersistentVolume.Annotations != nil || vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] != "" {
+	if vPersistentVolume.Annotations != nil && vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] != "" {
 		return ctrl.Result{}, nil
 	}
 
@@ -135,7 +136,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
 	vPersistentVolume := vObj.(*corev1.PersistentVolume)
-	if vPersistentVolume.Annotations != nil || vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] != "" {
+	if vPersistentVolume.Annotations != nil && vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] != "" {
 		return false, nil
 	}
 
@@ -167,7 +168,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		
+
 		vPersistentVolume = updatedObj
 	}
 
@@ -179,7 +180,7 @@ func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj cl
 			return ctrl.Result{}, err
 		}
 	}
-	
+
 	return ctrl.Result{}, nil
 }
 
@@ -367,7 +368,7 @@ func (s *syncer) calcPVDiffBackward(vPv *corev1.PersistentVolume, pPv *corev1.Pe
 		translatedSpec.ClaimRef.Name = vPvc.Name
 		translatedSpec.ClaimRef.Namespace = vPvc.Namespace
 	}
-	
+
 	// check storage class
 	if translate.IsManagedCluster(s.targetNamespace, pPv) == false {
 		if equality.Semantic.DeepEqual(vPv.Spec.StorageClassName, translatedSpec.StorageClassName) == false {

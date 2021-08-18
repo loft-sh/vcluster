@@ -33,6 +33,7 @@ type ConnectCmd struct {
 	UpdateCurrent bool
 	Print         bool
 	LocalPort     int
+	Address       string
 
 	Server string
 
@@ -74,6 +75,7 @@ vcluster connect test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.PodName, "pod", "", "The pod to connect to")
 	cobraCmd.Flags().StringVar(&cmd.Server, "server", "", "The server to connect to")
 	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 8443, "The local port to forward the virtual cluster to")
+	cobraCmd.Flags().StringVar(&cmd.Address, "address", "", "The local address to start port forwarding under")
 	return cobraCmd
 }
 
@@ -272,6 +274,9 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	command := []string{"kubectl", "port-forward", "--namespace", cmd.Namespace, podName, forwardPorts}
 	if cmd.Context != "" {
 		command = append(command, "--context", cmd.Context)
+	}
+	if cmd.Address != "" {
+		command = append(command, "--address", cmd.Address)
 	}
 
 	cmd.log.Infof("Starting port forwarding: %s", strings.Join(command, " "))

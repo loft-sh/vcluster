@@ -25,7 +25,7 @@ type Source struct {
 
 func NewGarbageCollectSource(collector GarbageCollect, stopChan <-chan struct{}, log loghelper.Logger) *Source {
 	return &Source{
-		Period: time.Minute,
+		Period: time.Second * 30,
 
 		log:      log,
 		run:      collector,
