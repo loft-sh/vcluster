@@ -106,15 +106,15 @@ func NewCommand() *cobra.Command {
 
 	cmd.Flags().BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
 	cmd.Flags().BoolVar(&options.SyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
-	cmd.Flags().BoolVar(&options.UseFakeNodes, "fake-nodes", true, "If enabled, the virtual cluster will create fake nodes instead of copying the actual physical nodes config")
 	cmd.Flags().BoolVar(&options.UseFakeKubelets, "fake-kubelets", true, "If enabled, the virtual cluster will create fake kubelet endpoints to support metrics-servers")
 
+	cmd.Flags().BoolVar(&options.UseFakeNodes, "fake-nodes", true, "If enabled, the virtual cluster will create fake nodes instead of copying the actual physical nodes config")
 	cmd.Flags().BoolVar(&options.UseFakePersistentVolumes, "fake-persistent-volumes", true, "If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config")
+
 	cmd.Flags().BoolVar(&options.EnableStorageClasses, "enable-storage-classes", false, "If enabled, the virtual cluster will sync storage classes")
-
 	cmd.Flags().BoolVar(&options.EnablePriorityClasses, "enable-priority-classes", false, "If enabled, the virtual cluster will sync priority classes from and to the host cluster")
-	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
 
+	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
 	cmd.Flags().BoolVar(&options.EnforceNodeSelector, "enforce-node-selector", true, "If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector")
 	cmd.Flags().StringVar(&options.NodeSelector, "node-selector", "", "If set, nodes with the given node selector will be synced to the virtual cluster. This will implicitly set --fake-nodes=false")
 	cmd.Flags().StringVar(&options.ServiceAccount, "service-account", "", "If set, will set this host service account on the synced pods")
