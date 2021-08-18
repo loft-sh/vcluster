@@ -17,3 +17,66 @@ vcluster provides a variety of flags to adjust this behavior, including:
 --enable-storage-classes          If enabled, the virtual cluster will sync storage classes (make sure rbac.clusterRole.create is true in the options)
 --fake-persistent-volumes         If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config (default true) (if false make sure rbac.clusterRole.create is true in the options)
 ```
+
+### Sync Persistent Volumes
+
+By default, creating persistent volumes in the vcluster will have no effect, as vcluster runs without any cluster scoped access in the host cluster. However, if you create a vcluster with the CLI flag `--create-cluster-role` (equivalent to the helm value `rbac.clusterRole.create=true`), you can enable persistent volume sync.
+
+#### Create a vcluster with persistent volume sync
+
+Create a `values.yaml` in the form of:
+
+```yaml
+rbac: 
+  clusterRole:
+    create: true
+syncer:
+  extraArgs:
+  - --fake-persistent-volumes=false
+  - --enabled-storage-classes
+```
+
+Then deploy the vcluster with:
+
+```
+vcluster create my-vcluster -n my-vcluster -f values.yaml
+```
+
+#### How does it work?
+
+When you enable persistent volume sync, vcluster will create persistent volumes that are created in vcluster itself in the host cluster in the form of `vcluster-PERSISTENT_VOLUME_NAME-x-VCLUSTER_NAMESPACE-x-VCLUSTER_NAME` to avoid any conflicts with already existing persistent volumes or other vclusters that sync persistent volumes. vcluster will then rewrite persistent volume claims with those new names so that it seems that the virtual name was bound.
+
+This means that when you create a PVC in the form of:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: persistent-volume-claim
+spec:
+  storageClassName: my-storage-class
+  volumeName: my-persistent-volume
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+```
+
+vcluster will rewrite this PVC into the following in the host cluster to prevent any conflicts with already existing storage classes or persistent volumes:
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: persistent-volume-claim-x-default-x-VCLUSTER_NAME
+spec:
+  storageClassName: vcluster-my-storage-class-VCLUSTER_NAMESPACE-x-VCLUSTER_NAME
+  volumeName: vcluster-my-persistent-volume-VCLUSTER_NAMESPACE-x-VCLUSTER_NAME
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+```
+
+This only happens if persistent volume sync is enabled in the vcluster. There might be cases where you want to disable this automatic rewriting of PVCs (for example if you want to mount an already existing PV of the host cluster to a PVC in the vcluster), for that case you can set the annotation called `vcluster.loft.sh/translate-pv` to `true`, which will tell vcluster to not rewrite the PVC `volumeName`, `storageClass` or `selectors`. 
