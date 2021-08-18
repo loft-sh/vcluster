@@ -13,7 +13,6 @@ import (
 )
 
 type fakeSyncer struct {
-	synced func()
 	target FakeSyncer
 
 	virtualClient client.Client
@@ -94,9 +93,6 @@ func (r *fakeSyncer) GarbageCollect(queue workqueue.RateLimitingInterface) error
 }
 
 func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// make sure the caches are synced
-	r.synced()
-
 	// check if we should skip reconcile
 	skip, err := r.target.ReconcileStart(ctx, req)
 	defer r.target.ReconcileEnd()

@@ -3,6 +3,8 @@ package generic
 import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,6 +28,13 @@ type Syncer interface {
 	BackwardUpdate
 }
 
+type TwoWayClusterSyncer interface {
+	Syncer
+	translate.PhysicalNameTranslator
+
+	IsManaged(pObj runtime.Object) bool
+}
+
 type BackwardDelete interface {
 	BackwardDelete(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error)
 }
@@ -40,7 +49,7 @@ type ForwardUpdate interface {
 	ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error)
 }
 
-type ClusterSyncer interface {
+type OneWayClusterSyncer interface {
 	Object
 
 	BackwardCreate(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error)

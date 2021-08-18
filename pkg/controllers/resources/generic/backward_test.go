@@ -29,7 +29,6 @@ func newFakeBackwardSyncer(ctx context.Context, pClient *testingutil.FakeIndexCl
 
 	return &backwardController{
 		log:             loghelper.New("test-backwardcontroller"),
-		synced:          func() {},
 		targetNamespace: targetNamespace,
 		virtualClient:   vClient,
 		localClient:     pClient,

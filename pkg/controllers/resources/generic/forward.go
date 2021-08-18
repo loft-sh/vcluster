@@ -15,8 +15,6 @@ import (
 )
 
 type forwardController struct {
-	synced func()
-
 	target          Syncer
 	targetNamespace string
 	log             loghelper.Logger
@@ -93,9 +91,6 @@ func (r *forwardController) GarbageCollect(queue workqueue.RateLimitingInterface
 }
 
 func (r *forwardController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// make sure the caches are synced
-	r.synced()
-
 	// check if we should skip reconcile
 	lifecycle, ok := r.target.(ForwardLifecycle)
 	if ok {

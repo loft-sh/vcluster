@@ -17,8 +17,6 @@ import (
 )
 
 type backwardController struct {
-	synced func()
-
 	target Syncer
 
 	targetNamespace string
@@ -86,9 +84,6 @@ func (r *backwardController) GarbageCollect(queue workqueue.RateLimitingInterfac
 }
 
 func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// make sure the caches are synced
-	r.synced()
-
 	// check if we should skip reconcile
 	lifecycle, ok := r.target.(BackwardLifecycle)
 	if ok {

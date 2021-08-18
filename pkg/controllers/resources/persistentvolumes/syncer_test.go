@@ -54,6 +54,9 @@ func TestSync(t *testing.T) {
 	basePvObjectMeta := metav1.ObjectMeta{
 		Name:      "testpv",
 		Namespace: "test",
+		Annotations: map[string]string{
+			"vcluster.loft.sh/host-pv": "testpv",
+		},
 	}
 	basePPv := &corev1.PersistentVolume{
 		ObjectMeta: basePvObjectMeta,
@@ -122,13 +125,6 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
 
-				needed, err := syncer.BackwardCreateNeeded(basePPv)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected backward create to be needed")
-				}
-
 				_, err = syncer.BackwardCreate(ctx, basePPv, log)
 				if err != nil {
 					t.Fatal(err)
@@ -149,7 +145,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
 
-				needed, err := syncer.BackwardCreateNeeded(wrongNsPPv)
+				needed, _, err := syncer.shouldSync(ctx, wrongNsPPv)
 				if err != nil {
 					t.Fatal(err)
 				} else if needed {
@@ -176,7 +172,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
 
-				needed, err := syncer.BackwardCreateNeeded(noPvcPPv)
+				needed, _, err := syncer.shouldSync(ctx, noPvcPPv)
 				if err != nil {
 					t.Fatal(err)
 				} else if needed {

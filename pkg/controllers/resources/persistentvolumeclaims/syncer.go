@@ -3,12 +3,15 @@ package persistentvolumeclaims
 import (
 	"context"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -32,6 +35,8 @@ const (
 	bindCompletedAnnotation      = "pv.kubernetes.io/bind-completed"
 	boundByControllerAnnotation  = "pv.kubernetes.io/bound-by-controller"
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
+
+	skipPVTranslationAnnotation = "vcluster.loft.sh/translate-pv"
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
@@ -90,12 +95,11 @@ func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log logh
 		return ctrl.Result{}, err
 	}
 
-	newObj, err := translate.SetupMetadata(s.targetNamespace, vPvc)
+	newPvc, err := s.translatePVC(s.targetNamespace, vPvc)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "error setting metadata")
+		return ctrl.Result{}, err
 	}
 
-	newPvc := newObj.(*corev1.PersistentVolumeClaim)
 	log.Infof("create physical persistent volume claim %s/%s", newPvc.Namespace, newPvc.Name)
 	err = s.localClient.Create(ctx, newPvc)
 	if err != nil {
@@ -129,7 +133,7 @@ func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj cli
 	}
 
 	// update the virtual persistent volume claim if the spec has changed
-	updatedPvc := calcPVCDiff(pPvc, vPvc)
+	updatedPvc := s.calcPVCDiff(pPvc, vPvc)
 	if updatedPvc != nil {
 		log.Infof("update physical persistent volume claim %s/%s, because spec or annotations have changed", updatedPvc.Namespace, updatedPvc.Name)
 		err := s.localClient.Update(ctx, updatedPvc)
@@ -147,7 +151,7 @@ func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bo
 	pPvc := pObj.(*corev1.PersistentVolumeClaim)
 
 	// update the virtual persistent volume claim if the spec has changed
-	updatedPvc := calcPVCDiff(pPvc, vPvc)
+	updatedPvc := s.calcPVCDiff(pPvc, vPvc)
 	if updatedPvc != nil {
 		return true, nil
 	}
@@ -232,13 +236,27 @@ func (s *syncer) ensurePersistentVolume(ctx context.Context, pObj *corev1.Persis
 		}
 	}
 
-	if vObj.Spec.VolumeName != pObj.Spec.VolumeName {
-		log.Infof("update virtual pvc %s/%s volume name to %s", vObj.Namespace, vObj.Name, pObj.Spec.VolumeName)
+	if pObj.Spec.VolumeName != "" && vObj.Spec.VolumeName != pObj.Spec.VolumeName {
+		newVolumeName := pObj.Spec.VolumeName
+		if s.useFakePersistentVolumes == false {
+			vObj := &corev1.PersistentVolume{}
+			err = clienthelper.GetByIndex(ctx, s.virtualClient, vObj, s.virtualClient.Scheme(), constants.IndexByVName, pObj.Spec.VolumeName)
+			if err != nil {
+				log.Infof("error retrieving virtual persistent volume %s: %v", pObj.Spec.VolumeName, err)
+				return err
+			}
 
-		vObj.Spec.VolumeName = pObj.Spec.VolumeName
-		err = s.virtualClient.Update(ctx, vObj)
-		if err != nil {
-			return err
+			newVolumeName = vObj.Name
+		}
+
+		if newVolumeName != vObj.Spec.VolumeName {
+			log.Infof("update virtual pvc %s/%s volume name to %s", vObj.Namespace, vObj.Name, newVolumeName)
+
+			vObj.Spec.VolumeName = newVolumeName
+			err = s.virtualClient.Update(ctx, vObj)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -257,7 +275,51 @@ func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (b
 	return !equality.Semantic.DeepEqual(vPvc.Status, pPvc.Status), nil
 }
 
-func calcPVCDiff(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+func (s *syncer) translatePVC(targetNamespace string, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+	newObj, err := translate.SetupMetadata(targetNamespace, vPvc)
+	if err != nil {
+		return nil, errors.Wrap(err, "error setting metadata")
+	}
+
+	newPvc := newObj.(*corev1.PersistentVolumeClaim)
+	newPvc = s.translatePVCSelector(newPvc)
+	if newPvc.Spec.DataSource != nil {
+		newPvc.Spec.DataSource.Name = translate.PhysicalName(newPvc.Spec.DataSource.Name, targetNamespace)
+	}
+	return newPvc, nil
+}
+
+func (s *syncer) translatePVCSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+	if s.useFakePersistentVolumes == false {
+		if vPvc.Annotations == nil || vPvc.Annotations[skipPVTranslationAnnotation] != "true" {
+			newObj := vPvc
+			newObj.Spec = *vPvc.Spec.DeepCopy()
+			if newObj.Spec.Selector != nil {
+				newObj.Spec.Selector = translate.TranslateLabelSelectorCluster(s.targetNamespace, newObj.Spec.Selector)
+			}
+			if newObj.Spec.VolumeName != "" {
+				newObj.Spec.VolumeName = translate.PhysicalNameClusterScoped(newObj.Spec.VolumeName, s.targetNamespace)
+			}
+			if newObj.Spec.StorageClassName != nil {
+				// check if the storage class exists in the physical cluster
+				if newObj.Spec.Selector == nil && newObj.Spec.VolumeName == "" {
+					err := s.localClient.Get(context.TODO(), types.NamespacedName{Name: *newObj.Spec.StorageClassName}, &storagev1.StorageClass{})
+					if err != nil && kerrors.IsNotFound(err) {
+						translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, s.targetNamespace)
+						newObj.Spec.StorageClassName = &translated
+					}
+				} else {
+					translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, s.targetNamespace)
+					newObj.Spec.StorageClassName = &translated
+				}
+			}
+			return newObj
+		}
+	}
+	return vPvc
+}
+
+func (s *syncer) calcPVCDiff(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	var updated *corev1.PersistentVolumeClaim
 
 	// allow storage size to be increased

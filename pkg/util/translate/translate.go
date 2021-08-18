@@ -33,7 +33,7 @@ func SafeConcatGenerateName(name ...string) string {
 	fullPath := strings.Join(name, "-")
 	if len(fullPath) > 53 {
 		digest := sha256.Sum256([]byte(fullPath))
-		return strings.Replace(fullPath[0:42] + "-" + hex.EncodeToString(digest[0:])[0:10], ".-", "-", -1)
+		return strings.Replace(fullPath[0:42]+"-"+hex.EncodeToString(digest[0:])[0:10], ".-", "-", -1)
 	}
 	return fullPath
 }
@@ -42,7 +42,7 @@ func SafeConcatName(name ...string) string {
 	fullPath := strings.Join(name, "-")
 	if len(fullPath) > 63 {
 		digest := sha256.Sum256([]byte(fullPath))
-		return strings.Replace(fullPath[0:52] + "-" + hex.EncodeToString(digest[0:])[0:10], ".-", "-", -1)
+		return strings.Replace(fullPath[0:52]+"-"+hex.EncodeToString(digest[0:])[0:10], ".-", "-", -1)
 	}
 	return fullPath
 }
@@ -92,6 +92,37 @@ func UniqueSlice(stringSlice []string) []string {
 func LabelsEqual(virtualNamespace string, virtualLabels map[string]string, physicalLabels map[string]string) bool {
 	physicalLabelsToCompare := TranslateLabels(virtualNamespace, virtualLabels)
 	return EqualExcept(physicalLabelsToCompare, physicalLabels)
+}
+
+func LabelsClusterEqual(physicalNamespace string, virtualLabels map[string]string, physicalLabels map[string]string) bool {
+	physicalLabelsToCompare := TranslateLabelsCluster(physicalNamespace, virtualLabels)
+	return EqualExcept(physicalLabelsToCompare, physicalLabels)
+}
+
+func TranslateLabelSelectorCluster(physicalNamespace string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	if labelSelector == nil {
+		return nil
+	}
+
+	newLabelSelector := &metav1.LabelSelector{}
+	if labelSelector.MatchLabels != nil {
+		newLabelSelector.MatchLabels = map[string]string{}
+		for k, v := range labelSelector.MatchLabels {
+			newLabelSelector.MatchLabels[ConvertNamespacedLabelKey(physicalNamespace, k)] = v
+		}
+	}
+	if len(labelSelector.MatchExpressions) > 0 {
+		newLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
+		for _, r := range labelSelector.MatchExpressions {
+			newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+				Key:      ConvertNamespacedLabelKey(physicalNamespace, r.Key),
+				Operator: r.Operator,
+				Values:   r.Values,
+			})
+		}
+	}
+
+	return newLabelSelector
 }
 
 func TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
@@ -165,9 +196,31 @@ func IsManaged(obj runtime.Object) bool {
 	return meta.GetLabels()[MarkerLabel] == Suffix
 }
 
+func IsManagedCluster(physicalNamespace string, obj runtime.Object) bool {
+	meta, err := meta.Accessor(obj)
+	if err != nil {
+		return false
+	} else if meta.GetLabels() == nil {
+		return false
+	}
+
+	return meta.GetLabels()[MarkerLabel] == SafeConcatName(physicalNamespace, "x", Suffix)
+}
+
 // PhysicalName returns the physical name of the name / namespace resource
 func PhysicalName(name, namespace string) string {
+	if name == "" {
+		return ""
+	}
 	return SafeConcatName(name, "x", namespace, "x", Suffix)
+}
+
+// PhysicalNameClusterScoped returns the physical name of a cluster scoped object in the host cluster
+func PhysicalNameClusterScoped(name, physicalNamespace string) string {
+	if name == "" {
+		return ""
+	}
+	return SafeConcatName("vcluster", name, "x", physicalNamespace, "x", Suffix)
 }
 
 // ObjectPhysicalName returns the translated physical name of this object
@@ -186,6 +239,25 @@ func SetupMetadata(targetNamespace string, obj runtime.Object) (runtime.Object, 
 		return nil, err
 	}
 
+	return target, nil
+}
+
+type PhysicalNameTranslator interface {
+	PhysicalName(vName string, vObj runtime.Object) string
+}
+
+func SetupMetadataCluster(targetNamespace string, vObj runtime.Object, translator PhysicalNameTranslator) (runtime.Object, error) {
+	target := vObj.DeepCopyObject()
+	m, err := meta.Accessor(target)
+	if err != nil {
+		return nil, err
+	}
+
+	// reset metadata & translate name and namespace
+	ResetObjectMetadata(m)
+	m.SetName(translator.PhysicalName(m.GetName(), vObj))
+	// set marker label
+	m.SetLabels(TranslateLabelsCluster(targetNamespace, m.GetLabels()))
 	return target, nil
 }
 
@@ -224,8 +296,23 @@ func TranslateLabels(virtualNamespace string, labels map[string]string) map[stri
 	return newLabels
 }
 
+// TranslateLabelsCluster transforms the virtual labels into physical ones
+func TranslateLabelsCluster(physicalNamespace string, labels map[string]string) map[string]string {
+	newLabels := map[string]string{}
+	for k, v := range labels {
+		newLabels[ConvertNamespacedLabelKey(physicalNamespace, k)] = v
+	}
+	newLabels[MarkerLabel] = SafeConcatName(physicalNamespace, "x", Suffix)
+	return newLabels
+}
+
 func NamespaceLabelValue(virtualNamespace string) string {
 	return SafeConcatName(virtualNamespace, "x", Suffix)
+}
+
+func ConvertNamespacedLabelKey(physicalNamespace, key string) string {
+	digest := sha256.Sum256([]byte(key))
+	return SafeConcatName("vcluster.loft.sh/label", physicalNamespace, "x", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
 func ConvertLabelKey(key string) string {

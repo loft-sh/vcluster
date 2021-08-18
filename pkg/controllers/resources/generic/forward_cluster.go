@@ -1,12 +1,9 @@
-package priorityclasses
+package generic
 
 import (
 	"context"
 	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/garbagecollect"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,12 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func registerForwardSyncer(ctx *controllercontext.ControllerContext, syncer generic.Syncer, name string, isManaged func(obj runtime.Object) bool, physicalName func(name string) string) error {
-	forwardController := &forwardController{
-		isManaged:     isManaged,
-		physicalName:  physicalName,
-		target:        syncer,
-		synced:        ctx.CacheSynced,
+func registerForwardClusterSyncer(ctx *controllercontext.ControllerContext, syncer TwoWayClusterSyncer, name string) error {
+	forwardClusterController := &forwardClusterController{
+		syncer:        syncer,
 		localClient:   ctx.LocalManager.GetClient(),
 		virtualClient: ctx.VirtualManager.GetClient(),
 		scheme:        ctx.LocalManager.GetScheme(),
@@ -32,29 +26,24 @@ func registerForwardSyncer(ctx *controllercontext.ControllerContext, syncer gene
 	}
 	b := ctrl.NewControllerManagedBy(ctx.VirtualManager).
 		Named(name+"-forward").
-		Watches(garbagecollect.NewGarbageCollectSource(forwardController, ctx.StopChan, forwardController.log), nil).
+		Watches(garbagecollect.NewGarbageCollectSource(forwardClusterController, ctx.StopChan, forwardClusterController.log), nil).
 		For(syncer.New())
-	return b.Complete(forwardController)
+	return b.Complete(forwardClusterController)
 }
 
-type forwardController struct {
-	synced func()
-
-	isManaged    func(obj runtime.Object) bool
-	physicalName func(name string) string
-
-	target        generic.Syncer
+type forwardClusterController struct {
+	syncer        TwoWayClusterSyncer
 	log           loghelper.Logger
 	localClient   client.Client
 	virtualClient client.Client
 	scheme        *runtime.Scheme
 }
 
-func (r *forwardController) GarbageCollect(queue workqueue.RateLimitingInterface) error {
+func (r *forwardClusterController) GarbageCollect(queue workqueue.RateLimitingInterface) error {
 	ctx := context.Background()
 
 	// list all virtual objects first
-	vList := r.target.NewList()
+	vList := r.syncer.NewList()
 	err := r.virtualClient.List(ctx, vList)
 	if err != nil {
 		return err
@@ -67,12 +56,12 @@ func (r *forwardController) GarbageCollect(queue workqueue.RateLimitingInterface
 	}
 	for _, vObj := range vItems {
 		vAccessor, _ := meta.Accessor(vObj)
-		pObj := r.target.New()
+		pObj := r.syncer.New()
 		err = r.localClient.Get(ctx, types.NamespacedName{
-			Name: r.physicalName(vAccessor.GetName()),
+			Name: r.syncer.PhysicalName(vAccessor.GetName(), vObj),
 		}, pObj)
 		if kerrors.IsNotFound(err) {
-			fc, ok := r.target.(generic.ForwardCreate)
+			fc, ok := r.syncer.(ForwardCreate)
 			if ok {
 				createNeeded, err := fc.ForwardCreateNeeded(vObj.(client.Object))
 				if err != nil {
@@ -95,7 +84,7 @@ func (r *forwardController) GarbageCollect(queue workqueue.RateLimitingInterface
 			continue
 		}
 
-		updateNeeded, err := r.target.ForwardUpdateNeeded(pObj, vObj.(client.Object))
+		updateNeeded, err := r.syncer.ForwardUpdateNeeded(pObj, vObj.(client.Object))
 		if err != nil {
 			r.log.Infof("error in update needed for virtual object %s/%s: %v", vAccessor.GetNamespace(), vAccessor.GetName(), err)
 			continue
@@ -112,46 +101,22 @@ func (r *forwardController) GarbageCollect(queue workqueue.RateLimitingInterface
 		}
 	}
 
-	// list all physical objects first
-	pList := r.target.NewList()
-	err = r.localClient.List(ctx, pList)
-	if err != nil {
-		return err
-	}
-
-	// check if physical object exists
-	items, err := meta.ExtractList(pList)
-	if err != nil {
-		return err
-	}
-	for _, pObj := range items {
-		if r.isManaged(pObj) == false {
-			continue
-		}
-
-		vObj := r.target.New()
-		pAccessor, _ := meta.Accessor(pObj)
-		err = clienthelper.GetByIndex(ctx, r.virtualClient, vObj, r.scheme, constants.IndexByVName, pAccessor.GetName())
-		if kerrors.IsNotFound(err) {
-			r.log.Debugf("resync physical object %s, because virtual object is missing", pAccessor.GetName())
-			queue.Add(reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: pAccessor.GetName(),
-				},
-			})
-			continue
-		}
-	}
-
 	return nil
 }
 
-func (r *forwardController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// make sure the caches are synced
-	r.synced()
+func (r *forwardClusterController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// check if we should skip reconcile
+	lifecycle, ok := r.syncer.(ForwardLifecycle)
+	if ok {
+		skip, err := lifecycle.ForwardStart(ctx, req)
+		defer lifecycle.ForwardEnd()
+		if skip || err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	// get virtual object
-	vObj := r.target.New()
+	vObj := r.syncer.New()
 	vExists := true
 	err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
 	if err != nil {
@@ -163,10 +128,10 @@ func (r *forwardController) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// get physical object
-	pObj := r.target.New()
+	pObj := r.syncer.New()
 	pExists := true
 	err = r.localClient.Get(ctx, types.NamespacedName{
-		Name: r.physicalName(req.Name),
+		Name: r.syncer.PhysicalName(req.Name, vObj),
 	}, pObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) == false {
@@ -177,15 +142,15 @@ func (r *forwardController) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if vExists && !pExists {
-		return r.target.ForwardCreate(ctx, vObj, r.log)
+		return r.syncer.ForwardCreate(ctx, vObj, r.log)
 	} else if vExists && pExists {
-		return r.target.ForwardUpdate(ctx, pObj, vObj, r.log)
+		return r.syncer.ForwardUpdate(ctx, pObj, vObj, r.log)
 	} else if !vExists && pExists {
-		if !r.isManaged(pObj) {
+		if !r.syncer.IsManaged(pObj) {
 			return ctrl.Result{}, nil
 		}
 
-		return generic.DeleteObject(ctx, r.localClient, pObj, r.log)
+		return DeleteObject(ctx, r.localClient, pObj, r.log)
 	}
 
 	return ctrl.Result{}, nil

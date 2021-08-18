@@ -51,7 +51,7 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 	}()
 	podCache.WaitForCacheSync(ctx.Context)
 
-	return generic.RegisterClusterSyncer(ctx, &syncer{
+	return generic.RegisterOneWayClusterSyncer(ctx, &syncer{
 		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
 		localClient:         ctx.LocalManager.GetClient(),
 		podCache:            podCache,
