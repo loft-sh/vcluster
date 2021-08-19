@@ -128,20 +128,20 @@ func (s *syncer) NewList() client.ObjectList {
 
 func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	vPod := vObj.(*corev1.Pod)
-	pPod, err := s.translatePod(vPod)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	if vPod.DeletionTimestamp != nil {
 		// delete pod immediately
 		log.Infof("delete pod %s/%s immediately, because it is being deleted & there is no physical pod", vPod.Namespace, vPod.Name)
-		err = s.virtualClient.Delete(ctx, vPod, &client.DeleteOptions{
+		err := s.virtualClient.Delete(ctx, vPod, &client.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
+		return ctrl.Result{}, err
+	}
+
+	pPod, err := s.translatePod(vPod)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
