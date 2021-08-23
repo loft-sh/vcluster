@@ -112,11 +112,11 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&options.UseFakeNodes, "fake-nodes", true, "If enabled, the virtual cluster will create fake nodes instead of copying the actual physical nodes config")
 	cmd.Flags().BoolVar(&options.UseFakePersistentVolumes, "fake-persistent-volumes", true, "If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config")
 
-	cmd.Flags().StringVar(&options.FakeNodesCPUCount, "fake-nodes cpu count", "5", "If enabled fake-nodes, create node with this CPU cores")
-	cmd.Flags().StringVar(&options.FakeNodesMemSize, "fake-nodes mem size", "8Gi", "If enabled fake-nodes, create node with this Mem capacity")
-	cmd.Flags().StringVar(&options.FakeNodesEphemeralStorageSize, "fake-nodes storage size", "10Gi", "If enabled fake-nodes, create node with this storage size")
-	cmd.Flags().StringVar(&options.FakeNodesHugePages1GCount, "fake-nodes hugemem count pages with 1G size", "0", "If enabled fake-nodes, create node with this hugeMem count pages ith 1G size")
-	cmd.Flags().StringVar(&options.FakeNodesHugePages2MCount, "fake-nodes hugemem count pages wuth 2M size", "0", "If enabled fake-nodes, create node with this hugeMem count pages ith 2M size")
+	cmd.Flags().StringVar(&options.FakeNodesCPUCount, "fake-nodes-cpu-count", "5", "If enabled fake-nodes, create node with this CPU cores")
+	cmd.Flags().StringVar(&options.FakeNodesMemSize, "fake-nodes-mem-size", "8Gi", "If enabled fake-nodes, create node with this Mem capacity")
+	cmd.Flags().StringVar(&options.FakeNodesEphemeralStorageSize, "fake-nodes-storage-size", "10Gi", "If enabled fake-nodes, create node with this storage size")
+	cmd.Flags().StringVar(&options.FakeNodesHugePages1GCount, "fake-nodes-hugemem-1G-count", "0", "If enabled fake-nodes, create node with this hugeMem count pages ith 1G size")
+	cmd.Flags().StringVar(&options.FakeNodesHugePages2MCount, "fake-nodes-hugemem-2M-count", "0", "If enabled fake-nodes, create node with this hugeMem count pages ith 2M size")
 
 	cmd.Flags().BoolVar(&options.EnableStorageClasses, "enable-storage-classes", false, "If enabled, the virtual cluster will sync storage classes")
 	cmd.Flags().BoolVar(&options.EnablePriorityClasses, "enable-priority-classes", false, "If enabled, the virtual cluster will sync priority classes from and to the host cluster")
