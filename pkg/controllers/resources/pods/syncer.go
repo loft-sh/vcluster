@@ -96,6 +96,8 @@ func Register(ctx *context2.ControllerContext) error {
 		podTranslator: translator,
 		useFakeNodes:  ctx.Options.UseFakeNodes,
 
+		params: ctx.Options,
+
 		nodeSelector: nodeSelector,
 	}, "pod", generic.RegisterSyncerOptions{})
 }
@@ -114,6 +116,8 @@ type syncer struct {
 	virtualClient        client.Client
 	virtualClusterClient kubernetes.Interface
 	nodeServiceProvider  nodeservice.NodeServiceProvider
+
+	params *context2.VirtualClusterOptions
 
 	nodeSelector *metav1.LabelSelector
 }
@@ -413,7 +417,7 @@ func (s *syncer) ensureNode(ctx context.Context, pObj *corev1.Pod, vObj *corev1.
 			log.Infof("create virtual fake node %s, because pod %s/%s uses it and it is not available in virtual cluster", pObj.Spec.NodeName, vObj.Namespace, vObj.Name)
 
 			// create fake node
-			err = nodes.CreateFakeNode(ctx, s.nodeServiceProvider, s.virtualClient, types.NamespacedName{Name: pObj.Spec.NodeName})
+			err = nodes.CreateFakeNode(ctx, s.nodeServiceProvider, s.virtualClient, types.NamespacedName{Name: pObj.Spec.NodeName}, s.params)
 			if err != nil {
 				log.Infof("error creating virtual fake node %s: %v", pObj.Spec.NodeName, err)
 				return err

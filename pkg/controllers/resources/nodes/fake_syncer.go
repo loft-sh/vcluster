@@ -30,6 +30,7 @@ func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
 		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
 		nodeServiceProvider: ctx.NodeServiceProvider,
 		virtualClient:       ctx.VirtualManager.GetClient(),
+		paramOptions:        ctx.Options,
 	}, "fake-node")
 }
 
@@ -37,6 +38,7 @@ type fakeSyncer struct {
 	sharedNodesMutex    sync.Locker
 	virtualClient       client.Client
 	nodeServiceProvider nodeservice.NodeServiceProvider
+	paramOptions        *context2.VirtualClusterOptions
 }
 
 func (r *fakeSyncer) New() client.Object {
@@ -73,7 +75,7 @@ func (r *fakeSyncer) ReconcileEnd() {
 
 func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName, log loghelper.Logger) error {
 	log.Infof("Create fake node %s", name.Name)
-	return CreateFakeNode(ctx, r.nodeServiceProvider, r.virtualClient, name)
+	return CreateFakeNode(ctx, r.nodeServiceProvider, r.virtualClient, name, r.paramOptions)
 }
 
 func (r *fakeSyncer) CreateNeeded(ctx context.Context, name types.NamespacedName) (bool, error) {
@@ -121,7 +123,7 @@ func newGuid() string {
 	return random.RandomString(8) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(12)
 }
 
-func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeServiceProvider, virtualClient client.Client, name types.NamespacedName) error {
+func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeServiceProvider, virtualClient client.Client, name types.NamespacedName, params *context2.VirtualClusterOptions) error {
 	nodeServiceProvider.Lock()
 	defer nodeServiceProvider.Unlock()
 
@@ -156,19 +158,19 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeSer
 	orig := node.DeepCopy()
 	node.Status = corev1.NodeStatus{
 		Capacity: corev1.ResourceList{
-			corev1.ResourceCPU:                     resource.MustParse("16"),
-			corev1.ResourceMemory:                  resource.MustParse("32Gi"),
-			corev1.ResourceEphemeralStorage:        resource.MustParse("100Gi"),
-			corev1.ResourceHugePagesPrefix + "1Gi": resource.MustParse("0"),
-			corev1.ResourceHugePagesPrefix + "2Mi": resource.MustParse("0"),
+			corev1.ResourceCPU:                     resource.MustParse(params.FakeNodesCPUCount),
+			corev1.ResourceMemory:                  resource.MustParse(params.FakeNodesMemSize),
+			corev1.ResourceEphemeralStorage:        resource.MustParse(params.FakeNodesEphemeralStorageSize),
+			corev1.ResourceHugePagesPrefix + "1Gi": resource.MustParse(params.FakeNodesHugePages1GCount),
+			corev1.ResourceHugePagesPrefix + "2Mi": resource.MustParse(params.FakeNodesHugePages2MCount),
 			corev1.ResourcePods:                    resource.MustParse("110"),
 		},
 		Allocatable: corev1.ResourceList{
-			corev1.ResourceCPU:                     resource.MustParse("16"),
-			corev1.ResourceMemory:                  resource.MustParse("32Gi"),
-			corev1.ResourceEphemeralStorage:        resource.MustParse("100Gi"),
-			corev1.ResourceHugePagesPrefix + "1Gi": resource.MustParse("0"),
-			corev1.ResourceHugePagesPrefix + "2Mi": resource.MustParse("0"),
+			corev1.ResourceCPU:                     resource.MustParse(params.FakeNodesCPUCount),
+			corev1.ResourceMemory:                  resource.MustParse(params.FakeNodesMemSize),
+			corev1.ResourceEphemeralStorage:        resource.MustParse(params.FakeNodesEphemeralStorageSize),
+			corev1.ResourceHugePagesPrefix + "1Gi": resource.MustParse(params.FakeNodesHugePages1GCount),
+			corev1.ResourceHugePagesPrefix + "2Mi": resource.MustParse(params.FakeNodesHugePages2MCount),
 			corev1.ResourcePods:                    resource.MustParse("110"),
 		},
 		Conditions: []corev1.NodeCondition{

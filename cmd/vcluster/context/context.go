@@ -33,13 +33,18 @@ type VirtualClusterOptions struct {
 	ServiceNamespace     string
 	OwningStatefulSet    string
 
-	SyncAllNodes             bool
-	SyncNodeChanges          bool
-	UseFakeKubelets          bool
-	UseFakeNodes             bool
-	UseFakePersistentVolumes bool
-	EnableStorageClasses     bool
-	EnablePriorityClasses    bool
+	SyncAllNodes                  bool
+	SyncNodeChanges               bool
+	UseFakeKubelets               bool
+	UseFakeNodes                  bool
+	UseFakePersistentVolumes      bool
+	EnableStorageClasses          bool
+	EnablePriorityClasses         bool
+	FakeNodesCPUCount             string
+	FakeNodesMemSize              string
+	FakeNodesEphemeralStorageSize string
+	FakeNodesHugePages1GCount     string
+	FakeNodesHugePages2MCount     string
 
 	TranslateImages []string
 
