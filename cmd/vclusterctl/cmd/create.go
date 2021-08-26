@@ -23,7 +23,8 @@ import (
 )
 
 var VersionMap = map[string]string{
-	"1.21": "rancher/k3s:v1.21.3-k3s1",
+	"1.22": "rancher/k3s:v1.22.1-rc1-k3s1",
+	"1.21": "rancher/k3s:v1.21.4-k3s1",
 	"1.20": "rancher/k3s:v1.20.9-k3s1",
 	"1.19": "rancher/k3s:v1.19.13-k3s1",
 	"1.18": "rancher/k3s:v1.18.20-k3s1",
@@ -67,6 +68,7 @@ type CreateCmd struct {
 	CreateClusterRole  bool
 	Expose             bool
 	Connect            bool
+	Upgrade            bool
 
 	log log.Logger
 }
@@ -100,7 +102,7 @@ vcluster create test --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use")
+	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.4.0)")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh", "The virtual cluster chart repo to use")
 	cobraCmd.Flags().StringVar(&cmd.ReleaseValues, "release-values", "", "Path where to load the virtual cluster helm release values from")
@@ -111,6 +113,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.CreateClusterRole, "create-cluster-role", false, "If true a cluster role will be created to access nodes, storageclasses and priorityclasses")
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", false, "If true will run vcluster connect directly after the vcluster was created")
+	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", true, "If true will try to upgrade the vcluster instead of failing if it already exists")
 	return cobraCmd
 }
 
@@ -197,6 +200,14 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		values = string(byteValues)
 	}
 
+	// check if vcluster already exists
+	if cmd.Upgrade == false {
+		_, err = client.AppsV1().StatefulSets(namespace).Get(context.TODO(), args[0], metav1.GetOptions{})
+		if err == nil {
+			return fmt.Errorf("vcluster %s already exists in namespace %s", args[0], namespace)
+		}
+	}
+
 	// we have to upgrade / install the chart
 	err = helm.NewClient(&rawConfig, cmd.log).Upgrade(args[0], namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
@@ -244,10 +255,10 @@ func (cmd *CreateCmd) getDefaultReleaseValues(client kubernetes.Interface, names
 		var ok bool
 		image, ok = VersionMap[serverVersionString]
 		if !ok {
-			if serverMinorInt > 21 {
-				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.21", serverVersionString)
-				image = VersionMap["1.21"]
-				serverVersionString = "1.21"
+			if serverMinorInt > 22 {
+				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.22", serverVersionString)
+				image = VersionMap["1.22"]
+				serverVersionString = "1.22"
 			} else {
 				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.16", serverVersionString)
 				image = VersionMap["1.16"]
