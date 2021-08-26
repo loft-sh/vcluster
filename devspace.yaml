@@ -13,7 +13,7 @@ images:
     image: ${SYNCER_IMAGE}
     rebuildStrategy: ignoreContextChanges
     build:
-      docker:
+      buildKit:
         skipPush: true
         options:
           target: builder
@@ -65,8 +65,9 @@ profiles:
     patches:
       - op: remove
         path: images.vcluster.rebuildStrategy
-      - op: remove
-        path: images.vcluster.build
+      - op: replace
+        path: images.vcluster.build.buildKit
+        value: {}
       - op: replace
         path: deployments[0].helm.values.syncer
         value:
