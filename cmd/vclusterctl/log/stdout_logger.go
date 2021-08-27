@@ -152,6 +152,11 @@ func (s *stdoutLogger) writeMessageToFileLoggerf(fnType logFunctionType, format 
 
 // StartWait prints a wait message until StopWait is called
 func (s *stdoutLogger) StartWait(message string) {
+	if !tty.IsTerminalIn() {
+		s.Info(message)
+		return
+	}
+
 	s.logMutex.Lock()
 	defer s.logMutex.Unlock()
 
@@ -176,6 +181,10 @@ func (s *stdoutLogger) StartWait(message string) {
 
 // StartWait prints a wait message until StopWait is called
 func (s *stdoutLogger) StopWait() {
+	if !tty.IsTerminalIn() {
+		return
+	}
+
 	s.logMutex.Lock()
 	defer s.logMutex.Unlock()
 
