@@ -10,7 +10,7 @@
 
 Create fully functional virtual Kubernetes clusters - Each vcluster runs inside a namespace of the underlying k8s cluster. It's cheaper than creating separate full-blown clusters and it offers better multi-tenancy and isolation than regular namespaces.
 
-### Why Virtual Clusters?
+### Why Virtual Kubernetes Clusters?
 
 - **Cost Efficient**: much cheaper than "real" clusters (single pod and shared resources just like for namespaces)
 - **Fast Provisioning**: can be created and cleaned up again in seconds (great for CI/CD or testing)
