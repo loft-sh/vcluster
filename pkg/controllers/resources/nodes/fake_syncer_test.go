@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"strings"
 	"testing"
@@ -40,11 +41,18 @@ func newFakeFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, vClie
 	if err != nil {
 		return nil, err
 	}
-
+	param := &context2.VirtualClusterOptions{
+		FakeNodesCPUCount:             "16",
+		FakeNodesMemSize:              "32Gi",
+		FakeNodesHugePages1GCount:     "0",
+		FakeNodesHugePages2MCount:     "0",
+		FakeNodesEphemeralStorageSize: "100Gi",
+	}
 	return &fakeSyncer{
 		sharedNodesMutex:    lockFactory.GetLock("nodes-controller"),
 		nodeServiceProvider: &fakeNodeServiceProvider{},
 		virtualClient:       vClient,
+		paramOptions:        param,
 	}, nil
 }
 
