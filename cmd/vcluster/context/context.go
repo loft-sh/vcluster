@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// VirtualCluster holds the cmd flags
+// VirtualClusterOptions holds the cmd flags
 type VirtualClusterOptions struct {
 	ServiceAccountKey   string
 	ServerCaCert        string

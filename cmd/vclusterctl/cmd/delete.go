@@ -20,7 +20,8 @@ import (
 type DeleteCmd struct {
 	*flags.GlobalFlags
 
-	KeepPVC bool
+	KeepPVC         bool
+	DeleteNamespace bool
 
 	log log.Logger
 }
@@ -52,6 +53,7 @@ vcluster delete test --namespace test
 	}
 
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
+	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster")
 	return cobraCmd
 }
 
@@ -119,6 +121,28 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			}
 		} else {
 			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, namespace)
+		}
+	}
+
+	// try to delete the namespace
+	if cmd.DeleteNamespace {
+		restConfig, err := kubeClientConfig.ClientConfig()
+		if err != nil {
+			return err
+		}
+
+		client, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return err
+		}
+
+		err = client.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) == false {
+				return errors.Wrap(err, "delete namespace")
+			}
+		} else {
+			cmd.log.Donef("Successfully deleted virtual cluster namespace %s", namespace)
 		}
 	}
 
