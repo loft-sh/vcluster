@@ -56,6 +56,7 @@ dev:
         - '!/hack'
         - '!/go.mod'
         - '!/go.sum'
+        - '!/devspace_start.sh'
 commands:
   - name: dev
     command: "devspace dev -n vcluster"

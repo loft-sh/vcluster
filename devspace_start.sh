@@ -14,7 +14,8 @@ echo -e "${COLOR_CYAN}
 ${COLOR_RESET}
 Welcome to your development container!
 This is how you can work with it:
-- Run \`${COLOR_CYAN}go run -mod vendor cmd/vcluster/main.go${COLOR_RESET}\` to start the application
+- Run \`${COLOR_CYAN}go run -mod vendor cmd/vcluster/main.go${COLOR_RESET}\` to start vcluster
+- Run \`devspace enter -n vcluster --pod ${HOSTNAME} -c syncer\` to create another shell into this container
 - ${COLOR_CYAN}Files will be synchronized${COLOR_RESET} between your local machine and this container
 "
 
