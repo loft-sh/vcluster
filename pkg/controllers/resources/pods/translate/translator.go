@@ -30,12 +30,6 @@ const (
 	UIDAnnotation                 = "vcluster.loft.sh/uid"
 	ServiceAccountNameAnnotation  = "vcluster.loft.sh/service-account-name"
 	ServiceAccountTokenAnnotation = "vcluster.loft.sh/token-"
-
-	DisableSubdomainRewriteAnnotation = "vcluster.loft.sh/disable-subdomain-rewrite"
-	HostsRewrittenAnnotation          = "vcluster.loft.sh/hosts-rewritten"
-	HostsVolumeName                   = "vcluster-rewrite-hosts"
-	HostsRewriteImage                 = "alpine:3.13.1"
-	HostsRewriteContainerName         = "vcluster-rewrite-hosts"
 )
 
 var (
@@ -313,6 +307,9 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 	})
 
+	// translate the dns config
+	t.translateDNSConfig(pPod, vPod, dnsIP)
+
 	// truncate hostname if needed
 	if pPod.Spec.Hostname == "" {
 		if len(vPod.Name) > 63 {
@@ -320,51 +317,22 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		} else {
 			pPod.Spec.Hostname = vPod.Name
 		}
-	}
 
-	// translate the dns config
-	t.translateDNSConfig(pPod, vPod, dnsIP)
+		// Kubernetes does not support setting the hostname to a value that
+		// includes a '.', therefore we need to rewrite the hostname. This is really bad
+		// and wrong, but unfortunately there is currently no other solution as there is
+		// no other way to change the container's hostname.
+		if strings.Contains(pPod.Spec.Hostname, ".") {
+			pPod.Spec.Hostname = strings.Replace(pPod.Spec.Hostname, ".", "-", -1)
+		}
+	}
 
 	// if spec.subdomain is set we have to translate the /etc/hosts
 	// because otherwise we could get a different hostname as if the pod
 	// would be deployed in a non virtual kubernetes cluster
-	overrideHosts := false
 	if pPod.Spec.Subdomain != "" {
-		if t.overrideHosts == true && (pPod.Annotations == nil || pPod.Annotations[DisableSubdomainRewriteAnnotation] != "true") {
-			overrideHosts = true
-			initContainer := corev1.Container{
-				Name:    HostsRewriteContainerName,
-				Image:   t.overrideHostsImage,
-				Command: []string{"sh"},
-				Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + pPod.Spec.Hostname + "$/\\1 " + pPod.Spec.Hostname + "." + pPod.Spec.Subdomain + "." + vPod.Namespace + ".svc." + t.clusterDomain + " " + pPod.Spec.Hostname + "/' /etc/hosts > /hosts/hosts"},
-				VolumeMounts: []corev1.VolumeMount{
-					{
-						MountPath: "/hosts",
-						Name:      HostsVolumeName,
-					},
-				},
-			}
-
-			// Add volume
-			if pPod.Spec.Volumes == nil {
-				pPod.Spec.Volumes = []corev1.Volume{}
-			}
-			pPod.Spec.Volumes = append(pPod.Spec.Volumes, corev1.Volume{
-				Name: HostsVolumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				},
-			})
-
-			// Add init container
-			newContainers := []corev1.Container{initContainer}
-			newContainers = append(newContainers, pPod.Spec.InitContainers...)
-			pPod.Spec.InitContainers = newContainers
-
-			if pPod.Annotations == nil {
-				pPod.Annotations = map[string]string{}
-			}
-			pPod.Annotations[HostsRewrittenAnnotation] = "true"
+		if t.overrideHosts == true {
+			rewritePodHostnameFQDN(pPod, t.overrideHostsImage, pPod.Spec.Hostname, pPod.Spec.Hostname, pPod.Spec.Hostname+"."+pPod.Spec.Subdomain+"."+vPod.Namespace+".svc."+t.clusterDomain)
 		}
 
 		pPod.Spec.Subdomain = ""
@@ -374,51 +342,18 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	for i := range pPod.Spec.Containers {
 		translateContainerEnv(&pPod.Spec.Containers[i], vPod, serviceEnv)
 		pPod.Spec.Containers[i].Image = t.imageTranslator.Translate(pPod.Spec.Containers[i].Image)
-
-		if overrideHosts {
-			if pPod.Spec.Containers[i].VolumeMounts == nil {
-				pPod.Spec.Containers[i].VolumeMounts = []corev1.VolumeMount{}
-			}
-			pPod.Spec.Containers[i].VolumeMounts = append(pPod.Spec.Containers[i].VolumeMounts, corev1.VolumeMount{
-				MountPath: "/etc/hosts",
-				Name:      HostsVolumeName,
-				SubPath:   "hosts",
-			})
-		}
 	}
 
 	// translate init containers
 	for i := range pPod.Spec.InitContainers {
 		translateContainerEnv(&pPod.Spec.InitContainers[i], vPod, serviceEnv)
 		pPod.Spec.InitContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.InitContainers[i].Image)
-
-		if pPod.Spec.InitContainers[i].Name != HostsRewriteContainerName && overrideHosts {
-			if pPod.Spec.InitContainers[i].VolumeMounts == nil {
-				pPod.Spec.InitContainers[i].VolumeMounts = []corev1.VolumeMount{}
-			}
-			pPod.Spec.InitContainers[i].VolumeMounts = append(pPod.Spec.InitContainers[i].VolumeMounts, corev1.VolumeMount{
-				MountPath: "/etc/hosts",
-				Name:      HostsVolumeName,
-				SubPath:   "hosts",
-			})
-		}
 	}
 
 	// translate ephemereal containers
 	for i := range pPod.Spec.EphemeralContainers {
 		translateEphemerealContainerEnv(&pPod.Spec.EphemeralContainers[i], vPod, serviceEnv)
 		pPod.Spec.EphemeralContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.EphemeralContainers[i].Image)
-
-		if overrideHosts {
-			if pPod.Spec.EphemeralContainers[i].VolumeMounts == nil {
-				pPod.Spec.EphemeralContainers[i].VolumeMounts = []corev1.VolumeMount{}
-			}
-			pPod.Spec.EphemeralContainers[i].VolumeMounts = append(pPod.Spec.EphemeralContainers[i].VolumeMounts, corev1.VolumeMount{
-				MountPath: "/etc/hosts",
-				Name:      HostsVolumeName,
-				SubPath:   "hosts",
-			})
-		}
 	}
 
 	// translate image pull secrets

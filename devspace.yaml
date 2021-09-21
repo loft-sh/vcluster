@@ -45,6 +45,7 @@ deployments:
 dev:
   terminal:
     imageSelector: ${SYNCER_IMAGE}
+    command: ["./devspace_start.sh"]
   sync:
     - imageSelector: ${SYNCER_IMAGE}
       excludePaths:
@@ -55,6 +56,7 @@ dev:
         - '!/hack'
         - '!/go.mod'
         - '!/go.sum'
+        - '!/devspace_start.sh'
 commands:
   - name: dev
     command: "devspace dev -n vcluster"
