@@ -126,7 +126,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 		out, err = exec.Command("kubectl", args...).CombinedOutput()
 		if err != nil {
 			if !printedWaiting {
-				cmd.log.Infof("Waiting for vCluster to come up...")
+				cmd.log.Infof("Waiting for vcluster to come up...")
 				printedWaiting = true
 			}
 
@@ -136,7 +136,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 		return true, nil
 	})
 	if err != nil {
-		return errors.Wrap(err, "wait for vCluster")
+		return errors.Wrap(err, "wait for vcluster")
 	}
 
 	kubeConfig, err := clientcmd.Load(out)
@@ -178,7 +178,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 
 			if len(service.Status.LoadBalancer.Ingress) == 0 {
 				if !printedWaiting {
-					cmd.log.Infof("Waiting for vCluster LoadBalancer ip...")
+					cmd.log.Infof("Waiting for vcluster LoadBalancer ip...")
 					printedWaiting = true
 				}
 
@@ -199,7 +199,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 			return true, nil
 		})
 		if err != nil {
-			return errors.Wrap(err, "wait for vCluster")
+			return errors.Wrap(err, "wait for vcluster")
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/loft-sh/vcluster/pkg/util/log"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -19,8 +20,14 @@ type logger struct {
 }
 
 func New(name string) Logger {
+	l := ctrl.Log.WithName(name)
+	withDepthLogger, ok := l.(log.WithDepth)
+	if ok {
+		l = withDepthLogger.WithDepth(2)
+	}
+
 	return &logger{
-		ctrl.Log.WithName(name),
+		l,
 	}
 }
 
@@ -37,13 +44,21 @@ func (l *logger) Errorf(format string, a ...interface{}) {
 }
 
 func Infof(format string, a ...interface{}) {
-	(&logger{ctrl.Log}).Infof(format, a...)
-}
+	l := ctrl.Log.WithName("")
+	withDepthLogger, ok := l.(log.WithDepth)
+	if ok {
+		l = withDepthLogger.WithDepth(2)
+	}
 
-func Debugf(format string, a ...interface{}) {
-	(&logger{ctrl.Log}).Debugf(format, a...)
+	(&logger{l}).Infof(format, a...)
 }
 
 func Errorf(format string, a ...interface{}) {
-	(&logger{ctrl.Log}).Errorf(format, a...)
+	l := ctrl.Log.WithName("")
+	withDepthLogger, ok := l.(log.WithDepth)
+	if ok {
+		l = withDepthLogger.WithDepth(2)
+	}
+
+	(&logger{l}).Errorf(format, a...)
 }
