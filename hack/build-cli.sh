@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# This script will build vCluster and calculate hash for each
+# This script will build vcluster and calculate hash for each
 # (VCLUSTER_BUILD_PLATFORMS, VCLUSTER_BUILD_ARCHS) pair.
 # VCLUSTER_BUILD_PLATFORMS="linux" VCLUSTER_BUILD_ARCHS="amd64" ./hack/build-all.bash
 # can be called to build only for linux-amd64
