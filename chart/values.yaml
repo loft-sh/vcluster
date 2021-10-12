@@ -60,6 +60,9 @@ storage:
   persistence: true
   # Size of the persistent volume claim
   size: 5Gi
+  # Optional StorageClass used for the pvc
+  # if empty default StorageClass defined in your host cluster will be used
+  #className:
   
 # Extra volumes that should be created for the StatefulSet
 volumes: []
