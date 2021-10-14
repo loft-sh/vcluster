@@ -3,12 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"io/ioutil"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -120,12 +121,12 @@ vcluster create test --namespace test
 // Run executes the functionality
 func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// test for helm
-	_, err := exec.LookPath("helm")
+	helmExecutablePath, err := exec.LookPath("helm")
 	if err != nil {
 		return fmt.Errorf("seems like helm is not installed. Helm is required for the creation of a virtual cluster. Please visit https://helm.sh/docs/intro/install/ for install instructions")
 	}
 
-	output, err := exec.Command("helm", "version").CombinedOutput()
+	output, err := exec.Command(helmExecutablePath, "version").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Seems like there are issues with your helm client: \n\n%s", output)
 	}
