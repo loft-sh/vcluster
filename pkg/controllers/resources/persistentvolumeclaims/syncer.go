@@ -36,7 +36,7 @@ const (
 	boundByControllerAnnotation  = "pv.kubernetes.io/bound-by-controller"
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
 
-	skipPVTranslationAnnotation = "vcluster.loft.sh/translate-pv"
+	skipPVTranslationAnnotation = "vcluster.loft.sh/skip-translate"
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
