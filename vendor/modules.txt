@@ -134,7 +134,6 @@ github.com/kballard/go-shellquote
 # github.com/loft-sh/kiosk v0.2.7
 ## explicit
 github.com/loft-sh/kiosk/pkg/manager/blockingcacheclient
-github.com/loft-sh/kiosk/pkg/util/log
 # github.com/mailru/easyjson v0.7.1
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
@@ -238,6 +237,7 @@ go.mongodb.org/mongo-driver/bson/bsontype
 go.mongodb.org/mongo-driver/bson/primitive
 go.mongodb.org/mongo-driver/x/bsonx/bsoncore
 # go.uber.org/atomic v1.7.0
+## explicit
 go.uber.org/atomic
 # go.uber.org/multierr v1.6.0
 go.uber.org/multierr
@@ -443,6 +443,7 @@ k8s.io/api/events/v1beta1
 k8s.io/api/extensions/v1beta1
 k8s.io/api/flowcontrol/v1alpha1
 k8s.io/api/flowcontrol/v1beta1
+k8s.io/api/imagepolicy/v1alpha1
 k8s.io/api/networking/v1
 k8s.io/api/networking/v1beta1
 k8s.io/api/node/v1
@@ -940,6 +941,7 @@ k8s.io/kube-openapi/pkg/util
 k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/kubectl v0.21.1
 ## explicit
+k8s.io/kubectl/pkg/scheme
 k8s.io/kubectl/pkg/util/interrupt
 k8s.io/kubectl/pkg/util/term
 # k8s.io/kubelet v0.21.1
@@ -1006,7 +1008,7 @@ sigs.k8s.io/structured-merge-diff/v4/typed
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 # github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 # github.com/kubernetes-incubator/reference-docs => github.com/kubernetes-sigs/reference-docs v0.0.0-20170929004150-fcf65347b256
 # github.com/markbates/inflect => github.com/markbates/inflect v1.0.4
+# k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
