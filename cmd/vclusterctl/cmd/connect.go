@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	"github.com/loft-sh/vcluster/pkg/util/portforward"
 	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -11,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -65,7 +66,7 @@ vcluster connect test --namespace test
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -80,7 +81,7 @@ vcluster connect test --namespace test
 }
 
 // Run executes the functionality
-func (cmd *ConnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *ConnectCmd) Run(args []string) error {
 	vclusterName := ""
 	if len(args) > 0 {
 		vclusterName = args[0]
@@ -93,9 +94,12 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	kubeConfigLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: cmd.Context,
 	})
+	restConfig, err := kubeConfigLoader.ClientConfig()
+	if err != nil {
+		return errors.Wrap(err, "load kube config")
+	}
 
 	// set the namespace correctly
-	var err error
 	if cmd.Namespace == "" {
 		cmd.Namespace, _, err = kubeConfigLoader.Namespace()
 		if err != nil {
@@ -113,32 +117,12 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	}
 
 	// get the kube config from the container
-	var out []byte
-	printedWaiting := false
-	err = wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
-		args := []string{"exec", "--namespace", cmd.Namespace, "-c", "syncer", podName, "--", "cat", "/root/.kube/config"}
-		if cmd.Context != "" {
-			newArgs := []string{"--context", cmd.Context}
-			newArgs = append(newArgs, args...)
-			args = newArgs
-		}
-
-		out, err = exec.Command("kubectl", args...).CombinedOutput()
-		if err != nil {
-			if !printedWaiting {
-				cmd.log.Infof("Waiting for vcluster to come up...")
-				printedWaiting = true
-			}
-
-			return false, nil
-		}
-
-		return true, nil
-	})
+	out, err := podhelper.GetVClusterConfig(restConfig, podName, cmd.Namespace, cmd.log)
 	if err != nil {
-		return errors.Wrap(err, "wait for vcluster")
+		return err
 	}
 
+	// load the kube config
 	kubeConfig, err := clientcmd.Load(out)
 	if err != nil {
 		return errors.Wrap(err, "parse kube config")
@@ -151,10 +135,6 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 
 	// check if the vcluster is exposed
 	if vclusterName != "" && cmd.Server == "" {
-		restConfig, err := kubeConfigLoader.ClientConfig()
-		if err != nil {
-			return errors.Wrap(err, "load kube config")
-		}
 		kubeClient, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
 			return errors.Wrap(err, "create kube client")
@@ -270,25 +250,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 		return nil
 	}
 
-	forwardPorts := strconv.Itoa(cmd.LocalPort) + ":" + port
-	command := []string{"kubectl", "port-forward", "--namespace", cmd.Namespace, podName, forwardPorts}
-	if cmd.Context != "" {
-		command = append(command, "--context", cmd.Context)
-	}
-	if cmd.Address != "" {
-		command = append(command, "--address", cmd.Address)
-	}
-
-	cmd.log.Infof("Starting port forwarding: %s", strings.Join(command, " "))
-	portforwardCmd := exec.Command(command[0], command[1:]...)
-	if !cmd.Print {
-		portforwardCmd.Stdout = os.Stdout
-	} else {
-		portforwardCmd.Stdout = ioutil.Discard
-	}
-
-	portforwardCmd.Stderr = os.Stderr
-	return portforwardCmd.Run()
+	return portforward.StartPortForwardingWithRestart(restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.log)
 }
 
 func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, setActive bool) error {
