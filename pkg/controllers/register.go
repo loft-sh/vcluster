@@ -1,11 +1,14 @@
 package controllers
 
 import (
+	"strings"
+
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/networkpolicies"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumeclaims"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
@@ -17,7 +20,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/indices"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 var ResourceControllers = map[string]func(*context.ControllerContext) error{
@@ -33,6 +35,7 @@ var ResourceControllers = map[string]func(*context.ControllerContext) error{
 	"persistentvolumes":      persistentvolumes.Register,
 	"storageclasses":         storageclasses.Register,
 	"priorityclasses":        priorityclasses.Register,
+	"networkpolicies":        networkpolicies.Register,
 }
 
 var ResourceIndices = map[string]func(*context.ControllerContext) error{
@@ -48,6 +51,7 @@ var ResourceIndices = map[string]func(*context.ControllerContext) error{
 	"persistentvolumes":      persistentvolumes.RegisterIndices,
 	"storageclasses":         storageclasses.RegisterIndices,
 	"priorityclasses":        priorityclasses.RegisterIndices,
+	"networkpolicies":        networkpolicies.RegisterIndices,
 }
 
 func RegisterIndices(ctx *context.ControllerContext) error {

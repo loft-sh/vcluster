@@ -17,7 +17,7 @@ rules:
     resources: ["events", "pods/log"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
+    resources: ["ingresses", "networkpolicies"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["statefulsets"]

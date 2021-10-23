@@ -53,6 +53,10 @@ vcluster:
       cpu: 200m
       memory: 256Mi
 
+networkPolicy:
+  ingress: false
+  egress: false
+
 # Storage settings for the vcluster
 storage:
   # If this is disabled, vcluster will use an emptyDir instead

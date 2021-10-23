@@ -107,6 +107,8 @@ spec:
           - --suffix={{ .Release.Name }}
           - --owning-statefulset={{ .Release.Name }}
           - --out-kube-config-secret=vc-{{ .Release.Name }}
+          - --enable-network-policies-ingress={{ .Values.networkPolicy.ingress }}
+          - --enable-network-policies-egress={{ .Values.networkPolicy.egress }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}

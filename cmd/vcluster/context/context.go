@@ -2,11 +2,12 @@ package context
 
 import (
 	"context"
+	"sync"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
 )
 
 // VirtualClusterOptions holds the cmd flags
@@ -40,6 +41,9 @@ type VirtualClusterOptions struct {
 	UseFakePersistentVolumes bool
 	EnableStorageClasses     bool
 	EnablePriorityClasses    bool
+
+	EnableNetworkPoliciesIngress bool
+	EnableNetworkPoliciesEgress  bool
 
 	TranslateImages []string
 

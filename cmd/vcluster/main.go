@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"time"
+
 	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
@@ -9,10 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/log"
-	"io/ioutil"
 	"k8s.io/client-go/discovery"
-	"os"
-	"time"
 
 	"github.com/loft-sh/kiosk/pkg/manager/blockingcacheclient"
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -113,6 +114,9 @@ func NewCommand() *cobra.Command {
 
 	cmd.Flags().BoolVar(&options.EnableStorageClasses, "enable-storage-classes", false, "If enabled, the virtual cluster will sync storage classes")
 	cmd.Flags().BoolVar(&options.EnablePriorityClasses, "enable-priority-classes", false, "If enabled, the virtual cluster will sync priority classes from and to the host cluster")
+
+	cmd.Flags().BoolVar(&options.EnableNetworkPoliciesIngress, "enable-network-policies-ingress", false, "If enabled, the virtual cluster will sync network policy ingress rules")
+	cmd.Flags().BoolVar(&options.EnableNetworkPoliciesEgress, "enable-network-policies-egress", false, "If enabled, the virtual cluster will sync network policy egress rules")
 
 	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
 	cmd.Flags().BoolVar(&options.EnforceNodeSelector, "enforce-node-selector", true, "If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector")
