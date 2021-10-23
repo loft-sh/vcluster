@@ -34,6 +34,16 @@ func (s *syncer) NewList() client.ObjectList {
 	return &networkingv1.NetworkPolicyList{}
 }
 
+func (s *syncer) policyTypeExists(policyTypes []networkingv1.PolicyType, policyType networkingv1.PolicyType) bool {
+	for _, pt := range policyTypes {
+		if pt == policyType {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (s *syncer) translate(vObj client.Object) (*networkingv1.NetworkPolicy, error) {
 	newObj, err := translate.SetupMetadata(s.targetNamespace, vObj)
 	if err != nil {
@@ -50,6 +60,10 @@ func (s *syncer) translate(vObj client.Object) (*networkingv1.NetworkPolicy, err
 
 	newNetworkPolicy.Spec.Ingress = nil
 	if s.enableIngress {
+		if s.policyTypeExists(vNetworkPolicy.Spec.PolicyTypes, networkingv1.PolicyTypeIngress) {
+			newNetworkPolicy.Spec.PolicyTypes = append(newNetworkPolicy.Spec.PolicyTypes, networkingv1.PolicyTypeIngress)
+		}
+
 		for _, vRule := range vNetworkPolicy.Spec.Ingress {
 			newRuleFrom := make([]networkingv1.NetworkPolicyPeer, 0)
 
@@ -62,12 +76,14 @@ func (s *syncer) translate(vObj client.Object) (*networkingv1.NetworkPolicy, err
 				From:  newRuleFrom,
 			})
 		}
-
-		newNetworkPolicy.Spec.PolicyTypes = append(newNetworkPolicy.Spec.PolicyTypes, networkingv1.PolicyTypeIngress)
 	}
 
 	newNetworkPolicy.Spec.Egress = nil
 	if s.enableEgress {
+		if s.policyTypeExists(vNetworkPolicy.Spec.PolicyTypes, networkingv1.PolicyTypeEgress) {
+			newNetworkPolicy.Spec.PolicyTypes = append(newNetworkPolicy.Spec.PolicyTypes, networkingv1.PolicyTypeEgress)
+		}
+
 		for _, vRule := range vNetworkPolicy.Spec.Egress {
 			newRuleTo := make([]networkingv1.NetworkPolicyPeer, 0)
 
@@ -81,7 +97,6 @@ func (s *syncer) translate(vObj client.Object) (*networkingv1.NetworkPolicy, err
 			})
 		}
 
-		newNetworkPolicy.Spec.PolicyTypes = append(newNetworkPolicy.Spec.PolicyTypes, networkingv1.PolicyTypeEgress)
 	}
 
 	return newNetworkPolicy, nil
