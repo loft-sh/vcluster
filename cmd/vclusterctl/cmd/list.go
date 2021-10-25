@@ -28,7 +28,7 @@ type ListCmd struct {
 	*flags.GlobalFlags
 
 	log    log.Logger
-	format string
+	output string
 }
 
 // NewListCmd creates a new command
@@ -49,7 +49,7 @@ Lists all virtual clusters
 
 Example:
 vcluster list
-vcluster list --format json
+vcluster list --output json
 vcluster list --namespace test
 #######################################################
 	`,
@@ -59,7 +59,7 @@ vcluster list --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.format, "format", "table", "Choose the format of the output. [table|json]")
+	cobraCmd.Flags().StringVar(&cmd.output, "output", "table", "Choose the format of the output. [table|json]")
 
 	return cobraCmd
 }
@@ -115,7 +115,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		})
 	}
 
-	if cmd.format == "json" {
+	if cmd.output == "json" {
 		bytes, err := json.MarshalIndent(&vclusters, "", "    ")
 		if err != nil {
 			return errors.Wrap(err, "json marshal vclusters")
