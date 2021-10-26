@@ -101,3 +101,18 @@ annotations: {}
 # Service configurations
 service:
   type: ClusterIP
+
+# Configure the ingress resource that allows you to access the vcluster
+ingress:
+  # Enable ingress record generation
+  enabled: false
+  # Ingress path type
+  pathType: ImplementationSpecific
+  apiVersion: networking.k8s.io/v1
+  ingressClassName: ""
+  host: vcluster.local
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"

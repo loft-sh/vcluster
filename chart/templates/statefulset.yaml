@@ -107,6 +107,9 @@ spec:
           - --suffix={{ .Release.Name }}
           - --owning-statefulset={{ .Release.Name }}
           - --out-kube-config-secret=vc-{{ .Release.Name }}
+          {{- if .Values.ingress.enabled }}
+          - --tls-san={{ .Values.ingress.host }}
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
