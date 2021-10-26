@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/pkg/errors"
@@ -12,11 +15,20 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// VCluster holds information about a cluster
+type VCluster struct {
+	Name       string
+	Namespace  string
+	Created    time.Time
+	AgeSeconds int
+}
+
 // ListCmd holds the login cmd flags
 type ListCmd struct {
 	*flags.GlobalFlags
 
-	log log.Logger
+	log    log.Logger
+	output string
 }
 
 // NewListCmd creates a new command
@@ -37,6 +49,7 @@ Lists all virtual clusters
 
 Example:
 vcluster list
+vcluster list --output json
 vcluster list --namespace test
 #######################################################
 	`,
@@ -45,6 +58,8 @@ vcluster list --namespace test
 			return cmd.Run(cobraCmd, args)
 		},
 	}
+
+	cobraCmd.Flags().StringVar(&cmd.output, "output", "table", "Choose the format of the output. [table|json]")
 
 	return cobraCmd
 }
@@ -90,16 +105,36 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
-	header := []string{"NAME", "NAMESPACE", "CREATED"}
-	values := [][]string{}
+	vclusters := []VCluster{}
 	for _, s := range statefulSets.Items {
-		values = append(values, []string{
-			s.Name,
-			s.Namespace,
-			s.CreationTimestamp.String(),
+		vclusters = append(vclusters, VCluster{
+			Name:       s.Name,
+			Namespace:  s.Namespace,
+			Created:    s.CreationTimestamp.Time,
+			AgeSeconds: int(time.Since(s.CreationTimestamp.Time).Seconds()),
 		})
 	}
 
-	log.PrintTable(cmd.log, header, values)
+	if cmd.output == "json" {
+		bytes, err := json.MarshalIndent(&vclusters, "", "    ")
+		if err != nil {
+			return errors.Wrap(err, "json marshal vclusters")
+		}
+		cmd.log.WriteString(string(bytes) + "\n")
+	} else {
+		header := []string{"NAME", "NAMESPACE", "CREATED", "AGE"}
+		values := [][]string{}
+		for _, vcluster := range vclusters {
+			values = append(values, []string{
+				vcluster.Name,
+				vcluster.Namespace,
+				vcluster.Created.String(),
+				time.Since(vcluster.Created).Round(1 * time.Second).String(),
+			})
+		}
+
+		log.PrintTable(cmd.log, header, values)
+	}
+
 	return nil
 }
