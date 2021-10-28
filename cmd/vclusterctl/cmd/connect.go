@@ -3,19 +3,20 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -38,14 +39,14 @@ type ConnectCmd struct {
 
 	Server string
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewConnectCmd creates a new command
 func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &ConnectCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 
 	cobraCmd := &cobra.Command{
@@ -117,7 +118,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	}
 
 	// get the kube config from the container
-	out, err := podhelper.GetVClusterConfig(restConfig, podName, cmd.Namespace, cmd.log)
+	out, err := podhelper.GetVClusterConfig(restConfig, podName, cmd.Namespace, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 
 			if len(service.Status.LoadBalancer.Ingress) == 0 {
 				if !printedWaiting {
-					cmd.log.Infof("Waiting for vcluster LoadBalancer ip...")
+					cmd.Log.Infof("Waiting for vcluster LoadBalancer ip...")
 					printedWaiting = true
 				}
 
@@ -175,7 +176,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 				return false, nil
 			}
 
-			cmd.log.Infof("Using vcluster %s load balancer endpoint: %s", vclusterName, cmd.Server)
+			cmd.Log.Infof("Using vcluster %s load balancer endpoint: %s", vclusterName, cmd.Server)
 			return true, nil
 		})
 		if err != nil {
@@ -231,7 +232,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 			return err
 		}
 
-		cmd.log.Donef("Successfully created kube context %s. You can access the vcluster with `kubectl get namespaces --context %s`", contextName, contextName)
+		cmd.Log.Donef("Successfully created kube context %s. You can access the vcluster with `kubectl get namespaces --context %s`", contextName, contextName)
 	} else if cmd.Print {
 		_, err = os.Stdout.Write(out)
 		if err != nil {
@@ -243,14 +244,14 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 			return errors.Wrap(err, "write kube config")
 		}
 
-		cmd.log.Donef("Virtual cluster kube config written to: %s. You can access the cluster via `kubectl --kubeconfig %s get namespaces`", cmd.KubeConfig, cmd.KubeConfig)
+		cmd.Log.Donef("Virtual cluster kube config written to: %s. You can access the cluster via `kubectl --kubeconfig %s get namespaces`", cmd.KubeConfig, cmd.KubeConfig)
 	}
 
 	if cmd.Server != "" {
 		return nil
 	}
 
-	return portforward.StartPortForwardingWithRestart(restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.log)
+	return portforward.StartPortForwardingWithRestart(restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.Log)
 }
 
 func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, setActive bool) error {

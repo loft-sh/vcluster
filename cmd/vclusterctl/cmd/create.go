@@ -229,7 +229,7 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			GlobalFlags: cmd.GlobalFlags,
 			KubeConfig:  "./kubeconfig.yaml",
 			LocalPort:   8443,
-			log:         cmd.log,
+			Log:         cmd.log,
 		}
 
 		return connectCmd.Connect(args[0])

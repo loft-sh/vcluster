@@ -9,7 +9,7 @@ echo "Building virtual cluster..."
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build cmd/vcluster/main.go || exit 1
 
 # List packages
-PKGS=$(go list ./... | grep -v /vendor/ | grep -v /examples/)
+PKGS=$(go list ./... | grep -v -e /vendor/ -e /examples/ -e vcluster/e2e)
 
 echo "Start testing..."
 fail=false
