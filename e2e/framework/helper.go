@@ -44,3 +44,8 @@ func ExpectHaveKey(actual interface{}, key interface{}, explain ...interface{}) 
 func ExpectEmpty(actual interface{}, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, actual).To(gomega.BeEmpty(), explain...)
 }
+
+// ExpectMatchRegexp expects the the string to match the provided regular expression
+func ExpectMatchRegexp(actual string, regexp string, explain ...interface{}) {
+	gomega.ExpectWithOffset(1, actual).To(gomega.MatchRegexp(regexp), explain...)
+}
