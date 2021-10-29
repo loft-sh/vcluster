@@ -1,0 +1,57 @@
+name: PR checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "Dockerfile"
+      - "**.go"
+      - ".github/workflows/e2e.yaml"
+
+jobs:
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v2
+    - name: Set up kind with K8s version v1.21.1
+      uses: engineerd/setup-kind@v0.5.0
+      with:
+        version: "v0.11.1"
+        image: kindest/node:v1.21.1
+    - name: Testing kind cluster set-up
+      run: |
+          kubectl cluster-info
+          kubectl get pods -n kube-system
+          echo "kubectl config current-context:" $(kubectl config current-context)
+          echo "KUBECONFIG env var:" ${KUBECONFIG}
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+    - name: Setup DevSpace
+      uses: loft-sh/setup-devspace@main
+
+    - name: Deploy vcluster
+      run: devspace run deploy --skip-push
+
+    - name: Load built image into kind cluster
+      run: docker images | grep ghcr.io/loft-sh/loft-enterprise/dev-vcluster | head -n 1 | awk '{print $1":"$2}' | xargs kind load docker-image
+
+    - name: Wait until vcluster is ready
+      id: wait-until-vcluster-is-ready
+      run: kubectl wait --for=condition=ready pod vcluster-0 -n vcluster --timeout=120s
+      continue-on-error: true
+    
+    - name: Collect deployment information in case vcluster fails to start
+      if: steps.wait-until-vcluster-is-ready.outcome == 'failure'
+      run: |
+        kubectl get pods -o yaml -n vcluster
+        kubectl get events -n vcluster
+        exit 1
+
+    - name: Execute e2e tests
+      working-directory: ./e2e
+      run: VCLUSTER_SUFFIX=vcluster go test -v -ginkgo.v
