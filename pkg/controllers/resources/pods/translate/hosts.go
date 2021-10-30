@@ -16,7 +16,7 @@ func rewritePodHostnameFQDN(pPod *corev1.Pod, hostsRewriteImage, fromHost, toHos
 			Name:    HostsRewriteContainerName,
 			Image:   hostsRewriteImage,
 			Command: []string{"sh"},
-			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostname + " " + toHostnameFQDN + "/' /etc/hosts > /hosts/hosts"},
+			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostnameFQDN + " " + toHostname + "/' /etc/hosts > /hosts/hosts"},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					MountPath: "/hosts",
