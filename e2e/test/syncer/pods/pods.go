@@ -2,6 +2,7 @@ package pods
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/e2e/framework"
@@ -17,6 +18,7 @@ import (
 const (
 	testingContainerName  = "nginx"
 	testingContainerImage = "nginx"
+	ipRegExp              = "(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]).){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
 )
 
 var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
@@ -53,8 +55,9 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  testingContainerName,
-						Image: testingContainerImage,
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
 					},
 				},
 			},
@@ -95,8 +98,9 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 				ServiceAccountName: saName,
 				Containers: []corev1.Container{
 					{
-						Name:  testingContainerName,
-						Image: testingContainerImage,
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
 					},
 				},
 			},
@@ -138,8 +142,9 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  testingContainerName,
-						Image: testingContainerImage,
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Env: []corev1.EnvVar{
 							{
 								Name: envVarName,
@@ -219,8 +224,9 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  testingContainerName,
-						Image: testingContainerImage,
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Env: []corev1.EnvVar{
 							{
 								Name: envVarName,
@@ -273,6 +279,83 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.ObjectPhysicalName(pod), testingContainerName, []string{"cat", filePath + "/" + fileName}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), secretKeyValue)
+		framework.ExpectEqual(string(stderr), "")
+	})
+
+	ginkgo.It("Test pod contains correct values in a dependent environment variables", func() {
+		podName := "test"
+		svcName := "myservice"
+		svcPort := 80
+		myProtocol := "https"
+
+		_, err := f.VclusterClient.CoreV1().Services(ns).Create(f.Context, &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: svcName},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{"doesnt": "matter"},
+				Ports: []corev1.ServicePort{
+					{Port: int32(svcPort)},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		pod, err := f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Env: []corev1.EnvVar{
+							{
+								Name:  "FIRST",
+								Value: "Hello",
+							},
+							{
+								Name:  "SECOND",
+								Value: "World",
+							},
+							{
+								Name:  "HELLO_WORLD",
+								Value: "$(FIRST) $(SECOND)",
+							},
+							{
+								Name:  "ESCAPED_VAR",
+								Value: "$$(FIRST)",
+							},
+							{
+								Name:  "MY_PROTOCOL",
+								Value: myProtocol,
+							},
+							{
+								Name:  "MY_SERVICE",
+								Value: "$(MY_PROTOCOL)://$(" + strings.ToUpper(svcName) + "_SERVICE_HOST):$(" + strings.ToUpper(svcName) + "_SERVICE_PORT)",
+							},
+						},
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = WaitForPodRunning(f, podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		// execute a command in a pod to retrieve env var value
+		stdout, stderr, err := podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.ObjectPhysicalName(pod), testingContainerName, []string{"sh", "-c", "echo $HELLO_WORLD"}, nil)
+		framework.ExpectNoError(err)
+		framework.ExpectEqual(string(stdout), "Hello World\n", "Dependent environment variable is expected to have its value based on the referenced environment variable(s)") // echo adds \n in the end
+		framework.ExpectEqual(string(stderr), "")
+
+		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.ObjectPhysicalName(pod), testingContainerName, []string{"sh", "-c", "echo $ESCAPED_VAR"}, nil)
+		framework.ExpectNoError(err)
+		framework.ExpectEqual(string(stdout), "$(FIRST)\n", "The double '$' symbol should be escaped") // echo adds \n in the end
+		framework.ExpectEqual(string(stderr), "")
+
+		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.ObjectPhysicalName(pod), testingContainerName, []string{"sh", "-c", "echo $MY_SERVICE"}, nil)
+		framework.ExpectNoError(err)
+		framework.ExpectMatchRegexp(string(stdout), fmt.Sprintf("^%s://%s:%d\n$", myProtocol, ipRegExp, svcPort), "Service host and port environment variables should be resolved in a dependent environment variable")
 		framework.ExpectEqual(string(stderr), "")
 	})
 })
