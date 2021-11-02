@@ -1,17 +1,21 @@
-name: PR checks
+name: E2E tests
 
 on:
+  release:
+    types: [created]
   pull_request:
     branches:
       - main
     paths:
       - "Dockerfile"
       - "**.go"
-      - ".github/workflows/e2e.yaml"
+      - "!**_test.go" # exclude test files to ignore unit test changes
+      - "e2e/**_test.go" # include test files in e2e again
+      - ".github/workflows/e2e-tests.yaml"
 
 jobs:
   e2e:
-    name: E2E Tests
+    name: Execute testsuite
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repo
