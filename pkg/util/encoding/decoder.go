@@ -7,12 +7,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
 // Decoder is the standard interface for decoding and encoding resources
 type Decoder interface {
-	Decode(data []byte) (runtime.Object, error)
+	Decode(data []byte, defaults *schema.GroupVersionKind) (runtime.Object, error)
 	EncodeYAML(obj runtime.Object) ([]byte, error)
 	EncodeJSON(obj runtime.Object) ([]byte, error)
 }
@@ -32,8 +33,8 @@ func NewDecoder(scheme *runtime.Scheme, strict bool) Decoder {
 	}
 }
 
-func (d *decoder) Decode(data []byte) (runtime.Object, error) {
-	obj, _, err := d.decoder.Decode(data, nil, nil)
+func (d *decoder) Decode(data []byte, defaults *schema.GroupVersionKind) (runtime.Object, error) {
+	obj, _, err := d.decoder.Decode(data, defaults, nil)
 	if err != nil {
 		// Decode into unstructured if the object is not registered
 		if runtime.IsNotRegisteredError(err) {
