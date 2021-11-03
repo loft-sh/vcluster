@@ -3,16 +3,13 @@ package pods
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/loft-sh/vcluster/e2e/framework"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -34,7 +31,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		iteration++
 		ns = fmt.Sprintf("e2e-syncer-pods-%d", iteration)
 		// execute cleanup in case previous e2e test were terminated prematurely
-		err := cleanup(f, ns, true)
+		err := f.DeleteTestNamespace(ns, true)
 		framework.ExpectNoError(err)
 
 		// create test namespace
@@ -44,7 +41,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 
 	ginkgo.AfterEach(func() {
 		// delete test namespace
-		err := cleanup(f, ns, false)
+		err := f.DeleteTestNamespace(ns, false)
 		framework.ExpectNoError(err)
 	})
 
@@ -64,7 +61,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = WaitForPodRunning(f, podName, ns)
+		err = f.WaitForPodRunning(podName, ns)
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// get current status
@@ -89,7 +86,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err)
 
 		// wait until the service account exists
-		err = WaitForServiceAccount(f, saName, ns)
+		err = f.WaitForServiceAccount(saName, ns)
 		framework.ExpectNoError(err)
 
 		_, err = f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
@@ -107,7 +104,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = WaitForPodRunning(f, podName, ns)
+		err = f.WaitForPodRunning(podName, ns)
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// get current state
@@ -184,7 +181,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = WaitForPodRunning(f, podName, ns)
+		err = f.WaitForPodRunning(podName, ns)
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// execute a command in a pod to retrieve env var value
@@ -266,7 +263,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = WaitForPodRunning(f, podName, ns)
+		err = f.WaitForPodRunning(podName, ns)
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// execute a command in a pod to retrieve env var value
@@ -339,7 +336,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = WaitForPodRunning(f, podName, ns)
+		err = f.WaitForPodRunning(podName, ns)
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// execute a command in a pod to retrieve env var value
@@ -359,23 +356,3 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectEqual(string(stderr), "")
 	})
 })
-
-func cleanup(f *framework.Framework, ns string, waitUntilDeleted bool) error {
-	err := f.VclusterClient.CoreV1().Namespaces().Delete(f.Context, ns, metav1.DeleteOptions{})
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	if !waitUntilDeleted {
-		return nil
-	}
-	return wait.PollImmediate(time.Second, framework.PollTimeout, func() (bool, error) {
-		_, err = f.VclusterClient.CoreV1().Namespaces().Get(f.Context, ns, metav1.GetOptions{})
-		if kerrors.IsNotFound(err) {
-			return true, nil
-		}
-		return false, err
-	})
-}

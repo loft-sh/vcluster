@@ -1,17 +1,16 @@
-package pods
+package framework
 
 import (
 	"time"
 
-	"github.com/loft-sh/vcluster/e2e/framework"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func WaitForPodRunning(f *framework.Framework, podName string, ns string) error {
-	return wait.PollImmediate(time.Second, framework.PollTimeout, func() (bool, error) {
+func (f *Framework) WaitForPodRunning(podName string, ns string) error {
+	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		pod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, podName+"-x-"+ns+"-x-"+f.Suffix, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
@@ -36,8 +35,8 @@ func WaitForPodRunning(f *framework.Framework, podName string, ns string) error 
 	})
 }
 
-func WaitForServiceAccount(f *framework.Framework, saName string, ns string) error {
-	return wait.PollImmediate(time.Second, framework.PollTimeout, func() (bool, error) {
+func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
+	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		_, err := f.VclusterClient.CoreV1().ServiceAccounts(ns).Get(f.Context, saName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
@@ -46,5 +45,25 @@ func WaitForServiceAccount(f *framework.Framework, saName string, ns string) err
 			return false, err
 		}
 		return true, nil
+	})
+}
+
+func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error {
+	err := f.VclusterClient.CoreV1().Namespaces().Delete(f.Context, ns, metav1.DeleteOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if !waitUntilDeleted {
+		return nil
+	}
+	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
+		_, err = f.VclusterClient.CoreV1().Namespaces().Get(f.Context, ns, metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
 	})
 }
