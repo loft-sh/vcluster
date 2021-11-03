@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
@@ -25,6 +26,7 @@ const (
 	PollTimeout              = time.Minute
 	DefaultVclusterName      = "vcluster"
 	DefaultVclusterNamespace = "vcluster"
+	DefaultClientTimeout     = 32 * time.Second // the default in client-go is 32
 )
 
 var DefaultFramework = &Framework{}
@@ -64,6 +66,9 @@ type Framework struct {
 
 	// Log is the logger that should be used
 	Log log.Logger
+
+	// ClientTimeout value used in the clients
+	ClientTimeout time.Duration
 }
 
 func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
@@ -79,6 +84,15 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	if ns == "" {
 		ns = DefaultVclusterNamespace
 	}
+	timeoutEnvVar := os.Getenv("VCLUSTER_CLIENT_TIMEOUT")
+	var timeout time.Duration
+	timeoutInt, err := strconv.Atoi(timeoutEnvVar)
+	if err == nil {
+		timeout = time.Duration(timeoutInt) * time.Second
+	} else {
+		timeout = DefaultClientTimeout
+	}
+
 	suffix := os.Getenv("VCLUSTER_SUFFIX")
 	if suffix == "" {
 		//TODO: maybe implement some autodiscovery of the suffix value that would work with dev and prod setups
@@ -91,6 +105,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	if err != nil {
 		return err
 	}
+	hostConfig.Timeout = timeout
 
 	hostClient, err := kubernetes.NewForConfig(hostConfig)
 	if err != nil {
@@ -134,6 +149,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		if err != nil {
 			return false, nil
 		}
+		vclusterConfig.Timeout = timeout
 
 		// create kubernetes client using the config retry in case port forwarding is not ready yet
 		vclusterClient, err = kubernetes.NewForConfig(vclusterConfig)
@@ -165,6 +181,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		VclusterClient:    vclusterClient,
 		Scheme:            scheme,
 		Log:               l,
+		ClientTimeout:     timeout,
 	}
 
 	l.Done("Framework successfully initialized")
