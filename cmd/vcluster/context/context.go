@@ -31,7 +31,9 @@ type VirtualClusterOptions struct {
 	TargetNamespace      string
 	ServiceName          string
 	ServiceNamespace     string
-	OwningStatefulSet    string
+	
+	DeprecatedOwningStatefulSet string
+	SetOwner                    bool
 
 	SyncAllNodes             bool
 	SyncNodeChanges          bool

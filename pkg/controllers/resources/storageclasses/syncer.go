@@ -38,7 +38,7 @@ func (s *syncer) BackwardCreate(ctx context.Context, pObj client.Object, log log
 	vObj.ResourceVersion = ""
 	vObj.UID = ""
 	vObj.ManagedFields = nil
-	log.Infof("create storage class %s, because it is not exist in virtual cluster", vObj.Name)
+	log.Infof("create storage class %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, s.virtualClient.Create(ctx, vObj)
 }
 
