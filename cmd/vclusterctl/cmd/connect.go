@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -99,6 +100,10 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	if err != nil {
 		return errors.Wrap(err, "load kube config")
 	}
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return errors.Wrap(err, "create kube client")
+	}
 
 	// set the namespace correctly
 	if cmd.Namespace == "" {
@@ -114,7 +119,31 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 
 	podName := cmd.PodName
 	if podName == "" {
-		podName = vclusterName + "-0"
+		err = wait.PollImmediate(time.Second, time.Second*10, func() (done bool, err error) {
+			// get vcluster pod name
+			pods, err := kubeClient.CoreV1().Pods(cmd.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "app=vcluster,release=" + vclusterName,
+			})
+			if err != nil {
+				return false, err
+			} else if len(pods.Items) == 0 {
+				return false, nil
+			}
+
+			// sort by newest
+			sort.Slice(pods.Items, func(i, j int) bool {
+				return pods.Items[i].CreationTimestamp.Unix() > pods.Items[j].CreationTimestamp.Unix()
+			})
+			if pods.Items[0].DeletionTimestamp != nil {
+				return false, nil
+			}
+
+			podName = pods.Items[0].Name
+			return true, nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "finding vcluster pod")
+		}
 	}
 
 	// get the kube config from the container
@@ -136,11 +165,6 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 
 	// check if the vcluster is exposed
 	if vclusterName != "" && cmd.Server == "" {
-		kubeClient, err := kubernetes.NewForConfig(restConfig)
-		if err != nil {
-			return errors.Wrap(err, "create kube client")
-		}
-
 		printedWaiting := false
 		err = wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
 			service, err := kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), vclusterName, metav1.GetOptions{})
