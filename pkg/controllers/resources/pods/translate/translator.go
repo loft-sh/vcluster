@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -21,6 +22,7 @@ import (
 	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -30,6 +32,7 @@ const (
 	NameAnnotation                = "vcluster.loft.sh/name"
 	LabelsAnnotation              = "vcluster.loft.sh/labels"
 	UIDAnnotation                 = "vcluster.loft.sh/uid"
+	ClusterAutoScalerAnnotation   = "cluster-autoscaler.kubernetes.io/safe-to-evict"
 	ServiceAccountNameAnnotation  = "vcluster.loft.sh/service-account-name"
 	ServiceAccountTokenAnnotation = "vcluster.loft.sh/token-"
 )
@@ -132,7 +135,7 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 }
 
 func getExcludedAnnotations(pPod *corev1.Pod) []string {
-	annotations := []string{OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, LabelsAnnotation}
+	annotations := []string{ClusterAutoScalerAnnotation, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, LabelsAnnotation}
 	for _, v := range pPod.Spec.Volumes {
 		if v.Projected != nil {
 			for _, source := range v.Projected.Sources {
@@ -300,6 +303,21 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 	if _, ok := pPod.Annotations[LabelsAnnotation]; !ok {
 		pPod.Annotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
+	}
+	if _, ok := pPod.Annotations[ClusterAutoScalerAnnotation]; !ok {
+		// evictable
+		isEvictable := false
+		for _, ownerReference := range pPod.OwnerReferences {
+			if ownerReference.Controller != nil && *ownerReference.Controller && ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && (ownerReference.Kind == "ReplicaSet" || ownerReference.Kind == "StatefulSet") {
+				isEvictable = true
+				break
+			} else if ownerReference.Controller != nil && *ownerReference.Controller && ownerReference.APIVersion == batchv1.SchemeGroupVersion.String() && (ownerReference.Kind == "Job" || ownerReference.Kind == "CronJob") {
+				isEvictable = true
+				break
+			}
+		}
+
+		pPod.Annotations[ClusterAutoScalerAnnotation] = strconv.FormatBool(isEvictable)
 	}
 
 	// translate services to environment variables

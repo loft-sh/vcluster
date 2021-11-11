@@ -1,4 +1,4 @@
-version: v1beta10
+version: v1beta11
 vars:
   - name: SYNCER_IMAGE
     value: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
@@ -12,6 +12,7 @@ images:
   vcluster:
     image: ${SYNCER_IMAGE}
     rebuildStrategy: ignoreContextChanges
+    createPullSecret: false
     build:
       buildKit:
         options:
@@ -58,9 +59,9 @@ dev:
         - '!/devspace_start.sh'
 commands:
   - name: dev
-    command: "devspace dev -n vcluster"
+    command: "devspace dev -n vcluster $@"
   - name: deploy
-    command: "devspace deploy --profile deploy -n vcluster -d"
+    command: "devspace deploy --profile deploy -n vcluster -d $@"
 profiles:
   - name: deploy
     patches:
