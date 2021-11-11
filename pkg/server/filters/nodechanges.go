@@ -3,10 +3,13 @@ package filters
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"time"
+
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/encoding"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
@@ -18,10 +21,8 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
-	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 func WithNodeChanges(h http.Handler, localManager ctrl.Manager, virtualManager ctrl.Manager) http.Handler {
@@ -124,7 +125,8 @@ func patchNode(w http.ResponseWriter, req *http.Request, s runtime.NegotiatedSer
 func updateNode(decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, rawObj []byte, status bool) (runtime.Object, error) {
 	// make sure this gets done
 	ctx := context.Background()
-	vObj, err := decoder.Decode(rawObj)
+	nodeGVK := corev1.SchemeGroupVersion.WithKind("Node")
+	vObj, err := decoder.Decode(rawObj, &nodeGVK)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +144,7 @@ func updateNode(decoder encoding.Decoder, localClient client.Client, virtualClie
 	} else if curVNode.ResourceVersion != vNode.ResourceVersion {
 		return nil, kerrors.NewConflict(corev1.Resource("nodes"), vNode.Name, fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"))
 	}
-	
+
 	// get the corresponding physical node
 	pNode := &corev1.Node{}
 	err = localClient.Get(ctx, client.ObjectKey{Name: vNode.Name}, pNode)

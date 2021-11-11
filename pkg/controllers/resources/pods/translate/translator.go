@@ -4,6 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	"github.com/loft-sh/vcluster/pkg/serviceaccount"
@@ -19,11 +24,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/utils/pointer"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -307,7 +308,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	if _, ok := pPod.Annotations[ClusterAutoScalerAnnotation]; !ok {
 		// evictable
 		isEvictable := false
-		for _, ownerReference := range pPod.OwnerReferences {
+		for _, ownerReference := range vPod.OwnerReferences {
 			if ownerReference.Controller != nil && *ownerReference.Controller && ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && (ownerReference.Kind == "ReplicaSet" || ownerReference.Kind == "StatefulSet") {
 				isEvictable = true
 				break
@@ -630,9 +631,8 @@ func translateEphemerealContainerEnv(c *corev1.EphemeralContainer, vPod *corev1.
 	if c.Env == nil {
 		c.Env = []corev1.EnvVar{}
 	}
-	for _, e := range additionalEnvVars {
-		c.Env = append(c.Env, e)
-	}
+	// additional env vars should come first to allow for dependent environment variables
+	c.Env = append(additionalEnvVars, c.Env...)
 }
 
 func translateContainerEnv(c *corev1.Container, vPod *corev1.Pod, serviceEnvMap map[string]string) {
@@ -677,6 +677,8 @@ func translateContainerEnv(c *corev1.Container, vPod *corev1.Pod, serviceEnvMap 
 	for _, e := range additionalEnvVars {
 		c.Env = append(c.Env, e)
 	}
+	// additional env vars should come first to allow for dependent environment variables
+	c.Env = append(additionalEnvVars, c.Env...)
 }
 
 func translateDownwardAPI(env *corev1.EnvVar) {

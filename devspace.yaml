@@ -46,6 +46,11 @@ dev:
   terminal:
     imageSelector: ${SYNCER_IMAGE}
     command: ["./devspace_start.sh"]
+  ports:
+    - imageSelector: ${SYNCER_IMAGE}
+      forward:
+        - port: 2346
+          remotePort: 2345
   sync:
     - imageSelector: ${SYNCER_IMAGE}
       excludePaths:

@@ -3,13 +3,15 @@ package filters
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/encoding"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
@@ -20,7 +22,6 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
-	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -126,7 +127,8 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 		return nil, err
 	}
 
-	svc, err := decoder.Decode(rawObj)
+	serviceGVK := corev1.SchemeGroupVersion.WithKind("Service")
+	svc, err := decoder.Decode(rawObj, &serviceGVK)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +194,8 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		return nil, err
 	}
 
-	svc, err := decoder.Decode(rawObj)
+	serviceGVK := corev1.SchemeGroupVersion.WithKind("Service")
+	svc, err := decoder.Decode(rawObj, &serviceGVK)
 	if err != nil {
 		return nil, err
 	}

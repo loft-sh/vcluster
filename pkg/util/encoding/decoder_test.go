@@ -45,7 +45,7 @@ spec:
 	scheme := kubernetesNativeScheme()
 	decoder := NewDecoder(scheme, false)
 
-	pod, err := decoder.Decode([]byte(examplePod))
+	pod, err := decoder.Decode([]byte(examplePod), nil)
 	if err != nil {
 		t.Fatal(err)
 	} else if _, ok := pod.(*corev1.Pod); !ok {
@@ -66,7 +66,7 @@ spec:
 	scheme := kubernetesNativeScheme()
 	decoder := NewDecoder(scheme, false)
 
-	obj, err := decoder.Decode([]byte(examplePod))
+	obj, err := decoder.Decode([]byte(examplePod), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,6 +12,8 @@ require (
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/loft-sh/kiosk v0.2.7
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
+	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/gomega v1.16.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.26.0
