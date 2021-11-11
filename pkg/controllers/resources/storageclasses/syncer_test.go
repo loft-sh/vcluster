@@ -41,11 +41,11 @@ func TestSync(t *testing.T) {
 		ObjectMeta:  baseObjectMeta,
 		Provisioner: "someProvisioner",
 	}
+	updatedSc.Labels = map[string]string{
+		"a": "b",
+	}
 	noUpdateSc := &v1.StorageClass{
 		ObjectMeta: baseObjectMeta,
-	}
-	noUpdateSc.Labels = map[string]string{
-		"a": "b",
 	}
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
@@ -60,15 +60,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.BackwardCreateNeeded(baseSc)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected backward create to be needed")
-				}
-
-				_, err = syncer.BackwardCreate(ctx, baseSc, log)
+				_, err := syncer.Backward(ctx, baseSc, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -86,15 +78,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.BackwardUpdateNeeded(updateSc, baseSc)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected backward update to be needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, updateSc, baseSc, log)
+				_, err := syncer.Update(ctx, updateSc, baseSc, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -112,15 +96,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.BackwardUpdateNeeded(noUpdateSc, baseSc)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected backward update to be not needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, noUpdateSc, baseSc, log)
+				_, err := syncer.Update(ctx, noUpdateSc, baseSc, log)
 				if err != nil {
 					t.Fatal(err)
 				}

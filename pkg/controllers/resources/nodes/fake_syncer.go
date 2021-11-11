@@ -3,14 +3,18 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sync"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -26,11 +30,28 @@ var (
 )
 
 func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
-	return generic.RegisterFakeSyncer(ctx, &fakeSyncer{
+	return generic.RegisterFakeSyncerWithOptions(ctx, "fake-node", &fakeSyncer{
 		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
 		nodeServiceProvider: ctx.NodeServiceProvider,
 		virtualClient:       ctx.VirtualManager.GetClient(),
-	}, "fake-node")
+	}, &generic.SyncerOptions{
+		ModifyController: func(builder *builder.Builder) *builder.Builder {
+			return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+				pod, ok := object.(*corev1.Pod)
+				if !ok || pod == nil {
+					return []reconcile.Request{}
+				}
+
+				return []reconcile.Request{
+					{
+						types.NamespacedName{
+							Name: pod.Spec.NodeName,
+						},
+					},
+				}
+			}))
+		},
+	})
 }
 
 type fakeSyncer struct {
@@ -43,25 +64,6 @@ func (r *fakeSyncer) New() client.Object {
 	return &corev1.Node{}
 }
 
-func (r *fakeSyncer) NewList() client.ObjectList {
-	return &corev1.NodeList{}
-}
-
-func (r *fakeSyncer) DependantObjectList() client.ObjectList {
-	return &corev1.PodList{}
-}
-
-func (r *fakeSyncer) NameFromDependantObject(ctx context.Context, obj client.Object) (types.NamespacedName, error) {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok || pod == nil {
-		return types.NamespacedName{}, fmt.Errorf("%#v is not a pod", obj)
-	}
-
-	return types.NamespacedName{
-		Name: pod.Spec.NodeName,
-	}, nil
-}
-
 func (r *fakeSyncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {
 	r.sharedNodesMutex.Lock()
 	return false, nil
@@ -71,39 +73,33 @@ func (r *fakeSyncer) ReconcileEnd() {
 	r.sharedNodesMutex.Unlock()
 }
 
-func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName, log loghelper.Logger) error {
-	log.Infof("Create fake node %s", name.Name)
-	return CreateFakeNode(ctx, r.nodeServiceProvider, r.virtualClient, name)
-}
-
-func (r *fakeSyncer) CreateNeeded(ctx context.Context, name types.NamespacedName) (bool, error) {
+func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName, log loghelper.Logger) (ctrl.Result, error) {
 	needed, err := r.nodeNeeded(ctx, name.Name)
 	if err != nil {
-		return false, err
+		return ctrl.Result{}, err
 	} else if !needed {
-		return false, nil
+		return ctrl.Result{}, nil
 	}
-
-	return true, nil
+	
+	log.Infof("Create fake node %s", name.Name)
+	return ctrl.Result{}, CreateFakeNode(ctx, r.nodeServiceProvider, r.virtualClient, name)
 }
 
-func (r *fakeSyncer) Delete(ctx context.Context, obj client.Object, log loghelper.Logger) error {
-	log.Infof("Delete fake node %s as it is not needed anymore", obj.GetName())
-	return r.virtualClient.Delete(ctx, obj)
-}
-
-func (r *fakeSyncer) DeleteNeeded(ctx context.Context, obj client.Object) (bool, error) {
-	node, ok := obj.(*corev1.Node)
+func (r *fakeSyncer) Update(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+	node, ok := vObj.(*corev1.Node)
 	if !ok || node == nil {
-		return false, fmt.Errorf("%#v is not a node", obj)
+		return ctrl.Result{}, fmt.Errorf("%#v is not a node", vObj)
 	}
 
 	needed, err := r.nodeNeeded(ctx, node.Name)
 	if err != nil {
-		return false, err
+		return ctrl.Result{}, err
+	} else if needed {
+		return ctrl.Result{}, nil
 	}
-
-	return needed == false, nil
+	
+	log.Infof("Delete fake node %s as it is not needed anymore", vObj.GetName())
+	return ctrl.Result{}, r.virtualClient.Delete(ctx, vObj)
 }
 
 func (r *fakeSyncer) nodeNeeded(ctx context.Context, nodeName string) (bool, error) {

@@ -2,6 +2,7 @@ package persistentvolumeclaims
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"testing"
 	"time"
 
@@ -21,11 +22,13 @@ import (
 func newFakeSyncer(lockFactory locks.LockFactory, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
 		useFakePersistentVolumes:     true,
-		sharedPersistentVolumesMutex: lockFactory.GetLock("ingress-controller"),
-		eventRecoder:                 &testingutil.FakeEventRecorder{},
+		sharedPersistentVolumesMutex: lockFactory.GetLock("pvc-controller"),
 		targetNamespace:              "test",
 		virtualClient:                vClient,
 		localClient:                  pClient,
+
+		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "pvc"),
+		translator: translate.NewDefaultTranslator("test"),
 	}
 }
 
@@ -40,7 +43,8 @@ func TestSync(t *testing.T) {
 		Namespace: "test",
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
-			translate.NamespaceLabel: translate.NamespaceLabelValue(vObjectMeta.Namespace),
+			translate.NameLabel: vObjectMeta.Name,
+			translate.NamespaceLabel: vObjectMeta.Namespace,
 		},
 	}
 	changedResources := corev1.ResourceRequirements{
@@ -174,8 +178,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-
-				_, err := syncer.ForwardCreate(ctx, basePvc, log)
+				_, err := syncer.Forward(ctx, basePvc, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -193,8 +196,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-
-				_, err := syncer.ForwardCreate(ctx, deletePvc, log)
+				_, err := syncer.Forward(ctx, deletePvc, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -212,15 +214,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-
-				needed, err := syncer.ForwardUpdateNeeded(createdPvc, updatePvc)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward update to be needed")
-				}
-
-				_, err = syncer.ForwardUpdate(ctx, createdPvc, updatePvc, log)
+				_, err := syncer.Update(ctx, createdPvc, updatePvc, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -238,15 +232,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-
-				needed, err := syncer.ForwardUpdateNeeded(createdPvc, basePvc)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected forward update to be not needed")
-				}
-
-				_, err = syncer.ForwardUpdate(ctx, createdPvc, basePvc, log)
+				_, err := syncer.Update(ctx, createdPvc, basePvc, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -264,15 +250,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-
-				needed, err := syncer.ForwardUpdateNeeded(createdPvc, deletePvc)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward update to be needed")
-				}
-
-				_, err = syncer.ForwardUpdate(ctx, createdPvc, deletePvc, log)
+				_, err := syncer.Update(ctx, createdPvc, deletePvc, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -290,15 +268,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-
-				needed, err := syncer.BackwardUpdateNeeded(backwardUpdateAnnotationsPvc, basePvc)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected backward update to be needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, backwardUpdateAnnotationsPvc, basePvc, log)
+				_, err := syncer.Update(ctx, backwardUpdateAnnotationsPvc, basePvc, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -317,15 +287,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-
-				needed, err := syncer.BackwardUpdateNeeded(backwardUpdateStatusPvc, basePvc)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected backward update to be needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, backwardUpdateStatusPvc, basePvc, log)
+				_, err := syncer.Update(ctx, backwardUpdateStatusPvc, basePvc, log)
 				if err != nil {
 					t.Fatal(err)
 				}

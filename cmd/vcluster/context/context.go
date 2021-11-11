@@ -84,6 +84,7 @@ func NewControllerContext(localManager ctrl.Manager, virtualManager ctrl.Manager
 	if err != nil {
 		return nil, err
 	}
+
 	return &ControllerContext{
 		Context:             ctx,
 		LocalManager:        localManager,

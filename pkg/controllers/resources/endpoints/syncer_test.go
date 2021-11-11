@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
@@ -15,12 +16,13 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		eventRecoder:     &testingutil.FakeEventRecorder{},
 		targetNamespace:  "test",
 		serviceNamespace: "test",
 		serviceClient:    pClient,
 		virtualClient:    vClient,
-		localClient:      pClient,
+
+		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "endpoints"),
+		translator: translate.NewDefaultTranslator("test"),
 	}
 }
 
@@ -52,7 +54,8 @@ func TestSync(t *testing.T) {
 			Name:      translate.PhysicalName(baseEndpoints.Name, baseEndpoints.Namespace),
 			Namespace: "test",
 			Labels: map[string]string{
-				translate.NamespaceLabel: translate.NamespaceLabelValue(baseEndpoints.Namespace),
+				translate.NameLabel:      baseEndpoints.Name,
+				translate.NamespaceLabel: baseEndpoints.Namespace,
 			},
 		},
 	}
@@ -92,14 +95,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-				needed, err := syncer.ForwardCreateNeeded(baseEndpoints)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward create to be needed")
-				}
-
-				_, err = syncer.ForwardCreate(ctx, baseEndpoints, log)
+				_, err := syncer.Forward(ctx, baseEndpoints, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -120,14 +116,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-				needed, err := syncer.ForwardUpdateNeeded(syncedEndpoints, updatedEndpoints)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward create to be needed")
-				}
-
-				_, err = syncer.ForwardUpdate(ctx, syncedEndpoints, updatedEndpoints, log)
+				_, err := syncer.Update(ctx, syncedEndpoints, updatedEndpoints, log)
 				if err != nil {
 					t.Fatal(err)
 				}

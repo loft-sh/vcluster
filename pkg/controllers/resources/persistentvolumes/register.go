@@ -3,9 +3,8 @@ package persistentvolumes
 import (
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -20,9 +19,7 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 			return err
 		}
 	} else {
-		err := generic.RegisterTwoWayClusterSyncerIndices(ctx, &corev1.PersistentVolume{}, func(vName string, vObj runtime.Object) string {
-			return TranslatePersistentVolumeName(ctx.Options.TargetNamespace, vName, vObj)
-		})
+		err := RegisterSyncerIndices(ctx)
 		if err != nil {
 			return err
 		}
@@ -31,7 +28,7 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 	return nil
 }
 
-func Register(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	if ctx.Options.UseFakePersistentVolumes {
 		return RegisterFakeSyncer(ctx)
 	}

@@ -124,14 +124,7 @@ func TestSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.BackwardCreateNeeded(baseNode)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected create to be needed")
-				}
-
-				_, err = syncer.BackwardCreate(ctx, baseNode, log)
+				_, err = syncer.Backward(ctx, baseNode, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -150,14 +143,7 @@ func TestSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.BackwardCreateNeeded(baseNode)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected create to be not needed")
-				}
-
-				_, err = syncer.BackwardCreate(ctx, baseNode, log)
+				_, err = syncer.Backward(ctx, baseNode, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -176,14 +162,7 @@ func TestSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.BackwardUpdateNeeded(editedNode, baseNode)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected update to be needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, editedNode, baseNode, log)
+				_, err = syncer.Update(ctx, editedNode, baseNode, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -202,14 +181,7 @@ func TestSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.BackwardUpdateNeeded(baseNode, baseVNode)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected update to be not needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, baseNode, baseVNode, log)
+				_, err = syncer.Update(ctx, baseNode, baseVNode, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -228,14 +200,7 @@ func TestSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.BackwardUpdateNeeded(baseNode, baseNode)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected update to be needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, baseNode, baseNode, log)
+				_, err = syncer.Update(ctx, baseNode, baseNode, log)
 				if err != nil {
 					t.Fatal(err)
 				}

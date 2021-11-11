@@ -4,6 +4,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -11,7 +12,7 @@ func RegisterIndices(ctx *context.ControllerContext) error {
 	return nil
 }
 
-func Register(ctx *context.ControllerContext) error {
+func Register(ctx *context.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	err := ctrl.NewControllerManagedBy(ctx.LocalManager).
 		Named("event-backward").
 		For(&corev1.Event{}).

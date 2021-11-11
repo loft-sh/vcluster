@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -17,11 +18,12 @@ import (
 
 func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		eventRecoder:     &testingutil.FakeEventRecorder{},
-		targetNamespace:  "test",
 		virtualClient:    vClient,
 		localClient:      pClient,
 		includeIngresses: true,
+
+		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "secret"),
+		translator: translate.NewDefaultTranslator("test"),
 	}
 }
 
@@ -43,7 +45,8 @@ func TestSync(t *testing.T) {
 			Name:      translate.PhysicalName(baseSecret.Name, baseSecret.Namespace),
 			Namespace: "test",
 			Labels: map[string]string{
-				translate.NamespaceLabel: translate.NamespaceLabelValue(baseSecret.Namespace),
+				translate.NameLabel: baseSecret.Name,
+				translate.NamespaceLabel: baseSecret.Namespace,
 			},
 		},
 	}
@@ -81,14 +84,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(ctx, pClient, vClient)
-				needed, err := syncer.ForwardCreateNeeded(baseSecret)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected forward create to be not needed")
-				}
-
-				_, err = syncer.ForwardCreate(ctx, baseSecret, log)
+				_, err := syncer.Forward(ctx, baseSecret, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -107,14 +103,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(ctx, pClient, vClient)
-				needed, err := syncer.ForwardCreateNeeded(baseSecret)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward create to be needed")
-				}
-
-				_, err = syncer.ForwardCreate(ctx, baseSecret, log)
+				_, err := syncer.Forward(ctx, baseSecret, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -136,14 +125,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(ctx, pClient, vClient)
-				needed, err := syncer.ForwardUpdateNeeded(syncedSecret, updatedSecret)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward update to be needed")
-				}
-
-				_, err = syncer.ForwardUpdate(ctx, syncedSecret, updatedSecret, log)
+				_, err := syncer.Update(ctx, syncedSecret, updatedSecret, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -162,14 +144,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(ctx, pClient, vClient)
-				needed, err := syncer.ForwardUpdateNeeded(syncedSecret, updatedSecret)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward update to be needed")
-				}
-
-				_, err = syncer.ForwardUpdate(ctx, syncedSecret, updatedSecret, log)
+				_, err := syncer.Update(ctx, syncedSecret, updatedSecret, log)
 				if err != nil {
 					t.Fatal(err)
 				}

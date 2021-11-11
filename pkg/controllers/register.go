@@ -17,10 +17,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/indices"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
+	"k8s.io/client-go/kubernetes"
+	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	"strings"
 )
 
-var ResourceControllers = map[string]func(*context.ControllerContext) error{
+var ResourceControllers = map[string]func(*context.ControllerContext, record.EventBroadcaster) error{
 	"services":               services.Register,
 	"configmaps":             configmaps.Register,
 	"secrets":                secrets.Register,
@@ -74,6 +77,9 @@ func RegisterIndices(ctx *context.ControllerContext) error {
 }
 
 func RegisterControllers(ctx *context.ControllerContext) error {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
+	
 	disabled := parseDisabled(ctx.Options.DisableSyncResources)
 	for k, v := range ResourceControllers {
 		if disabled[k] {
@@ -81,7 +87,7 @@ func RegisterControllers(ctx *context.ControllerContext) error {
 		}
 
 		loghelper.Infof("Start %s sync controller", k)
-		err := v(ctx)
+		err := v(ctx, eventBroadcaster)
 		if err != nil {
 			return errors.Wrapf(err, "register %s controller", k)
 		}

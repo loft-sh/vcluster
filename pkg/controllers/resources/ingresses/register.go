@@ -6,6 +6,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 )
 
@@ -17,13 +18,13 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 
 	if useLegacy {
 		klog.Infof("Registering legacy ingress syncer indices for networking.k8s.io/v1beta1")
-		return legacy.RegisterIndices(ctx)
+		return legacy.RegisterSyncerIndices(ctx)
 	}
 
 	return RegisterSyncerIndices(ctx)
 }
 
-func Register(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	useLegacy, err := ShouldUseLegacy(ctx.LocalManager.GetConfig())
 	if err != nil {
 		return err
@@ -31,9 +32,9 @@ func Register(ctx *context2.ControllerContext) error {
 
 	if useLegacy {
 		klog.Infof("Registering legacy ingress syncer for networking.k8s.io/v1beta1")
-		return legacy.Register(ctx)
+		return legacy.RegisterSyncer(ctx, eventBroadcaster)
 	}
-	return RegisterSyncer(ctx)
+	return RegisterSyncer(ctx, eventBroadcaster)
 }
 
 func ShouldUseLegacy(config *rest.Config) (bool, error) {
