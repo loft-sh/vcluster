@@ -6,7 +6,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -179,15 +178,8 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 	}
 
 	// set owning stateful set if defined
-	if translate.OwningStatefulSet != nil {
-		nodeService.SetOwnerReferences([]metav1.OwnerReference{
-			{
-				APIVersion: appsv1.SchemeGroupVersion.String(),
-				Kind:       "StatefulSet",
-				Name:       translate.OwningStatefulSet.Name,
-				UID:        translate.OwningStatefulSet.UID,
-			},
-		})
+	if translate.Owner != nil {
+		nodeService.SetOwnerReferences(translate.GetOwnerReference())
 	}
 
 	// create the service

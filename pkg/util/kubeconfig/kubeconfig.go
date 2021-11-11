@@ -7,7 +7,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"io/ioutil"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -16,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secretNamespace string, config *api.Config, owner *appsv1.StatefulSet) error {
+func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secretNamespace string, config *api.Config) error {
 	out, err := clientcmd.Write(*config)
 	if err != nil {
 		return err
@@ -45,15 +44,8 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 		}
 
 		// set owner reference
-		if owner != nil && owner.Namespace == kubeConfigSecret.Namespace {
-			kubeConfigSecret.OwnerReferences = []metav1.OwnerReference{
-				{
-					APIVersion: appsv1.SchemeGroupVersion.String(),
-					Kind:       "StatefulSet",
-					Name:       translate.OwningStatefulSet.Name,
-					UID:        translate.OwningStatefulSet.UID,
-				},
-			}
+		if translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
+			kubeConfigSecret.OwnerReferences = translate.GetOwnerReference()
 		}
 
 		err = clienthelper.Apply(ctx, client, kubeConfigSecret, loghelper.New("apply-secret"))

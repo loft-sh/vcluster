@@ -105,7 +105,7 @@ spec:
         args:
           - --service-name={{ .Release.Name }}
           - --suffix={{ .Release.Name }}
-          - --owning-statefulset={{ .Release.Name }}
+          - --set-owner
           - --out-kube-config-secret=vc-{{ .Release.Name }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}

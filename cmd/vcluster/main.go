@@ -10,6 +10,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/log"
 	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"os"
 	"time"
@@ -98,7 +101,8 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.TargetNamespace, "target-namespace", "", "The namespace to run the virtual cluster in (defaults to current namespace)")
 	cmd.Flags().StringVar(&options.ServiceName, "service-name", "vcluster", "The service name where the vcluster proxy will be available")
 	cmd.Flags().StringVar(&options.ServiceNamespace, "service-namespace", "", "The service namespace where the vcluster proxy will be available. If empty defaults to the current namespace")
-	cmd.Flags().StringVar(&options.OwningStatefulSet, "owning-statefulset", "", "If configured, all synced resources will have this statefulset as owner reference")
+	cmd.Flags().BoolVar(&options.SetOwner, "set-owner", false, "If true, will set the same owner the currently running syncer pod has on the synced resources")
+	cmd.Flags().StringVar(&options.DeprecatedOwningStatefulSet, "owning-statefulset", "", "DEPRECATED: use --set-owner instead")
 
 	cmd.Flags().StringVar(&options.Suffix, "suffix", "suffix", "The suffix to append to the synced resources in the namespace")
 	cmd.Flags().StringVar(&options.BindAddress, "bind-address", "0.0.0.0", "The address to bind the server to")
@@ -299,8 +303,19 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	// start leader election for controllers
 	go func() {
 		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
+			localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{Scheme: ctx.LocalManager.GetScheme()})
+			if err != nil {
+				return err
+			}
+
+			// make sure owner is set if it is there
+			err = findOwner(ctx, localClient)
+			if err != nil {
+				return errors.Wrap(err, "set owner")
+			}
+
 			// make sure the kubernetes service is synced
-			err = syncKubernetesService(ctx)
+			err = syncKubernetesService(ctx, localClient)
 			if err != nil {
 				return errors.Wrap(err, "sync kubernetes service")
 			}
@@ -311,7 +326,7 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 			}()
 
 			// register controllers
-			err := controllers.RegisterControllers(ctx)
+			err = controllers.RegisterControllers(ctx)
 			if err != nil {
 				return err
 			}
@@ -344,12 +359,93 @@ func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClu
 	return nil
 }
 
-func syncKubernetesService(ctx *context.ControllerContext) error {
-	localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{Scheme: ctx.LocalManager.GetScheme()})
-	if err != nil {
-		return err
+func findOwner(ctx *context.ControllerContext, localClient client.Client) error {
+	if ctx.Options.SetOwner {
+		// get current pod
+		podName, err := os.Hostname()
+		if err != nil {
+			klog.Errorf("Couldn't find current hostname: %v, will skip setting owner", err)
+			return nil // ignore error here
+		}
+
+		pod := &corev1.Pod{}
+		err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.Options.TargetNamespace, Name: podName}, pod)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				klog.Errorf("Couldn't find current pod: %v, will skip setting owner", err)
+				return nil
+			}
+
+			return errors.Wrap(err, "get owning pod")
+		}
+
+		// check owner of pod
+		controller := metav1.GetControllerOf(pod)
+		if controller == nil {
+			klog.Errorf("No controller for pod %s/%s found, will skip setting owner", pod.Namespace, pod.Name)
+			return nil
+		} else if controller.APIVersion != appsv1.SchemeGroupVersion.String() || (controller.Kind != "ReplicaSet" && controller.Kind != "StatefulSet") {
+			klog.Errorf("Unsupported owner kind %s and apiVersion %s, will skip setting owner", controller.Kind, controller.APIVersion)
+			return nil
+		}
+
+		// statefulset
+		if controller.Kind == "StatefulSet" {
+			statefulSet := &appsv1.StatefulSet{}
+			err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: controller.Name}, statefulSet)
+			if err != nil {
+				return errors.Wrap(err, "get owning stateful set")
+			}
+
+			statefulSet.APIVersion = appsv1.SchemeGroupVersion.String()
+			statefulSet.Kind = "StatefulSet"
+			translate.Owner = statefulSet
+			return nil
+		}
+
+		// replicaset
+		replicaSet := &appsv1.ReplicaSet{}
+		err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: controller.Name}, replicaSet)
+		if err != nil {
+			return errors.Wrap(err, "get owning replica set")
+		}
+
+		// check owner of replica set
+		replicaSetController := metav1.GetControllerOf(replicaSet)
+		if controller == nil || replicaSetController.APIVersion != appsv1.SchemeGroupVersion.String() || replicaSetController.Kind != "Deployment" {
+			replicaSet.APIVersion = appsv1.SchemeGroupVersion.String()
+			replicaSet.Kind = "ReplicaSet"
+			translate.Owner = replicaSet
+			return nil
+		}
+
+		// deployment
+		deployment := &appsv1.Deployment{}
+		err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: replicaSetController.Name}, deployment)
+		if err != nil {
+			return errors.Wrap(err, "get owning deployment")
+		}
+
+		deployment.APIVersion = appsv1.SchemeGroupVersion.String()
+		deployment.Kind = "Deployment"
+		translate.Owner = deployment
+		return nil
+	} else if ctx.Options.DeprecatedOwningStatefulSet != "" {
+		statefulSet := &appsv1.StatefulSet{}
+		err := localClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.Options.TargetNamespace, Name: ctx.Options.DeprecatedOwningStatefulSet}, statefulSet)
+		if err != nil {
+			return errors.Wrap(err, "get owning statefulset")
+		}
+
+		if statefulSet.Namespace == ctx.Options.TargetNamespace {
+			translate.Owner = statefulSet
+		}
 	}
 
+	return nil
+}
+
+func syncKubernetesService(ctx *context.ControllerContext, localClient client.Client) error {
 	virtualClient, err := client.New(ctx.VirtualManager.GetConfig(), client.Options{Scheme: ctx.VirtualManager.GetScheme()})
 	if err != nil {
 		return err
@@ -363,18 +459,6 @@ func syncKubernetesService(ctx *context.ControllerContext) error {
 	err = endpoints.SyncKubernetesServiceEndpoints(ctx.Context, localClient, virtualClient, ctx.Options.ServiceNamespace, ctx.Options.ServiceName)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service endpoints")
-	}
-
-	if ctx.Options.OwningStatefulSet != "" {
-		statefulSet := &appsv1.StatefulSet{}
-		err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.Options.TargetNamespace, Name: ctx.Options.OwningStatefulSet}, statefulSet)
-		if err != nil {
-			return errors.Wrap(err, "get owning statefulset")
-		}
-
-		if statefulSet.Namespace == ctx.Options.TargetNamespace {
-			translate.OwningStatefulSet = statefulSet
-		}
 	}
 
 	return nil
@@ -442,5 +526,5 @@ func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config)
 		return errors.Wrap(err, "create uncached client")
 	}
 
-	return kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config, translate.OwningStatefulSet)
+	return kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
 }

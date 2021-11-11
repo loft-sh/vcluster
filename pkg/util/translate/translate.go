@@ -3,9 +3,9 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -320,7 +320,27 @@ func ConvertLabelKey(key string) string {
 	return SafeConcatName("vcluster.loft.sh/label", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
-var OwningStatefulSet *appsv1.StatefulSet
+var Owner client.Object
+
+func GetOwnerReference() []metav1.OwnerReference {
+	if Owner == nil {
+		return nil
+	}
+
+	typeAccessor, err := meta.TypeAccessor(Owner)
+	if err != nil {
+		return nil
+	}
+
+	return []metav1.OwnerReference{
+		{
+			APIVersion: typeAccessor.GetAPIVersion(),
+			Kind:       typeAccessor.GetKind(),
+			Name:       Owner.GetName(),
+			UID:        Owner.GetUID(),
+		},
+	}
+}
 
 func initMetadata(targetNamespace string, target runtime.Object) error {
 	m, err := meta.Accessor(target)
@@ -336,15 +356,8 @@ func initMetadata(targetNamespace string, target runtime.Object) error {
 	m.SetLabels(TranslateLabels(namespace, m.GetLabels()))
 
 	// set owning stateful set if defined
-	if OwningStatefulSet != nil {
-		m.SetOwnerReferences([]metav1.OwnerReference{
-			{
-				APIVersion: appsv1.SchemeGroupVersion.String(),
-				Kind:       "StatefulSet",
-				Name:       OwningStatefulSet.Name,
-				UID:        OwningStatefulSet.UID,
-			},
-		})
+	if Owner != nil {
+		m.SetOwnerReferences(GetOwnerReference())
 	}
 
 	return nil

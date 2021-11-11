@@ -20,6 +20,6 @@ rules:
     resources: ["ingresses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   - apiGroups: ["apps"]
-    resources: ["statefulsets"]
+    resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
 {{- end }}
