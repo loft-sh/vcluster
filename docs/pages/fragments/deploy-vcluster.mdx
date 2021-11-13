@@ -42,7 +42,7 @@ Then, install helm chart using `vcluster.yaml` for chart values:
 helm upgrade --install vcluster-1 vcluster \
   --values vcluster.yaml \
   --repo https://charts.loft.sh \
-  --namespace vcluster-1 \
+  --namespace host-namespace-1 \
   --repository-config=''
 ```
 
