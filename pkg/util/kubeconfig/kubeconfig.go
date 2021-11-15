@@ -2,17 +2,26 @@ package kubeconfig
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"os"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	DefaultSecretPrefix = "vc-"
+	SecretKey           = "config"
 )
 
 func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secretNamespace string, config *api.Config) error {
@@ -21,14 +30,16 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 		return err
 	}
 
+	// try to write the kubeconfig file for backwards compatibility with older vcluster cli versions
+	// intentionally ignore errors as this may fail for non root user, or if securityContext.readOnlyRootFilesystem = true
 	err = os.MkdirAll("/root/.kube", 0755)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile("/root/.kube/config", out, 0666)
-	if err != nil {
-		return err
+	if err == nil {
+		err = ioutil.WriteFile("/root/.kube/config", out, 0666)
+		if err != nil {
+			klog.Infof("Failed wrtie /root/.kube/config file: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
+		}
+	} else {
+		klog.Infof("Failed to create /root/.kube folder for writing kube config: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
 	}
 
 	if secretName != "" {
@@ -39,7 +50,7 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 			},
 			Type: corev1.SecretTypeOpaque,
 			Data: map[string][]byte{
-				"config": out,
+				SecretKey: out,
 			},
 		}
 
@@ -55,4 +66,20 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 	}
 
 	return nil
+}
+
+func ReadKubeConfig(ctx context.Context, client *kubernetes.Clientset, suffix, namespace string) (*api.Config, error) {
+	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, GetDefaultSecretName(suffix), metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not Get the %s secret in order to read kubeconfig: %v", GetDefaultSecretName(suffix), err)
+	}
+	config, found := secret.Data[SecretKey]
+	if !found {
+		return nil, fmt.Errorf("could not find the kube config (%s key) in the %s secret", SecretKey, GetDefaultSecretName(suffix))
+	}
+	return clientcmd.Load(config)
+}
+
+func GetDefaultSecretName(suffix string) string {
+	return DefaultSecretPrefix + suffix
 }

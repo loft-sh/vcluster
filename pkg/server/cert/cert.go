@@ -3,14 +3,15 @@ package cert
 import (
 	"crypto"
 	"crypto/x509"
-	"github.com/loft-sh/vcluster/pkg/util/certhelper"
+	"fmt"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"net"
-	"os"
+
+	"github.com/loft-sh/vcluster/pkg/util/certhelper"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func GenServingCerts(caCertFile, caKeyFile, certFile, keyFile, clusterDomain string, SANs []string) (bool, error) {
+func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byte, clusterDomain string, SANs []string) ([]byte, []byte, bool, error) {
 	regen := false
 	commonName := "kube-apiserver"
 	extKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
@@ -22,7 +23,7 @@ func GenServingCerts(caCertFile, caKeyFile, certFile, keyFile, clusterDomain str
 	addSANs(altNames, SANs)
 	caBytes, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
-		return false, err
+		return nil, nil, false, err
 	}
 
 	pool := x509.NewCertPool()
@@ -30,42 +31,44 @@ func GenServingCerts(caCertFile, caKeyFile, certFile, keyFile, clusterDomain str
 
 	// check for certificate expiration
 	if !regen {
-		regen = expired(certFile, pool)
+		regen = expired(&currentCert, pool)
 	}
 
 	if !regen {
-		regen = sansChanged(certFile, altNames)
+		regen = sansChanged(&currentCert, altNames)
 	}
 
 	if !regen {
-		if exists(certFile, keyFile) {
-			return false, nil
+		if len(currentCert) > 0 && len(currentKey) > 0 {
+			return currentCert, currentKey, false, nil
 		}
 	}
 
 	caKeyBytes, err := ioutil.ReadFile(caKeyFile)
 	if err != nil {
-		return false, err
+		return nil, nil, false, err
 	}
 
 	caKey, err := certhelper.ParsePrivateKeyPEM(caKeyBytes)
 	if err != nil {
-		return false, err
+		return nil, nil, false, err
 	}
 
 	caCert, err := certhelper.ParseCertsPEM(caBytes)
 	if err != nil {
-		return false, err
+		return nil, nil, false, err
 	}
 
-	keyBytes, _, err := certhelper.LoadOrGenerateKeyFile(keyFile, regen)
-	if err != nil {
-		return false, err
+	privateKey := currentKey
+	if regen || len(currentKey) == 0 {
+		privateKey, err = certhelper.MakeEllipticPrivateKeyPEM()
+		if err != nil {
+			return nil, nil, false, fmt.Errorf("error generating key: %v", err)
+		}
 	}
-
-	key, err := certhelper.ParsePrivateKeyPEM(keyBytes)
+	key, err := certhelper.ParsePrivateKeyPEM(privateKey)
 	if err != nil {
-		return false, err
+		return nil, nil, false, err
 	}
 
 	cfg := certhelper.Config{
@@ -75,10 +78,10 @@ func GenServingCerts(caCertFile, caKeyFile, certFile, keyFile, clusterDomain str
 	}
 	cert, err := certhelper.NewSignedCert(cfg, key.(crypto.Signer), caCert[0], caKey.(crypto.Signer))
 	if err != nil {
-		return false, err
+		return nil, nil, false, err
 	}
-
-	return true, certhelper.WriteCert(certFile, append(certhelper.EncodeCertPEM(cert), certhelper.EncodeCertPEM(caCert[0])...))
+	certificate := append(certhelper.EncodeCertPEM(cert), certhelper.EncodeCertPEM(caCert[0])...)
+	return certificate, privateKey, true, nil
 }
 
 func addSANs(altNames *certhelper.AltNames, sans []string) {
@@ -92,12 +95,8 @@ func addSANs(altNames *certhelper.AltNames, sans []string) {
 	}
 }
 
-func expired(certFile string, pool *x509.CertPool) bool {
-	certBytes, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		return false
-	}
-	certificates, err := certhelper.ParseCertsPEM(certBytes)
+func expired(certBytes *[]byte, pool *x509.CertPool) bool {
+	certificates, err := certhelper.ParseCertsPEM(*certBytes)
 	if err != nil {
 		return false
 	}
@@ -113,26 +112,12 @@ func expired(certFile string, pool *x509.CertPool) bool {
 	return certhelper.IsCertExpired(certificates[0])
 }
 
-func exists(files ...string) bool {
-	for _, file := range files {
-		if _, err := os.Stat(file); err != nil {
-			return false
-		}
-	}
-	return true
-}
-
-func sansChanged(certFile string, sans *certhelper.AltNames) bool {
+func sansChanged(certBytes *[]byte, sans *certhelper.AltNames) bool {
 	if sans == nil {
 		return false
 	}
 
-	certBytes, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		return false
-	}
-
-	certificates, err := certhelper.ParseCertsPEM(certBytes)
+	certificates, err := certhelper.ParseCertsPEM(*certBytes)
 	if err != nil {
 		return false
 	}

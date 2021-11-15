@@ -1,47 +1,50 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/apis"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/leaderelection"
-	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
-	"github.com/loft-sh/vcluster/pkg/util/log"
 	"io/ioutil"
-	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/discovery"
+	"math"
 	"os"
 	"time"
 
-	"github.com/loft-sh/vcluster/cmd/vcluster/context"
+	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
+	"github.com/loft-sh/vcluster/pkg/coredns"
+	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/server"
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// "go.uber.org/zap/zapcore"
 	// zappkg "go.uber.org/zap"
@@ -73,7 +76,7 @@ func init() {
 }
 
 func NewCommand() *cobra.Command {
-	options := &context.VirtualClusterOptions{}
+	options := &context2.VirtualClusterOptions{}
 	cmd := &cobra.Command{
 		Use:           "vcluster",
 		SilenceUsage:  true,
@@ -94,7 +97,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.KubeConfig, "kube-config", "/data/server/cred/admin.kubeconfig", "The path to the virtual cluster admin kube config")
 	cmd.Flags().StringVar(&options.DisableSyncResources, "disable-sync-resources", "", "The resources that shouldn't be synced by the virtual cluster (e.g. ingresses)")
 
-	cmd.Flags().StringVar(&options.KubeConfigSecret, "out-kube-config-secret", "kubeconfig", "If specified, the virtual cluster will write the generated kube config to the given secret")
+	cmd.Flags().StringVar(&options.KubeConfigSecret, "out-kube-config-secret", "", "If specified, the virtual cluster will write the generated kube config to the given secret")
 	cmd.Flags().StringVar(&options.KubeConfigSecretNamespace, "out-kube-config-secret-namespace", "", "If specified, the virtual cluster will write the generated kube config in the given namespace")
 	cmd.Flags().StringVar(&options.KubeConfigServer, "out-kube-config-server", "", "If specified, the virtual cluster will use this server for the generated kube config (e.g. https://my-vcluster.domain.com)")
 
@@ -148,7 +151,7 @@ func main() {
 	}
 }
 
-func Execute(options *context.VirtualClusterOptions) error {
+func Execute(options *context2.VirtualClusterOptions) error {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
 	err := wait.Poll(time.Second, time.Minute*10, func() (bool, error) {
@@ -183,8 +186,12 @@ func Execute(options *context.VirtualClusterOptions) error {
 			klog.Infof("couldn't retrieve virtual cluster version (%v), will retry in 1 seconds", err)
 			return false, nil
 		}
+		_, err = kubeClient.CoreV1().ServiceAccounts("default").Get(context.Background(), "default", metav1.GetOptions{})
+		if err != nil {
+			klog.Infof("default ServiceAccount is not available yet, will retry in 1 seconds")
+			return false, nil
+		}
 
-		time.Sleep(time.Second)
 		return true, nil
 	})
 	if err != nil {
@@ -268,8 +275,21 @@ func Execute(options *context.VirtualClusterOptions) error {
 	nodes.FakeNodesVersion = serverVersion.GitVersion
 	klog.Infof("Can connect to virtual cluster with version " + serverVersion.GitVersion)
 
+	// setup CoreDNS according to the manifest file
+	go func() {
+		wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
+			err := coredns.ApplyManifest(*virtualClusterConfig, serverVersion)
+			if err != nil {
+				klog.Infof("Failed to apply CoreDNS cofiguration from the manifest file: %v", err)
+				return false, nil
+			}
+			klog.Infof("CoreDNS cofiguration from the manifest file applied successfully")
+			return true, nil
+		})
+	}()
+
 	// create controller context
-	ctx, err := context.NewControllerContext(localManager, virtualClusterManager, options)
+	ctx, err := context2.NewControllerContext(localManager, virtualClusterManager, options)
 	if err != nil {
 		return errors.Wrap(err, "create controller context")
 	}
@@ -359,7 +379,7 @@ func Execute(options *context.VirtualClusterOptions) error {
 	return nil
 }
 
-func findOwner(ctx *context.ControllerContext, localClient client.Client) error {
+func findOwner(ctx *context2.ControllerContext, localClient client.Client) error {
 	if ctx.Options.SetOwner {
 		// get current pod
 		podName, err := os.Hostname()
@@ -445,7 +465,7 @@ func findOwner(ctx *context.ControllerContext, localClient client.Client) error 
 	return nil
 }
 
-func syncKubernetesService(ctx *context.ControllerContext, localClient client.Client) error {
+func syncKubernetesService(ctx *context2.ControllerContext, localClient client.Client) error {
 	virtualClient, err := client.New(ctx.VirtualManager.GetConfig(), client.Options{Scheme: ctx.VirtualManager.GetScheme()})
 	if err != nil {
 		return err
@@ -464,7 +484,7 @@ func syncKubernetesService(ctx *context.ControllerContext, localClient client.Cl
 	return nil
 }
 
-func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config) error {
+func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config) error {
 	config = config.DeepCopy()
 
 	// exchange kube config server & resolve certificate
@@ -510,12 +530,6 @@ func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config)
 		}
 	}
 
-	// which namespace should we create the secret in?
-	secretNamespace := ctx.Options.KubeConfigSecretNamespace
-	if secretNamespace == "" {
-		secretNamespace = ctx.Options.TargetNamespace
-	}
-
 	// we have to create a new client here, because the cached version will always say
 	// the secret does not exist in another namespace
 	localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{
@@ -526,5 +540,22 @@ func writeKubeConfigToSecret(ctx *context.ControllerContext, config *api.Config)
 		return errors.Wrap(err, "create uncached client")
 	}
 
-	return kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
+	// check if we need to write the kubeconfig secrete to the default location as well
+	if ctx.Options.KubeConfigSecret != "" {
+		// which namespace should we create the additional secret in?
+		secretNamespace := ctx.Options.KubeConfigSecretNamespace
+		if secretNamespace == "" {
+			secretNamespace = ctx.Options.TargetNamespace
+		}
+		err = kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
+		if err != nil {
+			return fmt.Errorf("creating %s secret in the %s ns failed: %v", ctx.Options.KubeConfigSecret, secretNamespace, err)
+		}
+	}
+	currentNamespace, err := clienthelper.CurrentNamespace()
+	if err != nil {
+		return err
+	}
+	// write the default Secret
+	return kubeconfig.WriteKubeConfig(ctx.Context, localClient, kubeconfig.GetDefaultSecretName(ctx.Options.Suffix), currentNamespace, config)
 }

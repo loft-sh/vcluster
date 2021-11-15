@@ -42,6 +42,8 @@ deployments:
           noArgs: true
           command: ["sleep"]
           extraArgs: ["99999999999"]
+        securityContext:
+          readOnlyRootFilesystem: false
 dev:
   terminal:
     imageSelector: ${SYNCER_IMAGE}
@@ -59,6 +61,7 @@ dev:
         - '!/cmd'
         - '!/vendor'
         - '!/hack'
+        - '!/manifests'
         - '!/go.mod'
         - '!/go.sum'
         - '!/devspace_start.sh'
