@@ -10,7 +10,6 @@ require (
 	github.com/go-openapi/loads v0.19.5
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/kiosk v0.2.7
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
@@ -33,6 +32,7 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/kube-aggregator v0.21.1
+	k8s.io/kube-openapi v0.0.0-20210527164424-3c818078ee3d // indirect
 	k8s.io/kubectl v0.21.1
 	k8s.io/kubelet v0.21.1
 	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b

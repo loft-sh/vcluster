@@ -2,7 +2,6 @@ package persistentvolumes
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -106,14 +105,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.CreateNeeded(ctx, basePvName)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected create to be needed")
-				}
-
-				err = syncer.Create(ctx, basePvName, log)
+				_, err = syncer.Create(ctx, basePvName, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -132,14 +124,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.CreateNeeded(ctx, basePvName)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected create to be not needed")
-				}
-
-				err = syncer.Create(ctx, basePvName, log)
+				_, err = syncer.Create(ctx, basePvName, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -158,61 +143,9 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.DeleteNeeded(ctx, pvWithFinalizers)
+				_, err = syncer.Update(ctx, pvWithFinalizers, log)
 				if err != nil {
 					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected delete to be needed")
-				}
-
-				err = syncer.Delete(ctx, pvWithFinalizers, log)
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-		},
-		{
-			Name:                "Delete PVC (should fail)",
-			InitialVirtualState: []runtime.Object{basePvc},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("PersistentVolume"):      {},
-				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {basePvc},
-			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeFakeSyncer(ctx, lockFactory, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				needed, err := syncer.DeleteNeeded(ctx, basePvc)
-				if err == nil {
-					t.Fatal("Expected error")
-				} else if needed {
-					t.Fatal("Expected delete to be not needed")
-				}
-				if !strings.Contains(err.Error(), "is not a persistent volume") {
-					t.Fatal("Wrong error")
-				}
-			},
-		},
-		{
-			Name:                "Delete pv with pvc (should fail)",
-			InitialVirtualState: []runtime.Object{basePvc, basePv},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("PersistentVolume"):      {basePv},
-				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {basePvc},
-			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeFakeSyncer(ctx, lockFactory, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				needed, err := syncer.DeleteNeeded(ctx, basePv)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected delete to be not needed")
 				}
 			},
 		},
@@ -229,14 +162,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.DeleteNeeded(ctx, basePv)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected delete to be needed")
-				}
-
-				err = syncer.Delete(ctx, basePv, log)
+				_, err = syncer.Update(ctx, basePv, log)
 				if err != nil {
 					t.Fatal(err)
 				}

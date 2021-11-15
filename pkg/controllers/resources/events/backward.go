@@ -81,7 +81,7 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// get involved object
-	err = clienthelper.GetByIndex(ctx, r.virtualClient, vInvolvedObj, r.virtualScheme, index, pObj.InvolvedObject.Name)
+	err = clienthelper.GetByIndex(ctx, r.virtualClient, vInvolvedObj, index, pObj.InvolvedObject.Name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil

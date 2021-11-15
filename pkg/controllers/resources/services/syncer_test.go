@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"k8s.io/apimachinery/pkg/types"
 	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
@@ -17,13 +19,14 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		eventRecoder:     &testingutil.FakeEventRecorder{},
-		targetNamespace:  "test",
 		serviceName:      "myservice",
 		serviceNamespace: "test",
 		serviceClient:    pClient,
 		virtualClient:    vClient,
 		localClient:      pClient,
+
+		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "service"),
+		translator: translate.NewDefaultTranslator("test"),
 	}
 }
 
@@ -36,8 +39,12 @@ func TestSync(t *testing.T) {
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      translate.PhysicalName("testservice", "testns"),
 		Namespace: "test",
+		Annotations: map[string]string{
+			translate.NameAnnotation: vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+		},
 		Labels: map[string]string{
-			translate.NamespaceLabel: translate.NamespaceLabelValue(vObjectMeta.Namespace),
+			translate.NamespaceLabel: vObjectMeta.Namespace,
 			translate.MarkerLabel:    translate.Suffix,
 		},
 	}
@@ -87,7 +94,12 @@ func TestSync(t *testing.T) {
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
 			ClusterName: pObjectMeta.ClusterName,
-			Annotations: map[string]string{"a": "b"},
+			Annotations: map[string]string{
+				translate.NameAnnotation: vObjectMeta.Name,
+				translate.NamespaceAnnotation: vObjectMeta.Namespace,
+				translate.ManagedAnnotationsAnnotation: "a",
+				"a": "b",
+			},
 			Labels:      pObjectMeta.Labels,
 		},
 		Spec: updateForwardSpec,
@@ -109,8 +121,8 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
-			ClusterName: pObjectMeta.ClusterName,
 			Labels:      pObjectMeta.Labels,
+			Annotations: pObjectMeta.Annotations,
 		},
 		Spec: updateBackwardSpec,
 	}
@@ -118,16 +130,19 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vObjectMeta.Name,
 			Namespace:   vObjectMeta.Namespace,
-			ClusterName: vObjectMeta.ClusterName,
 		},
-		Spec: updateBackwardSpec,
+		Spec: corev1.ServiceSpec{
+			ExternalIPs:              []string{"123:221:123:221"},
+			LoadBalancerIP:           "123:213:123:213",
+			LoadBalancerSourceRanges: []string{"backwardRange"},
+		},
 	}
 	updateBackwardSpecRecreateService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
-			ClusterName: pObjectMeta.ClusterName,
 			Labels:      pObjectMeta.Labels,
+			Annotations: pObjectMeta.Annotations,
 		},
 		Spec: updateBackwardRecreateSpec,
 	}
@@ -137,7 +152,12 @@ func TestSync(t *testing.T) {
 			Namespace:   vObjectMeta.Namespace,
 			ClusterName: vObjectMeta.ClusterName,
 		},
-		Spec: updateBackwardRecreateSpec,
+		Spec: corev1.ServiceSpec{
+			ClusterIP:                "123:123:123:123",
+			ExternalIPs:              []string{"123:221:123:221"},
+			LoadBalancerIP:           "123:213:123:213",
+			LoadBalancerSourceRanges: []string{"backwardRange"},
+		},
 	}
 	updateBackwardStatus := corev1.ServiceStatus{
 		LoadBalancer: corev1.LoadBalancerStatus{
@@ -178,70 +198,34 @@ func TestSync(t *testing.T) {
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                "Create Forward",
-			InitialVirtualState: []runtime.Object{baseService},
+			InitialVirtualState: []runtime.Object{baseService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {baseService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {baseService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {createdService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.ForwardCreateNeeded(baseService)
+				_, err := syncer.Forward(ctx, baseService, log)
 				if err != nil {
 					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward create to be needed")
-				}
-
-				_, err = syncer.ForwardCreate(ctx, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-		},
-		{
-			Name:                "Don't create kubernetes forward",
-			InitialVirtualState: []runtime.Object{kubernetesService},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {},
-			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.ForwardCreateNeeded(kubernetesService)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected forward create to be notneeded")
 				}
 			},
 		},
 		{
 			Name:                 "Update forward",
-			InitialVirtualState:  []runtime.Object{updateForwardService},
-			InitialPhysicalState: []runtime.Object{createdService},
+			InitialVirtualState:  []runtime.Object{updateForwardService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{createdService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {updateForwardService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {updateForwardService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {updatedForwardService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {updatedForwardService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.ForwardUpdateNeeded(createdService, updateForwardService)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected forward update to be needed")
-				}
-
-				_, err = syncer.ForwardUpdate(ctx, createdService, updateForwardService, log)
+				_, err := syncer.Update(ctx, createdService, updateForwardService, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -249,25 +233,17 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Update forward not needed",
-			InitialVirtualState:  []runtime.Object{baseService},
-			InitialPhysicalState: []runtime.Object{createdService},
+			InitialVirtualState:  []runtime.Object{baseService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{createdService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {baseService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {baseService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {createdService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.ForwardUpdateNeeded(createdService, baseService)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected forward update to be not needed")
-				}
-
-				_, err = syncer.ForwardUpdate(ctx, createdService, baseService, log)
+				_, err := syncer.Update(ctx, createdService, baseService, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -275,25 +251,35 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Update backward spec no recreation",
-			InitialVirtualState:  []runtime.Object{baseService},
-			InitialPhysicalState: []runtime.Object{updateBackwardSpecService},
+			InitialVirtualState:  []runtime.Object{baseService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{updateBackwardSpecService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {updatedBackwardSpecService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {updatedBackwardSpecService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.BackwardUpdateNeeded(updateBackwardSpecService, baseService)
+				baseService := baseService.DeepCopy()
+				updateBackwardSpecService := updateBackwardSpecService.DeepCopy()
+				_, err := syncer.Update(ctx, updateBackwardSpecService, baseService, log)
 				if err != nil {
 					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected backward update to be needed")
+				}
+				
+				err = vClient.Get(ctx, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
+				if err != nil {
+					t.Fatal(err)
 				}
 
-				_, err = syncer.BackwardUpdate(ctx, updateBackwardSpecService, baseService, log)
+				err = pClient.Get(ctx, types.NamespacedName{Namespace: updateBackwardSpecService.Namespace, Name: updateBackwardSpecService.Name}, updateBackwardSpecService)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
+				_, err = syncer.Update(ctx, updateBackwardSpecService, baseService, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -301,25 +287,35 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Update backward spec with recreation",
-			InitialVirtualState:  []runtime.Object{baseService},
-			InitialPhysicalState: []runtime.Object{updateBackwardSpecRecreateService},
+			InitialVirtualState:  []runtime.Object{baseService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{updateBackwardSpecRecreateService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {updatedBackwardSpecRecreateService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {updatedBackwardSpecRecreateService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecRecreateService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecRecreateService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.BackwardUpdateNeeded(updateBackwardSpecRecreateService, baseService)
+				baseService := baseService.DeepCopy()
+				updateBackwardSpecRecreateService := updateBackwardSpecRecreateService.DeepCopy()
+				_, err := syncer.Update(ctx, updateBackwardSpecRecreateService, baseService, log)
 				if err != nil {
 					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected backward update to be needed")
 				}
 
-				_, err = syncer.BackwardUpdate(ctx, updateBackwardSpecRecreateService, baseService, log)
+				err = vClient.Get(ctx, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = pClient.Get(ctx, types.NamespacedName{Namespace: updateBackwardSpecRecreateService.Namespace, Name: updateBackwardSpecRecreateService.Name}, updateBackwardSpecRecreateService)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
+				_, err = syncer.Update(ctx, updateBackwardSpecRecreateService, baseService, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -327,25 +323,17 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Update backward status",
-			InitialVirtualState:  []runtime.Object{baseService},
-			InitialPhysicalState: []runtime.Object{updateBackwardStatusService},
+			InitialVirtualState:  []runtime.Object{baseService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{updateBackwardStatusService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {updatedBackwardStatusService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {updatedBackwardStatusService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardStatusService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardStatusService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.BackwardUpdateNeeded(updateBackwardStatusService, baseService)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected backward update to be needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, updateBackwardStatusService, baseService, log)
+				_, err := syncer.Update(ctx, updateBackwardStatusService, baseService, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -353,25 +341,17 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Update backward not needed",
-			InitialVirtualState:  []runtime.Object{baseService},
-			InitialPhysicalState: []runtime.Object{createdService},
+			InitialVirtualState:  []runtime.Object{baseService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{createdService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {baseService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {baseService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {createdService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-
-				needed, err := syncer.BackwardUpdateNeeded(createdService, baseService)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected backward update to be not needed")
-				}
-
-				_, err = syncer.BackwardUpdate(ctx, createdService, baseService, log)
+				_, err := syncer.Update(ctx, createdService, baseService, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -379,10 +359,10 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Sync not existent physical kubernetes service",
-			InitialVirtualState:  []runtime.Object{kubernetesService},
+			InitialVirtualState:  []runtime.Object{kubernetesService.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {},
@@ -397,12 +377,12 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Sync not existent virtual kubernetes service",
 			InitialVirtualState:  []runtime.Object{},
-			InitialPhysicalState: []runtime.Object{kubernetesService},
+			InitialPhysicalState: []runtime.Object{kubernetesService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				err := SyncKubernetesService(ctx, vClient, pClient, "default", "kubernetes")
@@ -413,13 +393,13 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Sync kubernetes service with recreation",
-			InitialVirtualState:  []runtime.Object{kubernetesService},
-			InitialPhysicalState: []runtime.Object{kubernetesWithClusterIPService},
+			InitialVirtualState:  []runtime.Object{kubernetesService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{kubernetesWithClusterIPService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithClusterIPService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithClusterIPService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithClusterIPService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithClusterIPService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				err := SyncKubernetesService(ctx, vClient, pClient, "default", "kubernetes")
@@ -430,13 +410,13 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Sync kubernetes service without recreation",
-			InitialVirtualState:  []runtime.Object{kubernetesService},
-			InitialPhysicalState: []runtime.Object{kubernetesWithPortsService},
+			InitialVirtualState:  []runtime.Object{kubernetesService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{kubernetesWithPortsService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithPortsService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithPortsService.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithPortsService},
+				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithPortsService.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				err := SyncKubernetesService(ctx, vClient, pClient, "default", "kubernetes")

@@ -9,28 +9,22 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
 	return generic.RegisterSyncerIndices(ctx, &corev1.Endpoints{})
 }
 
-func Register(ctx *context2.ControllerContext) error {
-	var err error
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
-
-	serviceClient := ctx.LocalManager.GetClient()
+func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
+	var (
+		err error
+		serviceClient = ctx.LocalManager.GetClient()
+	)
 	if ctx.Options.ServiceNamespace != ctx.Options.TargetNamespace {
 		serviceClient, err = client.New(ctx.LocalManager.GetConfig(), client.Options{
 			Scheme: ctx.LocalManager.GetScheme(),
@@ -41,187 +35,59 @@ func Register(ctx *context2.ControllerContext) error {
 		}
 	}
 
-	return generic.RegisterSyncer(ctx, &syncer{
-		eventRecoder:     eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "endpoints-syncer"}),
+	return generic.RegisterSyncer(ctx, "endpoints", &syncer{
+		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Endpoints{}),
+
 		targetNamespace:  ctx.Options.TargetNamespace,
 		serviceName:      ctx.Options.ServiceName,
 		serviceNamespace: ctx.Options.ServiceNamespace,
 		serviceClient:    serviceClient,
-		localClient:      ctx.LocalManager.GetClient(),
 		virtualClient:    ctx.VirtualManager.GetClient(),
-	}, "endpoints", generic.RegisterSyncerOptions{})
+		
+		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "endpoints-syncer"}), "endpoints"),
+		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
+	})
 }
 
 type syncer struct {
-	eventRecoder    record.EventRecorder
+	generic.Translator
 	targetNamespace string
 
 	serviceName      string
 	serviceNamespace string
 	serviceClient    client.Client
 
-	localClient   client.Client
 	virtualClient client.Client
+
+	creator *generic.GenericCreator
+	translator translate.Translator
 }
 
 func (s *syncer) New() client.Object {
 	return &corev1.Endpoints{}
 }
 
-func (s *syncer) NewList() client.ObjectList {
-	return &corev1.EndpointsList{}
-}
-
-func (s *syncer) ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	vEndpoints := vObj.(*corev1.Endpoints)
-	newEndpoints, err := s.translate(vObj)
+func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+	pObj, err := s.translate(vObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	log.Infof("create physical endpoints %s/%s", newEndpoints.Namespace, newEndpoints.Name)
-	err = s.localClient.Create(ctx, newEndpoints)
-	if err != nil {
-		log.Infof("error syncing %s/%s to physical cluster: %v", vEndpoints.Namespace, vEndpoints.Name, err)
-		s.eventRecoder.Eventf(vEndpoints, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
-		return ctrl.Result{RequeueAfter: time.Second}, err
-	}
-
-	return ctrl.Result{}, nil
+	return s.creator.Create(ctx, vObj, pObj, log)
 }
 
-func (s *syncer) ForwardCreateNeeded(vObj client.Object) (bool, error) {
-	// dont do anything for the kubernetes endpoints
-	vEndpoints := vObj.(*corev1.Endpoints)
-	if vEndpoints.Name == "kubernetes" && vEndpoints.Namespace == "default" {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (s *syncer) ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	// did the endpoints change?
-	pEndpoints := pObj.(*corev1.Endpoints)
-	vEndpoints := vObj.(*corev1.Endpoints)
-	updated, err := s.calcEndpointsDiff(pEndpoints, vEndpoints)
+func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+	updated, err := s.translateUpdate(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if updated != nil {
-		log.Infof("updating physical endpoints %s/%s, because virtual endpoints have changed", updated.Namespace, updated.Name)
-		err := s.localClient.Update(ctx, updated)
-		if err != nil {
-			s.eventRecoder.Eventf(vEndpoints, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
-			return ctrl.Result{}, err
-		}
-	}
-
-	return ctrl.Result{}, nil
+	
+	return s.creator.Update(ctx, vObj, updated, log)
 }
 
-func (s *syncer) ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
-	updated, err := s.calcEndpointsDiff(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
-	return updated != nil, err
-}
+var _ generic.Starter = &syncer{}
 
-func (s *syncer) translate(vObj runtime.Object) (*corev1.Endpoints, error) {
-	newObj, err := translate.SetupMetadata(s.targetNamespace, vObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	// translate the addresses
-	endpoints := newObj.(*corev1.Endpoints)
-	for i, subset := range endpoints.Subsets {
-		for j, addr := range subset.Addresses {
-			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-				endpoints.Subsets[i].Addresses[j].TargetRef.Name = translate.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
-				endpoints.Subsets[i].Addresses[j].TargetRef.Namespace = s.targetNamespace
-
-				// TODO: set the actual values here
-				endpoints.Subsets[i].Addresses[j].TargetRef.UID = ""
-				endpoints.Subsets[i].Addresses[j].TargetRef.ResourceVersion = ""
-			}
-		}
-		for j, addr := range subset.NotReadyAddresses {
-			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Name = translate.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
-				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Namespace = s.targetNamespace
-
-				// TODO: set the actual values here
-				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.UID = ""
-				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.ResourceVersion = ""
-			}
-		}
-	}
-
-	// make sure we delete the control-plane.alpha.kubernetes.io/leader annotation
-	// that will disable endpoint slice mirroring otherwise
-	if endpoints.Annotations != nil {
-		delete(endpoints.Annotations, "control-plane.alpha.kubernetes.io/leader")
-	}
-
-	return endpoints, nil
-}
-
-func (s *syncer) calcEndpointsDiff(pObj, vObj *corev1.Endpoints) (*corev1.Endpoints, error) {
-	var updated *corev1.Endpoints
-
-	// translate endpoints
-	translated, err := s.translate(vObj)
-	if err != nil {
-		return nil, err
-	}
-
-	// check subsets
-	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
-		updated = pObj.DeepCopy()
-		updated.Subsets = translated.Subsets
-	}
-
-	// check annotations
-	if !equality.Semantic.DeepEqual(translated.Annotations, pObj.Annotations) {
-		if updated == nil {
-			updated = pObj.DeepCopy()
-		}
-		updated.Annotations = translated.Annotations
-	}
-
-	// check labels
-	if !equality.Semantic.DeepEqual(translated.Labels, pObj.Labels) {
-		if updated == nil {
-			updated = pObj.DeepCopy()
-		}
-
-		updated.Labels = translated.Labels
-	}
-
-	return updated, nil
-}
-
-func (s *syncer) BackwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
-}
-
-func (s *syncer) BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error) {
-	return false, nil
-}
-
-func (s *syncer) BackwardStart(ctx context.Context, req ctrl.Request) (bool, error) {
-	// sync the kubernetes service
-	if req.Name == s.serviceName && req.Namespace == s.serviceNamespace {
-		return true, SyncKubernetesServiceEndpoints(ctx, s.virtualClient, s.serviceClient, s.serviceNamespace, s.serviceName)
-	}
-
-	return false, nil
-}
-
-func (s *syncer) BackwardEnd() {
-
-}
-
-func (s *syncer) ForwardStart(ctx context.Context, req ctrl.Request) (bool, error) {
+func (s *syncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {
 	// dont do anything for the kubernetes service
 	if req.Name == "kubernetes" && req.Namespace == "default" {
 		return true, SyncKubernetesServiceEndpoints(ctx, s.virtualClient, s.serviceClient, s.serviceNamespace, s.serviceName)
@@ -230,9 +96,7 @@ func (s *syncer) ForwardStart(ctx context.Context, req ctrl.Request) (bool, erro
 	return false, nil
 }
 
-func (s *syncer) ForwardEnd() {
-
-}
+func (s *syncer) ReconcileEnd() {}
 
 func SyncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceNamespace, serviceName string) error {
 	// get physical service endpoints

@@ -3,7 +3,6 @@ package nodes
 import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"strings"
 	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -160,14 +159,7 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.CreateNeeded(ctx, baseName)
-				if err != nil {
-					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected create to be needed")
-				}
-
-				err = syncer.Create(ctx, baseName, log)
+				_, err = syncer.Create(ctx, baseName, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -197,27 +189,6 @@ func TestFakeSync(t *testing.T) {
 			},
 		},
 		{
-			Name:                "Create node without pod",
-			InitialVirtualState: []runtime.Object{},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {},
-			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeFakeSyncer(ctx, lockFactory, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				needed, err := syncer.CreateNeeded(ctx, baseName)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected create to be not needed")
-				}
-			},
-		},
-		{
 			Name:                "Delete",
 			InitialVirtualState: []runtime.Object{baseNode},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
@@ -230,61 +201,9 @@ func TestFakeSync(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				needed, err := syncer.DeleteNeeded(ctx, baseNode)
+				_, err = syncer.Update(ctx, baseNode, log)
 				if err != nil {
 					t.Fatal(err)
-				} else if !needed {
-					t.Fatal("Expected create to be needed")
-				}
-
-				err = syncer.Delete(ctx, baseNode, log)
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
-		},
-		{
-			Name:                "Delete node with pod (should fail)",
-			InitialVirtualState: []runtime.Object{basePod, baseNode},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
-			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeFakeSyncer(ctx, lockFactory, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				needed, err := syncer.DeleteNeeded(ctx, baseNode)
-				if err != nil {
-					t.Fatal(err)
-				} else if needed {
-					t.Fatal("Expected create to be not needed")
-				}
-			},
-		},
-		{
-			Name:                "Delete pod (should fail)",
-			InitialVirtualState: []runtime.Object{basePod},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
-			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeFakeSyncer(ctx, lockFactory, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				needed, err := syncer.DeleteNeeded(ctx, basePod)
-				if err == nil {
-					t.Fatal("Expected error")
-				} else if needed {
-					t.Fatal("Expected delete to be not needed")
-				}
-				if !strings.Contains(err.Error(), "is not a node") {
-					t.Fatal("Wrong error")
 				}
 			},
 		},

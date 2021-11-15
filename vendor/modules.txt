@@ -131,9 +131,6 @@ github.com/json-iterator/go
 github.com/k0kubun/go-ansi
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 github.com/kballard/go-shellquote
-# github.com/loft-sh/kiosk v0.2.7
-## explicit
-github.com/loft-sh/kiosk/pkg/manager/blockingcacheclient
 # github.com/mailru/easyjson v0.7.1
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
@@ -990,6 +987,7 @@ k8s.io/kube-aggregator/pkg/registry/apiservice
 k8s.io/kube-aggregator/pkg/registry/apiservice/etcd
 k8s.io/kube-aggregator/pkg/registry/apiservice/rest
 # k8s.io/kube-openapi v0.0.0-20210527164424-3c818078ee3d => k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
+## explicit
 k8s.io/kube-openapi/pkg/aggregator
 k8s.io/kube-openapi/pkg/builder
 k8s.io/kube-openapi/pkg/common

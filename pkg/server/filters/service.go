@@ -213,7 +213,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		vService.Name = vService.GenerateName + random.RandomString(5)
 	}
 
-	newObj, err := translate.SetupMetadata(targetNamespace, vService)
+	newObj, err := translate.NewDefaultTranslator(targetNamespace).Translate(vService)
 	if err != nil {
 		return nil, errors.Wrap(err, "error setting metadata")
 	}

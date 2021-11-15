@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/log"
 	"io/ioutil"
@@ -17,7 +18,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/loft-sh/kiosk/pkg/manager/blockingcacheclient"
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
@@ -81,7 +81,7 @@ func NewCommand() *cobra.Command {
 		Short:         "Welcome to Virtual Cluster!",
 		Args:          cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return Execute(cobraCmd, args, options)
+			return Execute(options)
 		},
 	}
 
@@ -148,7 +148,7 @@ func main() {
 	}
 }
 
-func Execute(cobraCmd *cobra.Command, args []string, options *context.VirtualClusterOptions) error {
+func Execute(options *context.VirtualClusterOptions) error {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
 	err := wait.Poll(time.Second, time.Minute*10, func() (bool, error) {

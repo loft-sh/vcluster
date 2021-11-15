@@ -72,13 +72,13 @@ func ConvertExtraFrom(orig map[string]authenticationv1.ExtraValue) map[string][]
 	return retMap
 }
 
-func GetByIndex(ctx context.Context, c client.Client, obj runtime.Object, scheme *runtime.Scheme, index, value string) error {
-	gvk, err := GVKFrom(obj, scheme)
+func GetByIndex(ctx context.Context, c client.Client, obj runtime.Object, index, value string) error {
+	gvk, err := GVKFrom(obj, c.Scheme())
 	if err != nil {
 		return err
 	}
 
-	list, err := scheme.New(gvk.GroupVersion().WithKind(gvk.Kind + "List"))
+	list, err := c.Scheme().New(gvk.GroupVersion().WithKind(gvk.Kind + "List"))
 	if err != nil {
 		// TODO: handle runtime.IsNotRegisteredError(err)
 		return err

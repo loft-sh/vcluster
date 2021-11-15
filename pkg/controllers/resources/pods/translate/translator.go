@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"regexp"
 	"sort"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
-	"github.com/loft-sh/vcluster/pkg/serviceaccount"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/util/keyutil"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -53,16 +52,6 @@ type Translator interface {
 }
 
 func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
-	// create token generator
-	privateKey, err := keyutil.PrivateKeyFromFile(ctx.Options.ServiceAccountKey)
-	if err != nil {
-		return nil, err
-	}
-	tokenGenerator, err := serviceaccount.JWTTokenGenerator("https://kubernetes.default.svc."+ctx.Options.ClusterDomain, privateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "create token generator")
-	}
-
 	imageTranslator, err := NewImageTranslator(ctx.Options.TranslateImages)
 	if err != nil {
 		return nil, err
@@ -72,7 +61,6 @@ func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
 		vClientConfig:   ctx.VirtualManager.GetConfig(),
 		vClient:         ctx.VirtualManager.GetClient(),
 		imageTranslator: imageTranslator,
-		tokenGenerator:  tokenGenerator,
 
 		targetNamespace:        ctx.Options.TargetNamespace,
 		clusterDomain:          ctx.Options.ClusterDomain,
@@ -86,7 +74,6 @@ func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
 type translator struct {
 	vClientConfig   *rest.Config
 	vClient         client.Client
-	tokenGenerator  serviceaccount.TokenGenerator
 	imageTranslator ImageTranslator
 
 	targetNamespace        string
@@ -106,30 +93,25 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 	}
 
 	// there are some annotations which should be excluded
-	excludeAnnotations := getExcludedAnnotations(pPod)
+	translator := translate.NewDefaultTranslator(t.targetNamespace, getExcludedAnnotations(pPod)...)
 
 	// check annotations
-	if !translate.EqualExcept(pPod.Annotations, vPod.Annotations, excludeAnnotations...) {
+	updatedAnnotations := translator.TranslateAnnotations(vPod, pPod)
+	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
+	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {
 			updatedPod = pPod.DeepCopy()
 		}
-		updatedPod.Annotations = translate.SetExcept(vPod.Annotations, pPod.Annotations, excludeAnnotations...)
-	}
-
-	// check labels annotation
-	if (vPod.Labels == nil || vPod.Labels[translate.MarkerLabel] == "") && pPod.Annotations[LabelsAnnotation] != translateLabelsAnnotation(vPod) {
-		if updatedPod == nil {
-			updatedPod = pPod.DeepCopy()
-		}
-		updatedPod.Annotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
+		updatedPod.Annotations = updatedAnnotations
 	}
 
 	// check labels
-	if !translate.LabelsEqual(vPod.Namespace, vPod.Labels, pPod.Labels) {
+	updatedLabels := translator.TranslateLabels(vPod)
+	if !equality.Semantic.DeepEqual(updatedLabels, pPod.Labels) {
 		if updatedPod == nil {
 			updatedPod = pPod.DeepCopy()
 		}
-		updatedPod.Labels = translate.TranslateLabels(vPod.Namespace, vPod.Labels)
+		updatedPod.Labels = updatedLabels
 	}
 
 	return updatedPod, nil
@@ -137,17 +119,19 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 
 func getExcludedAnnotations(pPod *corev1.Pod) []string {
 	annotations := []string{ClusterAutoScalerAnnotation, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, LabelsAnnotation}
-	for _, v := range pPod.Spec.Volumes {
-		if v.Projected != nil {
-			for _, source := range v.Projected.Sources {
-				if source.DownwardAPI != nil {
-					for _, item := range source.DownwardAPI.Items {
-						if item.FieldRef != nil {
-							// check if its a label we have to rewrite
-							annotationsMatch := FieldPathAnnotationRegEx.FindStringSubmatch(item.FieldRef.FieldPath)
-							if len(annotationsMatch) == 2 {
-								if strings.HasPrefix(annotationsMatch[1], ServiceAccountTokenAnnotation) {
-									annotations = append(annotations, annotationsMatch[1])
+	if pPod != nil {
+		for _, v := range pPod.Spec.Volumes {
+			if v.Projected != nil {
+				for _, source := range v.Projected.Sources {
+					if source.DownwardAPI != nil {
+						for _, item := range source.DownwardAPI.Items {
+							if item.FieldRef != nil {
+								// check if its a label we have to rewrite
+								annotationsMatch := FieldPathAnnotationRegEx.FindStringSubmatch(item.FieldRef.FieldPath)
+								if len(annotationsMatch) == 2 {
+									if strings.HasPrefix(annotationsMatch[1], ServiceAccountTokenAnnotation) {
+										annotations = append(annotations, annotationsMatch[1])
+									}
 								}
 							}
 						}
@@ -251,7 +235,7 @@ func isInt64Different(i1, i2 *int64) (*int64, bool) {
 }
 
 func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
-	pPodRaw, err := translate.SetupMetadata(t.targetNamespace, vPod)
+	pPodRaw, err := translate.NewDefaultTranslator(t.targetNamespace).Translate(vPod)
 	if err != nil {
 		return nil, errors.Wrap(err, "error setting metadata")
 	}
@@ -271,7 +255,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		pPod.Spec.PriorityClassName = ""
 		pPod.Spec.Priority = nil
 	} else if pPod.Spec.PriorityClassName != "" {
-		pPod.Spec.PriorityClassName = priorityclasses.TranslatePriorityClassName(pPod.Spec.PriorityClassName, pPod.Namespace)
+		pPod.Spec.PriorityClassName = priorityclasses.NewPriorityClassNameTranslator(pPod.Namespace).PhysicalName(pPod.Spec.PriorityClassName, nil)
 		if pPod.Spec.Priority != nil && *pPod.Spec.Priority > maxPriority {
 			pPod.Spec.Priority = &maxPriority
 		}
@@ -423,6 +407,7 @@ func translateLabelsAnnotation(vPod *corev1.Pod) string {
 		labelsString = append(labelsString, k+"="+string(out))
 	}
 
+	sort.Strings(labelsString)
 	return strings.Join(labelsString, "\n")
 }
 
@@ -793,24 +778,29 @@ func translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodAffinityTerm) cor
 			if len(term.Namespaces) > 0 {
 				translatedNamespaces := []string{}
 				for _, ns := range term.Namespaces {
-					translatedNamespaces = append(translatedNamespaces, translate.NamespaceLabelValue(ns))
+					translatedNamespaces = append(translatedNamespaces, ns)
 				}
 
 				// Match specific namespaces
 				if newAffinityTerm.LabelSelector.MatchExpressions == nil {
 					newAffinityTerm.LabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
 				}
+				if newAffinityTerm.LabelSelector.MatchLabels == nil {
+					newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
+				}
 				newAffinityTerm.LabelSelector.MatchExpressions = append(newAffinityTerm.LabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
 					Key:      translate.NamespaceLabel,
 					Operator: metav1.LabelSelectorOpIn,
 					Values:   translatedNamespaces,
 				})
+				newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
 			} else {
 				// Match namespace where pod is in
 				if newAffinityTerm.LabelSelector.MatchLabels == nil {
 					newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
 				}
-				newAffinityTerm.LabelSelector.MatchLabels[translate.NamespaceLabel] = translate.NamespaceLabelValue(vPod.Namespace)
+				newAffinityTerm.LabelSelector.MatchLabels[translate.NamespaceLabel] = vPod.Namespace
+				newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
 			}
 		} else {
 			// TODO: Support selecting namespaces by label here
@@ -840,7 +830,8 @@ func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 			if pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels == nil {
 				pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels = map[string]string{}
 			}
-			pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels[translate.NamespaceLabel] = translate.NamespaceLabelValue(vPod.Namespace)
+			pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels[translate.NamespaceLabel] = vPod.Namespace
+			pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
 		}
 	}
 }

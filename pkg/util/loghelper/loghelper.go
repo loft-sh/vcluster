@@ -31,6 +31,18 @@ func New(name string) Logger {
 	}
 }
 
+func NewFromExisting(log logr.Logger, name string) Logger {
+	return &logger{
+		log.WithName(name),
+	}
+}
+
+func NewWithoutName(log logr.Logger) Logger {
+	return &logger{
+		log.WithName(""),
+	}
+}
+
 func (l *logger) Infof(format string, a ...interface{}) {
 	l.Logger.Info(fmt.Sprintf(format, a...))
 }

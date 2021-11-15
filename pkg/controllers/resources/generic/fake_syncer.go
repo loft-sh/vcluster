@@ -2,139 +2,73 @@ package generic
 
 import (
 	"context"
+	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
+func RegisterFakeSyncerWithOptions(ctx *context2.ControllerContext, name string, syncer FakeSyncer, options *SyncerOptions) error {
+	controller := &fakeSyncer{
+		syncer:        syncer,
+		log:           loghelper.New(name),
+		virtualClient: ctx.VirtualManager.GetClient(),
+	}
+
+	return controller.Register(name, ctx.VirtualManager, options)
+}
+
 type fakeSyncer struct {
-	target FakeSyncer
+	syncer FakeSyncer
 
 	virtualClient client.Client
 	log           loghelper.Logger
 }
 
-func (r *fakeSyncer) GarbageCollect(queue workqueue.RateLimitingInterface) error {
-	ctx := context.Background()
-	list := r.target.NewList()
-	err := r.virtualClient.List(ctx, list)
-	if err != nil {
-		return err
-	}
-
-	items, err := meta.ExtractList(list)
-	if err != nil {
-		return err
-	}
-
-	// delete items that are not needed anymore
-	for _, item := range items {
-		accessor, _ := meta.Accessor(item)
-		shouldDelete, err := r.target.DeleteNeeded(ctx, item.(client.Object))
-		if err != nil {
-			r.log.Infof("cannot determine if still needed %s: %v", accessor.GetNamespace(), accessor.GetName(), err)
-			continue
-		} else if shouldDelete {
-			r.log.Debugf("resync object %s", accessor.GetName())
-			queue.Add(reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      accessor.GetName(),
-					Namespace: accessor.GetNamespace(),
-				},
-			})
-		}
-	}
-
-	// create items that are needed but not there
-	list = r.target.DependantObjectList()
-	err = r.virtualClient.List(ctx, list)
-	if err != nil {
-		return err
-	}
-	items, err = meta.ExtractList(list)
-	if err != nil {
-		return err
-	}
-
-	for _, item := range items {
-		accessor, _ := meta.Accessor(item)
-		name, err := r.target.NameFromDependantObject(ctx, item.(client.Object))
-		if err != nil {
-			r.log.Infof("cannot determine name of object %s/%s: %v", accessor.GetNamespace(), accessor.GetName(), err)
-			continue
-		} else if name.Name == "" {
-			continue
-		}
-
-		item := r.target.New()
-		err = r.virtualClient.Get(ctx, name, item)
-		if err == nil {
-			continue
-		} else if kerrors.IsNotFound(err) == false {
-			r.log.Infof("cannot get object %s: %v", name.Name, err)
-			continue
-		}
-
-		r.log.Debugf("resync object %s, because it is missing, but needed", accessor.GetName())
-		queue.Add(reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      accessor.GetName(),
-				Namespace: accessor.GetNamespace(),
-			},
-		})
-	}
-
-	return nil
-}
-
 func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := loghelper.NewFromExisting(r.log, req.Name)
+
 	// check if we should skip reconcile
-	skip, err := r.target.ReconcileStart(ctx, req)
-	defer r.target.ReconcileEnd()
-	if skip || err != nil {
-		return ctrl.Result{}, err
+	lifecycle, ok := r.syncer.(Starter)
+	if ok {
+		skip, err := lifecycle.ReconcileStart(ctx, req)
+		defer lifecycle.ReconcileEnd()
+		if skip || err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// get virtual object
-	vObj := r.target.New()
-	err = r.virtualClient.Get(ctx, req.NamespacedName, vObj)
+	vObj := r.syncer.New()
+	err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) == false {
 			return ctrl.Result{}, err
 		}
 
-		needed, err := r.target.CreateNeeded(ctx, req.NamespacedName)
-		if err != nil {
-			return ctrl.Result{}, err
-		} else if needed {
-			err = r.target.Create(ctx, req.NamespacedName, r.log)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-
-			return ctrl.Result{}, nil
-		}
-
-		return ctrl.Result{}, nil
+		return r.syncer.Create(ctx, req.NamespacedName, log)
 	}
 
-	// check if object is still needed
-	shouldDelete, err := r.target.DeleteNeeded(ctx, vObj)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if shouldDelete {
-		accessor, _ := meta.Accessor(vObj)
-		err = r.target.Delete(ctx, vObj, r.log)
-		if err != nil {
-			r.log.Infof("cannot delete virtual %s: %v", accessor.GetName(), err)
-		}
-		return ctrl.Result{}, nil
-	}
+	// update object
+	return r.syncer.Update(ctx, vObj, log)
+}
 
-	return ctrl.Result{}, nil
+func (r *fakeSyncer) Register(name string, virtualManager ctrl.Manager, options *SyncerOptions) error {
+	maxConcurrentReconciles := 1
+	if options.MaxConcurrentReconciles > 0 {
+		maxConcurrentReconciles = options.MaxConcurrentReconciles
+	}
+	
+	controller := ctrl.NewControllerManagedBy(virtualManager).
+		WithOptions(controller2.Options{
+			MaxConcurrentReconciles: maxConcurrentReconciles,
+		}).
+		Named(name).
+		For(r.syncer.New())
+	if options != nil && options.ModifyController != nil {
+		controller = options.ModifyController(controller)
+	}
+	return controller.Complete(r)
 }

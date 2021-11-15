@@ -3,8 +3,6 @@ package generic
 import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -12,72 +10,35 @@ import (
 
 type Object interface {
 	New() client.Object
-	NewList() client.ObjectList
 }
 
-type BackwardUpdate interface {
-	BackwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
-	BackwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error)
+type Translator interface {
+	IsManaged(pObj client.Object) (bool, error)
+
+	VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName
+	PhysicalToVirtual(pObj client.Object) types.NamespacedName
 }
 
 type Syncer interface {
 	Object
+	Translator
 
-	ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
-	ForwardUpdate
-	BackwardUpdate
+	Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
+	Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
 }
 
-type TwoWayClusterSyncer interface {
-	Syncer
-	translate.PhysicalNameTranslator
-
-	IsManaged(pObj runtime.Object) bool
-}
-
-type BackwardDelete interface {
-	BackwardDelete(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error)
-}
-
-type ForwardCreate interface {
-	ForwardCreate(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
-	ForwardCreateNeeded(vObj client.Object) (bool, error)
-}
-
-type ForwardUpdate interface {
-	ForwardUpdate(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
-	ForwardUpdateNeeded(pObj client.Object, vObj client.Object) (bool, error)
-}
-
-type OneWayClusterSyncer interface {
-	Object
-
-	BackwardCreate(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error)
-	BackwardCreateNeeded(pObj client.Object) (bool, error)
-	BackwardUpdate
-}
-
-type BackwardLifecycle interface {
-	BackwardStart(ctx context.Context, req ctrl.Request) (bool, error)
-	BackwardEnd()
-}
-
-type ForwardLifecycle interface {
-	ForwardStart(ctx context.Context, req ctrl.Request) (bool, error)
-	ForwardEnd()
+type BackwardSyncer interface {
+	Backward(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error)
 }
 
 type FakeSyncer interface {
 	Object
-	DependantObjectList() client.ObjectList
-	NameFromDependantObject(ctx context.Context, obj client.Object) (types.NamespacedName, error)
 
+	Create(ctx context.Context, req types.NamespacedName, log loghelper.Logger) (ctrl.Result, error)
+	Update(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error)
+}
+
+type Starter interface {
 	ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error)
 	ReconcileEnd()
-
-	Create(ctx context.Context, name types.NamespacedName, log loghelper.Logger) error
-	CreateNeeded(ctx context.Context, name types.NamespacedName) (bool, error)
-
-	Delete(ctx context.Context, obj client.Object, log loghelper.Logger) error
-	DeleteNeeded(ctx context.Context, obj client.Object) (bool, error)
 }
