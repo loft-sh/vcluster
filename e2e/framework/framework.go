@@ -96,7 +96,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	suffix := os.Getenv("VCLUSTER_SUFFIX")
 	if suffix == "" {
 		//TODO: maybe implement some autodiscovery of the suffix value that would work with dev and prod setups
-		suffix = "suffix"
+		suffix = "vcluster"
 	}
 	translate.Suffix = suffix
 	l.Infof("Testing Vcluster named: %s in namespace: %s", name, ns)

@@ -68,10 +68,22 @@ dev:
 commands:
   - name: dev
     command: "devspace dev -n vcluster $@"
+  - name: dev-crc
+    command: "devspace dev -n vcluster --profile dev-crc $@"
   - name: deploy
     command: "devspace deploy --profile deploy -n vcluster -d $@"
+  - name: deploy-crc
+    command: "devspace deploy --profile deploy-crc -n vcluster -d $@"
 profiles:
+  - name: parent-deploy
+    patches:
+      - op: remove
+        path: deployments.name=vcluster.helm.values.syncer.command
+      - op: remove
+        path: deployments.name=vcluster.helm.values.syncer.extraArgs
   - name: deploy
+    parents: 
+      - profile: parent-deploy
     patches:
       - op: remove
         path: images.vcluster.rebuildStrategy
@@ -79,6 +91,29 @@ profiles:
         path: images.vcluster.build.buildKit
         value: {}
       - op: replace
-        path: deployments[0].helm.values.syncer
+        path: deployments.name=vcluster.helm.values.syncer
         value:
           image: ${SYNCER_IMAGE}
+  - name: parent-crc
+    patches:
+      - op: replace
+        path: images.vcluster.build.custom
+        value:
+          command: ./hack/crc-podman-build.sh
+          imageFlag: "-t"
+      - op: replace
+        path: deployments.name=vcluster.helm.values.openshift
+        value: 
+          enable: true
+  - name: deploy-crc
+    parents: 
+      - profile: parent-deploy
+      - profile: parent-crc
+  - name: dev-crc
+    parents: 
+      - profile: parent-crc
+    patches:
+      - op: replace
+        path: images.vcluster.build.custom.args
+        value: 
+         - "--target=builder"

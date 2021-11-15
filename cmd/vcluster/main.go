@@ -107,7 +107,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&options.SetOwner, "set-owner", false, "If true, will set the same owner the currently running syncer pod has on the synced resources")
 	cmd.Flags().StringVar(&options.DeprecatedOwningStatefulSet, "owning-statefulset", "", "DEPRECATED: use --set-owner instead")
 
-	cmd.Flags().StringVar(&options.Suffix, "suffix", "suffix", "The suffix to append to the synced resources in the namespace")
+	cmd.Flags().StringVar(&options.Suffix, "suffix", "vcluster", "The suffix to append to the synced resources in the namespace")
 	cmd.Flags().StringVar(&options.BindAddress, "bind-address", "0.0.0.0", "The address to bind the server to")
 	cmd.Flags().IntVar(&options.Port, "port", 8443, "The port to bind to")
 
