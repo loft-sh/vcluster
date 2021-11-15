@@ -25,7 +25,6 @@ func TestSync(t *testing.T) {
 	baseObjectMeta := metav1.ObjectMeta{
 		Name:        "testsc",
 		Namespace:   "testns",
-		ClusterName: "myvcluster",
 	}
 	baseSc := &v1.StorageClass{
 		ObjectMeta: baseObjectMeta,

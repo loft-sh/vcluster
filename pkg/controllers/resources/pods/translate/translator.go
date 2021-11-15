@@ -12,7 +12,6 @@ import (
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
-	"github.com/loft-sh/vcluster/pkg/serviceaccount"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -23,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/util/keyutil"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -54,16 +52,6 @@ type Translator interface {
 }
 
 func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
-	// create token generator
-	privateKey, err := keyutil.PrivateKeyFromFile(ctx.Options.ServiceAccountKey)
-	if err != nil {
-		return nil, err
-	}
-	tokenGenerator, err := serviceaccount.JWTTokenGenerator("https://kubernetes.default.svc."+ctx.Options.ClusterDomain, privateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "create token generator")
-	}
-
 	imageTranslator, err := NewImageTranslator(ctx.Options.TranslateImages)
 	if err != nil {
 		return nil, err
@@ -73,7 +61,6 @@ func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
 		vClientConfig:   ctx.VirtualManager.GetConfig(),
 		vClient:         ctx.VirtualManager.GetClient(),
 		imageTranslator: imageTranslator,
-		tokenGenerator:  tokenGenerator,
 
 		targetNamespace:        ctx.Options.TargetNamespace,
 		clusterDomain:          ctx.Options.ClusterDomain,
@@ -87,7 +74,6 @@ func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
 type translator struct {
 	vClientConfig   *rest.Config
 	vClient         client.Client
-	tokenGenerator  serviceaccount.TokenGenerator
 	imageTranslator ImageTranslator
 
 	targetNamespace        string
@@ -111,22 +97,12 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 
 	// check annotations
 	updatedAnnotations := translator.TranslateAnnotations(vPod, pPod)
+	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {
 			updatedPod = pPod.DeepCopy()
 		}
 		updatedPod.Annotations = updatedAnnotations
-	}
-
-	// check labels annotation
-	if (vPod.Labels == nil || vPod.Labels[translate.MarkerLabel] == "") && (pPod.Annotations == nil || pPod.Annotations[LabelsAnnotation] != translateLabelsAnnotation(vPod)) {
-		if updatedPod == nil {
-			updatedPod = pPod.DeepCopy()
-		}
-		if pPod.Annotations == nil {
-			pPod.Annotations = map[string]string{}
-		}
-		updatedPod.Annotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	}
 
 	// check labels
@@ -431,6 +407,7 @@ func translateLabelsAnnotation(vPod *corev1.Pod) string {
 		labelsString = append(labelsString, k+"="+string(out))
 	}
 
+	sort.Strings(labelsString)
 	return strings.Join(labelsString, "\n")
 }
 

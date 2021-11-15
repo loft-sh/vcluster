@@ -12,7 +12,6 @@ import (
 
 var (
 	NamespaceLabel = "vcluster.loft.sh/namespace"
-	NameLabel      = "vcluster.loft.sh/name"
 	MarkerLabel    = "vcluster.loft.sh/managed-by"
 	Suffix         = "suffix"
 )

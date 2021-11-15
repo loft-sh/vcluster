@@ -7,6 +7,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sort"
+	"strings"
+)
+
+var (
+	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
+	NamespaceAnnotation          = "vcluster.loft.sh/object-namespace"
+	NameAnnotation               = "vcluster.loft.sh/object-name"
 )
 
 type Translator interface {
@@ -54,7 +62,10 @@ func (d *defaultTranslator) TranslateAnnotations(vObj client.Object, pObj client
 }
 
 func translateAnnotations(vObj client.Object, pObj client.Object, excluded []string) map[string]string {
+	excluded = append(excluded, ManagedAnnotationsAnnotation, NameAnnotation, NamespaceAnnotation)
+
 	retMap := map[string]string{}
+	managedAnnotations := []string{}
 	if vObj != nil {
 		for k, v := range vObj.GetAnnotations() {
 			if exists(excluded, k) {
@@ -62,24 +73,45 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 			}
 
 			retMap[k] = v
+			managedAnnotations = append(managedAnnotations, k)
 		}
 	}
 
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil {
-			for _, k := range excluded {
-				if pAnnotations[k] != "" {
-					retMap[k] = pAnnotations[k]
+			oldManagedAnnotationsStr := pAnnotations[ManagedAnnotationsAnnotation]
+			oldManagedAnnotations := strings.Split(oldManagedAnnotationsStr, "\n")
+
+			for key, value := range pAnnotations {
+				if exists(excluded, key) {
+					if value != "" {
+						retMap[key] = value
+					}
+					continue
+				} else if exists(managedAnnotations, key) || (exists(oldManagedAnnotations, key) && !exists(managedAnnotations, key)) {
+					continue
 				}
+
+				retMap[key] = value
 			}
 		}
 	}
 
-	if len(retMap) == 0 {
-		return nil
+	sort.Strings(managedAnnotations)
+	retMap[NameAnnotation] = vObj.GetName()
+	if vObj.GetNamespace() == "" {
+		delete(retMap, NamespaceAnnotation)
+	} else {
+		retMap[NamespaceAnnotation] = vObj.GetNamespace()
 	}
-
+	
+	managedAnnotationsStr := strings.Join(managedAnnotations, "\n")
+	if managedAnnotationsStr == "" {
+		delete(retMap, ManagedAnnotationsAnnotation)
+	} else {
+		retMap[ManagedAnnotationsAnnotation] = managedAnnotationsStr
+	}
 	return retMap
 }
 
@@ -95,7 +127,6 @@ func (d *defaultTranslator) TranslateLabels(vObj client.Object) map[string]strin
 	}
 
 	newLabels[MarkerLabel] = Suffix
-	newLabels[NameLabel] = SafeConcatName(vObj.GetName())
 	if vObj.GetNamespace() != "" {
 		newLabels[NamespaceLabel] = vObj.GetNamespace()
 	}

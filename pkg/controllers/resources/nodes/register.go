@@ -12,6 +12,9 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 	// index pods by their assigned node
 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
+		if pod.Spec.NodeName == "" {
+			return nil
+		}
 		return []string{pod.Spec.NodeName}
 	})
 	if err != nil {

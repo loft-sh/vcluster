@@ -35,6 +35,14 @@ func (n *namespacedTranslator) VirtualToPhysical(req types.NamespacedName, vObj 
 }
 
 func (n *namespacedTranslator) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+	pAnnotations := pObj.GetAnnotations()
+	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
+		return types.NamespacedName{
+			Namespace: pAnnotations[translate.NamespaceAnnotation],
+			Name:      pAnnotations[translate.NameAnnotation],
+		}
+	}
+
 	vObj := n.obj.DeepCopyObject().(client.Object)
 	err := clienthelper.GetByIndex(context.Background(), n.virtualClient, vObj, constants.IndexByVName, pObj.GetName())
 	if err != nil {

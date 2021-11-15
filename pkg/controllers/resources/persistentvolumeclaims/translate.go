@@ -88,21 +88,37 @@ func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeCla
 	var updated *corev1.PersistentVolumeClaim
 
 	// check for metadata annotations
-	if pObj.Annotations != nil && (vObj.Annotations == nil ||
-		vObj.Annotations[bindCompletedAnnotation] != pObj.Annotations[bindCompletedAnnotation] ||
-		vObj.Annotations[boundByControllerAnnotation] != pObj.Annotations[boundByControllerAnnotation] ||
-		vObj.Annotations[storageProvisionerAnnotation] != pObj.Annotations[storageProvisionerAnnotation]) {
+	if translateUpdateNeeded(pObj.Annotations, vObj.Annotations) {
 		updated = newIfNil(updated, vObj)
 		if updated.Annotations == nil {
 			updated.Annotations = map[string]string{}
 		}
-
-		updated.Annotations[bindCompletedAnnotation] = pObj.Annotations[bindCompletedAnnotation]
-		updated.Annotations[boundByControllerAnnotation] = pObj.Annotations[boundByControllerAnnotation]
-		updated.Annotations[storageProvisionerAnnotation] = pObj.Annotations[storageProvisionerAnnotation]
+		
+		if updated.Annotations[bindCompletedAnnotation] != pObj.Annotations[bindCompletedAnnotation] {
+			updated.Annotations[bindCompletedAnnotation] = pObj.Annotations[bindCompletedAnnotation]
+		}
+		if updated.Annotations[boundByControllerAnnotation] != pObj.Annotations[boundByControllerAnnotation] {
+			updated.Annotations[boundByControllerAnnotation] = pObj.Annotations[boundByControllerAnnotation]
+		}
+		if updated.Annotations[storageProvisionerAnnotation] != pObj.Annotations[storageProvisionerAnnotation] {
+			updated.Annotations[storageProvisionerAnnotation] = pObj.Annotations[storageProvisionerAnnotation]
+		}
 	}
 
 	return updated
+}
+
+func translateUpdateNeeded(pAnnotations, vAnnotations map[string]string) bool {
+	if pAnnotations == nil {
+		pAnnotations = map[string]string{}
+	}
+	if vAnnotations == nil {
+		vAnnotations = map[string]string{}
+	}
+	
+	return vAnnotations[bindCompletedAnnotation] != pAnnotations[bindCompletedAnnotation] ||
+		vAnnotations[boundByControllerAnnotation] != pAnnotations[boundByControllerAnnotation] ||
+		vAnnotations[storageProvisionerAnnotation] != pAnnotations[storageProvisionerAnnotation]
 }
 
 func newIfNil(updated *corev1.PersistentVolumeClaim, pObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {

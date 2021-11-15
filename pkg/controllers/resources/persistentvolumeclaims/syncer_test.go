@@ -36,14 +36,16 @@ func TestSync(t *testing.T) {
 	vObjectMeta := metav1.ObjectMeta{
 		Name:        "testpvc",
 		Namespace:   "testns",
-		ClusterName: "myvcluster",
 	}
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      translate.PhysicalName("testpvc", "testns"),
 		Namespace: "test",
+		Annotations: map[string]string{
+			translate.NameAnnotation: vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
-			translate.NameLabel: vObjectMeta.Name,
 			translate.NamespaceLabel: vObjectMeta.Namespace,
 		},
 	}
@@ -64,7 +66,6 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              vObjectMeta.Name,
 			Namespace:         vObjectMeta.Namespace,
-			ClusterName:       vObjectMeta.ClusterName,
 			DeletionTimestamp: &metav1.Time{time.Now()},
 		},
 	}
@@ -72,7 +73,6 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vObjectMeta.Name,
 			Namespace:   vObjectMeta.Namespace,
-			ClusterName: vObjectMeta.ClusterName,
 			Annotations: map[string]string{
 				"otherAnnotationKey": "update this",
 			},
@@ -85,8 +85,10 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
-			ClusterName: pObjectMeta.ClusterName,
 			Annotations: map[string]string{
+				translate.NameAnnotation: vObjectMeta.Name,
+				translate.NamespaceAnnotation: vObjectMeta.Namespace,
+				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
 				"otherAnnotationKey": "update this",
 			},
 			Labels: pObjectMeta.Labels,
@@ -100,6 +102,9 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
+				translate.NameAnnotation: vObjectMeta.Name,
+				translate.NamespaceAnnotation: vObjectMeta.Namespace,
+				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
 				bindCompletedAnnotation:      "testannotation",
 				boundByControllerAnnotation:  "testannotation2",
 				storageProvisionerAnnotation: "testannotation3",
@@ -276,14 +281,14 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Update backwards new status",
-			InitialVirtualState:  []runtime.Object{basePvc},
-			InitialPhysicalState: []runtime.Object{backwardUpdateStatusPvc},
+			InitialVirtualState:  []runtime.Object{basePvc.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{backwardUpdateStatusPvc.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdatedStatusPvc},
-				corev1.SchemeGroupVersion.WithKind("PersistentVolume"):      {persistentVolume},
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdatedStatusPvc.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"):      {persistentVolume.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdateStatusPvc},
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdateStatusPvc.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(lockFactory, pClient, vClient)

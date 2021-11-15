@@ -70,14 +70,14 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 
 	return generic.RegisterSyncerWithOptions(ctx, "secret", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
-		
+
 		virtualClient: ctx.VirtualManager.GetClient(),
 		localClient:   ctx.LocalManager.GetClient(),
 
 		useLegacyIngress: useLegacy,
 		includeIngresses: includeIngresses,
 
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"}), "service"),
+		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "secret-syncer"}), "secret"),
 		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
 	}, &generic.SyncerOptions{
 		ModifyController: func(builder *builder.Builder) *builder.Builder {
@@ -105,7 +105,7 @@ type syncer struct {
 	useLegacyIngress bool
 	includeIngresses bool
 
-	creator *generic.GenericCreator
+	creator    *generic.GenericCreator
 	translator translate.Translator
 }
 

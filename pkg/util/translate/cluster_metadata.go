@@ -40,7 +40,6 @@ func (d *defaultClusterTranslator) TranslateLabels(vObj client.Object) map[strin
 		}
 	}
 	newLabels[MarkerLabel] = SafeConcatName(d.physicalNamespace, "x", Suffix)
-	newLabels[NameLabel] = SafeConcatName(vObj.GetName())
 	return newLabels
 }
 

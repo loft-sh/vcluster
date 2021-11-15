@@ -39,9 +39,12 @@ func TestSync(t *testing.T) {
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      translate.PhysicalName("testservice", "testns"),
 		Namespace: "test",
+		Annotations: map[string]string{
+			translate.NameAnnotation: vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
-			translate.NameLabel:      vObjectMeta.Name,
 			translate.MarkerLabel:    translate.Suffix,
 		},
 	}
@@ -91,7 +94,12 @@ func TestSync(t *testing.T) {
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
 			ClusterName: pObjectMeta.ClusterName,
-			Annotations: map[string]string{"a": "b"},
+			Annotations: map[string]string{
+				translate.NameAnnotation: vObjectMeta.Name,
+				translate.NamespaceAnnotation: vObjectMeta.Namespace,
+				translate.ManagedAnnotationsAnnotation: "a",
+				"a": "b",
+			},
 			Labels:      pObjectMeta.Labels,
 		},
 		Spec: updateForwardSpec,
@@ -113,8 +121,8 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
-			ClusterName: pObjectMeta.ClusterName,
 			Labels:      pObjectMeta.Labels,
+			Annotations: pObjectMeta.Annotations,
 		},
 		Spec: updateBackwardSpec,
 	}
@@ -122,7 +130,6 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vObjectMeta.Name,
 			Namespace:   vObjectMeta.Namespace,
-			ClusterName: vObjectMeta.ClusterName,
 		},
 		Spec: corev1.ServiceSpec{
 			ExternalIPs:              []string{"123:221:123:221"},
@@ -134,8 +141,8 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pObjectMeta.Name,
 			Namespace:   pObjectMeta.Namespace,
-			ClusterName: pObjectMeta.ClusterName,
 			Labels:      pObjectMeta.Labels,
+			Annotations: pObjectMeta.Annotations,
 		},
 		Spec: updateBackwardRecreateSpec,
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,10 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 )
-
-const NotFoundPrefix = "$not:found$"
 
 func RegisterSyncerIndices(ctx *context2.ControllerContext, obj client.Object) error {
 	// index objects by their virtual name
@@ -35,7 +31,7 @@ func RegisterSyncer(ctx *context2.ControllerContext, name string, syncer Syncer)
 }
 
 type SyncerOptions struct {
-	ModifyController func(builder *builder.Builder) *builder.Builder
+	ModifyController        func(builder *builder.Builder) *builder.Builder
 	MaxConcurrentReconciles int
 }
 
@@ -71,60 +67,26 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
-	// not found case happens if there is a physical object but no corresponding
-	// virtual object anymore.
-	var (
-		vObj client.Object
-		pObj client.Object
-	)
-	if strings.HasPrefix(req.Name, NotFoundPrefix) {
-		req.Name = strings.TrimPrefix(req.Name, NotFoundPrefix)
-
-		// get physical object
-		pObj = r.syncer.New()
-		err := r.localClient.Get(ctx, req.NamespacedName, pObj)
-		if err != nil {
-			if kerrors.IsNotFound(err) == false {
-				return ctrl.Result{}, err
-			}
-
-			return ctrl.Result{}, nil
+	// get virtual resource
+	vObj := r.syncer.New()
+	err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
+	if err != nil {
+		if kerrors.IsNotFound(err) == false {
+			return ctrl.Result{}, err
 		}
 
-		vName := r.syncer.PhysicalToVirtual(pObj)
-		if vName.Name != "" {
-			vObj = r.syncer.New()
-			err := r.virtualClient.Get(ctx, vName, vObj)
-			if err != nil {
-				if kerrors.IsNotFound(err) == false {
-					return ctrl.Result{}, err
-				}
+		vObj = nil
+	}
 
-				vObj = nil
-			}
-		}
-	} else {
-		// get virtual resource
-		vObj = r.syncer.New()
-		err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
-		if err != nil {
-			if kerrors.IsNotFound(err) == false {
-				return ctrl.Result{}, err
-			}
-
-			vObj = nil
+	// translate to physical name
+	pObj := r.syncer.New()
+	err = r.localClient.Get(ctx, r.syncer.VirtualToPhysical(req.NamespacedName, vObj), pObj)
+	if err != nil {
+		if kerrors.IsNotFound(err) == false {
+			return ctrl.Result{}, err
 		}
 
-		// translate to physical name
-		pObj = r.syncer.New()
-		err = r.localClient.Get(ctx, r.syncer.VirtualToPhysical(req.NamespacedName, vObj), pObj)
-		if err != nil {
-			if kerrors.IsNotFound(err) == false {
-				return ctrl.Result{}, err
-			}
-
-			pObj = nil
-		}
+		pObj = nil
 	}
 
 	// check what function we should call
@@ -189,11 +151,6 @@ func (r *syncerController) enqueuePhysical(obj client.Object, q workqueue.RateLi
 	name := r.syncer.PhysicalToVirtual(obj)
 	if name.Name != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
-	} else {
-		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      NotFoundPrefix + obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}})
 	}
 }
 
@@ -202,7 +159,7 @@ func (r *syncerController) Register(name string, physicalManager ctrl.Manager, v
 	if options.MaxConcurrentReconciles > 0 {
 		maxConcurrentReconciles = options.MaxConcurrentReconciles
 	}
-	
+
 	controller := ctrl.NewControllerManagedBy(virtualManager).
 		WithOptions(controller2.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,

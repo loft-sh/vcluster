@@ -47,9 +47,12 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.PhysicalName(baseConfigMap.Name, baseConfigMap.Namespace),
 			Namespace: "test",
+			Annotations: map[string]string{
+				translate.NameAnnotation: baseConfigMap.Name,
+				translate.NamespaceAnnotation: baseConfigMap.Namespace,
+			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseConfigMap.Namespace,
-				translate.NameLabel: baseConfigMap.Name,
 			},
 		},
 	}
