@@ -56,9 +56,9 @@ spec:
           - "/bin/k3s"
         args:
           - "server"
-          - "--write-kubeconfig=/k3s-config/kube-config.yaml"
+          - "--write-kubeconfig=/data/k3s-config/kube-config.yaml"
           - "--data-dir=/data"
-          - "--disable=traefik,servicelb,metrics-server,local-storage"
+          - "--disable=traefik,servicelb,metrics-server,local-storage,coredns"
           - "--disable-network-policy"
           - "--disable-agent"
           - "--disable-scheduler"
@@ -138,9 +138,9 @@ vcluster:
     - /bin/k3s
   baseArgs:
     - server
-    - --write-kubeconfig=/k3s-config/kube-config.yaml
+    - --write-kubeconfig=/data/k3s-config/kube-config.yaml
     - --data-dir=/data
-    - --disable=traefik,servicelb,metrics-server,local-storage
+    - --disable=traefik,servicelb,metrics-server,local-storage,coredns
     - --disable-network-policy
     - --disable-agent
     - --disable-scheduler
@@ -186,9 +186,9 @@ spec:
           - "/bin/k3s"
         args:
           - "server"
-          - "--write-kubeconfig=/k3s-config/kube-config.yaml"
+          - "--write-kubeconfig=/data/k3s-config/kube-config.yaml"
           - "--data-dir=/data"
-          - "--disable=traefik,servicelb,metrics-server,local-storage"
+          - "--disable=traefik,servicelb,metrics-server,local-storage,coredns"
           - "--disable-network-policy"
           - "--disable-agent"
           - "--disable-scheduler"

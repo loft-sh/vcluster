@@ -4,6 +4,7 @@ sidebar_label: 2. Deploy vclusters
 ---
 
 import DeploySegment from '../fragments/deploy-vcluster.mdx'
+import NonRootSegment from '../fragments/non-root-vcluster.mdx'
 
 Let's create a virtual cluster `vcluster-1` in namespace `host-namespace-1`:
 
@@ -22,3 +23,13 @@ If you want to deploy vclusters in an air-gapped environment, use the `kubectl` 
 One of the biggest benefits of vcluster compared to other virtual cluster approaches is that it does not require any special permissions. Even if you are not cluster-admin and only have access to deploy applications to one specific namespace, you will very likely be able to spin up a virtual cluster.
 
 Check out the `kubectl` tab above to see what `vcluster create` is actually deploying to the host-namespace.
+
+
+## Running as non-root user
+If your host cluster policies disallow running containers with root user, or you simply preffer to run them this way, it is possible to configure it for vcluster components. Steps below show how to set the desired UID for syncer and control plane. The syncer also passes this UID down to DNS deployment.
+
+<NonRootSegment/>
+
+:::info Container UID
+The UID configured for the vcluster is not applied to the workloads started inside the virtual cluster. It is applied only to the vcluster itself.
+:::
