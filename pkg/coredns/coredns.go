@@ -1,22 +1,6 @@
 package coredns
 
 import (
-	// "bytes"
-	// "fmt"
-	// "io/ioutil"
-	// "os"
-	// "path"
-	// "text/template"
-
-	// "k8s.io/apimachinery/pkg/api/meta"
-	// "k8s.io/apimachinery/pkg/runtime"
-	// "k8s.io/apimachinery/pkg/util/yaml"
-	// "k8s.io/apimachinery/pkg/version"
-	// "k8s.io/cli-runtime/pkg/genericclioptions"
-	// "k8s.io/cli-runtime/pkg/resource"
-	// "k8s.io/client-go/rest"
-	// "k8s.io/kubectl/pkg/cmd/apply"
-	// "k8s.io/kubectl/pkg/scheme"
 	"bytes"
 	"context"
 	"fmt"
