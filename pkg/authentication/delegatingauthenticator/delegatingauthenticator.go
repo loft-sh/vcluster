@@ -63,7 +63,7 @@ func (d *delegatingAuthenticator) AuthenticateToken(ctx context.Context, token s
 	}
 	d.cache.Add(token, &cacheEntry{
 		response: response,
-		exp:      now.Add(time.Second * 2),
+		exp:      now.Add(time.Second * 5),
 	})
 	return response, true, nil
 }
