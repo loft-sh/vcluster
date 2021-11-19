@@ -44,7 +44,7 @@ func (n *namespacedTranslator) PhysicalToVirtual(pObj client.Object) types.Names
 	}
 
 	vObj := n.obj.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context.Background(), n.virtualClient, vObj, constants.IndexByVName, pObj.GetName())
+	err := clienthelper.GetByIndex(context.Background(), n.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
 	if err != nil {
 		return types.NamespacedName{}
 	}

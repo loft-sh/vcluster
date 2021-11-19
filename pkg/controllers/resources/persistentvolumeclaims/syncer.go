@@ -46,7 +46,7 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	return generic.RegisterSyncer(ctx, "persistentvolumeclaim", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.PersistentVolumeClaim{}),
-		
+
 		useFakePersistentVolumes:     ctx.Options.UseFakePersistentVolumes,
 		sharedPersistentVolumesMutex: ctx.LockFactory.GetLock("persistent-volumes-controller"),
 
@@ -61,7 +61,7 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 
 type syncer struct {
 	generic.Translator
-	
+
 	useFakePersistentVolumes     bool
 	sharedPersistentVolumesMutex sync.Locker
 
@@ -69,7 +69,7 @@ type syncer struct {
 	localClient     client.Client
 	virtualClient   client.Client
 
-	creator *generic.GenericCreator
+	creator    *generic.GenericCreator
 	translator translate.Translator
 }
 
@@ -102,7 +102,7 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	vPvc := vObj.(*corev1.PersistentVolumeClaim)
 	pPvc := pObj.(*corev1.PersistentVolumeClaim)
-	
+
 	// if pvs are deleted check the corresponding pvc is deleted as well
 	if pPvc.DeletionTimestamp != nil {
 		if vPvc.DeletionTimestamp == nil {
@@ -137,7 +137,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 			return ctrl.Result{}, err
 		}
 	}
-	
+
 	// check backwards update
 	updated := s.translateUpdateBackwards(pPvc, vPvc)
 	if updated != nil {
@@ -150,7 +150,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		// we will requeue anyways
 		return ctrl.Result{}, nil
 	}
-	
+
 	// check backwards status
 	if !equality.Semantic.DeepEqual(vPvc.Status, pPvc.Status) {
 		vPvc.Status = *pPvc.Status.DeepCopy()
@@ -198,7 +198,7 @@ func (s *syncer) ensurePersistentVolume(ctx context.Context, pObj *corev1.Persis
 		newVolumeName := pObj.Spec.VolumeName
 		if s.useFakePersistentVolumes == false {
 			vObj := &corev1.PersistentVolume{}
-			err = clienthelper.GetByIndex(ctx, s.virtualClient, vObj, constants.IndexByVName, pObj.Spec.VolumeName)
+			err = clienthelper.GetByIndex(ctx, s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.Spec.VolumeName)
 			if err != nil {
 				log.Infof("error retrieving virtual persistent volume %s: %v", pObj.Spec.VolumeName, err)
 				return err

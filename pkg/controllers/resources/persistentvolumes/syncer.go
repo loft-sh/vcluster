@@ -9,13 +9,18 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+	"time"
 )
 
 const (
@@ -24,28 +29,53 @@ const (
 
 func RegisterSyncerIndices(ctx *context2.ControllerContext) error {
 	// index objects by their virtual name
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolume{}, constants.IndexByVName, func(rawObj client.Object) []string {
-		physicalName := NewPersistentVolumeTranslator(ctx.Options.TargetNamespace).PhysicalName(rawObj.(*corev1.PersistentVolume).Name, rawObj)
-		return []string{physicalName}
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolume{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		return []string{translatePersistentVolumeName(ctx.Options.TargetNamespace, rawObj.(*corev1.PersistentVolume).Name, rawObj)}
 	})
 }
 
 func RegisterSyncer(ctx *context2.ControllerContext) error {
-	nameTranslator := NewPersistentVolumeTranslator(ctx.Options.TargetNamespace)
-	return generic.RegisterSyncer(ctx, "persistentvolume", &syncer{
-		Translator: generic.NewClusterTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &schedulingv1.PriorityClass{}, nameTranslator),
-		
+	return generic.RegisterSyncerWithOptions(ctx, "persistentvolume", &syncer{
 		targetNamespace: ctx.Options.TargetNamespace,
 		localClient:     ctx.LocalManager.GetClient(),
 		virtualClient:   ctx.VirtualManager.GetClient(),
-		
-		translator: translate.NewDefaultClusterTranslator(ctx.Options.TargetNamespace, nameTranslator, HostClusterPersistentVolumeAnnotation),
+
+		translator: translate.NewDefaultClusterTranslator(ctx.Options.TargetNamespace, NewPersistentVolumeTranslator(ctx.Options.TargetNamespace), HostClusterPersistentVolumeAnnotation),
+	}, &generic.SyncerOptions{
+		ModifyController: func(builder *builder.Builder) *builder.Builder {
+			return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(mapPVCs))
+		},
 	})
+}
+
+func mapPVCs(obj client.Object) []reconcile.Request {
+	pvc, ok := obj.(*corev1.PersistentVolumeClaim)
+	if !ok {
+		return nil
+	}
+
+	if pvc.Spec.VolumeName != "" {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name: pvc.Spec.VolumeName,
+				},
+			},
+		}
+	}
+
+	return nil
+}
+
+func NewPersistentVolumeTranslator(physicalNamespace string) translate.PhysicalNameTranslator {
+	return func(vName string, vObj client.Object) string {
+		return translatePersistentVolumeName(physicalNamespace, vName, vObj)
+	}
 }
 
 type syncer struct {
 	generic.Translator
-	
+
 	targetNamespace string
 	localClient     client.Client
 	virtualClient   client.Client
@@ -90,6 +120,19 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
 	vPersistentVolume := vObj.(*corev1.PersistentVolume)
 
+	// check if objects are getting deleted
+	if vObj.GetDeletionTimestamp() != nil {
+		if pObj.GetDeletionTimestamp() == nil {
+			log.Infof("delete physical persistent volume %s, because virtual persistent volume is terminating", vObj.GetName())
+			err := s.localClient.Delete(ctx, pObj)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		return ctrl.Result{RequeueAfter: time.Second}, nil
+	}
+
 	// check if the persistent volume should get synced
 	sync, vPvc, err := s.shouldSync(ctx, pPersistentVolume)
 	if err != nil {
@@ -120,7 +163,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		
+
 		// we will reconcile anyways
 		return ctrl.Result{}, nil
 	}
@@ -142,7 +185,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 			}
 			return ctrl.Result{}, err
 		}
-		
+
 		updatedPv := s.translateUpdate(vPersistentVolume, pPersistentVolume)
 		if updatedPv != nil {
 			log.Infof("update physical persistent volume %s, because spec or annotations have changed", updatedPv.Name)
@@ -155,6 +198,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 
 	return ctrl.Result{}, nil
 }
+
+var _ generic.BackwardSyncer = &syncer{}
 
 func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
@@ -188,7 +233,7 @@ func (s *syncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) 
 	}
 
 	vPvc := &corev1.PersistentVolumeClaim{}
-	err := clienthelper.GetByIndex(ctx, s.virtualClient, vPvc, constants.IndexByVName, pObj.Spec.ClaimRef.Name)
+	err := clienthelper.GetByIndex(ctx, s.virtualClient, vPvc, constants.IndexByPhysicalName, pObj.Spec.ClaimRef.Name)
 	if err != nil {
 		if kerrors.IsNotFound(err) == false {
 			return false, nil, err
@@ -216,19 +261,36 @@ func (s *syncer) IsManaged(pObj client.Object) (bool, error) {
 	return sync, nil
 }
 
-func NewPersistentVolumeTranslator(targetNamespace string) translate.PhysicalNameTranslator {
-	return &nameTranslator{targetNamespace: targetNamespace}
+func (s *syncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+	return types.NamespacedName{Name: translatePersistentVolumeName(s.targetNamespace, req.Name, vObj)}
 }
 
-type nameTranslator struct {
-	targetNamespace string
-}
+func (s *syncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+	pAnnotations := pObj.GetAnnotations()
+	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
+		return types.NamespacedName{
+			Name: pAnnotations[translate.NameAnnotation],
+		}
+	}
 
-func (s *nameTranslator) PhysicalName(name string, obj client.Object) string {
-	return translatePersistentVolumeName(s.targetNamespace, name, obj)
+	vObj := &corev1.PersistentVolume{}
+	err := clienthelper.GetByIndex(context.Background(), s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return types.NamespacedName{}
+		}
+
+		return types.NamespacedName{Name: pObj.GetName()}
+	}
+
+	return types.NamespacedName{Name: vObj.GetName()}
 }
 
 func translatePersistentVolumeName(physicalNamespace, name string, vObj runtime.Object) string {
+	if vObj == nil {
+		return name
+	}
+
 	vPv, ok := vObj.(*corev1.PersistentVolume)
 	if !ok || vPv.Annotations == nil || vPv.Annotations[HostClusterPersistentVolumeAnnotation] == "" {
 		return translate.PhysicalNameClusterScoped(name, physicalNamespace)

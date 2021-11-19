@@ -23,13 +23,9 @@ type Translator interface {
 	TranslateAnnotations(vObj client.Object, pObj client.Object) map[string]string
 }
 
-type PhysicalNameTranslator interface {
-	PhysicalName(vName string, vObj client.Object) string
-}
+type PhysicalNameTranslator func(vName string, vObj client.Object) string
 
-type defaultPhysicalName struct{}
-
-func (d *defaultPhysicalName) PhysicalName(vName string, vObj client.Object) string {
+func DefaultPhysicalName(vName string, vObj client.Object) string {
 	name, namespace := vObj.GetName(), vObj.GetNamespace()
 	return PhysicalName(name, namespace)
 }
@@ -47,7 +43,7 @@ type defaultTranslator struct {
 }
 
 func (d *defaultTranslator) Translate(vObj client.Object) (runtime.Object, error) {
-	pObj, err := setupMetadataWithName(d.physicalNamespace, vObj, &defaultPhysicalName{})
+	pObj, err := setupMetadataWithName(d.physicalNamespace, vObj, DefaultPhysicalName)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +101,7 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 	} else {
 		retMap[NamespaceAnnotation] = vObj.GetNamespace()
 	}
-	
+
 	managedAnnotationsStr := strings.Join(managedAnnotations, "\n")
 	if managedAnnotationsStr == "" {
 		delete(retMap, ManagedAnnotationsAnnotation)
@@ -142,7 +138,7 @@ func setupMetadataWithName(targetNamespace string, vObj client.Object, translato
 
 	// reset metadata & translate name and namespace
 	ResetObjectMetadata(m)
-	m.SetName(translator.PhysicalName(m.GetName(), vObj))
+	m.SetName(translator(m.GetName(), vObj))
 	if vObj.GetNamespace() != "" {
 		m.SetNamespace(targetNamespace)
 

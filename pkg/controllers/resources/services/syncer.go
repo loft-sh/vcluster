@@ -29,7 +29,7 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	var (
-		err error
+		err           error
 		serviceClient = ctx.LocalManager.GetClient()
 	)
 	if ctx.Options.ServiceNamespace != ctx.Options.TargetNamespace {
@@ -45,7 +45,7 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 	recorder := eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"})
 	return generic.RegisterSyncer(ctx, "service", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
-		
+
 		serviceNamespace: ctx.Options.ServiceNamespace,
 		serviceName:      ctx.Options.ServiceName,
 		serviceClient:    serviceClient,
@@ -67,7 +67,7 @@ type syncer struct {
 	localClient   client.Client
 	virtualClient client.Client
 
-	creator *generic.GenericCreator
+	creator    *generic.GenericCreator
 	translator translate.Translator
 }
 
@@ -80,7 +80,7 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	
+
 	return s.creator.Create(ctx, vObj, pObj, log)
 }
 
@@ -92,7 +92,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	if isSwitchingFromExternalName(pService, vService) {
 		return ctrl.Result{RequeueAfter: time.Second * 3}, nil
 	}
-	
+
 	// check if backwards update is necessary
 	newService := s.translateUpdateBackwards(pService, vService)
 	if newService != nil {
@@ -118,7 +118,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		// we will requeue anyways
 		return ctrl.Result{}, nil
 	}
-	
+
 	// check if backwards status update is necessary
 	if !equality.Semantic.DeepEqual(vService.Status, pService.Status) {
 		newService := vService.DeepCopy()
@@ -143,6 +143,10 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 var _ generic.BackwardSyncer = &syncer{}
 
 func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+	if !translate.IsManaged(pObj) {
+		return ctrl.Result{}, nil
+	}
+
 	// we have to delay deletion here if a vObj does not (yet) exist for a service that was just
 	// created, because vcluster intercepts those calls and first creates a service inside the host
 	// cluster and then inside the virtual cluster.

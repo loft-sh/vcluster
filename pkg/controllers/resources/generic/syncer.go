@@ -21,7 +21,7 @@ import (
 
 func RegisterSyncerIndices(ctx *context2.ControllerContext, obj client.Object) error {
 	// index objects by their virtual name
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj, constants.IndexByVName, func(rawObj client.Object) []string {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translate.ObjectPhysicalName(rawObj)}
 	})
 }
@@ -95,17 +95,17 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	} else if vObj != nil && pObj != nil {
 		return r.syncer.Update(ctx, pObj, vObj, log)
 	} else if vObj == nil && pObj != nil {
+		// check if backward syncer
+		backwardSyncer, ok := r.syncer.(BackwardSyncer)
+		if ok {
+			return backwardSyncer.Backward(ctx, pObj, log)
+		}
+
 		managed, err := r.syncer.IsManaged(pObj)
 		if err != nil {
 			return ctrl.Result{}, err
 		} else if !managed {
 			return ctrl.Result{}, nil
-		}
-
-		// check if backward syncer
-		deleter, ok := r.syncer.(BackwardSyncer)
-		if ok {
-			return deleter.Backward(ctx, pObj, log)
 		}
 
 		return DeleteObject(ctx, r.localClient, pObj, log)
