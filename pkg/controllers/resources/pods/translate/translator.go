@@ -255,7 +255,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		pPod.Spec.PriorityClassName = ""
 		pPod.Spec.Priority = nil
 	} else if pPod.Spec.PriorityClassName != "" {
-		pPod.Spec.PriorityClassName = priorityclasses.NewPriorityClassNameTranslator(pPod.Namespace).PhysicalName(pPod.Spec.PriorityClassName, nil)
+		pPod.Spec.PriorityClassName = priorityclasses.NewPriorityClassTranslator(pPod.Namespace)(pPod.Spec.PriorityClassName, nil)
 		if pPod.Spec.Priority != nil && *pPod.Spec.Priority > maxPriority {
 			pPod.Spec.Priority = &maxPriority
 		}

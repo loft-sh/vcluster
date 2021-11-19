@@ -15,15 +15,14 @@ import (
 
 func RegisterSyncerIndices(ctx *context2.ControllerContext) error {
 	// index objects by their virtual name
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &schedulingv1.PriorityClass{}, constants.IndexByVName, func(rawObj client.Object) []string {
-		physicalName := NewPriorityClassNameTranslator(ctx.Options.TargetNamespace).PhysicalName(rawObj.(*schedulingv1.PriorityClass).Name, rawObj)
-		return []string{physicalName}
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &schedulingv1.PriorityClass{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		return []string{translatePriorityClassName(ctx.Options.TargetNamespace, rawObj.GetName())}
 	})
 }
 
 func RegisterSyncer(ctx *context2.ControllerContext) error {
 	// build syncer and register it
-	nameTranslator := NewPriorityClassNameTranslator(ctx.Options.TargetNamespace)
+	nameTranslator := NewPriorityClassTranslator(ctx.Options.TargetNamespace)
 	return generic.RegisterSyncer(ctx, "name", &syncer{
 		Translator: generic.NewClusterTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &schedulingv1.PriorityClass{}, nameTranslator),
 
@@ -36,7 +35,7 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 
 type syncer struct {
 	generic.Translator
-	
+
 	targetNamespace string
 	localClient     client.Client
 	virtualClient   client.Client
@@ -79,19 +78,13 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	return ctrl.Result{}, nil
 }
 
-func NewPriorityClassNameTranslator(targetNamespace string) translate.PhysicalNameTranslator {
-	return &nameTranslator{targetNamespace: targetNamespace}
+func NewPriorityClassTranslator(physicalNamespace string) translate.PhysicalNameTranslator {
+	return func(vName string, vObj client.Object) string {
+		return translatePriorityClassName(physicalNamespace, vName)
+	}
 }
 
-type nameTranslator struct {
-	targetNamespace string
-}
-
-func (s *nameTranslator) PhysicalName(name string, obj client.Object) string {
-	return translatePriorityClassName(name, s.targetNamespace)
-}
-
-func translatePriorityClassName(name, namespace string) string {
+func translatePriorityClassName(physicalNamespace, name string) string {
 	// we have to prefix with vcluster as system is reserved
-	return translate.PhysicalNameClusterScoped(name, namespace)
+	return translate.PhysicalNameClusterScoped(name, physicalNamespace)
 }

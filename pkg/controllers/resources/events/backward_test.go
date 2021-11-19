@@ -20,7 +20,7 @@ import (
 var targetNamespace = "p-test"
 
 func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *backwardController {
-	err := vClient.IndexField(ctx, &corev1.Pod{}, constants.IndexByVName, func(rawObj client.Object) []string {
+	err := vClient.IndexField(ctx, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translate.ObjectPhysicalName(rawObj)}
 	})
 	if err != nil {

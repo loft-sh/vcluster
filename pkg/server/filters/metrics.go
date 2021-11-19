@@ -161,7 +161,7 @@ func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vCli
 
 		// search if we can find the pod by name in the virtual cluster
 		podList := &corev1.PodList{}
-		err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByVName: pod.PodRef.Name})
+		err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: pod.PodRef.Name})
 		if err != nil {
 			return nil, err
 		}

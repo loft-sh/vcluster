@@ -84,7 +84,7 @@ func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, targetNam
 
 			// search if we can find the pod by name in the virtual cluster
 			podList := &corev1.PodList{}
-			err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByVName: pod})
+			err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: pod})
 			if err != nil {
 				return nil, err
 			}

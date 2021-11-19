@@ -1,7 +1,7 @@
 package constants
 
 const (
-	IndexByVName         = "IndexByVName"
+	IndexByPhysicalName  = "IndexByPhysicalName"
 	IndexByAssigned      = "IndexByAssigned"
 	IndexByStorageClass  = "IndexByStorageClass"
 	IndexByIngressSecret = "IndexByIngressSecret"

@@ -19,7 +19,7 @@ import (
 )
 
 func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) (*syncer, error) {
-	err := vClient.IndexField(ctx, &corev1.PersistentVolumeClaim{}, constants.IndexByVName, func(rawObj client.Object) []string {
+	err := vClient.IndexField(ctx, &corev1.PersistentVolumeClaim{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translate.ObjectPhysicalName(rawObj)}
 	})
 	if err != nil {
@@ -37,8 +37,8 @@ func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vC
 func TestSync(t *testing.T) {
 	basePvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "testpvc",
-			Namespace:   "test",
+			Name:      "testpvc",
+			Namespace: "test",
 		},
 	}
 	basePPvcReference := &corev1.ObjectReference{
@@ -52,7 +52,7 @@ func TestSync(t *testing.T) {
 		ResourceVersion: generictesting.FakeClientResourceVersion,
 	}
 	basePvObjectMeta := metav1.ObjectMeta{
-		Name:      "testpv",
+		Name: "testpv",
 		Annotations: map[string]string{
 			"vcluster.loft.sh/host-pv": "testpv",
 		},

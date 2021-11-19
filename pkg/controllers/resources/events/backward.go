@@ -67,15 +67,15 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 	index := ""
 	switch pObj.InvolvedObject.Kind {
 	case "Pod":
-		index = constants.IndexByVName
+		index = constants.IndexByPhysicalName
 	case "Service":
-		index = constants.IndexByVName
+		index = constants.IndexByPhysicalName
 	case "Endpoint":
-		index = constants.IndexByVName
+		index = constants.IndexByPhysicalName
 	case "Secret":
-		index = constants.IndexByVName
+		index = constants.IndexByPhysicalName
 	case "ConfigMap":
-		index = constants.IndexByVName
+		index = constants.IndexByPhysicalName
 	default:
 		return ctrl.Result{}, nil
 	}

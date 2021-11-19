@@ -31,7 +31,7 @@ func (n *clusterTranslator) IsManaged(pObj client.Object) (bool, error) {
 
 func (n *clusterTranslator) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
-		Name: n.nameTranslator.PhysicalName(req.Name, vObj),
+		Name: n.nameTranslator(req.Name, vObj),
 	}
 }
 
@@ -45,7 +45,7 @@ func (n *clusterTranslator) PhysicalToVirtual(pObj client.Object) types.Namespac
 	}
 
 	vObj := n.obj.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context.Background(), n.virtualClient, vObj, constants.IndexByVName, pObj.GetName())
+	err := clienthelper.GetByIndex(context.Background(), n.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
 	if err != nil {
 		return types.NamespacedName{}
 	}
