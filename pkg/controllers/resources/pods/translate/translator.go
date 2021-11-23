@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"regexp"
 	"sort"
 	"strconv"
@@ -19,6 +18,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -459,6 +459,9 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 		}
 		if pPod.Spec.Volumes[i].CSI != nil && pPod.Spec.Volumes[i].CSI.NodePublishSecretRef != nil {
 			pPod.Spec.Volumes[i].CSI.NodePublishSecretRef.Name = translate.PhysicalName(pPod.Spec.Volumes[i].CSI.NodePublishSecretRef.Name, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].Glusterfs != nil && pPod.Spec.Volumes[i].Glusterfs.EndpointsName != "" {
+			pPod.Spec.Volumes[i].Glusterfs.EndpointsName = translate.PhysicalName(pPod.Spec.Volumes[i].Glusterfs.EndpointsName, vPod.Namespace)
 		}
 	}
 
