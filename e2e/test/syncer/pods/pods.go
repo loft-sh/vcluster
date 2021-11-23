@@ -14,7 +14,7 @@ import (
 
 const (
 	testingContainerName  = "nginx"
-	testingContainerImage = "nginx"
+	testingContainerImage = "nginxinc/nginx-unprivileged"
 	ipRegExp              = "(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]).){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
 )
 
@@ -55,6 +55,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 						Name:            testingContainerName,
 						Image:           testingContainerImage,
 						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
 					},
 				},
 			},
@@ -98,6 +99,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 						Name:            testingContainerName,
 						Image:           testingContainerImage,
 						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
 					},
 				},
 			},
@@ -142,6 +144,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 						Name:            testingContainerName,
 						Image:           testingContainerImage,
 						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
 						Env: []corev1.EnvVar{
 							{
 								Name: envVarName,
@@ -224,6 +227,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 						Name:            testingContainerName,
 						Image:           testingContainerImage,
 						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
 						Env: []corev1.EnvVar{
 							{
 								Name: envVarName,
@@ -304,6 +308,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 						Name:            testingContainerName,
 						Image:           testingContainerImage,
 						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
 						Env: []corev1.EnvVar{
 							{
 								Name:  "FIRST",

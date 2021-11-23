@@ -7,6 +7,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/pointer"
 )
 
 func (f *Framework) WaitForPodRunning(podName string, ns string) error {
@@ -66,4 +67,10 @@ func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error 
 		}
 		return false, err
 	})
+}
+
+func (f *Framework) GetDefaultSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		RunAsUser: pointer.Int64(12345),
+	}
 }

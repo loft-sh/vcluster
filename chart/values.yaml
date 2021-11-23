@@ -11,6 +11,7 @@ syncer:
   volumeMounts:
     - mountPath: /data
       name: data
+      readOnly: true
   resources:
     limits:
       memory: 1Gi
@@ -26,9 +27,9 @@ vcluster:
     - /bin/k3s
   baseArgs:
     - server
-    - --write-kubeconfig=/k3s-config/kube-config.yaml
+    - --write-kubeconfig=/data/k3s-config/kube-config.yaml
     - --data-dir=/data
-    - --disable=traefik,servicelb,metrics-server,local-storage
+    - --disable=traefik,servicelb,metrics-server,local-storage,coredns
     - --disable-network-policy
     - --disable-agent
     - --disable-scheduler
@@ -119,3 +120,23 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+# Configure SecurityContext of the containers in the VCluster pod
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - all
+  # readOnlyRootFilesystem will be set to true by default at a later release
+  # currently leaving it undefined for backwards compatibility with older vcluster cli versions
+  # readOnlyRootFilesystem: true
+
+  # To run vcluster pod as non-root uncomment runAsUser and runAsNonRoot values.
+  # Update the runAsUser value if your cluster has limitations on user UIDs.
+  # For installation on OpenShift leave the runAsUser undefined (commented out).
+  # runAsUser: 12345
+  # runAsNonRoot: true
+
+openshift:
+  # Set "enable" to true when running vcluster in an OpenShift host
+  enable: false
