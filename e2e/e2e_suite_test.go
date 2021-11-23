@@ -21,6 +21,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	// Register tests
+	_ "github.com/loft-sh/vcluster/e2e/test/coredns"
 	_ "github.com/loft-sh/vcluster/e2e/test/syncer/pods"
 	_ "github.com/loft-sh/vcluster/e2e/test/syncer/services"
 )
