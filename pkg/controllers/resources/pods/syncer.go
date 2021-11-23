@@ -2,6 +2,10 @@ package pods
 
 import (
 	"context"
+	"reflect"
+	"sync"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
@@ -16,10 +20,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var (
@@ -74,11 +82,12 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 			return errors.Wrap(err, "create uncached client")
 		}
 	}
+	podsClient := ctx.VirtualManager.GetClient()
 
 	eventRecorder := eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "pod-syncer"})
-	return generic.RegisterSyncer(ctx, "pod", &syncer{
+	return generic.RegisterSyncerWithOptions(ctx, "pod", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Pod{}),
-		
+
 		sharedNodesMutex:     ctx.LockFactory.GetLock("nodes-controller"),
 		eventRecorder:        eventRecorder,
 		targetNamespace:      ctx.Options.TargetNamespace,
@@ -95,12 +104,41 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 
 		creator:      generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventRecorder, "pod"),
 		nodeSelector: nodeSelector,
+	}, &generic.SyncerOptions{
+		// reconcile pods on Namespace update in order to pick up ns label changes
+		ModifyController: func(builder *builder.Builder) *builder.Builder {
+			eventHandler := handler.Funcs{
+				UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+					// no need to reconcile pods if namespace labels didn't change
+					if reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) {
+						return
+					}
+
+					ns := e.ObjectNew.GetName()
+					pods := &corev1.PodList{}
+					err := podsClient.List(ctx.Context, pods, client.InNamespace(ns))
+					if err != nil {
+						log := loghelper.New("pods-syncer-ns-watch-handler")
+						log.Infof("failed to list pods in the %s namespace when handling namespace update: %v", ns, err)
+						return
+					}
+					for _, pod := range pods.Items {
+						q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+							Name:      pod.GetName(),
+							Namespace: ns,
+						}})
+					}
+				},
+			}
+
+			return builder.Watches(&source.Kind{Type: &corev1.Namespace{}}, eventHandler)
+		},
 	})
 }
 
 type syncer struct {
 	generic.Translator
-	
+
 	useFakeNodes bool
 
 	sharedNodesMutex     sync.Locker
@@ -116,7 +154,7 @@ type syncer struct {
 	nodeServiceProvider  nodeservice.NodeServiceProvider
 
 	nodeSelector *metav1.LabelSelector
-	
+
 	creator *generic.GenericCreator
 }
 
@@ -220,7 +258,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 
 		return ctrl.Result{}, nil
 	}
-	
+
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
 	if !equality.Semantic.DeepEqual(vPod.Status, strippedPod.Status) {
@@ -301,7 +339,7 @@ func (s *syncer) ensureNode(ctx context.Context, pObj *corev1.Pod, vObj *corev1.
 		if err != nil {
 			return false, err
 		}
-		
+
 		return true, nil
 	}
 
