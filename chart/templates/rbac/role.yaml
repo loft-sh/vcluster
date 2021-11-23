@@ -22,4 +22,9 @@ rules:
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
+{{- if .Values.openshift.enable }}
+  - apiGroups: [""]
+    resources: ["endpoints/restricted"]
+    verbs: ["create"]
+{{- end }}
 {{- end }}

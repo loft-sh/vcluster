@@ -71,6 +71,8 @@ type CreateCmd struct {
 	Connect            bool
 	Upgrade            bool
 
+	RunAsUser int64
+
 	log log.Logger
 }
 
@@ -115,6 +117,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", false, "If true will run vcluster connect directly after the vcluster was created")
 	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", true, "If true will try to upgrade the vcluster instead of failing if it already exists")
+	cobraCmd.Flags().Int64Var(&cmd.RunAsUser, "run-as-user", 0, "User UID that will be used to run the containers in vcluster pod and vcluster CoreDNS. Set to a non-zero value to run vcluster as non-root user. The value must be in a range that is acceptable by your cluster.")
 	return cobraCmd
 }
 
@@ -188,7 +191,7 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// load the default values
 	values := ""
 	if cmd.ReleaseValues == "" {
-		values, err = cmd.getDefaultReleaseValues(client, namespace, cmd.log)
+		values, err = cmd.getDefaultReleaseValues(cobraCmd, client, namespace, cmd.log)
 		if err != nil {
 			return err
 		}
@@ -238,7 +241,7 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (cmd *CreateCmd) getDefaultReleaseValues(client kubernetes.Interface, namespace string, log log.Logger) (string, error) {
+func (cmd *CreateCmd) getDefaultReleaseValues(cobraCmd *cobra.Command, client kubernetes.Interface, namespace string, log log.Logger) (string, error) {
 	image := cmd.K3SImage
 	serverVersionString := ""
 	if image == "" {
@@ -321,6 +324,12 @@ rbac:
 		values += `
 service:
   type: LoadBalancer`
+	}
+
+	if cobraCmd.Flags().Changed("run-as-user") {
+		values += `
+securityContext:
+  runAsUser: ` + fmt.Sprint(cmd.RunAsUser)
 	}
 
 	values = strings.ReplaceAll(values, "##IMAGE##", image)

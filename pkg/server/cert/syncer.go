@@ -3,27 +3,21 @@ package cert
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"sort"
+	"sync"
+	"time"
+
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	"k8s.io/klog"
-	"os"
-	"path/filepath"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"sync"
-	"time"
-)
-
-var (
-	certPath = "/var/lib/vcluster/tls"
 )
 
 type Syncer interface {
@@ -162,28 +156,15 @@ func (s *syncer) RunOnce() error {
 }
 
 func (s *syncer) regen(extraSANs []string) error {
-	err := os.MkdirAll(certPath, 0755)
-	if err != nil {
-		return err
-	}
-
 	klog.Infof("Generating serving cert for service ips: %v", extraSANs)
-	tlsCert := filepath.Join(certPath, "serving-tls.crt")
-	tlsKey := filepath.Join(certPath, "serving-tls.key")
-	_, err = GenServingCerts(s.serverCaCert, s.serverCaKey, tlsCert, tlsKey, s.clusterDomain, extraSANs)
-	if err != nil {
-		return err
-	}
 
-	s.currentCert, err = ioutil.ReadFile(tlsCert)
+	// GenServingCerts will write generated or updated cert/key to s.currentCert, s.currentKey
+	cert, key, _, err := GenServingCerts(s.serverCaCert, s.serverCaKey, s.currentCert, s.currentKey, s.clusterDomain, extraSANs)
 	if err != nil {
 		return err
 	}
-
-	s.currentKey, err = ioutil.ReadFile(tlsKey)
-	if err != nil {
-		return err
-	}
+	s.currentCert = cert
+	s.currentKey = key
 
 	s.currentSANs = extraSANs
 	return nil

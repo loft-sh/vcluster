@@ -110,9 +110,8 @@ If you are not using VSCode, configure your IDE to connect to `localhost:2346` f
 
 You can run the unit test suite with `./hack/test.sh` which should execute all the vcluster tests.  
 
-The e2e test suite can be run from the e2e folder(`cd e2e`) with this command - `VCLUSTER_SUFFIX=vcluster go test -v -ginkgo.v`.  
-Alternatively, if you [install ginkgo binary](https://github.com/onsi/ginkgo#global-installation), you can run it with `VCLUSTER_SUFFIX=vcluster ginkgo -v`.  
-If you are running vcluster with `devspace run dev` then the `VCLUSTER_SUFFIX` environment variable shouldn't be set, and you should run the tests with `go test -v -ginkgo.v` or `ginkgo -v`.  
+The e2e test suite can be run from the e2e folder(`cd e2e`) with this command - `go test -v -ginkgo.v`.  
+Alternatively, if you [install ginkgo binary](https://github.com/onsi/ginkgo#global-installation), you can run it with `ginkgo -v`.
 
 For running conformance tests, please take a look at [conformance tests](https://github.com/loft-sh/vcluster/tree/main/conformance/v1.21)
 

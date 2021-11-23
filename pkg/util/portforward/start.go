@@ -1,14 +1,19 @@
 package portforward
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport/spdy"
-	"net/http"
-	"os"
 )
 
 func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace string, localPort, remotePort string, log log.Logger) error {
@@ -28,7 +33,18 @@ func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace
 		log.Info("Restart port forwarding")
 
 		// wait for loft pod to start
-		_, err := podhelper.GetVClusterConfig(config, pod, namespace, log)
+		err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
+			pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), pod, metav1.GetOptions{})
+			if err != nil {
+				return false, nil
+			}
+			for _, c := range pod.Status.Conditions {
+				if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+					return true, nil
+				}
+			}
+			return false, nil
+		})
 		if err != nil {
 			return fmt.Errorf("error waiting for ready vcluster pod: %v", err)
 		}

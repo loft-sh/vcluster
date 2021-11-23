@@ -1,11 +1,12 @@
 package podhelper
 
 import (
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
-	"time"
 )
 
 func GetVClusterConfig(config *rest.Config, pod, namespace string, log log.Logger) ([]byte, error) {

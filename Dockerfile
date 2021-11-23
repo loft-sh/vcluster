@@ -20,8 +20,24 @@ COPY vendor/ vendor/
 COPY cmd/vcluster cmd/vcluster
 COPY pkg/ pkg/
 
+# Symlink /manifests folder to the synced location for development purposes
+RUN ln -s "$(pwd)/manifests" /manifests
+
 ENV GO111MODULE on
 ENV DEBUG true
+
+# create and set GOCACHE now, this should slightly speed up the first build inside of the container
+# also create /.config folder for GOENV, as dlv needs to write there when starting debugging
+RUN mkdir -p /.cache /.config
+ENV GOCACHE=/.cache
+ENV GOENV=/.config
+# Ensure the default group(0) owns all files and folders in /vcluster and /.cache 
+# to allow sync to /vcluster with devspace and allow go to write into build cache even when run as non-root
+RUN chgrp -R 0 /vcluster /.cache /.config && \
+    chmod -R g=u /vcluster /.cache /.config
+
+# Set home to "/" in order to for kubectl to automatically pick up vcluster kube config 
+ENV HOME /
 
 # Build cmd
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -o vcluster cmd/vcluster/main.go
@@ -35,5 +51,6 @@ FROM alpine
 WORKDIR /
 
 COPY --from=builder /vcluster/vcluster .
+COPY manifests/ /manifests/
 
 ENTRYPOINT ["/vcluster"]

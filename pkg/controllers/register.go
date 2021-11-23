@@ -1,7 +1,11 @@
 package controllers
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
@@ -20,7 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
-	"strings"
 )
 
 var ResourceControllers = map[string]func(*context.ControllerContext, record.EventBroadcaster) error{
@@ -79,7 +82,14 @@ func RegisterIndices(ctx *context.ControllerContext) error {
 func RegisterControllers(ctx *context.ControllerContext) error {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
-	
+
+	// register controller that keeps CoreDNS NodeHosts config up to date
+	err := registerCoreDNSController(ctx)
+	if err != nil {
+		return err
+	}
+
+	// register controllers for resource synchronization
 	disabled := parseDisabled(ctx.Options.DisableSyncResources)
 	for k, v := range ResourceControllers {
 		if disabled[k] {
@@ -93,6 +103,17 @@ func RegisterControllers(ctx *context.ControllerContext) error {
 		}
 	}
 
+	return nil
+}
+
+func registerCoreDNSController(ctx *context.ControllerContext) error {
+	err := (&coredns.CoreDNSNodeHostsReconciler{
+		Client: ctx.VirtualManager.GetClient(),
+		Log:    loghelper.New("corednsnodehosts-controller"),
+	}).SetupWithManager(ctx.VirtualManager)
+	if err != nil {
+		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
+	}
 	return nil
 }
 
