@@ -38,4 +38,4 @@ history -s $RUN_CMD
 history -a
 
 # hide "I have no name!" from the bash prompt
-bash --init-file <(echo "export PS1=\"\\H:\\W\\$\"")
+bash --init-file <(echo "export PS1=\"\\H:\\W\\$ \"")

@@ -97,6 +97,9 @@ spec:
         {{- else }}
         image: "loftsh/vcluster:{{ .Chart.Version }}"
         {{- end }}
+        {{- if .Values.syncer.workingDir }}
+        workingDir: {{ .Values.syncer.workingDir }}
+        {{- end }}
         {{- if .Values.syncer.command }}
         command:
         {{- range $f := .Values.syncer.command }}
