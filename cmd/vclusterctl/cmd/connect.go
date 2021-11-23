@@ -12,6 +12,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -149,7 +150,18 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	// get the kube config from the the Secret
 	kubeConfig, err := kubeconfig.ReadKubeConfig(context.Background(), kubeClient, vclusterName, cmd.Namespace)
 	if err != nil {
-		return err
+		cmd.Log.Infof("Unable to read the default Secret containing kube config: %v", err)
+		cmd.Log.Info("Falling back to reading the kube config from the syncer pod.")
+		// try to obtain the kube config the old way
+		out, err := podhelper.GetVClusterConfig(restConfig, podName, cmd.Namespace, cmd.Log)
+		if err != nil {
+			return err
+		} else {
+			kubeConfig, err = clientcmd.Load(out)
+			if err != nil {
+				return errors.Wrap(err, "failed to parse kube config")
+			}
+		}
 	}
 
 	// find out port we should listen to locally
