@@ -3,19 +3,25 @@ package pods
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/vcluster/e2e/framework"
+	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
 	testingContainerName  = "nginx"
 	testingContainerImage = "nginxinc/nginx-unprivileged"
 	ipRegExp              = "(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]).){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
+	initialNsLabelKey     = "testing-ns-label"
+	initialNsLabelValue   = "testing-ns-label-value"
 )
 
 var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
@@ -35,7 +41,10 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err)
 
 		// create test namespace
-		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+			Name:   ns,
+			Labels: map[string]string{initialNsLabelKey: initialNsLabelValue},
+		}}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	})
 
@@ -359,5 +368,61 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err)
 		framework.ExpectMatchRegexp(string(stdout), fmt.Sprintf("^%s://%s:%d\n$", myProtocol, ipRegExp, svcPort), "Service host and port environment variables should be resolved in a dependent environment variable")
 		framework.ExpectEqual(string(stderr), "")
+	})
+
+	ginkgo.It("Test pod contains namespace labels", func() {
+		podName := "test"
+		pod, err := f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPodRunning(podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		// get current physical Pod resource
+		pPod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, translate.ObjectPhysicalName(pod), metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		pKey := translate.ConvertLabelKeyWithPrefix(podtranslate.NamespaceLabelPrefix, initialNsLabelKey)
+		framework.ExpectHaveKey(pPod.GetLabels(), pKey)
+		framework.ExpectEqual(pPod.GetLabels()[pKey], initialNsLabelValue)
+
+		namespace, err := f.VclusterClient.CoreV1().Namespaces().Get(f.Context, ns, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		additionalLabelKey := "another-one"
+		additionalLabelValue := "good-syncer"
+		labels := namespace.GetLabels()
+		labels[additionalLabelKey] = additionalLabelValue
+		namespace.SetLabels(labels)
+
+		updated := false
+		err = wait.PollImmediate(time.Second, framework.PollTimeout, func() (bool, error) {
+			if !updated {
+				namespace, err = f.VclusterClient.CoreV1().Namespaces().Update(f.Context, namespace, metav1.UpdateOptions{})
+				if err != nil && !kerrors.IsConflict(err) {
+					return false, err
+				}
+				updated = true
+			}
+			pPod, err = f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, translate.ObjectPhysicalName(pod), metav1.GetOptions{})
+			framework.ExpectNoError(err)
+			pKey = translate.ConvertLabelKeyWithPrefix(podtranslate.NamespaceLabelPrefix, additionalLabelKey)
+			if value, ok := pPod.GetLabels()[pKey]; ok {
+				framework.ExpectEqual(value, additionalLabelValue)
+				return true, nil
+			}
+			return false, nil
+		})
+		framework.ExpectNoError(err)
 	})
 })

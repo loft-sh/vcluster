@@ -3,18 +3,20 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"sort"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strings"
 )
 
 var (
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	NamespaceAnnotation          = "vcluster.loft.sh/object-namespace"
 	NameAnnotation               = "vcluster.loft.sh/object-name"
+	LabelPrefix                  = "vcluster.loft.sh/label"
 )
 
 type Translator interface {
@@ -152,8 +154,12 @@ func setupMetadataWithName(targetNamespace string, vObj client.Object, translato
 }
 
 func ConvertLabelKey(key string) string {
+	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
+}
+
+func ConvertLabelKeyWithPrefix(prefix, key string) string {
 	digest := sha256.Sum256([]byte(key))
-	return SafeConcatName("vcluster.loft.sh/label", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
+	return SafeConcatName(prefix, Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
 func exists(a []string, k string) bool {

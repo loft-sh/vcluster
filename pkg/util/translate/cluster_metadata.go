@@ -3,6 +3,7 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -49,5 +50,5 @@ func (d *defaultClusterTranslator) TranslateAnnotations(vObj client.Object, pObj
 
 func convertNamespacedLabelKey(physicalNamespace, key string) string {
 	digest := sha256.Sum256([]byte(key))
-	return SafeConcatName("vcluster.loft.sh/label", physicalNamespace, "x", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
+	return SafeConcatName(LabelPrefix, physicalNamespace, "x", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }

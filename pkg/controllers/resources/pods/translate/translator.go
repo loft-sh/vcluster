@@ -31,6 +31,7 @@ const (
 	NamespaceAnnotation           = "vcluster.loft.sh/namespace"
 	NameAnnotation                = "vcluster.loft.sh/name"
 	LabelsAnnotation              = "vcluster.loft.sh/labels"
+	NamespaceLabelPrefix          = "vcluster.loft.sh/ns-label"
 	UIDAnnotation                 = "vcluster.loft.sh/uid"
 	ClusterAutoScalerAnnotation   = "cluster-autoscaler.kubernetes.io/safe-to-evict"
 	ServiceAccountNameAnnotation  = "vcluster.loft.sh/service-account-name"
@@ -85,6 +86,13 @@ type translator struct {
 }
 
 func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
+	// get Namespace resource in order to have access to its labels
+	vNamespace := &corev1.Namespace{}
+	err := t.vClient.Get(context.TODO(), client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
+	if err != nil {
+		return nil, err
+	}
+
 	var updatedPod *corev1.Pod
 	updatedPodSpec := t.calcSpecDiff(pPod, vPod)
 	if updatedPodSpec != nil {
@@ -105,8 +113,11 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 		updatedPod.Annotations = updatedAnnotations
 	}
 
-	// check labels
+	// check pod and namespace labels
 	updatedLabels := translator.TranslateLabels(vPod)
+	for k, v := range vNamespace.GetLabels() {
+		updatedLabels[translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
+	}
 	if !equality.Semantic.DeepEqual(updatedLabels, pPod.Labels) {
 		if updatedPod == nil {
 			updatedPod = pPod.DeepCopy()
@@ -235,6 +246,13 @@ func isInt64Different(i1, i2 *int64) (*int64, bool) {
 }
 
 func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
+	// get Namespace resource in order to have access to its labels
+	vNamespace := &corev1.Namespace{}
+	err := t.vClient.Get(context.TODO(), client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
+	if err != nil {
+		return nil, err
+	}
+
 	pPodRaw, err := translate.NewDefaultTranslator(t.targetNamespace).Translate(vPod)
 	if err != nil {
 		return nil, errors.Wrap(err, "error setting metadata")
@@ -304,6 +322,13 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 
 		pPod.Annotations[ClusterAutoScalerAnnotation] = strconv.FormatBool(isEvictable)
 	}
+
+	// Add Namespace labels
+	updatedLabels := pPod.GetLabels()
+	for k, v := range vNamespace.GetLabels() {
+		updatedLabels[translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
+	}
+	pPod.SetLabels(updatedLabels)
 
 	// translate services to environment variables
 	serviceEnv := translateServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, services, kubeIP)
@@ -395,9 +420,9 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	return pPod, nil
 }
 
-func translateLabelsAnnotation(vPod *corev1.Pod) string {
+func translateLabelsAnnotation(obj client.Object) string {
 	labelsString := []string{}
-	for k, v := range vPod.Labels {
+	for k, v := range obj.GetLabels() {
 		// escape pod labels
 		out, err := json.Marshal(v)
 		if err != nil {
