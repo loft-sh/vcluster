@@ -495,15 +495,15 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 				return errors.Wrap(err, "create client")
 			}
 
-			audience := "https://kubernetes.default.svc." + t.clusterDomain
+			audiences := []string{"https://kubernetes.default.svc." + t.clusterDomain, "https://kubernetes.default.svc", "https://kubernetes.default"}
 			if projectedVolume.Sources[i].ServiceAccountToken.Audience != "" {
-				audience = projectedVolume.Sources[i].ServiceAccountToken.Audience
+				audiences = []string{projectedVolume.Sources[i].ServiceAccountToken.Audience}
 			}
 
 			expirationSeconds := int64(10 * 365 * 24 * 60 * 60)
 			token, err := vClient.CoreV1().ServiceAccounts(vPod.Namespace).CreateToken(context.Background(), serviceAccountName, &authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
-					Audiences: []string{audience},
+					Audiences: audiences,
 					BoundObjectRef: &authenticationv1.BoundObjectReference{
 						APIVersion: corev1.SchemeGroupVersion.String(),
 						Kind:       "Pod",

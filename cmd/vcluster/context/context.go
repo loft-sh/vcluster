@@ -11,7 +11,6 @@ import (
 
 // VirtualClusterOptions holds the cmd flags
 type VirtualClusterOptions struct {
-	ServiceAccountKey   string
 	ServerCaCert        string
 	ServerCaKey         string
 	TlsSANs             []string
@@ -31,7 +30,7 @@ type VirtualClusterOptions struct {
 	TargetNamespace      string
 	ServiceName          string
 	ServiceNamespace     string
-	
+
 	DeprecatedOwningStatefulSet string
 	SetOwner                    bool
 

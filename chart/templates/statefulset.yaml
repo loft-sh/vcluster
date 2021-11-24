@@ -56,15 +56,13 @@ spec:
       {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
+      volumes:
       {{- if .Values.volumes }}
-      volumes:
 {{ toYaml .Values.volumes | indent 8 }}
-      {{- else }}
+      {{- end }}
       {{- if not .Values.storage.persistence }}
-      volumes:
       - name: data
         emptyDir: {}
-      {{- end }}
       {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}

@@ -92,9 +92,8 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.ClientCaCert, "client-ca-cert", "/data/server/tls/client-ca.crt", "The path to the client ca certificate")
 	cmd.Flags().StringVar(&options.ServerCaCert, "server-ca-cert", "/data/server/tls/server-ca.crt", "The path to the server ca certificate")
 	cmd.Flags().StringVar(&options.ServerCaKey, "server-ca-key", "/data/server/tls/server-ca.key", "The path to the server ca key")
-	cmd.Flags().StringVar(&options.ServiceAccountKey, "service-account-key", "/data/server/tls/service.key", "The path to the service account token key")
-	cmd.Flags().StringSliceVar(&options.TlsSANs, "tls-san", []string{}, "Add additional hostname or IP as a Subject Alternative Name in the TLS cert")
 	cmd.Flags().StringVar(&options.KubeConfig, "kube-config", "/data/server/cred/admin.kubeconfig", "The path to the virtual cluster admin kube config")
+	cmd.Flags().StringSliceVar(&options.TlsSANs, "tls-san", []string{}, "Add additional hostname or IP as a Subject Alternative Name in the TLS cert")
 	cmd.Flags().StringVar(&options.DisableSyncResources, "disable-sync-resources", "", "The resources that shouldn't be synced by the virtual cluster (e.g. ingresses)")
 
 	cmd.Flags().StringVar(&options.KubeConfigSecret, "out-kube-config-secret", "", "If specified, the virtual cluster will write the generated kube config to the given secret")
