@@ -12,7 +12,6 @@ images:
   vcluster:
     image: ${SYNCER_IMAGE}
     rebuildStrategy: ignoreContextChanges
-    createPullSecret: false
     build:
       buildKit:
         options:
@@ -23,6 +22,8 @@ deployments:
       chart:
         name: ./chart
       values:
+        tolerations:
+          - operator: "Exists"
         serviceAccount:
           create: false
           name: default
@@ -40,6 +41,7 @@ deployments:
             enabled: false
           image: ${SYNCER_IMAGE}
           noArgs: true
+          workingDir: /vcluster
           command: ["sleep"]
           extraArgs: ["99999999999"]
         securityContext:

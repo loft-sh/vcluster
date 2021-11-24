@@ -10,10 +10,10 @@ export PROJECT_NAME=my-google-cloud-project
 export CLUSTER_NAME=conformance-test
 export CLUSTER_ZONE=europe-west3-a
 
-# At the time of writing 1.21.1 was newest in
-# rapid channel
-export CLUSTER_VERSION=1.21.1-gke.1800
-export CLUSTER_CHANNEL=rapid
+# At the time of writing 1.21.5 was newest in
+# regular channel
+export CLUSTER_VERSION=1.21.5-gke.1302
+export CLUSTER_CHANNEL=regular
 
 # Create the cluster
 gcloud beta container --project $PROJECT_NAME clusters create $CLUSTER_NAME \
@@ -31,7 +31,7 @@ gcloud compute firewall-rules --project $PROJECT_NAME create conformance-firewal
 Create a file called `values.yaml` with the following content:
 ```yaml
 vcluster:
-  image: rancher/k3s:v1.21.1-k3s1
+  image: rancher/k3s:v1.21.5-k3s1
 # Tolerate everything as the test will taint some nodes
 tolerations:
 - operator: "Exists"
@@ -48,7 +48,7 @@ syncer:
   - --disable-sync-resources=ingresses
 ```
 
-Now create the vcluster with the [vcluster cli](https://github.com/loft-sh/vcluster/releases) (at least version v0.3.1 or newer):
+Now create the vcluster with the [vcluster cli](https://github.com/loft-sh/vcluster/releases) (at least version v0.4.5 or newer):
 ```
 # Create the vcluster
 vcluster create vcluster -n vcluster -f values.yaml --expose
