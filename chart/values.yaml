@@ -124,9 +124,9 @@ ingress:
 # Configure SecurityContext of the containers in the VCluster pod
 securityContext:
   allowPrivilegeEscalation: false
-  capabilities:
-    drop:
-    - all
+  # capabilities:
+  #  drop:
+  #  - all
   # readOnlyRootFilesystem will be set to true by default at a later release
   # currently leaving it undefined for backwards compatibility with older vcluster cli versions
   # readOnlyRootFilesystem: true
@@ -137,6 +137,12 @@ securityContext:
   # runAsUser: 12345
   # runAsNonRoot: true
 
+# Extra secret to deploy, can be useful if other k8s distributions such as k0s are used
+secret: {}
+
+# Set "enable" to true when running vcluster in an OpenShift host
+# This will add an extra rule to the deployed role binding in order 
+# to manage service endpoints
 openshift:
-  # Set "enable" to true when running vcluster in an OpenShift host
   enable: false
+  

@@ -54,6 +54,7 @@ module.exports = {
         'operator/external-datastore',
         'operator/accessing-vcluster',
         'operator/monitoring',
+        'operator/other-distributions',
       ],
     },
     {

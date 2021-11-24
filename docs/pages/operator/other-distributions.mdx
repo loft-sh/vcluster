@@ -1,0 +1,90 @@
+---
+title: Other k8s Distributions
+sidebar_label: Other k8s Distributions
+---
+
+By default, vcluster will use [k3s](https://github.com/k3s-io/k3s) as virtual Kubernetes cluster, which is a highly available, certified Kubernetes distribution designed for production workloads in unattended, resource-constrained, remote locations or inside IoT appliances.
+
+However, vcluster also works with other Kubernetes distributions and k3s is not required. We recommend to use k3s, because it has a small footprint and widely adopted, but if your use case requires a different k8s distribution, you can exchange k3s with another distribution such as k0s or vanilla k8s.
+
+## k0s
+
+[k0s](https://github.com/k0sproject/k0s) is an all-inclusive Kubernetes distribution, which is configured with all of the features needed to build a Kubernetes cluster and packaged as a single binary for ease of use. vcluster supports k0s as backing virtual Kubernetes cluster.
+
+In order to use k0s as backing cluster, create a `values.yaml` in the following form:
+
+```yaml
+vcluster:
+  # Replace this with the desired k0s version
+  image: k0sproject/k0s:v1.22.4-k0s.0
+  command: ["k0s"]
+  baseArgs: 
+    - controller
+    - --config=/etc/k0s/config.yaml
+    - --data-dir=/data/k0s
+    - --disable-components=konnectivity-server,kube-scheduler,csr-approver,default-psp,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
+  extraArgs: []
+  volumeMounts:
+    - mountPath: /data
+      name: data
+    - mountPath: /etc/k0s
+      name: k0s-config
+      
+syncer:
+  extraArgs:
+    - --request-header-ca-cert=/data/k0s/pki/ca.crt
+    - --client-ca-cert=/data/k0s/pki/ca.crt
+    - --server-ca-cert=/data/k0s/pki/ca.crt
+    - --server-ca-key=/data/k0s/pki/ca.key
+    - --kube-config=/data/k0s/pki/admin.conf
+
+volumes:
+  - name: k0s-config
+    secret:
+      secretName: k0s-config
+      
+secret:
+  name: k0s-config
+  data:
+    config.yaml: |-
+      apiVersion: k0s.k0sproject.io/v1beta1
+      kind: Cluster
+      metadata:
+        name: k0s
+      spec:
+        api:
+          port: 6443
+          k0sApiPort: 9443
+          extraArgs:
+            enable-admission-plugins: NodeRestriction
+        network:
+          # Will be replaced automatically from the vcluster cli
+          serviceCIDR: ##CIDR##
+          provider: custom
+        controllerManager:
+          extraArgs:
+            controllers: '*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle'
+```
+
+Now create the vcluster with:
+
+```
+vcluster create vcluster-1 -n host-namespace-1 -f values.yaml
+```
+
+Connect to the vcluster and start using it:
+```
+vcluster connect vcluster-1 -n host-namespace-1
+
+# Then execute in a new terminal
+export KUBECONFIG=kubeconfig.yaml
+kubectl get ns
+...
+```
+
+Congrats, you have deployed vcluster with k0s as virtual Kubernetes cluster distribution!
+
+## Vanilla k8s
+
+Coming soon...
+

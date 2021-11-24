@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -188,10 +189,17 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// get service cidr
+	cidr, err := getServiceCIDR(client, namespace)
+	if err != nil {
+		cmd.log.Warn(err)
+		cidr = "10.96.0.0/12"
+	}
+
 	// load the default values
 	values := ""
 	if cmd.ReleaseValues == "" {
-		values, err = cmd.getDefaultReleaseValues(cobraCmd, client, namespace, cmd.log)
+		values, err = cmd.getDefaultReleaseValues(cobraCmd, client, cidr, cmd.log)
 		if err != nil {
 			return err
 		}
@@ -212,13 +220,45 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// convert extra values
+	extraValues := []string{}
+	if len(cmd.ExtraValues) > 0 {
+		for _, file := range cmd.ExtraValues {
+			out, err := ioutil.ReadFile(file)
+			if err != nil {
+				return errors.Wrap(err, "read values file")
+			} else if strings.Index(string(out), "##CIDR##") == -1 {
+				extraValues = append(extraValues, file)
+				continue
+			}
+
+			tempFile, err := ioutil.TempFile("", "")
+			if err != nil {
+				return errors.Wrap(err, "temp file")
+			}
+			defer os.Remove(tempFile.Name())
+
+			_, err = tempFile.WriteString(strings.Replace(string(out), "##CIDR##", cidr, -1))
+			if err != nil {
+				return errors.Wrap(err, "write values to temp file")
+			}
+
+			err = tempFile.Close()
+			if err != nil {
+				return errors.Wrap(err, "close temp file")
+			}
+
+			extraValues = append(extraValues, tempFile.Name())
+		}
+	}
+
 	// we have to upgrade / install the chart
 	err = helm.NewClient(&rawConfig, cmd.log).Upgrade(args[0], namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
 		Repo:        cmd.ChartRepo,
 		Version:     cmd.ChartVersion,
 		Values:      values,
-		ValuesFiles: cmd.ExtraValues,
+		ValuesFiles: extraValues,
 	})
 	if err != nil {
 		return err
@@ -241,7 +281,7 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (cmd *CreateCmd) getDefaultReleaseValues(cobraCmd *cobra.Command, client kubernetes.Interface, namespace string, log log.Logger) (string, error) {
+func (cmd *CreateCmd) getDefaultReleaseValues(cobraCmd *cobra.Command, client kubernetes.Interface, cidr string, log log.Logger) (string, error) {
 	image := cmd.K3SImage
 	serverVersionString := ""
 	if image == "" {
@@ -268,34 +308,6 @@ func (cmd *CreateCmd) getDefaultReleaseValues(cobraCmd *cobra.Command, client ku
 				image = VersionMap["1.16"]
 				serverVersionString = "1.16"
 			}
-		}
-	}
-
-	cidr := ""
-	_, err := client.CoreV1().Services(namespace).Create(context.Background(), &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "test-service-",
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Port: 80,
-				},
-			},
-			ClusterIP: "4.4.4.4",
-		},
-	}, metav1.CreateOptions{})
-	if err == nil {
-		log.Warnf("couldn't find cluster service cidr, will fallback to 10.96.0.0/12, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match")
-		cidr = "10.96.0.0/12"
-	} else {
-		errorMessage := err.Error()
-		idx := strings.Index(errorMessage, errorMessageFind)
-		if idx == -1 {
-			log.Warnf("couldn't find cluster service cidr (" + errorMessage + "), will fallback to 10.96.0.0/12, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match")
-			cidr = "10.96.0.0/12"
-		} else {
-			cidr = strings.TrimSpace(errorMessage[idx+len(errorMessageFind):])
 		}
 	}
 
@@ -340,4 +352,31 @@ securityContext:
 	}
 	values = strings.TrimSpace(values)
 	return values, nil
+}
+
+func getServiceCIDR(client kubernetes.Interface, namespace string) (string, error) {
+	_, err := client.CoreV1().Services(namespace).Create(context.Background(), &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "test-service-",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port: 80,
+				},
+			},
+			ClusterIP: "4.4.4.4",
+		},
+	}, metav1.CreateOptions{})
+	if err == nil {
+		return "", fmt.Errorf("couldn't find cluster service cidr, will fallback to 10.96.0.0/12, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match")
+	}
+
+	errorMessage := err.Error()
+	idx := strings.Index(errorMessage, errorMessageFind)
+	if idx == -1 {
+		return "", fmt.Errorf("couldn't find cluster service cidr (" + errorMessage + "), will fallback to 10.96.0.0/12, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match")
+	}
+
+	return strings.TrimSpace(errorMessage[idx+len(errorMessageFind):]), nil
 }
