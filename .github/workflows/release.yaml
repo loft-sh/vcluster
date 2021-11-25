@@ -89,6 +89,7 @@ jobs:
           helm repo add chartmuseum $CHART_MUSEUM_URL --username $CHART_MUSEUM_USER --password $CHART_MUSEUM_PASSWORD
           helm cm-push --force --version="$RELEASE_VERSION" charts/k3s/ chartmuseum
           helm cm-push --force --version="$RELEASE_VERSION" charts/k0s/ chartmuseum
+          helm cm-push --force --version="$RELEASE_VERSION" charts/k8s/ chartmuseum
         env:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}

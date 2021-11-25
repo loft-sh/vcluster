@@ -69,16 +69,18 @@ spec:
         image: "{{ .Values.etcd.image }}"
         command:
           - etcd
-          - '--advertise-client-urls=https://$(NAME).{{ .Release.Name }}-etcd.{{ .Release.Namespace }}:2379'
           - '--cert-file=/run/config/pki/etcd-server.crt'
           - '--client-cert-auth=true'
           - '--data-dir=/var/lib/etcd'
-          - '--initial-advertise-peer-urls=https://$(NAME).{{ .Release.Name }}-etcd.{{ .Release.Namespace }}:2380'
-          - '--initial-cluster=$(NAME)=https://$(NAME).{{ .Release.Name }}-etcd.{{ .Release.Namespace }}:2380'
+          - '--advertise-client-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2379'
+          - '--initial-advertise-peer-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2380'
+          - '--initial-cluster=$(NAME)=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2380'
+          - '--listen-client-urls=https://0.0.0.0:2379'
+          - '--listen-metrics-urls=http://0.0.0.0:2381'
+          - '--listen-peer-urls=https://0.0.0.0:2380'
+          - '--initial-cluster-state=new'
+          - '--initial-cluster-token={{ .Release.Name }}'
           - '--key-file=/run/config/pki/etcd-server.key'
-          - '--listen-client-urls=https://0.0.0.1:2379,https://$(NAME).{{ .Release.Name }}-etcd.{{ .Release.Namespace }}:2379'
-          - '--listen-metrics-urls=http://0.0.0.1:2381'
-          - '--listen-peer-urls=https://$(NAME).{{ .Release.Name }}-etcd.{{ .Release.Namespace }}:2380'
           - '--name=$(NAME)'
           - '--peer-cert-file=/run/config/pki/etcd-peer.crt'
           - '--peer-client-cert-auth=true'
@@ -89,26 +91,6 @@ spec:
           {{- range $f := .Values.etcd.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 2381
-            scheme: HTTP
-          initialDelaySeconds: 10
-          timeoutSeconds: 15
-          periodSeconds: 10
-          successThreshold: 1
-          failureThreshold: 8
-        startupProbe:
-          httpGet:
-            path: /health
-            port: 2381
-            scheme: HTTP
-          initialDelaySeconds: 10
-          timeoutSeconds: 15
-          periodSeconds: 10
-          successThreshold: 1
-          failureThreshold: 24
         securityContext:
 {{ toYaml .Values.etcd.securityContext | indent 10 }}
         env:

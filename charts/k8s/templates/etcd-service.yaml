@@ -16,6 +16,10 @@ spec:
       port: 2379
       targetPort: 2379
       protocol: TCP
+    - name: peer
+      port: 2380
+      targetPort: 2380
+      protocol: TCP
   selector:
     app: vcluster-etcd
     release: {{ .Release.Name }}

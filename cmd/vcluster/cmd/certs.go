@@ -121,7 +121,7 @@ func ExecuteCerts(options *CertsCmd) error {
 	serverSans := []string{etcdService, etcdService + "." + options.Namespace, etcdService + "." + options.Namespace + ".svc"}
 	for i := 0; i < options.EtcdReplicas; i++ {
 		hostname := etcdService + "-" + strconv.Itoa(i)
-		serverSans = append(serverSans, hostname, hostname+"."+etcdService, hostname+"."+etcdService+"."+options.Namespace)
+		serverSans = append(serverSans, hostname, hostname+"."+etcdService+"-headless", hostname+"."+etcdService+"-headless"+"."+options.Namespace)
 	}
 
 	cfg.ClusterName = options.ClusterName

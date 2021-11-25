@@ -40,11 +40,9 @@ deployments:
             enabled: false
           image: ${SYNCER_IMAGE}
           noArgs: true
-          workingDir: /vcluster
+          workingDir: /vcluster-dev
           command: ["sleep"]
           extraArgs: ["99999999999"]
-        securityContext:
-          readOnlyRootFilesystem: false
 dev:
   terminal:
     imageSelector: ${SYNCER_IMAGE}
