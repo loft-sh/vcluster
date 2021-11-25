@@ -66,7 +66,8 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 	}
 
 	// create pod translator
-	translator, err := translatepods.NewTranslator(ctx)
+	eventRecorder := eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "pod-syncer"})
+	translator, err := translatepods.NewTranslator(ctx, eventRecorder)
 	if err != nil {
 		return errors.Wrap(err, "create pod translator")
 	}
@@ -84,7 +85,6 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 	}
 	podsClient := ctx.VirtualManager.GetClient()
 
-	eventRecorder := eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "pod-syncer"})
 	return generic.RegisterSyncerWithOptions(ctx, "pod", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Pod{}),
 
