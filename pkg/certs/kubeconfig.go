@@ -272,13 +272,6 @@ func getKubeConfigSpecsBase(cfg *InitConfiguration) (map[string]*kubeConfigSpec,
 				Organizations: []string{SystemPrivilegedGroup},
 			},
 		},
-		KubeletKubeConfigFileName: {
-			APIServer:  controlPlaneEndpoint,
-			ClientName: fmt.Sprintf("%s%s", NodesUserPrefix, cfg.NodeRegistration.Name),
-			ClientCertAuth: &clientCertAuth{
-				Organizations: []string{NodesGroup},
-			},
-		},
 		ControllerManagerKubeConfigFileName: {
 			APIServer:      controlPlaneEndpoint,
 			ClientName:     ControllerManagerUser,

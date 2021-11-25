@@ -1,0 +1,22 @@
+{{- if not .Values.etcd.disabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-etcd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster-etcd
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  type: ClusterIP
+  ports:
+    - name: etcd
+      port: 2379
+      targetPort: 2379
+      protocol: TCP
+  selector:
+    app: vcluster-etcd
+    release: {{ .Release.Name }}
+  {{- end }}

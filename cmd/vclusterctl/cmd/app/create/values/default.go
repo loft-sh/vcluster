@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var AllowedDistros = []string{"k3s", "k0s", "vanilla"}
+var AllowedDistros = []string{"k3s", "k0s", "k8s"}
 
 func GetDefaultReleaseValues(client kubernetes.Interface, createOptions *create.CreateOptions, log log.Logger) (string, error) {
 	if !contains(createOptions.Distro, AllowedDistros) {
@@ -26,6 +26,8 @@ func GetDefaultReleaseValues(client kubernetes.Interface, createOptions *create.
 		return getDefaultK3SReleaseValues(client, createOptions, log)
 	} else if createOptions.Distro == "k0s" {
 		return getDefaultK0SReleaseValues(client, createOptions, log)
+	} else if createOptions.Distro == "k8s" {
+		return "", nil
 	}
 
 	return "", errors.New("unrecognized distro " + createOptions.Distro)
