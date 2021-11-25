@@ -27,9 +27,28 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes a different helm chart will be deployed (`vcluster-k0s`), that holds specific configuration to support k0s. 
+Behind the scenes a different helm chart will be deployed (`vcluster-k0s`), that holds specific configuration to support k0s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k0s) for all available chart options.
 
 ## Vanilla k8s
 
-Coming soon...
+When choosing this option, vcluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vcluster hypervisor. 
+
+In order to use vanilla k8s as backing cluster, create a vcluster with the following command:
+
+```
+vcluster create vcluster-1 -n host-namespace-1 --distro k8s
+```
+
+Connect to the vcluster and start using it:
+```
+vcluster connect vcluster-1 -n host-namespace-1
+
+# Then execute in a new terminal
+export KUBECONFIG=kubeconfig.yaml
+kubectl get ns
+...
+```
+
+Behind the scenes a different helm chart will be deployed (`vcluster-k8s`), that holds specific configuration to support vanilla k8s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.
+
 
