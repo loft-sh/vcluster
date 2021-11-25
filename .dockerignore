@@ -2,7 +2,7 @@
 /.devspace
 /.git
 /.vscode
-/chart
+/charts
 /api
 /kubeconfig.yaml
 /cmd/virtualclusterctl

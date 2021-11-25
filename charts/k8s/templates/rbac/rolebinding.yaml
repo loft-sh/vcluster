@@ -1,0 +1,24 @@
+{{- if .Values.rbac.role.create }}
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+subjects:
+  - kind: ServiceAccount
+    {{- if .Values.serviceAccount.name }}
+    name: {{ .Values.serviceAccount.name }}
+    {{- else }}
+    name: vc-{{ .Release.Name }}
+    {{- end }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

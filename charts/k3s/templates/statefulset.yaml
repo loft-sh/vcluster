@@ -76,6 +76,9 @@ spec:
           {{- range $f := .Values.vcluster.baseArgs }}
           - {{ $f | quote }}
           {{- end }}
+          {{- if .Values.serviceCIDR }}
+          - --service-cidr={{ .Values.serviceCIDR }}
+          {{- end }}
           {{- range $f := .Values.vcluster.extraArgs }}
           - {{ $f | quote }}
           {{- end }}

@@ -1,0 +1,30 @@
+{{- if .Values.rbac.role.create }}
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "endpoints", "persistentvolumeclaims"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "replicasets", "deployments"]
+    verbs: ["get", "list", "watch"]
+{{- if .Values.openshift.enable }}
+  - apiGroups: [""]
+    resources: ["endpoints/restricted"]
+    verbs: ["create"]
+{{- end }}
+{{- end }}

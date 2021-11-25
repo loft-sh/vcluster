@@ -1,0 +1,27 @@
+{{- if .Values.rbac.clusterRole.create }}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "vcluster.clusterRoleName" . }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/status"]
+    verbs: ["get", "watch", "list", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods", "nodes/proxy", "nodes/metrics", "nodes/stats"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["scheduling.k8s.io"]
+    resources: ["priorityclasses"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+{{- end }}

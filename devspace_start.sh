@@ -4,7 +4,7 @@ set +e  # Continue on errors
 COLOR_CYAN="\033[0;36m"
 COLOR_RESET="\033[0m"
 
-RUN_CMD="go run -mod vendor cmd/vcluster/main.go"
+RUN_CMD="go run -mod vendor cmd/vcluster/main.go start"
 DEBUG_CMD="dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags=\"-mod=vendor\" -- --lease-duration=99999 --renew-deadline=99998"
 
 echo -e "${COLOR_CYAN}

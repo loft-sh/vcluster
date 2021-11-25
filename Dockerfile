@@ -1,7 +1,7 @@
 # Build the manager binary
-FROM golang:1.16 as builder
+FROM golang:1.17 as builder
 
-WORKDIR /vcluster
+WORKDIR /vcluster-dev
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -31,16 +31,12 @@ ENV DEBUG true
 RUN mkdir -p /.cache /.config
 ENV GOCACHE=/.cache
 ENV GOENV=/.config
-# Ensure the default group(0) owns all files and folders in /vcluster and /.cache 
-# to allow sync to /vcluster with devspace and allow go to write into build cache even when run as non-root
-RUN chgrp -R 0 /vcluster /.cache /.config && \
-    chmod -R g=u /vcluster /.cache /.config
 
 # Set home to "/" in order to for kubectl to automatically pick up vcluster kube config 
 ENV HOME /
 
 # Build cmd
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -o vcluster cmd/vcluster/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -o /vcluster cmd/vcluster/main.go
 
 ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go"]
 
@@ -50,7 +46,7 @@ FROM alpine
 # Set root path as working directory
 WORKDIR /
 
-COPY --from=builder /vcluster/vcluster .
+COPY --from=builder /vcluster .
 COPY manifests/ /manifests/
 
-ENTRYPOINT ["/vcluster"]
+ENTRYPOINT ["/vcluster", "start"]

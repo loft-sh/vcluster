@@ -1,0 +1,22 @@
+{{- if not .Values.api.disabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster-api
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  type: ClusterIP
+  ports:
+    - name: https
+      port: 443
+      targetPort: 6443
+      protocol: TCP
+  selector:
+    app: vcluster-api
+    release: {{ .Release.Name }}
+{{- end }}
