@@ -1,8 +1,20 @@
+# Make sure the service-cidr is the exact service cidr of the host cluster.
+# If this does not match, you won't be able to create services within the vcluster. You can find out
+# the service cidr of the host cluster by creating a service with a not allowed ClusterIP in the host cluster.
+# This will yield an error message in the form of: 
+# The Service "faulty-service" is invalid: spec.clusterIP: Invalid value: "1.1.1.1": provided IP is not in the valid range. The range of valid IPs is 10.96.0.0/12
+serviceCIDR: "10.96.0.0/12"
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer
   # image: loftsh/vcluster
-  extraArgs: []
+  extraArgs:
+    - --request-header-ca-cert=/data/k0s/pki/ca.crt
+    - --client-ca-cert=/data/k0s/pki/ca.crt
+    - --server-ca-cert=/data/k0s/pki/ca.crt
+    - --server-ca-key=/data/k0s/pki/ca.key
+    - --kube-config=/data/k0s/pki/admin.conf
   env: []
   livenessProbe:
     enabled: true
@@ -19,33 +31,24 @@ syncer:
       cpu: 100m
       memory: 128Mi
 
-# Virtual Cluster (k3s) configuration
+# Virtual Cluster (k0s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: rancher/k3s:v1.22.2-k3s1
+  image: k0sproject/k0s:v1.22.4-k0s.0
   command:
-    - /bin/k3s
+    - k0s
   baseArgs:
-    - server
-    - --write-kubeconfig=/data/k3s-config/kube-config.yaml
-    - --data-dir=/data
-    - --disable=traefik,servicelb,metrics-server,local-storage,coredns
-    - --disable-network-policy
-    - --disable-agent
-    - --disable-scheduler
-    - --disable-cloud-controller
-    - --flannel-backend=none
-    - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
-  # Extra arguments for k3s. Make sure the service-cidr is the exact service cidr of the host cluster.
-  # If this does not match, you won't be able to create services within the vcluster. You can find out
-  # the service cidr of the host cluster by creating a service with a not allowed ClusterIP in the host cluster.
-  # This will yield an error message in the form of: 
-  # The Service "faulty-service" is invalid: spec.clusterIP: Invalid value: "1.1.1.1": provided IP is not in the valid range. The range of valid IPs is 10.96.0.0/12
-  extraArgs:
-    - --service-cidr=10.96.0.0/12
+    - controller
+    - --config=/etc/k0s/config.yaml
+    - --data-dir=/data/k0s
+    - --disable-components=konnectivity-server,kube-scheduler,csr-approver,default-psp,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
+  # Extra arguments for k0s.
+  extraArgs: []
   volumeMounts:
     - mountPath: /data
       name: data
+    - mountPath: /etc/k0s
+      name: k0s-config
   env: []
   resources:
     limits:
@@ -137,8 +140,10 @@ securityContext:
   # runAsUser: 12345
   # runAsNonRoot: true
 
-# Extra secret to deploy, can be useful if other k8s distributions such as k0s are used
-secret: {}
+# Custom k0s to deploy
+#config: |-
+#  apiVersion: k0s.k0sproject.io/v1beta1
+#  ...
 
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order 

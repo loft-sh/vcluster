@@ -53,4 +53,4 @@ WORKDIR /
 COPY --from=builder /vcluster/vcluster .
 COPY manifests/ /manifests/
 
-ENTRYPOINT ["/vcluster"]
+ENTRYPOINT ["/vcluster", "start"]

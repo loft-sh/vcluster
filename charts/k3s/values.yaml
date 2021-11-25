@@ -1,0 +1,151 @@
+# Make sure the service-cidr is the exact service cidr of the host cluster.
+# If this does not match, you won't be able to create services within the vcluster. You can find out
+# the service cidr of the host cluster by creating a service with a not allowed ClusterIP in the host cluster.
+# This will yield an error message in the form of: 
+# The Service "faulty-service" is invalid: spec.clusterIP: Invalid value: "1.1.1.1": provided IP is not in the valid range. The range of valid IPs is 10.96.0.0/12
+#serviceCIDR: "10.96.0.0/12"
+
+# Syncer configuration
+syncer:
+  # Image to use for the syncer
+  # image: loftsh/vcluster
+  extraArgs: []
+  env: []
+  livenessProbe:
+    enabled: true
+  readinessProbe:
+    enabled: true
+  volumeMounts:
+    - mountPath: /data
+      name: data
+      readOnly: true
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Virtual Cluster (k3s) configuration
+vcluster:
+  # Image to use for the virtual cluster
+  image: rancher/k3s:v1.22.2-k3s1
+  command:
+    - /bin/k3s
+  baseArgs:
+    - server
+    - --write-kubeconfig=/data/k3s-config/kube-config.yaml
+    - --data-dir=/data
+    - --disable=traefik,servicelb,metrics-server,local-storage,coredns
+    - --disable-network-policy
+    - --disable-agent
+    - --disable-scheduler
+    - --disable-cloud-controller
+    - --flannel-backend=none
+    - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
+  # Extra arguments for k3s. Make sure the service-cidr is the exact service cidr of the host cluster.
+  # If this does not match, you won't be able to create services within the vcluster. You can find out
+  # the service cidr of the host cluster by creating a service with a not allowed ClusterIP in the host cluster.
+  # This will yield an error message in the form of: 
+  # The Service "faulty-service" is invalid: spec.clusterIP: Invalid value: "1.1.1.1": provided IP is not in the valid range. The range of valid IPs is 10.96.0.0/12
+  extraArgs: []
+  volumeMounts:
+    - mountPath: /data
+      name: data
+  env: []
+  resources:
+    limits:
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+# Storage settings for the vcluster
+storage:
+  # If this is disabled, vcluster will use an emptyDir instead
+  # of a PersistentVolumeClaim
+  persistence: true
+  # Size of the persistent volume claim
+  size: 5Gi
+  # Optional StorageClass used for the pvc
+  # if empty default StorageClass defined in your host cluster will be used
+  #className:
+  
+# Extra volumes that should be created for the StatefulSet
+volumes: []
+
+# Service account that should be used by the vcluster
+serviceAccount:
+  create: true
+  # Optional name of the service account to use
+  # name: default
+
+# Roles & ClusterRoles for the vcluster
+rbac:
+  clusterRole:
+    # Enable this to let the vcluster sync
+    # real nodes, storage classes and priority classes
+    create: false
+  role:
+    # This is required for basic functionality of vcluster
+    create: true
+
+# The amount of replicas to run the statefulset with
+replicas: 1
+
+# NodeSelector used to schedule the vcluster
+nodeSelector: {}
+
+# Affinity to apply to the vcluster statefulset
+affinity: {}
+
+# Tolerations to apply to the vcluster statefulset
+tolerations: []
+
+# Extra Labels for the stateful set
+labels: {}
+
+# Extra Annotations for the stateful set
+annotations: {}
+
+# Service configurations
+service:
+  type: ClusterIP
+
+# Configure the ingress resource that allows you to access the vcluster
+ingress:
+  # Enable ingress record generation
+  enabled: false
+  # Ingress path type
+  pathType: ImplementationSpecific
+  apiVersion: networking.k8s.io/v1
+  ingressClassName: ""
+  host: vcluster.local
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+# Configure SecurityContext of the containers in the VCluster pod
+securityContext:
+  allowPrivilegeEscalation: false
+  # capabilities:
+  #  drop:
+  #  - all
+  # readOnlyRootFilesystem will be set to true by default at a later release
+  # currently leaving it undefined for backwards compatibility with older vcluster cli versions
+  # readOnlyRootFilesystem: true
+
+  # To run vcluster pod as non-root uncomment runAsUser and runAsNonRoot values.
+  # Update the runAsUser value if your cluster has limitations on user UIDs.
+  # For installation on OpenShift leave the runAsUser undefined (commented out).
+  # runAsUser: 12345
+  # runAsNonRoot: true
+
+# Set "enable" to true when running vcluster in an OpenShift host
+# This will add an extra rule to the deployed role binding in order 
+# to manage service endpoints
+openshift:
+  enable: false
+  

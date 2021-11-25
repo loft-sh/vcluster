@@ -20,8 +20,9 @@ deployments:
   - name: vcluster
     helm:
       chart:
-        name: ./chart
+        name: ./charts/k3s
       values:
+        serviceCIDR: ${SERVICE_CIDR}
         tolerations:
           - operator: "Exists"
         serviceAccount:
@@ -29,8 +30,6 @@ deployments:
           name: default
         vcluster:
           image: ${K3S_IMAGE}
-          extraArgs:
-            - --service-cidr=${SERVICE_CIDR}
         rbac:
           clusterRole:
             create: true
