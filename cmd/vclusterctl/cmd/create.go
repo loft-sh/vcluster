@@ -23,6 +23,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var errorMessageIPFamily = "expected an IPv6 value as indicated by "    // Dual-stack cluster with .spec.ipFamilies=["IPv6"]
+var errorMessageIPv4Disabled = "IPv4 is not configured on this cluster" // IPv6 only cluster
+
 // CreateCmd holds the login cmd flags
 type CreateCmd struct {
 	*flags.GlobalFlags
@@ -154,10 +157,17 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	// get service cidr
 	if cmd.CIDR == "" {
-		cmd.CIDR, err = values.GetServiceCIDR(client, cmd.Namespace)
+		cmd.CIDR, err = values.GetServiceCIDR(client, cmd.Namespace, false)
 		if err != nil {
-			cmd.log.Warn(err)
-			cmd.CIDR = "10.96.0.0/12"
+			idx := strings.Index(err.Error(), errorMessageIPFamily)
+			idz := strings.Index(err.Error(), errorMessageIPv4Disabled)
+			if idx != -1 || idz != -1 {
+				cmd.CIDR, err = values.GetServiceCIDR(client, cmd.Namespace, true)
+			}
+			if err != nil {
+				cmd.log.Warn(err)
+				cmd.CIDR = "10.96.0.0/12"
+			}
 		}
 	}
 

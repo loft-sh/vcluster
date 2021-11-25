@@ -150,7 +150,12 @@ func getKubernetesVersion(client kubernetes.Interface, createOptions *create.Cre
 	return serverVersionString, serverMinorInt, nil
 }
 
-func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, error) {
+func GetServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {
+	clusterIP := "4.4.4.4"
+	if ipv6 {
+		// https://www.ietf.org/rfc/rfc3849.txt
+		clusterIP = "2001:DB8::1"
+	}
 	_, err := client.CoreV1().Services(namespace).Create(context.Background(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "test-service-",
@@ -161,7 +166,7 @@ func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, erro
 					Port: 80,
 				},
 			},
-			ClusterIP: "4.4.4.4",
+			ClusterIP: clusterIP,
 		},
 	}, metav1.CreateOptions{})
 	if err == nil {
