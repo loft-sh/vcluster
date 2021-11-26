@@ -64,6 +64,6 @@ for OS in ${VCLUSTER_BUILD_PLATFORMS[@]}; do
     echo "Building for ${OS}/${ARCH}"
     GOARCH=${ARCH} GOOS=${OS} ${GO_BUILD_CMD} -ldflags "${GO_BUILD_LDFLAGS}"\
       -o "${VCLUSTER_ROOT}/release/${NAME}" cmd/vclusterctl/main.go
-    shasum -a 256 "${VCLUSTER_ROOT}/release/${NAME}" > "${VCLUSTER_ROOT}/release/${NAME}".sha256
+    shasum -a 256 "${VCLUSTER_ROOT}/release/${NAME}" | cut -d ' ' -f 1 > "${VCLUSTER_ROOT}/release/${NAME}".sha256
   done
 done
