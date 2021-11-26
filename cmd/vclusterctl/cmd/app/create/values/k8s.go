@@ -26,7 +26,7 @@ var K8SEtcdVersionMap = map[string]string{
 }
 
 func getDefaultK8SReleaseValues(client kubernetes.Interface, createOptions *create.CreateOptions, log log.Logger) (string, error) {
-	serverVersionString, serverMinorInt, err := getKubernetesVersion(client)
+	serverVersionString, serverMinorInt, err := getKubernetesVersion(client, createOptions)
 	if err != nil {
 		return "", err
 	}
