@@ -9,8 +9,6 @@ import (
 
 var K0SVersionMap = map[string]string{
 	"1.22": "k0sproject/k0s:v1.22.4-k0s.0",
-	"1.21": "k0sproject/k0s:v1.21.7-k0s.0",
-	"1.20": "k0sproject/k0s:v1.20.6-k0s.0",
 }
 
 func getDefaultK0SReleaseValues(client kubernetes.Interface, createOptions *create.CreateOptions, log log.Logger) (string, error) {
@@ -25,8 +23,8 @@ func getDefaultK0SReleaseValues(client kubernetes.Interface, createOptions *crea
 			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.22", serverVersionString)
 			image = K0SVersionMap["1.22"]
 		} else {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.20", serverVersionString)
-			image = K0SVersionMap["1.20"]
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.22", serverVersionString)
+			image = K0SVersionMap["1.22"]
 		}
 	}
 
