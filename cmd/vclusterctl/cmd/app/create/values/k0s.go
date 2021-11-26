@@ -14,7 +14,7 @@ var K0SVersionMap = map[string]string{
 }
 
 func getDefaultK0SReleaseValues(client kubernetes.Interface, createOptions *create.CreateOptions, log log.Logger) (string, error) {
-	serverVersionString, serverMinorInt, err := getKubernetesVersion(client)
+	serverVersionString, serverMinorInt, err := getKubernetesVersion(client, createOptions)
 	if err != nil {
 		return "", err
 	}

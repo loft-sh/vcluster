@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -52,7 +53,7 @@ func getDefaultK3SReleaseValues(client kubernetes.Interface, createOptions *crea
 	)
 
 	if image == "" {
-		serverVersionString, serverMinorInt, err = getKubernetesVersion(client)
+		serverVersionString, serverMinorInt, err = getKubernetesVersion(client, createOptions)
 		if err != nil {
 			return "", err
 		}
@@ -109,17 +110,32 @@ service:
   type: LoadBalancer`
 	}
 
-	if createOptions.RunAsUser >= 0 {
-		values += `
-securityContext:
-  runAsUser: ` + fmt.Sprint(createOptions.RunAsUser)
-	}
 	values = strings.ReplaceAll(values, "##CIDR##", createOptions.CIDR)
 	values = strings.TrimSpace(values)
 	return values, nil
 }
 
-func getKubernetesVersion(client kubernetes.Interface) (string, int, error) {
+func getKubernetesVersion(client kubernetes.Interface, createOptions *create.CreateOptions) (string, int, error) {
+	if createOptions.KubernetesVersion != "" {
+		version := createOptions.KubernetesVersion
+		if version[0] == 'v' {
+			version = version[1:]
+		}
+
+		splittedVersion := strings.Split(version, ".")
+		if len(splittedVersion) != 2 && len(splittedVersion) != 3 {
+			return "", 0, fmt.Errorf("unrecognized kubernetes version %s, please use format vX.X", version)
+		}
+
+		minor := splittedVersion[1]
+		minorParsed, err := strconv.Atoi(minor)
+		if err != nil {
+			return "", 0, errors.Wrap(err, "parse minor version")
+		}
+
+		return splittedVersion[0] + "." + splittedVersion[1], minorParsed, nil
+	}
+
 	serverVersion, err := client.Discovery().ServerVersion()
 	if err != nil {
 		return "", 0, err

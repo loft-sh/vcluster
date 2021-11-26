@@ -10,14 +10,14 @@ type CreateOptions struct {
 	CIDR         string
 	ExtraValues  []string
 
+	KubernetesVersion string
+
 	CreateNamespace    bool
 	DisableIngressSync bool
 	CreateClusterRole  bool
 	Expose             bool
 	Connect            bool
 	Upgrade            bool
-
-	RunAsUser int64
 
 	ReleaseValues string
 }

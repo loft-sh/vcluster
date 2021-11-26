@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"github.com/loft-sh/vcluster/pkg/helm"
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
@@ -85,7 +86,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	statefulSets, err := client.AppsV1().StatefulSets(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=vcluster"})
+	releases, err := helm.NewSecrets(client).List(context.Background(), nil, namespace)
 	if err != nil {
 		if kerrors.IsForbidden(err) {
 			// try the current namespace instead
@@ -96,7 +97,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				namespace = "default"
 			}
 
-			statefulSets, err = client.AppsV1().StatefulSets(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=vcluster"})
+			releases, err = helm.NewSecrets(client).List(context.Background(), nil, namespace)
 			if err != nil {
 				return err
 			}
@@ -106,13 +107,15 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	vclusters := []VCluster{}
-	for _, s := range statefulSets.Items {
-		vclusters = append(vclusters, VCluster{
-			Name:       s.Name,
-			Namespace:  s.Namespace,
-			Created:    s.CreationTimestamp.Time,
-			AgeSeconds: int(time.Since(s.CreationTimestamp.Time).Seconds()),
-		})
+	for _, s := range releases {
+		if s.Chart != nil && s.Chart.Metadata != nil && (s.Chart.Metadata.Name == "vcluster" || s.Chart.Metadata.Name == "vcluster-k0s" || s.Chart.Metadata.Name == "vcluster-k8s") {
+			vclusters = append(vclusters, VCluster{
+				Name:       s.Name,
+				Namespace:  s.Namespace,
+				Created:    s.Info.FirstDeployed.Time,
+				AgeSeconds: int(time.Since(s.Info.FirstDeployed.Time).Seconds()),
+			})
+		}
 	}
 
 	if cmd.output == "json" {

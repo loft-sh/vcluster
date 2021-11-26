@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create/values"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/loft-sh/vcluster/pkg/upgrade"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -56,7 +55,7 @@ vcluster create test --namespace test
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
-
+			validateDeprecated(&cmd.CreateOptions, cmd.log)
 			return cmd.Run(args)
 		},
 	}
@@ -64,18 +63,27 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.4.0)")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh", "The virtual cluster chart repo to use")
-	cobraCmd.Flags().StringVar(&cmd.K3SImage, "k3s-image", "", "If specified, use this k3s image version")
+	cobraCmd.Flags().StringVar(&cmd.K3SImage, "k3s-image", "", "DEPRECATED: use --extra-values instead")
 	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k3s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(values.AllowedDistros, ", ")))
 	cobraCmd.Flags().StringVar(&cmd.ReleaseValues, "release-values", "", "DEPRECATED: use --extra-values instead")
+	cobraCmd.Flags().StringVar(&cmd.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cobraCmd.Flags().StringSliceVarP(&cmd.ExtraValues, "extra-values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cobraCmd.Flags().BoolVar(&cmd.DisableIngressSync, "disable-ingress-sync", false, "If true the virtual cluster will not sync any ingresses")
 	cobraCmd.Flags().BoolVar(&cmd.CreateClusterRole, "create-cluster-role", false, "If true a cluster role will be created to access nodes, storageclasses and priorityclasses")
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", false, "If true will run vcluster connect directly after the vcluster was created")
-	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", true, "If true will try to upgrade the vcluster instead of failing if it already exists")
-	cobraCmd.Flags().Int64Var(&cmd.RunAsUser, "run-as-user", -1, "User UID that will be used to run the containers in vcluster pod and vcluster CoreDNS. Set to a non-zero value to run vcluster as non-root user. The value must be in a range that is acceptable by your cluster.")
+	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
 	return cobraCmd
+}
+
+func validateDeprecated(createOptions *create.CreateOptions, log log.Logger) {
+	if createOptions.ReleaseValues != "" {
+		log.Warn("Flag --release-values is deprecated, please use --extra-values instead. This flag will be removed in future!")
+	}
+	if createOptions.K3SImage != "" {
+		log.Warn("Flag --k3s-image is deprecated, please use --extra-values instead. This flag will be removed in future!")
+	}
 }
 
 // Run executes the functionality
@@ -164,9 +172,11 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	// check if vcluster already exists
 	if cmd.Upgrade == false {
-		_, err = client.AppsV1().StatefulSets(cmd.Namespace).Get(context.TODO(), args[0], metav1.GetOptions{})
-		if err == nil {
-			return fmt.Errorf("vcluster %s already exists in namespace %s", args[0], cmd.Namespace)
+		release, err := helm.NewSecrets(client).Get(context.Background(), args[0], cmd.Namespace)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return errors.Wrap(err, "get helm releases")
+		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") {
+			return fmt.Errorf("vcluster %s already exists in namespace %s. If you want to upgrade the existing vcluster release, run with the --upgrade flag", args[0], cmd.Namespace)
 		}
 	}
 
