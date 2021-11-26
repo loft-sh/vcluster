@@ -1,10 +1,11 @@
 package translate
 
 import (
+	"strings"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"strings"
 )
 
 func TranslateLabelSelectorCluster(physicalNamespace string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
@@ -34,6 +35,10 @@ func TranslateLabelSelectorCluster(physicalNamespace string, labelSelector *meta
 }
 
 func TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	return TranslateLabelSelectorWithPrefix(LabelPrefix, labelSelector)
+}
+
+func TranslateLabelSelectorWithPrefix(labelPrefix string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
 	if labelSelector == nil {
 		return nil
 	}
@@ -42,14 +47,14 @@ func TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSe
 	if labelSelector.MatchLabels != nil {
 		newLabelSelector.MatchLabels = map[string]string{}
 		for k, v := range labelSelector.MatchLabels {
-			newLabelSelector.MatchLabels[ConvertLabelKey(k)] = v
+			newLabelSelector.MatchLabels[ConvertLabelKeyWithPrefix(labelPrefix, k)] = v
 		}
 	}
 	if len(labelSelector.MatchExpressions) > 0 {
 		newLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
 		for _, r := range labelSelector.MatchExpressions {
 			newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
-				Key:      ConvertLabelKey(r.Key),
+				Key:      ConvertLabelKeyWithPrefix(labelPrefix, r.Key),
 				Operator: r.Operator,
 				Values:   r.Values,
 			})

@@ -11,6 +11,7 @@ import (
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -22,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -52,7 +54,7 @@ type Translator interface {
 	Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error)
 }
 
-func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
+func NewTranslator(ctx *context2.ControllerContext, eventRecorder record.EventRecorder) (Translator, error) {
 	imageTranslator, err := NewImageTranslator(ctx.Options.TranslateImages)
 	if err != nil {
 		return nil, err
@@ -62,6 +64,8 @@ func NewTranslator(ctx *context2.ControllerContext) (Translator, error) {
 		vClientConfig:   ctx.VirtualManager.GetConfig(),
 		vClient:         ctx.VirtualManager.GetClient(),
 		imageTranslator: imageTranslator,
+		eventRecorder:   eventRecorder,
+		log:             loghelper.New("pods-syncer-translator"),
 
 		targetNamespace:        ctx.Options.TargetNamespace,
 		clusterDomain:          ctx.Options.ClusterDomain,
@@ -76,6 +80,8 @@ type translator struct {
 	vClientConfig   *rest.Config
 	vClient         client.Client
 	imageTranslator ImageTranslator
+	eventRecorder   record.EventRecorder
+	log             loghelper.Logger
 
 	targetNamespace        string
 	clusterDomain          string
@@ -415,7 +421,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	translateTopologySpreadConstraints(vPod, pPod)
 
 	// translate pod affinity
-	translatePodAffinity(vPod, pPod)
+	t.translatePodAffinity(vPod, pPod)
 
 	return pPod, nil
 }
@@ -772,28 +778,28 @@ func hasClusterIP(service *corev1.Service) bool {
 	return service.Spec.ClusterIP != "None" && service.Spec.ClusterIP != ""
 }
 
-func translatePodAffinity(vPod *corev1.Pod, pPod *corev1.Pod) {
+func (t *translator) translatePodAffinity(vPod *corev1.Pod, pPod *corev1.Pod) {
 	if pPod.Spec.Affinity != nil {
 		if pPod.Spec.Affinity.PodAffinity != nil {
 			for i, term := range pPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-				pPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = translatePodAffinityTerm(vPod, term.PodAffinityTerm)
+				pPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = t.translatePodAffinityTerm(vPod, term.PodAffinityTerm)
 			}
 			for i, term := range pPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-				pPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = translatePodAffinityTerm(vPod, term)
+				pPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = t.translatePodAffinityTerm(vPod, term)
 			}
 		}
 		if pPod.Spec.Affinity.PodAntiAffinity != nil {
 			for i, term := range pPod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-				pPod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = translatePodAffinityTerm(vPod, term.PodAffinityTerm)
+				pPod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i].PodAffinityTerm = t.translatePodAffinityTerm(vPod, term.PodAffinityTerm)
 			}
 			for i, term := range pPod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-				pPod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = translatePodAffinityTerm(vPod, term)
+				pPod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[i] = t.translatePodAffinityTerm(vPod, term)
 			}
 		}
 	}
 }
 
-func translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodAffinityTerm) corev1.PodAffinityTerm {
+func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodAffinityTerm) corev1.PodAffinityTerm {
 	// We never select pods that are not in the vcluster namespace on the host, so we will
 	// omit Namespaces and namespaceSelector here
 	newAffinityTerm := corev1.PodAffinityTerm{
@@ -801,51 +807,54 @@ func translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodAffinityTerm) cor
 		TopologyKey:   term.TopologyKey,
 	}
 
+	// execute logic only if LabelSelector can match something (nil doesn't match anything)
 	if term.LabelSelector != nil {
-		if term.NamespaceSelector == nil {
-			if len(term.Namespaces) > 0 {
-				translatedNamespaces := []string{}
-				for _, ns := range term.Namespaces {
-					translatedNamespaces = append(translatedNamespaces, ns)
-				}
+		if len(term.Namespaces) > 0 {
+			// handle a case where .namespaces is used together with the .namespaceSelector
+			if term.NamespaceSelector != nil && len(term.NamespaceSelector.MatchLabels)+len(term.NamespaceSelector.MatchExpressions) != 0 {
+				// TODO: implement support for using .namespaces together with the .namespaceSelector
+				// this can't be done with simple a translation to label selectors because .namespaces
+				// and matches of the .namespaceSelector are combined as a union(logical OR),
+				// but label selectors are combined with logical AND.
+				// Proposed solution is to add a label, per each affinity term that uses .labelselector together with .namespaces,
+				// to each matching pod during pod reconcile and translate .labelselector + .namespaces to a label
+				// selector with the value that is unique for the particular affinity term
 
+				// Create and event and log entry until the above is implemented
+				t.eventRecorder.Eventf(vPod, "Warning", "SyncWarning", "Inter-pod affinity rule(s) that use both .namespaces and .namespaceSelector fields in the same term are not supported by vcluster yet. The .namespaceSelector fields of the unsupported affinity entries will be ignored.")
+				t.log.Infof("Inter-pod affinity rule(s) that use both .namespaces and .namespaceSelector fields in the same term are not supported by vcluster yet. The .namespaceSelector fields of the unsupported affinity entries of the %s pod in %s namespace will be ignored.", vPod.GetName(), vPod.GetNamespace())
+			}
+
+			// create a selector for .namespaces only if .namespaceSelector is nil or not empty
+			// if .namespaceSelector is empty then it matches all namespaces and we can ignore .namespaces
+			if term.NamespaceSelector == nil || len(term.NamespaceSelector.MatchLabels)+len(term.NamespaceSelector.MatchExpressions) != 0 {
 				// Match specific namespaces
 				if newAffinityTerm.LabelSelector.MatchExpressions == nil {
 					newAffinityTerm.LabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
 				}
-				if newAffinityTerm.LabelSelector.MatchLabels == nil {
-					newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
-				}
 				newAffinityTerm.LabelSelector.MatchExpressions = append(newAffinityTerm.LabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
 					Key:      translate.NamespaceLabel,
 					Operator: metav1.LabelSelectorOpIn,
-					Values:   translatedNamespaces,
+					Values:   append([]string{}, term.Namespaces...),
 				})
-				newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
-			} else {
-				// Match namespace where pod is in
-				if newAffinityTerm.LabelSelector.MatchLabels == nil {
-					newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
-				}
-				newAffinityTerm.LabelSelector.MatchLabels[translate.NamespaceLabel] = vPod.Namespace
-				newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
 			}
+		} else if term.NamespaceSelector != nil {
+			// translate namespace label selector
+			newAffinityTerm.LabelSelector = translate.TranslateLabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector)
 		} else {
-			// TODO: Support selecting namespaces by label here
-			// Match all namespaces
+			// Match namespace where pod is in
+			// k8s docs: "a null or empty namespaces list and null namespaceSelector means "this pod's namespace""
 			if newAffinityTerm.LabelSelector.MatchLabels == nil {
 				newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
 			}
-			newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
+			newAffinityTerm.LabelSelector.MatchLabels[translate.NamespaceLabel] = vPod.Namespace
 		}
-	} else {
-		// Match all namespaces
-		newAffinityTerm.LabelSelector = &metav1.LabelSelector{}
-		newAffinityTerm.LabelSelector.MatchLabels = map[string]string{
-			translate.MarkerLabel: translate.Suffix,
-		}
-	}
 
+		if newAffinityTerm.LabelSelector.MatchLabels == nil {
+			newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
+		}
+		newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
+	}
 	return newAffinityTerm
 }
 
