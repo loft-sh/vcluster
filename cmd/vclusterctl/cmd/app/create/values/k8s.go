@@ -1,0 +1,63 @@
+package values
+
+import (
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"k8s.io/client-go/kubernetes"
+	"strings"
+)
+
+var K8SAPIVersionMap = map[string]string{
+	"1.22": "k8s.gcr.io/kube-apiserver:v1.22.4",
+	"1.21": "k8s.gcr.io/kube-apiserver:v1.21.5",
+	"1.20": "k8s.gcr.io/kube-apiserver:v1.20.12",
+}
+
+var K8SControllerVersionMap = map[string]string{
+	"1.22": "k8s.gcr.io/kube-controller-manager:v1.22.4",
+	"1.21": "k8s.gcr.io/kube-controller-manager:v1.21.5",
+	"1.20": "k8s.gcr.io/kube-controller-manager:v1.20.12",
+}
+
+var K8SEtcdVersionMap = map[string]string{
+	"1.22": "k8s.gcr.io/etcd:3.5.1-0",
+	"1.21": "k8s.gcr.io/etcd:3.4.13-0",
+	"1.20": "k8s.gcr.io/etcd:3.4.13-0",
+}
+
+func getDefaultK8SReleaseValues(client kubernetes.Interface, createOptions *create.CreateOptions, log log.Logger) (string, error) {
+	serverVersionString, serverMinorInt, err := getKubernetesVersion(client)
+	if err != nil {
+		return "", err
+	}
+
+	apiImage, ok := K8SAPIVersionMap[serverVersionString]
+	controllerImage, ok := K8SControllerVersionMap[serverVersionString]
+	etcdImage, ok := K8SEtcdVersionMap[serverVersionString]
+	if !ok {
+		if serverMinorInt > 22 {
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.22", serverVersionString)
+			apiImage = K8SAPIVersionMap["1.22"]
+			controllerImage = K8SControllerVersionMap["1.22"]
+			etcdImage = K8SEtcdVersionMap["1.22"]
+		} else {
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.20", serverVersionString)
+			apiImage = K8SAPIVersionMap["1.20"]
+			controllerImage = K8SControllerVersionMap["1.20"]
+			etcdImage = K8SEtcdVersionMap["1.20"]
+		}
+	}
+
+	// build values
+	values := `api:
+  image: ##API_IMAGE##
+controller:
+  image: ##CONTROLLER_IMAGE##
+etcd:
+  image: ##ETCD_IMAGE##
+`
+	values = strings.ReplaceAll(values, "##API_IMAGE##", apiImage)
+	values = strings.ReplaceAll(values, "##CONTROLLER_IMAGE##", controllerImage)
+	values = strings.ReplaceAll(values, "##ETCD_IMAGE##", etcdImage)
+	return addCommonReleaseValues(values, createOptions)
+}

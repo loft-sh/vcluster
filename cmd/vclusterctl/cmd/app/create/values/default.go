@@ -27,7 +27,7 @@ func GetDefaultReleaseValues(client kubernetes.Interface, createOptions *create.
 	} else if createOptions.Distro == "k0s" {
 		return getDefaultK0SReleaseValues(client, createOptions, log)
 	} else if createOptions.Distro == "k8s" {
-		return "", nil
+		return getDefaultK8SReleaseValues(client, createOptions, log)
 	}
 
 	return "", errors.New("unrecognized distro " + createOptions.Distro)

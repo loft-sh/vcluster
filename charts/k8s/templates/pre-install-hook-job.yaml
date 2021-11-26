@@ -37,6 +37,7 @@ spec:
             - certs
           args:
             - --prefix={{ .Release.Name }}
+            - --etcd-replicas={{ .Values.etcd.replicas }}
             {{- if .Values.serviceCIDR }}
             - --service-cidr={{ .Values.serviceCIDR }}
             {{- end }}

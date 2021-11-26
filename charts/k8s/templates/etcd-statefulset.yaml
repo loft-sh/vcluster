@@ -46,6 +46,14 @@ spec:
         release: {{ .Release.Name }}
     spec:
       terminationGracePeriodSeconds: 10
+      {{- if .Values.etcd.affinity }}
+      affinity:
+{{ toYaml .Values.etcd.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.etcd.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{ toYaml .Values.etcd.topologySpreadConstraints | indent 8 }}
+      {{- end }}
       nodeSelector:
 {{ toYaml .Values.etcd.nodeSelector | indent 8 }}
       affinity:
@@ -74,12 +82,14 @@ spec:
           - '--data-dir=/var/lib/etcd'
           - '--advertise-client-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2379'
           - '--initial-advertise-peer-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2380'
-          - '--initial-cluster=$(NAME)=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2380'
+          {{- $releaseName := .Release.Name -}}
+          {{- $releaseNamespace := .Release.Namespace }}
+          - '--initial-cluster={{ range $index := untilStep 0 (int .Values.etcd.replicas) 1 }}{{ if (ne (int $index) 0) }},{{ end }}{{ $releaseName }}-etcd-{{ $index }}=https://{{ $releaseName }}-etcd-{{ $index }}.{{ $releaseName }}-etcd-headless.{{ $releaseNamespace }}:2380{{ end }}'
+          - '--initial-cluster-token={{ .Release.Name }}'
+          - '--initial-cluster-state=new'
           - '--listen-client-urls=https://0.0.0.0:2379'
           - '--listen-metrics-urls=http://0.0.0.0:2381'
           - '--listen-peer-urls=https://0.0.0.0:2380'
-          - '--initial-cluster-state=new'
-          - '--initial-cluster-token={{ .Release.Name }}'
           - '--key-file=/run/config/pki/etcd-server.key'
           - '--name=$(NAME)'
           - '--peer-cert-file=/run/config/pki/etcd-peer.crt'

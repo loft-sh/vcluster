@@ -38,6 +38,14 @@ spec:
         release: {{ .Release.Name }}
     spec:
       terminationGracePeriodSeconds: 10
+      {{- if .Values.controller.affinity }}
+      affinity:
+{{ toYaml .Values.controller.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.controller.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{ toYaml .Values.controller.topologySpreadConstraints | indent 8 }}
+      {{- end }}
       nodeSelector:
 {{ toYaml .Values.controller.nodeSelector | indent 8 }}
       affinity:
@@ -68,7 +76,11 @@ spec:
           - '--horizontal-pod-autoscaler-sync-period=60s'
           - '--kubeconfig=/run/config/pki/controller-manager.conf'
           - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
+          {{- if .Values.enableHA }}
+          - '--leader-elect=true'
+          {{- else }}
           - '--leader-elect=false'
+          {{- end }}
           - '--node-monitor-grace-period=180s'
           - '--node-monitor-period=30s'
           - '--port=0'
