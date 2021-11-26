@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create/values"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/loft-sh/vcluster/pkg/upgrade"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -173,9 +172,11 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	// check if vcluster already exists
 	if cmd.Upgrade == false {
-		_, err = client.AppsV1().StatefulSets(cmd.Namespace).Get(context.TODO(), args[0], metav1.GetOptions{})
-		if err == nil {
-			return fmt.Errorf("vcluster %s already exists in namespace %s. If you want to upgrade the vcluster, run with the --upgrade flag", args[0], cmd.Namespace)
+		release, err := helm.NewSecrets(client).Get(context.Background(), args[0], cmd.Namespace)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return errors.Wrap(err, "get helm releases")
+		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") {
+			return fmt.Errorf("vcluster %s already exists in namespace %s. If you want to upgrade the existing vcluster release, run with the --upgrade flag", args[0], cmd.Namespace)
 		}
 	}
 
