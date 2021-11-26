@@ -37,6 +37,14 @@ spec:
         release: {{ .Release.Name }}
     spec:
       terminationGracePeriodSeconds: 10
+      {{- if .Values.syncer.affinity }}
+      affinity:
+{{ toYaml .Values.syncer.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.syncer.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{ toYaml .Values.syncer.topologySpreadConstraints | indent 8 }}
+      {{- end }}
       nodeSelector:
 {{ toYaml .Values.syncer.nodeSelector | indent 8 }}
       affinity:

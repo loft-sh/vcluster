@@ -14,25 +14,19 @@ var K0SVersionMap = map[string]string{
 }
 
 func getDefaultK0SReleaseValues(client kubernetes.Interface, createOptions *create.CreateOptions, log log.Logger) (string, error) {
-	image := createOptions.K3SImage
-	if image == "" {
-		serverVersionString, serverMinorInt, err := getKubernetesVersion(client)
-		if err != nil {
-			return "", err
-		}
+	serverVersionString, serverMinorInt, err := getKubernetesVersion(client)
+	if err != nil {
+		return "", err
+	}
 
-		var ok bool
-		image, ok = K0SVersionMap[serverVersionString]
-		if !ok {
-			if serverMinorInt > 22 {
-				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.22", serverVersionString)
-				image = K0SVersionMap["1.22"]
-				serverVersionString = "1.22"
-			} else {
-				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.20", serverVersionString)
-				image = K0SVersionMap["1.20"]
-				serverVersionString = "1.20"
-			}
+	image, ok := K0SVersionMap[serverVersionString]
+	if !ok {
+		if serverMinorInt > 22 {
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.22", serverVersionString)
+			image = K0SVersionMap["1.22"]
+		} else {
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.20", serverVersionString)
+			image = K0SVersionMap["1.20"]
 		}
 	}
 

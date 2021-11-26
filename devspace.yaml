@@ -23,6 +23,13 @@ deployments:
         name: ./charts/k3s
       values:
         serviceCIDR: ${SERVICE_CIDR}
+        etcd:
+          replicas: 3
+        api:
+          replicas: 3
+        controller:
+          replicas: 3
+        enableHA: true
         tolerations:
           - operator: "Exists"
         serviceAccount:
