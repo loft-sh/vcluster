@@ -17,6 +17,10 @@ jobs:
   e2e:
     name: Execute testsuite
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distribution: ["k3s", "k8s", "k0s"]
     steps:
     - name: Checkout repo
       uses: actions/checkout@v2
@@ -39,14 +43,11 @@ jobs:
       uses: loft-sh/setup-devspace@main
 
     - name: Deploy vcluster
-      run: devspace run deploy --skip-push
-
-    - name: Load built image into kind cluster
-      run: docker images | grep ghcr.io/loft-sh/loft-enterprise/dev-vcluster | head -n 1 | awk '{print $1":"$2}' | xargs kind load docker-image
+      run: devspace run deploy -p ${{ matrix.distribution}} -p kind-load -p no-cpu-requests --skip-push
 
     - name: Wait until vcluster is ready
       id: wait-until-vcluster-is-ready
-      run: kubectl wait --for=condition=ready pod vcluster-0 -n vcluster --timeout=120s
+      run: kubectl wait --for=condition=ready pod -l app=vcluster -n vcluster --timeout=300s
       continue-on-error: true
     
     - name: Collect deployment information in case vcluster fails to start
