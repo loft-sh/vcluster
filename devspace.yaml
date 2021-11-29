@@ -100,6 +100,57 @@ profiles:
         path: deployments.name=vcluster.helm.values.syncer
         value:
           image: ${SYNCER_IMAGE}
+  - name: k3s
+    # This profile is empty for now because the default config is for k3s
+    # Keep the empty profile because it's used in the distribution matrix of the GH workflow for e2e. 
+  - name: k0s
+    patches:
+      - op: replace
+        path: deployments.name=vcluster.helm.chart.name
+        value: ./charts/k0s
+      - op: remove
+        path: deployments.name=vcluster.helm.values.vcluster.image
+  - name: k8s
+    patches:
+      - op: replace
+        path: deployments.name=vcluster.helm.chart.name
+        value: ./charts/k8s
+  - name: kind-load
+    patches:
+      - op: add
+        path: hooks
+        value:
+          - name: "post-image-build-hook"
+            command: |
+              kind load docker-image image(vcluster):tag(vcluster)
+            events: ["after:build:vcluster"]
+  - name: no-cpu-requests
+    patches:
+      - op: replace
+        path: deployments.name=vcluster.helm.values.syncer.resources
+        value: 
+          requests:
+            cpu: "0"
+      - op: replace
+        path: deployments.name=vcluster.helm.values.vcluster.resources
+        value: 
+          requests:
+            cpu: "0"
+      - op: replace
+        path: deployments.name=vcluster.helm.values.etcd.resources
+        value: 
+          requests:
+            cpu: "0"
+      - op: replace
+        path: deployments.name=vcluster.helm.values.controller.resources
+        value: 
+          requests:
+            cpu: "0"
+      - op: replace
+        path: deployments.name=vcluster.helm.values.api.resources
+        value: 
+          requests:
+            cpu: "0"
   - name: parent-crc
     patches:
       - op: replace
