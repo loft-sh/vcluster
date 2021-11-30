@@ -10,6 +10,7 @@ metadata:
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
 spec:
+  publishNotReadyAddresses: true
   ports:
     - name: etcd
       port: 2379
