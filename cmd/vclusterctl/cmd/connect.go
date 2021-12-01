@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -148,20 +149,9 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	}
 
 	// get the kube config from the the Secret
-	kubeConfig, err := kubeconfig.ReadKubeConfig(context.Background(), kubeClient, vclusterName, cmd.Namespace)
+	kubeConfig, err := GetKubeConfig(context.Background(), kubeClient, vclusterName, restConfig, podName, cmd.Namespace, cmd.Log)
 	if err != nil {
-		cmd.Log.Infof("Unable to read the default Secret containing kube config: %v", err)
-		cmd.Log.Info("Falling back to reading the kube config from the syncer pod.")
-		// try to obtain the kube config the old way
-		out, err := podhelper.GetVClusterConfig(restConfig, podName, cmd.Namespace, cmd.Log)
-		if err != nil {
-			return err
-		} else {
-			kubeConfig, err = clientcmd.Load(out)
-			if err != nil {
-				return errors.Wrap(err, "failed to parse kube config")
-			}
-		}
+		return errors.Wrap(err, "failed to parse kube config")
 	}
 
 	// find out port we should listen to locally
@@ -305,4 +295,44 @@ func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.Au
 
 	// Save the config
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), config, false)
+}
+
+// GetKubeConfig attempts to read the kubeconfig from the default Secret and
+// falls back to reading from filesystem if the Secret is not read successfully.
+// Reading from filesystem is implemented for the backward compatibility and
+// can be eventually removed in the future.
+//
+// This is retried until the kube config is successfully retrieve, or until 10 minute timeout is reached.
+func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclusterName string, restConfig *rest.Config, podName, namespace string, log log.Logger) (*api.Config, error) {
+	var kubeConfig *api.Config
+
+	printedWaiting := false
+	err := wait.PollImmediate(time.Second*2, time.Minute*10, func() (done bool, err error) {
+		kubeConfig, err = kubeconfig.ReadKubeConfig(context.Background(), kubeClient, vclusterName, namespace)
+		if err != nil {
+			// try to obtain the kube config the old way
+			stdout, _, err := podhelper.ExecBuffered(restConfig, namespace, podName, "syncer", []string{"cat", "/root/.kube/config"}, nil)
+			if err != nil {
+				if !printedWaiting {
+					log.Infof("Waiting for vcluster to come up...")
+					printedWaiting = true
+				}
+				return false, nil
+			}
+
+			kubeConfig, err = clientcmd.Load(stdout)
+			if err != nil {
+				return false, fmt.Errorf("failed to parse kube config: %v", err)
+			}
+			log.Info("Falling back to reading the kube config from the syncer pod.")
+			return true, nil
+
+		}
+		return true, nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "wait for vcluster")
+	}
+
+	return kubeConfig, nil
 }
