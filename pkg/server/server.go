@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
@@ -15,9 +13,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
 	"github.com/pkg/errors"
+	"io"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
@@ -192,31 +190,52 @@ func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interfa
 	}
 
 	kubeInformerFactory := informers.NewSharedInformerFactory(vClient, 0)
+	serviceResolver := aggregatorapiserver.NewClusterIPServiceResolver(
+		kubeInformerFactory.Core().V1().Services().Lister(),
+	)
+	authInfoResolverWrapper := func(resolver webhook.AuthenticationInfoResolver) webhook.AuthenticationInfoResolver {
+		return &kubeConfigProvider{
+			kubeConfig: vConfig,
+		}
+	}
+
+	// Register plugins
 	plugins := &admission.Plugins{}
 	mutating.Register(plugins)
 	validating.Register(plugins)
-	webhookAuthResolverWrapper := webhook.NewDefaultAuthenticationInfoResolverWrapper(utilnet.SetTransportDefaults(&http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}), nil, vConfig)
-	webhookPluginInitializer := webhookinit.NewPluginInitializer(webhookAuthResolverWrapper, aggregatorapiserver.NewClusterIPServiceResolver(
-		kubeInformerFactory.Core().V1().Services().Lister(),
-	))
-	pluginInitializers := []admission.PluginInitializer{webhookPluginInitializer}
-	pluginNames := plugins.Registered()
-	pluginsConfigProvider, err := admission.ReadAdmissionConfiguration(pluginNames, "", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read plugin config: %v", err)
-	}
 
-	genericInitializer := initializer.New(vClient, kubeInformerFactory, nil, nil)
-	initializersChain := admission.PluginInitializers{}
-	pluginInitializers = append(pluginInitializers, genericInitializer)
-	initializersChain = append(initializersChain, pluginInitializers...)
-	admissionChain, err := plugins.NewFromPlugins(pluginNames, pluginsConfigProvider, initializersChain, nil)
+	// create admission chain
+	admissionChain, err := plugins.NewFromPlugins(
+		plugins.Registered(),
+		&emptyConfigProvider{},
+		admission.PluginInitializers{
+			webhookinit.NewPluginInitializer(authInfoResolverWrapper, serviceResolver),
+			initializer.New(vClient, kubeInformerFactory, nil, nil),
+		},
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	go kubeInformerFactory.Start(ctx.Done())
 	return admissionChain, nil
+}
+
+type kubeConfigProvider struct {
+	kubeConfig *rest.Config
+}
+
+func (c *kubeConfigProvider) ClientConfigFor(hostPort string) (*rest.Config, error) {
+	return c.kubeConfig, nil
+}
+
+func (c *kubeConfigProvider) ClientConfigForService(serviceName, serviceNamespace string, servicePort int) (*rest.Config, error) {
+	return c.kubeConfig, nil
+}
+
+type emptyConfigProvider struct{}
+
+func (e *emptyConfigProvider) ConfigFor(pluginName string) (io.Reader, error) {
+	return nil, nil
 }
