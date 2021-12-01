@@ -84,6 +84,11 @@ spec:
           - --service-name={{ .Release.Name }}
           - --suffix={{ .Release.Name }}
           - --set-owner
+          {{- if .Values.enableHA }}
+          - '--leader-elect=true'
+          {{- else }}
+          - '--leader-elect=false'
+          {{- end }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}

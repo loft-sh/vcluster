@@ -3,6 +3,7 @@ package leaderelection
 import (
 	"context"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +22,10 @@ import (
 
 func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme, run func() error) error {
 	localConfig := ctx.LocalManager.GetConfig()
+	currentNamespace, err := clienthelper.CurrentNamespace()
+	if err != nil {
+		return err
+	}
 
 	// create the event recorder
 	recorderClient, err := kubernetes.NewForConfig(localConfig)
@@ -29,7 +34,7 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 	}
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(func(format string, args ...interface{}) { klog.Infof(format, args...) })
-	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: recorderClient.CoreV1().Events(ctx.Options.TargetNamespace)})
+	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: recorderClient.CoreV1().Events(currentNamespace)})
 	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "vcluster"})
 
 	// create the leader election client
@@ -47,7 +52,7 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 	// Lock required for leader election
 	rl := resourcelock.ConfigMapLock{
 		ConfigMapMeta: metav1.ObjectMeta{
-			Namespace: ctx.Options.TargetNamespace,
+			Namespace: currentNamespace,
 			Name:      translate.SafeConcatName("vcluster", translate.Suffix, "controller"),
 		},
 		Client: leaderElectionClient.CoreV1(),

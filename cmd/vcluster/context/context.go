@@ -53,6 +53,7 @@ type VirtualClusterOptions struct {
 
 	ClusterDomain string
 
+	LeaderElect   bool
 	LeaseDuration int64
 	RenewDeadline int64
 	RetryPeriod   int64
@@ -88,7 +89,7 @@ func NewControllerContext(localManager ctrl.Manager, virtualManager ctrl.Manager
 		Context:             ctx,
 		LocalManager:        localManager,
 		VirtualManager:      virtualManager,
-		NodeServiceProvider: nodeservice.NewNodeServiceProvider(localManager.GetClient(), virtualManager.GetClient(), uncachedVirtualClient, options.TargetNamespace),
+		NodeServiceProvider: nodeservice.NewNodeServiceProvider(localManager.GetClient(), virtualManager.GetClient(), uncachedVirtualClient),
 		LockFactory:         locks.NewDefaultLockFactory(),
 		CacheSynced: func() {
 			cacheSynced.Do(func() {
