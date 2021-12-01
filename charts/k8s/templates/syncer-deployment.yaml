@@ -89,6 +89,11 @@ spec:
           - --server-ca-cert=/pki/ca.crt
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
+          {{- if .Values.enableHA }}
+          - --leader-elect=true
+          {{- else }}
+          - --leader-elect=false
+          {{- end }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}

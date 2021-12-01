@@ -112,6 +112,8 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.OverrideHostsContainerImage, "override-hosts-container-image", translatepods.HostsRewriteImage, "The image for the init container that is used for creating the override hosts file.")
 
 	cmd.Flags().StringVar(&options.ClusterDomain, "cluster-domain", "cluster.local", "The cluster domain ending that should be used for the virtual cluster")
+
+	cmd.Flags().BoolVar(&options.LeaderElect, "leader-elect", false, "If enabled, syncer will use leader election")
 	cmd.Flags().Int64Var(&options.LeaseDuration, "lease-duration", 60, "Lease duration of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RenewDeadline, "renew-deadline", 40, "Renew deadline of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RetryPeriod, "retry-period", 15, "Retry period of the leader election in seconds")
@@ -244,7 +246,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	// setup CoreDNS according to the manifest file
 	go func() {
-		wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
+		_ = wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
 			err := coredns.ApplyManifest(*virtualClusterConfig, serverVersion)
 			if err != nil {
 				klog.Infof("Failed to apply CoreDNS cofiguration from the manifest file: %v", err)
@@ -289,43 +291,13 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	// start leader election for controllers
 	go func() {
-		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
-			localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{Scheme: ctx.LocalManager.GetScheme()})
-			if err != nil {
-				return err
-			}
-
-			// make sure owner is set if it is there
-			err = findOwner(ctx, localClient)
-			if err != nil {
-				return errors.Wrap(err, "set owner")
-			}
-
-			// make sure the kubernetes service is synced
-			err = syncKubernetesService(ctx, localClient)
-			if err != nil {
-				return errors.Wrap(err, "sync kubernetes service")
-			}
-
-			// start the node service provider
-			go func() {
-				ctx.NodeServiceProvider.Start(ctx.Context)
-			}()
-
-			// register controllers
-			err = controllers.RegisterControllers(ctx)
-			if err != nil {
-				return err
-			}
-
-			// write the kube config to secret
-			err = writeKubeConfigToSecret(ctx, &rawConfig)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		})
+		if ctx.Options.LeaderElect {
+			err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
+				return startControllers(ctx, &rawConfig)
+			})
+		} else {
+			err = startControllers(ctx, &rawConfig)
+		}
 		if err != nil {
 			klog.Fatalf("Error starting leader election: %v", err)
 		}
@@ -339,6 +311,44 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	// start the proxy server in secure mode
 	err = proxyServer.ServeOnListenerTLS(options.BindAddress, options.Port, ctx.StopChan)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config) error {
+	localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{Scheme: ctx.LocalManager.GetScheme()})
+	if err != nil {
+		return err
+	}
+
+	// make sure owner is set if it is there
+	err = findOwner(ctx, localClient)
+	if err != nil {
+		return errors.Wrap(err, "set owner")
+	}
+
+	// make sure the kubernetes service is synced
+	err = syncKubernetesService(ctx, localClient)
+	if err != nil {
+		return errors.Wrap(err, "sync kubernetes service")
+	}
+
+	// start the node service provider
+	go func() {
+		ctx.NodeServiceProvider.Start(ctx.Context)
+	}()
+
+	// register controllers
+	err = controllers.RegisterControllers(ctx)
+	if err != nil {
+		return err
+	}
+
+	// write the kube config to secret
+	err = writeKubeConfigToSecret(ctx, rawConfig)
 	if err != nil {
 		return err
 	}
