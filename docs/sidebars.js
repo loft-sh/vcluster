@@ -55,6 +55,7 @@ module.exports = {
         'operator/accessing-vcluster',
         'operator/monitoring',
         'operator/other-distributions',
+        'operator/restricted-hosts',
       ],
     },
     {
