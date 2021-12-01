@@ -13,12 +13,7 @@ enableHA: false
 syncer:
   # Image to use for the syncer
   # image: loftsh/vcluster
-  extraArgs:
-    - --request-header-ca-cert=/pki/ca.crt
-    - --client-ca-cert=/pki/ca.crt
-    - --server-ca-cert=/pki/ca.crt
-    - --server-ca-key=/pki/ca.key
-    - --kube-config=/pki/admin.conf
+  extraArgs: []
   volumeMounts:
     - mountPath: /pki
       name: certs
