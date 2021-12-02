@@ -9,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"net"
 	"net/http"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -20,9 +19,9 @@ type nodeName int
 // does not conflict with the keys defined in pkg/api.
 const nodeNameKey nodeName = iota
 
-func WithNodeName(h http.Handler, localManager ctrl.Manager, targetNamespace string) http.Handler {
+func WithNodeName(h http.Handler, currentNamespace string, currentNamespaceClient client.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		nodeName, err := NodeNameFromHost(req.Context(), req.Host, targetNamespace, localManager.GetClient())
+		nodeName, err := nodeNameFromHost(req.Context(), req.Host, currentNamespace, currentNamespaceClient)
 		if err != nil {
 			requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, errors.Wrap(err, "find node name from host"))
 			return
@@ -40,12 +39,12 @@ func NodeNameFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-func NodeNameFromHost(ctx context.Context, host, targetNamespace string, localClient client.Client) (string, error) {
+func nodeNameFromHost(ctx context.Context, host, currentNamespace string, currentNamespaceClient client.Client) (string, error) {
 	addr, err := net.ResolveUDPAddr("udp", host)
 	if err == nil {
 		clusterIP := addr.IP.String()
 		serviceList := &corev1.ServiceList{}
-		err = localClient.List(ctx, serviceList, client.InNamespace(targetNamespace), client.MatchingFields{constants.IndexByClusterIP: clusterIP})
+		err = currentNamespaceClient.List(ctx, serviceList, client.InNamespace(currentNamespace), client.MatchingFields{constants.IndexByClusterIP: clusterIP})
 		if err != nil {
 			return "", err
 		}

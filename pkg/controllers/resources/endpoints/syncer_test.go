@@ -17,8 +17,8 @@ import (
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
 		targetNamespace:  "test",
-		serviceNamespace: "test",
-		serviceClient:    pClient,
+		currentNamespace: "test",
+		currentNamespaceClient:    pClient,
 		virtualClient:    vClient,
 
 		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "endpoints"),

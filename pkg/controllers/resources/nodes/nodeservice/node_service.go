@@ -38,16 +38,19 @@ type NodeServiceProvider interface {
 	GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error)
 }
 
-func NewNodeServiceProvider(localClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
+func NewNodeServiceProvider(currentNamespace string, currentNamespaceClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
 	return &nodeServiceProvider{
-		localClient:           localClient,
-		virtualClient:         virtualClient,
-		uncachedVirtualClient: uncachedVirtualClient,
+		currentNamespace:       currentNamespace,
+		currentNamespaceClient: currentNamespaceClient,
+		virtualClient:          virtualClient,
+		uncachedVirtualClient:  uncachedVirtualClient,
 	}
 }
 
 type nodeServiceProvider struct {
-	localClient           client.Client
+	currentNamespace       string
+	currentNamespaceClient client.Client
+
 	virtualClient         client.Client
 	uncachedVirtualClient client.Client
 
@@ -64,16 +67,11 @@ func (n *nodeServiceProvider) Start(ctx context.Context) {
 }
 
 func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
-	currentNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return err
-	}
-
 	n.serviceMutex.Lock()
 	defer n.serviceMutex.Unlock()
 
 	serviceList := &corev1.ServiceList{}
-	err = n.localClient.List(ctx, serviceList, client.InNamespace(currentNamespace), client.MatchingLabels{
+	err := n.currentNamespaceClient.List(ctx, serviceList, client.InNamespace(n.currentNamespace), client.MatchingLabels{
 		ServiceClusterLabel: translate.Suffix,
 	})
 	if err != nil {
@@ -104,7 +102,7 @@ func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
 
 		if exist == false {
 			klog.Infof("Cleaning up kubelet service for node %s", s.Labels[ServiceNodeLabel])
-			err = n.localClient.Delete(ctx, &s)
+			err = n.currentNamespaceClient.Delete(ctx, &s)
 			if err != nil {
 				errors = append(errors, err)
 			}
@@ -123,20 +121,14 @@ func (n *nodeServiceProvider) Unlock() {
 }
 
 func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
-	currentNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return "", err
-	}
+	serviceName := translate.SafeConcatName(translate.Suffix, "node", name.Name)
 
-	serviceList := &corev1.ServiceList{}
-	err = n.localClient.List(ctx, serviceList, client.InNamespace(currentNamespace), client.MatchingLabels{
-		ServiceClusterLabel: translate.Suffix,
-		ServiceNodeLabel:    name.Name,
-	})
-	if err != nil {
+	service := &corev1.Service{}
+	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: n.currentNamespace}, service)
+	if err != nil && !kerrors.IsNotFound(err) {
 		return "", errors.Wrap(err, "list services")
-	} else if len(serviceList.Items) > 0 {
-		return serviceList.Items[0].Spec.ClusterIP, nil
+	} else if err == nil {
+		return service.Spec.ClusterIP, nil
 	}
 
 	// create a new service if we can't find one
@@ -147,7 +139,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 
 	// find out the labels to select ourself
 	pod := &corev1.Pod{}
-	err = n.localClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: currentNamespace}, pod)
+	err = n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: n.currentNamespace}, pod)
 	if err != nil {
 		return "", errors.Wrap(err, "get pod")
 	} else if len(pod.Labels) == 0 {
@@ -167,8 +159,8 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 	// create the new service
 	nodeService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    currentNamespace,
-			GenerateName: translate.SafeConcatGenerateName(translate.Suffix, "node") + "-",
+			Namespace: n.currentNamespace,
+			Name:      serviceName,
 			Labels: map[string]string{
 				ServiceClusterLabel: translate.Suffix,
 				ServiceNodeLabel:    name.Name,
@@ -192,7 +184,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 
 	// create the service
 	klog.Infof("Generating kubelet service for node %s", name.Name)
-	err = n.localClient.Create(ctx, nodeService)
+	err = n.currentNamespaceClient.Create(ctx, nodeService)
 	if err != nil {
 		return "", errors.Wrap(err, "create node service")
 	}

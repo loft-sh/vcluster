@@ -20,8 +20,8 @@ import (
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
 		serviceName:      "myservice",
-		serviceNamespace: "test",
-		serviceClient:    pClient,
+		currentNamespace: "test",
+		currentNamespaceClient:    pClient,
 		virtualClient:    vClient,
 		localClient:      pClient,
 

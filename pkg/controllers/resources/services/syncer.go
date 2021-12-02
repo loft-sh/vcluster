@@ -6,7 +6,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,29 +27,16 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 }
 
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	var (
-		err           error
-		serviceClient = ctx.LocalManager.GetClient()
-	)
-	if ctx.Options.ServiceNamespace != ctx.Options.TargetNamespace {
-		serviceClient, err = client.New(ctx.LocalManager.GetConfig(), client.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			Mapper: ctx.LocalManager.GetRESTMapper(),
-		})
-		if err != nil {
-			return errors.Wrap(err, "create uncached client")
-		}
-	}
-
 	recorder := eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"})
 	return generic.RegisterSyncer(ctx, "service", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
 
-		serviceNamespace: ctx.Options.ServiceNamespace,
-		serviceName:      ctx.Options.ServiceName,
-		serviceClient:    serviceClient,
-		localClient:      ctx.LocalManager.GetClient(),
-		virtualClient:    ctx.VirtualManager.GetClient(),
+		currentNamespaceClient: ctx.CurrentNamespaceClient,
+		currentNamespace:       ctx.CurrentNamespace,
+		serviceName:            ctx.Options.ServiceName,
+		
+		localClient:   ctx.LocalManager.GetClient(),
+		virtualClient: ctx.VirtualManager.GetClient(),
 
 		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), recorder, "service"),
 		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
@@ -60,9 +46,9 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 type syncer struct {
 	generic.Translator
 
-	serviceClient    client.Client
-	serviceNamespace string
-	serviceName      string
+	currentNamespaceClient client.Client
+	currentNamespace       string
+	serviceName            string
 
 	localClient   client.Client
 	virtualClient client.Client
@@ -190,7 +176,7 @@ var _ generic.Starter = &syncer{}
 func (s *syncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service
 	if req.Name == "kubernetes" && req.Namespace == "default" {
-		return true, SyncKubernetesService(ctx, s.virtualClient, s.serviceClient, s.serviceNamespace, s.serviceName)
+		return true, SyncKubernetesService(ctx, s.virtualClient, s.currentNamespaceClient, s.currentNamespace, s.serviceName)
 	}
 
 	return false, nil

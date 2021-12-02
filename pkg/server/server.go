@@ -37,6 +37,7 @@ import (
 	"net"
 	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 )
 
@@ -44,14 +45,16 @@ import (
 type Server struct {
 	virtualManager ctrl.Manager
 	localManager   ctrl.Manager
-	certSyncer     cert.Syncer
-	handler        *http.ServeMux
+
+	currentNamespace       string
+	currentNamespaceClient client.Client
+
+	certSyncer cert.Syncer
+	handler    *http.ServeMux
 
 	redirectResources   []delegatingauthorizer.GroupVersionResourceVerb
 	requestHeaderCaFile string
 	clientCaFile        string
-
-	targetNamespace string
 }
 
 // NewServer creates and installs a new Server.
@@ -68,7 +71,8 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		certSyncer:     certSyncer,
 		handler:        http.NewServeMux(),
 
-		targetNamespace: ctx.Options.TargetNamespace,
+		currentNamespace:       ctx.CurrentNamespace,
+		currentNamespaceClient: ctx.CurrentNamespaceClient,
 
 		requestHeaderCaFile: requestHeaderCaFile,
 		clientCaFile:        clientCaFile,
@@ -179,7 +183,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
-	defaultHandler = filters.WithNodeName(defaultHandler, s.localManager, s.targetNamespace)
+	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.currentNamespaceClient)
 	return defaultHandler
 }
 

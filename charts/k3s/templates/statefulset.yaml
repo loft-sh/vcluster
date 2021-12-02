@@ -109,9 +109,7 @@ spec:
         {{- end }}
         {{- if not .Values.syncer.noArgs }}
         args:
-          - --service-name={{ .Release.Name }}
-          - --suffix={{ .Release.Name }}
-          - --set-owner
+          - --name={{ .Release.Name }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}
