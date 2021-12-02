@@ -1,6 +1,6 @@
 ---
-title: Runing on restricted hosts
-sidebar_label: Runing on restricted hosts (non-root, OpenShift, etc.)
+title: Rootless mode
+sidebar_label: Running on restricted hosts (non-root, OpenShift, etc.)
 ---
 
 import NonRootSegment from '../fragments/non-root-vcluster.mdx'
@@ -16,7 +16,7 @@ If your host cluster policies disallow running containers with root user, or you
 
 :::info Values of the securityContext fields
 You can substitute the runAsUser value as needed, e.g. if the host cluster limits the allowable UID ranges.  
-And you are free to set other [securityContext fields](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#podsecuritycontext-v1-core) as necessary to fullfil your host cluster policies.
+And you are free to set other [securityContext fields](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#podsecuritycontext-v1-core) as necessary to fulfill your host cluster policies.
 :::
 
 :::caution
@@ -24,7 +24,7 @@ Running as non-root is currently supported only for the k3s distribution. While 
 :::
 
 :::caution
-Vcluster doesn't currently provide a migration path from an instance that was running as root to running with a non-root user.
+vcluster doesn't currently provide a migration path from an instance that was running as root to running with a non-root user.
 :::
 
 ## Running on OpenShift
@@ -36,7 +36,7 @@ When deploying vcluster to OpenShift you will need to follow these additional st
 <OpenshiftSegment/>
 
 :::info Additional permission when running on OpenShift
-Vcluster requires `create` permission for the `endpoints/restricted` resource in the default group when running on OpenShift.  
-This permission is required because OpenShift has additional built-in addmission controller for the Endpoint resources, which denies creation of the endpoints pointing into the cluster network or service network CIDR ranges, unless this additional permission is given.
+vcluster requires `create` permission for the `endpoints/restricted` resource in the default group when running on OpenShift.  
+This permission is required because OpenShift has additional built-in admission controller for the Endpoint resources, which denies creation of the endpoints pointing into the cluster network or service network CIDR ranges, unless this additional permission is given.
 Following the steps outline above ensures that the vcluster Role includes this permission, as it is necessary for certain networking features. 
 :::
