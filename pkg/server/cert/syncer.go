@@ -11,7 +11,6 @@ import (
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,31 +26,20 @@ type Syncer interface {
 }
 
 func NewSyncer(ctx *ctrlcontext.ControllerContext) (Syncer, error) {
-	localClient := ctx.LocalManager.GetClient()
-	if ctx.Options.ServiceNamespace != ctx.Options.TargetNamespace {
-		var err error
-		localClient, err = client.New(ctx.LocalManager.GetConfig(), client.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			Mapper: ctx.LocalManager.GetRESTMapper(),
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "create uncached client")
-		}
-	}
-
 	return &syncer{
 		clusterDomain: ctx.Options.ClusterDomain,
 
 		serverCaKey:  ctx.Options.ServerCaKey,
 		serverCaCert: ctx.Options.ServerCaCert,
 
-		addSANs:          ctx.Options.TlsSANs,
-		listeners:        []dynamiccertificates.Listener{},
-		serviceName:      ctx.Options.ServiceName,
-		serviceNamespace: ctx.Options.ServiceNamespace,
+		addSANs:   ctx.Options.TlsSANs,
+		listeners: []dynamiccertificates.Listener{},
+		
+		serviceName:           ctx.Options.ServiceName,
+		currentNamespace:      ctx.CurrentNamespace,
+		currentNamespaceCient: ctx.CurrentNamespaceClient,
 
 		vClient: ctx.VirtualManager.GetClient(),
-		pClient: localClient,
 	}, nil
 }
 
@@ -64,10 +52,10 @@ type syncer struct {
 	addSANs []string
 
 	serviceName      string
-	serviceNamespace string
+	currentNamespace string
+	currentNamespaceCient client.Client
 
 	vClient client.Client
-	pClient client.Client
 
 	listeners []dynamiccertificates.Listener
 
@@ -100,14 +88,14 @@ func (s *syncer) getSANs() ([]string, error) {
 
 	// get cluster ip of target service
 	svc := &corev1.Service{}
-	err := s.pClient.Get(context.TODO(), types.NamespacedName{
-		Namespace: s.serviceNamespace,
+	err := s.currentNamespaceCient.Get(context.TODO(), types.NamespacedName{
+		Namespace: s.currentNamespace,
 		Name:      s.serviceName,
 	}, svc)
 	if err != nil {
-		return nil, fmt.Errorf("error getting vcluster service %s/%s: %v", s.serviceNamespace, s.serviceName, err)
+		return nil, fmt.Errorf("error getting vcluster service %s/%s: %v", s.currentNamespace, s.serviceName, err)
 	} else if svc.Spec.ClusterIP == "" {
-		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.serviceNamespace, s.serviceName)
+		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, s.serviceName)
 	}
 
 	// get load balancer ip
@@ -124,7 +112,7 @@ func (s *syncer) getSANs() ([]string, error) {
 
 	// get cluster ips of node services
 	svcs := &corev1.ServiceList{}
-	err = s.pClient.List(context.TODO(), svcs, client.InNamespace(s.serviceNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
+	err = s.currentNamespaceCient.List(context.TODO(), svcs, client.InNamespace(s.currentNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
 	if err != nil {
 		return nil, err
 	}

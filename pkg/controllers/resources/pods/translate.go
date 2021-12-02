@@ -47,9 +47,9 @@ func (s *syncer) translateUpdate(pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
 
 func (s *syncer) findKubernetesIP() (string, error) {
 	pService := &corev1.Service{}
-	err := s.serviceClient.Get(context.TODO(), types.NamespacedName{
+	err := s.currentNamespaceClient.Get(context.TODO(), types.NamespacedName{
 		Name:      s.serviceName,
-		Namespace: s.serviceNamespace,
+		Namespace: s.currentNamespace,
 	}, pService)
 	if err != nil {
 		return "", err

@@ -84,8 +84,7 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.KubeConfigServer, "out-kube-config-server", "", "If specified, the virtual cluster will use this server for the generated kube config (e.g. https://my-vcluster.domain.com)")
 
 	cmd.Flags().StringVar(&options.TargetNamespace, "target-namespace", "", "The namespace to run the virtual cluster in (defaults to current namespace)")
-	cmd.Flags().StringVar(&options.ServiceName, "service-name", "vcluster", "The service name where the vcluster proxy will be available")
-	cmd.Flags().StringVar(&options.ServiceNamespace, "service-namespace", "", "The service namespace where the vcluster proxy will be available. If empty defaults to the current namespace")
+	cmd.Flags().StringVar(&options.ServiceName, "service-name", "", "The service name where the vcluster proxy will be available")
 	cmd.Flags().BoolVar(&options.SetOwner, "set-owner", false, "If true, will set the same owner the currently running syncer pod has on the synced resources")
 	cmd.Flags().StringVar(&options.DeprecatedOwningStatefulSet, "owning-statefulset", "", "DEPRECATED: use --set-owner instead")
 
@@ -172,6 +171,11 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	if translate.Suffix == "" {
 		return fmt.Errorf("suffix cannot be empty")
 	}
+	
+	// set service name
+	if options.ServiceName == "" {
+		options.ServiceName = translate.Suffix
+	}
 
 	// set kubelet port
 	nodeservice.KubeletTargetPort = options.Port
@@ -185,11 +189,6 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	// ensure target namespace
 	if options.TargetNamespace == "" {
 		options.TargetNamespace = currentNamespace
-	}
-
-	// set service namespace
-	if options.ServiceNamespace == "" {
-		options.ServiceNamespace = currentNamespace
 	}
 
 	rawConfig, err := clientConfig.RawConfig()
@@ -258,7 +257,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}()
 
 	// create controller context
-	ctx, err := context2.NewControllerContext(localManager, virtualClusterManager, options)
+	ctx, err := context2.NewControllerContext(currentNamespace, localManager, virtualClusterManager, options)
 	if err != nil {
 		return errors.Wrap(err, "create controller context")
 	}
@@ -319,19 +318,14 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 }
 
 func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config) error {
-	localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{Scheme: ctx.LocalManager.GetScheme()})
-	if err != nil {
-		return err
-	}
-
 	// make sure owner is set if it is there
-	err = findOwner(ctx, localClient)
+	err := findOwner(ctx)
 	if err != nil {
 		return errors.Wrap(err, "set owner")
 	}
 
 	// make sure the kubernetes service is synced
-	err = syncKubernetesService(ctx, localClient)
+	err = syncKubernetesService(ctx)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service")
 	}
@@ -356,7 +350,14 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config) er
 	return nil
 }
 
-func findOwner(ctx *context2.ControllerContext, localClient client.Client) error {
+func findOwner(ctx *context2.ControllerContext) error {
+	if ctx.CurrentNamespace != ctx.Options.TargetNamespace {
+		if ctx.Options.SetOwner {
+			klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", ctx.CurrentNamespace, ctx.Options.TargetNamespace)
+		}
+		return nil
+	}
+	
 	if ctx.Options.SetOwner {
 		// get current pod
 		podName, err := os.Hostname()
@@ -366,7 +367,7 @@ func findOwner(ctx *context2.ControllerContext, localClient client.Client) error
 		}
 
 		pod := &corev1.Pod{}
-		err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.Options.TargetNamespace, Name: podName}, pod)
+		err = ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.CurrentNamespace, Name: podName}, pod)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				klog.Errorf("Couldn't find current pod: %v, will skip setting owner", err)
@@ -389,7 +390,7 @@ func findOwner(ctx *context2.ControllerContext, localClient client.Client) error
 		// statefulset
 		if controller.Kind == "StatefulSet" {
 			statefulSet := &appsv1.StatefulSet{}
-			err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: controller.Name}, statefulSet)
+			err = ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: controller.Name}, statefulSet)
 			if err != nil {
 				return errors.Wrap(err, "get owning stateful set")
 			}
@@ -402,7 +403,7 @@ func findOwner(ctx *context2.ControllerContext, localClient client.Client) error
 
 		// replicaset
 		replicaSet := &appsv1.ReplicaSet{}
-		err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: controller.Name}, replicaSet)
+		err = ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: controller.Name}, replicaSet)
 		if err != nil {
 			return errors.Wrap(err, "get owning replica set")
 		}
@@ -418,7 +419,7 @@ func findOwner(ctx *context2.ControllerContext, localClient client.Client) error
 
 		// deployment
 		deployment := &appsv1.Deployment{}
-		err = localClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: replicaSetController.Name}, deployment)
+		err = ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: replicaSetController.Name}, deployment)
 		if err != nil {
 			return errors.Wrap(err, "get owning deployment")
 		}
@@ -429,31 +430,22 @@ func findOwner(ctx *context2.ControllerContext, localClient client.Client) error
 		return nil
 	} else if ctx.Options.DeprecatedOwningStatefulSet != "" {
 		statefulSet := &appsv1.StatefulSet{}
-		err := localClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.Options.TargetNamespace, Name: ctx.Options.DeprecatedOwningStatefulSet}, statefulSet)
+		err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.CurrentNamespace, Name: ctx.Options.DeprecatedOwningStatefulSet}, statefulSet)
 		if err != nil {
 			return errors.Wrap(err, "get owning statefulset")
-		}
-
-		if statefulSet.Namespace == ctx.Options.TargetNamespace {
-			translate.Owner = statefulSet
 		}
 	}
 
 	return nil
 }
 
-func syncKubernetesService(ctx *context2.ControllerContext, localClient client.Client) error {
-	virtualClient, err := client.New(ctx.VirtualManager.GetConfig(), client.Options{Scheme: ctx.VirtualManager.GetScheme()})
-	if err != nil {
-		return err
-	}
-
-	err = services.SyncKubernetesService(ctx.Context, localClient, virtualClient, ctx.Options.ServiceNamespace, ctx.Options.ServiceName)
+func syncKubernetesService(ctx *context2.ControllerContext) error {
+	err := services.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.CurrentNamespaceClient, ctx.CurrentNamespace, ctx.Options.ServiceName)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service")
 	}
 
-	err = endpoints.SyncKubernetesServiceEndpoints(ctx.Context, localClient, virtualClient, ctx.Options.ServiceNamespace, ctx.Options.ServiceName)
+	err = endpoints.SyncKubernetesServiceEndpoints(ctx.Context, ctx.VirtualManager.GetClient(), ctx.CurrentNamespaceClient, ctx.CurrentNamespace, ctx.Options.ServiceName)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service endpoints")
 	}
@@ -506,33 +498,32 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 			config.AuthInfos[i].ClientKeyData = o
 		}
 	}
-
-	// we have to create a new client here, because the cached version will always say
-	// the secret does not exist in another namespace
-	localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{
-		Scheme: ctx.LocalManager.GetScheme(),
-		Mapper: ctx.LocalManager.GetRESTMapper(),
-	})
-	if err != nil {
-		return errors.Wrap(err, "create uncached client")
-	}
-
+	
 	// check if we need to write the kubeconfig secrete to the default location as well
 	if ctx.Options.KubeConfigSecret != "" {
+		// we have to create a new client here, because the cached version will always say
+		// the secret does not exist in another namespace
+		localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{
+			Scheme: ctx.LocalManager.GetScheme(),
+			Mapper: ctx.LocalManager.GetRESTMapper(),
+		})
+		if err != nil {
+			return errors.Wrap(err, "create uncached client")
+		}
+		
 		// which namespace should we create the additional secret in?
 		secretNamespace := ctx.Options.KubeConfigSecretNamespace
 		if secretNamespace == "" {
-			secretNamespace = ctx.Options.TargetNamespace
+			secretNamespace = ctx.CurrentNamespace
 		}
+		
+		// write the extra secret
 		err = kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
 		if err != nil {
 			return fmt.Errorf("creating %s secret in the %s ns failed: %v", ctx.Options.KubeConfigSecret, secretNamespace, err)
 		}
 	}
-	currentNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return err
-	}
+
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx.Context, localClient, kubeconfig.GetDefaultSecretName(ctx.Options.Suffix), currentNamespace, config)
+	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, kubeconfig.GetDefaultSecretName(ctx.Options.Suffix), ctx.CurrentNamespace, config)
 }

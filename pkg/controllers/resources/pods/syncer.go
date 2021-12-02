@@ -72,28 +72,18 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		return errors.Wrap(err, "create pod translator")
 	}
 
-	// service client
-	serviceClient := ctx.LocalManager.GetClient()
-	if ctx.Options.ServiceNamespace != ctx.Options.TargetNamespace {
-		serviceClient, err = client.New(ctx.LocalManager.GetConfig(), client.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			Mapper: ctx.LocalManager.GetRESTMapper(),
-		})
-		if err != nil {
-			return errors.Wrap(err, "create uncached client")
-		}
-	}
 	podsClient := ctx.VirtualManager.GetClient()
-
 	return generic.RegisterSyncerWithOptions(ctx, "pod", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Pod{}),
 
-		sharedNodesMutex:     ctx.LockFactory.GetLock("nodes-controller"),
-		eventRecorder:        eventRecorder,
-		targetNamespace:      ctx.Options.TargetNamespace,
-		serviceName:          ctx.Options.ServiceName,
-		serviceNamespace:     ctx.Options.ServiceNamespace,
-		serviceClient:        serviceClient,
+		sharedNodesMutex: ctx.LockFactory.GetLock("nodes-controller"),
+		eventRecorder:    eventRecorder,
+		targetNamespace:  ctx.Options.TargetNamespace,
+		
+		serviceName:            ctx.Options.ServiceName,
+		currentNamespace:       ctx.CurrentNamespace,
+		currentNamespaceClient: ctx.CurrentNamespaceClient,
+		
 		localClient:          ctx.LocalManager.GetClient(),
 		virtualClient:        ctx.VirtualManager.GetClient(),
 		virtualClusterClient: virtualClusterClient,
@@ -141,12 +131,14 @@ type syncer struct {
 
 	useFakeNodes bool
 
-	sharedNodesMutex     sync.Locker
-	eventRecorder        record.EventRecorder
-	targetNamespace      string
-	serviceName          string
-	serviceNamespace     string
-	serviceClient        client.Client
+	sharedNodesMutex sync.Locker
+	eventRecorder    record.EventRecorder
+	targetNamespace  string
+	
+	serviceName            string
+	currentNamespace       string
+	currentNamespaceClient client.Client
+	
 	podTranslator        translatepods.Translator
 	localClient          client.Client
 	virtualClient        client.Client

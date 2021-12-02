@@ -18,7 +18,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
-	"github.com/loft-sh/vcluster/pkg/indices"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
@@ -57,12 +56,6 @@ var ResourceIndices = map[string]func(*context.ControllerContext) error{
 }
 
 func RegisterIndices(ctx *context.ControllerContext) error {
-	// register the extra indices
-	err := indices.AddIndices(ctx)
-	if err != nil {
-		return errors.Wrap(err, "register extra indices")
-	}
-
 	// register the resource indices
 	disabled := parseDisabled(ctx.Options.DisableSyncResources)
 	for k, v := range ResourceIndices {

@@ -7,7 +7,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,27 +20,15 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 }
 
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	var (
-		err error
-		serviceClient = ctx.LocalManager.GetClient()
-	)
-	if ctx.Options.ServiceNamespace != ctx.Options.TargetNamespace {
-		serviceClient, err = client.New(ctx.LocalManager.GetConfig(), client.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			Mapper: ctx.LocalManager.GetRESTMapper(),
-		})
-		if err != nil {
-			return errors.Wrap(err, "create uncached client")
-		}
-	}
-
 	return generic.RegisterSyncer(ctx, "endpoints", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Endpoints{}),
 
 		targetNamespace:  ctx.Options.TargetNamespace,
 		serviceName:      ctx.Options.ServiceName,
-		serviceNamespace: ctx.Options.ServiceNamespace,
-		serviceClient:    serviceClient,
+		
+		currentNamespace:       ctx.CurrentNamespace,
+		currentNamespaceClient: ctx.CurrentNamespaceClient,
+		
 		virtualClient:    ctx.VirtualManager.GetClient(),
 		
 		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "endpoints-syncer"}), "endpoints"),
@@ -54,8 +41,9 @@ type syncer struct {
 	targetNamespace string
 
 	serviceName      string
-	serviceNamespace string
-	serviceClient    client.Client
+	
+	currentNamespace       string
+	currentNamespaceClient client.Client
 
 	virtualClient client.Client
 
@@ -90,7 +78,7 @@ var _ generic.Starter = &syncer{}
 func (s *syncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {
 	// dont do anything for the kubernetes service
 	if req.Name == "kubernetes" && req.Namespace == "default" {
-		return true, SyncKubernetesServiceEndpoints(ctx, s.virtualClient, s.serviceClient, s.serviceNamespace, s.serviceName)
+		return true, SyncKubernetesServiceEndpoints(ctx, s.virtualClient, s.currentNamespaceClient, s.currentNamespace, s.serviceName)
 	}
 
 	return false, nil
