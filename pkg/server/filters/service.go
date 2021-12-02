@@ -224,7 +224,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 	if err != nil {
 		klog.Infof("Error creating service in physical cluster: %v", err)
 		if kerrors.IsAlreadyExists(err) {
-			return nil, kerrors.NewConflict(corev1.Resource("services"), vService.Name, fmt.Errorf("service %s already exists in namespace %s", vService.Name, vService.Namespace))
+			return nil, kerrors.NewAlreadyExists(corev1.Resource("services"), vService.Name)
 		}
 
 		return nil, err
