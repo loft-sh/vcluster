@@ -81,9 +81,7 @@ spec:
         {{- end }}
         {{- if not .Values.syncer.noArgs }}
         args:
-          - --service-name={{ .Release.Name }}
-          - --suffix={{ .Release.Name }}
-          - --set-owner
+          - --name={{ .Release.Name }}
           - --request-header-ca-cert=/pki/ca.crt
           - --client-ca-cert=/pki/ca.crt
           - --server-ca-cert=/pki/ca.crt

@@ -85,10 +85,11 @@ func NewStartCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&options.TargetNamespace, "target-namespace", "", "The namespace to run the virtual cluster in (defaults to current namespace)")
 	cmd.Flags().StringVar(&options.ServiceName, "service-name", "", "The service name where the vcluster proxy will be available")
-	cmd.Flags().BoolVar(&options.SetOwner, "set-owner", false, "If true, will set the same owner the currently running syncer pod has on the synced resources")
+	cmd.Flags().BoolVar(&options.SetOwner, "set-owner", true, "If true, will set the same owner the currently running syncer pod has on the synced resources")
 	cmd.Flags().StringVar(&options.DeprecatedOwningStatefulSet, "owning-statefulset", "", "DEPRECATED: use --set-owner instead")
 
-	cmd.Flags().StringVar(&options.Suffix, "suffix", "vcluster", "The suffix to append to the synced resources in the namespace")
+	cmd.Flags().StringVar(&options.DeprecatedSuffix, "suffix", "", "The suffix to append to the synced resources in the namespace")
+	cmd.Flags().StringVar(&options.Name, "name", "", "The name of the virtual cluster")
 	cmd.Flags().StringVar(&options.BindAddress, "bind-address", "0.0.0.0", "The address to bind the server to")
 	cmd.Flags().IntVar(&options.Port, "port", 8443, "The port to bind to")
 
@@ -167,11 +168,14 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	// set suffix
-	translate.Suffix = options.Suffix
+	translate.Suffix = options.Name
 	if translate.Suffix == "" {
-		return fmt.Errorf("suffix cannot be empty")
+		translate.Suffix = options.DeprecatedSuffix
 	}
-	
+	if translate.Suffix == "" {
+		translate.Suffix = "vcluster"
+	}
+
 	// set service name
 	if options.ServiceName == "" {
 		options.ServiceName = translate.Suffix
@@ -321,7 +325,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config) er
 	// make sure owner is set if it is there
 	err := findOwner(ctx)
 	if err != nil {
-		return errors.Wrap(err, "set owner")
+		klog.Errorf("Error finding vcluster pod owner: %v", err)
 	}
 
 	// make sure the kubernetes service is synced
@@ -357,7 +361,7 @@ func findOwner(ctx *context2.ControllerContext) error {
 		}
 		return nil
 	}
-	
+
 	if ctx.Options.SetOwner {
 		// get current pod
 		podName, err := os.Hostname()
@@ -498,7 +502,7 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 			config.AuthInfos[i].ClientKeyData = o
 		}
 	}
-	
+
 	// check if we need to write the kubeconfig secrete to the default location as well
 	if ctx.Options.KubeConfigSecret != "" {
 		// we have to create a new client here, because the cached version will always say
@@ -510,13 +514,13 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		if err != nil {
 			return errors.Wrap(err, "create uncached client")
 		}
-		
+
 		// which namespace should we create the additional secret in?
 		secretNamespace := ctx.Options.KubeConfigSecretNamespace
 		if secretNamespace == "" {
 			secretNamespace = ctx.CurrentNamespace
 		}
-		
+
 		// write the extra secret
 		err = kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
 		if err != nil {
@@ -525,5 +529,5 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 	}
 
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, kubeconfig.GetDefaultSecretName(ctx.Options.Suffix), ctx.CurrentNamespace, config)
+	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), ctx.CurrentNamespace, config)
 }

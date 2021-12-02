@@ -30,7 +30,9 @@ type VirtualClusterOptions struct {
 	BindAddress string
 	Port        int
 
-	Suffix               string
+	Name             string
+	DeprecatedSuffix string
+
 	DisableSyncResources string
 	TargetNamespace      string
 	ServiceName          string
@@ -69,7 +71,7 @@ type ControllerContext struct {
 	LocalManager   ctrl.Manager
 	VirtualManager ctrl.Manager
 
-	CurrentNamespace string
+	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 	NodeServiceProvider    nodeservice.NodeServiceProvider
 
@@ -98,10 +100,10 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 	}
 
 	return &ControllerContext{
-		Context:                ctx,
-		LocalManager:           localManager,
-		VirtualManager:         virtualManager,
-		
+		Context:        ctx,
+		LocalManager:   localManager,
+		VirtualManager: virtualManager,
+
 		CurrentNamespace:       currentNamespace,
 		CurrentNamespaceClient: currentNamespaceClient,
 
