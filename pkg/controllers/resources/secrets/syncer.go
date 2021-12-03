@@ -29,8 +29,7 @@ import (
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
-	includeIngresses := strings.Contains(ctx.Options.DisableSyncResources, "ingresses") == false
-	if includeIngresses {
+	if ctx.Controllers["ingresses"] {
 		useLegacy, err := ingresses.ShouldUseLegacy(ctx.LocalManager.GetConfig())
 		if err != nil {
 			return err
@@ -62,7 +61,6 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 }
 
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	includeIngresses := strings.Contains(ctx.Options.DisableSyncResources, "ingresses") == false
 	useLegacy, err := ingresses.ShouldUseLegacy(ctx.LocalManager.GetConfig())
 	if err != nil {
 		return err
@@ -75,13 +73,13 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		localClient:   ctx.LocalManager.GetClient(),
 
 		useLegacyIngress: useLegacy,
-		includeIngresses: includeIngresses,
+		includeIngresses: ctx.Controllers["ingresses"],
 
 		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "secret-syncer"}), "secret"),
 		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
 	}, &generic.SyncerOptions{
 		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			if includeIngresses {
+			if ctx.Controllers["ingresses"] {
 				if useLegacy {
 					builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
 				} else {

@@ -9,7 +9,7 @@ import (
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
-	if ctx.Options.UseFakePersistentVolumes {
+	if !ctx.Controllers["persistentvolumes"] {
 		// index pvcs by their assigned pv
 		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 			pod := rawObj.(*corev1.PersistentVolumeClaim)
@@ -29,7 +29,7 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 }
 
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	if ctx.Options.UseFakePersistentVolumes {
+	if !ctx.Controllers["persistentvolumes"] {
 		return RegisterFakeSyncer(ctx)
 	}
 

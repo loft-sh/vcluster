@@ -56,7 +56,7 @@ func RegisterSyncer(ctx *context2.ControllerContext) error {
 		nodeServiceProvider: ctx.NodeServiceProvider,
 		scheme:              ctx.LocalManager.GetScheme(),
 		nodeSelector:        nodeSelector,
-		useFakeKubelets:     ctx.Options.UseFakeKubelets,
+		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 	})
 }
 

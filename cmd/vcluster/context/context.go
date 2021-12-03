@@ -2,6 +2,7 @@ package context
 
 import (
 	"context"
+	"fmt"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
@@ -11,11 +12,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"sync"
 )
 
 // VirtualClusterOptions holds the cmd flags
 type VirtualClusterOptions struct {
+	Controllers string
+
 	ServerCaCert        string
 	ServerCaKey         string
 	TlsSANs             []string
@@ -30,23 +34,16 @@ type VirtualClusterOptions struct {
 	BindAddress string
 	Port        int
 
-	Name             string
-	DeprecatedSuffix string
+	Name string
 
-	DisableSyncResources string
-	TargetNamespace      string
-	ServiceName          string
+	TargetNamespace string
+	ServiceName     string
 
-	DeprecatedOwningStatefulSet string
-	SetOwner                    bool
+	SetOwner bool
 
-	SyncAllNodes             bool
-	SyncNodeChanges          bool
-	UseFakeKubelets          bool
-	UseFakeNodes             bool
-	UseFakePersistentVolumes bool
-	EnableStorageClasses     bool
-	EnablePriorityClasses    bool
+	SyncAllNodes        bool
+	SyncNodeChanges     bool
+	DisableFakeKubelets bool
 
 	TranslateImages []string
 
@@ -63,6 +60,16 @@ type VirtualClusterOptions struct {
 	LeaseDuration int64
 	RenewDeadline int64
 	RetryPeriod   int64
+
+	// DEPRECATED FLAGS
+	DeprecatedDisableSyncResources     string
+	DeprecatedOwningStatefulSet        string
+	DeprecatedUseFakeNodes             bool
+	DeprecatedUseFakePersistentVolumes bool
+	DeprecatedEnableStorageClasses     bool
+	DeprecatedEnablePriorityClasses    bool
+	DeprecatedSuffix                   string
+	DeprecatedUseFakeKubelets          bool
 }
 
 type ControllerContext struct {
@@ -75,10 +82,42 @@ type ControllerContext struct {
 	CurrentNamespaceClient client.Client
 	NodeServiceProvider    nodeservice.NodeServiceProvider
 
+	Controllers map[string]bool
+
 	CacheSynced func()
 	LockFactory locks.LockFactory
 	Options     *VirtualClusterOptions
 	StopChan    <-chan struct{}
+}
+
+var ExistingControllers = map[string]bool{
+	"services":               true,
+	"configmaps":             true,
+	"secrets":                true,
+	"endpoints":              true,
+	"pods":                   true,
+	"events":                 true,
+	"fake-nodes":             true,
+	"fake-persistentvolumes": true,
+	"persistentvolumeclaims": true,
+	"ingresses":              true,
+	"nodes":                  true,
+	"persistentvolumes":      true,
+	"storageclasses":         true,
+	"priorityclasses":        true,
+}
+
+var DefaultEnabledControllers = []string{
+	"services",
+	"configmaps",
+	"secrets",
+	"endpoints",
+	"pods",
+	"events",
+	"persistentvolumeclaims",
+	"ingresses",
+	"fake-nodes",
+	"fake-persistentvolumes",
 }
 
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
@@ -99,8 +138,15 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 		return nil, err
 	}
 
+	// parse enabled controllers
+	controllers, err := parseControllers(options)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ControllerContext{
 		Context:        ctx,
+		Controllers:    controllers,
 		LocalManager:   localManager,
 		VirtualManager: virtualManager,
 
@@ -118,6 +164,68 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 		StopChan: stopChan,
 		Options:  options,
 	}, nil
+}
+
+func parseControllers(options *VirtualClusterOptions) (map[string]bool, error) {
+	controllersString := strings.Replace(options.Controllers, "*", strings.Join(DefaultEnabledControllers, ","), -1)
+	controllers := strings.Split(controllersString, ",")
+
+	// migrate deprecated flags
+	if len(options.DeprecatedDisableSyncResources) > 0 {
+		for _, controller := range strings.Split(options.DeprecatedDisableSyncResources, ",") {
+			controllers = append(controllers, "-"+strings.TrimSpace(controller))
+		}
+	}
+	if options.DeprecatedEnablePriorityClasses {
+		controllers = append(controllers, "priorityclasses")
+	}
+	if !options.DeprecatedUseFakePersistentVolumes {
+		controllers = append(controllers, "persistentvolumes")
+	}
+	if !options.DeprecatedUseFakeNodes {
+		controllers = append(controllers, "nodes")
+	}
+	if options.DeprecatedEnableStorageClasses {
+		controllers = append(controllers, "storageclasses")
+	}
+
+	enabledControllers := map[string]bool{}
+	disabledControllers := map[string]bool{}
+	for _, c := range controllers {
+		controller := strings.TrimSpace(c)
+		if len(controller) == 0 {
+			return nil, fmt.Errorf("unrecognized controller %s, available controllers: %s", c, availableControllers())
+		}
+
+		if controller[0] == '-' {
+			controller = controller[1:]
+			disabledControllers[controller] = true
+		} else {
+			enabledControllers[controller] = true
+		}
+
+		if !ExistingControllers[controller] {
+			return nil, fmt.Errorf("unrecognized controller %s, available controllers: %s", controller, availableControllers())
+		}
+	}
+
+	// only return the enabled controllers
+	for k := range enabledControllers {
+		if disabledControllers[k] {
+			delete(enabledControllers, k)
+		}
+	}
+
+	return enabledControllers, nil
+}
+
+func availableControllers() string {
+	controllers := []string{}
+	for controller := range ExistingControllers {
+		controllers = append(controllers, controller)
+	}
+
+	return strings.Join(controllers, ", ")
 }
 
 func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, localManager ctrl.Manager, options *VirtualClusterOptions) (client.Client, error) {

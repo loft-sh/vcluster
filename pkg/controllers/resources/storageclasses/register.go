@@ -10,9 +10,5 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 }
 
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	if ctx.Options.EnableStorageClasses {
-		return RegisterSyncer(ctx)
-	}
-
-	return nil
+	return RegisterSyncer(ctx)
 }

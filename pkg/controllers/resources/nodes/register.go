@@ -25,7 +25,7 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 }
 
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	if ctx.Options.UseFakeNodes && ctx.Options.NodeSelector == "" {
+	if !ctx.Controllers["nodes"] && ctx.Options.NodeSelector == "" {
 		return RegisterFakeSyncer(ctx)
 	}
 	return RegisterSyncer(ctx)

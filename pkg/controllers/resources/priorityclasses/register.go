@@ -6,20 +6,9 @@ import (
 )
 
 func RegisterIndices(ctx *context.ControllerContext) error {
-	if ctx.Options.EnablePriorityClasses {
-		err := RegisterSyncerIndices(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return RegisterSyncerIndices(ctx)
 }
 
 func Register(ctx *context.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	if ctx.Options.EnablePriorityClasses {
-		return RegisterSyncer(ctx)
-	}
-
-	return nil
+	return RegisterSyncer(ctx)
 }
