@@ -95,13 +95,6 @@ func (s *syncer) New() client.Object {
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	vNode := vObj.(*corev1.Node)
-	shouldSync, err := s.shouldSync(ctx, vNode)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if shouldSync {
-		return ctrl.Result{}, nil
-	}
-	
 	log.Infof("delete virtual node %s, because it is not needed anymore", vNode.Name)
 	return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
 }

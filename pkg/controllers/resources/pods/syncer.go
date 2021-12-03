@@ -79,11 +79,11 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		sharedNodesMutex: ctx.LockFactory.GetLock("nodes-controller"),
 		eventRecorder:    eventRecorder,
 		targetNamespace:  ctx.Options.TargetNamespace,
-		
+
 		serviceName:            ctx.Options.ServiceName,
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
-		
+
 		localClient:          ctx.LocalManager.GetClient(),
 		virtualClient:        ctx.VirtualManager.GetClient(),
 		virtualClusterClient: virtualClusterClient,
@@ -134,11 +134,11 @@ type syncer struct {
 	sharedNodesMutex sync.Locker
 	eventRecorder    record.EventRecorder
 	targetNamespace  string
-	
+
 	serviceName            string
 	currentNamespace       string
 	currentNamespaceClient client.Client
-	
+
 	podTranslator        translatepods.Translator
 	localClient          client.Client
 	virtualClient        client.Client
@@ -238,7 +238,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		if err != nil {
 			return ctrl.Result{}, err
 		} else if assigned {
-			return ctrl.Result{}, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 	} else if pPod.Spec.NodeName != "" && vPod.Spec.NodeName != "" && pPod.Spec.NodeName != vPod.Spec.NodeName {
 		// if physical pod nodeName is different from virtual pod nodeName, we delete the virtual one
