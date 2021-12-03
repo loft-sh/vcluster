@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"sync"
 	"time"
 )
@@ -121,7 +122,7 @@ func (n *nodeServiceProvider) Unlock() {
 }
 
 func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
-	serviceName := translate.SafeConcatName(translate.Suffix, "node", name.Name)
+	serviceName := translate.SafeConcatName(translate.Suffix, "node", strings.Replace(name.Name, ".", "-", -1))
 
 	service := &corev1.Service{}
 	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: n.currentNamespace}, service)
