@@ -69,7 +69,7 @@ spec:
       {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
-      - image: {{ .Values.vcluster.image }}
+      - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
         name: vcluster
         command:
           {{- range $f := .Values.vcluster.command }}
@@ -94,9 +94,9 @@ spec:
       {{- if not .Values.syncer.disabled }}
       - name: syncer
         {{- if .Values.syncer.image }}
-        image: "{{ .Values.syncer.image }}"
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
-        image: "loftsh/vcluster:{{ .Chart.Version }}"
+        image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
         {{- end }}
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
@@ -151,7 +151,13 @@ spec:
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         env:
-{{ toYaml .Values.syncer.env | indent 10 }}
+          - name: DEFAULT_IMAGE_REGISTRY
+            value: {{ .Values.defaultImageRegistry }}
+          {{- if .Values.syncer.env }}
+          {{- range $key, $value := .Values.syncer.env }}
+          - {{ toJson $value }}
+          {{- end }}
+          {{- end }}
         volumeMounts:
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         resources:

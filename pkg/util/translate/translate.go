@@ -3,6 +3,7 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 
@@ -17,6 +18,10 @@ var (
 )
 
 var Owner client.Object
+
+func DefaultImageRegistry() string {
+	return os.Getenv("DEFAULT_IMAGE_REGISTRY")
+}
 
 func SafeConcatGenerateName(name ...string) string {
 	fullPath := strings.Join(name, "-")

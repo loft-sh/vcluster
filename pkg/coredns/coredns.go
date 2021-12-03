@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"os"
 	"path"
 	"strconv"
@@ -72,6 +73,8 @@ func getManifestVariables(serverVersion *version.Info) map[string]interface{} {
 	if !found {
 		vars[VarImage] = DefaultImage
 	}
+	vars[VarImage] = translate.DefaultImageRegistry() + vars[VarImage].(string)
+
 	vars[VarRunAsUser] = strconv.Itoa(os.Getuid())
 	if os.Getuid() == 0 {
 		vars[VarRunAsNonRoot] = "false"

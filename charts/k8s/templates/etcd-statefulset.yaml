@@ -74,7 +74,7 @@ spec:
       {{- end }}
       containers:
       - name: etcd
-        image: "{{ .Values.etcd.image }}"
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.etcd.image }}"
         command:
           - etcd
           - '--cert-file=/run/config/pki/etcd-server.crt'

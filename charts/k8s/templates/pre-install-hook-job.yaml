@@ -25,9 +25,9 @@ spec:
       containers:
         - name: certs
           {{- if .Values.syncer.image }}
-          image: "{{ .Values.syncer.image }}"
+          image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
           {{- else }}
-          image: "loftsh/vcluster:{{ .Chart.Version }}"
+          image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
           {{- end }}
           imagePullPolicy: IfNotPresent
           securityContext:

@@ -62,7 +62,7 @@ spec:
       {{- end }}
       containers:
       - name: kube-apiserver
-        image: "{{ .Values.api.image }}"
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.api.image }}"
         command:
           - kube-apiserver
           - '--advertise-address=0.0.0.0'

@@ -62,7 +62,7 @@ spec:
       {{- end }}
       containers:
       - name: kube-controller-manager
-        image: "{{ .Values.controller.image }}"
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.controller.image }}"
         command:
           - kube-controller-manager
           - '--authentication-kubeconfig=/run/config/pki/controller-manager.conf'
