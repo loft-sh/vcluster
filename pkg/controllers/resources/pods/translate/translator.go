@@ -72,7 +72,7 @@ func NewTranslator(ctx *context2.ControllerContext, eventRecorder record.EventRe
 		serviceAccount:         ctx.Options.ServiceAccount,
 		overrideHosts:          ctx.Options.OverrideHosts,
 		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
-		priorityClassesEnabled: ctx.Options.EnablePriorityClasses,
+		priorityClassesEnabled: ctx.Controllers["priorityclasses"],
 	}, nil
 }
 

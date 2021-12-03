@@ -47,7 +47,7 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 	return generic.RegisterSyncer(ctx, "persistentvolumeclaim", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.PersistentVolumeClaim{}),
 
-		useFakePersistentVolumes:     ctx.Options.UseFakePersistentVolumes,
+		useFakePersistentVolumes:     !ctx.Controllers["persistentvolumes"],
 		sharedPersistentVolumesMutex: ctx.LockFactory.GetLock("persistent-volumes-controller"),
 
 		targetNamespace: ctx.Options.TargetNamespace,

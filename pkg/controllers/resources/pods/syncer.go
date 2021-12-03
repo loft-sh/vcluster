@@ -90,7 +90,7 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		nodeServiceProvider:  ctx.NodeServiceProvider,
 
 		podTranslator: translator,
-		useFakeNodes:  ctx.Options.UseFakeNodes,
+		useFakeNodes:  !ctx.Controllers["nodes"],
 
 		creator:      generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventRecorder, "pod"),
 		nodeSelector: nodeSelector,

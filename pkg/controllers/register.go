@@ -34,10 +34,10 @@ var ResourceControllers = map[string]func(*context.ControllerContext, record.Eve
 	"events":                 events.Register,
 	"persistentvolumeclaims": persistentvolumeclaims.Register,
 	"ingresses":              ingresses.Register,
-	"nodes":                  nodes.Register,
-	"persistentvolumes":      persistentvolumes.Register,
 	"storageclasses":         storageclasses.Register,
 	"priorityclasses":        priorityclasses.Register,
+	"nodes,fake-nodes":       nodes.Register,
+	"persistentvolumes,fake-persistentvolumes": persistentvolumes.Register,
 }
 
 var ResourceIndices = map[string]func(*context.ControllerContext) error{
@@ -49,23 +49,24 @@ var ResourceIndices = map[string]func(*context.ControllerContext) error{
 	"events":                 events.RegisterIndices,
 	"persistentvolumeclaims": persistentvolumeclaims.RegisterIndices,
 	"ingresses":              ingresses.RegisterIndices,
-	"nodes":                  nodes.RegisterIndices,
-	"persistentvolumes":      persistentvolumes.RegisterIndices,
 	"storageclasses":         storageclasses.RegisterIndices,
 	"priorityclasses":        priorityclasses.RegisterIndices,
+	"nodes,fake-nodes":       nodes.RegisterIndices,
+	"persistentvolumes,fake-persistentvolumes": persistentvolumes.RegisterIndices,
 }
 
 func RegisterIndices(ctx *context.ControllerContext) error {
 	// register the resource indices
-	disabled := parseDisabled(ctx.Options.DisableSyncResources)
 	for k, v := range ResourceIndices {
-		if disabled[k] {
-			continue
-		}
-
-		err := v(ctx)
-		if err != nil {
-			return errors.Wrapf(err, "register %s indices", k)
+		controllers := strings.Split(k, ",")
+		for _, controller := range controllers {
+			if ctx.Controllers[controller] {
+				err := v(ctx)
+				if err != nil {
+					return errors.Wrapf(err, "register %s indices", controller)
+				}
+				break
+			}
 		}
 	}
 
@@ -83,16 +84,17 @@ func RegisterControllers(ctx *context.ControllerContext) error {
 	}
 
 	// register controllers for resource synchronization
-	disabled := parseDisabled(ctx.Options.DisableSyncResources)
 	for k, v := range ResourceControllers {
-		if disabled[k] {
-			continue
-		}
-
-		loghelper.Infof("Start %s sync controller", k)
-		err := v(ctx, eventBroadcaster)
-		if err != nil {
-			return errors.Wrapf(err, "register %s controller", k)
+		controllers := strings.Split(k, ",")
+		for _, controller := range controllers {
+			if ctx.Controllers[controller] {
+				loghelper.Infof("Start %s sync controller", controller)
+				err := v(ctx, eventBroadcaster)
+				if err != nil {
+					return errors.Wrapf(err, "register %s controller", controller)
+				}
+				break
+			}
 		}
 	}
 
@@ -108,13 +110,4 @@ func registerCoreDNSController(ctx *context.ControllerContext) error {
 		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
 	}
 	return nil
-}
-
-func parseDisabled(str string) map[string]bool {
-	splitted := strings.Split(str, ",")
-	ret := map[string]bool{}
-	for _, s := range splitted {
-		ret[strings.TrimSpace(strings.ToLower(s))] = true
-	}
-	return ret
 }
