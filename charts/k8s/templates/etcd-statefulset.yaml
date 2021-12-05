@@ -19,6 +19,7 @@ metadata:
 spec:
   serviceName: {{ .Release.Name }}-etcd-headless
   replicas: {{ .Values.etcd.replicas }}
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: vcluster-etcd
@@ -127,7 +128,6 @@ spec:
           httpGet:
             path: /health
             port: 2381
-            host: 127.0.0.1
             scheme: HTTP
           initialDelaySeconds: 10
           timeoutSeconds: 15
@@ -138,7 +138,6 @@ spec:
           httpGet:
             path: /health
             port: 2381
-            host: 127.0.0.1
             scheme: HTTP
           initialDelaySeconds: 10
           timeoutSeconds: 15
