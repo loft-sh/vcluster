@@ -20,8 +20,11 @@ import (
 )
 
 const (
-	DefaultSecretPrefix = "vc-"
-	SecretKey           = "config"
+	DefaultSecretPrefix     = "vc-"
+	KubeconfigSecretKey     = "config"
+	CADataSecretKey         = "certificate-authority"
+	CertificateSecretKey    = "client-certificate"
+	CertificateKeySecretKey = "client-key"
 )
 
 func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secretNamespace string, config *api.Config) error {
@@ -43,6 +46,17 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 	}
 
 	if secretName != "" {
+
+		clientCmdConfig := clientcmd.NewDefaultClientConfig(*config, &clientcmd.ConfigOverrides{CurrentContext: config.CurrentContext})
+		clientConfig, err := clientCmdConfig.ClientConfig()
+		if err != nil {
+			return err
+		}
+
+		caData := clientConfig.CAData
+		cert := clientConfig.CertData
+		key := clientConfig.KeyData
+
 		kubeConfigSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
@@ -50,7 +64,10 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 			},
 			Type: corev1.SecretTypeOpaque,
 			Data: map[string][]byte{
-				SecretKey: out,
+				KubeconfigSecretKey:     out,
+				CADataSecretKey:         caData,
+				CertificateSecretKey:    cert,
+				CertificateKeySecretKey: key,
 			},
 		}
 
@@ -73,9 +90,9 @@ func ReadKubeConfig(ctx context.Context, client *kubernetes.Clientset, suffix, n
 	if err != nil {
 		return nil, fmt.Errorf("could not Get the %s secret in order to read kubeconfig: %v", GetDefaultSecretName(suffix), err)
 	}
-	config, found := secret.Data[SecretKey]
+	config, found := secret.Data[KubeconfigSecretKey]
 	if !found {
-		return nil, fmt.Errorf("could not find the kube config (%s key) in the %s secret", SecretKey, GetDefaultSecretName(suffix))
+		return nil, fmt.Errorf("could not find the kube config (%s key) in the %s secret", KubeconfigSecretKey, GetDefaultSecretName(suffix))
 	}
 	return clientcmd.Load(config)
 }
