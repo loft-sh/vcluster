@@ -3,6 +3,9 @@ package context
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
@@ -12,8 +15,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"sync"
 )
 
 // VirtualClusterOptions holds the cmd flags
@@ -105,6 +106,7 @@ var ExistingControllers = map[string]bool{
 	"persistentvolumes":      true,
 	"storageclasses":         true,
 	"priorityclasses":        true,
+	"networkpolicies":        true,
 }
 
 var DefaultEnabledControllers = []string{

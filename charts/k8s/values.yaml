@@ -132,6 +132,8 @@ rbac:
   role:
     # This is required for basic functionality of vcluster
     create: true
+    # Extended role permissions are required for some optional features, e.g. Networkpolicy sync
+    extended: false
 
 # Service configurations
 service:

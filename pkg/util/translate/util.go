@@ -64,6 +64,28 @@ func TranslateLabelSelectorWithPrefix(labelPrefix string, labelSelector *metav1.
 	return newLabelSelector
 }
 
+func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
+	out := &metav1.LabelSelector{}
+	for _, selector := range elems {
+		if selector == nil {
+			continue
+		}
+		for k, v := range selector.MatchLabels {
+			if out.MatchLabels == nil {
+				out.MatchLabels = map[string]string{}
+			}
+			out.MatchLabels[k] = v
+		}
+		for _, expr := range selector.MatchExpressions {
+			if out.MatchExpressions == nil {
+				out.MatchExpressions = []metav1.LabelSelectorRequirement{}
+			}
+			out.MatchExpressions = append(out.MatchExpressions, expr)
+		}
+	}
+	return out
+}
+
 // ObjectPhysicalName returns the translated physical name of this object
 func ObjectPhysicalName(obj runtime.Object) string {
 	metaAccessor, err := meta.Accessor(obj)

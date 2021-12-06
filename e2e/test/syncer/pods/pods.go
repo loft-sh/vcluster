@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/e2e/framework"
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
@@ -35,13 +36,10 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		ns = fmt.Sprintf("e2e-syncer-pods-%d", iteration)
-		// execute cleanup in case previous e2e test were terminated prematurely
-		err := f.DeleteTestNamespace(ns, true)
-		framework.ExpectNoError(err)
+		ns = fmt.Sprintf("e2e-syncer-pods-%d-%s", iteration, random.RandomString(5))
 
 		// create test namespace
-		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 			Name:   ns,
 			Labels: map[string]string{initialNsLabelKey: initialNsLabelValue},
 		}}, metav1.CreateOptions{})

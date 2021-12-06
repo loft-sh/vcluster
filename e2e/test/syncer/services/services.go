@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/e2e/framework"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
@@ -33,13 +34,10 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		ns = fmt.Sprintf("e2e-syncer-services-%d", iteration)
-		// execute cleanup in case previous e2e test were terminated prematurely
-		err := f.DeleteTestNamespace(ns, true)
-		framework.ExpectNoError(err)
+		ns = fmt.Sprintf("e2e-syncer-services-%d-%s", iteration, random.RandomString(5))
 
 		// create test namespace
-		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	})
 
