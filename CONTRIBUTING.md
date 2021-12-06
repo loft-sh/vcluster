@@ -22,7 +22,11 @@ This is just a short list of ideas, if you have other ideas for contributing ple
 
 We recommend to develop vcluster directly in a Kubernetes cluster as it makes feedback a lot quicker. For the quick setup, you'll need to install [devspace](https://github.com/loft-sh/devspace#1-install-devspace), docker, kubectl, helm and make sure you have a local Kubernetes cluster (such as Docker Desktop, minikube, KinD or similar) installed.
 
-Clone the vcluster project into a new folder and make sure the variable `SERVICE_CIDR` in the `devspace.yaml` fits your local clusters service cidr. You can find out the service cidr with:
+Fork and clone the repo:
+- Click Fork button (top right) to establish a cloud-based fork.
+- git clone your-fork-url
+
+After cloning make sure the variable `SERVICE_CIDR` in the `devspace.yaml` fits your local clusters service cidr. You can find out the service cidr with:
 
 ```
 kubectl create -f ./hack/wrong-cluster-ip-service.yaml 
@@ -74,10 +78,10 @@ root@vcluster-0:/vcluster#
 
 Then you can start vcluster with
 ```
-go run -mod vendor cmd/vcluster/main.go
+go run -mod vendor cmd/vcluster/main.go start
 ```
 
-Now if you change a file locally, DevSpace will automatically sync the file into the container and you just have to rerun `go run -mod vendor cmd/vcluster/main.go` within the terminal to apply the changes.
+Now if you change a file locally, DevSpace will automatically sync the file into the container and you just have to rerun `go run -mod vendor cmd/vcluster/main.go start` within the terminal to apply the changes.
 
 You can access the vcluster by running `devspace enter` in a separate terminal:
 
