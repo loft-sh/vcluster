@@ -167,8 +167,11 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 }
 
 func parseControllers(options *VirtualClusterOptions) (map[string]bool, error) {
-	controllersString := strings.Replace(options.Controllers, "*", strings.Join(DefaultEnabledControllers, ","), -1)
-	controllers := strings.Split(controllersString, ",")
+	controllers := []string{}
+	if options.Controllers != "" {
+		controllers = strings.Split(options.Controllers, ",")
+	}
+	controllers = append(controllers, DefaultEnabledControllers...)
 
 	// migrate deprecated flags
 	if len(options.DeprecatedDisableSyncResources) > 0 {

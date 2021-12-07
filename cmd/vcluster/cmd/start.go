@@ -71,7 +71,7 @@ func NewStartCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&options.Controllers, "sync", "*", "A list of sync controllers to enable. '*' enables all on-by-default sync controllers, 'foo' enables the sync controller named 'foo', '-foo' disables the sync controller named 'foo'")
+	cmd.Flags().StringVar(&options.Controllers, "sync", "", "A list of sync controllers to enable. 'foo' enables the sync controller named 'foo', '-foo' disables the sync controller named 'foo'")
 
 	cmd.Flags().StringVar(&options.RequestHeaderCaCert, "request-header-ca-cert", "/data/server/tls/request-header-ca.crt", "The path to the request header ca certificate")
 	cmd.Flags().StringVar(&options.ClientCaCert, "client-ca-cert", "/data/server/tls/client-ca.crt", "The path to the client ca certificate")
