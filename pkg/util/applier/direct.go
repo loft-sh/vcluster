@@ -7,6 +7,9 @@ Originally sourced from https://github.com/kubernetes-sigs/kubebuilder-declarati
 import (
 	"context"
 	"fmt"
+	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"strings"
 
@@ -42,18 +45,9 @@ func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 		RESTMapper: opt.RESTMapper,
 		RESTConfig: opt.RESTConfig,
 	}
-	b := resource.NewBuilder(restClientGetter)
 
-	if opt.Validate {
-		// This potentially causes redundant work, but validation isn't the common path
-		v, err := cmdutil.NewFactory(&genericclioptions.ConfigFlags{}).Validator(true)
-		if err != nil {
-			return err
-		}
-		b.Schema(v)
-	}
-
-	res := b.Unstructured().Stream(ioReader, "manifestString").Do()
+	f := cmdutil.NewFactory(restClientGetter)
+	res := resource.NewBuilder(restClientGetter).Unstructured().Stream(ioReader, "manifestString").Do()
 	infos, err := res.Infos()
 	if err != nil {
 		return err
@@ -69,19 +63,79 @@ func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 		}
 	}
 
-	applyOpts := apply.NewApplyOptions(ioStreams)
-	applyOpts.Namespace = opt.Namespace
-	applyOpts.SetObjects(infos)
-	applyOpts.ToPrinter = func(operation string) (printers.ResourcePrinter, error) {
-		applyOpts.PrintFlags.NamePrintFlags.Operation = operation
-		cmdutil.PrintFlagsWithDryRunStrategy(applyOpts.PrintFlags, applyOpts.DryRunStrategy)
-		return applyOpts.PrintFlags.ToPrinter()
+	flags := apply.NewApplyFlags(f, ioStreams)
+	flags.AddFlags(&cobra.Command{})
+	applyOpts, err := newOptions(flags, opt.Namespace)
+	if err != nil {
+		return err
 	}
+
+	applyOpts.SetObjects(infos)
 	applyOpts.DeleteOptions = &cmdDelete.DeleteOptions{
 		IOStreams: ioStreams,
 	}
 
 	return applyOpts.Run()
+}
+
+func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions, error) {
+	dynamicClient, err := flags.Factory.DynamicClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// allow for a success message operation to be specified at print time
+	dryRunVerifier := resource.NewDryRunVerifier(dynamicClient, flags.Factory.OpenAPIGetter())
+	toPrinter := func(operation string) (printers.ResourcePrinter, error) {
+		flags.PrintFlags.NamePrintFlags.Operation = operation
+		cmdutil.PrintFlagsWithDryRunStrategy(flags.PrintFlags, cmdutil.DryRunNone)
+		return flags.PrintFlags.ToPrinter()
+	}
+
+	recorder := genericclioptions.NoopRecorder{}
+	deleteOptions := &cmdDelete.DeleteOptions{
+		DynamicClient: dynamicClient,
+		IOStreams:     flags.IOStreams,
+	}
+
+	builder := flags.Factory.NewBuilder()
+	mapper, err := flags.Factory.ToRESTMapper()
+	if err != nil {
+		return nil, err
+	}
+
+	o := &apply.ApplyOptions{
+		PrintFlags: flags.PrintFlags,
+
+		DeleteOptions:   deleteOptions,
+		ToPrinter:       toPrinter,
+		ServerSideApply: false,
+		ForceConflicts:  false,
+		FieldManager:    "vcluster",
+		Selector:        "",
+		DryRunStrategy:  cmdutil.DryRunNone,
+		DryRunVerifier:  dryRunVerifier,
+		Prune:           false,
+		PruneResources:  nil,
+		All:             flags.All,
+		Overwrite:       flags.Overwrite,
+		OpenAPIPatch:    flags.OpenAPIPatch,
+		PruneWhitelist:  flags.PruneWhitelist,
+
+		Recorder:         recorder,
+		Namespace:        namespace,
+		EnforceNamespace: true,
+		Builder:          builder,
+		Mapper:           mapper,
+		DynamicClient:    dynamicClient,
+
+		IOStreams:         flags.IOStreams,
+		VisitedUids:       sets.NewString(),
+		VisitedNamespaces: sets.NewString(),
+	}
+
+	o.PostProcessorFn = o.PrintAndPrunePostProcessor()
+	return o, nil
 }
 
 // staticRESTClientGetter returns a fixed RESTClient
@@ -110,4 +164,7 @@ func (s *staticRESTClientGetter) ToRESTMapper() (meta.RESTMapper, error) {
 		return nil, fmt.Errorf("RESTMapper not set")
 	}
 	return s.RESTMapper, nil
+}
+func (s *staticRESTClientGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return nil
 }

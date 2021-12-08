@@ -45,7 +45,7 @@ func (s *syncer) translateUpdate(pObj, vObj *networkingv1.Ingress) *networkingv1
 func (s *syncer) translateUpdateBackwards(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
 	var updated *networkingv1.Ingress
 
-	if vObj.Spec.IngressClassName == nil && !equality.Semantic.DeepEqual(vObj.Spec.IngressClassName, pObj.Spec.IngressClassName) {
+	if vObj.Spec.IngressClassName == nil && pObj.Spec.IngressClassName != nil {
 		updated = newIfNil(updated, vObj)
 		updated.Spec.IngressClassName = pObj.Spec.IngressClassName
 	}

@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/kustomize/api/resmap"
 	"sigs.k8s.io/kustomize/api/resource"
 	"sigs.k8s.io/kustomize/api/types"
+	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 	"sigs.k8s.io/yaml"
 )
 
@@ -62,10 +63,10 @@ func (p *PatchTransformerPlugin) Config(
 	if errSM == nil {
 		p.loadedPatch = patchSM
 		if p.Options["allowNameChange"] {
-			p.loadedPatch.SetAllowNameChange("true")
+			p.loadedPatch.AllowNameChange()
 		}
 		if p.Options["allowKindChange"] {
-			p.loadedPatch.SetAllowKindChange("true")
+			p.loadedPatch.AllowKindChange()
 		}
 	} else {
 		p.decodedPatch = patchJson
@@ -76,10 +77,9 @@ func (p *PatchTransformerPlugin) Config(
 func (p *PatchTransformerPlugin) Transform(m resmap.ResMap) error {
 	if p.loadedPatch == nil {
 		return p.transformJson6902(m, p.decodedPatch)
-	} else {
-		// The patch was a strategic merge patch
-		return p.transformStrategicMerge(m, p.loadedPatch)
 	}
+	// The patch was a strategic merge patch
+	return p.transformStrategicMerge(m, p.loadedPatch)
 }
 
 // transformStrategicMerge applies the provided strategic merge patch
@@ -112,12 +112,19 @@ func (p *PatchTransformerPlugin) transformJson6902(m resmap.ResMap, patch jsonpa
 	}
 	for _, res := range resources {
 		res.StorePreviousId()
+		internalAnnotations := kioutil.GetInternalAnnotations(&res.RNode)
 		err = res.ApplyFilter(patchjson6902.Filter{
 			Patch: p.Patch,
 		})
 		if err != nil {
 			return err
 		}
+
+		annotations := res.GetAnnotations()
+		for key, value := range internalAnnotations {
+			annotations[key] = value
+		}
+		err = res.SetAnnotations(annotations)
 	}
 	return nil
 }

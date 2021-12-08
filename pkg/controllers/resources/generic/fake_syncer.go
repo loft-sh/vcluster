@@ -28,7 +28,7 @@ type fakeSyncer struct {
 }
 
 func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := loghelper.NewFromExisting(r.log, req.Name)
+	log := loghelper.NewFromExisting(r.log.Base(), req.Name)
 
 	// check if we should skip reconcile
 	lifecycle, ok := r.syncer.(Starter)
@@ -60,7 +60,7 @@ func (r *fakeSyncer) Register(name string, virtualManager ctrl.Manager, options 
 	if options.MaxConcurrentReconciles > 0 {
 		maxConcurrentReconciles = options.MaxConcurrentReconciles
 	}
-	
+
 	controller := ctrl.NewControllerManagedBy(virtualManager).
 		WithOptions(controller2.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,

@@ -145,6 +145,12 @@ func TestSync(t *testing.T) {
 		},
 		Status: changedIngressStatus,
 	}
+	pBackwardUpdatedIngress := &networkingv1.Ingress{
+		ObjectMeta: pObjectMeta,
+		Spec:       pBaseSpec,
+		Status:     changedIngressStatus,
+	}
+	pBackwardUpdatedIngress.Spec.IngressClassName = stringPointer("backwardsupdatedingressclass")
 	backwardNoUpdateIngress := &networkingv1.Ingress{
 		ObjectMeta: pObjectMeta,
 		Spec:       networkingv1.IngressSpec{},
@@ -182,7 +188,7 @@ func TestSync(t *testing.T) {
 			Name:                 "Update forward",
 			InitialVirtualState:  []runtime.Object{&networkingv1.Ingress{
 				ObjectMeta: vObjectMeta,
-				Spec:       vBaseSpec,
+				Spec:       *vBaseSpec.DeepCopy(),
 			}},
 			InitialPhysicalState: []runtime.Object{&networkingv1.Ingress{
 				ObjectMeta: pObjectMeta,
@@ -191,13 +197,13 @@ func TestSync(t *testing.T) {
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {&networkingv1.Ingress{
 					ObjectMeta: vObjectMeta,
-					Spec:       vBaseSpec,
+					Spec:       *vBaseSpec.DeepCopy(),
 				}},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {&networkingv1.Ingress{
 					ObjectMeta: pObjectMeta,
-					Spec:       pBaseSpec,
+					Spec:       *pBaseSpec.DeepCopy(),
 				}},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
@@ -210,7 +216,7 @@ func TestSync(t *testing.T) {
 				
 				_, err := syncer.Update(ctx, pIngress, &networkingv1.Ingress{
 					ObjectMeta: vObjectMeta,
-					Spec:       vBaseSpec,
+					Spec:       *vBaseSpec.DeepCopy(),
 				}, log)
 				if err != nil {
 					t.Fatal(err)
@@ -241,12 +247,12 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Update backwards",
 			InitialVirtualState:  []runtime.Object{baseIngress.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{createdIngress.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{backwardUpdateIngress.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {backwardUpdatedIngress.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
+				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {pBackwardUpdatedIngress.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
@@ -269,6 +275,21 @@ func TestSync(t *testing.T) {
 					t.Fatal(err)
 				}
 				
+				_, err = syncer.Update(ctx, backwardUpdateIngress, vIngress, log)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = vClient.Get(ctx, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = pClient.Get(ctx, types.NamespacedName{Namespace: backwardUpdateIngress.Namespace, Name: backwardUpdateIngress.Name}, backwardUpdateIngress)
+				if err != nil {
+					t.Fatal(err)
+				}
+
 				_, err = syncer.Update(ctx, backwardUpdateIngress, vIngress, log)
 				if err != nil {
 					t.Fatal(err)

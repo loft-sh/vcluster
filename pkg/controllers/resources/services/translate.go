@@ -26,22 +26,22 @@ func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *corev1.Se
 		updated = newIfNil(updated, vObj)
 		updated.Spec.ClusterIP = pObj.Spec.ClusterIP
 	}
-	
+
 	if !equality.Semantic.DeepEqual(vObj.Spec.ExternalIPs, pObj.Spec.ExternalIPs) {
 		updated = newIfNil(updated, vObj)
 		updated.Spec.ExternalIPs = pObj.Spec.ExternalIPs
 	}
-		
+
 	if vObj.Spec.LoadBalancerIP != pObj.Spec.LoadBalancerIP {
 		updated = newIfNil(updated, vObj)
 		updated.Spec.LoadBalancerIP = pObj.Spec.LoadBalancerIP
 	}
-	
+
 	if !equality.Semantic.DeepEqual(vObj.Spec.LoadBalancerSourceRanges, pObj.Spec.LoadBalancerSourceRanges) {
 		updated = newIfNil(updated, vObj)
 		updated.Spec.LoadBalancerSourceRanges = pObj.Spec.LoadBalancerSourceRanges
 	}
-	
+
 	return updated
 }
 
@@ -108,12 +108,6 @@ func (s *syncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Service {
 	if vObj.Spec.HealthCheckNodePort != pObj.Spec.HealthCheckNodePort {
 		updated = newIfNil(updated, pObj)
 		updated.Spec.HealthCheckNodePort = vObj.Spec.HealthCheckNodePort
-	}
-
-	// TopologyKeys
-	if !equality.Semantic.DeepEqual(vObj.Spec.TopologyKeys, pObj.Spec.TopologyKeys) {
-		updated = newIfNil(updated, pObj)
-		updated.Spec.TopologyKeys = vObj.Spec.TopologyKeys
 	}
 
 	return updated

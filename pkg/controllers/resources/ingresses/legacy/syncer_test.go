@@ -151,6 +151,12 @@ func TestSync(t *testing.T) {
 		},
 		Status: changedIngressStatus,
 	}
+	pBackwardUpdatedIngress := &networkingv1beta1.Ingress{
+		ObjectMeta: pObjectMeta,
+		Spec:       pBaseSpec,
+		Status:     changedIngressStatus,
+	}
+	pBackwardUpdatedIngress.Spec.IngressClassName = stringPointer("backwardsupdatedingressclass")
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
@@ -233,12 +239,12 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Update backwards",
 			InitialVirtualState:  []runtime.Object{baseIngress.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{createdIngress.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{backwardUpdateIngress.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {backwardUpdatedIngress.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {pBackwardUpdatedIngress.DeepCopy()},
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
@@ -247,6 +253,21 @@ func TestSync(t *testing.T) {
 				vIngress.ResourceVersion = "999"
 
 				_, err := syncer.Update(ctx, backwardUpdateIngress, vIngress, log)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = vClient.Get(ctx, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = pClient.Get(ctx, types.NamespacedName{Namespace: backwardUpdateIngress.Namespace, Name: backwardUpdateIngress.Name}, backwardUpdateIngress)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				_, err = syncer.Update(ctx, backwardUpdateIngress, vIngress, log)
 				if err != nil {
 					t.Fatal(err)
 				}

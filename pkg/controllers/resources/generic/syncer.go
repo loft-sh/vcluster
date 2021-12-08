@@ -55,7 +55,7 @@ type syncerController struct {
 }
 
 func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := loghelper.NewFromExisting(r.log, req.Name)
+	log := loghelper.NewFromExisting(r.log.Base(), req.Name)
 
 	// check if we should skip reconcile
 	lifecycle, ok := r.syncer.(Starter)

@@ -23,11 +23,17 @@ import (
 
 // define some aliases for common bits of the webhook functionality
 
-// Defaulter defines functions for setting defaults on resources
+// Defaulter defines functions for setting defaults on resources.
 type Defaulter = admission.Defaulter
 
-// Validator defines functions for validating an operation
+// Validator defines functions for validating an operation.
 type Validator = admission.Validator
+
+// CustomDefaulter defines functions for setting defaults on resources.
+type CustomDefaulter = admission.CustomDefaulter
+
+// CustomValidator defines functions for validating an operation.
+type CustomValidator = admission.CustomValidator
 
 // AdmissionRequest defines the input for an admission handler.
 // It contains information to identify the object in

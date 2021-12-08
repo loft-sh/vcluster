@@ -21,6 +21,7 @@ package apiutil
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -80,7 +81,7 @@ func GVKForObject(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersi
 	// (unstructured, partial, etc)
 
 	// check for PartialObjectMetadata, which is analogous to unstructured, but isn't handled by ObjectKinds
-	_, isPartial := obj.(*metav1.PartialObjectMetadata)
+	_, isPartial := obj.(*metav1.PartialObjectMetadata) //nolint:ifshort
 	_, isPartialList := obj.(*metav1.PartialObjectMetadataList)
 	if isPartial || isPartialList {
 		// we require that the GVK be populated in order to recognize the object
@@ -134,7 +135,7 @@ func (f serializerWithDecodedGVK) DecoderToVersion(serializer runtime.Decoder, _
 	return serializer
 }
 
-//createRestConfig copies the base config and updates needed fields for a new rest config
+// createRestConfig copies the base config and updates needed fields for a new rest config.
 func createRestConfig(gvk schema.GroupVersionKind, isUnstructured bool, baseConfig *rest.Config, codecs serializer.CodecFactory) *rest.Config {
 	gv := gvk.GroupVersion()
 
@@ -157,15 +158,39 @@ func createRestConfig(gvk schema.GroupVersionKind, isUnstructured bool, baseConf
 		protobufSchemeLock.RUnlock()
 	}
 
-	if cfg.NegotiatedSerializer == nil {
-		if isUnstructured {
-			// If the object is unstructured, we need to preserve the GVK information.
-			// Use our own custom serializer.
-			cfg.NegotiatedSerializer = serializerWithDecodedGVK{serializer.WithoutConversionCodecFactory{CodecFactory: codecs}}
-		} else {
-			cfg.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: codecs}
-		}
+	if isUnstructured {
+		// If the object is unstructured, we need to preserve the GVK information.
+		// Use our own custom serializer.
+		cfg.NegotiatedSerializer = serializerWithDecodedGVK{serializer.WithoutConversionCodecFactory{CodecFactory: codecs}}
+	} else {
+		cfg.NegotiatedSerializer = serializerWithTargetZeroingDecode{NegotiatedSerializer: serializer.WithoutConversionCodecFactory{CodecFactory: codecs}}
 	}
 
 	return cfg
+}
+
+type serializerWithTargetZeroingDecode struct {
+	runtime.NegotiatedSerializer
+}
+
+func (s serializerWithTargetZeroingDecode) DecoderToVersion(serializer runtime.Decoder, r runtime.GroupVersioner) runtime.Decoder {
+	return targetZeroingDecoder{upstream: s.NegotiatedSerializer.DecoderToVersion(serializer, r)}
+}
+
+type targetZeroingDecoder struct {
+	upstream runtime.Decoder
+}
+
+func (t targetZeroingDecoder) Decode(data []byte, defaults *schema.GroupVersionKind, into runtime.Object) (runtime.Object, *schema.GroupVersionKind, error) {
+	zero(into)
+	return t.upstream.Decode(data, defaults, into)
+}
+
+// zero zeros the value of a pointer.
+func zero(x interface{}) {
+	if x == nil {
+		return
+	}
+	res := reflect.ValueOf(x).Elem()
+	res.Set(reflect.Zero(res.Type()))
 }

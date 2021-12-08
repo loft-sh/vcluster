@@ -65,11 +65,11 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
+		
 		// we will requeue anyways
 		return ctrl.Result{}, nil
 	}
-
+	
 	if !equality.Semantic.DeepEqual(vIngress.Status, pIngress.Status) {
 		newIngress := vIngress.DeepCopy()
 		newIngress.Status = pIngress.Status
@@ -78,7 +78,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		
+
 		// we will requeue anyways
 		return ctrl.Result{}, nil
 	}
