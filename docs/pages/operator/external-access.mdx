@@ -157,7 +157,7 @@ kubectl get ns
 
 Make sure you have an [ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/) installed into your cluster. Create the following `ingress.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
@@ -177,9 +177,11 @@ spec:
     http:
       paths:
       - backend:
-          serviceName: my-vcluster
-          servicePort: 443
+          service:
+            name: my-vcluster
+            port: 443
         path: /
+        pathType: ImplementationSpecific
 ```
 
 Create the resource in the namespace via:
