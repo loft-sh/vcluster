@@ -34,12 +34,14 @@ import (
 	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/handlers/fieldmanager"
+	"k8s.io/apiserver/pkg/endpoints/handlers/finisher"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/apiserver/pkg/util/dryrun"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/klog/v2"
 	utiltrace "k8s.io/utils/trace"
 )
 
@@ -101,23 +103,40 @@ func UpdateResource(r rest.Updater, scope *RequestScope, admit admission.Interfa
 		defaultGVK := scope.Kind
 		original := r.New()
 
+		validationDirective := fieldValidation(options.FieldValidation)
+		decodeSerializer := s.Serializer
+		if validationDirective == metav1.FieldValidationWarn || validationDirective == metav1.FieldValidationStrict {
+			decodeSerializer = s.StrictSerializer
+		}
+
+		decoder := scope.Serializer.DecoderToVersion(decodeSerializer, scope.HubGroupVersion)
 		trace.Step("About to convert to expected version")
-		decoder := scope.Serializer.DecoderToVersion(s.Serializer, scope.HubGroupVersion)
 		obj, gvk, err := decoder.Decode(body, &defaultGVK, original)
 		if err != nil {
-			err = transformDecodeError(scope.Typer, err, original, gvk, body)
-			scope.err(err, w, req)
-			return
+			strictError, isStrictError := runtime.AsStrictDecodingError(err)
+			switch {
+			case isStrictError && obj != nil && validationDirective == metav1.FieldValidationWarn:
+				addStrictDecodingWarnings(req.Context(), strictError.Errors())
+			case isStrictError && validationDirective == metav1.FieldValidationIgnore:
+				klog.Warningf("unexpected strict error when field validation is set to ignore")
+				fallthrough
+			default:
+				err = transformDecodeError(scope.Typer, err, original, gvk, body)
+				scope.err(err, w, req)
+				return
+			}
 		}
-		if gvk.GroupVersion() != defaultGVK.GroupVersion() {
-			err = errors.NewBadRequest(fmt.Sprintf("the API version in the data (%s) does not match the expected API version (%s)", gvk.GroupVersion(), defaultGVK.GroupVersion()))
+
+		objGV := gvk.GroupVersion()
+		if !scope.AcceptsGroupVersion(objGV) {
+			err = errors.NewBadRequest(fmt.Sprintf("the API version in the data (%s) does not match the expected API version (%s)", objGV, defaultGVK.GroupVersion()))
 			scope.err(err, w, req)
 			return
 		}
 		trace.Step("Conversion done")
 
-		ae := request.AuditEventFrom(ctx)
-		audit.LogRequestObject(ae, obj, scope.Resource, scope.Subresource, scope.Serializer)
+		ae := audit.AuditEventFrom(ctx)
+		audit.LogRequestObject(req.Context(), obj, objGV, scope.Resource, scope.Subresource, scope.Serializer)
 		admit = admission.WithAudit(admit, ae)
 
 		if err := checkName(obj, name, namespace, scope.Namer); err != nil {
@@ -198,7 +217,7 @@ func UpdateResource(r rest.Updater, scope *RequestScope, admit admission.Interfa
 		}
 		// Dedup owner references before updating managed fields
 		dedupOwnerReferencesAndAddWarning(obj, req.Context(), false)
-		result, err := finishRequest(ctx, func() (runtime.Object, error) {
+		result, err := finisher.FinishRequest(ctx, func() (runtime.Object, error) {
 			result, err := requestFunc()
 			// If the object wasn't committed to storage because it's serialized size was too large,
 			// it is safe to remove managedFields (which can be large) and try again.
@@ -264,8 +283,9 @@ func updateToCreateOptions(uo *metav1.UpdateOptions) *metav1.CreateOptions {
 		return nil
 	}
 	co := &metav1.CreateOptions{
-		DryRun:       uo.DryRun,
-		FieldManager: uo.FieldManager,
+		DryRun:          uo.DryRun,
+		FieldManager:    uo.FieldManager,
+		FieldValidation: uo.FieldValidation,
 	}
 	co.TypeMeta.SetGroupVersionKind(metav1.SchemeGroupVersion.WithKind("CreateOptions"))
 	return co

@@ -29,6 +29,7 @@ const (
 )
 
 var CoreDNSVersionMap = map[string]string{
+	"1.23": "coredns/coredns:1.8.6",
 	"1.22": "coredns/coredns:1.8.4",
 	"1.21": "coredns/coredns:1.8.3",
 	"1.20": "coredns/coredns:1.8.0",
@@ -115,7 +116,6 @@ func callApply(inClusterConfig rest.Config, manifest *[]byte) error {
 		Manifest:   string(*manifest),
 		RESTConfig: &inClusterConfig,
 		RESTMapper: restMapper,
-		Validate:   true,
 	}
 	return a.Apply(context.Background(), opts)
 }

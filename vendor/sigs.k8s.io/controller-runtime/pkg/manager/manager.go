@@ -31,15 +31,16 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 	intrec "sigs.k8s.io/controller-runtime/pkg/internal/recorder"
 	"sigs.k8s.io/controller-runtime/pkg/leaderelection"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/recorder"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
@@ -95,7 +96,7 @@ type Manager interface {
 	GetControllerOptions() v1alpha1.ControllerConfigurationSpec
 }
 
-// Options are the arguments for creating a new Manager
+// Options are the arguments for creating a new Manager.
 type Options struct {
 	// Scheme is the scheme used to resolve runtime.Objects to GroupVersionKinds / Resources
 	// Defaults to the kubernetes/client-go scheme.Scheme, but it's almost always better
@@ -292,7 +293,7 @@ type Runnable interface {
 // until it's done running.
 type RunnableFunc func(context.Context) error
 
-// Start implements Runnable
+// Start implements Runnable.
 func (r RunnableFunc) Start(ctx context.Context) error {
 	return r(ctx)
 }
@@ -319,7 +320,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		clusterOptions.NewClient = options.NewClient
 		clusterOptions.ClientDisableCacheFor = options.ClientDisableCacheFor
 		clusterOptions.DryRunClient = options.DryRunClient
-		clusterOptions.EventBroadcaster = options.EventBroadcaster
+		clusterOptions.EventBroadcaster = options.EventBroadcaster //nolint:staticcheck
 	})
 	if err != nil {
 		return nil, err
@@ -365,8 +366,14 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		return nil, err
 	}
 
+	errChan := make(chan error)
+	runnables := newRunnables(errChan)
+
 	return &controllerManager{
+		stopProcedureEngaged:          pointer.Int64(0),
 		cluster:                       cluster,
+		runnables:                     runnables,
+		errChan:                       errChan,
 		recorderProvider:              recorderProvider,
 		resourceLock:                  resourceLock,
 		metricsListener:               metricsListener,
@@ -393,7 +400,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 
 // AndFrom will use a supplied type and convert to Options
 // any options already set on Options will be ignored, this is used to allow
-// cli flags to override anything specified in the config file
+// cli flags to override anything specified in the config file.
 func (o Options) AndFrom(loader config.ControllerManagerConfiguration) (Options, error) {
 	if inj, wantsScheme := loader.(inject.Scheme); wantsScheme {
 		err := inj.InjectScheme(o.Scheme)
@@ -458,7 +465,7 @@ func (o Options) AndFrom(loader config.ControllerManagerConfiguration) (Options,
 	return o, nil
 }
 
-// AndFromOrDie will use options.AndFrom() and will panic if there are errors
+// AndFromOrDie will use options.AndFrom() and will panic if there are errors.
 func (o Options) AndFromOrDie(loader config.ControllerManagerConfiguration) Options {
 	o, err := o.AndFrom(loader)
 	if err != nil {
@@ -468,7 +475,7 @@ func (o Options) AndFromOrDie(loader config.ControllerManagerConfiguration) Opti
 }
 
 func (o Options) setLeaderElectionConfig(obj v1alpha1.ControllerManagerConfigurationSpec) Options {
-	if o.LeaderElection == false && obj.LeaderElection.LeaderElect != nil {
+	if !o.LeaderElection && obj.LeaderElection.LeaderElect != nil {
 		o.LeaderElection = *obj.LeaderElection.LeaderElect
 	}
 
@@ -499,7 +506,7 @@ func (o Options) setLeaderElectionConfig(obj v1alpha1.ControllerManagerConfigura
 	return o
 }
 
-// defaultHealthProbeListener creates the default health probes listener bound to the given address
+// defaultHealthProbeListener creates the default health probes listener bound to the given address.
 func defaultHealthProbeListener(addr string) (net.Listener, error) {
 	if addr == "" || addr == "0" {
 		return nil, nil
@@ -512,9 +519,8 @@ func defaultHealthProbeListener(addr string) (net.Listener, error) {
 	return ln, nil
 }
 
-// setOptionsDefaults set default values for Options fields
+// setOptionsDefaults set default values for Options fields.
 func setOptionsDefaults(options Options) Options {
-
 	// Allow newResourceLock to be mocked
 	if options.newResourceLock == nil {
 		options.newResourceLock = leaderelection.NewResourceLock
@@ -572,8 +578,8 @@ func setOptionsDefaults(options Options) Options {
 		options.GracefulShutdownTimeout = &gracefulShutdownTimeout
 	}
 
-	if options.Logger == nil {
-		options.Logger = logf.RuntimeLog.WithName("manager")
+	if options.Logger.GetSink() == nil {
+		options.Logger = log.Log
 	}
 
 	return options

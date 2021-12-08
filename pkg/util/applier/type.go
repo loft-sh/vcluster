@@ -21,6 +21,5 @@ type ApplierOptions struct {
 	RESTConfig *rest.Config
 	RESTMapper meta.RESTMapper
 	Namespace  string
-	Validate   bool
 	ExtraArgs  []string
 }

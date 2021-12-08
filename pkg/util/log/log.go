@@ -12,10 +12,10 @@ type WithDepth interface {
 }
 
 func NewLog(level int) logr.Logger {
-	return &log{
+	return logr.New(&log{
 		level: level,
 		depth: 1,
-	}
+	})
 }
 
 type log struct {
@@ -26,12 +26,16 @@ type log struct {
 }
 
 func (l *log) WithDepth(depth int) logr.Logger {
-	return &log{
+	return logr.New(&log{
 		level:    l.level,
 		current:  l.current,
 		prefixes: l.prefixes,
 		depth:    depth,
-	}
+	})
+}
+
+func (l *log) Init(info logr.RuntimeInfo) {
+
 }
 
 // Info logs a non-error message with the given key/value pairs as context.
@@ -40,14 +44,14 @@ func (l *log) WithDepth(depth int) logr.Logger {
 // the log line.  The key/value pairs can then be used to add additional
 // variable information.  The key/value pairs should alternate string
 // keys and arbitrary values.
-func (l *log) Info(msg string, keysAndValues ...interface{}) {
+func (l *log) Info(level int, msg string, keysAndValues ...interface{}) {
 	klog.InfoDepth(l.depth, l.formatMsg(msg, keysAndValues...))
 }
 
 // Enabled tests whether this InfoLogger is enabled.  For example,
 // commandline flags might be used to set the logging verbosity and disable
 // some info logs.
-func (l *log) Enabled() bool {
+func (l *log) Enabled(level int) bool {
 	return true
 }
 
@@ -70,22 +74,22 @@ func (l *log) Error(err error, msg string, keysAndValues ...interface{}) {
 // pass a log level less than zero.
 func (l *log) V(level int) logr.Logger {
 	if level < l.level {
-		return &silent{}
+		return logr.New(&silent{})
 	}
 
 	prefixes := []string{}
 	prefixes = append(prefixes, l.prefixes...)
-	return &log{
+	return logr.New(&log{
 		level:    l.level,
 		current:  level,
 		prefixes: prefixes,
 		depth:    l.depth,
-	}
+	})
 }
 
 // WithValues adds some key-value pairs of context to a logger.
 // See Info for documentation on how key/value pairs work.
-func (l *log) WithValues(keysAndValues ...interface{}) logr.Logger {
+func (l *log) WithValues(keysAndValues ...interface{}) logr.LogSink {
 	prefixes := []string{}
 	prefixes = append(prefixes, l.prefixes...)
 	prefixes = append(prefixes, formatKeysAndValues(keysAndValues...))
@@ -103,7 +107,7 @@ func (l *log) WithValues(keysAndValues ...interface{}) logr.Logger {
 // suffixes to the logger's name.  It's strongly reccomended
 // that name segments contain only letters, digits, and hyphens
 // (see the package documentation for more information).
-func (l *log) WithName(name string) logr.Logger {
+func (l *log) WithName(name string) logr.LogSink {
 	if name == "" {
 		return &log{
 			level:    l.level,
@@ -160,9 +164,10 @@ func formatKeysAndValues(keysAndValues ...interface{}) string {
 
 type silent struct{}
 
-func (s *silent) Info(msg string, keysAndValues ...interface{})             {}
-func (s *silent) Enabled() bool                                             { return false }
+func (s *silent) Init(info logr.RuntimeInfo)                                {}
+func (s *silent) Info(level int, msg string, keysAndValues ...interface{})  {}
+func (s *silent) Enabled(level int) bool                                    { return false }
 func (s *silent) Error(err error, msg string, keysAndValues ...interface{}) {}
-func (s *silent) V(level int) logr.Logger                                   { return s }
-func (s *silent) WithValues(keysAndValues ...interface{}) logr.Logger       { return s }
-func (s *silent) WithName(name string) logr.Logger                          { return s }
+func (s *silent) V(level int) logr.Logger                                   { return logr.New(s) }
+func (s *silent) WithValues(keysAndValues ...interface{}) logr.LogSink      { return s }
+func (s *silent) WithName(name string) logr.LogSink                         { return s }

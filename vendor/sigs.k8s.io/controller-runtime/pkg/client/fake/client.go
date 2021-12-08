@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,6 +51,7 @@ type versionedTracker struct {
 type fakeClient struct {
 	tracker         versionedTracker
 	scheme          *runtime.Scheme
+	restMapper      meta.RESTMapper
 	schemeWriteLock sync.Mutex
 }
 
@@ -86,6 +88,7 @@ func NewClientBuilder() *ClientBuilder {
 // ClientBuilder builds a fake client.
 type ClientBuilder struct {
 	scheme             *runtime.Scheme
+	restMapper         meta.RESTMapper
 	initObject         []client.Object
 	initLists          []client.ObjectList
 	initRuntimeObjects []runtime.Object
@@ -95,6 +98,15 @@ type ClientBuilder struct {
 // If not set, defaults to client-go's global scheme.Scheme.
 func (f *ClientBuilder) WithScheme(scheme *runtime.Scheme) *ClientBuilder {
 	f.scheme = scheme
+	return f
+}
+
+// WithRESTMapper sets this builder's restMapper.
+// The restMapper is directly set as mapper in the Client. This can be used for example
+// with a meta.DefaultRESTMapper to provide a static rest mapping.
+// If not set, defaults to an empty meta.DefaultRESTMapper.
+func (f *ClientBuilder) WithRESTMapper(restMapper meta.RESTMapper) *ClientBuilder {
+	f.restMapper = restMapper
 	return f
 }
 
@@ -121,6 +133,9 @@ func (f *ClientBuilder) Build() client.WithWatch {
 	if f.scheme == nil {
 		f.scheme = scheme.Scheme
 	}
+	if f.restMapper == nil {
+		f.restMapper = meta.NewDefaultRESTMapper([]schema.GroupVersion{})
+	}
 
 	tracker := versionedTracker{ObjectTracker: testing.NewObjectTracker(f.scheme, scheme.Codecs.UniversalDecoder()), scheme: f.scheme}
 	for _, obj := range f.initObject {
@@ -139,8 +154,9 @@ func (f *ClientBuilder) Build() client.WithWatch {
 		}
 	}
 	return &fakeClient{
-		tracker: tracker,
-		scheme:  f.scheme,
+		tracker:    tracker,
+		scheme:     f.scheme,
+		restMapper: f.restMapper,
 	}
 }
 
@@ -169,6 +185,11 @@ func (t versionedTracker) Add(obj runtime.Object) error {
 			// be recognized
 			accessor.SetResourceVersion(trackerAddResourceVersion)
 		}
+
+		obj, err = convertFromUnstructuredIfNecessary(t.scheme, obj)
+		if err != nil {
+			return err
+		}
 		if err := t.ObjectTracker.Add(obj); err != nil {
 			return err
 		}
@@ -192,11 +213,43 @@ func (t versionedTracker) Create(gvr schema.GroupVersionResource, obj runtime.Ob
 		return apierrors.NewBadRequest("resourceVersion can not be set for Create requests")
 	}
 	accessor.SetResourceVersion("1")
+	obj, err = convertFromUnstructuredIfNecessary(t.scheme, obj)
+	if err != nil {
+		return err
+	}
 	if err := t.ObjectTracker.Create(gvr, obj, ns); err != nil {
 		accessor.SetResourceVersion("")
 		return err
 	}
+
 	return nil
+}
+
+// convertFromUnstructuredIfNecessary will convert *unstructured.Unstructured for a GVK that is recocnized
+// by the schema into the whatever the schema produces with New() for said GVK.
+// This is required because the tracker unconditionally saves on manipulations, but it's List() implementation
+// tries to assign whatever it finds into a ListType it gets from schema.New() - Thus we have to ensure
+// we save as the very same type, otherwise subsequent List requests will fail.
+func convertFromUnstructuredIfNecessary(s *runtime.Scheme, o runtime.Object) (runtime.Object, error) {
+	u, isUnstructured := o.(*unstructured.Unstructured)
+	if !isUnstructured || !s.Recognizes(u.GroupVersionKind()) {
+		return o, nil
+	}
+
+	typed, err := s.New(u.GroupVersionKind())
+	if err != nil {
+		return nil, fmt.Errorf("scheme recognizes %s but failed to produce an object for it: %w", u.GroupVersionKind().String(), err)
+	}
+
+	unstructuredSerialized, err := json.Marshal(u)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize %T: %w", unstructuredSerialized, err)
+	}
+	if err := json.Unmarshal(unstructuredSerialized, typed); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal the content of %T into %T: %w", u, typed, err)
+	}
+
+	return typed, nil
 }
 
 func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
@@ -255,6 +308,10 @@ func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Ob
 	if !accessor.GetDeletionTimestamp().IsZero() && len(accessor.GetFinalizers()) == 0 {
 		return t.ObjectTracker.Delete(gvr, accessor.GetNamespace(), accessor.GetName())
 	}
+	obj, err = convertFromUnstructuredIfNecessary(t.scheme, obj)
+	if err != nil {
+		return err
+	}
 	return t.ObjectTracker.Update(gvr, obj, ns)
 }
 
@@ -284,6 +341,7 @@ func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.O
 		return err
 	}
 	decoder := scheme.Codecs.UniversalDecoder()
+	zero(obj)
 	_, _, err = decoder.Decode(j, nil, obj)
 	return err
 }
@@ -318,7 +376,7 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 	}
 
 	if _, isUnstructuredList := obj.(*unstructured.UnstructuredList); isUnstructuredList && !c.scheme.Recognizes(gvk) {
-		// We need tor register the ListKind with UnstructuredList:
+		// We need to register the ListKind with UnstructuredList:
 		// https://github.com/kubernetes/kubernetes/blob/7b2776b89fb1be28d4e9203bdeec079be903c103/staging/src/k8s.io/client-go/dynamic/fake/simple.go#L44-L51
 		c.schemeWriteLock.Lock()
 		c.scheme.AddKnownTypeWithName(gvk.GroupVersion().WithKind(gvk.Kind+"List"), &unstructured.UnstructuredList{})
@@ -346,6 +404,7 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 		return err
 	}
 	decoder := scheme.Codecs.UniversalDecoder()
+	zero(obj)
 	_, _, err = decoder.Decode(j, nil, obj)
 	if err != nil {
 		return err
@@ -373,8 +432,7 @@ func (c *fakeClient) Scheme() *runtime.Scheme {
 }
 
 func (c *fakeClient) RESTMapper() meta.RESTMapper {
-	// TODO: Implement a fake RESTMapper.
-	return nil
+	return c.restMapper
 }
 
 func (c *fakeClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
@@ -418,6 +476,28 @@ func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...clie
 	}
 	delOptions := client.DeleteOptions{}
 	delOptions.ApplyOptions(opts)
+
+	// Check the ResourceVersion if that Precondition was specified.
+	if delOptions.Preconditions != nil && delOptions.Preconditions.ResourceVersion != nil {
+		name := accessor.GetName()
+		dbObj, err := c.tracker.Get(gvr, accessor.GetNamespace(), name)
+		if err != nil {
+			return err
+		}
+		oldAccessor, err := meta.Accessor(dbObj)
+		if err != nil {
+			return err
+		}
+		actualRV := oldAccessor.GetResourceVersion()
+		expectRV := *delOptions.Preconditions.ResourceVersion
+		if actualRV != expectRV {
+			msg := fmt.Sprintf(
+				"the ResourceVersion in the precondition (%s) does not match the ResourceVersion in record (%s). "+
+					"The object might have been modified",
+				expectRV, actualRV)
+			return apierrors.NewConflict(gvr.GroupResource(), name, errors.New(msg))
+		}
+	}
 
 	return c.deleteObject(gvr, accessor)
 }
@@ -527,6 +607,7 @@ func (c *fakeClient) Patch(ctx context.Context, obj client.Object, patch client.
 		return err
 	}
 	decoder := scheme.Codecs.UniversalDecoder()
+	zero(obj)
 	_, _, err = decoder.Decode(j, nil, obj)
 	return err
 }
@@ -672,4 +753,13 @@ func allowsCreateOnUpdate(gvk schema.GroupVersionKind) bool {
 	}
 
 	return false
+}
+
+// zero zeros the value of a pointer.
+func zero(x interface{}) {
+	if x == nil {
+		return
+	}
+	res := reflect.ValueOf(x).Elem()
+	res.Set(reflect.Zero(res.Type()))
 }

@@ -69,7 +69,7 @@ type Informers interface {
 	client.FieldIndexer
 }
 
-// Informer - informer allows you interact with the underlying informer
+// Informer - informer allows you interact with the underlying informer.
 type Informer interface {
 	// AddEventHandler adds an event handler to the shared informer using the shared informer's resync
 	// period.  Events to a single handler are delivered sequentially, but there is no coordination
@@ -82,14 +82,17 @@ type Informer interface {
 	// AddIndexers adds more indexers to this store.  If you call this after you already have data
 	// in the store, the results are undefined.
 	AddIndexers(indexers toolscache.Indexers) error
-	//HasSynced return true if the informers underlying store has synced
+	// HasSynced return true if the informers underlying store has synced.
 	HasSynced() bool
 }
 
-// SelectorsByObject associate a client.Object's GVK to a field/label selector
-type SelectorsByObject map[client.Object]internal.Selector
+// ObjectSelector is an alias name of internal.Selector.
+type ObjectSelector internal.Selector
 
-// Options are the optional arguments for creating a new InformersMap object
+// SelectorsByObject associate a client.Object's GVK to a field/label selector.
+type SelectorsByObject map[client.Object]ObjectSelector
+
+// Options are the optional arguments for creating a new InformersMap object.
 type Options struct {
 	// Scheme is the scheme to use for mapping objects to GroupVersionKinds
 	Scheme *runtime.Scheme
@@ -113,6 +116,12 @@ type Options struct {
 	// [1] https://pkg.go.dev/k8s.io/apimachinery/pkg/fields#Selector
 	// [2] https://pkg.go.dev/k8s.io/apimachinery/pkg/fields#Set
 	SelectorsByObject SelectorsByObject
+
+	// UnsafeDisableDeepCopyByObject indicates not to deep copy objects during get or
+	// list objects per GVK at the specified object.
+	// Be very careful with this, when enabled you must DeepCopy any object before mutating it,
+	// otherwise you will mutate the object in the cache.
+	UnsafeDisableDeepCopyByObject DisableDeepCopyByObject
 }
 
 var defaultResyncTime = 10 * time.Hour
@@ -127,7 +136,11 @@ func New(config *rest.Config, opts Options) (Cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	im := internal.NewInformersMap(config, opts.Scheme, opts.Mapper, *opts.Resync, opts.Namespace, selectorsByGVK)
+	disableDeepCopyByGVK, err := convertToDisableDeepCopyByGVK(opts.UnsafeDisableDeepCopyByObject, opts.Scheme)
+	if err != nil {
+		return nil, err
+	}
+	im := internal.NewInformersMap(config, opts.Scheme, opts.Mapper, *opts.Resync, opts.Namespace, selectorsByGVK, disableDeepCopyByGVK)
 	return &informerCache{InformersMap: im}, nil
 }
 
@@ -136,6 +149,8 @@ func New(config *rest.Config, opts Options) (Cache, error) {
 // SelectorsByObject
 // WARNING: if SelectorsByObject is specified. filtered out resources are not
 //          returned.
+// WARNING: if UnsafeDisableDeepCopy is enabled, you must DeepCopy any object
+//          returned from cache get/list before mutating it.
 func BuilderWithOptions(options Options) NewCacheFunc {
 	return func(config *rest.Config, opts Options) (Cache, error) {
 		if opts.Scheme == nil {
@@ -151,6 +166,7 @@ func BuilderWithOptions(options Options) NewCacheFunc {
 			opts.Namespace = options.Namespace
 		}
 		opts.SelectorsByObject = options.SelectorsByObject
+		opts.UnsafeDisableDeepCopyByObject = options.UnsafeDisableDeepCopyByObject
 		return New(config, opts)
 	}
 }
@@ -185,7 +201,34 @@ func convertToSelectorsByGVK(selectorsByObject SelectorsByObject, scheme *runtim
 		if err != nil {
 			return nil, err
 		}
-		selectorsByGVK[gvk] = selector
+		selectorsByGVK[gvk] = internal.Selector(selector)
 	}
 	return selectorsByGVK, nil
+}
+
+// DisableDeepCopyByObject associate a client.Object's GVK to disable DeepCopy during get or list from cache.
+type DisableDeepCopyByObject map[client.Object]bool
+
+var _ client.Object = &ObjectAll{}
+
+// ObjectAll is the argument to represent all objects' types.
+type ObjectAll struct {
+	client.Object
+}
+
+func convertToDisableDeepCopyByGVK(disableDeepCopyByObject DisableDeepCopyByObject, scheme *runtime.Scheme) (internal.DisableDeepCopyByGVK, error) {
+	disableDeepCopyByGVK := internal.DisableDeepCopyByGVK{}
+	for obj, disable := range disableDeepCopyByObject {
+		switch obj.(type) {
+		case ObjectAll, *ObjectAll:
+			disableDeepCopyByGVK[internal.GroupVersionKindAll] = disable
+		default:
+			gvk, err := apiutil.GVKForObject(obj, scheme)
+			if err != nil {
+				return nil, err
+			}
+			disableDeepCopyByGVK[gvk] = disable
+		}
+	}
+	return disableDeepCopyByGVK, nil
 }
