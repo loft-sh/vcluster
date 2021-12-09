@@ -309,9 +309,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 		fmt.Println(endpoints)
 		// verify EndpointSlices for the API servers exist
-		endpointSliceList, err := f.VclusterClient.DiscoveryV1().EndpointSlices(namespace).List(f.Context, metav1.ListOptions{
-			LabelSelector: "kubernetes.io/service-name=" + name,
-		})
+		endpointSliceList, err := f.VclusterClient.DiscoveryV1().EndpointSlices(namespace).List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" EndpointSlice resource on \"default\" namespace")
 
 		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
