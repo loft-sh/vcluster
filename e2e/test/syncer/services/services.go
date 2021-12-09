@@ -310,7 +310,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			fmt.Println(len(svcs.Items))
 		}
 
-		svcs1, err := f.HostClient.CoreV1().Services(namespace).List(f.Context, metav1.ListOptions{})
+		svcs1, err := f.HostClient.CoreV1().Services("vcluster").List(f.Context, metav1.ListOptions{})
 		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>> services from hostcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 		if len(svcs1.Items) > 0 {
 			for _, svc := range svcs1.Items {
@@ -332,7 +332,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			fmt.Println(len(pods.Items))
 		}
 
-		pods1, err := f.HostClient.CoreV1().Pods(namespace).List(f.Context, metav1.ListOptions{})
+		pods1, err := f.HostClient.CoreV1().Pods("vcluster").List(f.Context, metav1.ListOptions{})
 		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>> pods from hostcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 		if len(pods1.Items) > 0 {
 			for _, pod := range pods1.Items {
