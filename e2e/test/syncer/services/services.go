@@ -292,7 +292,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		f.Log.Infof("Service %s deleted", testSvcName)
 	})
 
-	ginkgo.It("should have Endpoints and EndpointSlices pointing to API Server", func() {
+	ginkgo.FIt("should have Endpoints and EndpointSlices pointing to API Server", func() {
 		namespace := "default"
 		name := "kubernetes"
 		// verify "kubernetes.default" service exist
