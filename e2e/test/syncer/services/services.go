@@ -306,11 +306,16 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			f.Log.Failf("Expected at least 1 subset in endpoints, got %d: %#v", len(endpoints.Subsets), endpoints.Subsets)
 			ginkgo.Fail("Expected at least 1 subset in endpoints")
 		}
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		fmt.Println(endpoints)
 		// verify EndpointSlices for the API servers exist
 		endpointSliceList, err := f.VclusterClient.DiscoveryV1().EndpointSlices(namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "kubernetes.io/service-name=" + name,
 		})
 		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" EndpointSlice resource on \"default\" namespace")
+
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		fmt.Println(endpointSliceList)
 		if len(endpointSliceList.Items) == 0 {
 			f.Log.Failf("Expected at least 1 EndpointSlice, got %d: %#v", len(endpoints.Subsets), endpoints.Subsets)
 			ginkgo.Fail("Expected at least 1 subset in endpoints")

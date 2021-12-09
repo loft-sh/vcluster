@@ -60,4 +60,4 @@ jobs:
 
     - name: Execute e2e tests
       working-directory: ./e2e
-      run: VCLUSTER_SUFFIX=vcluster go test -v -ginkgo.v
+      run: VCLUSTER_SUFFIX=vcluster ginkgo --focus "should have Endpoints and EndpointSlices pointing to API Server"
