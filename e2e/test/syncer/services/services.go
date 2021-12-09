@@ -300,20 +300,48 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" Service resource on \"default\" namespace")
 
 		svcs, err := f.VclusterClient.CoreV1().Services(namespace).List(f.Context, metav1.ListOptions{})
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>> services >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-		for _, svc := range svcs.Items {
-			fmt.Println(svc)
-			fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>> services from vcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		if len(svcs.Items) > 0 {
+			for _, svc := range svcs.Items {
+				fmt.Println(svc)
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			}
+		} else {
+			fmt.Println(len(svcs.Items))
 		}
-		fmt.Println(err)
+
+		svcs1, err := f.HostClient.CoreV1().Services(namespace).List(f.Context, metav1.ListOptions{})
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>> services from hostcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		if len(svcs1.Items) > 0 {
+			for _, svc := range svcs1.Items {
+				fmt.Println(svc)
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			}
+		} else {
+			fmt.Println(len(svcs1.Items))
+		}
 
 		pods, err := f.VclusterClient.CoreV1().Pods(namespace).List(f.Context, metav1.ListOptions{})
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>> pods >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-		for _, pod := range pods.Items {
-			fmt.Println(pod)
-			fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>> pods from vcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		if len(pods.Items) > 0 {
+			for _, pod := range pods.Items {
+				fmt.Println(pod)
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			}
+		} else {
+			fmt.Println(len(pods.Items))
 		}
-		fmt.Println(err)
+
+		pods1, err := f.HostClient.CoreV1().Pods(namespace).List(f.Context, metav1.ListOptions{})
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>> pods from hostcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		if len(pods1.Items) > 0 {
+			for _, pod := range pods1.Items {
+				fmt.Println(pod)
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			}
+		} else {
+			fmt.Println(len(pods1.Items))
+		}
 		// verify Endpoints for the API servers exist
 		endpoints, err := f.VclusterClient.CoreV1().Endpoints(namespace).Get(f.Context, name, metav1.GetOptions{})
 		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" Endpoint resource on \"default\" namespace")
