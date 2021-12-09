@@ -3,6 +3,8 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
@@ -25,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
@@ -76,7 +77,7 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		includeIngresses: ctx.Controllers["ingresses"],
 
 		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "secret-syncer"}), "secret"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
+		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace, ctx.Options.ExcludeAnnotations...),
 	}, &generic.SyncerOptions{
 		ModifyController: func(builder *builder.Builder) *builder.Builder {
 			if ctx.Controllers["ingresses"] {

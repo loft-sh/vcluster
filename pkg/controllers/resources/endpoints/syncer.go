@@ -3,6 +3,7 @@ package endpoints
 import (
 	"context"
 	"encoding/json"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -23,16 +24,16 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 	return generic.RegisterSyncer(ctx, "endpoints", &syncer{
 		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Endpoints{}),
 
-		targetNamespace:  ctx.Options.TargetNamespace,
-		serviceName:      ctx.Options.ServiceName,
-		
+		targetNamespace: ctx.Options.TargetNamespace,
+		serviceName:     ctx.Options.ServiceName,
+
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
-		
-		virtualClient:    ctx.VirtualManager.GetClient(),
-		
+
+		virtualClient: ctx.VirtualManager.GetClient(),
+
 		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "endpoints-syncer"}), "endpoints"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
+		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace, ctx.Options.ExcludeAnnotations...),
 	})
 }
 
@@ -40,14 +41,14 @@ type syncer struct {
 	generic.Translator
 	targetNamespace string
 
-	serviceName      string
-	
+	serviceName string
+
 	currentNamespace       string
 	currentNamespaceClient client.Client
 
 	virtualClient client.Client
 
-	creator *generic.GenericCreator
+	creator    *generic.GenericCreator
 	translator translate.Translator
 }
 
@@ -69,7 +70,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	
+
 	return s.creator.Update(ctx, vObj, updated, log)
 }
 

@@ -3,6 +3,9 @@ package context
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
@@ -12,8 +15,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"sync"
 )
 
 // VirtualClusterOptions holds the cmd flags
@@ -45,7 +46,8 @@ type VirtualClusterOptions struct {
 	SyncNodeChanges     bool
 	DisableFakeKubelets bool
 
-	TranslateImages []string
+	TranslateImages    []string
+	ExcludeAnnotations []string
 
 	NodeSelector        string
 	ServiceAccount      string

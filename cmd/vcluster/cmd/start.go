@@ -3,6 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"math"
+	"os"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers"
@@ -20,7 +25,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -37,11 +41,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	"math"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 var (
@@ -110,6 +111,8 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().Int64Var(&options.LeaseDuration, "lease-duration", 60, "Lease duration of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RenewDeadline, "renew-deadline", 40, "Renew deadline of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RetryPeriod, "retry-period", 15, "Retry period of the leader election in seconds")
+
+	cmd.Flags().StringSliceVar(&options.ExcludeAnnotations, "exclude-annotations", []string{}, "Exclude annotations from syncing")
 
 	// Deprecated Flags
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")

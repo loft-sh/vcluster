@@ -2,6 +2,8 @@ package persistentvolumeclaims
 
 import (
 	"context"
+	"sync"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
@@ -17,7 +19,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
 )
 
 var (
@@ -55,7 +56,7 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		virtualClient:   ctx.VirtualManager.GetClient(),
 
 		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "persistentvolumeclaim-syncer"}), "persistent volume claim"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation),
+		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace, append(ctx.Options.ExcludeAnnotations, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation)...),
 	})
 }
 

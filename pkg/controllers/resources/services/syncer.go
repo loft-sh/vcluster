@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -14,7 +16,6 @@ import (
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
@@ -34,12 +35,12 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 		currentNamespace:       ctx.CurrentNamespace,
 		serviceName:            ctx.Options.ServiceName,
-		
+
 		localClient:   ctx.LocalManager.GetClient(),
 		virtualClient: ctx.VirtualManager.GetClient(),
 
 		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), recorder, "service"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
+		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace, ctx.Options.ExcludeAnnotations...),
 	})
 }
 
