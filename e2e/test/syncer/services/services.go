@@ -299,6 +299,13 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		_, err := f.VclusterClient.CoreV1().Services(namespace).Get(f.Context, name, metav1.GetOptions{})
 		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" Service resource on \"default\" namespace")
 
+		svcs, err := f.VclusterClient.CoreV1().Services(namespace).List(f.Context, metav1.ListOptions{})
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		for _, svc := range svcs.Items {
+			fmt.Println(svc)
+			fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		}
+		fmt.Println(err)
 		// verify Endpoints for the API servers exist
 		endpoints, err := f.VclusterClient.CoreV1().Endpoints(namespace).Get(f.Context, name, metav1.GetOptions{})
 		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" Endpoint resource on \"default\" namespace")
@@ -313,7 +320,10 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" EndpointSlice resource on \"default\" namespace")
 
 		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-		fmt.Println(endpointSliceList)
+		for _, svc := range endpointSliceList.Items {
+			fmt.Println(svc)
+			fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		}
 		if len(endpointSliceList.Items) == 0 {
 			f.Log.Failf("Expected at least 1 EndpointSlice, got %d: %#v", len(endpoints.Subsets), endpoints.Subsets)
 			ginkgo.Fail("Expected at least 1 subset in endpoints")
