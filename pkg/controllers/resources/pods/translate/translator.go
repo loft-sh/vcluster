@@ -533,9 +533,6 @@ func translateContainerEnv(c *corev1.Container, vPod *corev1.Pod, serviceEnvMap 
 	if c.Env == nil {
 		c.Env = []corev1.EnvVar{}
 	}
-	for _, e := range additionalEnvVars {
-		c.Env = append(c.Env, e)
-	}
 	// additional env vars should come first to allow for dependent environment variables
 	c.Env = append(additionalEnvVars, c.Env...)
 }
