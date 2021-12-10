@@ -3,6 +3,7 @@ package filters
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"io/ioutil"
 	"net/http"
 
@@ -219,6 +220,10 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 	}
 
 	newService := newObj.(*corev1.Service)
+	if newService.Annotations == nil {
+		newService.Annotations = map[string]string{}
+	}
+	newService.Annotations[services.ServiceBlockDeletion] = "true"
 	newService.Spec.Selector = nil
 	err = localClient.Create(req.Context(), newService)
 	if err != nil {
@@ -231,6 +236,9 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 	}
 
 	vService.Spec.ClusterIP = newService.Spec.ClusterIP
+	vService.Spec.ClusterIPs = newService.Spec.ClusterIPs
+	vService.Spec.Ports = newService.Spec.Ports
+	vService.Spec.HealthCheckNodePort = newService.Spec.HealthCheckNodePort
 	vService.Status = newService.Status
 
 	// now create the service in the virtual cluster
@@ -240,6 +248,16 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		klog.Infof("Error creating service in virtual cluster: %v", err)
 		_ = localClient.Delete(context.Background(), newService)
 		return nil, err
+	}
+
+	// try to patch physical service that we are done
+	if newService.Annotations != nil {
+		oldNewService := newService.DeepCopy()
+		delete(newService.Annotations, services.ServiceBlockDeletion)
+		err = localClient.Patch(req.Context(), newService, client.MergeFrom(oldNewService))
+		if err != nil {
+			klog.Errorf("Error patching service %s/%s: %v", oldNewService.Namespace, oldNewService.Name, err)
+		}
 	}
 
 	return vService, nil
