@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
+
 func RegisterIndices(ctx *context2.ControllerContext) error {
 	err := generic.RegisterSyncerIndices(ctx, &corev1.Service{})
 	if err != nil {
@@ -34,7 +36,7 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 		currentNamespace:       ctx.CurrentNamespace,
 		serviceName:            ctx.Options.ServiceName,
-		
+
 		localClient:   ctx.LocalManager.GetClient(),
 		virtualClient: ctx.VirtualManager.GetClient(),
 
@@ -136,12 +138,9 @@ func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper
 	// we have to delay deletion here if a vObj does not (yet) exist for a service that was just
 	// created, because vcluster intercepts those calls and first creates a service inside the host
 	// cluster and then inside the virtual cluster.
-	//
-	// We also don't need to care about the forwarding part deleting the physical object, because as soon as
-	// that controller gets a delete event for a virtual service, we can safely delete the physical object.
 	pService := pObj.(*corev1.Service)
-	if pService.DeletionTimestamp == nil && pService.CreationTimestamp.Add(time.Second*180).After(time.Now()) {
-		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+	if pService.Annotations != nil && pService.Annotations[ServiceBlockDeletion] == "true" {
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return generic.DeleteObject(ctx, s.localClient, pObj, log)

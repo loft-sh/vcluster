@@ -48,6 +48,39 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		err := f.DeleteTestNamespace(ns, false)
 		framework.ExpectNoError(err)
 	})
+	
+	ginkgo.It("Test LoadBalancer node ports & cluster ip", func() {
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "myservice-loadbalancer",
+				Namespace: ns,
+			},
+			Spec: corev1.ServiceSpec{
+				Type:    "LoadBalancer",
+				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+				Selector: map[string]string{"doesnt": "matter"},
+				Ports: []corev1.ServicePort{
+					{
+						Port: 80,
+					},
+				},
+			},
+		}
+		
+		vService, err := f.VclusterClient.CoreV1().Services(ns).Create(f.Context, service, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+		
+		// get physical service
+		pService, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(vService.Name, vService.Namespace), metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		
+		// check node ports are the same
+		framework.ExpectEqual(vService.Spec.ClusterIP, pService.Spec.ClusterIP)
+		framework.ExpectEqual(vService.Spec.HealthCheckNodePort, pService.Spec.HealthCheckNodePort)
+		for i := range vService.Spec.Ports {
+			framework.ExpectEqual(vService.Spec.Ports[i].NodePort, pService.Spec.Ports[i].NodePort)
+		}
+	})
 
 	ginkgo.It("Test Service gets created when no Kind is present in body", func() {
 		service := corev1.Service{
