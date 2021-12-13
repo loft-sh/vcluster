@@ -72,7 +72,7 @@ module.exports = {
           routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl:
-            'https://github.com/loft-sh/vcluster/edit/master/docs/',
+            'https://github.com/loft-sh/vcluster/edit/main/docs/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
