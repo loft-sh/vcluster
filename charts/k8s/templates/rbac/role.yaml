@@ -22,6 +22,11 @@ rules:
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
+{{- if .Values.rbac.role.extended }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+{{- end }}
 {{- if .Values.openshift.enable }}
   - apiGroups: [""]
     resources: ["endpoints/restricted"]

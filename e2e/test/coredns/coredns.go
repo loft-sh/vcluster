@@ -2,9 +2,11 @@ package coredns
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/loft-sh/vcluster/e2e/framework"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,44 +14,26 @@ import (
 
 var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 	var (
-		f                 *framework.Framework
-		iteration         int
-		ns                string
-		curlPodName       = "curl"
-		curlContainerName = "curl"
+		f         *framework.Framework
+		iteration int
+		ns        string
+		curlPod   *corev1.Pod
 	)
 
 	ginkgo.JustBeforeEach(func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		ns = fmt.Sprintf("e2e-coredns-%d", iteration)
-		// execute cleanup in case previous e2e test were terminated prematurely
-		err := f.DeleteTestNamespace(ns, true)
-		framework.ExpectNoError(err)
+		ns = fmt.Sprintf("e2e-coredns-%d-%s", iteration, random.RandomString(5))
 
 		// create test namespace
-		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		_, err = f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: curlPodName},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name:            curlContainerName,
-						Image:           "curlimages/curl",
-						ImagePullPolicy: corev1.PullIfNotPresent,
-						SecurityContext: f.GetDefaultSecurityContext(),
-						Command:         []string{"sleep"},
-						Args:            []string{"9999"},
-					},
-				},
-			},
-		}, metav1.CreateOptions{})
+		curlPod, err = f.CreateCurlPod(ns)
 		framework.ExpectNoError(err)
 
-		err = f.WaitForPodRunning(curlPodName, ns)
+		err = f.WaitForPodRunning(curlPod.GetName(), ns)
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 	})
 
@@ -60,50 +44,15 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 	})
 
 	ginkgo.It("Test Service is reachable via it's hostname", func() {
-		podName := "httpbin"
-		serviceName := "myservice"
-		labels := map[string]string{"app": "httpbin"}
-		_, err := f.VclusterClient.CoreV1().Services(ns).Create(f.Context, &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      serviceName,
-				Namespace: ns,
-			},
-			Spec: corev1.ServiceSpec{
-				Selector: labels,
-				Ports: []corev1.ServicePort{
-					{Port: 8080},
-				},
-			},
-		}, metav1.CreateOptions{})
+		pod, service, err := f.CreateNginxPodAndService(ns)
 		framework.ExpectNoError(err)
 
-		_, err = f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   podName,
-				Labels: labels,
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name:            podName,
-						Image:           "nginxinc/nginx-unprivileged",
-						ImagePullPolicy: corev1.PullIfNotPresent,
-						SecurityContext: f.GetDefaultSecurityContext(),
-					},
-				},
-			},
-		}, metav1.CreateOptions{})
-		framework.ExpectNoError(err)
-
-		err = f.WaitForPodRunning(podName, ns)
+		err = f.WaitForPodRunning(pod.GetName(), ns)
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
-		url := fmt.Sprintf("http://%s:8080/", serviceName)
-		cmd := []string{"curl", "-s", "--show-error", "-o", "/dev/null", "-w", "%{http_code}", url}
-		stdoutBuffer, stderrBuffer, err := podhelper.ExecBuffered(f.VclusterConfig, ns, curlPodName, curlContainerName, cmd, nil)
-		framework.ExpectNoError(err)
-		framework.ExpectEmpty(stderrBuffer)
-		framework.ExpectEqual(string(stdoutBuffer), "200")
+		// sleep to reduce the rate of pod/exec calls made when checking if service is reacheable
+		time.Sleep(time.Second * 10)
+		framework.DefaultFramework.TestServiceIsEventuallyReachable(curlPod, service)
 	})
 
 	ginkgo.It("Test nodes (fake) kubelet is reachable via node hostname", func() {
@@ -117,9 +66,11 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 					break
 				}
 			}
+			// sleep to reduce the rate of pod/exec calls
+			time.Sleep(time.Second * 10)
 			url := fmt.Sprintf("https://%s:%d/healthz", hostname, node.Status.DaemonEndpoints.KubeletEndpoint.Port)
 			cmd := []string{"curl", "-k", "-s", "--show-error", url}
-			stdoutBuffer, stderrBuffer, err := podhelper.ExecBuffered(f.VclusterConfig, ns, curlPodName, curlContainerName, cmd, nil)
+			stdoutBuffer, stderrBuffer, err := podhelper.ExecBuffered(f.VclusterConfig, ns, curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)
 			framework.ExpectNoError(err)
 			framework.ExpectEmpty(stderrBuffer)
 			framework.ExpectEqual(string(stdoutBuffer), "ok")

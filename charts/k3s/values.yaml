@@ -93,6 +93,8 @@ rbac:
   role:
     # This is required for basic functionality of vcluster
     create: true
+    # Extended role permissions are required for some optional features, e.g. Networkpolicy sync
+    extended: false
 
 # The amount of replicas to run the statefulset with
 replicas: 1

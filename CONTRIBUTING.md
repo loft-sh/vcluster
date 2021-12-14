@@ -107,7 +107,7 @@ Run `dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --ou
 Wait until the `API server listening at: [::]:2345` message appears.  
 Start the `Debug vcluster (localhost:2346)` configuration in VSCode to connect your debugger session.  
 If you are not using VSCode, configure your IDE to connect to `localhost:2346` for the "remote" delve debugging.  
-**Note:** vcluster won't start you connect with the debugger.  
+**Note:** vcluster won't start until you connect with the debugger.  
 **Note:** vcluster will be stopped once you detach your debugger session.  
 
 ### Running vcluster Tests

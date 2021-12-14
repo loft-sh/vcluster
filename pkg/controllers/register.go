@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/networkpolicies"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumeclaims"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
@@ -38,6 +39,7 @@ var ResourceControllers = map[string]func(*context.ControllerContext, record.Eve
 	"priorityclasses":        priorityclasses.Register,
 	"nodes,fake-nodes":       nodes.Register,
 	"persistentvolumes,fake-persistentvolumes": persistentvolumes.Register,
+	"networkpolicies":                          networkpolicies.Register,
 }
 
 var ResourceIndices = map[string]func(*context.ControllerContext) error{
@@ -53,6 +55,7 @@ var ResourceIndices = map[string]func(*context.ControllerContext) error{
 	"priorityclasses":        priorityclasses.RegisterIndices,
 	"nodes,fake-nodes":       nodes.RegisterIndices,
 	"persistentvolumes,fake-persistentvolumes": persistentvolumes.RegisterIndices,
+	"networkpolicies":                          networkpolicies.RegisterIndices,
 }
 
 func RegisterIndices(ctx *context.ControllerContext) error {

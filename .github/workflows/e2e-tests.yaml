@@ -30,6 +30,27 @@ jobs:
       with:
         version: "v0.11.1"
         image: kindest/node:v1.21.1
+      
+      # Disabling the use of Calico plugin due to unstability
+    #     config: "./hack/kind-config.yaml"
+    #     wait: "120s" # Workaround because wait flag for kind always times out when cnofig contains networking.disableDefaultCNI: true. TODO: replace with something more sofisticated
+    # - name: Install Calico CNI for the NetworkPolicy support
+    #   id: wait-until-networking-is-ready
+    #   run: |
+    #       kubectl apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml
+    #       kubectl -n kube-system set env daemonset/calico-node FELIX_IGNORELOOSERPF=true
+    #       kubectl wait --for=condition=ready pod -l k8s-app=calico-kube-controllers -n kube-system --timeout=300s
+    #       kubectl wait --for=condition=ready pod -l k8s-app=calico-node -n kube-system --timeout=300s
+    #       kubectl wait --for=condition=ready pod -l k8s-app=kube-dns -n kube-system --timeout=300s
+    #   continue-on-error: true
+    # - name: Collect deployment information in case Calico or CoreDNS fails to start
+    #   if: steps.wait-until-networking-is-ready.outcome == 'failure'
+    #   run: |
+    #     kubectl get pods -o yaml -n kube-system
+    #     kubectl get events -n kube-system
+    #     kubectl logs -l k8s-app=calico-kube-controllers -n kube-system --tail=200
+    #     kubectl logs -l k8s-app=calico-node -n kube-system --tail=200
+    #     exit 1
     - name: Testing kind cluster set-up
       run: |
           kubectl cluster-info
@@ -44,7 +65,7 @@ jobs:
       uses: loft-sh/setup-devspace@main
 
     - name: Deploy vcluster
-      run: devspace run deploy -p ${{ matrix.distribution}} -p kind-load -p no-cpu-requests --skip-push
+      run: devspace run deploy -p ${{ matrix.distribution}} -p kind-load -p no-cpu-requests -p sync-networkpolicies --skip-push
 
     - name: Wait until vcluster is ready
       id: wait-until-vcluster-is-ready
@@ -56,8 +77,10 @@ jobs:
       run: |
         kubectl get pods -o yaml -n vcluster
         kubectl get events -n vcluster
+        kubectl logs -l app=vcluster -n vcluster -c syncer --tail=500
         exit 1
 
+    # Skips NetworkPolicy tests because they require network plugin with support (e.g. Calico)
     - name: Execute e2e tests
       working-directory: ./e2e
-      run: VCLUSTER_SUFFIX=vcluster go test -v -ginkgo.v
+      run: VCLUSTER_SUFFIX=vcluster go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
