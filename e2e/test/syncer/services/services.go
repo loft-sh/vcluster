@@ -10,11 +10,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
@@ -321,4 +324,130 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err, "failed to delete Service %v in namespace %v", testService.ObjectMeta.Name, ns)
 		f.Log.Infof("Service %s deleted", testSvcName)
 	})
+
+	ginkgo.FIt("should have Endpoints and EndpointSlices pointing to API Server", func() {
+		namespace := "default"
+		name := "kubernetes"
+		// verify "kubernetes.default" service exist
+		_, err := f.VclusterClient.CoreV1().Services(namespace).Get(f.Context, name, metav1.GetOptions{})
+		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" Service resource on \"default\" namespace")
+
+		svcs, err := f.VclusterClient.CoreV1().Services(namespace).List(f.Context, metav1.ListOptions{})
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>> services from vcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		if len(svcs.Items) > 0 {
+			for _, svc := range svcs.Items {
+				fmt.Println(svc)
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			}
+		} else {
+			fmt.Println(len(svcs.Items))
+		}
+
+		svcs1, err := f.HostClient.CoreV1().Services("vcluster").List(f.Context, metav1.ListOptions{})
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>> services from hostcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		if len(svcs1.Items) > 0 {
+			for _, svc := range svcs1.Items {
+				fmt.Println(svc)
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			}
+		} else {
+			fmt.Println(len(svcs1.Items))
+		}
+
+		pods, err := f.VclusterClient.CoreV1().Pods(namespace).List(f.Context, metav1.ListOptions{})
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>> pods from vcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		if len(pods.Items) > 0 {
+			for _, pod := range pods.Items {
+				fmt.Println(pod)
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			}
+		} else {
+			fmt.Println(len(pods.Items))
+		}
+
+		pods1, err := f.HostClient.CoreV1().Pods("vcluster").List(f.Context, metav1.ListOptions{})
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>> pods from hostcluster >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		if len(pods1.Items) > 0 {
+			for _, pod := range pods1.Items {
+				fmt.Println(pod)
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			}
+		} else {
+			fmt.Println(len(pods1.Items))
+		}
+		// verify Endpoints for the API servers exist
+		endpoints, err := f.VclusterClient.CoreV1().Endpoints(namespace).Get(f.Context, name, metav1.GetOptions{})
+		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" Endpoint resource on \"default\" namespace")
+		if len(endpoints.Subsets) == 0 {
+			f.Log.Failf("Expected at least 1 subset in endpoints, got %d: %#v", len(endpoints.Subsets), endpoints.Subsets)
+			ginkgo.Fail("Expected at least 1 subset in endpoints")
+		}
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>> endpoints >>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		fmt.Println(endpoints)
+		// verify EndpointSlices for the API servers exist
+		endpointSliceList, err := f.VclusterClient.DiscoveryV1().EndpointSlices(namespace).List(f.Context, metav1.ListOptions{})
+		framework.ExpectNoError(err, "error obtaining API server \"kubernetes\" EndpointSlice resource on \"default\" namespace")
+
+		fmt.Println(">>>>>>>>>>>>>>>>>>> endpoints list >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		for _, svc := range endpointSliceList.Items {
+			fmt.Println(svc)
+			fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+		}
+		if len(endpointSliceList.Items) == 0 {
+			f.Log.Failf("Expected at least 1 EndpointSlice, got %d: %#v", len(endpoints.Subsets), endpoints.Subsets)
+			ginkgo.Fail("Expected at least 1 subset in endpoints")
+		}
+
+		if !endpointSlicesEqual(f, endpoints, endpointSliceList) {
+			f.Log.Failf("Expected EndpointSlice to have same addresses and port as Endpoints, got %#v: %#v", endpoints, endpointSliceList)
+			ginkgo.Fail("Expected EndpointSlice to have same addresses and port as Endpoints")
+		}
+
+	})
 })
+
+// endpointSlicesEqual compare if the Endpoint and the EndpointSliceList contains the same endpoints values
+// as in addresses and ports, considering Ready and Unready addresses
+func endpointSlicesEqual(f *framework.Framework, endpoints *v1.Endpoints, endpointSliceList *discoveryv1.EndpointSliceList) bool {
+	// get the apiserver endpoint addresses
+	epAddresses := sets.NewString()
+	epPorts := sets.NewInt32()
+	for _, subset := range endpoints.Subsets {
+		for _, addr := range subset.Addresses {
+			epAddresses.Insert(addr.IP)
+		}
+		for _, addr := range subset.NotReadyAddresses {
+			epAddresses.Insert(addr.IP)
+		}
+		for _, port := range subset.Ports {
+			epPorts.Insert(port.Port)
+		}
+	}
+	f.Log.Infof("Endpoints addresses: %v , ports: %v", epAddresses.List(), epPorts.List())
+
+	addrType := discoveryv1.AddressTypeIPv4
+
+	// get the apiserver addresses from the endpoint slice list
+	sliceAddresses := sets.NewString()
+	slicePorts := sets.NewInt32()
+	for _, slice := range endpointSliceList.Items {
+		if slice.AddressType != addrType {
+			f.Log.Infof("Skipping slice %s: wanted %s family, got %s", slice.Name, addrType, slice.AddressType)
+			continue
+		}
+		for _, s := range slice.Endpoints {
+			sliceAddresses.Insert(s.Addresses...)
+		}
+		for _, ports := range slice.Ports {
+			if ports.Port != nil {
+				slicePorts.Insert(*ports.Port)
+			}
+		}
+	}
+
+	f.Log.Infof("EndpointSlices addresses: %v , ports: %v", sliceAddresses.List(), slicePorts.List())
+	if sliceAddresses.Equal(epAddresses) && slicePorts.Equal(epPorts) {
+		return true
+	}
+	return false
+}
