@@ -1,10 +1,11 @@
 package values
 
 import (
+	"strings"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"k8s.io/client-go/kubernetes"
-	"strings"
 )
 
 var K8SAPIVersionMap = map[string]string{
@@ -31,8 +32,8 @@ func getDefaultK8SReleaseValues(client kubernetes.Interface, createOptions *crea
 		return "", err
 	}
 
-	apiImage, ok := K8SAPIVersionMap[serverVersionString]
-	controllerImage, ok := K8SControllerVersionMap[serverVersionString]
+	apiImage := K8SAPIVersionMap[serverVersionString]
+	controllerImage := K8SControllerVersionMap[serverVersionString]
 	etcdImage, ok := K8SEtcdVersionMap[serverVersionString]
 	if !ok {
 		if serverMinorInt > 22 {

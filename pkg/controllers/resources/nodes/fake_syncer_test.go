@@ -2,8 +2,9 @@ package nodes
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"testing"
+
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -48,7 +49,7 @@ func newFakeFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, vClie
 }
 
 func TestFakeSync(t *testing.T) {
-	fakeGUID := newGuid()
+	fakeGUID := newGUID()
 	now := metav1.Now()
 	baseName := types.NamespacedName{
 		Name: "mynode",

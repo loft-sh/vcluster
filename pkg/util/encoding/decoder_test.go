@@ -23,11 +23,11 @@ var k8sNativeSchemeOnce sync.Once
 func kubernetesNativeScheme() *runtime.Scheme {
 	k8sNativeSchemeOnce.Do(func() {
 		k8sNativeScheme = runtime.NewScheme()
-		scheme.AddToScheme(k8sNativeScheme)
+		_ = scheme.AddToScheme(k8sNativeScheme)
 		// API extensions are not in the above scheme set,
 		// and must thus be added separately.
-		apiextensionsv1beta1.AddToScheme(k8sNativeScheme)
-		apiextensionsv1.AddToScheme(k8sNativeScheme)
+		_ = apiextensionsv1beta1.AddToScheme(k8sNativeScheme)
+		_ = apiextensionsv1.AddToScheme(k8sNativeScheme)
 	})
 	return k8sNativeScheme
 }

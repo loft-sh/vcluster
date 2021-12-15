@@ -2,6 +2,7 @@ package delegatingauthorizer
 
 import (
 	"context"
+
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,7 @@ type delegatingAuthorizer struct {
 }
 
 func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	if applies(a, l.resources, l.nonResources) == false {
+	if !applies(a, l.resources, l.nonResources) {
 		return authorizer.DecisionNoOpinion, "", nil
 	}
 
@@ -74,7 +75,7 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 	err = client.Create(ctx, accessReview)
 	if err != nil {
 		return authorizer.DecisionDeny, "", err
-	} else if accessReview.Status.Allowed && accessReview.Status.Denied == false {
+	} else if accessReview.Status.Allowed && !accessReview.Status.Denied {
 		return authorizer.DecisionAllow, "", nil
 	}
 

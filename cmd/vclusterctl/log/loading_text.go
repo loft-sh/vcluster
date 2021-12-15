@@ -2,11 +2,12 @@ package log
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/terminal"
 	"io"
 	"os"
 	"runtime"
 	"time"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/terminal"
 
 	"github.com/mgutz/ansi"
 )
@@ -101,14 +102,14 @@ func (l *loadingText) getLoadingChar() string {
 }
 
 func (l *loadingText) render() {
-	if l.isShown == false {
+	if !l.isShown {
 		l.isShown = true
 	} else {
-		l.Stream.Write([]byte("\r"))
+		_, _ = l.Stream.Write([]byte("\r"))
 	}
 	messagePrefix := []byte("[wait] ")
 
-	l.Stream.Write([]byte(ansi.Color(string(messagePrefix), "cyan+b")))
+	_, _ = l.Stream.Write([]byte(ansi.Color(string(messagePrefix), "cyan+b")))
 
 	timeElapsed := fmt.Sprintf("%d", (time.Now().UnixNano()-l.StartTimestamp)/int64(time.Second))
 	message := []byte(l.getLoadingChar() + " " + l.Message)
@@ -127,18 +128,18 @@ func (l *loadingText) render() {
 	}
 
 	message = append(message, messageSuffix...)
-	l.Stream.Write(message)
+	_, _ = l.Stream.Write(message)
 }
 
 func (l *loadingText) Stop() {
 	l.stopChan <- true
-	l.Stream.Write([]byte("\r"))
+	_, _ = l.Stream.Write([]byte("\r"))
 
 	messageLength := len(l.Message) + 20
 
 	for i := 0; i < messageLength; i++ {
-		l.Stream.Write([]byte(" "))
+		_, _ = l.Stream.Write([]byte(" "))
 	}
 
-	l.Stream.Write([]byte("\r"))
+	_, _ = l.Stream.Write([]byte("\r"))
 }

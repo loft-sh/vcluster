@@ -3,6 +3,8 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
@@ -25,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 )
 
 func RegisterIndices(ctx *context2.ControllerContext) error {
@@ -115,7 +116,7 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 	createNeeded, err := s.isSecretUsed(vObj)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if createNeeded == false {
+	} else if !createNeeded {
 		return ctrl.Result{}, nil
 	}
 
@@ -131,7 +132,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	used, err := s.isSecretUsed(vObj)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if used == false {
+	} else if !used {
 		pSecret, _ := meta.Accessor(pObj)
 		log.Infof("delete physical secret %s/%s, because it is not used anymore", pSecret.GetNamespace(), pSecret.GetName())
 		err = s.localClient.Delete(ctx, pObj)

@@ -2,6 +2,8 @@ package events
 
 import (
 	"context"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -14,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 var AcceptedKinds = map[schema.GroupVersionKind]bool{
@@ -46,7 +47,7 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 	pObj := &corev1.Event{}
 	err := r.localClient.Get(ctx, req.NamespacedName, pObj)
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			r.log.Infof("error retrieving physical events %s/%s: %v", req.Namespace, req.Name, err)
 		}
 
@@ -137,7 +138,7 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 		Name:      vObj.Name,
 	}, vOldObj)
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 

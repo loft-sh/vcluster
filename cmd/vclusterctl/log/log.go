@@ -1,8 +1,9 @@
 package log
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"strings"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 
 	"github.com/mgutz/ansi"
 	"github.com/sirupsen/logrus"
@@ -28,7 +29,7 @@ func SetInstance(logger Logger) {
 
 // WriteColored writes a message in color
 func writeColored(message string, color string) {
-	defaultLog.Write([]byte(ansi.Color(message, color)))
+	_, _ = defaultLog.Write([]byte(ansi.Color(message, color)))
 }
 
 //SetFakePrintTable is a testing tool that allows overwriting the function PrintTable
@@ -60,7 +61,7 @@ func PrintTable(s Logger, header []string, values [][]string) {
 		}
 	}
 
-	s.Write([]byte("\n"))
+	_, _ = s.Write([]byte("\n"))
 
 	// Print Header
 	for key, value := range header {
@@ -69,30 +70,30 @@ func PrintTable(s Logger, header []string, values [][]string) {
 		padding := columnLengths[key] - len(value)
 
 		if padding > 0 {
-			s.Write([]byte(strings.Repeat(" ", padding)))
+			_, _ = s.Write([]byte(strings.Repeat(" ", padding)))
 		}
 	}
 
-	s.Write([]byte("\n"))
+	_, _ = s.Write([]byte("\n"))
 
 	if len(values) == 0 {
-		s.Write([]byte(" No entries found\n"))
+		_, _ = s.Write([]byte(" No entries found\n"))
 	}
 
 	// Print Values
 	for _, v := range values {
 		for key, value := range v {
-			s.Write([]byte(" " + value + "  "))
+			_, _ = s.Write([]byte(" " + value + "  "))
 
 			padding := columnLengths[key] - len(value)
 
 			if padding > 0 {
-				s.Write([]byte(strings.Repeat(" ", padding)))
+				_, _ = s.Write([]byte(strings.Repeat(" ", padding)))
 			}
 		}
 
-		s.Write([]byte("\n"))
+		_, _ = s.Write([]byte("\n"))
 	}
 
-	s.Write([]byte("\n"))
+	_, _ = s.Write([]byte("\n"))
 }

@@ -23,7 +23,7 @@ type VirtualClusterOptions struct {
 
 	ServerCaCert        string
 	ServerCaKey         string
-	TlsSANs             []string
+	TLSSANs             []string
 	RequestHeaderCaCert string
 	ClientCaCert        string
 	KubeConfig          string

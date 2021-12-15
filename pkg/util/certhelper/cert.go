@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	rsaKeySize   = 2048
 	duration365d = time.Hour * 24 * 365
 )
 
@@ -103,10 +102,6 @@ func MakeEllipticPrivateKeyPEM() ([]byte, error) {
 
 // IsCertExpired checks if the certificate about to expire
 func IsCertExpired(cert *x509.Certificate) bool {
-	expirationDate := cert.NotAfter
-	diffDays := expirationDate.Sub(time.Now()).Hours() / 24.0
-	if diffDays <= 90 {
-		return true
-	}
-	return false
+	diffDays := time.Until(time.Now()).Hours() / 24.0
+	return diffDays <= 90
 }

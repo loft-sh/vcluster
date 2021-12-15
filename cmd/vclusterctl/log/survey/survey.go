@@ -74,7 +74,7 @@ func (s *survey) Question(params *QuestionOptions) (string, error) {
 			}
 
 			// Check regex
-			if compiledRegex.MatchString(str) == false {
+			if !compiledRegex.MatchString(str) {
 				if params.ValidationMessage != "" {
 					return errors.New(params.ValidationMessage)
 				}

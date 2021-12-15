@@ -2,6 +2,8 @@ package blockingcacheclient
 
 import (
 	"context"
+	"time"
+
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"time"
 )
 
 // CacheClient makes sure that the Create/Update/Patch/Delete functions block until the local cache is updated
@@ -81,7 +82,7 @@ func (c *CacheClient) blockCreate(ctx context.Context, obj client.Object) error 
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
 				return true, nil
-			} else if kerrors.IsNotFound(err) == false {
+			} else if !kerrors.IsNotFound(err) {
 				return false, err
 			}
 
@@ -98,7 +99,7 @@ func (c *CacheClient) blockUpdate(ctx context.Context, obj client.Object) error 
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
 				return true, nil
-			} else if kerrors.IsNotFound(err) == false {
+			} else if !kerrors.IsNotFound(err) {
 				return false, err
 			}
 
@@ -120,7 +121,7 @@ func (c *CacheClient) blockDelete(ctx context.Context, obj runtime.Object) error
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
 				return true, nil
-			} else if kerrors.IsNotFound(err) == false {
+			} else if !kerrors.IsNotFound(err) {
 				return false, err
 			}
 

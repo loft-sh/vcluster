@@ -3,11 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os/exec"
+
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"os/exec"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -102,7 +103,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], namespace)
 
 	// try to delete the pvc
-	if cmd.KeepPVC == false {
+	if !cmd.KeepPVC {
 		pvcName := fmt.Sprintf("data-%s-0", args[0])
 		restConfig, err := kubeClientConfig.ClientConfig()
 		if err != nil {
@@ -116,7 +117,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 		err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
 		if err != nil {
-			if kerrors.IsNotFound(err) == false {
+			if !kerrors.IsNotFound(err) {
 				return errors.Wrap(err, "delete pvc")
 			}
 		} else {
@@ -138,7 +139,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 		err = client.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		if err != nil {
-			if kerrors.IsNotFound(err) == false {
+			if !kerrors.IsNotFound(err) {
 				return errors.Wrap(err, "delete namespace")
 			}
 		} else {

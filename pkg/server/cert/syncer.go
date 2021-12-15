@@ -32,9 +32,9 @@ func NewSyncer(ctx *ctrlcontext.ControllerContext) (Syncer, error) {
 		serverCaKey:  ctx.Options.ServerCaKey,
 		serverCaCert: ctx.Options.ServerCaCert,
 
-		addSANs:   ctx.Options.TlsSANs,
+		addSANs:   ctx.Options.TLSSANs,
 		listeners: []dynamiccertificates.Listener{},
-		
+
 		serviceName:           ctx.Options.ServiceName,
 		currentNamespace:      ctx.CurrentNamespace,
 		currentNamespaceCient: ctx.CurrentNamespaceClient,
@@ -51,8 +51,8 @@ type syncer struct {
 
 	addSANs []string
 
-	serviceName      string
-	currentNamespace string
+	serviceName           string
+	currentNamespace      string
 	currentNamespaceCient client.Client
 
 	vClient client.Client
@@ -169,7 +169,7 @@ func (s *syncer) Run(workers int, stopCh <-chan struct{}) {
 		s.currentCertMutex.Lock()
 		defer s.currentCertMutex.Unlock()
 
-		if reflect.DeepEqual(extraSANs, s.currentSANs) == false {
+		if !reflect.DeepEqual(extraSANs, s.currentSANs) {
 			err = s.regen(extraSANs)
 			if err != nil {
 				klog.Infof("Error regenerating certificate: %v", err)

@@ -3,10 +3,11 @@ package log
 import (
 	"errors"
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"io"
 	"os"
 	"sync"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 
 	"github.com/sirupsen/logrus"
 )
@@ -311,5 +312,5 @@ func (s *StreamLogger) WriteString(message string) {
 
 // Question asks a new question
 func (s *StreamLogger) Question(params *survey.QuestionOptions) (string, error) {
-	return "", errors.New("Questions in discard logger not supported")
+	return "", errors.New("questions in discard logger not supported")
 }
