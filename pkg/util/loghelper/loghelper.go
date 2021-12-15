@@ -1,8 +1,8 @@
 package loghelper
 
 import (
-	"errors"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -55,7 +55,7 @@ func (l *logger) Debugf(format string, a ...interface{}) {
 }
 
 func (l *logger) Errorf(format string, a ...interface{}) {
-	l.Logger.Error(errors.New(fmt.Sprintf(format, a...)), "")
+	l.Logger.Error(fmt.Errorf(format, a...), "")
 }
 
 func Infof(format string, a ...interface{}) {

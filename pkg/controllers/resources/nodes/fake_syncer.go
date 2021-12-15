@@ -3,6 +3,8 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -11,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sync"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -44,7 +45,7 @@ func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
 
 				return []reconcile.Request{
 					{
-						types.NamespacedName{
+						NamespacedName: types.NamespacedName{
 							Name: pod.Spec.NodeName,
 						},
 					},
@@ -80,7 +81,7 @@ func (r *fakeSyncer) Create(ctx context.Context, name types.NamespacedName, log 
 	} else if !needed {
 		return ctrl.Result{}, nil
 	}
-	
+
 	log.Infof("Create fake node %s", name.Name)
 	return ctrl.Result{}, CreateFakeNode(ctx, r.nodeServiceProvider, r.virtualClient, name)
 }
@@ -97,7 +98,7 @@ func (r *fakeSyncer) Update(ctx context.Context, vObj client.Object, log loghelp
 	} else if needed {
 		return ctrl.Result{}, nil
 	}
-	
+
 	log.Infof("Delete fake node %s as it is not needed anymore", vObj.GetName())
 	return ctrl.Result{}, r.virtualClient.Delete(ctx, vObj)
 }
@@ -113,7 +114,7 @@ func (r *fakeSyncer) nodeNeeded(ctx context.Context, nodeName string) (bool, err
 }
 
 // this is not a real guid, but it doesn't really matter because it should just look right and not be an actual guid
-func newGuid() string {
+func newGUID() string {
 	return random.RandomString(8) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(12)
 }
 
@@ -214,13 +215,13 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeSer
 		},
 		NodeInfo: corev1.NodeSystemInfo{
 			Architecture:            "amd64",
-			BootID:                  newGuid(),
+			BootID:                  newGUID(),
 			ContainerRuntimeVersion: "docker://19.3.12",
 			KernelVersion:           "4.19.76-fakelinux",
 			KubeProxyVersion:        FakeNodesVersion,
 			KubeletVersion:          FakeNodesVersion,
-			MachineID:               newGuid(),
-			SystemUUID:              newGuid(),
+			MachineID:               newGUID(),
+			SystemUUID:              newGUID(),
 			OperatingSystem:         "linux",
 			OSImage:                 "Fake Kubernetes Image",
 		},

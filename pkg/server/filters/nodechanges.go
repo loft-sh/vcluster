@@ -119,7 +119,6 @@ func patchNode(w http.ResponseWriter, req *http.Request, s runtime.NegotiatedSer
 	}
 
 	responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, vObj)
-	return
 }
 
 func updateNode(decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, rawObj []byte, status bool) (runtime.Object, error) {

@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -14,7 +16,6 @@ import (
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
@@ -149,7 +150,7 @@ func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper
 func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) (*corev1.Service, error) {
 	// delete & create with correct ClusterIP
 	err := virtualClient.Delete(ctx, vService)
-	if err != nil && kerrors.IsNotFound(err) == false {
+	if err != nil && !kerrors.IsNotFound(err) {
 		return nil, err
 	}
 

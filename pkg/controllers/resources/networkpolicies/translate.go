@@ -81,7 +81,7 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 	if outSpec.PodSelector.MatchLabels == nil {
 		outSpec.PodSelector.MatchLabels = map[string]string{}
 	}
-	// add selector for namespace as NetworkPolicy podSelector applies to pods withing it's namespace
+	// add selector for namespace as NetworkPolicy podSelector applies to pods within it's namespace
 	outSpec.PodSelector.MatchLabels[translate.NamespaceLabel] = namespace
 	// add selector for the marker label to select only from pods belonging this vcluster instance
 	outSpec.PodSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix

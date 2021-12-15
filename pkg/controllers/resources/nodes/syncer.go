@@ -2,6 +2,8 @@ package nodes
 
 import (
 	"context"
+	"sync"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
@@ -17,7 +19,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
 )
 
 func RegisterSyncer(ctx *context2.ControllerContext) error {
@@ -104,7 +105,7 @@ func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper
 	shouldSync, err := s.shouldSync(ctx, pNode)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if shouldSync == false {
+	} else if !shouldSync {
 		return ctrl.Result{}, nil
 	}
 
@@ -130,7 +131,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	shouldSync, err := s.shouldSync(ctx, pNode)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if shouldSync == false {
+	} else if !shouldSync {
 		log.Infof("delete virtual node %s, because there is no virtual pod with that node", pNode.Name)
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
 	}

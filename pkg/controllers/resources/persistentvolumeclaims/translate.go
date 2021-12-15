@@ -2,6 +2,7 @@ package persistentvolumeclaims
 
 import (
 	"context"
+
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +28,7 @@ func (s *syncer) translate(targetNamespace string, vPvc *corev1.PersistentVolume
 }
 
 func (s *syncer) translateSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
-	if s.useFakePersistentVolumes == false {
+	if !s.useFakePersistentVolumes {
 		if vPvc.Annotations == nil || vPvc.Annotations[skipPVTranslationAnnotation] != "true" {
 			newObj := vPvc
 			newObj.Spec = *vPvc.Spec.DeepCopy()
@@ -93,7 +94,7 @@ func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeCla
 		if updated.Annotations == nil {
 			updated.Annotations = map[string]string{}
 		}
-		
+
 		if updated.Annotations[bindCompletedAnnotation] != pObj.Annotations[bindCompletedAnnotation] {
 			updated.Annotations[bindCompletedAnnotation] = pObj.Annotations[bindCompletedAnnotation]
 		}
@@ -115,7 +116,7 @@ func translateUpdateNeeded(pAnnotations, vAnnotations map[string]string) bool {
 	if vAnnotations == nil {
 		vAnnotations = map[string]string{}
 	}
-	
+
 	return vAnnotations[bindCompletedAnnotation] != pAnnotations[bindCompletedAnnotation] ||
 		vAnnotations[boundByControllerAnnotation] != pAnnotations[boundByControllerAnnotation] ||
 		vAnnotations[storageProvisionerAnnotation] != pAnnotations[storageProvisionerAnnotation]

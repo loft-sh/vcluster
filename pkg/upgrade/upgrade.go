@@ -2,12 +2,13 @@ package upgrade
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/pkg/errors"
-	"k8s.io/klog"
 	"os"
 	"regexp"
 	"sync"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/pkg/errors"
+	"k8s.io/klog"
 
 	"github.com/blang/semver"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
@@ -15,7 +16,6 @@ import (
 
 // Version holds the current version tag
 var version string
-var rawVersion string
 
 var githubSlug = "loft-sh/vcluster"
 var reVersion = regexp.MustCompile(`\d+\.\d+\.\d+`)
@@ -57,7 +57,6 @@ func SetVersion(verText string) {
 		}
 
 		version = _version
-		rawVersion = verText
 	}
 }
 

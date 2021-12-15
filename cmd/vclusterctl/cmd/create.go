@@ -3,13 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create/values"
-	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create/values"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -99,7 +100,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	output, err := exec.Command(helmExecutablePath, "version").CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Seems like there are issues with your helm client: \n\n%s", output)
+		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
 	}
 
 	// first load the kube config
@@ -150,7 +151,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 			if err != nil {
 				return errors.Wrap(err, "create namespace")
 			}
-		} else if kerrors.IsForbidden(err) == false {
+		} else if !kerrors.IsForbidden(err) {
 			return err
 		}
 	}
@@ -181,7 +182,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 	}
 
 	// check if vcluster already exists
-	if cmd.Upgrade == false {
+	if !cmd.Upgrade {
 		release, err := helm.NewSecrets(client).Get(context.Background(), args[0], cmd.Namespace)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get helm releases")
@@ -197,7 +198,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 			out, err := ioutil.ReadFile(file)
 			if err != nil {
 				return errors.Wrap(err, "read values file")
-			} else if strings.Index(string(out), "##CIDR##") == -1 {
+			} else if !strings.Contains(string(out), "##CIDR##") {
 				extraValues = append(extraValues, file)
 				continue
 			}

@@ -1,0 +1,25 @@
+name: Lint
+
+on:
+  release:
+    types: [created]
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**.go"
+
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.29
+          args:
+            -v
+            --config=.golangci.yml
+            --max-same-issues=50

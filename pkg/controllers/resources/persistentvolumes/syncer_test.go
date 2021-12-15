@@ -2,9 +2,10 @@ package persistentvolumes
 
 import (
 	"context"
+	"testing"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
@@ -123,6 +124,9 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
+				if err != nil {
+					t.Log(err)
+				}
 				_, err = syncer.Backward(ctx, basePPv, log)
 				if err != nil {
 					t.Fatal(err)
@@ -142,6 +146,9 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
+				if err != nil {
+					t.Log(err)
+				}
 				_, err = syncer.Backward(ctx, wrongNsPPv, log)
 				if err != nil {
 					t.Fatal(err)
@@ -161,6 +168,9 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
+				if err != nil {
+					t.Log(err)
+				}
 				_, err = syncer.Backward(ctx, noPvcPPv, log)
 				if err != nil {
 					t.Fatal(err)
@@ -180,6 +190,9 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
+				if err != nil {
+					t.Log(err)
+				}
 				backwardUpdatePPv := backwardUpdatePPv.DeepCopy()
 				baseVPv := baseVPv.DeepCopy()
 				_, err = syncer.Update(ctx, backwardUpdatePPv, baseVPv, log)
@@ -216,6 +229,9 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
+				if err != nil {
+					t.Log(err)
+				}
 				_, err = syncer.Update(ctx, noPvcPPv, baseVPv, log)
 				if err != nil {
 					t.Fatal(err)
@@ -235,6 +251,9 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer, err := newFakeSyncer(ctx, pClient, vClient)
+				if err != nil {
+					t.Log(err)
+				}
 				_, err = syncer.Update(ctx, basePPv, baseVPv, log)
 				if err != nil {
 					t.Fatal(err)

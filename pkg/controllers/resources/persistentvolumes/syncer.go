@@ -2,6 +2,8 @@ package persistentvolumes
 
 import (
 	"context"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
@@ -20,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 )
 
 const (
@@ -235,7 +236,7 @@ func (s *syncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) 
 	vPvc := &corev1.PersistentVolumeClaim{}
 	err := clienthelper.GetByIndex(ctx, s.virtualClient, vPvc, constants.IndexByPhysicalName, pObj.Spec.ClaimRef.Name)
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return false, nil, err
 		} else if translate.IsManagedCluster(s.targetNamespace, pObj) {
 			return true, nil, nil

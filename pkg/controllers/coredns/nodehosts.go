@@ -82,7 +82,7 @@ func (r *CoreDNSNodeHostsReconciler) compileNodehosts(ctx context.Context) (stri
 
 // SetupWithManager adds the controller to the manager
 func (r *CoreDNSNodeHostsReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// creating a predicate to recieve reconcile requests for coredns ConfigMap only
+	// creating a predicate to receive reconcile requests for coredns ConfigMap only
 	p := func(object client.Object) bool {
 		return object.GetNamespace() == Namespace && object.GetName() == ConfigMapName
 	}

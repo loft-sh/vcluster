@@ -2,6 +2,7 @@ package impersonationauthorizer
 
 import (
 	"context"
+
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 
 	authv1 "k8s.io/api/authorization/v1"
@@ -21,7 +22,7 @@ type impersonationAuthorizer struct {
 }
 
 func (i *impersonationAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	if a.GetVerb() != "impersonate" || a.IsResourceRequest() == false {
+	if a.GetVerb() != "impersonate" || !a.IsResourceRequest() {
 		return authorizer.DecisionNoOpinion, "", nil
 	}
 
@@ -49,7 +50,7 @@ func (i *impersonationAuthorizer) Authorize(ctx context.Context, a authorizer.At
 		return authorizer.DecisionDeny, "", err
 	}
 
-	if accessReview.Status.Allowed && accessReview.Status.Denied == false {
+	if accessReview.Status.Allowed && !accessReview.Status.Denied {
 		return authorizer.DecisionAllow, "", nil
 	}
 

@@ -2,10 +2,11 @@ package log
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"io"
 	"os"
 	"sync"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 
 	goansi "github.com/k0kubun/go-ansi"
 	"github.com/mgutz/ansi"
@@ -91,8 +92,8 @@ func (s *stdoutLogger) writeMessage(fnType logFunctionType, message string) {
 			s.loadingText.Stop()
 		}
 
-		fnInformation.stream.Write([]byte(ansi.Color(fnInformation.tag, fnInformation.color)))
-		fnInformation.stream.Write([]byte(message))
+		_, _ = fnInformation.stream.Write([]byte(ansi.Color(fnInformation.tag, fnInformation.color)))
+		_, _ = fnInformation.stream.Write([]byte(message))
 
 		if s.loadingText != nil && fnType != fatalFn {
 			s.loadingText.Start()
@@ -421,7 +422,7 @@ func (s *stdoutLogger) WriteString(message string) {
 			s.loadingText.Stop()
 		}
 
-		fnTypeInformationMap[infoFn].stream.Write([]byte(message))
+		_, _ = fnTypeInformationMap[infoFn].stream.Write([]byte(message))
 
 		if s.loadingText != nil {
 			s.loadingText.Start()
