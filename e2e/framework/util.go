@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,6 +52,63 @@ func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 			return false, err
 		}
 		return true, nil
+	})
+}
+
+func (f *Framework) WaitForService(serviceName string, ns string) error {
+	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
+		_, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(serviceName, ns), metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+}
+
+// Some vcluster operations list Service, e.g. pod translation.
+// To ensure expected results of such operation we need to wait until newly created Service is in syncer controller cache,
+// otherwise syncer will operate on slightly outdated resources, which is not good for test stability.
+// This function ensures that Service is actually in controller cache by making an update and checking for it in physical service.
+func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) error {
+	annotationKey := "e2e-test-bump"
+	updated := false
+	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
+		vService, err := f.VclusterClient.CoreV1().Services(ns).Get(f.Context, serviceName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+
+		if !updated {
+			if vService.Annotations == nil {
+				vService.Annotations = map[string]string{}
+			}
+			vService.Annotations[annotationKey] = "arbitrary"
+			_, err = f.VclusterClient.CoreV1().Services(ns).Update(f.Context, vService, metav1.UpdateOptions{})
+			if err != nil {
+				if kerrors.IsConflict(err) {
+					return false, nil
+				}
+				return false, err
+			}
+			updated = true
+		}
+
+		// Check for annotation
+		pService, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(serviceName, ns), metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		_, ok := pService.Annotations[annotationKey]
+		return ok, nil
 	})
 }
 
