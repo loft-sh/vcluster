@@ -32,3 +32,22 @@ syncer:
 
 ### SSL Certificates
 Because the syncer keeps typical SSL provisioning related annotations for ingresses, you may also set the cert-manager ingress annotations on an ingress in your vclusters to use the cert-manager of the underlying host cluster to automatically provision SSL certificates from Let's Encrypt.
+
+## Network Policies
+Kubernetes has a [Network Policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) resource type that allows creation of the rules that govern how pods communicate with each other.
+
+By default, vcluster ignores these resources. However, once you enable synchronization of the Network Policies, vcluster will ensure correct policies are created in the host cluster to achieve the desired traffic behaviour.
+
+:::info 
+Network Policies in vcluster rely on the support for this feature in the host cluster. Make sure that your host cluster satisfies the [Network Policy prerequisites](https://kubernetes.io/docs/concepts/services-networking/network-policies/#prerequisites).
+:::
+
+### Enable Network Policy Sync
+To enable the synchronization of the Network Policy resources vcluster will require additional permissions in it's role and a flag for the syncer component. Following configuration values will enable it:
+```yaml
+syncer:
+  extraArgs: ["--sync=networkpolicies"]
+rbac:
+  role:
+    extended: true
+```
