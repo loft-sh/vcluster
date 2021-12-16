@@ -14,7 +14,7 @@
           "substitutePath": [
             {
               "from": "${workspaceFolder}",
-              "to": "/vcluster",
+              "to": "/vcluster-dev",
             },
           ],
           "showLog": true,
