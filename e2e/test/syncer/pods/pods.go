@@ -306,6 +306,8 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			},
 		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
+		err = f.WaitForServiceInSyncerCache(svcName, ns)
+		framework.ExpectNoError(err)
 
 		pod, err := f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{Name: podName},
