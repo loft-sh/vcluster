@@ -24,12 +24,11 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
 	statsv1alpha1 "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithMetricsProxy(h http.Handler, localManager ctrl.Manager, virtualManager ctrl.Manager, targetNamespace string) http.Handler {
-	s := serializer.NewCodecFactory(virtualManager.GetScheme())
+func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client, targetNamespace string) http.Handler {
+	s := serializer.NewCodecFactory(cachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
@@ -69,7 +68,7 @@ func WithMetricsProxy(h http.Handler, localManager ctrl.Manager, virtualManager 
 			req.URL.Path = strings.Join(splitted, "/")
 
 			// execute the request
-			_, err := handleNodeRequest(localManager.GetConfig(), virtualManager.GetClient(), targetNamespace, w, req)
+			_, err := handleNodeRequest(localConfig, cachedVirtualClient, targetNamespace, w, req)
 			if err != nil {
 				responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 				return

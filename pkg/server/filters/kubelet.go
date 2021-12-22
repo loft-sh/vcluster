@@ -4,12 +4,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/client-go/rest"
 	"net/http"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithFakeKubelet(h http.Handler, localManager ctrl.Manager, virtualManager ctrl.Manager, targetNamespace string) http.Handler {
-	s := serializer.NewCodecFactory(virtualManager.GetScheme())
+func WithFakeKubelet(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client, targetNamespace string) http.Handler {
+	s := serializer.NewCodecFactory(cachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		nodeName, found := NodeNameFrom(req.Context())
 		if found {
@@ -22,7 +23,7 @@ func WithFakeKubelet(h http.Handler, localManager ctrl.Manager, virtualManager c
 			req.URL.Path = "/api/v1/nodes/" + nodeName + "/proxy" + req.URL.Path
 
 			// execute the request
-			_, err := handleNodeRequest(localManager.GetConfig(), virtualManager.GetClient(), targetNamespace, w, req)
+			_, err := handleNodeRequest(localConfig, cachedVirtualClient, targetNamespace, w, req)
 			if err != nil {
 				responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 				return

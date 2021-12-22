@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type PathVerb struct {
@@ -17,16 +17,14 @@ type PathVerb struct {
 	Verb string
 }
 
-func New(localManager ctrl.Manager, virtualManager ctrl.Manager) authorizer.Authorizer {
+func New(uncachedVirtualClient client.Client) authorizer.Authorizer {
 	return &kubeletAuthorizer{
-		localManager:   localManager,
-		virtualManager: virtualManager,
+		uncachedVirtualClient: uncachedVirtualClient,
 	}
 }
 
 type kubeletAuthorizer struct {
-	localManager   ctrl.Manager
-	virtualManager ctrl.Manager
+	uncachedVirtualClient client.Client
 }
 
 func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) { // get node name
@@ -36,9 +34,6 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 	} else if a.IsResourceRequest() {
 		return authorizer.DecisionDeny, "forbidden", nil
 	}
-
-	// get cluster client
-	client := l.virtualManager.GetClient()
 
 	// check if request is allowed in the target cluster
 	accessReview := &authv1.SubjectAccessReview{
@@ -77,7 +72,7 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 		}
 	}
 
-	err = client.Create(ctx, accessReview)
+	err = l.uncachedVirtualClient.Create(ctx, accessReview)
 	if err != nil {
 		return authorizer.DecisionDeny, "", err
 	} else if accessReview.Status.Allowed && !accessReview.Status.Denied {
