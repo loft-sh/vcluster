@@ -71,10 +71,16 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		Scheme: ctx.LocalManager.GetScheme(),
 		Mapper: ctx.LocalManager.GetRESTMapper(),
 	})
+	if err != nil {
+		return nil, err
+	}
 	uncachedVirtualClient, err := client.New(virtualConfig, client.Options{
 		Scheme: ctx.VirtualManager.GetScheme(),
 		Mapper: ctx.VirtualManager.GetRESTMapper(),
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	cachedLocalClient, err := createCachedClient(ctx.Context, localConfig, ctx.CurrentNamespace, uncachedLocalClient.RESTMapper(), uncachedLocalClient.Scheme(), func(cache cache.Cache) error {
 		return cache.IndexField(ctx.Context, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
