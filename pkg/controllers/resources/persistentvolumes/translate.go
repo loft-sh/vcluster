@@ -60,15 +60,15 @@ func (s *syncer) translateUpdateBackwards(vPv *corev1.PersistentVolume, pPv *cor
 	}
 
 	// check storage class
-	if translate.IsManagedCluster(s.targetNamespace, pPv) == false {
-		if equality.Semantic.DeepEqual(vPv.Spec.StorageClassName, translatedSpec.StorageClassName) == false {
+	if !translate.IsManagedCluster(s.targetNamespace, pPv) {
+		if !equality.Semantic.DeepEqual(vPv.Spec.StorageClassName, translatedSpec.StorageClassName) {
 			updated = newIfNil(updated, vPv)
 			updated.Spec.StorageClassName = translatedSpec.StorageClassName
 		}
 	}
 
 	// check claim ref
-	if equality.Semantic.DeepEqual(vPv.Spec.ClaimRef, translatedSpec.ClaimRef) == false {
+	if !equality.Semantic.DeepEqual(vPv.Spec.ClaimRef, translatedSpec.ClaimRef) {
 		updated = newIfNil(updated, vPv)
 		updated.Spec.ClaimRef = translatedSpec.ClaimRef
 	}
@@ -80,43 +80,43 @@ func (s *syncer) translateUpdate(vPv *corev1.PersistentVolume, pPv *corev1.Persi
 	var updated *corev1.PersistentVolume
 
 	// TODO: translate the storage secrets
-	if equality.Semantic.DeepEqual(pPv.Spec.PersistentVolumeSource, vPv.Spec.PersistentVolumeSource) == false {
+	if !equality.Semantic.DeepEqual(pPv.Spec.PersistentVolumeSource, vPv.Spec.PersistentVolumeSource) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.PersistentVolumeSource = vPv.Spec.PersistentVolumeSource
 	}
 
-	if equality.Semantic.DeepEqual(pPv.Spec.Capacity, vPv.Spec.Capacity) == false {
+	if !equality.Semantic.DeepEqual(pPv.Spec.Capacity, vPv.Spec.Capacity) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.Capacity = vPv.Spec.Capacity
 	}
 
-	if equality.Semantic.DeepEqual(pPv.Spec.AccessModes, vPv.Spec.AccessModes) == false {
+	if !equality.Semantic.DeepEqual(pPv.Spec.AccessModes, vPv.Spec.AccessModes) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.AccessModes = vPv.Spec.AccessModes
 	}
 
-	if equality.Semantic.DeepEqual(pPv.Spec.PersistentVolumeReclaimPolicy, vPv.Spec.PersistentVolumeReclaimPolicy) == false {
+	if !equality.Semantic.DeepEqual(pPv.Spec.PersistentVolumeReclaimPolicy, vPv.Spec.PersistentVolumeReclaimPolicy) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.PersistentVolumeReclaimPolicy = vPv.Spec.PersistentVolumeReclaimPolicy
 	}
 
 	translatedStorageClassName := translateStorageClass(s.targetNamespace, vPv.Spec.StorageClassName)
-	if equality.Semantic.DeepEqual(pPv.Spec.StorageClassName, translatedStorageClassName) == false {
+	if !equality.Semantic.DeepEqual(pPv.Spec.StorageClassName, translatedStorageClassName) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.StorageClassName = translatedStorageClassName
 	}
 
-	if equality.Semantic.DeepEqual(pPv.Spec.NodeAffinity, vPv.Spec.NodeAffinity) == false {
+	if !equality.Semantic.DeepEqual(pPv.Spec.NodeAffinity, vPv.Spec.NodeAffinity) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.NodeAffinity = vPv.Spec.NodeAffinity
 	}
 
-	if equality.Semantic.DeepEqual(pPv.Spec.VolumeMode, vPv.Spec.VolumeMode) == false {
+	if !equality.Semantic.DeepEqual(pPv.Spec.VolumeMode, vPv.Spec.VolumeMode) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.VolumeMode = vPv.Spec.VolumeMode
 	}
 
-	if equality.Semantic.DeepEqual(pPv.Spec.MountOptions, vPv.Spec.MountOptions) == false {
+	if !equality.Semantic.DeepEqual(pPv.Spec.MountOptions, vPv.Spec.MountOptions) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.MountOptions = vPv.Spec.MountOptions
 	}

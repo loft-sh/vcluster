@@ -2,9 +2,10 @@ package log
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/go-logr/logr"
 	"k8s.io/klog"
-	"strings"
 )
 
 type WithDepth interface {
@@ -104,7 +105,7 @@ func (l *log) WithValues(keysAndValues ...interface{}) logr.LogSink {
 
 // WithName adds a new element to the logger's name.
 // Successive calls with WithName continue to append
-// suffixes to the logger's name.  It's strongly reccomended
+// suffixes to the logger's name.  It's strongly recommended
 // that name segments contain only letters, digits, and hyphens
 // (see the package documentation for more information).
 func (l *log) WithName(name string) logr.LogSink {

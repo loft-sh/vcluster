@@ -3,6 +3,10 @@ package nodeservice
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -15,9 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (
@@ -86,7 +87,7 @@ func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
 			// check if node still exists
 			err = n.virtualClient.Get(ctx, client.ObjectKey{Name: s.Labels[ServiceNodeLabel]}, &corev1.Node{})
 			if err != nil {
-				if kerrors.IsNotFound(err) == false {
+				if !kerrors.IsNotFound(err) {
 					klog.Infof("error retrieving node %s: %v", s.Labels[ServiceNodeLabel], err)
 					continue
 				}
@@ -101,7 +102,7 @@ func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
 			}
 		}
 
-		if exist == false {
+		if !exist {
 			klog.Infof("Cleaning up kubelet service for node %s", s.Labels[ServiceNodeLabel])
 			err = n.currentNamespaceClient.Delete(ctx, &s)
 			if err != nil {

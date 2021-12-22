@@ -2,6 +2,7 @@ package generic
 
 import (
 	"context"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,7 +45,7 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	vObj := r.syncer.New()
 	err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 

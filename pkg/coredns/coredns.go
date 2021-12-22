@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"os"
 	"path"
 	"strconv"
 	"text/template"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/util/applier"
 	"k8s.io/apimachinery/pkg/version"
@@ -53,7 +54,7 @@ func ApplyManifest(inClusterConfig *rest.Config, serverVersion *version.Info) er
 		return err
 	}
 	// write manifest into a file for easier debugging
-	debugOutputFile.Write(*output)
+	_, _ = debugOutputFile.Write(*output)
 
 	return callApply(inClusterConfig, output)
 }

@@ -5,13 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/metrics"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/prometheus/common/expfmt"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -19,11 +24,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
 	statsv1alpha1 "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
-	"net/http"
-	"net/http/httptest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
 )
 
 func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client, targetNamespace string) http.Handler {
@@ -91,7 +92,7 @@ func writeWithHeader(w http.ResponseWriter, code int, header http.Header, body [
 	}
 
 	w.WriteHeader(code)
-	w.Write(body)
+	_, _ = w.Write(body)
 }
 
 func rewritePrometheusMetrics(req *http.Request, data []byte, targetNamespace string, vClient client.Client) ([]byte, error) {
@@ -140,7 +141,7 @@ func handleNodeRequest(localConfig *rest.Config, vClient client.Client, targetNa
 
 	w.Header().Set("Content-Type", string(expfmt.Negotiate(req.Header)))
 	w.WriteHeader(code)
-	w.Write(newData)
+	_, _ = w.Write(newData)
 	return true, nil
 }
 
@@ -214,7 +215,7 @@ func executeRequest(req *http.Request, h http.Handler) (int, http.Header, []byte
 }
 
 func isNodesProxy(r *request.RequestInfo) bool {
-	if r.IsResourceRequest == false {
+	if !r.IsResourceRequest {
 		return false
 	}
 

@@ -19,7 +19,7 @@ type VirtualClusterOptions struct {
 
 	ServerCaCert        string
 	ServerCaKey         string
-	TlsSANs             []string
+	TLSSANs             []string
 	RequestHeaderCaCert string
 	ClientCaCert        string
 	KubeConfig          string
@@ -102,6 +102,7 @@ var ExistingControllers = map[string]bool{
 	"persistentvolumes":      true,
 	"storageclasses":         true,
 	"priorityclasses":        true,
+	"networkpolicies":        true,
 }
 
 var DefaultEnabledControllers = []string{

@@ -2,6 +2,7 @@ package kubeletauthorizer
 
 import (
 	"context"
+
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	authv1 "k8s.io/api/authorization/v1"
@@ -74,7 +75,7 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 	err = l.uncachedVirtualClient.Create(ctx, accessReview)
 	if err != nil {
 		return authorizer.DecisionDeny, "", err
-	} else if accessReview.Status.Allowed && accessReview.Status.Denied == false {
+	} else if accessReview.Status.Allowed && !accessReview.Status.Denied {
 		return authorizer.DecisionAllow, "", nil
 	}
 

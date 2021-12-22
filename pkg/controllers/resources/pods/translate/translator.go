@@ -41,12 +41,10 @@ const (
 )
 
 var (
-	FieldPathLabelRegEx      = regexp.MustCompile("^metadata\\.labels\\['(.+)'\\]$")
-	FieldPathAnnotationRegEx = regexp.MustCompile("^metadata\\.annotations\\['(.+)'\\]$")
-
-	zero        = int64(0)
-	False       = false
-	maxPriority = int32(1000000000)
+	FieldPathLabelRegEx      = regexp.MustCompile(`^metadata\.labels\['(.+)'\]$`)
+	FieldPathAnnotationRegEx = regexp.MustCompile(`^metadata\.annotations\['(.+)'\]$`)
+	False                    = false
+	maxPriority              = int32(1000000000)
 )
 
 type Translator interface {
@@ -200,16 +198,14 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		// includes a '.', therefore we need to rewrite the hostname. This is really bad
 		// and wrong, but unfortunately there is currently no other solution as there is
 		// no other way to change the container's hostname.
-		if strings.Contains(pPod.Spec.Hostname, ".") {
-			pPod.Spec.Hostname = strings.Replace(pPod.Spec.Hostname, ".", "-", -1)
-		}
+		pPod.Spec.Hostname = strings.Replace(pPod.Spec.Hostname, ".", "-", -1)
 	}
 
 	// if spec.subdomain is set we have to translate the /etc/hosts
 	// because otherwise we could get a different hostname as if the pod
 	// would be deployed in a non virtual kubernetes cluster
 	if pPod.Spec.Subdomain != "" {
-		if t.overrideHosts == true {
+		if t.overrideHosts {
 			rewritePodHostnameFQDN(pPod, t.overrideHostsImage, pPod.Spec.Hostname, pPod.Spec.Hostname, pPod.Spec.Hostname+"."+pPod.Spec.Subdomain+"."+vPod.Namespace+".svc."+t.clusterDomain)
 		}
 
@@ -896,7 +892,7 @@ func calcContainerImageDiff(pContainers, vContainers []corev1.Container, transla
 		}
 	}
 
-	if changed == false {
+	if !changed {
 		return nil
 	}
 	return newContainers

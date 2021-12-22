@@ -184,7 +184,7 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 			// make sure the node does exist in the virtual cluster
 			err = s.virtualClient.Get(ctx, types.NamespacedName{Name: pPod.Spec.NodeName}, &corev1.Node{})
 			if err != nil {
-				if kerrors.IsNotFound(err) == false {
+				if !kerrors.IsNotFound(err) {
 					return ctrl.Result{}, err
 				}
 
@@ -259,7 +259,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		log.Infof("update virtual pod %s/%s, because status has changed", vPod.Namespace, vPod.Name)
 		err := s.virtualClient.Status().Update(ctx, newPod)
 		if err != nil {
-			if kerrors.IsConflict(err) == false {
+			if !kerrors.IsConflict(err) {
 				s.eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error updating pod: %v", err)
 			}
 
@@ -286,12 +286,12 @@ func (s *syncer) ensureNode(ctx context.Context, pObj *corev1.Pod, vObj *corev1.
 	vNode := &corev1.Node{}
 	err := s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.Spec.NodeName}, vNode)
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			log.Infof("error retrieving virtual node %s: %v", pObj.Spec.NodeName, err)
 			return false, err
 		}
 
-		if s.useFakeNodes == false {
+		if !s.useFakeNodes {
 			// we have to sync the node
 			// so first get the physical node
 			pNode := &corev1.Node{}

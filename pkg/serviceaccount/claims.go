@@ -17,8 +17,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"gopkg.in/square/go-jose.v2/jwt"
 	"k8s.io/apiserver/pkg/audit"
@@ -109,7 +110,7 @@ func (v *validator) Validate(ctx context.Context, _ string, public *jwt.Claims, 
 	private, ok := privateObj.(*privateClaims)
 	if !ok {
 		klog.Errorf("jwt validator expected private claim of type *privateClaims but got: %T", privateObj)
-		return nil, errors.New("Token could not be validated.")
+		return nil, errors.New("token could not be validated")
 	}
 	nowTime := now()
 	err := public.Validate(jwt.Expected{
@@ -118,10 +119,10 @@ func (v *validator) Validate(ctx context.Context, _ string, public *jwt.Claims, 
 	switch {
 	case err == nil:
 	case err == jwt.ErrExpired:
-		return nil, errors.New("Token has expired.")
+		return nil, errors.New("token has expired")
 	default:
 		klog.Errorf("unexpected validation error: %T", err)
-		return nil, errors.New("Token could not be validated.")
+		return nil, errors.New("token could not be validated")
 	}
 
 	// consider things deleted prior to now()-leeway to be invalid
@@ -150,15 +151,15 @@ func (v *validator) Validate(ctx context.Context, _ string, public *jwt.Claims, 
 		secret, err := v.getter.GetSecret(namespace, secref.Name)
 		if err != nil {
 			klog.V(4).Infof("Could not retrieve bound secret %s/%s for service account %s/%s: %v", namespace, secref.Name, namespace, saref.Name, err)
-			return nil, errors.New("Token has been invalidated")
+			return nil, errors.New("token has been invalidated")
 		}
 		if secret.DeletionTimestamp != nil && secret.DeletionTimestamp.Time.Before(invalidIfDeletedBefore) {
 			klog.V(4).Infof("Bound secret is deleted and awaiting removal: %s/%s for service account %s/%s", namespace, secref.Name, namespace, saref.Name)
-			return nil, errors.New("Token has been invalidated")
+			return nil, errors.New("token has been invalidated")
 		}
 		if secref.UID != string(secret.UID) {
 			klog.V(4).Infof("Secret UID no longer matches %s/%s: %q != %q", namespace, secref.Name, string(secret.UID), secref.UID)
-			return nil, fmt.Errorf("Secret UID (%s) does not match claim (%s)", secret.UID, secref.UID)
+			return nil, fmt.Errorf("secret UID (%s) does not match claim (%s)", secret.UID, secref.UID)
 		}
 	}
 
@@ -168,15 +169,15 @@ func (v *validator) Validate(ctx context.Context, _ string, public *jwt.Claims, 
 		pod, err := v.getter.GetPod(namespace, podref.Name)
 		if err != nil {
 			klog.V(4).Infof("Could not retrieve bound pod %s/%s for service account %s/%s: %v", namespace, podref.Name, namespace, saref.Name, err)
-			return nil, errors.New("Token has been invalidated")
+			return nil, errors.New("token has been invalidated")
 		}
 		if pod.DeletionTimestamp != nil && pod.DeletionTimestamp.Time.Before(invalidIfDeletedBefore) {
 			klog.V(4).Infof("Bound pod is deleted and awaiting removal: %s/%s for service account %s/%s", namespace, podref.Name, namespace, saref.Name)
-			return nil, errors.New("Token has been invalidated")
+			return nil, errors.New("token has been invalidated")
 		}
 		if podref.UID != string(pod.UID) {
 			klog.V(4).Infof("Pod UID no longer matches %s/%s: %q != %q", namespace, podref.Name, string(pod.UID), podref.UID)
-			return nil, fmt.Errorf("Pod UID (%s) does not match claim (%s)", pod.UID, podref.UID)
+			return nil, fmt.Errorf("pod UID (%s) does not match claim (%s)", pod.UID, podref.UID)
 		}
 		podName = podref.Name
 		podUID = podref.UID

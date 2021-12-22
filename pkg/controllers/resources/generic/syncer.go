@@ -2,6 +2,7 @@ package generic
 
 import (
 	"context"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -71,7 +72,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	vObj := r.syncer.New()
 	err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 
@@ -82,7 +83,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	pObj := r.syncer.New()
 	err = r.localClient.Get(ctx, r.syncer.VirtualToPhysical(req.NamespacedName, vObj), pObj)
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 
@@ -184,7 +185,7 @@ func DeleteObject(ctx context.Context, localClient client.Client, pObj client.Ob
 	} else {
 		log.Infof("delete physical %s, because virtual object was deleted", accessor.GetName())
 	}
-	err = localClient.Delete(ctx, pObj.(client.Object))
+	err = localClient.Delete(ctx, pObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil

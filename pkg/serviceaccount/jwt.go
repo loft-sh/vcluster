@@ -99,7 +99,7 @@ func keyIDFromPublicKey(publicKey interface{}) (string, error) {
 	}
 
 	hasher := crypto.SHA256.New()
-	hasher.Write(publicKeyDERBytes)
+	_, _ = hasher.Write(publicKeyDERBytes)
 	publicKeyDERHash := hasher.Sum(nil)
 
 	keyID := base64.RawURLEncoding.EncodeToString(publicKeyDERHash)

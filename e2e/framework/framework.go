@@ -125,7 +125,8 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 			Namespace: ns,
 		},
 		KubeConfig: file.Name(),
-		LocalPort:  8440, // choosing a port that usually should be unused
+		LocalPort:  8440,        // choosing a port that usually should be unused
+		Address:    "127.0.0.1", // setting only ipv4 address may reduce a number of errors, see comments on kubernetes#74551
 	}
 	go func() {
 		//TODO: perhaps forward stdout/stder to debug level logs?

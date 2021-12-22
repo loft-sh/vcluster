@@ -189,7 +189,7 @@ func (c *client) Delete(name, namespace string) error {
 	c.log.Info("Delete helm chart with helm " + strings.Join(args, " "))
 	output, err := exec.Command(c.helmPath, args...).CombinedOutput()
 	if err != nil {
-		if strings.Index(string(output), "release: not found") > -1 {
+		if strings.Contains(string(output), "release: not found") {
 			return fmt.Errorf("release '%s' was not found in namespace '%s'", name, namespace)
 		}
 
@@ -209,7 +209,7 @@ func (c *client) Exists(name, namespace string) (bool, error) {
 	args := []string{"status", name, "--namespace", namespace, "--kubeconfig", kubeConfig}
 	output, err := exec.Command(c.helmPath, args...).CombinedOutput()
 	if err != nil {
-		if strings.Index(string(output), "release: not found") > -1 {
+		if strings.Contains(string(output), "release: not found") {
 			return false, nil
 		}
 

@@ -1,25 +1,29 @@
 package values
 
 import (
+	"strings"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"k8s.io/client-go/kubernetes"
-	"strings"
 )
 
 var K8SAPIVersionMap = map[string]string{
+	"1.23": "k8s.gcr.io/kube-apiserver:v1.23.1",
 	"1.22": "k8s.gcr.io/kube-apiserver:v1.22.4",
 	"1.21": "k8s.gcr.io/kube-apiserver:v1.21.5",
 	"1.20": "k8s.gcr.io/kube-apiserver:v1.20.12",
 }
 
 var K8SControllerVersionMap = map[string]string{
+	"1.23": "k8s.gcr.io/kube-controller-manager:v1.23.1",
 	"1.22": "k8s.gcr.io/kube-controller-manager:v1.22.4",
 	"1.21": "k8s.gcr.io/kube-controller-manager:v1.21.5",
 	"1.20": "k8s.gcr.io/kube-controller-manager:v1.20.12",
 }
 
 var K8SEtcdVersionMap = map[string]string{
+	"1.23": "k8s.gcr.io/etcd:3.5.1-0",
 	"1.22": "k8s.gcr.io/etcd:3.5.1-0",
 	"1.21": "k8s.gcr.io/etcd:3.4.13-0",
 	"1.20": "k8s.gcr.io/etcd:3.4.13-0",
@@ -31,8 +35,8 @@ func getDefaultK8SReleaseValues(client kubernetes.Interface, createOptions *crea
 		return "", err
 	}
 
-	apiImage, ok := K8SAPIVersionMap[serverVersionString]
-	controllerImage, ok := K8SControllerVersionMap[serverVersionString]
+	apiImage := K8SAPIVersionMap[serverVersionString]
+	controllerImage := K8SControllerVersionMap[serverVersionString]
 	etcdImage, ok := K8SEtcdVersionMap[serverVersionString]
 	if !ok {
 		if serverMinorInt > 22 {

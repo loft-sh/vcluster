@@ -2,6 +2,9 @@ package filters
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
@@ -16,9 +19,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime.Scheme, uncachedVirtualClient client.Client, admit admission.Interface, targetNamespace string, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
@@ -126,7 +127,7 @@ func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, paramet
 }
 
 func applies(r *request.RequestInfo, resources []delegatingauthorizer.GroupVersionResourceVerb) bool {
-	if r.IsResourceRequest == false {
+	if !r.IsResourceRequest {
 		return false
 	}
 

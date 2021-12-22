@@ -3,13 +3,14 @@ package persistentvolumes
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sync"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -35,7 +36,7 @@ func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
 
 				return []reconcile.Request{
 					{
-						types.NamespacedName{
+						NamespacedName: types.NamespacedName{
 							Name: pvc.Spec.VolumeName,
 						},
 					},
@@ -70,7 +71,7 @@ func (r *fakeSyncer) Create(ctx context.Context, req types.NamespacedName, log l
 	} else if !needed {
 		return ctrl.Result{}, nil
 	}
-	
+
 	pvcList := &corev1.PersistentVolumeClaimList{}
 	err = r.virtualClient.List(ctx, pvcList, client.MatchingFields{constants.IndexByAssigned: req.Name})
 	if err != nil {
@@ -96,7 +97,7 @@ func (r *fakeSyncer) Update(ctx context.Context, vObj client.Object, log loghelp
 	} else if needed {
 		return ctrl.Result{}, nil
 	}
-	
+
 	log.Infof("Delete fake persistent volume %s", vObj.GetName())
 	err = r.virtualClient.Delete(ctx, vObj)
 	if err != nil {
@@ -113,7 +114,7 @@ func (r *fakeSyncer) Update(ctx context.Context, vObj client.Object, log loghelp
 		orig := pv.DeepCopy()
 		pv.Finalizers = []string{}
 		err = r.virtualClient.Patch(ctx, pv, client.MergeFrom(orig))
-		if err != nil && kerrors.IsNotFound(err) == false {
+		if err != nil && !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 	}

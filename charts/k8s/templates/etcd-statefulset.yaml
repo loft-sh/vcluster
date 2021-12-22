@@ -70,8 +70,8 @@ spec:
 {{ toYaml .Values.etcd.volumes | indent 8 }}
       {{- end }}
       {{- if not .Values.etcd.storage.persistence }}
-      - name: data
-        emptyDir: {}
+        - name: data
+          emptyDir: {}
       {{- end }}
       containers:
       - name: etcd

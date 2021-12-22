@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/e2e/framework"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
@@ -33,13 +34,10 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		ns = fmt.Sprintf("e2e-syncer-services-%d", iteration)
-		// execute cleanup in case previous e2e test were terminated prematurely
-		err := f.DeleteTestNamespace(ns, true)
-		framework.ExpectNoError(err)
+		ns = fmt.Sprintf("e2e-syncer-services-%d-%s", iteration, random.RandomString(5))
 
 		// create test namespace
-		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	})
 
@@ -48,7 +46,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		err := f.DeleteTestNamespace(ns, false)
 		framework.ExpectNoError(err)
 	})
-	
+
 	ginkgo.It("Test LoadBalancer node ports & cluster ip", func() {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -56,9 +54,9 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 				Namespace: ns,
 			},
 			Spec: corev1.ServiceSpec{
-				Type:    "LoadBalancer",
+				Type:                  "LoadBalancer",
 				ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
-				Selector: map[string]string{"doesnt": "matter"},
+				Selector:              map[string]string{"doesnt": "matter"},
 				Ports: []corev1.ServicePort{
 					{
 						Port: 80,
@@ -66,14 +64,16 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 				},
 			},
 		}
-		
+
 		vService, err := f.VclusterClient.CoreV1().Services(ns).Create(f.Context, service, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
-		
+		err = f.WaitForService(vService.Name, vService.Namespace)
+		framework.ExpectNoError(err)
+
 		// get physical service
 		pService, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(vService.Name, vService.Namespace), metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		
+
 		// check node ports are the same
 		framework.ExpectEqual(vService.Spec.ClusterIP, pService.Spec.ClusterIP)
 		framework.ExpectEqual(vService.Spec.HealthCheckNodePort, pService.Spec.HealthCheckNodePort)

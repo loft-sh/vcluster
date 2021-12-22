@@ -181,10 +181,9 @@ func writeCertificateFilesIfNotExist(pkiDir string, baseName string, signingCert
 }
 
 type certKeyLocation struct {
-	pkiDir     string
-	caBaseName string
-	baseName   string
-	uxName     string
+	pkiDir   string
+	baseName string
+	uxName   string
 }
 
 // validateSignedCertWithCA tries to load a certificate and private key and

@@ -2,9 +2,10 @@ package persistentvolumeclaims
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"testing"
 	"time"
+
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
@@ -34,14 +35,14 @@ func newFakeSyncer(lockFactory locks.LockFactory, pClient *testingutil.FakeIndex
 
 func TestSync(t *testing.T) {
 	vObjectMeta := metav1.ObjectMeta{
-		Name:        "testpvc",
-		Namespace:   "testns",
+		Name:      "testpvc",
+		Namespace: "testns",
 	}
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      translate.PhysicalName("testpvc", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation: vObjectMeta.Name,
+			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
@@ -51,7 +52,7 @@ func TestSync(t *testing.T) {
 	}
 	changedResources := corev1.ResourceRequirements{
 		Requests: map[corev1.ResourceName]resource.Quantity{
-			"storage": resource.Quantity{
+			"storage": {
 				Format: "teststoragerequest",
 			},
 		},
@@ -66,13 +67,13 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              vObjectMeta.Name,
 			Namespace:         vObjectMeta.Namespace,
-			DeletionTimestamp: &metav1.Time{time.Now()},
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
 		},
 	}
 	updatePvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        vObjectMeta.Name,
-			Namespace:   vObjectMeta.Namespace,
+			Name:      vObjectMeta.Name,
+			Namespace: vObjectMeta.Namespace,
 			Annotations: map[string]string{
 				"otherAnnotationKey": "update this",
 			},
@@ -83,13 +84,13 @@ func TestSync(t *testing.T) {
 	}
 	updatedPvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        pObjectMeta.Name,
-			Namespace:   pObjectMeta.Namespace,
+			Name:      pObjectMeta.Name,
+			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translate.NameAnnotation: vObjectMeta.Name,
-				translate.NamespaceAnnotation: vObjectMeta.Namespace,
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
 				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				"otherAnnotationKey": "update this",
+				"otherAnnotationKey":                   "update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -102,13 +103,13 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translate.NameAnnotation: vObjectMeta.Name,
-				translate.NamespaceAnnotation: vObjectMeta.Namespace,
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
 				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				bindCompletedAnnotation:      "testannotation",
-				boundByControllerAnnotation:  "testannotation2",
-				storageProvisionerAnnotation: "testannotation3",
-				"otherAnnotationKey":         "don't update this",
+				bindCompletedAnnotation:                "testannotation",
+				boundByControllerAnnotation:            "testannotation2",
+				storageProvisionerAnnotation:           "testannotation3",
+				"otherAnnotationKey":                   "don't update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},

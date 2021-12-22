@@ -2,17 +2,17 @@ package podhelper
 
 import (
 	"bytes"
-	dockerterm "github.com/docker/docker/pkg/term"
 	"io"
+	"net/http"
+
+	dockerterm "github.com/docker/docker/pkg/term"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"net/http"
 
 	"k8s.io/kubectl/pkg/util/term"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/client-go/transport/spdy"
 	clientspdy "k8s.io/client-go/transport/spdy"
 	kubectlExec "k8s.io/client-go/util/exec"
 	"k8s.io/kubectl/pkg/scheme"
@@ -34,7 +34,7 @@ type ExecStreamWithTransportOptions struct {
 	ExecStreamOptions
 
 	Transport   http.RoundTripper
-	Upgrader    spdy.Upgrader
+	Upgrader    clientspdy.Upgrader
 	SubResource SubResource
 }
 
@@ -173,7 +173,7 @@ func ExecBuffered(kubeConfig *rest.Config, namespace, pod, container string, com
 }
 
 // GetUpgraderWrapper returns an upgrade wrapper for the given config @Factory
-func GetUpgraderWrapper(restConfig *rest.Config) (http.RoundTripper, spdy.Upgrader, error) {
+func GetUpgraderWrapper(restConfig *rest.Config) (http.RoundTripper, clientspdy.Upgrader, error) {
 	wrapper, upgradeRoundTripper, err := clientspdy.RoundTripperFor(restConfig)
 	if err != nil {
 		return nil, nil, err

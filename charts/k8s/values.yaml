@@ -50,7 +50,7 @@ syncer:
 
 # Etcd settings
 etcd:
-  image: k8s.gcr.io/etcd:3.4.13-0
+  image: k8s.gcr.io/etcd:3.5.1-0
   # The amount of replicas to run 
   replicas: 1
   # NodeSelector used
@@ -80,7 +80,7 @@ etcd:
     
 # Kubernetes Controller Manager settings
 controller:
-  image: k8s.gcr.io/kube-controller-manager:v1.21.5
+  image: k8s.gcr.io/kube-controller-manager:v1.23.1
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used 
@@ -99,7 +99,7 @@ controller:
 
 # Kubernetes API Server settings
 api:
-  image: k8s.gcr.io/kube-apiserver:v1.21.5
+  image: k8s.gcr.io/kube-apiserver:v1.23.1
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -132,6 +132,8 @@ rbac:
   role:
     # This is required for basic functionality of vcluster
     create: true
+    # Extended role permissions are required for some optional features, e.g. Networkpolicy sync
+    extended: false
 
 # Service configurations
 service:

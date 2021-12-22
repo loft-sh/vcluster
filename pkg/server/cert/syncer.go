@@ -32,7 +32,7 @@ func NewSyncer(currentNamespace string, currentNamespaceClient client.Client, op
 		serverCaKey:  options.ServerCaKey,
 		serverCaCert: options.ServerCaCert,
 
-		addSANs:   options.TlsSANs,
+		addSANs:   options.TLSSANs,
 		listeners: []dynamiccertificates.Listener{},
 
 		serviceName:           options.ServiceName,
@@ -165,7 +165,7 @@ func (s *syncer) Run(workers int, stopCh <-chan struct{}) {
 		s.currentCertMutex.Lock()
 		defer s.currentCertMutex.Unlock()
 
-		if reflect.DeepEqual(extraSANs, s.currentSANs) == false {
+		if !reflect.DeepEqual(extraSANs, s.currentSANs) {
 			err = s.regen(extraSANs)
 			if err != nil {
 				klog.Infof("Error regenerating certificate: %v", err)

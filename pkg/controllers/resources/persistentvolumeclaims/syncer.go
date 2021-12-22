@@ -2,6 +2,8 @@ package persistentvolumeclaims
 
 import (
 	"context"
+	"sync"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
@@ -17,7 +19,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
 )
 
 var (
@@ -176,12 +177,12 @@ func (s *syncer) ensurePersistentVolume(ctx context.Context, pObj *corev1.Persis
 	vPV := &corev1.PersistentVolume{}
 	err := s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.Spec.VolumeName}, vPV)
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			log.Infof("error retrieving virtual pv %s: %v", pObj.Spec.VolumeName, err)
 			return err
 		}
 
-		if s.useFakePersistentVolumes == true {
+		if s.useFakePersistentVolumes {
 			// now insert it into the virtual cluster
 			log.Infof("create virtual fake pv %s, because pvc %s/%s uses it and it is not available in virtual cluster", pObj.Spec.VolumeName, vObj.Namespace, vObj.Name)
 
@@ -196,7 +197,7 @@ func (s *syncer) ensurePersistentVolume(ctx context.Context, pObj *corev1.Persis
 
 	if pObj.Spec.VolumeName != "" && vObj.Spec.VolumeName != pObj.Spec.VolumeName {
 		newVolumeName := pObj.Spec.VolumeName
-		if s.useFakePersistentVolumes == false {
+		if !s.useFakePersistentVolumes {
 			vObj := &corev1.PersistentVolume{}
 			err = clienthelper.GetByIndex(ctx, s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.Spec.VolumeName)
 			if err != nil {

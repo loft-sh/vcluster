@@ -2,23 +2,24 @@ package request
 
 import (
 	"encoding/json"
+	"net/http"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
-	"net/http"
 )
 
 func SucceedWithObject(w http.ResponseWriter, obj interface{}) {
 	bytes, _ := json.Marshal(obj)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(int(http.StatusOK))
-	w.Write(bytes)
+	_, _ = w.Write(bytes)
 }
 
 func SucceedWithStatus(w http.ResponseWriter) {
 	bytes, _ := json.Marshal(NewSuccessStatus())
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(int(http.StatusOK))
-	w.Write(bytes)
+	_, _ = w.Write(bytes)
 }
 
 func FailWithStatus(w http.ResponseWriter, req *http.Request, code int32, err error) {
@@ -41,7 +42,7 @@ func FailWithStatus(w http.ResponseWriter, req *http.Request, code int32, err er
 	bytes, _ := json.Marshal(NewErrorRequestStatus(code, reason, err))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(int(code))
-	w.Write(bytes)
+	_, _ = w.Write(bytes)
 }
 
 func NewSuccessStatus() *metav1.Status {

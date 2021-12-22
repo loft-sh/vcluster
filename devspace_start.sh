@@ -4,8 +4,8 @@ set +e  # Continue on errors
 COLOR_CYAN="\033[0;36m"
 COLOR_RESET="\033[0m"
 
-RUN_CMD="go run -mod vendor cmd/vcluster/main.go start"
-DEBUG_CMD="dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags=\"-mod=vendor\" -- --lease-duration=99999 --renew-deadline=99998"
+RUN_CMD="go run -mod vendor cmd/vcluster/main.go start --sync 'networkpolicies'"
+DEBUG_CMD="dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags=\"-mod=vendor\" -- start --leader-elect=false --sync 'networkpolicies'"
 
 echo -e "${COLOR_CYAN}
    ____              ____
@@ -26,7 +26,7 @@ If you wish to run vcluster in the debug mode with delve, run:
   \`${COLOR_CYAN}${DEBUG_CMD}${COLOR_RESET}\`
   Wait until the \`${COLOR_CYAN}API server listening at: [::]:2345${COLOR_RESET}\` message appears
   Start the \"Debug vcluster (localhost:2346)\" configuration in VSCode to connect your debugger session.
-  ${COLOR_CYAN}Note:${COLOR_RESET} vcluster won't start you connect with the debugger.
+  ${COLOR_CYAN}Note:${COLOR_RESET} vcluster won't start until you connect with the debugger.
   ${COLOR_CYAN}Note:${COLOR_RESET} vcluster will be stopped once you detach your debugger session.
 
 ${COLOR_CYAN}TIP:${COLOR_RESET} hit an up arrow on your keyboard to find the commands mentioned above :) 
