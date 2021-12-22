@@ -25,21 +25,19 @@ type Syncer interface {
 	dynamiccertificates.CertKeyContentProvider
 }
 
-func NewSyncer(ctx *ctrlcontext.ControllerContext) (Syncer, error) {
+func NewSyncer(currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
 	return &syncer{
-		clusterDomain: ctx.Options.ClusterDomain,
+		clusterDomain: options.ClusterDomain,
 
-		serverCaKey:  ctx.Options.ServerCaKey,
-		serverCaCert: ctx.Options.ServerCaCert,
+		serverCaKey:  options.ServerCaKey,
+		serverCaCert: options.ServerCaCert,
 
-		addSANs:   ctx.Options.TlsSANs,
+		addSANs:   options.TlsSANs,
 		listeners: []dynamiccertificates.Listener{},
-		
-		serviceName:           ctx.Options.ServiceName,
-		currentNamespace:      ctx.CurrentNamespace,
-		currentNamespaceCient: ctx.CurrentNamespaceClient,
 
-		vClient: ctx.VirtualManager.GetClient(),
+		serviceName:           options.ServiceName,
+		currentNamespace:      currentNamespace,
+		currentNamespaceCient: currentNamespaceClient,
 	}, nil
 }
 
@@ -51,11 +49,9 @@ type syncer struct {
 
 	addSANs []string
 
-	serviceName      string
-	currentNamespace string
+	serviceName           string
+	currentNamespace      string
 	currentNamespaceCient client.Client
-
-	vClient client.Client
 
 	listeners []dynamiccertificates.Listener
 

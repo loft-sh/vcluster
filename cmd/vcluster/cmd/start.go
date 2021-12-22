@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -204,10 +205,6 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		options.TargetNamespace = currentNamespace
 	}
 
-	rawConfig, err := clientConfig.RawConfig()
-	if err != nil {
-		return err
-	}
 	virtualClusterConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return err
@@ -256,59 +253,24 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	nodes.FakeNodesVersion = serverVersion.GitVersion
 	klog.Infof("Can connect to virtual cluster with version " + serverVersion.GitVersion)
 
-	// setup CoreDNS according to the manifest file
-	go func() {
-		_ = wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
-			err := coredns.ApplyManifest(*virtualClusterConfig, serverVersion)
-			if err != nil {
-				klog.Infof("Failed to apply CoreDNS cofiguration from the manifest file: %v", err)
-				return false, nil
-			}
-			klog.Infof("CoreDNS cofiguration from the manifest file applied successfully")
-			return true, nil
-		})
-	}()
-
 	// create controller context
 	ctx, err := context2.NewControllerContext(currentNamespace, localManager, virtualClusterManager, options)
 	if err != nil {
 		return errors.Wrap(err, "create controller context")
 	}
 
-	// register the indices
-	err = controllers.RegisterIndices(ctx)
-	if err != nil {
-		return errors.Wrap(err, "register controllers")
-	}
-
-	// start the local manager
-	go func() {
-		err := localManager.Start(ctx.Context)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	// start the virtual cluster manager
-	go func() {
-		err := virtualClusterManager.Start(ctx.Context)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	// Wait for caches to be synced
-	localManager.GetCache().WaitForCacheSync(ctx.Context)
-	virtualClusterManager.GetCache().WaitForCacheSync(ctx.Context)
-
 	// start leader election for controllers
+	rawConfig, err := clientConfig.RawConfig()
+	if err != nil {
+		return err
+	}
 	go func() {
 		if ctx.Options.LeaderElect {
 			err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
-				return startControllers(ctx, &rawConfig)
+				return startControllers(ctx, &rawConfig, serverVersion)
 			})
 		} else {
-			err = startControllers(ctx, &rawConfig)
+			err = startControllers(ctx, &rawConfig, serverVersion)
 		}
 		if err != nil {
 			klog.Fatalf("Error starting leader election: %v", err)
@@ -330,9 +292,48 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	return nil
 }
 
-func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config) error {
+func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, serverVersion *version.Info) error {
+	// setup CoreDNS according to the manifest file
+	go func() {
+		_ = wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
+			err := coredns.ApplyManifest(ctx.VirtualManager.GetConfig(), serverVersion)
+			if err != nil {
+				klog.Infof("Failed to apply CoreDNS cofiguration from the manifest file: %v", err)
+				return false, nil
+			}
+			klog.Infof("CoreDNS cofiguration from the manifest file applied successfully")
+			return true, nil
+		})
+	}()
+
+	// register the indices
+	err := controllers.RegisterIndices(ctx)
+	if err != nil {
+		return errors.Wrap(err, "register controllers")
+	}
+
+	// start the local manager
+	go func() {
+		err := ctx.LocalManager.Start(ctx.Context)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// start the virtual cluster manager
+	go func() {
+		err := ctx.VirtualManager.Start(ctx.Context)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// Wait for caches to be synced
+	ctx.LocalManager.GetCache().WaitForCacheSync(ctx.Context)
+	ctx.VirtualManager.GetCache().WaitForCacheSync(ctx.Context)
+
 	// make sure owner is set if it is there
-	err := findOwner(ctx)
+	err = findOwner(ctx)
 	if err != nil {
 		klog.Errorf("Error finding vcluster pod owner: %v", err)
 	}

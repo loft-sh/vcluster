@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"io/ioutil"
+	"k8s.io/client-go/rest"
 	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -23,27 +24,12 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithServiceCreateRedirect(handler http.Handler, localManager ctrl.Manager, virtualManager ctrl.Manager, targetNamespace string) http.Handler {
-	decoder := encoding.NewDecoder(localManager.GetScheme(), false)
-	s := serializer.NewCodecFactory(virtualManager.GetScheme())
-	uncachedLocalClient, err := client.New(localManager.GetConfig(), client.Options{
-		Scheme: localManager.GetScheme(),
-		Mapper: localManager.GetRESTMapper(),
-	})
-	if err != nil {
-		panic(err)
-	}
-	uncachedVirtualClient, err := client.New(virtualManager.GetConfig(), client.Options{
-		Scheme: virtualManager.GetScheme(),
-		Mapper: virtualManager.GetRESTMapper(),
-	})
-	if err != nil {
-		panic(err)
-	}
+func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncachedVirtualClient client.Client, virtualConfig *rest.Config, targetNamespace string) http.Handler {
+	decoder := encoding.NewDecoder(uncachedLocalClient.Scheme(), false)
+	s := serializer.NewCodecFactory(uncachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
@@ -66,7 +52,7 @@ func WithServiceCreateRedirect(handler http.Handler, localManager ctrl.Manager, 
 				}
 
 				if len(options.DryRun) == 0 {
-					uncachedVirtualImpersonatingClient, err := clienthelper.NewImpersonatingClient(virtualManager.GetConfig(), virtualManager.GetRESTMapper(), userInfo, virtualManager.GetScheme())
+					uncachedVirtualImpersonatingClient, err := clienthelper.NewImpersonatingClient(virtualConfig, uncachedVirtualClient.RESTMapper(), userInfo, uncachedVirtualClient.Scheme())
 					if err != nil {
 						responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 						return
@@ -98,7 +84,7 @@ func WithServiceCreateRedirect(handler http.Handler, localManager ctrl.Manager, 
 					}
 
 					if vService.Spec.Type == corev1.ServiceTypeExternalName {
-						uncachedVirtualImpersonatingClient, err := clienthelper.NewImpersonatingClient(virtualManager.GetConfig(), virtualManager.GetRESTMapper(), userInfo, virtualManager.GetScheme())
+						uncachedVirtualImpersonatingClient, err := clienthelper.NewImpersonatingClient(virtualConfig, uncachedVirtualClient.RESTMapper(), userInfo, uncachedVirtualClient.Scheme())
 						if err != nil {
 							responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 							return

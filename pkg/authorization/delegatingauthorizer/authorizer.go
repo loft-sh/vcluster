@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type GroupVersionResourceVerb struct {
@@ -21,9 +21,9 @@ type PathVerb struct {
 	Verb string
 }
 
-func New(delegatingManager ctrl.Manager, resources []GroupVersionResourceVerb, nonResources []PathVerb) authorizer.Authorizer {
+func New(delegatingClient client.Client, resources []GroupVersionResourceVerb, nonResources []PathVerb) authorizer.Authorizer {
 	return &delegatingAuthorizer{
-		delegatingManager: delegatingManager,
+		delegatingClient: delegatingClient,
 
 		nonResources: nonResources,
 		resources:    resources,
@@ -31,7 +31,7 @@ func New(delegatingManager ctrl.Manager, resources []GroupVersionResourceVerb, n
 }
 
 type delegatingAuthorizer struct {
-	delegatingManager ctrl.Manager
+	delegatingClient client.Client
 
 	nonResources []PathVerb
 	resources    []GroupVersionResourceVerb
@@ -41,9 +41,6 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 	if applies(a, l.resources, l.nonResources) == false {
 		return authorizer.DecisionNoOpinion, "", nil
 	}
-
-	// get cluster client
-	client := l.delegatingManager.GetClient()
 
 	// check if request is allowed in the target cluster
 	accessReview := &authv1.SubjectAccessReview{
@@ -71,7 +68,7 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 			Verb: a.GetVerb(),
 		}
 	}
-	err = client.Create(ctx, accessReview)
+	err = l.delegatingClient.Create(ctx, accessReview)
 	if err != nil {
 		return authorizer.DecisionDeny, "", err
 	} else if accessReview.Status.Allowed && accessReview.Status.Denied == false {

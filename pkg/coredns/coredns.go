@@ -39,7 +39,7 @@ var CoreDNSVersionMap = map[string]string{
 	"1.16": "coredns/coredns:1.6.3",
 }
 
-func ApplyManifest(inClusterConfig rest.Config, serverVersion *version.Info) error {
+func ApplyManifest(inClusterConfig *rest.Config, serverVersion *version.Info) error {
 	// create a temporary directory and file to output processed manifest to
 	debugOutputFile, err := prepareManifestOutput()
 	if err != nil {
@@ -105,8 +105,8 @@ func processManifestTemplate(vars map[string]interface{}) (*[]byte, error) {
 	return &output, nil
 }
 
-func callApply(inClusterConfig rest.Config, manifest *[]byte) error {
-	restMapper, err := apiutil.NewDynamicRESTMapper(&inClusterConfig)
+func callApply(inClusterConfig *rest.Config, manifest *[]byte) error {
+	restMapper, err := apiutil.NewDynamicRESTMapper(inClusterConfig)
 	if err != nil {
 		return fmt.Errorf("unable to initialize NewDynamicRESTMapper")
 	}
@@ -114,7 +114,7 @@ func callApply(inClusterConfig rest.Config, manifest *[]byte) error {
 	a := applier.DirectApplier{}
 	opts := applier.ApplierOptions{
 		Manifest:   string(*manifest),
-		RESTConfig: &inClusterConfig,
+		RESTConfig: inClusterConfig,
 		RESTMapper: restMapper,
 	}
 	return a.Apply(context.Background(), opts)

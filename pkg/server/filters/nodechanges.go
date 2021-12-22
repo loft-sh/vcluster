@@ -21,27 +21,12 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithNodeChanges(h http.Handler, localManager ctrl.Manager, virtualManager ctrl.Manager) http.Handler {
-	decoder := encoding.NewDecoder(localManager.GetScheme(), false)
-	s := serializer.NewCodecFactory(virtualManager.GetScheme())
-	uncachedLocalClient, err := client.New(localManager.GetConfig(), client.Options{
-		Scheme: localManager.GetScheme(),
-		Mapper: localManager.GetRESTMapper(),
-	})
-	if err != nil {
-		panic(err)
-	}
-	uncachedVirtualClient, err := client.New(virtualManager.GetConfig(), client.Options{
-		Scheme: virtualManager.GetScheme(),
-		Mapper: virtualManager.GetRESTMapper(),
-	})
-	if err != nil {
-		panic(err)
-	}
+func WithNodeChanges(h http.Handler, uncachedLocalClient, uncachedVirtualClient client.Client, virtualConfig *rest.Config) http.Handler {
+	decoder := encoding.NewDecoder(uncachedLocalClient.Scheme(), false)
+	s := serializer.NewCodecFactory(uncachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
@@ -82,7 +67,7 @@ func WithNodeChanges(h http.Handler, localManager ctrl.Manager, virtualManager c
 				}
 
 				if len(options.DryRun) == 0 {
-					patchNode(w, req, s, decoder, uncachedLocalClient, uncachedVirtualClient, virtualManager.GetConfig(), info.Subresource == "status")
+					patchNode(w, req, s, decoder, uncachedLocalClient, uncachedVirtualClient, virtualConfig, info.Subresource == "status")
 					return
 				}
 			}

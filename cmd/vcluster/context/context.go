@@ -3,12 +3,9 @@ package context
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -234,6 +231,12 @@ func availableControllers() string {
 func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, localManager ctrl.Manager, options *VirtualClusterOptions) (client.Client, error) {
 	var err error
 
+	// currentNamespaceCache is needed for tasks such as finding out fake kubelet ips
+	// as those are saved as Kubernetes services inside the same namespace as vcluster
+	// is running. In the case of options.TargetNamespace != currentNamespace (the namespace
+	// where vcluster is currently running in), we need to create a new object cache
+	// as the regular cache is scoped to the options.TargetNamespace and cannot return
+	// objects from the current namespace.
 	currentNamespaceCache := localManager.GetCache()
 	if currentNamespace != options.TargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
@@ -244,19 +247,6 @@ func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, loc
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	// index node services by their cluster ip
-	err = currentNamespaceCache.IndexField(ctx, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
-		svc := object.(*corev1.Service)
-		if len(svc.Labels) == 0 || svc.Labels[nodeservice.ServiceClusterLabel] != translate.Suffix {
-			return nil
-		}
-
-		return []string{svc.Spec.ClusterIP}
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	// start cache now if it's not in the same namespace

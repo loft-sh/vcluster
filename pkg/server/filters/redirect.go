@@ -14,15 +14,16 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"net/http"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
-func WithRedirect(h http.Handler, localManager ctrl.Manager, virtualManager ctrl.Manager, admit admission.Interface, targetNamespace string, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
-	s := serializer.NewCodecFactory(localManager.GetScheme())
-	parameterCodec := runtime.NewParameterCodec(virtualManager.GetScheme())
+func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime.Scheme, uncachedVirtualClient client.Client, admit admission.Interface, targetNamespace string, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
+	s := serializer.NewCodecFactory(localScheme)
+	parameterCodec := runtime.NewParameterCodec(uncachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
@@ -32,7 +33,7 @@ func WithRedirect(h http.Handler, localManager ctrl.Manager, virtualManager ctrl
 
 		if applies(info, resources) {
 			// call admission webhooks
-			err := callAdmissionWebhooks(req, info, parameterCodec, admit, virtualManager)
+			err := callAdmissionWebhooks(req, info, parameterCodec, admit, uncachedVirtualClient)
 			if err != nil {
 				responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 				return
@@ -66,7 +67,7 @@ func WithRedirect(h http.Handler, localManager ctrl.Manager, virtualManager ctrl
 				}
 			}
 
-			h, err := handler.Handler("", localManager.GetConfig(), nil)
+			h, err := handler.Handler("", localConfig, nil)
 			if err != nil {
 				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 				return
@@ -81,7 +82,7 @@ func WithRedirect(h http.Handler, localManager ctrl.Manager, virtualManager ctrl
 	})
 }
 
-func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, parameterCodec runtime.ParameterCodec, admit admission.Interface, virtualManager ctrl.Manager) error {
+func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, parameterCodec runtime.ParameterCodec, admit admission.Interface, uncachedVirtualClient client.Client) error {
 	if info.Resource != "pods" {
 		return nil
 	} else if info.Subresource != "exec" && info.Subresource != "portforward" && info.Subresource != "attach" {
@@ -113,7 +114,7 @@ func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, paramet
 				}
 			}
 
-			err := validatingAdmission.Validate(req.Context(), admission.NewAttributesRecord(opts, nil, kind, info.Namespace, info.Name, corev1.SchemeGroupVersion.WithResource(info.Resource), info.Subresource, admission.Connect, nil, false, userInfo), NewFakeObjectInterfaces(virtualManager.GetScheme(), virtualManager.GetRESTMapper()))
+			err := validatingAdmission.Validate(req.Context(), admission.NewAttributesRecord(opts, nil, kind, info.Namespace, info.Name, corev1.SchemeGroupVersion.WithResource(info.Resource), info.Subresource, admission.Connect, nil, false, userInfo), NewFakeObjectInterfaces(uncachedVirtualClient.Scheme(), uncachedVirtualClient.RESTMapper()))
 			if err != nil {
 				klog.Infof("Admission validate failed for %s: %v", info.Path, err)
 				return err
