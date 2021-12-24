@@ -172,7 +172,7 @@ spec:
           timeoutSeconds: 1
           successThreshold: 1
           failureThreshold: 3
-      dnsPolicy: Default
+      dnsPolicy: {{.DNS_POLICY}}
       volumes:
         - name: config-volume
           configMap:

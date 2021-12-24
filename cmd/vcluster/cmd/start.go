@@ -108,6 +108,8 @@ func NewStartCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&options.ClusterDomain, "cluster-domain", "cluster.local", "The cluster domain ending that should be used for the virtual cluster")
 
+	cmd.Flags().StringArrayVar(&options.CorednsVariables, "coredns-var", []string{}, "Provides custom value for the template variable used in the CoreDNS manifest(e.g. DNS_POLICY=Default). The manifest file is located in /manifests/coredns/coredns.yaml file in the syncer image, or at the same path in the source code repo.")
+
 	cmd.Flags().BoolVar(&options.LeaderElect, "leader-elect", false, "If enabled, syncer will use leader election")
 	cmd.Flags().Int64Var(&options.LeaseDuration, "lease-duration", 60, "Lease duration of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RenewDeadline, "renew-deadline", 40, "Renew deadline of the leader election in seconds")
@@ -297,7 +299,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	// setup CoreDNS according to the manifest file
 	go func() {
 		_ = wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
-			err := coredns.ApplyManifest(ctx.VirtualManager.GetConfig(), serverVersion)
+			err := coredns.ApplyManifest(ctx.VirtualManager.GetConfig(), serverVersion, ctx.Options.CorednsVariables)
 			if err != nil {
 				klog.Infof("Failed to apply CoreDNS cofiguration from the manifest file: %v", err)
 				return false, nil

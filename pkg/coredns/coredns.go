@@ -7,11 +7,13 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"text/template"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-
 	"github.com/loft-sh/vcluster/pkg/util/applier"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -27,6 +29,8 @@ const (
 	VarRunAsUser          = "RUN_AS_USER"
 	VarRunAsNonRoot       = "RUN_AS_NON_ROOT"
 	VarLogInDebug         = "LOG_IN_DEBUG"
+	VarDNSPolicy          = "DNS_POLICY"
+	DefaultDNSPolicy      = string(corev1.DNSDefault)
 )
 
 var CoreDNSVersionMap = map[string]string{
@@ -40,7 +44,11 @@ var CoreDNSVersionMap = map[string]string{
 	"1.16": "coredns/coredns:1.6.3",
 }
 
-func ApplyManifest(inClusterConfig *rest.Config, serverVersion *version.Info) error {
+func GetPodSelector() labels.Selector {
+	return labels.SelectorFromSet(map[string]string{"k8s-app": "kube-dns"})
+}
+
+func ApplyManifest(inClusterConfig *rest.Config, serverVersion *version.Info, cliVariables []string) error {
 	// create a temporary directory and file to output processed manifest to
 	debugOutputFile, err := prepareManifestOutput()
 	if err != nil {
@@ -48,7 +56,12 @@ func ApplyManifest(inClusterConfig *rest.Config, serverVersion *version.Info) er
 	}
 	defer debugOutputFile.Close()
 
-	vars := getManifestVariables(serverVersion)
+	cliVarsParsed, err := parseCliVars(cliVariables)
+	if err != nil {
+		return err
+	}
+
+	vars := getManifestVariables(serverVersion, cliVarsParsed)
 	output, err := processManifestTemplate(vars)
 	if err != nil {
 		return err
@@ -68,7 +81,19 @@ func prepareManifestOutput() (*os.File, error) {
 	return os.Create(manifestOutputPath)
 }
 
-func getManifestVariables(serverVersion *version.Info) map[string]interface{} {
+func parseCliVars(cliVariables []string) (map[string]string, error) {
+	vars := map[string]string{}
+	for _, v := range cliVariables {
+		i := strings.SplitN(strings.TrimSpace(v), "=", 2)
+		if len(i) != 2 {
+			return nil, fmt.Errorf("error parsing coredns-var '%s': bad format, expected VAR_NAME=VALUE", v)
+		}
+		vars[i[0]] = i[1]
+	}
+	return vars, nil
+}
+
+func getManifestVariables(serverVersion *version.Info, cliVariables map[string]string) map[string]interface{} {
 	var found bool
 	vars := make(map[string]interface{})
 	vars[VarImage], found = CoreDNSVersionMap[fmt.Sprintf("%s.%s", serverVersion.Major, serverVersion.Minor)]
@@ -87,6 +112,12 @@ func getManifestVariables(serverVersion *version.Info) map[string]interface{} {
 		vars[VarLogInDebug] = "log"
 	} else {
 		vars[VarLogInDebug] = ""
+	}
+
+	vars[VarDNSPolicy] = DefaultDNSPolicy
+
+	for k, v := range cliVariables {
+		vars[k] = v
 	}
 	return vars
 }

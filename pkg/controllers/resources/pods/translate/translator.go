@@ -11,6 +11,7 @@ import (
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
+	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -21,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -544,6 +546,12 @@ func translateDownwardAPI(env *corev1.EnvVar) {
 }
 
 func (t *translator) translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, nameServer string) {
+	// skip dnsPolicy translation for the CoreDNS pods
+	// this allows setting it's dnsPolicy to "ClusterFirst" or "ClusterFirstWithHostNet"
+	if coredns.GetPodSelector().Matches(labels.Set(vPod.Labels)) && coredns.Namespace == vPod.Namespace {
+		return
+	}
+
 	dnsPolicy := pPod.Spec.DNSPolicy
 
 	switch dnsPolicy {

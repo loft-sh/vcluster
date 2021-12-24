@@ -3,14 +3,15 @@ package context
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"sync"
 )
 
 // VirtualClusterOptions holds the cmd flags
@@ -52,6 +53,8 @@ type VirtualClusterOptions struct {
 	OverrideHostsContainerImage string
 
 	ClusterDomain string
+
+	CorednsVariables []string
 
 	LeaderElect   bool
 	LeaseDuration int64
