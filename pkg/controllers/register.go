@@ -19,6 +19,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
@@ -40,6 +41,7 @@ var ResourceControllers = map[string]func(*context.ControllerContext, record.Eve
 	"nodes,fake-nodes":       nodes.Register,
 	"persistentvolumes,fake-persistentvolumes": persistentvolumes.Register,
 	"networkpolicies":                          networkpolicies.Register,
+	"volumesnapshots":                          volumesnapshots.Register,
 }
 
 var ResourceIndices = map[string]func(*context.ControllerContext) error{
@@ -56,6 +58,29 @@ var ResourceIndices = map[string]func(*context.ControllerContext) error{
 	"nodes,fake-nodes":       nodes.RegisterIndices,
 	"persistentvolumes,fake-persistentvolumes": persistentvolumes.RegisterIndices,
 	"networkpolicies":                          networkpolicies.RegisterIndices,
+	"volumesnapshots":                          volumesnapshots.RegisterIndices,
+}
+
+var ResourcePrerequisites = map[string]func(*context.ControllerContext) error{
+	"volumesnapshots": volumesnapshots.EnsurePrerequisites,
+}
+
+func EnsurePrerequisites(ctx *context.ControllerContext) error {
+	// call the EnsurePrerequisites for the resources that require it
+	for k, v := range ResourcePrerequisites {
+		controllers := strings.Split(k, ",")
+		for _, controller := range controllers {
+			if ctx.Controllers[controller] {
+				err := v(ctx)
+				if err != nil {
+					return errors.Wrapf(err, "ensure %s prerequisites", controller)
+				}
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 func RegisterIndices(ctx *context.ControllerContext) error {

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"text/template"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/util/applier"
@@ -20,7 +21,6 @@ import (
 const (
 	Namespace             = "kube-system"
 	DefaultImage          = "coredns/coredns"
-	ManifestsInputFolder  = "/manifests"
 	ManifestRelativePath  = "coredns/coredns.yaml"
 	ManifestsOutputFolder = "/tmp/manifests-to-apply"
 	VarImage              = "IMAGE"
@@ -92,7 +92,7 @@ func getManifestVariables(serverVersion *version.Info) map[string]interface{} {
 }
 
 func processManifestTemplate(vars map[string]interface{}) (*[]byte, error) {
-	manifestInputPath := path.Join(ManifestsInputFolder, ManifestRelativePath)
+	manifestInputPath := path.Join(constants.ContainerManifestsFolder, ManifestRelativePath)
 	manifestTemplate, err := template.ParseFiles(manifestInputPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse %s: %v", manifestInputPath, err)

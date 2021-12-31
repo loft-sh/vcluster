@@ -6,11 +6,11 @@ import (
 	"strings"
 	"sync"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
-	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -20,6 +20,11 @@ import (
 func NewScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	err := clientgoscheme.AddToScheme(scheme)
+	if err != nil {
+		panic(err)
+	}
+
+	err = volumesnapshotv1.AddToScheme(scheme)
 	if err != nil {
 		panic(err)
 	}

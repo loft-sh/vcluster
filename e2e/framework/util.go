@@ -91,7 +91,7 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 			vService.Annotations[annotationKey] = "arbitrary"
 			_, err = f.VclusterClient.CoreV1().Services(ns).Update(f.Context, vService, metav1.UpdateOptions{})
 			if err != nil {
-				if kerrors.IsConflict(err) {
+				if kerrors.IsConflict(err) || kerrors.IsNotFound(err) {
 					return false, nil
 				}
 				return false, err

@@ -26,6 +26,9 @@ rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
 {{- end }}
 {{- if .Values.openshift.enable }}
   - apiGroups: [""]

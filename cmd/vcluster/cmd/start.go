@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers"
@@ -60,6 +61,9 @@ func init() {
 
 	// Register the fake conversions
 	_ = apis.RegisterConversions(scheme)
+
+	// Register VolumeSnapshot CRDs
+	_ = volumesnapshotv1.AddToScheme(scheme)
 }
 
 func NewStartCommand() *cobra.Command {
@@ -307,8 +311,14 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		})
 	}()
 
+	// setup controller prerequisites
+	err := controllers.EnsurePrerequisites(ctx)
+	if err != nil {
+		return errors.Wrap(err, "ensure prerequisites")
+	}
+
 	// register the indices
-	err := controllers.RegisterIndices(ctx)
+	err = controllers.RegisterIndices(ctx)
 	if err != nil {
 		return errors.Wrap(err, "register controllers")
 	}
