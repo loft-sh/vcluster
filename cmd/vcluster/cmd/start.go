@@ -299,10 +299,10 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		_ = wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
 			err := coredns.ApplyManifest(ctx.VirtualManager.GetConfig(), serverVersion)
 			if err != nil {
-				klog.Infof("Failed to apply CoreDNS cofiguration from the manifest file: %v", err)
+				klog.Infof("Failed to apply CoreDNS configuration from the manifest file: %v", err)
 				return false, nil
 			}
-			klog.Infof("CoreDNS cofiguration from the manifest file applied successfully")
+			klog.Infof("CoreDNS configuration from the manifest file applied successfully")
 			return true, nil
 		})
 	}()
