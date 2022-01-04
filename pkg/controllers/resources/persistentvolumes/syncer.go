@@ -29,7 +29,7 @@ const (
 )
 
 func RegisterSyncerIndices(ctx *context2.ControllerContext) error {
-	// index objects by their virtual name
+	// index objects by their physical name
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolume{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translatePersistentVolumeName(ctx.Options.TargetNamespace, rawObj.(*corev1.PersistentVolume).Name, rawObj)}
 	})
@@ -98,7 +98,6 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 			return ctrl.Result{}, s.virtualClient.Update(ctx, vPv)
 		}
 
-		// delete the finalizer here so that the object can be deleted
 		log.Infof("remove virtual persistent volume %s, because object should get deleted", vPv.Name)
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vPv)
 	}
@@ -108,7 +107,7 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 		return ctrl.Result{}, err
 	}
 
-	log.Infof("create physical persistent volume %s, because there is no virtual persistent volume", pPv.Name)
+	log.Infof("create physical persistent volume %s, because there is a virtual persistent volume", pPv.Name)
 	err = s.localClient.Create(ctx, pPv)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -124,7 +123,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	// check if objects are getting deleted
 	if vObj.GetDeletionTimestamp() != nil {
 		if pObj.GetDeletionTimestamp() == nil {
-			log.Infof("delete physical persistent volume %s, because virtual persistent volume is terminating", vObj.GetName())
+			log.Infof("delete physical persistent volume %s, because virtual persistent volume is terminating", pObj.GetName())
 			err := s.localClient.Delete(ctx, pObj)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -139,14 +138,14 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
-		log.Infof("delete virtual persistent volume %s, because there is no virtual persistent volume claim with that volume", pPersistentVolume.Name)
+		log.Infof("delete virtual persistent volume %s, because there is no virtual persistent volume claim with that volume", vPersistentVolume.Name)
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
 	}
 
 	// check if there is a corresponding virtual pvc
 	updatedObj := s.translateUpdateBackwards(vPersistentVolume, pPersistentVolume, vPvc)
 	if updatedObj != nil {
-		log.Infof("update virtual persistent volume %s, because spec has changed", pPersistentVolume.Name)
+		log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
 		err = s.virtualClient.Update(ctx, updatedObj)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -159,7 +158,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	// check status
 	if !equality.Semantic.DeepEqual(vPersistentVolume.Status, pPersistentVolume.Status) {
 		vPersistentVolume.Status = *pPersistentVolume.Status.DeepCopy()
-		log.Infof("update virtual persistent volume %s, because status has changed", pPersistentVolume.Name)
+		log.Infof("update virtual persistent volume %s, because status has changed", vPersistentVolume.Name)
 		err = s.virtualClient.Status().Update(ctx, vPersistentVolume)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -169,7 +168,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		return ctrl.Result{}, nil
 	}
 
-	// update the virtual persistent volume claim if the spec has changed
+	// update the physical persistent volume if the virtual has changed
 	if vPersistentVolume.Annotations == nil || vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] == "" {
 		if vPersistentVolume.DeletionTimestamp != nil {
 			if pPersistentVolume.DeletionTimestamp != nil {
