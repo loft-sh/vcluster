@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-// ConnectCmd holds the login cmd flags
+// ConnectCmd holds the cmd flags
 type ConnectCmd struct {
 	*flags.GlobalFlags
 
