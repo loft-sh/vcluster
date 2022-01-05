@@ -22,6 +22,62 @@ If you have manually [exposed the vcluster](./external-access.mdx), you can spec
 vcluster connect my-vcluster -n my-vcluster --server my-domain.org
 ```
 
+## Connect via Service Accounts
+
+By default, vcluster will create a kube config to access the vcluster that contains the default admin client certificate and client key to authenticate to the vcluster. This means that all kube configs generated will have cluster admin access within the vcluster.
+
+Often this might not be desired. Instead of giving a user admin access to the virtual cluster, you can also use [service account authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens) to the virtual cluster. Let's say we want to create a kube config that only has view access in the virtual cluster. Then you would create a new service account inside the vcluster and assign it the cluster role `view` via a cluster role binding. Then we would generate a service account token and use that instead of the client-cert and client-key inside the kube config.
+
+With vcluster version `v0.6.0` and higher you can automatically do this via the CLI:
+
+```
+vcluster connect my-vcluster -n my-vcluster --service-account kube-system/my-user --cluster-role view
+
+# OR: create a kube config for a cluster admin
+vcluster connect my-vcluster -n my-vcluster --service-account kube-system/my-user --cluster-role cluster-admin
+
+# OR: create a kube config that expires after an hour
+vcluster connect my-vcluster -n my-vcluster --service-account kube-system/my-user --cluster-role view --token-expiration 3600
+```
+
+This will create a kube config similar to this as well as create the needed service account and cluster role binding:
+```yaml
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0t...
+    server: https://localhost:8443
+  name: local
+contexts:
+- context:
+    cluster: local
+    namespace: default
+    user: user
+  name: Default
+current-context: Default
+kind: Config
+preferences: {}
+users:
+- name: user
+  user:
+    token: eyJhbGc...
+```
+
+As you can see the service account token is used in this kube config here instead of the client-cert and client-key that is used by default. Trying to create a namespace with this config will yield:
+
+```
+export KUBECONFIG=kubeconfig.yaml
+
+# This will work as we have view access
+kubectl get namespaces
+
+# This won't work
+kubectl create namespace test
+Error from server (Forbidden): namespaces is forbidden: User "system:serviceaccount:kube-system:my-user" cannot create resource "namespaces" in API group "" at the cluster scope
+```
+
+You can replace the token field in the kube config with any other service account token from inside the vcluster to act as this service account against the vcluster. For more information about service accounts and tokens, please refer to the [official Kubernetes documentation](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens).
+
 ## Retrieving the kube config from the vcluster secret
 
 There might be cases where connecting to a vcluster with the CLI is not feasible or the CLI cannot be installed. For such cases, you can retrieve the vcluster kube config from a secret that is created automatically in the vcluster namespace.

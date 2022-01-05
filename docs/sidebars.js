@@ -43,6 +43,7 @@ module.exports = {
         'architecture/networking',
         'architecture/storage',
         'architecture/nodes',
+        'architecture/synced-resources',
       ],
     },
     {
@@ -54,6 +55,7 @@ module.exports = {
         'operator/external-datastore',
         'operator/accessing-vcluster',
         'operator/monitoring',
+        'operator/high-availability',
         'operator/other-distributions',
         'operator/restricted-hosts',
         'operator/pausing-vcluster',

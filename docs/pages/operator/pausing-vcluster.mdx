@@ -18,10 +18,14 @@ vcluster pause my-vcluster -n my-vcluster-namespace
 ```
 
 This command will do the following things:
-1. Scale down the vcluster statefulset or deployment
+1. Scale down the vcluster statefulset or deployment depending on which vcluster distro was used
 2. Delete all the workloads created by vcluster
 
-The command leaves the objects within the vcluster untouched, which means that even
+The command leaves the objects within the vcluster untouched, which means that even single pods that were deployed within the vcluster without a controlling replica set or statefulset will be restarted.
+
+:::warning Temporary Filesystem of Pods erased
+Since all the pods will be restarted, this also means that their temporary filesystem is erased as well as pod ip is changed.
+::: 
 
 ## Resuming a vcluster
 

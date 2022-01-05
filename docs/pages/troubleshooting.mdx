@@ -20,7 +20,7 @@ If you are having problems with k3s not starting or database being locked, you c
 The problem is that SSL termination does happen at the ingress controller level and not at vcluster itself. By default, vcluster uses client cert authentication, which will be sent to the ingress controller and the ingress controller will then forward the request to vcluster, but without the client cert, which causes the error. There are possible solutions to this problem:
 
 1. Use SSL pass through for your ingress controller as described [here](./operator/external-access.mdx). Make sure you do not have `spec.tls` defined.
-2. 
+2. Use service account authentication instead of client-cert and client-key described [here](./operator/accessing-vcluster.mdx#connect-via-service-accounts)
 
 ### Problem: installing vcluster causes Error: Chart.yaml file is missing
 

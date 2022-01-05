@@ -20,6 +20,9 @@ vcluster create vcluster-1 -n host-namespace-1 --expose
 
 # OR: Use -f to use an additional helm values.yaml with extra chart options to deploy vcluster
 vcluster create vcluster-1 -n host-namespace-1 -f values.yaml
+    
+# OR: Use --distro to specify either k0s or vanilla k8s as backing virtual cluster
+vcluster create vcluster-1 -n host-namespace-1 --distro k8s
 ```
 
 </TabItem>
