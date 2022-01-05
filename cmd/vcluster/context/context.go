@@ -103,6 +103,7 @@ var ExistingControllers = map[string]bool{
 	"storageclasses":         true,
 	"priorityclasses":        true,
 	"networkpolicies":        true,
+	"volumesnapshots":        true,
 }
 
 var DefaultEnabledControllers = []string{

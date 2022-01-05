@@ -3,6 +3,7 @@ package persistentvolumeclaims
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -21,15 +22,18 @@ func (s *syncer) translate(targetNamespace string, vPvc *corev1.PersistentVolume
 
 	newPvc := newObj.(*corev1.PersistentVolumeClaim)
 	newPvc = s.translateSelector(newPvc)
-	if newPvc.Spec.DataSource != nil && newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" {
-		newPvc.Spec.DataSource.Name = translate.PhysicalName(newPvc.Spec.DataSource.Name, targetNamespace)
+	if newPvc.Spec.DataSource != nil && vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" &&
+		(newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" || newPvc.Spec.DataSource.Kind == "VolumeSnapshot") {
+
+		newPvc.Spec.DataSource.Name = translate.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
 	}
+	//TODO: add support for the .Spec.DataSourceRef field
 	return newPvc, nil
 }
 
 func (s *syncer) translateSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	if !s.useFakePersistentVolumes {
-		if vPvc.Annotations == nil || vPvc.Annotations[skipPVTranslationAnnotation] != "true" {
+		if vPvc.Annotations == nil || vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 			newObj := vPvc
 			newObj.Spec = *vPvc.Spec.DeepCopy()
 			if newObj.Spec.Selector != nil {
