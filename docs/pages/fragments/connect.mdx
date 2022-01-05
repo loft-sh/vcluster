@@ -1,3 +1,6 @@
 ```bash
 vcluster connect vcluster-1 -n host-namespace-1
+
+# OR: create a view only config
+vcluster connect vcluster-1 -n host-namespace-1 --service-account viewer --cluster-role view
 ```
