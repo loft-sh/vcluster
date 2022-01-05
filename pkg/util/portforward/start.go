@@ -3,10 +3,6 @@ package portforward
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"os"
-	"time"
-
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,9 +10,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport/spdy"
+	"net/http"
+	"os"
+	"time"
 )
 
-func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace string, localPort, remotePort string, log log.Logger) error {
+func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace string, localPort, remotePort string, interrupt chan struct{}, log log.Logger) error {
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -29,33 +28,40 @@ func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace
 	}
 
 	for {
-		<-stopChan
-		log.Info("Restart port forwarding")
+		select {
+		case <-interrupt:
+			close(stopChan)
+			return nil
+		case <-stopChan:
+			log.Info("Restart port forwarding")
 
-		// wait for loft pod to start
-		err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
-			pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), pod, metav1.GetOptions{})
-			if err != nil {
-				return false, nil
-			}
-			for _, c := range pod.Status.Conditions {
-				if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
-					return true, nil
+			// wait for loft pod to start
+			err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
+				pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), pod, metav1.GetOptions{})
+				if err != nil {
+					return false, nil
 				}
+				for _, c := range pod.Status.Conditions {
+					if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+						return true, nil
+					}
+				}
+				return false, nil
+			})
+			if err != nil {
+				log.Warnf("error waiting for ready vcluster pod: %v", err)
+				continue
 			}
-			return false, nil
-		})
-		if err != nil {
-			return fmt.Errorf("error waiting for ready vcluster pod: %v", err)
-		}
 
-		// restart port forwarding
-		stopChan, err = StartPortForwarding(config, kubeClient, address, pod, namespace, localPort, remotePort, log)
-		if err != nil {
-			return fmt.Errorf("error starting port forwarding: %v", err)
-		}
+			// restart port forwarding
+			stopChan, err = StartPortForwarding(config, kubeClient, address, pod, namespace, localPort, remotePort, log)
+			if err != nil {
+				log.Warnf("error starting port forwarding: %v", err)
+				continue
+			}
 
-		log.Donef("Successfully restarted port forwarding")
+			log.Donef("Successfully restarted port forwarding")
+		}
 	}
 }
 
