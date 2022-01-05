@@ -308,7 +308,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 
 	printedWaiting := false
 	err := wait.PollImmediate(time.Second*2, time.Minute*10, func() (done bool, err error) {
-		kubeConfig, err = kubeconfig.ReadKubeConfig(context.Background(), kubeClient, vclusterName, namespace)
+		kubeConfig, err = kubeconfig.ReadKubeConfig(ctx, kubeClient, vclusterName, namespace)
 		if err != nil {
 			// try to obtain the kube config the old way
 			stdout, _, err := podhelper.ExecBuffered(restConfig, namespace, podName, "syncer", []string{"cat", "/root/.kube/config"}, nil)

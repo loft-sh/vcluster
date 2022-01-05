@@ -1,0 +1,34 @@
+---
+title: Pausing & Resuming vcluster
+sidebar_label: Pausing & Resuming vcluster
+---
+
+:::warning
+This is an alpha feature and only available in the preview `v0.6.0` versions of vcluster
+:::
+
+Pausing a vcluster means to temporarily scale down the vcluster and delete all its created workloads on the host cluster. This can be useful to save computing resources used by vcluster workloads in the host cluster. 
+
+## Pausing a vcluster
+
+In order to pause a vcluster, make sure you have the CLI installed and run the following command:
+
+```
+vcluster pause my-vcluster -n my-vcluster-namespace
+```
+
+This command will do the following things:
+1. Scale down the vcluster statefulset or deployment
+2. Delete all the workloads created by vcluster
+
+The command leaves the objects within the vcluster untouched, which means that even
+
+## Resuming a vcluster
+
+To resume a vcluster, make sure you have the CLI installed and run the following command:
+
+```
+vcluster resume my-vcluster -n my-vcluster-namespace
+```
+
+As soon as the vcluster is resumed, vcluster will scale up the paused statefulset or deployment and the vcluster syncer will recreate the vcluster pods. 

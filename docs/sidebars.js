@@ -56,7 +56,12 @@ module.exports = {
         'operator/monitoring',
         'operator/other-distributions',
         'operator/restricted-hosts',
+        'operator/pausing-vcluster',
       ],
+    },
+    {
+      type: 'doc',
+      id: 'troubleshooting',
     },
     {
       type: 'doc',

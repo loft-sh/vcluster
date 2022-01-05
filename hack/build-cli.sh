@@ -42,6 +42,12 @@ fi
 # Create the release directory
 mkdir -p "${VCLUSTER_ROOT}/release"
 
+# copy assets
+cp -a "${REPO_ROOT}/assets/." "${REPO_ROOT}/release/"
+
+# generate vcluster-images.txt
+go run -mod vendor "${REPO_ROOT}/hack/assets/main.go" ${VERSION} > "${REPO_ROOT}/release/vcluster-images.txt"
+
 for OS in ${VCLUSTER_BUILD_PLATFORMS[@]}; do
   for ARCH in ${VCLUSTER_BUILD_ARCHS[@]}; do
     NAME="vcluster-${OS}-${ARCH}"

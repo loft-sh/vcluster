@@ -44,20 +44,9 @@ Update the `vcluster-1.yaml` file from the previous steps.
 
 You will need to add a new rule as shown below:
 
-```yaml {7-9}
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: vcluster-1
-rules:
-  ...
-  - apiGroups: [""]
-    resources: ["endpoints/restricted"]
-    verbs: ["create"]
-```
-
 ```bash
-kubectl apply -f vcluster-1.yaml -n host-namespace-1
+kubectl create namespace host-namespace-1
+helm template my-vcluster vcluster --repo https://charts.loft.sh --set serviceCIDR=10.96.0.0/12 --set openshift.enable=true -n host-namespace-1 | kubectl apply -f -
 ```
 </TabItem>
 </Tabs>

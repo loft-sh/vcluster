@@ -9,13 +9,34 @@ import TabItem from '@theme/TabItem'
 vcluster uses k3s as Kubernetes distribution for the virtual control plane. The ability to run Kubernetes using a datastore other than etcd sets K3s apart from other Kubernetes distributions. This feature provides flexibility to vcluster operators. The available datastore options allow you to select a datastore that best fits your use case.
 
 K3s supports the following datastore options:
-* [Embedded SQLite](https://www.sqlite.org/index.html) (default)
+* [Embedded SQLite](https://www.sqlite.org/index.html) (default with Persistent Volume)
 * [PostgreSQL](https://www.postgresql.org/)
 * [MySQL](https://www.mysql.com/)
 * [MariaDB](https://mariadb.org/)
 * [etcd](https://etcd.io/)
 
 For more information, please take a look at the [k3s documentation](https://rancher.com/docs/k3s/latest/en/installation/datastore/) directly.
+
+## Embedded SQLite without Persistent Volume
+
+By default vcluster will deploy k3s to use a persistent volume claim to store the data in. You can also instead use an [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) to store the virtual cluster data. 
+
+In order to use an emptyDir to store the data instead of a persistent volume, please create a `values.yaml` with the following contents:
+
+```
+storage:
+  persistence: false
+```
+
+Then upgrade or recreate the vcluster with:
+
+```
+vcluster create my-vcluster -n my-vcluster --upgrade -f values.yaml
+```
+
+:::warning Potential Data Loss 
+This method should only be used for testing purposes, as data will be lost upon pod recreation. If you are having problems with k3s in general, please consider [using another Kubernetes distribution such as k0s or vanilla k8s](./other-distributions.mdx)
+:::
 
 ## Datastore Options
 
