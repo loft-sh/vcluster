@@ -7,6 +7,7 @@ By default, vcluster is only reachable via port-forwarding. However, this means 
 - [LoadBalancer service](#loadbalancer-service)
 - [NodePort service](#nodeport-service)
 - [Ingress](#ingress)
+- [In-Cluster](#in-cluster)
 
 ## LoadBalancer service
 
@@ -195,7 +196,7 @@ If you are using the ingress nginx controller, please make sure you have [enable
 :::
 
 :::warning SSL Passthrough required
-In order for an ingress to work correctly, you will need to enable SSL passthrough as TLS termination has to happen at the vcluster level and not ingress controller level.
+In order for this ingress to work correctly, you will need to enable SSL passthrough as TLS termination has to happen at the vcluster level and not ingress controller level. If you cannot do that, please take a look below for using an ingress without ssl passthrough.
 :::
 
 Now create a `values.yaml` to create the vcluster with:
@@ -219,6 +220,72 @@ Access the vcluster:
 ```
 export KUBECONFIG=./kubeconfig.yaml
 
-# Run any kube context command
+# Run any kubectl command
+kubectl get ns
+```
+
+### Ingress without SSL-Passthrough
+
+:::warning
+This only works with the `v0.6.0` vclusterctl versions of vcluster
+:::
+
+If you cannot configure your ingress controller to use ssl-passthrough, you can also create an ingress similar to this:
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  name: vcluster-ingress
+  namespace: my-vcluster
+spec:
+  rules:
+  - host: my-vcluster.example.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: my-vcluster
+            port: 
+              number: 443
+        path: /
+        pathType: ImplementationSpecific
+  tls:
+  - hosts: my-vcluster.example.com
+```
+
+With this configuration you will need to use [service account authentication](./accessing-vcluster.mdx#connect-via-service-accounts) in order to connect as the ingress controller won't be able to resolve the client-cert and client-key which is used by default as authentication method. To create a kube config that uses a service account, please run the following command:
+
+```
+vcluster connect my-vcluster -n my-vcluster --server=https://my-vcluster.example.com --service-account admin --cluster-role cluster-admin --insecure
+```
+
+Then access the vcluster:
+```
+export KUBECONFIG=./kubeconfig.yaml
+
+# Run any kubectl command
+kubectl get ns
+```
+
+## In-Cluster
+
+:::warning
+This only works with the `v0.6.0` vclusterctl versions of vcluster
+:::
+
+In order to access the virtual cluster from within the host cluster, you can directly connect to the vcluster service. Make sure you can access that service and then create a kube config in the following form:
+```
+vcluster connect my-vcluster -n my-vcluster --server=my-vcluster.my-vcluster --insecure
+```
+
+Now access the virtual cluster with:
+```
+export KUBECONFIG=./kubeconfig.yaml
+
+# Run any kubectl command
 kubectl get ns
 ```

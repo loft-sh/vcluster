@@ -14,7 +14,13 @@ No matter if we are creating namespaces within the virtual cluster, everything w
 :::
 
 :::caution Air-gapped Clusters
-If you want to deploy vclusters in an air-gapped environment, use the `kubectl` tab and make sure to download and import all required images to your internal container registry first.
+If you want to deploy vclusters in an air-gapped environment, you can set the following option in the `values.yaml` used to deploy vcluster:
+```
+defaultImageRegistry: my-private-registry:5000/vcluster/
+```
+This will tell vcluster to prepend the above image registry to all images used by vcluster, such as syncer, k3s, coredns etc. So for example `rancher/k3s:v1.22.2-k3s1` will become `my-private-registry:5000/vcluster/rancher/k3s:v1.22.2-k3s1`
+
+You can find a list of all needed images by vcluster in the file `vcluster-images.txt` at the [releases page](https://github.com/loft-sh/vcluster/releases), as well as two scripts (download-images.sh & push-images.sh) to pull and push those to your private registry. 
 :::
 
 

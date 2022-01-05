@@ -27,7 +27,7 @@ By default (this can be disabled), the vcluster also synchronizes Ingress resour
 If you do **not** want ingresses to be synchronized and instead, you want to use a separate ingress controller within a vcluster, you can add the following syncer configuration in the vcluster configuration:
 ```yaml
 syncer:
-  extraArgs: ["--disable-sync-resources=ingresses"]
+  extraArgs: ["--sync=-ingresses"] # Disable ingress sync
 ```
 
 ### SSL Certificates

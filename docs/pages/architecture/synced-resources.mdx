@@ -1,0 +1,73 @@
+---
+title: Synced Resources
+sidebar_label: Synced Resources
+---
+
+This section lists all resources that can be synced or mirrored by vcluster currently in the table below. Those resources can be activated or deactivated via the `--sync` flag of the syncer. By default, certain resources are already activated and you can either disable the default resources or tell vcluster to sync other supported resources as well.
+
+| Resource               | Description                                                                                                                                                                                                                                                                                | Default Enabled |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- --------|-----------------|
+| services               | Mirrors services between host and virtual cluster                                                                                                                                                                                                                                          | Yes             |
+| endpoints              | Mirrors endpoints between host and virtual cluster                                                                                                                                                                                                                                         | Yes             |
+| configmaps             | Mirrors used configmaps by pods between host and virtual cluster                                                                                                                                                                                                                           | Yes             |
+| secrets                | Mirrors used secrets by ingresses or pods between host and virtual cluster                                                                                                                                                                                                                 | Yes             |
+| events                 | Syncs events from host cluster to virtual cluster                                                                                                                                                                                                                                          | Yes             |
+| pods                   | Mirrors pods between host and virtual cluster                                                                                                                                                                                                                                              | Yes             |
+| persistentvolumeclaims | Mirrors persistent volume claims between host and virtual cluster                                                                                                                                                                                                                          | Yes             |
+| ingresses              | Mirrors ingresses between host and virtual cluster. Automatically tries to detect the supported ingress version (networking.k8s.io/v1 or networking.k8s.io/v1beta1)                                                                                                                        | Yes             |
+| fake-nodes             | Creates fake nodes based on spec.nodeName fields of synced pods. Requires no cluster role                                                                                                                                                                                                  | Yes             |
+| fake-persistentvolumes | Creates fake persistent volumes based on spec.volumeName of persistent volume claims. Requires no cluster role                                                                                                                                                                             | Yes             |
+| nodes                  | Syncs real nodes from host cluster to virtual cluster. Requires a cluster role and if enabled, implies that fake-nodes is disabled. For more information see [nodes](./nodes.mdx).                                                                                                         | No              |
+| persistentvolumes      | Mirrors persistent volumes from vcluster to host cluster and dynamically created persistent volumes from host cluster to virtual cluster. Requires a cluster role and if enabled, implies that fake-persistentvolumes is disabled. For more information see [storage](./storage.mdx).      | No              |
+| storageclasses         | Syncs real storage classes from host cluster to virtual cluster. Requires a cluster role                                                                                                                                                                                                   | No              |
+| priorityclasses        | Syncs created priority classes from virtual cluster to host cluster. Requires a cluster role                                                                                                                                                                                               | No              |
+| networkpolicies        | Syncs created network policies from virtual cluster to host cluster. Requires extended namespace role                                                                                                                                                                                      | No              |
+| volumesnapshots        | Enables volumesnapshot, volumesnapshotcontents and volumesnapshotclasses support. Syncing behaves similar to persistentvolumeclaims, persistentvolumes and storage classes. Requires a cluster role as well as extended namespace role. For more information see [storage](./storage.mdx). | No              |
+
+By default, vcluster runs with a minimal set of RBAC permissions to allow execution in restricted environments. Certain resources require extra permissions:
+1. **Cluster Role**: The cluster role can be enabled via the helm value `rbac.clusterRole.create: true`
+2. **Extended Namespace Role**: The extended rules for the namespace role can be enabled via the helm value `rbac.role.extended: true`
+
+E.g. to enable cluster role and extended namespace role, use the following `values.yaml`:
+
+```
+rbac:
+  clusterRole: 
+    create: true
+  role:
+    extended: true
+```
+
+then create or upgrade the vcluster with:
+
+```
+vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
+```
+
+## Enable or disable synced resources
+
+To disable a default synced resource, prefix the resource with `-`, so for example if you don't want to sync ingresses, specify this in the `--sync` flag like this: 
+
+```yaml
+syncer:
+  extraArgs:
+  - --sync=-ingresses # Disables ingress sync
+```
+
+If you also want to enable a non default synced resource, just add the resource name to the `--sync` flag like this:
+
+```yaml
+syncer:
+  extraArgs:
+  - --sync=priorityclasses,-ingresses # Enables priority classes sync and disables ingresses sync
+```
+
+:::warning Correct Cluster Functionality
+Disabling certain resources such as services, endpoints or pods can lead to a non-functional virtual Kubernetes cluster, so be careful with what resources you are deactivating. 
+::: 
+
+## Sync other resources
+
+Syncing other resources such as deployments, statefulsets and namespaces is usually not needed as those just control lower level resources and since those lower level resources are synced the cluster can function correctly. 
+
+However, there might be cases though were custom syncing of resources might be needed or beneficial. In order to accomplish this, vcluster provides an SDK to develop your own resource syncers. This is currently a work in progress and will be added in the form of plugins to vcluster shortly (ETA February-March 2022).

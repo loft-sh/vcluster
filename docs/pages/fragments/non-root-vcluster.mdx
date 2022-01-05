@@ -42,29 +42,11 @@ Then, install helm chart using `vcluster.yaml` for chart values as described in 
 </TabItem>
 <TabItem value="kubectl">
 
-Update the `vcluster-1.yaml` file described in the [deployment guide](../getting-started/deployment). 
-
 You will need to add the `securityContext` blocks to the containers as shown below:
 
-```yaml {10-12,15-17}
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  ...
-spec:
-  template:
-    spec:
-      containers:
-      - name: virtual-cluster
-        securityContext:
-          runAsUser: 12345
-          runAsNonRoot: true
-        ...
-      - name: syncer
-        securityContext:
-          runAsUser: 12345
-          runAsNonRoot: true
-        ...
+```
+kubectl create namespace host-namespace-1
+helm template my-vcluster vcluster --repo https://charts.loft.sh --set serviceCIDR=10.96.0.0/12 --set securityContext.runAsUser=12345 --set securityContext.runAsNonRoot=true -n host-namespace-1 | kubectl apply -f -
 ```
 </TabItem>
 </Tabs>

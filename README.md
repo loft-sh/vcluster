@@ -42,7 +42,7 @@ Learn more in the [documentation](https://vcluster.com/docs/what-are-virtual-clu
 ### Features
 
 - **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://www.cncf.io/certification/software-conformance/) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
-- **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption
+- **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption. Other distributions such as k0s or vanilla k8s are also supported
 - **No Performance Degradation** - Pods are scheduled in the underlying host cluster, so they get no performance hit at all while running
 - **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vcluster to reduce complexity and increase scalability. Since most vcluster api requests and objects will not reach the host cluster at all, vcluster can greatly decrease pressure on the underlying Kubernetes cluster
 - **Easy Provisioning** - Create via vcluster CLI, helm, kubectl, Argo or any of your favorite tools (it is basically just a StatefulSet)

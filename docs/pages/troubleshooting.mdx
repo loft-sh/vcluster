@@ -1,0 +1,47 @@
+---
+title: Troubleshooting
+sidebar_label: Troubleshooting
+---
+
+In this section you will find common problems and their solutions or workarounds. In general, it's always a good start to check the vcluster and syncer logs via kubectl:
+
+```
+# Retrieve syncer logs
+kubectl logs -n test -l app=vcluster,release=test -c syncer
+
+# Retrieve vcluster logs
+kubectl logs -n test -l app=vcluster,release=test -c vcluster
+```
+
+If you are having problems with k3s not starting or database being locked, you can also try to [use a different distribution such as k0s or k8s](./operator/other-distributions.mdx) or try to use another [storage type for k3s](./operator/external-datastore.mdx).
+
+### Problem: using vcluster with an ingress causes unauthorized errors
+
+The problem is that SSL termination does happen at the ingress controller level and not at vcluster itself. By default, vcluster uses client cert authentication, which will be sent to the ingress controller and the ingress controller will then forward the request to vcluster, but without the client cert, which causes the error. There are possible solutions to this problem:
+
+1. Use SSL pass through for your ingress controller as described [here](./operator/external-access.mdx). Make sure you do not have `spec.tls` defined.
+2. Use service account authentication instead of client-cert and client-key described [here](./operator/accessing-vcluster.mdx#connect-via-service-accounts)
+
+### Problem: installing vcluster causes Error: Chart.yaml file is missing
+
+You have a folder or file called vcluster in the current working directory. This is a known helm problem, where helm thinks this is a chart directory. The solution is to install vcluster in a folder where no other folder or file with the name of vcluster is present.
+
+### CoreDNS Problem: [FATAL] plugin/loop: Loop (127.0.0.1:59658 -> :53) detected for zone "."
+
+Looks like this might be a problem with the kubelet configuration, you can find more information about this problem at the [core dns documentation.](https://coredns.io/plugins/loop/)
+
+### Problem: no matches for kind "Ingress" in version "networking.k8s.io/v1" or "networking.k8s.io/v1beta1" 
+
+The solution is to disable ingress sync with a `values.yaml`:
+
+```
+syncer:
+  extraArgs:
+  - --sync=-ingresses
+```
+
+And then either upgrading or recreating the vcluster with:
+
+```
+vcluster create test -n test --upgrade -f values.yaml
+```

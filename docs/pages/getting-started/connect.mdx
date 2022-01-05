@@ -11,6 +11,8 @@ Now that we deployed a vcluster, let's connect to it, run a couple of `kubectl` 
 The easiest option to connect to your vcluster is by starting port-forwarding to the vcluster's service via:
 <ConnectSegment/>
 
+If you want to use vcluster without port-forwarding, you can take a look at [other supported exposing methods](../operator/external-access.mdx).
+
 :::caution Keep Connection Open
 If you terminate the `vcluster connect` command, port-forwarding will be terminated, so keep this command open while you are working with your vcluster. Alternatively, you could configure an ingress to route to the vcluster service. This would allow you to connect via an ingress instead of having to start port-forwarding every time you want to interact with the vcluster.
 :::
