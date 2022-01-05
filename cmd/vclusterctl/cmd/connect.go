@@ -46,8 +46,10 @@ type ConnectCmd struct {
 
 	ServiceAccount            string
 	ServiceAccountClusterRole string
+	ServiceAccountExpiration  int
 
-	Server string
+	Server   string
+	Insecure bool
 
 	Log log.Logger
 }
@@ -90,6 +92,8 @@ vcluster connect test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.Address, "address", "", "The local address to start port forwarding under")
 	cobraCmd.Flags().StringVar(&cmd.ServiceAccount, "service-account", "", "If specified, vcluster will create a service account token to connect to the virtual cluster instead of using the default client cert / key. Service account must exist and can be used as namespace/name.")
 	cobraCmd.Flags().StringVar(&cmd.ServiceAccountClusterRole, "cluster-role", "", "If specified, vcluster will create the service account if it does not exist and also add a cluster role binding for the given cluster role to it. Requires --service-account to be set")
+	cobraCmd.Flags().IntVar(&cmd.ServiceAccountExpiration, "token-expiration", 0, "If specified, vcluster will create the service account token for the given duration in seconds. Defaults to eternal")
+	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If specified, vcluster will create the kube config with insecure-skip-tls-verify")
 	return cobraCmd
 }
 
@@ -217,8 +221,13 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 		}
 	}
 
-	port := ""
+	port := "8443"
 	for k := range kubeConfig.Clusters {
+		if cmd.Insecure {
+			kubeConfig.Clusters[k].CertificateAuthorityData = nil
+			kubeConfig.Clusters[k].InsecureSkipTLSVerify = true
+		}
+
 		if cmd.Server != "" {
 			if !strings.HasPrefix(cmd.Server, "https://") {
 				cmd.Server = "https://" + cmd.Server
@@ -324,13 +333,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 func (cmd *ConnectCmd) createServiceAccountToken(vclusterKubeConfig api.Config) (string, error) {
 	// wait until we can access the virtual cluster
 	for k := range vclusterKubeConfig.Clusters {
-		splitted := strings.Split(vclusterKubeConfig.Clusters[k].Server, ":")
-		if len(splitted) != 3 {
-			return "", fmt.Errorf("unexpected server in kubeconfig: %s", vclusterKubeConfig.Clusters[k].Server)
-		}
-
-		splitted[2] = strconv.Itoa(cmd.LocalPort)
-		vclusterKubeConfig.Clusters[k].Server = strings.Join(splitted, ":")
+		vclusterKubeConfig.Clusters[k].Server = "https://localhost:" + strconv.Itoa(cmd.LocalPort)
 	}
 
 	vRestConfig, err := clientcmd.NewDefaultClientConfig(vclusterKubeConfig, &clientcmd.ConfigOverrides{}).ClientConfig()
@@ -359,6 +362,9 @@ func (cmd *ConnectCmd) createServiceAccountToken(vclusterKubeConfig api.Config) 
 
 	audiences := []string{"https://kubernetes.default.svc.cluster.local", "https://kubernetes.default.svc", "https://kubernetes.default"}
 	expirationSeconds := int64(10 * 365 * 24 * 60 * 60)
+	if cmd.ServiceAccountExpiration > 0 {
+		expirationSeconds = int64(cmd.ServiceAccountExpiration)
+	}
 	token := ""
 	cmd.Log.Infof("Create service account token for %s/%s", serviceAccountNamespace, serviceAccount)
 	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
