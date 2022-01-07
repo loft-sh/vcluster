@@ -68,6 +68,9 @@ spec:
       {{- if not .Values.vcluster.disabled }}
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
         name: vcluster
+        # k3s has a problem running as pid 1 and disabled agents on cgroupv2
+        # nodes as it will try to evacuate the cgroups there. Starting k3s
+        # through a shell makes it non pid 1 and prevents this from happening
         command:
           - /bin/sh
         args:
