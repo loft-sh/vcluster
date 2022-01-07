@@ -82,5 +82,13 @@ jobs:
 
     # Skips NetworkPolicy tests because they require network plugin with support (e.g. Calico)
     - name: Execute e2e tests
+      id: execute-e2e-tests
       working-directory: ./e2e
       run: VCLUSTER_SUFFIX=vcluster go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
+      continue-on-error: true
+
+    - name: Print vcluster logs if e2e tests fail
+      if: steps.execute-e2e-tests.outcome == 'failure'
+      run: |
+        kubectl logs -l app=vcluster -n vcluster -c syncer --tail=5000
+        exit 1
