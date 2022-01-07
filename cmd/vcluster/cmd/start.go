@@ -264,24 +264,6 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		return errors.Wrap(err, "create controller context")
 	}
 
-	// start leader election for controllers
-	rawConfig, err := clientConfig.RawConfig()
-	if err != nil {
-		return err
-	}
-	go func() {
-		if ctx.Options.LeaderElect {
-			err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
-				return startControllers(ctx, &rawConfig, serverVersion)
-			})
-		} else {
-			err = startControllers(ctx, &rawConfig, serverVersion)
-		}
-		if err != nil {
-			klog.Fatalf("Error starting leader election: %v", err)
-		}
-	}()
-
 	// start the proxy
 	proxyServer, err := server.NewServer(ctx, options.RequestHeaderCaCert, options.ClientCaCert)
 	if err != nil {
@@ -289,11 +271,31 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	// start the proxy server in secure mode
-	err = proxyServer.ServeOnListenerTLS(options.BindAddress, options.Port, ctx.StopChan)
+	go func() {
+		err = proxyServer.ServeOnListenerTLS(options.BindAddress, options.Port, ctx.StopChan)
+		if err != nil {
+			klog.Fatalf("Error serving: %v", err)
+		}
+	}()
+
+	// start leader election for controllers
+	rawConfig, err := clientConfig.RawConfig()
 	if err != nil {
 		return err
 	}
 
+	if ctx.Options.LeaderElect {
+		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
+			return startControllers(ctx, &rawConfig, serverVersion)
+		})
+	} else {
+		err = startControllers(ctx, &rawConfig, serverVersion)
+	}
+	if err != nil {
+		return errors.Wrap(err, "start controllers")
+	}
+
+	<-ctx.StopChan
 	return nil
 }
 

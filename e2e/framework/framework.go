@@ -159,12 +159,12 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		}
 
 		// try to use the client with retry in case port forwarding is not ready yet
-		namespaces, err := vclusterClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		_, err = vclusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
 
-		return len(namespaces.Items) > 0, nil
+		return true, nil
 	})
 	if err != nil {
 		return err
