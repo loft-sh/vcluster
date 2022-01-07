@@ -69,19 +69,22 @@ spec:
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
         name: vcluster
         command:
-          {{- range $f := .Values.vcluster.command }}
-          - {{ $f | quote }}
-          {{- end }}
+          - /bin/sh
         args:
+          - -c
+          - {{ range $f := .Values.vcluster.command -}}
+            {{ $f }}
+            {{- end }}
           {{- range $f := .Values.vcluster.baseArgs }}
-          - {{ $f | quote }}
+            {{ $f }}
           {{- end }}
           {{- if .Values.serviceCIDR }}
-          - --service-cidr={{ .Values.serviceCIDR }}
+            --service-cidr={{ .Values.serviceCIDR }}
           {{- end }}
           {{- range $f := .Values.vcluster.extraArgs }}
-          - {{ $f | quote }}
+            {{ $f }}
           {{- end }}
+            && true
         env:
 {{ toYaml .Values.vcluster.env | indent 10 }}
         securityContext:

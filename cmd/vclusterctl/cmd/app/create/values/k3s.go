@@ -15,6 +15,7 @@ import (
 )
 
 var K3SVersionMap = map[string]string{
+	"1.22": "rancher/k3s:v1.22.5-k3s1",
 	"1.21": "rancher/k3s:v1.21.4-k3s1",
 	"1.20": "rancher/k3s:v1.20.11-k3s2",
 	"1.19": "rancher/k3s:v1.19.13-k3s1",
@@ -60,10 +61,10 @@ func getDefaultK3SReleaseValues(client kubernetes.Interface, createOptions *crea
 		var ok bool
 		image, ok = K3SVersionMap[serverVersionString]
 		if !ok {
-			if serverMinorInt > 21 {
+			if serverMinorInt > 22 {
 				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.21", serverVersionString)
-				image = K3SVersionMap["1.21"]
-				serverVersionString = "1.21"
+				image = K3SVersionMap["1.22"]
+				serverVersionString = "1.22"
 			} else {
 				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.16", serverVersionString)
 				image = K3SVersionMap["1.16"]
