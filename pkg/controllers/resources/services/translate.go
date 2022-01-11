@@ -56,6 +56,10 @@ func (s *syncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Service {
 
 	// check annotations
 	updatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
+	// remove the ServiceBlockDeletion annotation if it's not needed
+	if vObj.Spec.ClusterIP == pObj.Spec.ClusterIP {
+		delete(updatedAnnotations, ServiceBlockDeletion)
+	}
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) {
 		updated = newIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations
