@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
@@ -245,6 +246,14 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 			extraValues = append(extraValues, tempFile.Name())
 		}
+	}
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("unable to get current work directory: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, cmd.ChartName)); err == nil {
+		return fmt.Errorf("aborting vcluster creation. Current working directory contains a file or a directory with the name equal to the vcluster chart name - \"%s\". Please execute vcluster create command from a directory that doesn't contain a file or directory named \"%s\"", cmd.ChartName, cmd.ChartName)
 	}
 
 	// we have to upgrade / install the chart
