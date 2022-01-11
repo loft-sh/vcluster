@@ -74,6 +74,7 @@ data:
         reload
         loadbalance
     }
+    import /etc/coredns/custom/*.server
   NodeHosts: ""
 ---
 apiVersion: apps/v1
@@ -134,6 +135,9 @@ spec:
         - name: config-volume
           mountPath: /etc/coredns
           readOnly: true
+        - name: custom-config-volume
+          mountPath: /etc/coredns/custom
+          readOnly: true
         ports:
         - containerPort: 1053
           name: dns
@@ -182,6 +186,10 @@ spec:
               path: Corefile
             - key: NodeHosts
               path: NodeHosts
+        - name: custom-config-volume
+          configMap:
+            name: coredns-custom
+            optional: true
 ---
 apiVersion: v1
 kind: Service
