@@ -2,9 +2,10 @@ package services
 
 import (
 	"context"
+	"testing"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"k8s.io/apimachinery/pkg/types"
-	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -19,11 +20,11 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		serviceName:      "myservice",
-		currentNamespace: "test",
-		currentNamespaceClient:    pClient,
-		virtualClient:    vClient,
-		localClient:      pClient,
+		serviceName:            "myservice",
+		currentNamespace:       "test",
+		currentNamespaceClient: pClient,
+		virtualClient:          vClient,
+		localClient:            pClient,
 
 		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "service"),
 		translator: translate.NewDefaultTranslator("test"),
@@ -40,7 +41,7 @@ func TestSync(t *testing.T) {
 		Name:      translate.PhysicalName("testservice", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation: vObjectMeta.Name,
+			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
@@ -62,6 +63,8 @@ func TestSync(t *testing.T) {
 	kubernetesService := &corev1.Service{
 		ObjectMeta: vKubernetesObjectMeta,
 	}
+	createdByServerService := createdService.DeepCopy()
+	createdByServerService.Annotations[ServiceBlockDeletion] = "true"
 	updateForwardSpec := corev1.ServiceSpec{
 		Ports: []corev1.ServicePort{
 			{
@@ -94,12 +97,12 @@ func TestSync(t *testing.T) {
 			Namespace:   pObjectMeta.Namespace,
 			ClusterName: pObjectMeta.ClusterName,
 			Annotations: map[string]string{
-				translate.NameAnnotation: vObjectMeta.Name,
-				translate.NamespaceAnnotation: vObjectMeta.Namespace,
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
 				translate.ManagedAnnotationsAnnotation: "a",
-				"a": "b",
+				"a":                                    "b",
 			},
-			Labels:      pObjectMeta.Labels,
+			Labels: pObjectMeta.Labels,
 		},
 		Spec: updateForwardSpec,
 	}
@@ -127,8 +130,8 @@ func TestSync(t *testing.T) {
 	}
 	updatedBackwardSpecService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        vObjectMeta.Name,
-			Namespace:   vObjectMeta.Namespace,
+			Name:      vObjectMeta.Name,
+			Namespace: vObjectMeta.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ExternalIPs:              []string{"123:221:123:221"},
@@ -215,7 +218,7 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Update forward",
 			InitialVirtualState:  []runtime.Object{updateForwardService.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{createdService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{createdByServerService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateForwardService.DeepCopy()},
 			},
@@ -224,7 +227,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, createdService, updateForwardService, log)
+				_, err := syncer.Update(ctx, createdByServerService, updateForwardService, log)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -266,7 +269,7 @@ func TestSync(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				
+
 				err = vClient.Get(ctx, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
 				if err != nil {
 					t.Fatal(err)
