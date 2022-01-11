@@ -2,11 +2,11 @@ package volumesnapshotclasses
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"testing"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,9 +16,9 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		Translator:    generic.NewMirrorBackwardTranslator(),
-		virtualClient: vClient,
-		localClient:   pClient,
+		NameTranslator: translator.NewMirrorBackwardTranslator(),
+		virtualClient:  vClient,
+		localClient:    pClient,
 	}
 }
 

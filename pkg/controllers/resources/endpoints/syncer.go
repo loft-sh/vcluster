@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,40 +15,38 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
-	return generic.RegisterSyncerIndices(ctx, &corev1.Endpoints{})
-}
-
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	return generic.RegisterSyncer(ctx, "endpoints", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Endpoints{}),
+	err := generic.RegisterSyncerIndices(ctx, &corev1.Endpoints{})
+	if err != nil {
+		return err
+	}
 
-		targetNamespace:  ctx.Options.TargetNamespace,
-		serviceName:      ctx.Options.ServiceName,
-		
+	return generic.RegisterSyncer(ctx, "endpoints", &syncer{
+		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Endpoints{}),
+
+		targetNamespace: ctx.Options.TargetNamespace,
+		serviceName:     ctx.Options.ServiceName,
+
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
-		
-		virtualClient:    ctx.VirtualManager.GetClient(),
-		
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "endpoints-syncer"}), "endpoints"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
+
+		virtualClient: ctx.VirtualManager.GetClient(),
+		creator:       generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "endpoints-syncer"}), "endpoints"),
 	})
 }
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 	targetNamespace string
 
-	serviceName      string
-	
+	serviceName string
+
 	currentNamespace       string
 	currentNamespaceClient client.Client
 
 	virtualClient client.Client
 
 	creator *generic.GenericCreator
-	translator translate.Translator
 }
 
 func (s *syncer) New() client.Object {
@@ -56,21 +54,11 @@ func (s *syncer) New() client.Object {
 }
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	pObj, err := s.translate(vObj)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return s.creator.Create(ctx, vObj, pObj, log)
+	return s.creator.Create(ctx, vObj, s.translate(vObj), log)
 }
 
 func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	updated, err := s.translateUpdate(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	
-	return s.creator.Update(ctx, vObj, updated, log)
+	return s.creator.Update(ctx, vObj, s.translateUpdate(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints)), log)
 }
 
 var _ generic.Starter = &syncer{}

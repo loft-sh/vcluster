@@ -10,20 +10,6 @@ import (
 	"k8s.io/klog"
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
-	useLegacy, err := ShouldUseLegacy(ctx.LocalManager.GetConfig())
-	if err != nil {
-		return err
-	}
-
-	if useLegacy {
-		klog.Infof("Registering legacy ingress syncer indices for networking.k8s.io/v1beta1")
-		return legacy.RegisterSyncerIndices(ctx)
-	}
-
-	return RegisterSyncerIndices(ctx)
-}
-
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	useLegacy, err := ShouldUseLegacy(ctx.LocalManager.GetConfig())
 	if err != nil {

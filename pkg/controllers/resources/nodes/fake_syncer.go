@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
@@ -31,27 +31,10 @@ var (
 )
 
 func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
-	return generic.RegisterFakeSyncerWithOptions(ctx, "fake-node", &fakeSyncer{
+	return generic.RegisterFakeSyncer(ctx, "fake-node", &fakeSyncer{
 		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
 		nodeServiceProvider: ctx.NodeServiceProvider,
 		virtualClient:       ctx.VirtualManager.GetClient(),
-	}, &generic.SyncerOptions{
-		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-				pod, ok := object.(*corev1.Pod)
-				if !ok || pod == nil {
-					return []reconcile.Request{}
-				}
-
-				return []reconcile.Request{
-					{
-						NamespacedName: types.NamespacedName{
-							Name: pod.Spec.NodeName,
-						},
-					},
-				}
-			}))
-		},
 	})
 }
 
@@ -63,6 +46,25 @@ type fakeSyncer struct {
 
 func (r *fakeSyncer) New() client.Object {
 	return &corev1.Node{}
+}
+
+var _ generic.ControllerModifier = &fakeSyncer{}
+
+func (r *fakeSyncer) ModifyController(builder *builder.Builder) *builder.Builder {
+	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		pod, ok := object.(*corev1.Pod)
+		if !ok || pod == nil {
+			return []reconcile.Request{}
+		}
+
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name: pod.Spec.NodeName,
+				},
+			},
+		}
+	}))
 }
 
 func (r *fakeSyncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {

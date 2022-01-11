@@ -2,12 +2,12 @@ package legacy
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"testing"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -20,8 +20,8 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		virtualClient:   vClient,
-		localClient:     pClient,
+		virtualClient: vClient,
+		localClient:   pClient,
 
 		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "endpoints"),
 		translator: translate.NewDefaultTranslator("test"),
@@ -102,14 +102,14 @@ func TestSync(t *testing.T) {
 		},
 	}
 	vObjectMeta := metav1.ObjectMeta{
-		Name:        "testingress",
-		Namespace:   "test",
+		Name:      "testingress",
+		Namespace: "test",
 	}
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      translate.PhysicalName("testingress", "test"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation: vObjectMeta.Name,
+			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
@@ -144,7 +144,7 @@ func TestSync(t *testing.T) {
 	backwardUpdatedIngress := &networkingv1beta1.Ingress{
 		ObjectMeta: vObjectMeta,
 		Spec: networkingv1beta1.IngressSpec{
-			Backend:   vBaseSpec.Backend,
+			Backend:          vBaseSpec.Backend,
 			IngressClassName: stringPointer("backwardsupdatedingressclass"),
 			Rules:            vBaseSpec.Rules,
 			TLS:              vBaseSpec.TLS,
@@ -177,14 +177,14 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			Name:                 "Update forward",
-			InitialVirtualState:  []runtime.Object{&networkingv1beta1.Ingress{
+			Name: "Update forward",
+			InitialVirtualState: []runtime.Object{&networkingv1beta1.Ingress{
 				ObjectMeta: vObjectMeta,
 				Spec:       vBaseSpec,
 			}},
 			InitialPhysicalState: []runtime.Object{&networkingv1beta1.Ingress{
 				ObjectMeta: pObjectMeta,
-				Spec: networkingv1beta1.IngressSpec{},
+				Spec:       networkingv1beta1.IngressSpec{},
 			}},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {&networkingv1beta1.Ingress{
@@ -202,7 +202,7 @@ func TestSync(t *testing.T) {
 				syncer := newFakeSyncer(pClient, vClient)
 				pIngress := &networkingv1beta1.Ingress{
 					ObjectMeta: pObjectMeta,
-					Spec: networkingv1beta1.IngressSpec{},
+					Spec:       networkingv1beta1.IngressSpec{},
 				}
 				pIngress.ResourceVersion = "999"
 

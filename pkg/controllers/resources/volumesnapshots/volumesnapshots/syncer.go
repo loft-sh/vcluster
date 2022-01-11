@@ -2,13 +2,13 @@ package volumesnapshots
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,40 +24,34 @@ var (
 	zero                              = int64(0)
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	err := generic.RegisterSyncerIndices(ctx, &volumesnapshotv1.VolumeSnapshot{})
 	if err != nil {
 		return err
 	}
-	return nil
-}
 
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	return generic.RegisterSyncer(ctx, "volumesnapshot", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &volumesnapshotv1.VolumeSnapshot{}),
+		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &volumesnapshotv1.VolumeSnapshot{}),
 
 		targetNamespace: ctx.Options.TargetNamespace,
 		localClient:     ctx.LocalManager.GetClient(),
 		virtualClient:   ctx.VirtualManager.GetClient(),
 
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "volumesnapshot-syncer"}), "volumesnapshot"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
-
+		creator:                             generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "volumesnapshot-syncer"}), "volumesnapshot"),
 		volumeSnapshotContentNameTranslator: volumesnapshotcontents.NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace),
 	})
 }
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 
 	targetNamespace string
 	virtualClient   client.Client
 	localClient     client.Client
 
-	creator    *generic.GenericCreator
-	translator translate.Translator
+	creator *generic.GenericCreator
 
-	volumeSnapshotContentNameTranslator translate.PhysicalNameTranslator
+	volumeSnapshotContentNameTranslator translator.PhysicalNameTranslator
 }
 
 func (s *syncer) New() client.Object {

@@ -2,12 +2,12 @@ package events
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -99,7 +99,7 @@ func (r *backwardController) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// copy physical object
 	vObj := pObj.DeepCopy()
-	translate.ResetObjectMetadata(vObj)
+	translator.ResetObjectMetadata(vObj)
 
 	// set the correct involved object meta
 	vObj.Namespace = m.GetNamespace()

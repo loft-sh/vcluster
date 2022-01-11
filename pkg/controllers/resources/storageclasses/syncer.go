@@ -3,22 +3,26 @@ package storageclasses
 import (
 	"context"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func RegisterSyncer(ctx *context2.ControllerContext) error {
 	return generic.RegisterSyncer(ctx, "storageclass", &syncer{
+		NameTranslator: translator.NewMirrorBackwardTranslator(),
+
 		localClient:   ctx.LocalManager.GetClient(),
 		virtualClient: ctx.VirtualManager.GetClient(),
 	})
 }
 
 type syncer struct {
+	translator.NameTranslator
+
 	localClient   client.Client
 	virtualClient client.Client
 }
@@ -28,18 +32,6 @@ func (s *syncer) New() client.Object {
 }
 
 var _ generic.BackwardSyncer = &syncer{}
-
-func (s *syncer) IsManaged(pObj client.Object) (bool, error) {
-	return true, nil
-}
-
-func (s *syncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
-	return types.NamespacedName{Name: req.Name}
-}
-
-func (s *syncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
-	return types.NamespacedName{Name: pObj.GetName()}
-}
 
 func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	vObj := s.translate(pObj.(*storagev1.StorageClass))
@@ -60,5 +52,5 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
 	log.Infof("delete virtual storage class %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj) 
+	return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
 }

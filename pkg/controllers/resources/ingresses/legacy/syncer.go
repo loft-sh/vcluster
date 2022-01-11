@@ -3,10 +3,9 @@ package legacy
 import (
 	"context"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -15,30 +14,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterSyncerIndices(ctx *context2.ControllerContext) error {
-	return generic.RegisterSyncerIndices(ctx, &networkingv1beta1.Ingress{})
-}
-
 func RegisterSyncer(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
+	err := generic.RegisterSyncerIndices(ctx, &networkingv1beta1.Ingress{})
+	if err != nil {
+		return err
+	}
+
 	return generic.RegisterSyncer(ctx, "ingress", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &networkingv1beta1.Ingress{}),
+		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &networkingv1beta1.Ingress{}),
 
 		localClient:   ctx.LocalManager.GetClient(),
 		virtualClient: ctx.VirtualManager.GetClient(),
 
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "ingress-syncer"}), "ingress"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
+		creator: generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "ingress-syncer"}), "ingress"),
 	})
 }
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 
 	localClient   client.Client
 	virtualClient client.Client
 
 	creator *generic.GenericCreator
-	translator translate.Translator
 }
 
 func (s *syncer) New() client.Object {
@@ -46,12 +44,7 @@ func (s *syncer) New() client.Object {
 }
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	pObj, err := s.translate(vObj.(*networkingv1beta1.Ingress))
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "error setting metadata")
-	}
-
-	return s.creator.Create(ctx, vObj, pObj, log)
+	return s.creator.Create(ctx, vObj, s.translate(vObj.(*networkingv1beta1.Ingress)), log)
 }
 
 func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
@@ -93,5 +86,5 @@ func SecretNamesFromIngress(ingress *networkingv1beta1.Ingress) []string {
 			secrets = append(secrets, ingress.Namespace+"/"+tls.SecretName)
 		}
 	}
-	return translate.UniqueSlice(secrets)
+	return translator.UniqueSlice(secrets)
 }

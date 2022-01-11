@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	translator2 "github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -97,13 +98,8 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		return nil, err
 	}
 
-	pPodRaw, err := translate.NewDefaultTranslator(t.targetNamespace).Translate(vPod)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
 	// convert to core object
-	pPod := pPodRaw.(*corev1.Pod)
+	pPod := translator2.NewNamespacedTranslator(t.targetNamespace, nil, &corev1.Pod{}).TranslateMetadata(vPod).(*corev1.Pod)
 
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}
@@ -170,7 +166,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	// Add Namespace labels
 	updatedLabels := pPod.GetLabels()
 	for k, v := range vNamespace.GetLabels() {
-		updatedLabels[translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
+		updatedLabels[translator2.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
 	}
 	pPod.SetLabels(updatedLabels)
 
@@ -428,7 +424,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	// check if its a label we have to rewrite
 	labelsMatch := FieldPathLabelRegEx.FindStringSubmatch(fieldSelector.FieldPath)
 	if len(labelsMatch) == 2 {
-		fieldSelector.FieldPath = "metadata.labels['" + translate.ConvertLabelKey(labelsMatch[1]) + "']"
+		fieldSelector.FieldPath = "metadata.labels['" + translator2.ConvertLabelKey(labelsMatch[1]) + "']"
 		return
 	}
 
@@ -636,7 +632,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 	// We never select pods that are not in the vcluster namespace on the host, so we will
 	// omit Namespaces and namespaceSelector here
 	newAffinityTerm := corev1.PodAffinityTerm{
-		LabelSelector: translate.TranslateLabelSelector(term.LabelSelector),
+		LabelSelector: translator2.TranslateLabelSelector(term.LabelSelector),
 		TopologyKey:   term.TopologyKey,
 	}
 
@@ -673,7 +669,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 			}
 		} else if term.NamespaceSelector != nil {
 			// translate namespace label selector
-			newAffinityTerm.LabelSelector = translate.TranslateLabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector)
+			newAffinityTerm.LabelSelector = translator2.TranslateLabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector)
 		} else {
 			// Match namespace where pod is in
 			// k8s docs: "a null or empty namespaces list and null namespaceSelector means "this pod's namespace""
@@ -693,7 +689,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 	for i := range pPod.Spec.TopologySpreadConstraints {
-		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.TranslateLabelSelector(pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
+		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translator2.TranslateLabelSelector(pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
 
 		// make sure we only select pods in the current namespace
 		if pPod.Spec.TopologySpreadConstraints[i].LabelSelector != nil {
@@ -747,7 +743,7 @@ func translateServicesToEnvironmentVariables(enableServiceLinks *bool, services 
 		"KUBERNETES_SERVICE_PORT=443",
 		"KUBERNETES_SERVICE_PORT_HTTPS=443",
 	} {
-		k, v := translate.Split(val, "=")
+		k, v := translator2.Split(val, "=")
 		retMap[k] = strings.ReplaceAll(v, "IP", kubeIP)
 	}
 	return retMap
@@ -769,10 +765,10 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 	}
 
 	// there are some annotations which should be excluded
-	translator := translate.NewDefaultTranslator(t.targetNamespace, getExcludedAnnotations(pPod)...)
+	translator := translator2.NewNamespacedTranslator(t.targetNamespace, nil, &corev1.Pod{}, getExcludedAnnotations(pPod)...)
 
 	// check annotations
-	updatedAnnotations := translator.TranslateAnnotations(vPod, pPod)
+	_, updatedAnnotations, updatedLabels := translator.TranslateMetadataUpdate(vPod, pPod)
 	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {
@@ -782,9 +778,8 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 	}
 
 	// check pod and namespace labels
-	updatedLabels := translator.TranslateLabels(vPod)
 	for k, v := range vNamespace.GetLabels() {
-		updatedLabels[translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
+		updatedLabels[translator2.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
 	}
 	if !equality.Semantic.DeepEqual(updatedLabels, pPod.Labels) {
 		if updatedPod == nil {

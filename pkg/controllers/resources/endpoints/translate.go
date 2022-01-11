@@ -2,20 +2,26 @@ package endpoints
 
 import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *syncer) translate(vObj client.Object) (*corev1.Endpoints, error) {
-	newObj, err := s.translator.Translate(vObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
+func (s *syncer) translate(vObj client.Object) *corev1.Endpoints {
+	endpoints := s.TranslateMetadata(vObj).(*corev1.Endpoints)
+	s.translateSpec(endpoints)
+
+	// make sure we delete the control-plane.alpha.kubernetes.io/leader annotation
+	// that will disable endpoint slice mirroring otherwise
+	if endpoints.Annotations != nil {
+		delete(endpoints.Annotations, "control-plane.alpha.kubernetes.io/leader")
 	}
 
+	return endpoints
+}
+
+func (s *syncer) translateSpec(endpoints *corev1.Endpoints) {
 	// translate the addresses
-	endpoints := newObj.(*corev1.Endpoints)
 	for i, subset := range endpoints.Subsets {
 		for j, addr := range subset.Addresses {
 			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
@@ -38,44 +44,29 @@ func (s *syncer) translate(vObj client.Object) (*corev1.Endpoints, error) {
 			}
 		}
 	}
-
-	// make sure we delete the control-plane.alpha.kubernetes.io/leader annotation
-	// that will disable endpoint slice mirroring otherwise
-	if endpoints.Annotations != nil {
-		delete(endpoints.Annotations, "control-plane.alpha.kubernetes.io/leader")
-	}
-
-	return endpoints, nil
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.Endpoints) (*corev1.Endpoints, error) {
+func (s *syncer) translateUpdate(pObj, vObj *corev1.Endpoints) *corev1.Endpoints {
 	var updated *corev1.Endpoints
 
-	// translate endpoints
-	translated, err := s.translate(vObj)
-	if err != nil {
-		return nil, err
-	}
-	
 	// check subsets
+	translated := vObj.DeepCopy()
+	s.translateSpec(translated)
 	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
 		updated = newIfNil(updated, pObj)
 		updated.Subsets = translated.Subsets
 	}
 
-	// check annotations
-	if !equality.Semantic.DeepEqual(translated.Annotations, pObj.Annotations) {
+	// check annotations & labels
+	_, annotations, labels := s.TranslateMetadataUpdate(vObj, pObj)
+	delete(annotations, "control-plane.alpha.kubernetes.io/leader")
+	if !equality.Semantic.DeepEqual(annotations, pObj.Annotations) || !equality.Semantic.DeepEqual(labels, pObj.Labels) {
 		updated = newIfNil(updated, pObj)
-		updated.Annotations = translated.Annotations
+		updated.Annotations = annotations
+		updated.Labels = labels
 	}
 
-	// check labels
-	if !equality.Semantic.DeepEqual(translated.Labels, pObj.Labels) {
-		updated = newIfNil(updated, pObj)
-		updated.Labels = translated.Labels
-	}
-
-	return updated, nil
+	return updated
 }
 
 func newIfNil(updated *corev1.Endpoints, pObj *corev1.Endpoints) *corev1.Endpoints {

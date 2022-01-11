@@ -4,7 +4,8 @@ import (
 	"context"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -13,34 +14,31 @@ import (
 	"time"
 )
 
-func RegisterSyncerIndices(ctx *context2.ControllerContext) error {
-	// index objects by their virtual name
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &schedulingv1.PriorityClass{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+func RegisterSyncer(ctx *context2.ControllerContext) error {
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &schedulingv1.PriorityClass{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translatePriorityClassName(ctx.Options.TargetNamespace, rawObj.GetName())}
 	})
-}
+	if err != nil {
+		return err
+	}
 
-func RegisterSyncer(ctx *context2.ControllerContext) error {
 	// build syncer and register it
 	nameTranslator := NewPriorityClassTranslator(ctx.Options.TargetNamespace)
 	return generic.RegisterSyncer(ctx, "name", &syncer{
-		Translator: generic.NewClusterTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &schedulingv1.PriorityClass{}, nameTranslator),
+		Translator: translator.NewClusterTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &schedulingv1.PriorityClass{}, nameTranslator),
 
 		targetNamespace: ctx.Options.TargetNamespace,
 		virtualClient:   ctx.VirtualManager.GetClient(),
 		localClient:     ctx.LocalManager.GetClient(),
-		translator:      translate.NewDefaultClusterTranslator(ctx.Options.TargetNamespace, nameTranslator),
 	})
 }
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 
 	targetNamespace string
 	localClient     client.Client
 	virtualClient   client.Client
-
-	translator translate.Translator
 }
 
 func (s *syncer) New() client.Object {
@@ -48,16 +46,11 @@ func (s *syncer) New() client.Object {
 }
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	vPriorityClass := vObj.(*schedulingv1.PriorityClass)
-	newPriorityClass, err := s.translate(vObj)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
+	newPriorityClass := s.translate(vObj.(*schedulingv1.PriorityClass))
 	log.Infof("create physical priority class %s", newPriorityClass.Name)
-	err = s.localClient.Create(ctx, newPriorityClass)
+	err := s.localClient.Create(ctx, newPriorityClass)
 	if err != nil {
-		log.Infof("error syncing %s to physical cluster: %v", vPriorityClass.Name, err)
+		log.Infof("error syncing %s to physical cluster: %v", vObj.GetName(), err)
 		return ctrl.Result{RequeueAfter: time.Second}, err
 	}
 
@@ -78,7 +71,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	return ctrl.Result{}, nil
 }
 
-func NewPriorityClassTranslator(physicalNamespace string) translate.PhysicalNameTranslator {
+func NewPriorityClassTranslator(physicalNamespace string) translator.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
 		return translatePriorityClassName(physicalNamespace, vName)
 	}

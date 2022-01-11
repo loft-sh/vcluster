@@ -2,11 +2,12 @@ package networkpolicies
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
@@ -22,11 +23,12 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
+		Translator: translator.NewNamespacedTranslator("test", vClient, &networkingv1.NetworkPolicy{}),
+		
 		virtualClient: vClient,
 		localClient:   pClient,
 
-		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "networkpolicies"),
-		translator: translate.NewDefaultTranslator("test"),
+		creator: generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "networkpolicies"),
 	}
 }
 

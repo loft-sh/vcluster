@@ -37,15 +37,9 @@ var ResourceControllers = []func(*context2.ControllerContext, record.EventBroadc
 	volumesnapshots.Register,
 }
 
-var ControllerIndicies = []func(*context2.ControllerContext) error{
-	volumesnapshotclasses.RegisterIndices,
-	volumesnapshotcontents.RegisterIndices,
-	volumesnapshots.RegisterIndices,
-}
-
 func EnsurePrerequisites(ctx *context2.ControllerContext) error {
-	//install CRDs needed for various VolumeSnapshot* resources
-	//and wait for them to become available
+	// install CRDs needed for various VolumeSnapshot* resources
+	// and wait for them to become available
 	config := ctx.VirtualManager.GetConfig()
 	restMapper, err := apiutil.NewDynamicRESTMapper(config)
 	if err != nil {
@@ -89,16 +83,6 @@ func EnsurePrerequisites(ctx *context2.ControllerContext) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to find VolumeSnapshot* CRDS: %v: %v", err, lastErr)
-	}
-	return nil
-}
-
-func RegisterIndices(ctx *context2.ControllerContext) error {
-	for _, v := range ControllerIndicies {
-		err := v(ctx)
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }

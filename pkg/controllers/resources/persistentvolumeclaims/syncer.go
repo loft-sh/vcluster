@@ -2,15 +2,15 @@ package persistentvolumeclaims
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"sync"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,18 +33,14 @@ const (
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	err := generic.RegisterSyncerIndices(ctx, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	return generic.RegisterSyncer(ctx, "persistentvolumeclaim", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.PersistentVolumeClaim{}),
+		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.PersistentVolumeClaim{}, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation),
 
 		useFakePersistentVolumes:     !ctx.Controllers["persistentvolumes"],
 		sharedPersistentVolumesMutex: ctx.LockFactory.GetLock("persistent-volumes-controller"),
@@ -53,13 +49,12 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		localClient:     ctx.LocalManager.GetClient(),
 		virtualClient:   ctx.VirtualManager.GetClient(),
 
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "persistentvolumeclaim-syncer"}), "persistent volume claim"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation),
+		creator: generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "persistentvolumeclaim-syncer"}), "persistent volume claim"),
 	})
 }
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 
 	useFakePersistentVolumes     bool
 	sharedPersistentVolumesMutex sync.Locker
@@ -68,8 +63,7 @@ type syncer struct {
 	localClient     client.Client
 	virtualClient   client.Client
 
-	creator    *generic.GenericCreator
-	translator translate.Translator
+	creator *generic.GenericCreator
 }
 
 func (s *syncer) New() client.Object {
@@ -90,12 +84,7 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 		return ctrl.Result{}, err
 	}
 
-	pObj, err := s.translate(s.targetNamespace, vPvc)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return s.creator.Create(ctx, vObj, pObj, log)
+	return s.creator.Create(ctx, vObj, s.translate(s.targetNamespace, vPvc), log)
 }
 
 func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {

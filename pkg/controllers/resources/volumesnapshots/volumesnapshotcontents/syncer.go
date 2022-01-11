@@ -2,12 +2,13 @@ package volumesnapshotcontents
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"time"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -26,35 +27,34 @@ const (
 	PhysicalVSCGarbageCollectionFinalizer = "vcluster.loft.sh/physical-volumesnapshotcontent-gc"
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+func Register(ctx *context2.ControllerContext, _ record.EventBroadcaster) error {
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translateVolumeSnapshotContentName(ctx.Options.TargetNamespace, rawObj.GetName(), rawObj)}
 	})
-}
+	if err != nil {
+		return err
+	}
 
-func Register(ctx *context2.ControllerContext, _ record.EventBroadcaster) error {
-	nameTranslator := NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace)
 	return generic.RegisterSyncer(ctx, "volumesnapshotcontent", &syncer{
+		Translator: translator.NewClusterTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &volumesnapshotv1.VolumeSnapshotContent{}, NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace)),
+
 		targetNamespace: ctx.Options.TargetNamespace,
 		virtualClient:   ctx.VirtualManager.GetClient(),
 		localClient:     ctx.LocalManager.GetClient(),
-		translator:      translate.NewDefaultClusterTranslator(ctx.Options.TargetNamespace, nameTranslator),
 	})
 }
 
 var _ generic.BackwardSyncer = &syncer{}
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 
 	targetNamespace string
 	virtualClient   client.Client
 	localClient     client.Client
-
-	translator translate.Translator
 }
 
-func NewVolumeSnapshotContentTranslator(physicalNamespace string) translate.PhysicalNameTranslator {
+func NewVolumeSnapshotContentTranslator(physicalNamespace string) translator.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
 		return translateVolumeSnapshotContentName(physicalNamespace, vName, vObj)
 	}
@@ -94,13 +94,9 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vVSC)
 	}
 
-	pVSC, err := s.translate(vVSC)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
+	pVSC := s.translate(vVSC)
 	log.Infof("create physical VolumeSnapshotContent %s, because there is a virtual VolumeSnapshotContent", pVSC.Name)
-	err = s.localClient.Create(ctx, pVSC)
+	err := s.localClient.Create(ctx, pVSC)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -239,9 +235,9 @@ func (s *syncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object)
 
 func (s *syncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
+	if pAnnotations != nil && pAnnotations[translator.NameAnnotation] != "" {
 		return types.NamespacedName{
-			Name: pAnnotations[translate.NameAnnotation],
+			Name: pAnnotations[translator.NameAnnotation],
 		}
 	}
 

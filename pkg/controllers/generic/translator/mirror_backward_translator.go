@@ -1,11 +1,11 @@
-package generic
+package translator
 
 import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewMirrorBackwardTranslator() Translator {
+func NewMirrorBackwardTranslator() NameTranslator {
 	return &mirrorBackwardTranslator{}
 }
 

@@ -3,16 +3,19 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/legacy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -22,20 +25,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
+	useLegacy, err := ingresses.ShouldUseLegacy(ctx.LocalManager.GetConfig())
+	if err != nil {
+		return err
+	}
 	if ctx.Controllers["ingresses"] {
-		useLegacy, err := ingresses.ShouldUseLegacy(ctx.LocalManager.GetConfig())
-		if err != nil {
-			return err
-		}
-
 		if useLegacy {
 			err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1beta1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
 				return legacy.SecretNamesFromIngress(rawObj.(*networkingv1beta1.Ingress))
@@ -53,22 +52,13 @@ func RegisterIndices(ctx *context2.ControllerContext) error {
 		}
 	}
 
-	err := generic.RegisterSyncerIndices(ctx, &corev1.Secret{})
+	err = generic.RegisterSyncerIndices(ctx, &corev1.Secret{})
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	useLegacy, err := ingresses.ShouldUseLegacy(ctx.LocalManager.GetConfig())
-	if err != nil {
-		return err
-	}
-
-	return generic.RegisterSyncerWithOptions(ctx, "secret", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
+	return generic.RegisterSyncer(ctx, "secret", &syncer{
+		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 		localClient:   ctx.LocalManager.GetClient(),
@@ -76,27 +66,12 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		useLegacyIngress: useLegacy,
 		includeIngresses: ctx.Controllers["ingresses"],
 
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "secret-syncer"}), "secret"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
-	}, &generic.SyncerOptions{
-		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			if ctx.Controllers["ingresses"] {
-				if useLegacy {
-					builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
-				} else {
-					builder = builder.Watches(&source.Kind{Type: &networkingv1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
-				}
-			}
-
-			return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-				return mapPods(object)
-			}))
-		},
+		creator: generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "secret-syncer"}), "secret"),
 	})
 }
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 
 	virtualClient client.Client
 	localClient   client.Client
@@ -104,12 +79,27 @@ type syncer struct {
 	useLegacyIngress bool
 	includeIngresses bool
 
-	creator    *generic.GenericCreator
-	translator translate.Translator
+	creator *generic.GenericCreator
 }
 
 func (s *syncer) New() client.Object {
 	return &corev1.Secret{}
+}
+
+var _ generic.ControllerModifier = &syncer{}
+
+func (s *syncer) ModifyController(builder *builder.Builder) *builder.Builder {
+	if s.includeIngresses {
+		if s.useLegacyIngress {
+			builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
+		} else {
+			builder = builder.Watches(&source.Kind{Type: &networkingv1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
+		}
+	}
+
+	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		return mapPods(object)
+	}))
 }
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
@@ -120,12 +110,7 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 		return ctrl.Result{}, nil
 	}
 
-	pObj, err := s.translate(vObj.(*corev1.Secret))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return s.creator.Create(ctx, vObj, pObj, log)
+	return s.creator.Create(ctx, vObj, s.translate(vObj.(*corev1.Secret)), log)
 }
 
 func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {

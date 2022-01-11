@@ -11,14 +11,14 @@ import (
 	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-func RegisterFakeSyncerWithOptions(ctx *context2.ControllerContext, name string, syncer FakeSyncer, options *SyncerOptions) error {
+func RegisterFakeSyncer(ctx *context2.ControllerContext, name string, syncer FakeSyncer) error {
 	controller := &fakeSyncer{
 		syncer:        syncer,
 		log:           loghelper.New(name),
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}
 
-	return controller.Register(name, ctx.VirtualManager, options)
+	return controller.Register(name, ctx.VirtualManager, &SyncerOptions{})
 }
 
 type fakeSyncer struct {
@@ -68,8 +68,9 @@ func (r *fakeSyncer) Register(name string, virtualManager ctrl.Manager, options 
 		}).
 		Named(name).
 		For(r.syncer.New())
-	if options != nil && options.ModifyController != nil {
-		controller = options.ModifyController(controller)
+	modifier, ok := r.syncer.(ControllerModifier)
+	if ok {
+		controller = modifier.ModifyController(controller)
 	}
 	return controller.Complete(r)
 }

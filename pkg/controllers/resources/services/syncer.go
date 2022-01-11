@@ -2,10 +2,11 @@ package services
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -20,19 +21,14 @@ import (
 
 var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	err := generic.RegisterSyncerIndices(ctx, &corev1.Service{})
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	recorder := eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"})
 	return generic.RegisterSyncer(ctx, "service", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
+		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
 
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 		currentNamespace:       ctx.CurrentNamespace,
@@ -41,13 +37,12 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		localClient:   ctx.LocalManager.GetClient(),
 		virtualClient: ctx.VirtualManager.GetClient(),
 
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), recorder, "service"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
+		creator: generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"}), "service"),
 	})
 }
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 
 	currentNamespaceClient client.Client
 	currentNamespace       string
@@ -56,8 +51,7 @@ type syncer struct {
 	localClient   client.Client
 	virtualClient client.Client
 
-	creator    *generic.GenericCreator
-	translator translate.Translator
+	creator *generic.GenericCreator
 }
 
 func (s *syncer) New() client.Object {
@@ -65,12 +59,7 @@ func (s *syncer) New() client.Object {
 }
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	pObj, err := s.translate(vObj.(*corev1.Service))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return s.creator.Create(ctx, vObj, pObj, log)
+	return s.creator.Create(ctx, vObj, s.translate(vObj.(*corev1.Service)), log)
 }
 
 func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {

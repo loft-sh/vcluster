@@ -5,10 +5,6 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
-	return nil
-}
-
 func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	return RegisterSyncer(ctx)
 }

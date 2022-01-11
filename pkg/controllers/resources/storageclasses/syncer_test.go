@@ -2,9 +2,10 @@ package storageclasses
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"testing"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 
@@ -16,15 +17,16 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		virtualClient: vClient,
-		localClient:   pClient,
+		NameTranslator: translator.NewMirrorBackwardTranslator(),
+		virtualClient:  vClient,
+		localClient:    pClient,
 	}
 }
 
 func TestSync(t *testing.T) {
 	baseObjectMeta := metav1.ObjectMeta{
-		Name:        "testsc",
-		Namespace:   "testns",
+		Name:      "testsc",
+		Namespace: "testns",
 	}
 	baseSc := &v1.StorageClass{
 		ObjectMeta: baseObjectMeta,

@@ -319,10 +319,10 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		return errors.Wrap(err, "ensure prerequisites")
 	}
 
-	// register the indices
-	err = controllers.RegisterIndices(ctx)
+	// register controllers
+	err = controllers.RegisterControllers(ctx)
 	if err != nil {
-		return errors.Wrap(err, "register controllers")
+		return err
 	}
 
 	// start the local manager
@@ -361,12 +361,6 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	go func() {
 		ctx.NodeServiceProvider.Start(ctx.Context)
 	}()
-
-	// register controllers
-	err = controllers.RegisterControllers(ctx)
-	if err != nil {
-		return err
-	}
 
 	// write the kube config to secret
 	err = writeKubeConfigToSecret(ctx, rawConfig)

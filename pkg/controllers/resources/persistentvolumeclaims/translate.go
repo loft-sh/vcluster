@@ -2,33 +2,28 @@ package persistentvolumeclaims
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *syncer) translate(targetNamespace string, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
-	newObj, err := s.translator.Translate(vPvc)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	newPvc := newObj.(*corev1.PersistentVolumeClaim)
+func (s *syncer) translate(targetNamespace string, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+	newPvc := s.TranslateMetadata(vPvc).(*corev1.PersistentVolumeClaim)
 	newPvc = s.translateSelector(newPvc)
 	if newPvc.Spec.DataSource != nil && vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" &&
 		(newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" || newPvc.Spec.DataSource.Kind == "VolumeSnapshot") {
 
 		newPvc.Spec.DataSource.Name = translate.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
 	}
+
 	//TODO: add support for the .Spec.DataSourceRef field
-	return newPvc, nil
+	return newPvc
 }
 
 func (s *syncer) translateSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
@@ -37,7 +32,7 @@ func (s *syncer) translateSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.P
 			newObj := vPvc
 			newObj.Spec = *vPvc.Spec.DeepCopy()
 			if newObj.Spec.Selector != nil {
-				newObj.Spec.Selector = translate.TranslateLabelSelectorCluster(s.targetNamespace, newObj.Spec.Selector)
+				newObj.Spec.Selector = translator.TranslateLabelSelectorCluster(s.targetNamespace, newObj.Spec.Selector)
 			}
 			if newObj.Spec.VolumeName != "" {
 				newObj.Spec.VolumeName = translate.PhysicalNameClusterScoped(newObj.Spec.VolumeName, s.targetNamespace)
@@ -73,16 +68,10 @@ func (s *syncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) *core
 		updated.Spec.Resources.Requests["storage"] = vObj.Spec.Resources.Requests["storage"]
 	}
 
-	updatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) {
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	if changed {
 		updated = newIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations
-	}
-
-	// check labels
-	updatedLabels := s.translator.TranslateLabels(vObj)
-	if !equality.Semantic.DeepEqual(updatedLabels, pObj.Labels) {
-		updated = newIfNil(updated, pObj)
 		updated.Labels = updatedLabels
 	}
 

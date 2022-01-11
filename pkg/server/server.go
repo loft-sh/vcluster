@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
@@ -97,7 +98,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	}
 	cachedVirtualClient, err := createCachedClient(ctx.Context, virtualConfig, corev1.NamespaceAll, uncachedVirtualClient.RESTMapper(), uncachedVirtualClient.Scheme(), func(cache cache.Cache) error {
 		return cache.IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-			return []string{translate.ObjectPhysicalName(rawObj)}
+			return []string{translator.ObjectPhysicalName(rawObj)}
 		})
 	})
 	if err != nil {

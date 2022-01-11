@@ -6,19 +6,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vPv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
-	target, err := s.translator.Translate(vPv)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *syncer) translate(vPv *corev1.PersistentVolume) *corev1.PersistentVolume {
 	// translate the persistent volume
-	pPV := target.(*corev1.PersistentVolume)
+	pPV := s.metadataTranslator.TranslateMetadata(vPv).(*corev1.PersistentVolume)
 	pPV.Spec.ClaimRef = nil
 	pPV.Spec.StorageClassName = translateStorageClass(s.targetNamespace, vPv.Spec.StorageClassName)
+	
 	// TODO: translate the storage secrets
-
-	return pPV, nil
+	return pPV
 }
 
 func translateStorageClass(physicalNamespace, vStorageClassName string) string {
@@ -121,16 +116,11 @@ func (s *syncer) translateUpdate(vPv *corev1.PersistentVolume, pPv *corev1.Persi
 		updated.Spec.MountOptions = vPv.Spec.MountOptions
 	}
 
-	updatedAnnotations := s.translator.TranslateAnnotations(vPv, pPv)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pPv.Annotations) {
+	// check labels & annotations
+	changed, updatedAnnotations, updatedLabels := s.metadataTranslator.TranslateMetadataUpdate(vPv, pPv)
+	if changed {
 		updated = newIfNil(updated, pPv)
 		updated.Annotations = updatedAnnotations
-	}
-
-	// check labels
-	updatedLabels := s.translator.TranslateLabels(vPv)
-	if !equality.Semantic.DeepEqual(updatedLabels, pPv.Labels) {
-		updated = newIfNil(updated, pPv)
 		updated.Labels = updatedLabels
 	}
 

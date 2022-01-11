@@ -2,8 +2,8 @@ package endpoints
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -16,10 +16,10 @@ import (
 
 func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
 	return &syncer{
-		targetNamespace:  "test",
-		currentNamespace: "test",
-		currentNamespaceClient:    pClient,
-		virtualClient:    vClient,
+		targetNamespace:        "test",
+		currentNamespace:       "test",
+		currentNamespaceClient: pClient,
+		virtualClient:          vClient,
 
 		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "endpoints"),
 		translator: translate.NewDefaultTranslator("test"),
@@ -54,7 +54,7 @@ func TestSync(t *testing.T) {
 			Name:      translate.PhysicalName(baseEndpoints.Name, baseEndpoints.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
-				translate.NameAnnotation: baseEndpoints.Name,
+				translate.NameAnnotation:      baseEndpoints.Name,
 				translate.NamespaceAnnotation: baseEndpoints.Namespace,
 			},
 			Labels: map[string]string{

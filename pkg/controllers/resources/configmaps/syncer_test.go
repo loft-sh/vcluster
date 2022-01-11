@@ -3,8 +3,8 @@ package configmaps
 import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -22,8 +22,8 @@ func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vC
 	}
 
 	return &syncer{
-		virtualClient:   vClient,
-		localClient:     pClient,
+		virtualClient: vClient,
+		localClient:   pClient,
 
 		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "endpoints"),
 		translator: translate.NewDefaultTranslator("test"),
@@ -48,7 +48,7 @@ func TestSync(t *testing.T) {
 			Name:      translate.PhysicalName(baseConfigMap.Name, baseConfigMap.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
-				translate.NameAnnotation: baseConfigMap.Name,
+				translate.NameAnnotation:      baseConfigMap.Name,
 				translate.NamespaceAnnotation: baseConfigMap.Namespace,
 			},
 			Labels: map[string]string{

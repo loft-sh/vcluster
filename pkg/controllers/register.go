@@ -44,23 +44,6 @@ var ResourceControllers = map[string]func(*context.ControllerContext, record.Eve
 	"volumesnapshots":                          volumesnapshots.Register,
 }
 
-var ResourceIndices = map[string]func(*context.ControllerContext) error{
-	"services":               services.RegisterIndices,
-	"configmaps":             configmaps.RegisterIndices,
-	"secrets":                secrets.RegisterIndices,
-	"endpoints":              endpoints.RegisterIndices,
-	"pods":                   pods.RegisterIndices,
-	"events":                 events.RegisterIndices,
-	"persistentvolumeclaims": persistentvolumeclaims.RegisterIndices,
-	"ingresses":              ingresses.RegisterIndices,
-	"storageclasses":         storageclasses.RegisterIndices,
-	"priorityclasses":        priorityclasses.RegisterIndices,
-	"nodes,fake-nodes":       nodes.RegisterIndices,
-	"persistentvolumes,fake-persistentvolumes": persistentvolumes.RegisterIndices,
-	"networkpolicies":                          networkpolicies.RegisterIndices,
-	"volumesnapshots":                          volumesnapshots.RegisterIndices,
-}
-
 var ResourcePrerequisites = map[string]func(*context.ControllerContext) error{
 	"volumesnapshots": volumesnapshots.EnsurePrerequisites,
 }
@@ -74,24 +57,6 @@ func EnsurePrerequisites(ctx *context.ControllerContext) error {
 				err := v(ctx)
 				if err != nil {
 					return errors.Wrapf(err, "ensure %s prerequisites", controller)
-				}
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-func RegisterIndices(ctx *context.ControllerContext) error {
-	// register the resource indices
-	for k, v := range ResourceIndices {
-		controllers := strings.Split(k, ",")
-		for _, controller := range controllers {
-			if ctx.Controllers[controller] {
-				err := v(ctx)
-				if err != nil {
-					return errors.Wrapf(err, "register %s indices", controller)
 				}
 				break
 			}

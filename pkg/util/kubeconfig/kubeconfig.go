@@ -3,6 +3,7 @@ package kubeconfig
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"io/ioutil"
 	"os"
 
@@ -73,7 +74,7 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 
 		// set owner reference
 		if translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
-			kubeConfigSecret.OwnerReferences = translate.GetOwnerReference()
+			kubeConfigSecret.OwnerReferences = translator.GetOwnerReference()
 		}
 
 		err = clienthelper.Apply(ctx, client, kubeConfigSecret, loghelper.New("apply-secret"))

@@ -1,31 +1,17 @@
 package networkpolicies
 
 import (
-	"fmt"
-
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *syncer) translate(vObj client.Object) (*networkingv1.NetworkPolicy, error) {
-	vNetworkPolicy, ok := vObj.(*networkingv1.NetworkPolicy)
-	if !ok {
-		return nil, fmt.Errorf("error converting to NetworkPolicy object named: %s", vObj.GetName())
-	}
-	newObj, err := s.translator.Translate(vObj)
-	if err != nil {
-		return nil, fmt.Errorf("error setting metadata: %s", err)
-	}
-	newNetworkPolicy, ok := newObj.(*networkingv1.NetworkPolicy)
-	if !ok {
-		return nil, fmt.Errorf("error converting to NetworkPolicy object named: %s", vObj.GetName())
-	}
-
+func (s *syncer) translate(vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+	newNetworkPolicy := s.TranslateMetadata(vNetworkPolicy).(*networkingv1.NetworkPolicy)
 	newNetworkPolicy.Spec = *translateSpec(&vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace())
-	return newNetworkPolicy, nil
+	return newNetworkPolicy
 }
 
 func (s *syncer) translateUpdate(pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
@@ -37,16 +23,11 @@ func (s *syncer) translateUpdate(pObj, vObj *networkingv1.NetworkPolicy) *networ
 		updated.Spec = translatedSpec
 	}
 
-	translatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
-	if !equality.Semantic.DeepEqual(translatedAnnotations, pObj.Annotations) {
-		updated = newIfNil(updated, pObj)
-		updated.Annotations = translatedAnnotations
-	}
-
-	translatedLabels := s.translator.TranslateLabels(vObj)
-	if !equality.Semantic.DeepEqual(translatedLabels, pObj.Labels) {
+	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	if changed {
 		updated = newIfNil(updated, pObj)
 		updated.Labels = translatedLabels
+		updated.Annotations = translatedAnnotations
 	}
 
 	return updated
@@ -77,7 +58,7 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 		})
 	}
 
-	outSpec.PodSelector = *translate.TranslateLabelSelector(&spec.PodSelector)
+	outSpec.PodSelector = *translator.TranslateLabelSelector(&spec.PodSelector)
 	if outSpec.PodSelector.MatchLabels == nil {
 		outSpec.PodSelector.MatchLabels = map[string]string{}
 	}
@@ -97,12 +78,12 @@ func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespa
 	out := []networkingv1.NetworkPolicyPeer{}
 	for _, peer := range peers {
 		newPeer := networkingv1.NetworkPolicyPeer{
-			PodSelector:       translate.TranslateLabelSelector(peer.PodSelector),
+			PodSelector:       translator.TranslateLabelSelector(peer.PodSelector),
 			NamespaceSelector: nil, // must be set to nil as all vcluster pods are in the same host namespace as the NetworkPolicy
 		}
 		if peer.IPBlock == nil {
-			translatedNamespaceSelectors := translate.TranslateLabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
-			newPeer.PodSelector = translate.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
+			translatedNamespaceSelectors := translator.TranslateLabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
+			newPeer.PodSelector = translator.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
 
 			if newPeer.PodSelector.MatchLabels == nil {
 				newPeer.PodSelector.MatchLabels = map[string]string{}

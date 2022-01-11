@@ -3,17 +3,16 @@ package persistentvolumes
 import (
 	"context"
 	"fmt"
-	"sync"
-
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sync"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,26 +22,18 @@ import (
 )
 
 func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
-	return generic.RegisterFakeSyncerWithOptions(ctx, "fake-persistent-volumes", &fakeSyncer{
+	// index pvcs by their assigned pv
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+		pod := rawObj.(*corev1.PersistentVolumeClaim)
+		return []string{pod.Spec.VolumeName}
+	})
+	if err != nil {
+		return err
+	}
+
+	return generic.RegisterFakeSyncer(ctx, "fake-persistent-volumes", &fakeSyncer{
 		sharedMutex:   ctx.LockFactory.GetLock("persistent-volumes-controller"),
 		virtualClient: ctx.VirtualManager.GetClient(),
-	}, &generic.SyncerOptions{
-		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-				pvc, ok := object.(*corev1.PersistentVolumeClaim)
-				if !ok || pvc == nil {
-					return []reconcile.Request{}
-				}
-
-				return []reconcile.Request{
-					{
-						NamespacedName: types.NamespacedName{
-							Name: pvc.Spec.VolumeName,
-						},
-					},
-				}
-			}))
-		},
 	})
 }
 
@@ -53,6 +44,25 @@ type fakeSyncer struct {
 
 func (r *fakeSyncer) New() client.Object {
 	return &corev1.PersistentVolume{}
+}
+
+var _ generic.ControllerModifier = &fakeSyncer{}
+
+func (r *fakeSyncer) ModifyController(builder *builder.Builder) *builder.Builder {
+	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		pvc, ok := object.(*corev1.PersistentVolumeClaim)
+		if !ok || pvc == nil {
+			return []reconcile.Request{}
+		}
+
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name: pvc.Spec.VolumeName,
+				},
+			},
+		}
+	}))
 }
 
 func (r *fakeSyncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {

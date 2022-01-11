@@ -2,27 +2,25 @@ package volumesnapshotclasses
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext, _ record.EventBroadcaster) error {
 	err := generic.RegisterSyncerIndices(ctx, &volumesnapshotv1.VolumeSnapshotClass{})
 	if err != nil {
 		return err
 	}
-	return nil
-}
 
-func Register(ctx *context2.ControllerContext, _ record.EventBroadcaster) error {
 	return generic.RegisterSyncer(ctx, "volumesnapshotclass", &syncer{
-		Translator: generic.NewMirrorBackwardTranslator(),
+		NameTranslator: translator.NewMirrorBackwardTranslator(),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 		localClient:   ctx.LocalManager.GetClient(),
@@ -32,7 +30,7 @@ func Register(ctx *context2.ControllerContext, _ record.EventBroadcaster) error 
 var _ generic.BackwardSyncer = &syncer{}
 
 type syncer struct {
-	generic.Translator
+	translator.NameTranslator
 
 	virtualClient client.Client
 	localClient   client.Client

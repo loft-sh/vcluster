@@ -8,18 +8,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (s *syncer) translate(vVSC *volumesnapshotv1.VolumeSnapshotContent) (*volumesnapshotv1.VolumeSnapshotContent, error) {
-	target, err := s.translator.Translate(vVSC)
-	if err != nil {
-		return nil, err
-	}
-
-	pVSC := target.(*volumesnapshotv1.VolumeSnapshotContent)
+func (s *syncer) translate(vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
+	pVSC := s.TranslateMetadata(vVSC).(*volumesnapshotv1.VolumeSnapshotContent)
 	pVSC.Spec.VolumeSnapshotRef = corev1.ObjectReference{
 		Namespace: s.targetNamespace,
 		Name:      translate.PhysicalName(vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace),
 	}
-	return pVSC, nil
+	return pVSC
 }
 
 func (s *syncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotContent, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshotContent {
@@ -74,15 +69,10 @@ func (s *syncer) translateUpdate(vVSC *volumesnapshotv1.VolumeSnapshotContent, p
 		updated.Spec.VolumeSnapshotClassName = vVSC.Spec.VolumeSnapshotClassName
 	}
 
-	updatedAnnotations := s.translator.TranslateAnnotations(vVSC, pVSC)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pVSC.Annotations) {
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vVSC, pVSC)
+	if changed {
 		updated = newIfNil(updated, pVSC)
 		updated.Annotations = updatedAnnotations
-	}
-
-	updatedLabels := s.translator.TranslateLabels(vVSC)
-	if !equality.Semantic.DeepEqual(updatedLabels, pVSC.Labels) {
-		updated = newIfNil(updated, pVSC)
 		updated.Labels = updatedLabels
 	}
 

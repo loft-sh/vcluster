@@ -6,19 +6,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *syncer) translate(vObj client.Object) (*schedulingv1.PriorityClass, error) {
-	target, err := s.translator.Translate(vObj)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *syncer) translate(vObj client.Object) *schedulingv1.PriorityClass {
 	// translate the priority class
-	priorityClass := target.(*schedulingv1.PriorityClass)
+	priorityClass := s.TranslateMetadata(vObj).(*schedulingv1.PriorityClass)
 	priorityClass.GlobalDefault = false
 	if priorityClass.Value > 1000000000 {
 		priorityClass.Value = 1000000000
 	}
-	return priorityClass, nil
+	return priorityClass
 }
 
 func (s *syncer) translateUpdate(pObj, vObj *schedulingv1.PriorityClass) *schedulingv1.PriorityClass {
@@ -31,16 +26,10 @@ func (s *syncer) translateUpdate(pObj, vObj *schedulingv1.PriorityClass) *schedu
 	}
 
 	// check annotations
-	updatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) {
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	if changed {
 		updated = newIfNil(updated, pObj)
-		updated.Annotations = vObj.Annotations
-	}
-
-	// check labels
-	updatedLabels := s.translator.TranslateLabels(vObj)
-	if !equality.Semantic.DeepEqual(updatedLabels, pObj.Labels) {
-		updated = newIfNil(updated, pObj)
+		updated.Annotations = updatedAnnotations
 		updated.Labels = updatedLabels
 	}
 

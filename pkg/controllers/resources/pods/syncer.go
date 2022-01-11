@@ -2,12 +2,13 @@ package pods
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"reflect"
 	"sync"
 	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -36,16 +37,12 @@ var (
 	zero                              = int64(0)
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
+func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	err := generic.RegisterSyncerIndices(ctx, &corev1.Pod{})
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
 	// register controllers
 	virtualClusterClient, err := kubernetes.NewForConfig(ctx.VirtualManager.GetConfig())
 	if err != nil {
@@ -67,14 +64,13 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 
 	// create pod translator
 	eventRecorder := eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "pod-syncer"})
-	translator, err := translatepods.NewTranslator(ctx, eventRecorder)
+	podTranslator, err := translatepods.NewTranslator(ctx, eventRecorder)
 	if err != nil {
 		return errors.Wrap(err, "create pod translator")
 	}
 
-	podsClient := ctx.VirtualManager.GetClient()
-	return generic.RegisterSyncerWithOptions(ctx, "pod", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Pod{}),
+	return generic.RegisterSyncer(ctx, "pod", &syncer{
+		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Pod{}),
 
 		sharedNodesMutex: ctx.LockFactory.GetLock("nodes-controller"),
 		eventRecorder:    eventRecorder,
@@ -89,45 +85,16 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		virtualClusterClient: virtualClusterClient,
 		nodeServiceProvider:  ctx.NodeServiceProvider,
 
-		podTranslator: translator,
+		podTranslator: podTranslator,
 		useFakeNodes:  !ctx.Controllers["nodes"],
 
 		creator:      generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventRecorder, "pod"),
 		nodeSelector: nodeSelector,
-	}, &generic.SyncerOptions{
-		// reconcile pods on Namespace update in order to pick up ns label changes
-		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			eventHandler := handler.Funcs{
-				UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-					// no need to reconcile pods if namespace labels didn't change
-					if reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) {
-						return
-					}
-
-					ns := e.ObjectNew.GetName()
-					pods := &corev1.PodList{}
-					err := podsClient.List(ctx.Context, pods, client.InNamespace(ns))
-					if err != nil {
-						log := loghelper.New("pods-syncer-ns-watch-handler")
-						log.Infof("failed to list pods in the %s namespace when handling namespace update: %v", ns, err)
-						return
-					}
-					for _, pod := range pods.Items {
-						q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-							Name:      pod.GetName(),
-							Namespace: ns,
-						}})
-					}
-				},
-			}
-
-			return builder.Watches(&source.Kind{Type: &corev1.Namespace{}}, eventHandler)
-		},
 	})
 }
 
 type syncer struct {
-	generic.Translator
+	translator.Translator
 
 	useFakeNodes bool
 
@@ -152,6 +119,36 @@ type syncer struct {
 
 func (s *syncer) New() client.Object {
 	return &corev1.Pod{}
+}
+
+var _ generic.ControllerModifier = &syncer{}
+
+func (s *syncer) ModifyController(builder *builder.Builder) *builder.Builder {
+	eventHandler := handler.Funcs{
+		UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+			// no need to reconcile pods if namespace labels didn't change
+			if reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) {
+				return
+			}
+
+			ns := e.ObjectNew.GetName()
+			pods := &corev1.PodList{}
+			err := s.virtualClient.List(context.TODO(), pods, client.InNamespace(ns))
+			if err != nil {
+				log := loghelper.New("pods-syncer-ns-watch-handler")
+				log.Infof("failed to list pods in the %s namespace when handling namespace update: %v", ns, err)
+				return
+			}
+			for _, pod := range pods.Items {
+				q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+					Name:      pod.GetName(),
+					Namespace: ns,
+				}})
+			}
+		},
+	}
+
+	return builder.Watches(&source.Kind{Type: &corev1.Namespace{}}, eventHandler)
 }
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {

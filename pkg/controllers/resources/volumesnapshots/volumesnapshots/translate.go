@@ -12,12 +12,7 @@ import (
 )
 
 func (s *syncer) translate(ctx context.Context, vVS *volumesnapshotv1.VolumeSnapshot) (*volumesnapshotv1.VolumeSnapshot, error) {
-	target, err := s.translator.Translate(vVS)
-	if err != nil {
-		return nil, err
-	}
-	pVS := target.(*volumesnapshotv1.VolumeSnapshot)
-
+	pVS := s.TranslateMetadata(vVS).(*volumesnapshotv1.VolumeSnapshot)
 	if vVS.Annotations != nil && vVS.Annotations[constants.SkipTranslationAnnotation] == "true" {
 		pVS.Spec.Source = vVS.Spec.Source
 	} else {
@@ -49,15 +44,11 @@ func (s *syncer) translateUpdate(pVS, vVS *volumesnapshotv1.VolumeSnapshot) *vol
 		updated.Spec.VolumeSnapshotClassName = vVS.Spec.VolumeSnapshotClassName
 	}
 
-	updatedAnnotations := s.translator.TranslateAnnotations(vVS, pVS)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pVS.Annotations) {
+	// check if metadata changed
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vVS, pVS)
+	if changed {
 		updated = newIfNil(updated, pVS)
 		updated.Annotations = updatedAnnotations
-	}
-
-	updatedLabels := s.translator.TranslateLabels(vVS)
-	if !equality.Semantic.DeepEqual(updatedLabels, pVS.Labels) {
-		updated = newIfNil(updated, pVS)
 		updated.Labels = updatedLabels
 	}
 

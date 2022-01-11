@@ -2,11 +2,15 @@ package persistentvolumes
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -17,35 +21,28 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
 	HostClusterPersistentVolumeAnnotation = "vcluster.loft.sh/host-pv"
 )
 
-func RegisterSyncerIndices(ctx *context2.ControllerContext) error {
-	// index objects by their physical name
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolume{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+func RegisterSyncer(ctx *context2.ControllerContext) error {
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolume{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translatePersistentVolumeName(ctx.Options.TargetNamespace, rawObj.(*corev1.PersistentVolume).Name, rawObj)}
 	})
-}
+	if err != nil {
+		return err
+	}
 
-func RegisterSyncer(ctx *context2.ControllerContext) error {
-	return generic.RegisterSyncerWithOptions(ctx, "persistentvolume", &syncer{
+	return generic.RegisterSyncer(ctx, "persistentvolume", &syncer{
 		targetNamespace: ctx.Options.TargetNamespace,
 		localClient:     ctx.LocalManager.GetClient(),
 		virtualClient:   ctx.VirtualManager.GetClient(),
 
-		translator: translate.NewDefaultClusterTranslator(ctx.Options.TargetNamespace, NewPersistentVolumeTranslator(ctx.Options.TargetNamespace), HostClusterPersistentVolumeAnnotation),
-	}, &generic.SyncerOptions{
-		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(mapPVCs))
-		},
+		metadataTranslator: translator.NewClusterTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.PersistentVolume{}, NewPersistentVolumeTranslator(ctx.Options.TargetNamespace), HostClusterPersistentVolumeAnnotation),
 	})
 }
 
@@ -68,24 +65,28 @@ func mapPVCs(obj client.Object) []reconcile.Request {
 	return nil
 }
 
-func NewPersistentVolumeTranslator(physicalNamespace string) translate.PhysicalNameTranslator {
+func NewPersistentVolumeTranslator(physicalNamespace string) translator.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
 		return translatePersistentVolumeName(physicalNamespace, vName, vObj)
 	}
 }
 
 type syncer struct {
-	generic.Translator
-
 	targetNamespace string
 	localClient     client.Client
 	virtualClient   client.Client
 
-	translator translate.Translator
+	metadataTranslator translator.MetadataTranslator
 }
 
 func (s *syncer) New() client.Object {
 	return &corev1.PersistentVolume{}
+}
+
+var _ generic.ControllerModifier = &syncer{}
+
+func (s *syncer) ModifyController(builder *builder.Builder) *builder.Builder {
+	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(mapPVCs))
 }
 
 func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
@@ -102,13 +103,9 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 		return ctrl.Result{}, s.virtualClient.Delete(ctx, vPv)
 	}
 
-	pPv, err := s.translate(vPv)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
+	pPv := s.translate(vPv)
 	log.Infof("create physical persistent volume %s, because there is a virtual persistent volume", pPv.Name)
-	err = s.localClient.Create(ctx, pPv)
+	err := s.localClient.Create(ctx, pPv)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -267,9 +264,9 @@ func (s *syncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object)
 
 func (s *syncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
+	if pAnnotations != nil && pAnnotations[translator.NameAnnotation] != "" {
 		return types.NamespacedName{
-			Name: pAnnotations[translate.NameAnnotation],
+			Name: pAnnotations[translator.NameAnnotation],
 		}
 	}
 

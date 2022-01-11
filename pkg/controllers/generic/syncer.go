@@ -2,17 +2,16 @@ package generic
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -23,7 +22,7 @@ import (
 func RegisterSyncerIndices(ctx *context2.ControllerContext, obj client.Object) error {
 	// index objects by their virtual name
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translate.ObjectPhysicalName(rawObj)}
+		return []string{translator.ObjectPhysicalName(rawObj)}
 	})
 }
 
@@ -32,7 +31,6 @@ func RegisterSyncer(ctx *context2.ControllerContext, name string, syncer Syncer)
 }
 
 type SyncerOptions struct {
-	ModifyController        func(builder *builder.Builder) *builder.Builder
 	MaxConcurrentReconciles int
 }
 
@@ -168,8 +166,9 @@ func (r *syncerController) Register(name string, physicalManager ctrl.Manager, v
 		Named(name).
 		Watches(source.NewKindWithCache(r.syncer.New(), physicalManager.GetCache()), r).
 		For(r.syncer.New())
-	if options != nil && options.ModifyController != nil {
-		controller = options.ModifyController(controller)
+	modifier, ok := r.syncer.(ControllerModifier)
+	if ok {
+		controller = modifier.ModifyController(controller)
 	}
 	return controller.Complete(r)
 }

@@ -1,6 +1,7 @@
-package translate
+package translator
 
 import (
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -93,15 +94,15 @@ func ObjectPhysicalName(obj runtime.Object) string {
 		return ""
 	}
 
-	return PhysicalName(metaAccessor.GetName(), metaAccessor.GetNamespace())
+	return translate.PhysicalName(metaAccessor.GetName(), metaAccessor.GetNamespace())
 }
 
 func GetOwnerReference() []metav1.OwnerReference {
-	if Owner == nil {
+	if translate.Owner == nil {
 		return nil
 	}
 
-	typeAccessor, err := meta.TypeAccessor(Owner)
+	typeAccessor, err := meta.TypeAccessor(translate.Owner)
 	if err != nil {
 		return nil
 	}
@@ -110,8 +111,8 @@ func GetOwnerReference() []metav1.OwnerReference {
 		{
 			APIVersion: typeAccessor.GetAPIVersion(),
 			Kind:       typeAccessor.GetKind(),
-			Name:       Owner.GetName(),
-			UID:        Owner.GetUID(),
+			Name:       translate.Owner.GetName(),
+			UID:        translate.Owner.GetUID(),
 		},
 	}
 }
