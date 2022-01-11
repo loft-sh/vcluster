@@ -3,7 +3,7 @@ vars:
   - name: SYNCER_IMAGE
     value: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
   - name: K3S_IMAGE
-    value: rancher/k3s:v1.21.2-k3s1
+    value: rancher/k3s:v1.23.1-k3s1
   # Replace this with your clusters service CIDR, you can find it out via
   # kubectl apply -f hack/wrong-cluster-ip-service.yaml
   - name: SERVICE_CIDR
