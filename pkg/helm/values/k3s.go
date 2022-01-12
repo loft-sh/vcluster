@@ -3,15 +3,16 @@ package values
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/log"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/kubernetes"
 )
 
 var K3SVersionMap = map[string]string{
@@ -45,16 +46,17 @@ var baseArgsMap = map[string]string{
 var replaceRegEx = regexp.MustCompile("[^0-9]+")
 var errorMessageFind = "provided IP is not in the valid range. The range of valid IPs is "
 
-func getDefaultK3SReleaseValues(client kubernetes.Interface, createOptions *create.CreateOptions, log log.Logger) (string, error) {
+func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
 	var (
-		image               = createOptions.K3SImage
+		image               = chartOptions.K3SImage
 		serverVersionString string
 		serverMinorInt      int
 		err                 error
 	)
 
 	if image == "" {
-		serverVersionString, serverMinorInt, err = getKubernetesVersion(client, createOptions)
+		serverVersionString = GetKubernetesVersion(chartOptions.KubernetesVersion)
+		serverMinorInt, err = GetKubernetesMinorVersion(chartOptions.KubernetesVersion)
 		if err != nil {
 			return "", err
 		}
@@ -80,75 +82,67 @@ func getDefaultK3SReleaseValues(client kubernetes.Interface, createOptions *crea
 ##BASEARGS##
 `
 	values = strings.ReplaceAll(values, "##IMAGE##", image)
-	if createOptions.K3SImage == "" {
+	if chartOptions.K3SImage == "" {
 		baseArgs := baseArgsMap[serverVersionString]
 		values = strings.ReplaceAll(values, "##BASEARGS##", baseArgs)
 	}
 
-	return addCommonReleaseValues(values, createOptions)
+	return addCommonReleaseValues(values, chartOptions)
 }
 
-func addCommonReleaseValues(values string, createOptions *create.CreateOptions) (string, error) {
+func addCommonReleaseValues(values string, chartOptions *helm.ChartOptions) (string, error) {
 	values += `
 serviceCIDR: ##CIDR##
 storage:
   size: 5Gi`
-	if createOptions.DisableIngressSync {
+	if chartOptions.DisableIngressSync {
 		values += `
 syncer:
   extraArgs: ["--disable-sync-resources=ingresses"]`
 	}
-	if createOptions.CreateClusterRole {
+	if chartOptions.CreateClusterRole {
 		values += `
 rbac:
   clusterRole:
     create: true`
 	}
 
-	if createOptions.Expose {
+	if chartOptions.Expose {
 		values += `
 service:
   type: LoadBalancer`
 	}
 
-	values = strings.ReplaceAll(values, "##CIDR##", createOptions.CIDR)
+	values = strings.ReplaceAll(values, "##CIDR##", chartOptions.CIDR)
 	values = strings.TrimSpace(values)
 	return values, nil
 }
 
-func getKubernetesVersion(client kubernetes.Interface, createOptions *create.CreateOptions) (string, int, error) {
-	if createOptions.KubernetesVersion != "" {
-		version := createOptions.KubernetesVersion
-		if version[0] == 'v' {
-			version = version[1:]
-		}
-
-		splittedVersion := strings.Split(version, ".")
-		if len(splittedVersion) != 2 && len(splittedVersion) != 3 {
-			return "", 0, fmt.Errorf("unrecognized kubernetes version %s, please use format vX.X", version)
-		}
-
-		minor := splittedVersion[1]
-		minorParsed, err := strconv.Atoi(minor)
-		if err != nil {
-			return "", 0, errors.Wrap(err, "parse minor version")
-		}
-
-		return splittedVersion[0] + "." + splittedVersion[1], minorParsed, nil
+func ParseKubernetesVersionInfo(versionStr string) (*version.Info, error) {
+	if versionStr[0] == 'v' {
+		versionStr = versionStr[1:]
 	}
 
-	serverVersion, err := client.Discovery().ServerVersion()
-	if err != nil {
-		return "", 0, err
+	splittedVersion := strings.Split(versionStr, ".")
+	if len(splittedVersion) != 2 && len(splittedVersion) != 3 {
+		return nil, fmt.Errorf("unrecognized kubernetes version %s, please use format vX.X", versionStr)
 	}
 
-	serverVersionString := replaceRegEx.ReplaceAllString(serverVersion.Major, "") + "." + replaceRegEx.ReplaceAllString(serverVersion.Minor, "")
-	serverMinorInt, err := strconv.Atoi(replaceRegEx.ReplaceAllString(serverVersion.Minor, ""))
-	if err != nil {
-		return "", 0, err
-	}
+	major := splittedVersion[0]
+	minor := splittedVersion[1]
 
-	return serverVersionString, serverMinorInt, nil
+	return &version.Info{
+		Major: major,
+		Minor: minor,
+	}, nil
+}
+
+func GetKubernetesVersion(serverVersion *version.Info) string {
+	return replaceRegEx.ReplaceAllString(serverVersion.Major, "") + "." + replaceRegEx.ReplaceAllString(serverVersion.Minor, "")
+}
+
+func GetKubernetesMinorVersion(serverVersion *version.Info) (int, error) {
+	return strconv.Atoi(replaceRegEx.ReplaceAllString(serverVersion.Minor, ""))
 }
 
 func GetServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {

@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create/values"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/coredns"
 	"os"
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/coredns"
+	"github.com/loft-sh/vcluster/pkg/helm/values"
 )
 
 func main() {

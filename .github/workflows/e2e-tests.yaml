@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - main
+      - v0.5
     paths:
       - "Dockerfile"
       - "**.go"
@@ -13,6 +14,7 @@ on:
       - "e2e/**_test.go" # include test files in e2e again
       - ".github/workflows/e2e-tests.yaml"
       - "charts/**"
+      - "manifests/**"
 
 jobs:
   e2e:

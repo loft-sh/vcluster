@@ -1,18 +1,19 @@
 package values
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"k8s.io/client-go/kubernetes"
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/log"
 )
 
 var K0SVersionMap = map[string]string{
 	"1.22": "k0sproject/k0s:v1.22.4-k0s.0",
 }
 
-func getDefaultK0SReleaseValues(client kubernetes.Interface, createOptions *create.CreateOptions, log log.Logger) (string, error) {
-	serverVersionString, serverMinorInt, err := getKubernetesVersion(client, createOptions)
+func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
+	serverVersionString := GetKubernetesVersion(chartOptions.KubernetesVersion)
+	serverMinorInt, err := GetKubernetesMinorVersion(chartOptions.KubernetesVersion)
 	if err != nil {
 		return "", err
 	}
@@ -33,5 +34,5 @@ func getDefaultK0SReleaseValues(client kubernetes.Interface, createOptions *crea
   image: ##IMAGE##
 `
 	values = strings.ReplaceAll(values, "##IMAGE##", image)
-	return addCommonReleaseValues(values, createOptions)
+	return addCommonReleaseValues(values, chartOptions)
 }

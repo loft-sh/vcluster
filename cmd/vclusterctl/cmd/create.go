@@ -6,11 +6,13 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create/values"
+	"github.com/loft-sh/vcluster/pkg/helm/values"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -20,12 +22,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-var errorMessageIPFamily = "expected an IPv6 value as indicated by "    // Dual-stack cluster with .spec.ipFamilies=["IPv6"]
-var errorMessageIPv4Disabled = "IPv4 is not configured on this cluster" // IPv6 only cluster
+var (
+	AllowedDistros           = []string{"k3s", "k0s", "k8s"}
+	errorMessageIPFamily     = "expected an IPv6 value as indicated by " // Dual-stack cluster with .spec.ipFamilies=["IPv6"]
+	errorMessageIPv4Disabled = "IPv4 is not configured on this cluster"  // IPv6 only cluster
+)
 
 // CreateCmd holds the login cmd flags
 type CreateCmd struct {
@@ -68,7 +74,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh", "The virtual cluster chart repo to use")
 	cobraCmd.Flags().StringVar(&cmd.K3SImage, "k3s-image", "", "DEPRECATED: use --extra-values instead")
-	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k3s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(values.AllowedDistros, ", ")))
+	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k3s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(AllowedDistros, ", ")))
 	cobraCmd.Flags().StringVar(&cmd.ReleaseValues, "release-values", "", "DEPRECATED: use --extra-values instead")
 	cobraCmd.Flags().StringVar(&cmd.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cobraCmd.Flags().StringSliceVarP(&cmd.ExtraValues, "extra-values", "f", []string{}, "Path where to load extra helm values from")
@@ -172,8 +178,27 @@ func (cmd *CreateCmd) Run(args []string) error {
 		}
 	}
 
+	var kubernetesVersion *version.Info
+	if cmd.KubernetesVersion != "" {
+		kubernetesVersion, err = values.ParseKubernetesVersionInfo(cmd.KubernetesVersion)
+		if err != nil {
+			return err
+		}
+	}
+
+	if kubernetesVersion == nil {
+		kubernetesVersion, err = client.DiscoveryClient.ServerVersion()
+		if err != nil {
+			return err
+		}
+	}
+
 	// load the default values
-	chartValues, err := values.GetDefaultReleaseValues(client, &cmd.CreateOptions, cmd.log)
+	chartOptions, err := cmd.ToChartOptions(kubernetesVersion)
+	if err != nil {
+		return err
+	}
+	chartValues, err := values.GetDefaultReleaseValues(chartOptions, cmd.log)
 	if err != nil {
 		return err
 	}
@@ -223,6 +248,14 @@ func (cmd *CreateCmd) Run(args []string) error {
 		}
 	}
 
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("unable to get current work directory: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, cmd.ChartName)); err == nil {
+		return fmt.Errorf("aborting vcluster creation. Current working directory contains a file or a directory with the name equal to the vcluster chart name - \"%s\". Please execute vcluster create command from a directory that doesn't contain a file or directory named \"%s\"", cmd.ChartName, cmd.ChartName)
+	}
+
 	// we have to upgrade / install the chart
 	err = helm.NewClient(&rawConfig, cmd.log).Upgrade(args[0], cmd.Namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
@@ -249,4 +282,26 @@ func (cmd *CreateCmd) Run(args []string) error {
 		return connectCmd.Connect(args[0])
 	}
 	return nil
+}
+
+func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helm.ChartOptions, error) {
+	if !util.Contains(cmd.Distro, AllowedDistros) {
+		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(AllowedDistros, ", "))
+	}
+
+	if cmd.ChartName == "vcluster" && cmd.Distro != "k3s" {
+		cmd.ChartName += "-" + cmd.Distro
+	}
+
+	return &helm.ChartOptions{
+		ChartName:          cmd.ChartName,
+		ChartRepo:          cmd.ChartRepo,
+		ChartVersion:       cmd.ChartVersion,
+		CIDR:               cmd.CIDR,
+		CreateClusterRole:  cmd.CreateClusterRole,
+		DisableIngressSync: cmd.DisableIngressSync,
+		Expose:             cmd.Expose,
+		K3SImage:           cmd.K3SImage,
+		KubernetesVersion:  kubernetesVersion,
+	}, nil
 }
