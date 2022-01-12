@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vObj *corev1.Service) *corev1.Service {
+func (s *serviceSyncer) translate(vObj *corev1.Service) *corev1.Service {
 	newService := s.TranslateMetadata(vObj).(*corev1.Service)
 	newService.Spec.Selector = nil
 	newService.Spec.ClusterIP = ""
@@ -13,7 +13,7 @@ func (s *syncer) translate(vObj *corev1.Service) *corev1.Service {
 	return newService
 }
 
-func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *corev1.Service {
+func (s *serviceSyncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *corev1.Service {
 	var updated *corev1.Service
 
 	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP {
@@ -39,7 +39,7 @@ func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *corev1.Se
 	return updated
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Service {
+func (s *serviceSyncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Service {
 	var updated *corev1.Service
 
 	// check annotations
@@ -49,7 +49,7 @@ func (s *syncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Service {
 		updated.Annotations = updatedAnnotations
 		updated.Labels = updatedLabels
 	}
-	
+
 	// check ports
 	if !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
 		updated = newIfNil(updated, pObj)

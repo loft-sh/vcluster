@@ -4,10 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -50,6 +52,26 @@ func IsManaged(obj runtime.Object) bool {
 	}
 
 	return metaAccessor.GetLabels()[MarkerLabel] == Suffix
+}
+
+func GetOwnerReference() []metav1.OwnerReference {
+	if Owner == nil {
+		return nil
+	}
+
+	typeAccessor, err := meta.TypeAccessor(Owner)
+	if err != nil {
+		return nil
+	}
+
+	return []metav1.OwnerReference{
+		{
+			APIVersion: typeAccessor.GetAPIVersion(),
+			Kind:       typeAccessor.GetKind(),
+			Name:       Owner.GetName(),
+			UID:        Owner.GetUID(),
+		},
+	}
 }
 
 func IsManagedCluster(physicalNamespace string, obj runtime.Object) bool {

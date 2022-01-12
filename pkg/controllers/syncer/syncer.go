@@ -1,11 +1,9 @@
-package generic
+package syncer
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/constants"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -19,47 +17,52 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func RegisterSyncerIndices(ctx *context2.ControllerContext, obj client.Object) error {
-	// index objects by their virtual name
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translator.ObjectPhysicalName(rawObj)}
-	})
-}
-
-func RegisterSyncer(ctx *context2.ControllerContext, name string, syncer Syncer) error {
-	return RegisterSyncerWithOptions(ctx, name, syncer, &SyncerOptions{})
-}
-
-type SyncerOptions struct {
-	MaxConcurrentReconciles int
-}
-
-func RegisterSyncerWithOptions(ctx *context2.ControllerContext, name string, syncer Syncer, options *SyncerOptions) error {
+func RegisterSyncer(ctx *synccontext.RegisterContext, syncer Syncer) error {
 	controller := &syncerController{
-		syncer:        syncer,
-		log:           loghelper.New(name),
-		localClient:   ctx.LocalManager.GetClient(),
+		syncer:          syncer,
+		log:             loghelper.New(syncer.Name()),
+		targetNamespace: ctx.TargetNamespace,
+		physicalClient:  ctx.PhysicalManager.GetClient(),
+
+		currentNamespace:       ctx.CurrentNamespace,
+		currentNamespaceClient: ctx.CurrentNamespaceClient,
+
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}
 
-	return controller.Register(name, ctx.LocalManager, ctx.VirtualManager, options)
+	return controller.Register(ctx)
 }
 
 type syncerController struct {
 	syncer Syncer
 
-	log           loghelper.Logger
-	localClient   client.Client
+	log loghelper.Logger
+
+	targetNamespace string
+	physicalClient  client.Client
+
+	currentNamespace       string
+	currentNamespaceClient client.Client
+
 	virtualClient client.Client
 }
 
 func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := loghelper.NewFromExisting(r.log.Base(), req.Name)
+	syncContext := &synccontext.SyncContext{
+		Context:                ctx,
+		Log:                    log,
+		TargetNamespace:        r.targetNamespace,
+		PhysicalClient:         r.physicalClient,
+		CurrentNamespace:       r.currentNamespace,
+		CurrentNamespaceClient: r.currentNamespaceClient,
+		VirtualClient:          r.virtualClient,
+	}
 
 	// check if we should skip reconcile
 	lifecycle, ok := r.syncer.(Starter)
 	if ok {
-		skip, err := lifecycle.ReconcileStart(ctx, req)
+		skip, err := lifecycle.ReconcileStart(syncContext, req)
 		defer lifecycle.ReconcileEnd()
 		if skip || err != nil {
 			return ctrl.Result{}, err
@@ -67,7 +70,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// get virtual resource
-	vObj := r.syncer.New()
+	vObj := r.syncer.Resource()
 	err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
@@ -78,8 +81,8 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// translate to physical name
-	pObj := r.syncer.New()
-	err = r.localClient.Get(ctx, r.syncer.VirtualToPhysical(req.NamespacedName, vObj), pObj)
+	pObj := r.syncer.Resource()
+	err = r.physicalClient.Get(ctx, r.syncer.VirtualToPhysical(req.NamespacedName, vObj), pObj)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
@@ -90,14 +93,14 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// check what function we should call
 	if vObj != nil && pObj == nil {
-		return r.syncer.Forward(ctx, vObj, log)
+		return r.syncer.SyncDown(syncContext, vObj)
 	} else if vObj != nil && pObj != nil {
-		return r.syncer.Update(ctx, pObj, vObj, log)
+		return r.syncer.Sync(syncContext, pObj, vObj)
 	} else if vObj == nil && pObj != nil {
 		// check if backward syncer
-		backwardSyncer, ok := r.syncer.(BackwardSyncer)
+		backwardSyncer, ok := r.syncer.(UpSyncer)
 		if ok {
-			return backwardSyncer.Backward(ctx, pObj, log)
+			return backwardSyncer.SyncUp(syncContext, pObj)
 		}
 
 		managed, err := r.syncer.IsManaged(pObj)
@@ -107,7 +110,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, nil
 		}
 
-		return DeleteObject(ctx, r.localClient, pObj, log)
+		return DeleteObject(syncContext, pObj)
 	}
 
 	return ctrl.Result{}, nil
@@ -153,47 +156,48 @@ func (r *syncerController) enqueuePhysical(obj client.Object, q workqueue.RateLi
 	}
 }
 
-func (r *syncerController) Register(name string, physicalManager ctrl.Manager, virtualManager ctrl.Manager, options *SyncerOptions) error {
+func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 	maxConcurrentReconciles := 1
-	if options.MaxConcurrentReconciles > 0 {
-		maxConcurrentReconciles = options.MaxConcurrentReconciles
-	}
 
-	controller := ctrl.NewControllerManagedBy(virtualManager).
+	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
 		WithOptions(controller2.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
-		Named(name).
-		Watches(source.NewKindWithCache(r.syncer.New(), physicalManager.GetCache()), r).
-		For(r.syncer.New())
-	modifier, ok := r.syncer.(ControllerModifier)
+		Named(r.syncer.Name()).
+		Watches(source.NewKindWithCache(r.syncer.Resource(), ctx.PhysicalManager.GetCache()), r).
+		For(r.syncer.Resource())
+	var err error
+	modifier, ok := r.syncer.(ControllerRegisterer)
 	if ok {
-		controller = modifier.ModifyController(controller)
+		controller, err = modifier.RegisterController(ctx, controller)
+		if err != nil {
+			return err
+		}
 	}
 	return controller.Complete(r)
 }
 
-func DeleteObject(ctx context.Context, localClient client.Client, pObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	accessor, err := meta.Accessor(pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if pObj.GetNamespace() != "" {
-		log.Infof("delete physical %s/%s, because virtual object was deleted", accessor.GetNamespace(), accessor.GetName())
+		ctx.Log.Infof("delete physical %s/%s, because virtual object was deleted", accessor.GetNamespace(), accessor.GetName())
 	} else {
-		log.Infof("delete physical %s, because virtual object was deleted", accessor.GetName())
+		ctx.Log.Infof("delete physical %s, because virtual object was deleted", accessor.GetName())
 	}
-	err = localClient.Delete(ctx, pObj)
+	err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 
 		if pObj.GetNamespace() != "" {
-			log.Infof("error deleting physical object %s/%s in physical cluster: %v", accessor.GetNamespace(), accessor.GetName(), err)
+			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", accessor.GetNamespace(), accessor.GetName(), err)
 		} else {
-			log.Infof("error deleting physical object %s in physical cluster: %v", accessor.GetName(), err)
+			ctx.Log.Infof("error deleting physical object %s in physical cluster: %v", accessor.GetName(), err)
 		}
 		return ctrl.Result{}, err
 	}

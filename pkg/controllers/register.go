@@ -20,16 +20,17 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/record"
 )
 
-var ResourceControllers = map[string]func(*context.ControllerContext, record.EventBroadcaster) error{
-	"services":               services.Register,
-	"configmaps":             configmaps.Register,
+var ResourceControllers = map[string]func(*synccontext.RegisterContext) syncer.Object{
+	"services":               services.New,
+	"configmaps":             configmaps.New,
 	"secrets":                secrets.Register,
 	"endpoints":              endpoints.Register,
 	"pods":                   pods.Register,
@@ -67,8 +68,7 @@ func EnsurePrerequisites(ctx *context.ControllerContext) error {
 }
 
 func RegisterControllers(ctx *context.ControllerContext) error {
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
+	ctx.EventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 
 	// register controller that keeps CoreDNS NodeHosts config up to date
 	err := registerCoreDNSController(ctx)
@@ -82,7 +82,7 @@ func RegisterControllers(ctx *context.ControllerContext) error {
 		for _, controller := range controllers {
 			if ctx.Controllers[controller] {
 				loghelper.Infof("Start %s sync controller", controller)
-				err := v(ctx, eventBroadcaster)
+				err := v(ctx, ctx.EventBroadcaster)
 				if err != nil {
 					return errors.Wrapf(err, "register %s controller", controller)
 				}

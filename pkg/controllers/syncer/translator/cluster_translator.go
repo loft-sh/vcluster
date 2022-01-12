@@ -4,8 +4,9 @@ import (
 	context2 "context"
 	"crypto/sha256"
 	"encoding/hex"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -13,22 +14,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewClusterTranslator(ctx context.SyncContext, obj client.Object, nameTranslator PhysicalNameTranslator, excludedAnnotations ...string) Translator {
+func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, nameTranslator PhysicalNameTranslator, excludedAnnotations ...string) Translator {
 	return &clusterTranslator{
+		name:                name,
 		physicalNamespace:   ctx.TargetNamespace,
 		excludedAnnotations: excludedAnnotations,
-		virtualClient:       ctx.VirtualClient,
+		virtualClient:       ctx.VirtualManager.GetClient(),
 		obj:                 obj,
 		nameTranslator:      nameTranslator,
 	}
 }
 
 type clusterTranslator struct {
+	name                string
 	physicalNamespace   string
 	virtualClient       client.Client
 	obj                 client.Object
 	nameTranslator      PhysicalNameTranslator
 	excludedAnnotations []string
+}
+
+func (n *clusterTranslator) Name() string {
+	return n.name
+}
+
+func (n *clusterTranslator) Resource() client.Object {
+	return n.obj.DeepCopyObject().(client.Object)
 }
 
 func (n *clusterTranslator) IsManaged(pObj client.Object) (bool, error) {

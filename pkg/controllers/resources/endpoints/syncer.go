@@ -3,10 +3,10 @@ package endpoints
 import (
 	"context"
 	"encoding/json"
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,64 +15,39 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	err := generic.RegisterSyncerIndices(ctx, &corev1.Endpoints{})
-	if err != nil {
-		return err
-	}
-
-	return generic.RegisterSyncer(ctx, "endpoints", &syncer{
-		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Endpoints{}),
-
-		targetNamespace: ctx.Options.TargetNamespace,
-		serviceName:     ctx.Options.ServiceName,
-
-		currentNamespace:       ctx.CurrentNamespace,
-		currentNamespaceClient: ctx.CurrentNamespaceClient,
-
-		virtualClient: ctx.VirtualManager.GetClient(),
-		creator:       generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "endpoints-syncer"}), "endpoints"),
-	})
+func New(ctx *synccontext.RegisterContext, eventBroadcaster record.EventBroadcaster) (syncer.Syncer, error) {
+	return &endpointsSyncer{
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "endpoints", &corev1.Endpoints{}),
+		serviceName:          ctx.Options.ServiceName,
+	}, nil
 }
 
-type syncer struct {
-	translator.Translator
-	targetNamespace string
+type endpointsSyncer struct {
+	translator.NamespacedTranslator
 
 	serviceName string
-
-	currentNamespace       string
-	currentNamespaceClient client.Client
-
-	virtualClient client.Client
-
-	creator *generic.GenericCreator
 }
 
-func (s *syncer) New() client.Object {
-	return &corev1.Endpoints{}
+func (s *endpointsSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx, vObj))
 }
 
-func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	return s.creator.Create(ctx, vObj, s.translate(vObj), log)
+func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(ctx, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints)))
 }
 
-func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	return s.creator.Update(ctx, vObj, s.translateUpdate(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints)), log)
-}
+var _ syncer.Starter = &endpointsSyncer{}
 
-var _ generic.Starter = &syncer{}
-
-func (s *syncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {
+func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// dont do anything for the kubernetes service
 	if req.Name == "kubernetes" && req.Namespace == "default" {
-		return true, SyncKubernetesServiceEndpoints(ctx, s.virtualClient, s.currentNamespaceClient, s.currentNamespace, s.serviceName)
+		return true, SyncKubernetesServiceEndpoints(ctx.Context, ctx.VirtualClient, ctx.CurrentNamespaceClient, ctx.CurrentNamespace, s.serviceName)
 	}
 
 	return false, nil
 }
 
-func (s *syncer) ReconcileEnd() {}
+func (s *endpointsSyncer) ReconcileEnd() {}
 
 func SyncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceNamespace, serviceName string) error {
 	// get physical service endpoints

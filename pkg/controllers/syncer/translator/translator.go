@@ -1,14 +1,17 @@
 package translator
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Translator is used to translate names as well as metadata between virtual and physical objects
 type Translator interface {
+	Resource() client.Object
+	Name() string
 	NameTranslator
 	MetadataTranslator
 }
@@ -35,15 +38,21 @@ type MetadataTranslator interface {
 	TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string)
 }
 
-// ForwardTranslator provides some helper functions to ease forward translation
-type ForwardTranslator interface {
+// NamespacedTranslator provides some helper functions to ease sync down translation
+type NamespacedTranslator interface {
 	Translator
 
-	// ForwardCreate creates the given pObj in the target namespace
-	ForwardCreate(ctx context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
+	// EventRecorder returns
+	EventRecorder() record.EventRecorder
 
-	// ForwardUpdate updates the given pObj (if not nil) in the target namespace
-	ForwardUpdate(ctx context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
+	// RegisterIndices registers the default indices for the syncer
+	RegisterIndices(ctx *context.RegisterContext) error
+
+	// SyncDownCreate creates the given pObj in the target namespace
+	SyncDownCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
+
+	// SyncDownUpdate updates the given pObj (if not nil) in the target namespace
+	SyncDownUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
 }
 
 // PhysicalNameTranslator transforms a virtual cluster name to a physical name

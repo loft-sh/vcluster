@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vObj *corev1.Secret) *corev1.Secret {
+func (s *secretSyncer) translate(vObj *corev1.Secret) *corev1.Secret {
 	newSecret := s.TranslateMetadata(vObj).(*corev1.Secret)
 	if newSecret.Type == corev1.SecretTypeServiceAccountToken {
 		newSecret.Type = corev1.SecretTypeOpaque
@@ -14,7 +14,7 @@ func (s *syncer) translate(vObj *corev1.Secret) *corev1.Secret {
 	return newSecret
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.Secret) *corev1.Secret {
+func (s *secretSyncer) translateUpdate(pObj, vObj *corev1.Secret) *corev1.Secret {
 	var updated *corev1.Secret
 
 	// check data

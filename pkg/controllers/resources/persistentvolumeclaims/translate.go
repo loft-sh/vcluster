@@ -2,7 +2,9 @@ package persistentvolumeclaims
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -13,9 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *syncer) translate(targetNamespace string, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	newPvc := s.TranslateMetadata(vPvc).(*corev1.PersistentVolumeClaim)
-	newPvc = s.translateSelector(newPvc)
+	newPvc = s.translateSelector(ctx, newPvc)
 	if newPvc.Spec.DataSource != nil && vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" &&
 		(newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" || newPvc.Spec.DataSource.Kind == "VolumeSnapshot") {
 
@@ -26,27 +28,27 @@ func (s *syncer) translate(targetNamespace string, vPvc *corev1.PersistentVolume
 	return newPvc
 }
 
-func (s *syncer) translateSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	if !s.useFakePersistentVolumes {
 		if vPvc.Annotations == nil || vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 			newObj := vPvc
 			newObj.Spec = *vPvc.Spec.DeepCopy()
 			if newObj.Spec.Selector != nil {
-				newObj.Spec.Selector = translator.TranslateLabelSelectorCluster(s.targetNamespace, newObj.Spec.Selector)
+				newObj.Spec.Selector = translator.TranslateLabelSelectorCluster(ctx.TargetNamespace, newObj.Spec.Selector)
 			}
 			if newObj.Spec.VolumeName != "" {
-				newObj.Spec.VolumeName = translate.PhysicalNameClusterScoped(newObj.Spec.VolumeName, s.targetNamespace)
+				newObj.Spec.VolumeName = translate.PhysicalNameClusterScoped(newObj.Spec.VolumeName, ctx.TargetNamespace)
 			}
 			if newObj.Spec.StorageClassName != nil {
 				// check if the storage class exists in the physical cluster
 				if newObj.Spec.Selector == nil && newObj.Spec.VolumeName == "" {
-					err := s.localClient.Get(context.TODO(), types.NamespacedName{Name: *newObj.Spec.StorageClassName}, &storagev1.StorageClass{})
+					err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{Name: *newObj.Spec.StorageClassName}, &storagev1.StorageClass{})
 					if err != nil && kerrors.IsNotFound(err) {
-						translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, s.targetNamespace)
+						translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, ctx.TargetNamespace)
 						newObj.Spec.StorageClassName = &translated
 					}
 				} else {
-					translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, s.targetNamespace)
+					translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, ctx.TargetNamespace)
 					newObj.Spec.StorageClassName = &translated
 				}
 			}
@@ -56,7 +58,7 @@ func (s *syncer) translateSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.P
 	return vPvc
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	var updated *corev1.PersistentVolumeClaim
 
 	// allow storage size to be increased
@@ -78,7 +80,7 @@ func (s *syncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) *core
 	return updated
 }
 
-func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	var updated *corev1.PersistentVolumeClaim
 
 	// check for metadata annotations

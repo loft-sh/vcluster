@@ -3,19 +3,19 @@ package secrets
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/legacy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -23,14 +23,36 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	useLegacy, err := ingresses.ShouldUseLegacy(ctx.LocalManager.GetConfig())
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	useLegacy, err := ingresses.ShouldUseLegacy(ctx.PhysicalManager.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	return &secretSyncer{
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secret", &corev1.Service{}),
+
+		useLegacyIngress: useLegacy,
+		includeIngresses: ctx.Controllers["ingresses"],
+	}, nil
+}
+
+type secretSyncer struct {
+	translator.NamespacedTranslator
+
+	useLegacyIngress bool
+	includeIngresses bool
+}
+
+var _ syncer.IndicesRegisterer = &secretSyncer{}
+
+func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+	useLegacy, err := ingresses.ShouldUseLegacy(ctx.PhysicalManager.GetConfig())
 	if err != nil {
 		return err
 	}
@@ -52,43 +74,12 @@ func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroa
 		}
 	}
 
-	err = generic.RegisterSyncerIndices(ctx, &corev1.Secret{})
-	if err != nil {
-		return err
-	}
-
-	return generic.RegisterSyncer(ctx, "secret", &syncer{
-		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
-
-		virtualClient: ctx.VirtualManager.GetClient(),
-		localClient:   ctx.LocalManager.GetClient(),
-
-		useLegacyIngress: useLegacy,
-		includeIngresses: ctx.Controllers["ingresses"],
-
-		creator: generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "secret-syncer"}), "secret"),
-	})
+	return s.NamespacedTranslator.RegisterIndices(ctx)
 }
 
-type syncer struct {
-	translator.Translator
+var _ syncer.ControllerRegisterer = &secretSyncer{}
 
-	virtualClient client.Client
-	localClient   client.Client
-
-	useLegacyIngress bool
-	includeIngresses bool
-
-	creator *generic.GenericCreator
-}
-
-func (s *syncer) New() client.Object {
-	return &corev1.Secret{}
-}
-
-var _ generic.ControllerModifier = &syncer{}
-
-func (s *syncer) ModifyController(builder *builder.Builder) *builder.Builder {
+func (s *secretSyncer) RegisterController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.includeIngresses {
 		if s.useLegacyIngress {
 			builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
@@ -99,46 +90,46 @@ func (s *syncer) ModifyController(builder *builder.Builder) *builder.Builder {
 
 	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 		return mapPods(object)
-	}))
+	})), nil
 }
 
-func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	createNeeded, err := s.isSecretUsed(vObj)
+func (s *secretSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	createNeeded, err := s.isSecretUsed(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !createNeeded {
 		return ctrl.Result{}, nil
 	}
 
-	return s.creator.Create(ctx, vObj, s.translate(vObj.(*corev1.Secret)), log)
+	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.Secret)))
 }
 
-func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	used, err := s.isSecretUsed(vObj)
+func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+	used, err := s.isSecretUsed(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !used {
 		pSecret, _ := meta.Accessor(pObj)
-		log.Infof("delete physical secret %s/%s, because it is not used anymore", pSecret.GetNamespace(), pSecret.GetName())
-		err = s.localClient.Delete(ctx, pObj)
+		ctx.Log.Infof("delete physical secret %s/%s, because it is not used anymore", pSecret.GetNamespace(), pSecret.GetName())
+		err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
 		if err != nil {
-			log.Infof("error deleting physical object %s/%s in physical cluster: %v", pSecret.GetNamespace(), pSecret.GetName(), err)
+			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pSecret.GetNamespace(), pSecret.GetName(), err)
 			return ctrl.Result{}, err
 		}
 
 		return ctrl.Result{}, nil
 	}
 
-	return s.creator.Update(ctx, vObj, s.translateUpdate(pObj.(*corev1.Secret), vObj.(*corev1.Secret)), log)
+	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pObj.(*corev1.Secret), vObj.(*corev1.Secret)))
 }
 
-func (s *syncer) isSecretUsed(vObj runtime.Object) (bool, error) {
+func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {
 	secret, ok := vObj.(*corev1.Secret)
 	if !ok || secret == nil {
 		return false, fmt.Errorf("%#v is not a secret", vObj)
 	}
 
-	isUsed, err := isSecretUsedByPods(context.TODO(), s.virtualClient, secret.Namespace+"/"+secret.Name)
+	isUsed, err := isSecretUsedByPods(context.TODO(), ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
 	if err != nil {
 		return false, errors.Wrap(err, "is secret used by pods")
 	}
@@ -155,7 +146,7 @@ func (s *syncer) isSecretUsed(vObj runtime.Object) (bool, error) {
 			ingressesList = &networkingv1.IngressList{}
 		}
 
-		err := s.virtualClient.List(context.TODO(), ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
+		err := ctx.VirtualClient.List(context.TODO(), ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
 			return false, err
 		}

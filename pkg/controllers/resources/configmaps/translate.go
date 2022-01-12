@@ -6,11 +6,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *syncer) translate(vObj client.Object) *corev1.ConfigMap {
+func (s *configMapSyncer) translate(vObj client.Object) *corev1.ConfigMap {
 	return s.TranslateMetadata(vObj).(*corev1.ConfigMap)
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.ConfigMap) *corev1.ConfigMap {
+func (s *configMapSyncer) translateUpdate(pObj, vObj *corev1.ConfigMap) *corev1.ConfigMap {
 	var updated *corev1.ConfigMap
 
 	// check annotations & labels

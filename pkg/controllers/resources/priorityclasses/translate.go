@@ -6,7 +6,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *syncer) translate(vObj client.Object) *schedulingv1.PriorityClass {
+func (s *priorityClassSyncer) translate(vObj client.Object) *schedulingv1.PriorityClass {
 	// translate the priority class
 	priorityClass := s.TranslateMetadata(vObj).(*schedulingv1.PriorityClass)
 	priorityClass.GlobalDefault = false
@@ -16,7 +16,7 @@ func (s *syncer) translate(vObj client.Object) *schedulingv1.PriorityClass {
 	return priorityClass
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *schedulingv1.PriorityClass) *schedulingv1.PriorityClass {
+func (s *priorityClassSyncer) translateUpdate(pObj, vObj *schedulingv1.PriorityClass) *schedulingv1.PriorityClass {
 	var updated *schedulingv1.PriorityClass
 
 	// check subsets

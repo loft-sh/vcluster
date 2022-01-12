@@ -4,19 +4,22 @@ import (
 	context2 "context"
 	"crypto/sha256"
 	"encoding/hex"
+	"reflect"
+	"sort"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strings"
 )
 
 var (
@@ -31,43 +34,69 @@ func DefaultPhysicalName(vName string, vObj client.Object) string {
 	return translate.PhysicalName(name, namespace)
 }
 
-func NewNamespacedTranslator(ctx context.SyncContext, obj client.Object, excludedAnnotations ...string) Translator {
+func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj client.Object, excludedAnnotations ...string) NamespacedTranslator {
 	return &namespacedTranslator{
+		name: name,
+
 		physicalNamespace:   ctx.TargetNamespace,
 		excludedAnnotations: excludedAnnotations,
 
-		virtualClient: ctx.VirtualClient,
+		virtualClient: ctx.VirtualManager.GetClient(),
 		obj:           obj,
+
+		eventRecorder: ctx.EventBroadcaster.NewRecorder(ctx.PhysicalManager.GetScheme(), corev1.EventSource{Component: name + "-syncer"}),
 	}
 }
 
 type namespacedTranslator struct {
+	name string
+
 	physicalNamespace   string
 	excludedAnnotations []string
 
 	virtualClient client.Client
 	obj           client.Object
+
+	eventRecorder record.EventRecorder
 }
 
-func (n *namespacedTranslator) ForwardCreate(ctx context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
-	ctx.Log.Infof("create physical %s %s/%s", ctx.Name, pObj.GetNamespace(), pObj.GetName())
+func (n *namespacedTranslator) EventRecorder() record.EventRecorder {
+	return n.eventRecorder
+}
+
+func (n *namespacedTranslator) Name() string {
+	return n.name
+}
+
+func (n *namespacedTranslator) Resource() client.Object {
+	return n.obj.DeepCopyObject().(client.Object)
+}
+
+func (n *namespacedTranslator) RegisterIndices(ctx *context.RegisterContext) error {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, n.obj, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		return []string{ObjectPhysicalName(rawObj)}
+	})
+}
+
+func (n *namespacedTranslator) SyncDownCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
+	ctx.Log.Infof("create physical %s %s/%s", n.name, pObj.GetNamespace(), pObj.GetName())
 	err := ctx.PhysicalClient.Create(ctx.Context, pObj)
 	if err != nil {
-		ctx.Log.Infof("error syncing %s %s/%s to physical cluster: %v", ctx.Name, vObj.GetNamespace(), vObj.GetName(), err)
-		ctx.EventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
+		ctx.Log.Infof("error syncing %s %s/%s to physical cluster: %v", n.name, vObj.GetNamespace(), vObj.GetName(), err)
+		n.eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (n *namespacedTranslator) ForwardUpdate(ctx context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
+func (n *namespacedTranslator) SyncDownUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
 	// this is needed because of interface nil check
 	if !(pObj == nil || (reflect.ValueOf(pObj).Kind() == reflect.Ptr && reflect.ValueOf(pObj).IsNil())) {
-		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), ctx.Name)
+		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), n.name)
 		err := ctx.PhysicalClient.Update(ctx.Context, pObj)
 		if err != nil {
-			ctx.EventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
+			n.eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 			return ctrl.Result{}, err
 		}
 	}
@@ -215,7 +244,7 @@ func setupMetadataWithName(targetNamespace string, vObj client.Object, translato
 
 		// set owning stateful set if defined
 		if translate.Owner != nil {
-			m.SetOwnerReferences(GetOwnerReference())
+			m.SetOwnerReferences(translate.GetOwnerReference())
 		}
 	}
 

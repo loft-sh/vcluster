@@ -3,7 +3,6 @@ package nodeservice
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"strings"
 	"sync"
 	"time"
@@ -182,7 +181,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 
 	// set owning stateful set if defined
 	if translate.Owner != nil {
-		nodeService.SetOwnerReferences(translator.GetOwnerReference())
+		nodeService.SetOwnerReferences(translate.GetOwnerReference())
 	}
 
 	// create the service

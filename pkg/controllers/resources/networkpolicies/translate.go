@@ -1,20 +1,20 @@
 package networkpolicies
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+func (s *networkPolicySyncer) translate(vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
 	newNetworkPolicy := s.TranslateMetadata(vNetworkPolicy).(*networkingv1.NetworkPolicy)
 	newNetworkPolicy.Spec = *translateSpec(&vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace())
 	return newNetworkPolicy
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+func (s *networkPolicySyncer) translateUpdate(pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
 	var updated *networkingv1.NetworkPolicy
 
 	translatedSpec := *translateSpec(&vObj.Spec, vObj.GetNamespace())
