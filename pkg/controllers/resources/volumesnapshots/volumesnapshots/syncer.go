@@ -104,6 +104,9 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		}
 
 		// sync finalizers and status to allow tracking of the deletion progress
+		//TODO: refactor finalizer syncing and handling
+		// we can not add new finalizers from physical to virtual once it has deletionTimestamp, we can only remove finalizers
+
 		if !equality.Semantic.DeepEqual(vVS.Finalizers, pVS.Finalizers) {
 			updated := vVS.DeepCopy()
 			updated.Finalizers = pVS.Finalizers
@@ -127,15 +130,14 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		return ctrl.Result{}, nil
 
 	} else if vVS.DeletionTimestamp != nil {
-		log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", pVS.Namespace, pVS.Name)
-		err := s.localClient.Delete(ctx, pVS, &client.DeleteOptions{
-			GracePeriodSeconds: vVS.DeletionGracePeriodSeconds,
-			Preconditions:      metav1.NewUIDPreconditions(string(pVS.UID)),
-		})
-		if kerrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+		if pVS.DeletionTimestamp == nil {
+			log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", pVS.Namespace, pVS.Name)
+			return ctrl.Result{}, s.localClient.Delete(ctx, pVS, &client.DeleteOptions{
+				GracePeriodSeconds: vVS.DeletionGracePeriodSeconds,
+				Preconditions:      metav1.NewUIDPreconditions(string(pVS.UID)),
+			})
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	// check backwards update

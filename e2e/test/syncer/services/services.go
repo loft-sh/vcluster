@@ -101,6 +101,9 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		_, err = f.VclusterClient.RESTClient().Post().AbsPath("/api/v1/namespaces/" + ns + "/services").Body(body).DoRaw(f.Context)
 		framework.ExpectNoError(err)
 
+		err = f.WaitForService(service.Name, service.Namespace)
+		framework.ExpectNoError(err)
+
 		_, err = f.VclusterClient.CoreV1().Services(ns).Get(f.Context, service.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 

@@ -44,7 +44,7 @@ func (s *syncer) translateUpdate(pVS, vVS *volumesnapshotv1.VolumeSnapshot) *vol
 	var updated *volumesnapshotv1.VolumeSnapshot
 
 	// snapshot class can be updated
-	if pVS.Spec.VolumeSnapshotClassName != vVS.Spec.VolumeSnapshotClassName {
+	if !equality.Semantic.DeepEqual(pVS.Spec.VolumeSnapshotClassName, vVS.Spec.VolumeSnapshotClassName) {
 		updated = newIfNil(updated, pVS)
 		updated.Spec.VolumeSnapshotClassName = vVS.Spec.VolumeSnapshotClassName
 	}

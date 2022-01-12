@@ -79,3 +79,59 @@ spec:
 ```
 
 This only happens if persistent volume sync is enabled in the vcluster. There might be cases where you want to disable this automatic rewriting of PVCs (for example if you want to mount an already existing PV of the host cluster to a PVC in the vcluster), for that case you can set the annotation called `vcluster.loft.sh/skip-translate` to `true`, which will tell vcluster to not rewrite the PVC `volumeName`, `storageClass`, `selectors` or `dataSource`. 
+
+
+### Sync Volume Snapshots
+Kubernetes VolumeSnapshot resource represents a snapshot of a volume on a storage system. You can read more about volume snapshots on [the official Kubernetes documentation page of this feature](https://kubernetes.io/docs/concepts/storage/volume-snapshots/).
+
+By default, VolumeSnapshot syncing is disabled, and creating a VolumeSnapshot custom resource in the vcluster will have no effect. Following chapters describe how to enable this feature in the vcluster.
+
+:::caution Tech-preview feature
+This vcluster feature is still in the early state of maturity, so it is highly recommended to perform testing with your specific storage configurations and use cases.
+
+We offer this feature to the community as a tech-preview to gather feedback and information about compatibility with various CSI implementations and Kubernetes distributions. Please share your experience with us via *#vcluster* channel in [our Slack instance](https://slack.loft.sh/) or via [GitHub issues](https://github.com/loft-sh/vcluster/issues).
+:::
+
+#### Host prerequisites
+Vcluster relies fully on the volume snapshot capabilities of the host cluster, which has to fullfil certain criteria.
+
+Host cluster must have all relevant [snapshot CRDs](https://github.com/kubernetes-csi/external-snapshotter/tree/master/client/config/crd) installed, whitout which the vcluster will fail to start when volume snapshots sync is enabled.
+
+Host cluster should have a common snapshot controller installed, as well as a compatible CSI driver. Without these the volume snapshots will not be created in the storage backend.
+
+It is also recommended for the host cluster to have [the volume snapshots validating webhook](https://github.com/kubernetes-csi/external-snapshotter#validating-webhook) installed. 
+
+#### Create a vcluster with volume snapshots sync
+
+Create a `values.yaml` file in the form of:
+
+```yaml
+rbac: 
+  clusterRole:
+    create: true
+  role:
+    extended: true
+syncer:
+  extraArgs:
+  - --sync=volumesnapshots
+```
+
+Then deploy the vcluster with:
+
+```
+vcluster create my-vcluster -n my-vcluster -f values.yaml
+```
+
+:::info 
+It is recommend to install [the volume snapshots validating webhook](https://github.com/kubernetes-csi/external-snapshotter#validating-webhook) in your vcluster instance. 
+:::
+
+#### How does it work?
+
+When you enable volume snapshot sync, vcluster will start watching VolumeSnapshot, VolumeSnapshotContent, and VolumeSnapshotClass CRs and syncing them between vcluster and host cluster. These resource types are synced in the following ways:
+
+**VolumeSnapshot** resources created in the vcluster will be synced to the host cluster with the name in form of `vcluster-VOLUME_SNAPSHOT_NAME-x-VOLUME_SNAPSHOT_NAMESPACE-x-VCLUSTER_NAME`. The status and finalizers of this resource will be synced back into vcluster. The `.spec.source` field of the VolumeSnapshot resource in the host cluster will be rewritten to reference the expected PersistentVolumeClaim or VolumeSnapshotContent resource.
+
+**VolumeSnapshotContent** resources created in the vcluster will be synced to the host cluster with the name in form of `vcluster-VOLUME_SNAPSHOT_NAME-x-VCLUSTER_NAMESPACE-x-VCLUSTER_NAME`. VolumeSnapshotContent resources created in the host cluster and referencing VolumeSnapshot from the vcluster will be synced into vcluster. The status and finalizers of the resource in host cluster will be synced into its vcluster representation. The `.spec.volumeSnapshotRef` field of the VolumeSnapshotContent resource will be rewritten to reference the expected VolumeSnapshot resource.
+
+**VolumeSnapshotClass** resources will be synced from the host cluster into vcluster only.
