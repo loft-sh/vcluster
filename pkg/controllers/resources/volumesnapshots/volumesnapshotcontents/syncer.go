@@ -51,9 +51,13 @@ func NewVolumeSnapshotContentTranslator(physicalNamespace string) translator.Phy
 var _ syncer.IndicesRegisterer = &volumeSnapshotContentSyncer{}
 
 func (s *volumeSnapshotContentSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translateVolumeSnapshotContentName(ctx.Options.TargetNamespace, rawObj.GetName(), rawObj)}
-	})
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName(ctx.Options.TargetNamespace))
+}
+
+func newIndexByVSCPhysicalName(targetNamespace string) client.IndexerFunc {
+	return func(rawObj client.Object) []string {
+		return []string{translateVolumeSnapshotContentName(targetNamespace, rawObj.GetName(), rawObj)}
+	}
 }
 
 var _ syncer.UpSyncer = &volumeSnapshotContentSyncer{}
@@ -65,7 +69,7 @@ func (s *volumeSnapshotContentSyncer) SyncUp(ctx *synccontext.SyncContext, pObj 
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
-		// ignore this VolumeSnapshotContent resource, because there is no virtual VolumeSnapshot bound to it"
+		// ignore this VolumeSnapshotContent resource, because there is no virtual VolumeSnapshot bound to it
 		return ctrl.Result{}, nil
 	}
 
@@ -115,6 +119,10 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 		}
 
 		// sync finalizers and status to allow tracking of the deletion progress
+
+		// TODO: refactor finalizer syncing and handling
+		// we can not add new finalizers from physical to virtual once it has deletionTimestamp, we can only remove finalizers
+
 		if !equality.Semantic.DeepEqual(vVSC.Finalizers, pVSC.Finalizers) {
 			updated := vVSC.DeepCopy()
 			updated.Finalizers = pVSC.Finalizers

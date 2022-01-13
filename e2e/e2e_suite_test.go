@@ -25,6 +25,7 @@ import (
 	_ "github.com/loft-sh/vcluster/e2e/test/syncer/networkpolicies"
 	_ "github.com/loft-sh/vcluster/e2e/test/syncer/pods"
 	_ "github.com/loft-sh/vcluster/e2e/test/syncer/services"
+	_ "github.com/loft-sh/vcluster/e2e/test/webhook"
 )
 
 var (
