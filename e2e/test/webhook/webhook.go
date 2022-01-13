@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -89,7 +90,156 @@ var _ = ginkgo.Describe("AdmissionWebhook", func() {
 		defer webhookCleanup()
 		testWebhook(f, ns)
 	})
+
+	/*
+		Release: v1.16
+		Testname: Admission webhook, ordered mutation
+		Description: Register a mutating webhook configuration with two webhooks that admit configmaps, one that
+		adds a data key if the configmap already has a specific key, and another that adds a key if the key added by
+		the first webhook is present. Attempt to create a config map; both keys MUST be added to the config map.
+	*/
+	ginkgo.It("should mutate configmap", func() {
+		webhookCleanup := registerMutatingWebhookForConfigMap(f, uniqueName, certCtx, servicePort, ns)
+		defer webhookCleanup()
+		testMutatingConfigMapWebhook(f, ns)
+	})
+
 })
+
+func registerMutatingWebhookForConfigMap(f *framework.Framework, configName string, certCtx *certContext, servicePort int32, namespace string) func() {
+	client := f.VclusterClient
+	ginkgo.By("Registering the mutating configmap webhook via the AdmissionRegistration API")
+
+	_, err := createMutatingWebhookConfiguration(f, &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: configName,
+		},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{
+			newMutateConfigMapWebhookFixture(f, certCtx, 1, servicePort, namespace),
+			newMutateConfigMapWebhookFixture(f, certCtx, 2, servicePort, namespace),
+			// Register a webhook that can be probed by marker requests to detect when the configuration is ready.
+			newMutatingIsReadyWebhookFixture(f, certCtx, servicePort, namespace),
+		},
+	})
+	framework.ExpectNoError(err, "registering mutating webhook config %s with namespace %s", configName, namespace)
+
+	err = waitWebhookConfigurationReady(f, namespace)
+	framework.ExpectNoError(err, "waiting for webhook configuration to be ready")
+	return func() {
+		_ = client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), configName, metav1.DeleteOptions{})
+	}
+}
+
+// createMutatingWebhookConfiguration ensures the webhook config scopes object or namespace selection
+// to avoid interfering with other tests, then creates the config.
+func createMutatingWebhookConfiguration(f *framework.Framework, config *admissionregistrationv1.MutatingWebhookConfiguration) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
+	for _, webhook := range config.Webhooks {
+		if webhook.NamespaceSelector != nil && webhook.NamespaceSelector.MatchLabels[uniqueName] == "true" {
+			continue
+		}
+		if webhook.ObjectSelector != nil && webhook.ObjectSelector.MatchLabels[uniqueName] == "true" {
+			continue
+		}
+		f.Log.Failf(`webhook %s in config %s has no namespace or object selector with %s="true", and can interfere with other tests`, webhook.Name, config.Name, uniqueName)
+	}
+	return f.VclusterClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.TODO(), config, metav1.CreateOptions{})
+}
+
+func newMutateConfigMapWebhookFixture(f *framework.Framework, certCtx *certContext, stage int, servicePort int32, namespace string) admissionregistrationv1.MutatingWebhook {
+	sideEffectsNone := admissionregistrationv1.SideEffectClassNone
+	return admissionregistrationv1.MutatingWebhook{
+		Name: fmt.Sprintf("adding-configmap-data-stage-%d.k8s.io", stage),
+		Rules: []admissionregistrationv1.RuleWithOperations{{
+			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"configmaps"},
+			},
+		}},
+		ClientConfig: admissionregistrationv1.WebhookClientConfig{
+			Service: &admissionregistrationv1.ServiceReference{
+				Namespace: namespace,
+				Name:      serviceName,
+				Path:      strPtr("/mutating-configmaps"),
+				Port:      pointer.Int32Ptr(servicePort),
+			},
+			CABundle: certCtx.signingCert,
+		},
+		SideEffects:             &sideEffectsNone,
+		AdmissionReviewVersions: []string{"v1", "v1beta1"},
+		// Scope the webhook to just this namespace
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{uniqueName: "true"},
+		},
+	}
+}
+
+// newMutatingIsReadyWebhookFixture creates a mutating webhook that can be added to a webhook configuration and then probed
+// with "marker" requests via waitWebhookConfigurationReady to wait for a webhook configuration to be ready.
+func newMutatingIsReadyWebhookFixture(f *framework.Framework, certCtx *certContext, servicePort int32, namespace string) admissionregistrationv1.MutatingWebhook {
+	sideEffectsNone := admissionregistrationv1.SideEffectClassNone
+	failOpen := admissionregistrationv1.Ignore
+	return admissionregistrationv1.MutatingWebhook{
+		Name: "mutating-is-webhook-configuration-ready.k8s.io",
+		Rules: []admissionregistrationv1.RuleWithOperations{{
+			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"configmaps"},
+			},
+		}},
+		ClientConfig: admissionregistrationv1.WebhookClientConfig{
+			Service: &admissionregistrationv1.ServiceReference{
+				Namespace: namespace,
+				Name:      serviceName,
+				Path:      strPtr("/always-deny"),
+				Port:      pointer.Int32Ptr(servicePort),
+			},
+			CABundle: certCtx.signingCert,
+		},
+		// network failures while the service network routing is being set up should be ignored by the marker
+		FailurePolicy:           &failOpen,
+		SideEffects:             &sideEffectsNone,
+		AdmissionReviewVersions: []string{"v1", "v1beta1"},
+		// Scope the webhook to just the markers namespace
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{uniqueName + "-markers": "true"},
+		},
+		// appease createMutatingWebhookConfiguration isolation requirements
+		ObjectSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{uniqueName: "true"},
+		},
+	}
+}
+
+func testMutatingConfigMapWebhook(f *framework.Framework, namespace string) {
+	ginkgo.By("create a configmap that should be updated by the webhook")
+	client := f.VclusterClient
+	configMap := namedToBeMutatedConfigMap("to-be-mutated", f)
+	mutatedConfigMap, err := client.CoreV1().ConfigMaps(namespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
+	framework.ExpectNoError(err)
+	expectedConfigMapData := map[string]string{
+		"mutation-start":   "yes",
+		"mutation-stage-1": "yes",
+		"mutation-stage-2": "yes",
+	}
+	if !reflect.DeepEqual(expectedConfigMapData, mutatedConfigMap.Data) {
+		f.Log.Failf("\nexpected %#v\n, got %#v\n", expectedConfigMapData, mutatedConfigMap.Data)
+	}
+}
+
+func namedToBeMutatedConfigMap(name string, f *framework.Framework) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Data: map[string]string{
+			"mutation-start": "yes",
+		},
+	}
+}
 
 // createWebhookConfigurationReadyNamespace creates a separate namespace for webhook configuration ready markers to
 // prevent cross-talk with webhook configurations being tested.
