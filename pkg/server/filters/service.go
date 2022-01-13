@@ -24,6 +24,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -230,16 +231,6 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		klog.Infof("Error creating service in virtual cluster: %v", err)
 		_ = localClient.Delete(context.Background(), newService)
 		return nil, err
-	}
-
-	// try to patch physical service that we are done
-	if newService.Annotations != nil {
-		oldNewService := newService.DeepCopy()
-		delete(newService.Annotations, services.ServiceBlockDeletion)
-		err = localClient.Patch(req.Context(), newService, client.MergeFrom(oldNewService))
-		if err != nil {
-			klog.Errorf("Error patching service %s/%s: %v", oldNewService.Namespace, oldNewService.Name, err)
-		}
 	}
 
 	return vService, nil

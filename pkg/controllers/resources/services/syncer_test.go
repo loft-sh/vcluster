@@ -2,9 +2,10 @@ package services
 
 import (
 	"context"
+	"testing"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"k8s.io/apimachinery/pkg/types"
-	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -62,6 +63,8 @@ func TestSync(t *testing.T) {
 	kubernetesService := &corev1.Service{
 		ObjectMeta: vKubernetesObjectMeta,
 	}
+	createdByServerService := createdService.DeepCopy()
+	createdByServerService.Annotations[ServiceBlockDeletion] = "true"
 	updateForwardSpec := corev1.ServiceSpec{
 		Ports: []corev1.ServicePort{
 			{
@@ -215,7 +218,7 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Update forward",
 			InitialVirtualState:  []runtime.Object{updateForwardService.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{createdService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{createdByServerService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateForwardService.DeepCopy()},
 			},
@@ -224,7 +227,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
 				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, createdService, updateForwardService, log)
+				_, err := syncer.Update(ctx, createdByServerService, updateForwardService, log)
 				if err != nil {
 					t.Fatal(err)
 				}
