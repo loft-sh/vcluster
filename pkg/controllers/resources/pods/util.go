@@ -1,7 +1,7 @@
 package pods
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	corev1 "k8s.io/api/core/v1"
 )
 

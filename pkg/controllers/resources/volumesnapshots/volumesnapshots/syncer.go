@@ -1,19 +1,15 @@
 package volumesnapshots
 
 import (
-	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	corev1 "k8s.io/api/core/v1"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -24,48 +20,28 @@ var (
 	zero                              = int64(0)
 )
 
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	err := generic.RegisterSyncerIndices(ctx, &volumesnapshotv1.VolumeSnapshot{})
-	if err != nil {
-		return err
-	}
-
-	return generic.RegisterSyncer(ctx, "volumesnapshot", &syncer{
-		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &volumesnapshotv1.VolumeSnapshot{}),
-
-		targetNamespace: ctx.Options.TargetNamespace,
-		localClient:     ctx.LocalManager.GetClient(),
-		virtualClient:   ctx.VirtualManager.GetClient(),
-
-		creator:                             generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "volumesnapshot-syncer"}), "volumesnapshot"),
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	return &volumeSnapshotSyncer{
+		NamespacedTranslator:                translator.NewNamespacedTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}),
 		volumeSnapshotContentNameTranslator: volumesnapshotcontents.NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace),
-	})
+	}, nil
 }
 
-type syncer struct {
-	translator.Translator
-
-	targetNamespace string
-	virtualClient   client.Client
-	localClient     client.Client
-
-	creator *generic.GenericCreator
-
+type volumeSnapshotSyncer struct {
+	translator.NamespacedTranslator
 	volumeSnapshotContentNameTranslator translator.PhysicalNameTranslator
 }
 
-func (s *syncer) New() client.Object {
-	return &volumesnapshotv1.VolumeSnapshot{}
-}
+var _ syncer.Syncer = &volumeSnapshotSyncer{}
 
-func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (s *volumeSnapshotSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vVS := vObj.(*volumesnapshotv1.VolumeSnapshot)
 	if vVS.DeletionTimestamp != nil {
 		// delete volume snapshot immediately
 		if len(vObj.GetFinalizers()) > 0 || (vObj.GetDeletionGracePeriodSeconds() != nil && *vObj.GetDeletionGracePeriodSeconds() > 0) {
 			vObj.SetFinalizers([]string{})
 			vObj.SetDeletionGracePeriodSeconds(&zero)
-			return ctrl.Result{}, s.virtualClient.Update(ctx, vObj)
+			return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vObj)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -75,23 +51,23 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 		return ctrl.Result{}, err
 	}
 
-	return s.creator.Create(ctx, vObj, pObj, log)
+	return s.SyncDownCreate(ctx, vObj, pObj)
 }
 
-func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	vVS := vObj.(*volumesnapshotv1.VolumeSnapshot)
 	pVS := pObj.(*volumesnapshotv1.VolumeSnapshot)
 
 	if pVS.DeletionTimestamp != nil {
 		if vVS.DeletionTimestamp == nil {
-			log.Infof("delete virtual volume snapshot %s/%s, because the physical volume snapshot is being deleted", vVS.Namespace, vVS.Name)
-			err := s.virtualClient.Delete(ctx, vVS, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
+			ctx.Log.Infof("delete virtual volume snapshot %s/%s, because the physical volume snapshot is being deleted", vVS.Namespace, vVS.Name)
+			err := ctx.VirtualClient.Delete(ctx.Context, vVS, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if *vVS.DeletionGracePeriodSeconds != *pVS.DeletionGracePeriodSeconds {
-			log.Infof("delete virtual volume snapshot %s/%s with grace period seconds %v", vVS.Namespace, vVS.Name, *pVS.DeletionGracePeriodSeconds)
-			err := s.virtualClient.Delete(ctx, vVS, &client.DeleteOptions{GracePeriodSeconds: pVS.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(vVS.UID))})
+			ctx.Log.Infof("delete virtual volume snapshot %s/%s with grace period seconds %v", vVS.Namespace, vVS.Name, *pVS.DeletionGracePeriodSeconds)
+			err := ctx.VirtualClient.Delete(ctx.Context, vVS, &client.DeleteOptions{GracePeriodSeconds: pVS.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(vVS.UID))})
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -101,8 +77,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		if !equality.Semantic.DeepEqual(vVS.Finalizers, pVS.Finalizers) {
 			updated := vVS.DeepCopy()
 			updated.Finalizers = pVS.Finalizers
-			log.Infof("update finalizers of the virtual VolumeSnapshot %s, because finalizers on the physical resource changed", vVS.Name)
-			err := s.virtualClient.Update(ctx, updated)
+			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshot %s, because finalizers on the physical resource changed", vVS.Name)
+			err := ctx.VirtualClient.Update(ctx.Context, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{}, nil
 			}
@@ -112,8 +88,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		}
 		if !equality.Semantic.DeepEqual(vVS.Status, pVS.Status) {
 			vVS.Status = pVS.Status.DeepCopy()
-			log.Infof("update virtual VolumeSnapshot %s, because status has changed", vVS.Name)
-			err := s.virtualClient.Status().Update(ctx, vVS)
+			ctx.Log.Infof("update virtual VolumeSnapshot %s, because status has changed", vVS.Name)
+			err := ctx.VirtualClient.Status().Update(ctx.Context, vVS)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
@@ -121,8 +97,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		return ctrl.Result{}, nil
 
 	} else if vVS.DeletionTimestamp != nil {
-		log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", pVS.Namespace, pVS.Name)
-		err := s.localClient.Delete(ctx, pVS, &client.DeleteOptions{
+		ctx.Log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", pVS.Namespace, pVS.Name)
+		err := ctx.PhysicalClient.Delete(ctx.Context, pVS, &client.DeleteOptions{
 			GracePeriodSeconds: vVS.DeletionGracePeriodSeconds,
 			Preconditions:      metav1.NewUIDPreconditions(string(pVS.UID)),
 		})
@@ -135,8 +111,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	// check backwards update
 	updated := s.translateUpdateBackwards(pVS, vVS)
 	if updated != nil {
-		log.Infof("update virtual volume snapshot %s/%s, because the spec has changed", vVS.Namespace, vVS.Name)
-		err := s.virtualClient.Update(ctx, updated)
+		ctx.Log.Infof("update virtual volume snapshot %s/%s, because the spec has changed", vVS.Namespace, vVS.Name)
+		err := ctx.VirtualClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -147,8 +123,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	// check backwards status
 	if !equality.Semantic.DeepEqual(vVS.Status, pVS.Status) {
 		vVS.Status = pVS.Status.DeepCopy()
-		log.Infof("update virtual volume snapshot %s/%s, because the status has changed", vVS.Namespace, vVS.Name)
-		err := s.virtualClient.Status().Update(ctx, vVS)
+		ctx.Log.Infof("update virtual volume snapshot %s/%s, because the status has changed", vVS.Namespace, vVS.Name)
+		err := ctx.VirtualClient.Status().Update(ctx.Context, vVS)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -156,5 +132,5 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	}
 
 	// forward update
-	return s.creator.Update(ctx, vVS, s.translateUpdate(pVS, vVS), log)
+	return s.SyncDownUpdate(ctx, vVS, s.translateUpdate(pVS, vVS))
 }

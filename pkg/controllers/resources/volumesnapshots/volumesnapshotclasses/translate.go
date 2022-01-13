@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotClass) *volumesnapshotv1.VolumeSnapshotClass {
+func (s *volumeSnapshotClassSyncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotClass) *volumesnapshotv1.VolumeSnapshotClass {
 	// build virtual persistent volume
 	vObj := pVSC.DeepCopy()
 	vObj.ResourceVersion = ""
@@ -14,7 +14,7 @@ func (s *syncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotClass) 
 	return vObj
 }
 
-func (s *syncer) translateUpdateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotClass, vVSC *volumesnapshotv1.VolumeSnapshotClass) *volumesnapshotv1.VolumeSnapshotClass {
+func (s *volumeSnapshotClassSyncer) translateUpdateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotClass, vVSC *volumesnapshotv1.VolumeSnapshotClass) *volumesnapshotv1.VolumeSnapshotClass {
 	var updated *volumesnapshotv1.VolumeSnapshotClass
 
 	if !equality.Semantic.DeepEqual(vVSC.Driver, pVSC.Driver) {

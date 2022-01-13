@@ -6,13 +6,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vIngress *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
+func (s *ingressSyncer) translate(vIngress *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
 	newIngress := s.TranslateMetadata(vIngress).(*networkingv1beta1.Ingress)
 	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
 	return newIngress
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
+func (s *ingressSyncer) translateUpdate(pObj, vObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
 	var updated *networkingv1beta1.Ingress
 
 	translatedSpec := *translateSpec(vObj.Namespace, &vObj.Spec)
@@ -31,7 +31,7 @@ func (s *syncer) translateUpdate(pObj, vObj *networkingv1beta1.Ingress) *network
 	return updated
 }
 
-func (s *syncer) translateUpdateBackwards(pObj, vObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
+func (s *ingressSyncer) translateUpdateBackwards(pObj, vObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
 	var updated *networkingv1beta1.Ingress
 
 	if vObj.Spec.IngressClassName == nil && pObj.Spec.IngressClassName != nil {

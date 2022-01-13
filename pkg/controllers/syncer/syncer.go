@@ -97,10 +97,10 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	} else if vObj != nil && pObj != nil {
 		return r.syncer.Sync(syncContext, pObj, vObj)
 	} else if vObj == nil && pObj != nil {
-		// check if backward syncer
-		backwardSyncer, ok := r.syncer.(UpSyncer)
+		// check if up syncer
+		upSyncer, ok := r.syncer.(UpSyncer)
 		if ok {
-			return backwardSyncer.SyncUp(syncContext, pObj)
+			return upSyncer.SyncUp(syncContext, pObj)
 		}
 
 		managed, err := r.syncer.IsManaged(pObj)

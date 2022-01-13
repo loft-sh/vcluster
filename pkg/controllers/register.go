@@ -28,38 +28,55 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-var ResourceControllers = map[string]func(*synccontext.RegisterContext) syncer.Object{
+var ResourceControllers = map[string]func(*synccontext.RegisterContext) (syncer.Object, error){
 	"services":               services.New,
 	"configmaps":             configmaps.New,
-	"secrets":                secrets.Register,
-	"endpoints":              endpoints.Register,
-	"pods":                   pods.Register,
-	"events":                 events.Register,
-	"persistentvolumeclaims": persistentvolumeclaims.Register,
-	"ingresses":              ingresses.Register,
-	"storageclasses":         storageclasses.Register,
-	"priorityclasses":        priorityclasses.Register,
-	"nodes,fake-nodes":       nodes.Register,
-	"persistentvolumes,fake-persistentvolumes": persistentvolumes.Register,
-	"networkpolicies":                          networkpolicies.Register,
-	"volumesnapshots":                          volumesnapshots.Register,
+	"secrets":                secrets.New,
+	"endpoints":              endpoints.New,
+	"pods":                   pods.New,
+	"events":                 events.New,
+	"persistentvolumeclaims": persistentvolumeclaims.New,
+	"ingresses":              ingresses.New,
+	"storageclasses":         storageclasses.New,
+	"priorityclasses":        priorityclasses.New,
+	"nodes,fake-nodes":       nodes.New,
+	"persistentvolumes,fake-persistentvolumes": persistentvolumes.New,
+	"networkpolicies":                          networkpolicies.New,
+	"volumesnapshots":                          volumesnapshots.New,
 }
 
-var ResourcePrerequisites = map[string]func(*context.ControllerContext) error{
-	"volumesnapshots": volumesnapshots.EnsurePrerequisites,
-}
+func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
+	registerContext := toRegisterContext(ctx)
 
-func EnsurePrerequisites(ctx *context.ControllerContext) error {
-	// call the EnsurePrerequisites for the resources that require it
-	for k, v := range ResourcePrerequisites {
+	// register controllers for resource synchronization
+	syncers := []syncer.Object{}
+	for k, v := range ResourceControllers {
 		controllers := strings.Split(k, ",")
 		for _, controller := range controllers {
 			if ctx.Controllers[controller] {
-				err := v(ctx)
+				loghelper.Infof("Start %s sync controller", controller)
+				ctrl, err := v(registerContext)
 				if err != nil {
-					return errors.Wrapf(err, "ensure %s prerequisites", controller)
+					return nil, errors.Wrapf(err, "register %s controller", controller)
 				}
+
+				syncers = append(syncers, ctrl)
 				break
+			}
+		}
+	}
+
+	return syncers, nil
+}
+
+func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) error {
+	registerContext := toRegisterContext(ctx)
+	for _, s := range syncers {
+		indexRegisterer, ok := s.(syncer.IndicesRegisterer)
+		if ok {
+			err := indexRegisterer.RegisterIndices(registerContext)
+			if err != nil {
+				return errors.Wrapf(err, "register indices for %s syncer", s.Name())
 			}
 		}
 	}
@@ -67,7 +84,8 @@ func EnsurePrerequisites(ctx *context.ControllerContext) error {
 	return nil
 }
 
-func RegisterControllers(ctx *context.ControllerContext) error {
+func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
+	registerContext := toRegisterContext(ctx)
 	ctx.EventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 
 	// register controller that keeps CoreDNS NodeHosts config up to date
@@ -77,16 +95,24 @@ func RegisterControllers(ctx *context.ControllerContext) error {
 	}
 
 	// register controllers for resource synchronization
-	for k, v := range ResourceControllers {
-		controllers := strings.Split(k, ",")
-		for _, controller := range controllers {
-			if ctx.Controllers[controller] {
-				loghelper.Infof("Start %s sync controller", controller)
-				err := v(ctx, ctx.EventBroadcaster)
+	for _, v := range syncers {
+		// fake syncer?
+		fakeSyncer, ok := v.(syncer.FakeSyncer)
+		if ok {
+			err = syncer.RegisterFakeSyncer(registerContext, fakeSyncer)
+			if err != nil {
+				return errors.Wrapf(err, "start %s syncer", v.Name())
+			}
+		} else {
+			// real syncer?
+			realSyncer, ok := v.(syncer.Syncer)
+			if ok {
+				err = syncer.RegisterSyncer(registerContext, realSyncer)
 				if err != nil {
-					return errors.Wrapf(err, "register %s controller", controller)
+					return errors.Wrapf(err, "start %s syncer", v.Name())
 				}
-				break
+			} else {
+				return fmt.Errorf("syncer %s does not implement fake syncer or syncer interface", v.Name())
 			}
 		}
 	}
@@ -103,4 +129,23 @@ func registerCoreDNSController(ctx *context.ControllerContext) error {
 		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
 	}
 	return nil
+}
+
+func toRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterContext {
+	return &synccontext.RegisterContext{
+		Context:          ctx.Context,
+		EventBroadcaster: ctx.EventBroadcaster,
+
+		Options:             ctx.Options,
+		NodeServiceProvider: ctx.NodeServiceProvider,
+		Controllers:         ctx.Controllers,
+		LockFactory:         ctx.LockFactory,
+
+		TargetNamespace:        ctx.Options.TargetNamespace,
+		CurrentNamespace:       ctx.CurrentNamespace,
+		CurrentNamespaceClient: ctx.CurrentNamespaceClient,
+
+		VirtualManager:  ctx.VirtualManager,
+		PhysicalManager: ctx.LocalManager,
+	}
 }

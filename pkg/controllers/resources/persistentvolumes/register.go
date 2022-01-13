@@ -1,14 +1,14 @@
 package persistentvolumes
 
 import (
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"k8s.io/client-go/tools/record"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 )
 
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	if !ctx.Controllers["persistentvolumes"] {
-		return RegisterFakeSyncer(ctx)
+		return NewFakeSyncer(ctx)
 	}
 
-	return RegisterSyncer(ctx)
+	return NewSyncer(ctx)
 }

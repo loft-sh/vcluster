@@ -8,18 +8,15 @@ import (
 	"strings"
 	"time"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/applier"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -31,13 +28,7 @@ var crdPaths = []string{
 
 var crdKinds = []string{"VolumeSnapshotClass", "VolumeSnapshotContent", "VolumeSnapshot"}
 
-var ResourceControllers = []func(*context2.ControllerContext, record.EventBroadcaster) error{
-	volumesnapshotclasses.Register,
-	volumesnapshotcontents.Register,
-	volumesnapshots.Register,
-}
-
-func EnsurePrerequisites(ctx *context2.ControllerContext) error {
+func EnsurePrerequisites(ctx *synccontext.RegisterContext) error {
 	// install CRDs needed for various VolumeSnapshot* resources
 	// and wait for them to become available
 	config := ctx.VirtualManager.GetConfig()
@@ -87,14 +78,9 @@ func EnsurePrerequisites(ctx *context2.ControllerContext) error {
 	return nil
 }
 
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	for _, v := range ResourceControllers {
-		err := v(ctx, eventBroadcaster)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	// EnsurePrerequisites()
+	return nil, nil
 }
 
 func VolumeSnapshotCRDsExist(config *rest.Config) (bool, error) {

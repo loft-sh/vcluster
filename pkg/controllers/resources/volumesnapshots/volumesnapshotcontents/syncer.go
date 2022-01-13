@@ -2,22 +2,21 @@ package volumesnapshotcontents
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,31 +26,20 @@ const (
 	PhysicalVSCGarbageCollectionFinalizer = "vcluster.loft.sh/physical-volumesnapshotcontent-gc"
 )
 
-func Register(ctx *context2.ControllerContext, _ record.EventBroadcaster) error {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translateVolumeSnapshotContentName(ctx.Options.TargetNamespace, rawObj.GetName(), rawObj)}
-	})
-	if err != nil {
-		return err
-	}
-
-	return generic.RegisterSyncer(ctx, "volumesnapshotcontent", &syncer{
-		Translator: translator.NewClusterTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &volumesnapshotv1.VolumeSnapshotContent{}, NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace)),
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	return &volumeSnapshotContentSyncer{
+		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}, NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace)),
 
 		targetNamespace: ctx.Options.TargetNamespace,
 		virtualClient:   ctx.VirtualManager.GetClient(),
-		localClient:     ctx.LocalManager.GetClient(),
-	})
+	}, nil
 }
 
-var _ generic.BackwardSyncer = &syncer{}
-
-type syncer struct {
+type volumeSnapshotContentSyncer struct {
 	translator.Translator
 
 	targetNamespace string
 	virtualClient   client.Client
-	localClient     client.Client
 }
 
 func NewVolumeSnapshotContentTranslator(physicalNamespace string) translator.PhysicalNameTranslator {
@@ -60,14 +48,20 @@ func NewVolumeSnapshotContentTranslator(physicalNamespace string) translator.Phy
 	}
 }
 
-func (s *syncer) New() client.Object {
-	return &volumesnapshotv1.VolumeSnapshotContent{}
+var _ syncer.IndicesRegisterer = &volumeSnapshotContentSyncer{}
+
+func (s *volumeSnapshotContentSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		return []string{translateVolumeSnapshotContentName(ctx.Options.TargetNamespace, rawObj.GetName(), rawObj)}
+	})
 }
 
-func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+var _ syncer.UpSyncer = &volumeSnapshotContentSyncer{}
+
+func (s *volumeSnapshotContentSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pVSC := pObj.(*volumesnapshotv1.VolumeSnapshotContent)
 	// check if the VolumeSnapshotContent should get synced
-	sync, vVS, err := s.shouldSync(ctx, pVSC)
+	sync, vVS, err := s.shouldSync(ctx.Context, pVSC)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
@@ -76,27 +70,29 @@ func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper
 	}
 
 	vVSC := s.translateBackwards(pVSC, vVS)
-	log.Infof("create VolumeSnapshotContent %s, because it does not exist in the virtual cluster", vVSC.Name)
-	return ctrl.Result{}, s.virtualClient.Create(ctx, vVSC)
+	ctx.Log.Infof("create VolumeSnapshotContent %s, because it does not exist in the virtual cluster", vVSC.Name)
+	return ctrl.Result{}, s.virtualClient.Create(ctx.Context, vVSC)
 }
 
-func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+var _ syncer.Syncer = &volumeSnapshotContentSyncer{}
+
+func (s *volumeSnapshotContentSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vVSC := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 	if vVSC.DeletionTimestamp != nil || (vVSC.Annotations != nil && vVSC.Annotations[HostClusterVSCAnnotation] != "") {
 		if len(vVSC.Finalizers) > 0 {
 			// delete the finalizer here so that the object can be deleted
 			vVSC.Finalizers = []string{}
-			log.Infof("remove virtual VolumeSnapshotContent %s finalizers, because object should get deleted", vVSC.Name)
-			return ctrl.Result{}, s.virtualClient.Update(ctx, vVSC)
+			ctx.Log.Infof("remove virtual VolumeSnapshotContent %s finalizers, because object should get deleted", vVSC.Name)
+			return ctrl.Result{}, s.virtualClient.Update(ctx.Context, vVSC)
 		}
 
-		log.Infof("remove virtual VolumeSnapshotContent %s, because object should get deleted", vVSC.Name)
-		return ctrl.Result{}, s.virtualClient.Delete(ctx, vVSC)
+		ctx.Log.Infof("remove virtual VolumeSnapshotContent %s, because object should get deleted", vVSC.Name)
+		return ctrl.Result{}, s.virtualClient.Delete(ctx.Context, vVSC)
 	}
 
 	pVSC := s.translate(vVSC)
-	log.Infof("create physical VolumeSnapshotContent %s, because there is a virtual VolumeSnapshotContent", pVSC.Name)
-	err := s.localClient.Create(ctx, pVSC)
+	ctx.Log.Infof("create physical VolumeSnapshotContent %s, because there is a virtual VolumeSnapshotContent", pVSC.Name)
+	err := ctx.PhysicalClient.Create(ctx.Context, pVSC)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -104,15 +100,15 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 	return ctrl.Result{}, nil
 }
 
-func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	pVSC := pObj.(*volumesnapshotv1.VolumeSnapshotContent)
 	vVSC := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 
 	//check if objects are getting deleted
 	if vObj.GetDeletionTimestamp() != nil {
 		if pObj.GetDeletionTimestamp() == nil {
-			log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", pObj.GetName())
-			err := s.localClient.Delete(ctx, pObj)
+			ctx.Log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", pObj.GetName())
+			err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -122,8 +118,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		if !equality.Semantic.DeepEqual(vVSC.Finalizers, pVSC.Finalizers) {
 			updated := vVSC.DeepCopy()
 			updated.Finalizers = pVSC.Finalizers
-			log.Infof("update finalizers of the virtual VolumeSnapshotContent %s, because finalizers on the physical resource changed", vVSC.Name)
-			err := s.virtualClient.Update(ctx, updated)
+			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshotContent %s, because finalizers on the physical resource changed", vVSC.Name)
+			err := s.virtualClient.Update(ctx.Context, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{RequeueAfter: time.Second}, nil
 			}
@@ -133,8 +129,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		}
 		if !equality.Semantic.DeepEqual(vVSC.Status, pVSC.Status) {
 			vVSC.Status = pVSC.Status.DeepCopy()
-			log.Infof("update virtual VolumeSnapshotContent %s, because status has changed", vVSC.Name)
-			err := s.virtualClient.Status().Update(ctx, vVSC)
+			ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because status has changed", vVSC.Name)
+			err := s.virtualClient.Status().Update(ctx.Context, vVSC)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
@@ -143,7 +139,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	}
 
 	// check if the VolumeSnapshotContent should get synced
-	sync, vVS, err := s.shouldSync(ctx, pVSC)
+	sync, vVS, err := s.shouldSync(ctx.Context, pVSC)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
@@ -154,15 +150,15 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 
 	updatedObj := s.translateUpdateBackwards(pVSC, vVSC, vVS)
 	if updatedObj != nil {
-		log.Infof("update virtual VolumeSnapshotContent %s, because spec or metadata(annotations or labels) have changed", vVSC.Name)
-		return ctrl.Result{}, s.virtualClient.Update(ctx, updatedObj)
+		ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because spec or metadata(annotations or labels) have changed", vVSC.Name)
+		return ctrl.Result{}, s.virtualClient.Update(ctx.Context, updatedObj)
 	}
 
 	// update virtual status if it differs
 	if !equality.Semantic.DeepEqual(vVSC.Status, pVSC.Status) {
 		vVSC.Status = pVSC.Status.DeepCopy()
-		log.Infof("update virtual VolumeSnapshotContent %s, because status has changed", vVSC.Name)
-		return ctrl.Result{}, s.virtualClient.Status().Update(ctx, vVSC)
+		ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because status has changed", vVSC.Name)
+		return ctrl.Result{}, s.virtualClient.Status().Update(ctx.Context, vVSC)
 	}
 
 	// update the physical VolumeSnapshotContent if the virtual has changed
@@ -172,8 +168,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 				return ctrl.Result{}, nil
 			}
 
-			log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", pVSC.Name)
-			err := s.localClient.Delete(ctx, pVSC, &client.DeleteOptions{
+			ctx.Log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", pVSC.Name)
+			err := ctx.PhysicalClient.Delete(ctx.Context, pVSC, &client.DeleteOptions{
 				GracePeriodSeconds: vVSC.DeletionGracePeriodSeconds,
 				Preconditions:      metav1.NewUIDPreconditions(string(pVSC.UID)),
 			})
@@ -185,8 +181,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 
 		updatedPv := s.translateUpdate(vVSC, pVSC)
 		if updatedPv != nil {
-			log.Infof("update physical VolumeSnapshotContent %s, because spec or annotations have changed", updatedPv.Name)
-			err := s.localClient.Update(ctx, updatedPv)
+			ctx.Log.Infof("update physical VolumeSnapshotContent %s, because spec or annotations have changed", updatedPv.Name)
+			err := ctx.PhysicalClient.Update(ctx.Context, updatedPv)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -196,7 +192,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	return ctrl.Result{}, nil
 }
 
-func (s *syncer) shouldSync(ctx context.Context, pObj *volumesnapshotv1.VolumeSnapshotContent) (bool, *volumesnapshotv1.VolumeSnapshot, error) {
+func (s *volumeSnapshotContentSyncer) shouldSync(ctx context.Context, pObj *volumesnapshotv1.VolumeSnapshotContent) (bool, *volumesnapshotv1.VolumeSnapshot, error) {
 	if pObj.Spec.VolumeSnapshotRef.Namespace != s.targetNamespace {
 		return false, nil, nil
 	}
@@ -215,7 +211,7 @@ func (s *syncer) shouldSync(ctx context.Context, pObj *volumesnapshotv1.VolumeSn
 	return true, vVS, nil
 }
 
-func (s *syncer) IsManaged(pObj client.Object) (bool, error) {
+func (s *volumeSnapshotContentSyncer) IsManaged(pObj client.Object) (bool, error) {
 	pVSC, ok := pObj.(*volumesnapshotv1.VolumeSnapshotContent)
 	if !ok {
 		return false, nil
@@ -229,11 +225,11 @@ func (s *syncer) IsManaged(pObj client.Object) (bool, error) {
 	return sync, nil
 }
 
-func (s *syncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *volumeSnapshotContentSyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translateVolumeSnapshotContentName(s.targetNamespace, req.Name, vObj)}
 }
 
-func (s *syncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (s *volumeSnapshotContentSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
 	if pAnnotations != nil && pAnnotations[translator.NameAnnotation] != "" {
 		return types.NamespacedName{

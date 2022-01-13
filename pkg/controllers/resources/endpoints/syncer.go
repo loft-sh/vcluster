@@ -10,12 +10,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext, eventBroadcaster record.EventBroadcaster) (syncer.Syncer, error) {
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &endpointsSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "endpoints", &corev1.Endpoints{}),
 		serviceName:          ctx.Options.ServiceName,

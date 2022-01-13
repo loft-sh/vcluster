@@ -27,8 +27,5 @@ func (s *networkPolicySyncer) SyncDown(ctx *synccontext.SyncContext, vObj client
 }
 
 func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	pNetworkPolicy := pObj.(*networkingv1.NetworkPolicy)
-	vNetworkPolicy := vObj.(*networkingv1.NetworkPolicy)
-
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pNetworkPolicy, vNetworkPolicy))
+	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pObj.(*networkingv1.NetworkPolicy), vObj.(*networkingv1.NetworkPolicy)))
 }

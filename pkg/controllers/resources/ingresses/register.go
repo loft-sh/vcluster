@@ -1,26 +1,26 @@
 package ingresses
 
 import (
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/legacy"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 )
 
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	useLegacy, err := ShouldUseLegacy(ctx.LocalManager.GetConfig())
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	useLegacy, err := ShouldUseLegacy(ctx.PhysicalManager.GetConfig())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if useLegacy {
 		klog.Infof("Registering legacy ingress syncer for networking.k8s.io/v1beta1")
-		return legacy.RegisterSyncer(ctx, eventBroadcaster)
+		return legacy.NewSyncer(ctx)
 	}
-	return RegisterSyncer(ctx, eventBroadcaster)
+	return NewSyncer(ctx)
 }
 
 func ShouldUseLegacy(config *rest.Config) (bool, error) {

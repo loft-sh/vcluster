@@ -1,7 +1,6 @@
 package events
 
 import (
-	"context"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -60,90 +59,37 @@ func (r *eventSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName
 	}
 }
 
-func (r *eventSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	// Noop, we do nothing here
-	return ctrl.Result{}, nil
-}
-
-func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	// Noop, we do nothing here
-	return ctrl.Result{}, nil
-}
-
 var _ syncer.Starter = &eventSyncer{}
 
-func (s *eventSyncer) ReconcileEnd() {}
-
 func (s *eventSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
+	return true, s.reconcile(ctx, req) // true will tell the syncer to return after this reconcile
+}
+
+func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) error {
 	pObj := s.Resource()
 	err := ctx.PhysicalClient.Get(ctx.Context, req.NamespacedName, pObj)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
-			return false, err
+			return err
 		}
 
-		return true, nil
+		return nil
 	}
 
-	vObj, err := translateEvent(ctx.Context, ctx.VirtualClient, pObj)
-	if err != nil {
-		return false, err
-	} else if vObj == nil {
-		return true, nil
-	}
-
-	// make sure namespace is not being deleted
-	namespace := &corev1.Namespace{}
-	err = ctx.VirtualClient.Get(ctx.Context, client.ObjectKey{Name: vObj.Namespace}, namespace)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return true, nil
-		}
-
-		return true, err
-	} else if namespace.DeletionTimestamp != nil {
-		// cannot create events in terminating namespaces
-		return true, nil
-	}
-
-	// check if there is such an event already
-	vOldObj := &corev1.Event{}
-	err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
-		Namespace: vObj.Namespace,
-		Name:      vObj.Name,
-	}, vOldObj)
-	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			return true, err
-		}
-
-		ctx.Log.Infof("create virtual event %s/%s", vObj.Namespace, vObj.Name)
-		return true, ctx.VirtualClient.Create(ctx.Context, vObj)
-	}
-
-	// copy metadata
-	vObj.ObjectMeta = *vOldObj.ObjectMeta.DeepCopy()
-
-	// update existing event
-	ctx.Log.Infof("update virtual event %s/%s", vObj.Namespace, vObj.Name)
-	return true, ctx.VirtualClient.Update(ctx.Context, vObj)
-}
-
-func translateEvent(ctx context.Context, virtualClient client.Client, pObj client.Object) (*corev1.Event, error) {
 	pEvent, ok := pObj.(*corev1.Event)
 	if !ok {
-		return nil, nil
+		return nil
 	}
 
 	// check if the involved object is accepted
 	gvk := pEvent.InvolvedObject.GroupVersionKind()
 	if !AcceptedKinds[gvk] {
-		return nil, nil
+		return nil
 	}
 
-	vInvolvedObj, err := virtualClient.Scheme().New(gvk)
+	vInvolvedObj, err := ctx.VirtualClient.Scheme().New(gvk)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	index := ""
@@ -159,23 +105,23 @@ func translateEvent(ctx context.Context, virtualClient client.Client, pObj clien
 	case "ConfigMap":
 		index = constants.IndexByPhysicalName
 	default:
-		return nil, nil
+		return nil
 	}
 
 	// get involved object
-	err = clienthelper.GetByIndex(ctx, virtualClient, vInvolvedObj, index, pEvent.InvolvedObject.Name)
+	err = clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, vInvolvedObj, index, pEvent.InvolvedObject.Name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil, nil
+			return nil
 		}
 
-		return nil, err
+		return err
 	}
 
 	// we found the related object
 	m, err := meta.Accessor(vInvolvedObj)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// copy physical object
@@ -197,5 +143,54 @@ func translateEvent(ctx context.Context, virtualClient client.Client, pObj clien
 	// we replace namespace/name & name in messages so that it seems correct
 	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Namespace+"/"+pEvent.InvolvedObject.Name, vObj.InvolvedObject.Namespace+"/"+vObj.InvolvedObject.Name)
 	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
-	return vObj, nil
+
+	// make sure namespace is not being deleted
+	namespace := &corev1.Namespace{}
+	err = ctx.VirtualClient.Get(ctx.Context, client.ObjectKey{Name: vObj.Namespace}, namespace)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	} else if namespace.DeletionTimestamp != nil {
+		// cannot create events in terminating namespaces
+		return nil
+	}
+
+	// check if there is such an event already
+	vOldObj := &corev1.Event{}
+	err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
+		Namespace: vObj.Namespace,
+		Name:      vObj.Name,
+	}, vOldObj)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return err
+		}
+
+		ctx.Log.Infof("create virtual event %s/%s", vObj.Namespace, vObj.Name)
+		return ctx.VirtualClient.Create(ctx.Context, vObj)
+	}
+
+	// copy metadata
+	vObj.ObjectMeta = *vOldObj.ObjectMeta.DeepCopy()
+
+	// update existing event
+	ctx.Log.Infof("update virtual event %s/%s", vObj.Namespace, vObj.Name)
+	return ctx.VirtualClient.Update(ctx.Context, vObj)
 }
+
+var _ syncer.Syncer = &eventSyncer{}
+
+func (r *eventSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	// Noop, we do nothing here
+	return ctrl.Result{}, nil
+}
+
+func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+	// Noop, we do nothing here
+	return ctrl.Result{}, nil
+}
+
+func (s *eventSyncer) ReconcileEnd() {}

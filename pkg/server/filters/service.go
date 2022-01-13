@@ -3,11 +3,12 @@ package filters
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"io/ioutil"
-	"k8s.io/client-go/rest"
 	"net/http"
+
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"k8s.io/client-go/rest"
 
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/encoding"
@@ -200,7 +201,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		vService.Name = vService.GenerateName + random.RandomString(5)
 	}
 
-	newService := translator.NewNamespacedTranslator(targetNamespace, nil, &corev1.Service{}).TranslateMetadata(vService).(*corev1.Service)
+	newService := translator.TranslateMetadata(targetNamespace, vService).(*corev1.Service)
 	if newService.Annotations == nil {
 		newService.Annotations = map[string]string{}
 	}

@@ -1,60 +1,39 @@
 package legacy
 
 import (
-	"context"
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterSyncer(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	err := generic.RegisterSyncerIndices(ctx, &networkingv1beta1.Ingress{})
-	if err != nil {
-		return err
-	}
-
-	return generic.RegisterSyncer(ctx, "ingress", &syncer{
-		Translator: translator.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &networkingv1beta1.Ingress{}),
-
-		localClient:   ctx.LocalManager.GetClient(),
-		virtualClient: ctx.VirtualManager.GetClient(),
-
-		creator: generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "ingress-syncer"}), "ingress"),
-	})
+func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	return &ingressSyncer{
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "ingress", &networkingv1beta1.Ingress{}),
+	}, nil
 }
 
-type syncer struct {
-	translator.Translator
-
-	localClient   client.Client
-	virtualClient client.Client
-
-	creator *generic.GenericCreator
+type ingressSyncer struct {
+	translator.NamespacedTranslator
 }
 
-func (s *syncer) New() client.Object {
-	return &networkingv1beta1.Ingress{}
+var _ syncer.Syncer = &ingressSyncer{}
+
+func (s *ingressSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*networkingv1beta1.Ingress)))
 }
 
-func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	return s.creator.Create(ctx, vObj, s.translate(vObj.(*networkingv1beta1.Ingress)), log)
-}
-
-func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	vIngress := vObj.(*networkingv1beta1.Ingress)
 	pIngress := pObj.(*networkingv1beta1.Ingress)
 
 	updated := s.translateUpdateBackwards(pObj.(*networkingv1beta1.Ingress), vObj.(*networkingv1beta1.Ingress))
 	if updated != nil {
-		log.Infof("update virtual ingress %s/%s, because ingress class name is out of sync", vIngress.Namespace, vIngress.Name)
-		err := s.virtualClient.Update(ctx, updated)
+		ctx.Log.Infof("update virtual ingress %s/%s, because ingress class name is out of sync", vIngress.Namespace, vIngress.Name)
+		err := ctx.VirtualClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -66,8 +45,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	if !equality.Semantic.DeepEqual(vIngress.Status, pIngress.Status) {
 		newIngress := vIngress.DeepCopy()
 		newIngress.Status = pIngress.Status
-		log.Infof("update virtual ingress %s/%s, because status is out of sync", vIngress.Namespace, vIngress.Name)
-		err := s.virtualClient.Status().Update(ctx, newIngress)
+		ctx.Log.Infof("update virtual ingress %s/%s, because status is out of sync", vIngress.Namespace, vIngress.Name)
+		err := ctx.VirtualClient.Status().Update(ctx.Context, newIngress)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -76,7 +55,7 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 		return ctrl.Result{}, nil
 	}
 
-	return s.creator.Update(ctx, vObj, s.translateUpdate(pIngress, vIngress), log)
+	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pIngress, vIngress))
 }
 
 func SecretNamesFromIngress(ingress *networkingv1beta1.Ingress) []string {

@@ -1,17 +1,17 @@
 package volumesnapshots
 
 import (
-	"context"
 	"fmt"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *syncer) translate(ctx context.Context, vVS *volumesnapshotv1.VolumeSnapshot) (*volumesnapshotv1.VolumeSnapshot, error) {
+func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volumesnapshotv1.VolumeSnapshot) (*volumesnapshotv1.VolumeSnapshot, error) {
 	pVS := s.TranslateMetadata(vVS).(*volumesnapshotv1.VolumeSnapshot)
 	if vVS.Annotations != nil && vVS.Annotations[constants.SkipTranslationAnnotation] == "true" {
 		pVS.Spec.Source = vVS.Spec.Source
@@ -22,7 +22,7 @@ func (s *syncer) translate(ctx context.Context, vVS *volumesnapshotv1.VolumeSnap
 		}
 		if vVS.Spec.Source.VolumeSnapshotContentName != nil {
 			vVSC := &volumesnapshotv1.VolumeSnapshotContent{}
-			err := s.virtualClient.Get(ctx, client.ObjectKey{Name: *vVS.Spec.Source.VolumeSnapshotContentName}, vVSC)
+			err := ctx.VirtualClient.Get(ctx.Context, client.ObjectKey{Name: *vVS.Spec.Source.VolumeSnapshotContentName}, vVSC)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get virtual VolumeSnapshotContent resource referenced as source of the %s VolumeSnapshot: %v", vVS.Name, err)
 			}
@@ -35,7 +35,7 @@ func (s *syncer) translate(ctx context.Context, vVS *volumesnapshotv1.VolumeSnap
 	return pVS, nil
 }
 
-func (s *syncer) translateUpdate(pVS, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
+func (s *volumeSnapshotSyncer) translateUpdate(pVS, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
 	var updated *volumesnapshotv1.VolumeSnapshot
 
 	// snapshot class can be updated
@@ -55,7 +55,7 @@ func (s *syncer) translateUpdate(pVS, vVS *volumesnapshotv1.VolumeSnapshot) *vol
 	return updated
 }
 
-func (s *syncer) translateUpdateBackwards(pObj, vObj *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
+func (s *volumeSnapshotSyncer) translateUpdateBackwards(pObj, vObj *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
 	var updated *volumesnapshotv1.VolumeSnapshot
 
 	// sync back the finalizers

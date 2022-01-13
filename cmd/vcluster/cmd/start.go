@@ -314,13 +314,13 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	}()
 
 	// setup controller prerequisites
-	err := controllers.EnsurePrerequisites(ctx)
+	syncers, err := controllers.Create(ctx)
 	if err != nil {
 		return errors.Wrap(err, "ensure prerequisites")
 	}
 
-	// register controllers
-	err = controllers.RegisterControllers(ctx)
+	// register indices
+	err = controllers.RegisterIndices(ctx, syncers)
 	if err != nil {
 		return err
 	}
@@ -344,6 +344,12 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	// Wait for caches to be synced
 	ctx.LocalManager.GetCache().WaitForCacheSync(ctx.Context)
 	ctx.VirtualManager.GetCache().WaitForCacheSync(ctx.Context)
+
+	// register controllers
+	err = controllers.RegisterControllers(ctx, syncers)
+	if err != nil {
+		return err
+	}
 
 	// make sure owner is set if it is there
 	err = findOwner(ctx)

@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	translator2 "github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	translator2 "github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -53,7 +53,7 @@ type Translator interface {
 	Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error)
 }
 
-func NewTranslator(ctx *context2.ControllerContext, eventRecorder record.EventRecorder) (Translator, error) {
+func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder) (Translator, error) {
 	imageTranslator, err := NewImageTranslator(ctx.Options.TranslateImages)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 
 	// convert to core object
-	pPod := translator2.NewNamespacedTranslator(t.targetNamespace, nil, &corev1.Pod{}).TranslateMetadata(vPod).(*corev1.Pod)
+	pPod := translator2.TranslateMetadata(t.targetNamespace, vPod).(*corev1.Pod)
 
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}
@@ -764,11 +764,8 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 		updatedPod.Spec = *updatedPodSpec
 	}
 
-	// there are some annotations which should be excluded
-	translator := translator2.NewNamespacedTranslator(t.targetNamespace, nil, &corev1.Pod{}, getExcludedAnnotations(pPod)...)
-
 	// check annotations
-	_, updatedAnnotations, updatedLabels := translator.TranslateMetadataUpdate(vPod, pPod)
+	_, updatedAnnotations, updatedLabels := translator2.TranslateMetadataUpdate(vPod, pPod, getExcludedAnnotations(pPod)...)
 	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {
