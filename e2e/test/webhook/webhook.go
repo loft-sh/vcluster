@@ -36,6 +36,7 @@ var (
 	skipNamespaceLabelValue = "yes"
 	skippedNamespaceName    = "exempted-namesapce"
 	disallowedPodName       = "disallowed-pod"
+	toBeAttachedPodName     = "to-be-attached-pod"
 	hangingPodName          = "hanging-pod"
 	disallowedConfigMapName = "disallowed-configmap"
 	allowedConfigMapName    = "allowed-configmap"
@@ -88,6 +89,18 @@ var _ = ginkgo.Describe("AdmissionWebhook", func() {
 		webhookCleanup := registerWebhook(f, uniqueName, certCtx, servicePort, ns)
 		defer webhookCleanup()
 		testWebhook(f, ns)
+	})
+
+	/*
+		Release: v1.16
+		Testname: Admission webhook, deny attach
+		Description: Register an admission webhook configuration that denies connecting to a pod's attach sub-resource.
+		Attempts to attach MUST be denied.
+	*/
+	ginkgo.It("should be able to deny attaching pod", func() {
+		webhookCleanup := registerWebhookForAttachingPod(f, uniqueName, certCtx, servicePort, ns)
+		defer webhookCleanup()
+		testAttachingPodWebhook(f, ns)
 	})
 })
 
@@ -633,7 +646,7 @@ func deployWebhookAndService(f *framework.Framework, image string, certCtx *cert
 	_, err = client.AppsV1().Deployments(namespace).Create(context.TODO(), d, metav1.CreateOptions{})
 	framework.ExpectNoError(err, "creating deployment %s in namespace %s", deploymentName, namespace)
 	ginkgo.By("Wait for the deployment to be ready")
-	time.Sleep(3 * time.Minute)
+	time.Sleep(1 * time.Minute) //TODO: replace with polling
 
 	ginkgo.By("Deploying the webhook service")
 
@@ -659,7 +672,7 @@ func deployWebhookAndService(f *framework.Framework, image string, certCtx *cert
 	framework.ExpectNoError(err, "creating service %s in namespace %s", serviceName, namespace)
 
 	ginkgo.By("Wait for the service to be paired with the endpoint")
-	time.Sleep(3 * time.Minute)
+	time.Sleep(1 * time.Minute) //TODO: replace with polling
 }
 
 // NewDeployment returns a deployment spec with the specified argument.
@@ -692,5 +705,92 @@ func newDeployment(deploymentName string, replicas int32, podLabels map[string]s
 				},
 			},
 		},
+	}
+}
+
+func registerWebhookForAttachingPod(f *framework.Framework, configName string, certCtx *certContext, servicePort int32, ns string) func() {
+	client := f.VclusterClient
+	ginkgo.By("Registering the webhook via the AdmissionRegistration API")
+
+	namespace := ns
+	sideEffectsNone := admissionregistrationv1.SideEffectClassNone
+
+	_, err := createValidatingWebhookConfiguration(f, &admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: configName,
+		},
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{
+			{
+				Name: "deny-attaching-pod.k8s.io",
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Connect},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods/attach"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: namespace,
+						Name:      serviceName,
+						Path:      strPtr("/pods/attach"),
+						Port:      pointer.Int32Ptr(servicePort),
+					},
+					CABundle: certCtx.signingCert,
+				},
+				SideEffects:             &sideEffectsNone,
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				// Scope the webhook to just this namespace
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{uniqueName: "true"},
+				},
+			},
+			// Register a webhook that can be probed by marker requests to detect when the configuration is ready.
+			newValidatingIsReadyWebhookFixture(f, certCtx, servicePort, ns),
+		},
+	})
+	framework.ExpectNoError(err, "registering webhook config %s with namespace %s", configName, namespace)
+
+	err = waitWebhookConfigurationReady(f, ns)
+	framework.ExpectNoError(err, "waiting for webhook configuration to be ready")
+
+	return func() {
+		_ = client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), configName, metav1.DeleteOptions{})
+	}
+}
+
+func toBeAttachedPod(f *framework.Framework) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: toBeAttachedPodName,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "container1",
+					Image: pauseImage,
+				},
+			},
+		},
+	}
+}
+
+func testAttachingPodWebhook(f *framework.Framework, ns string) {
+	ginkgo.By("create a pod")
+	client := f.VclusterClient
+	pod := toBeAttachedPod(f)
+	_, err := client.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
+	framework.ExpectNoError(err, "failed to create pod %s in namespace: %s", pod.Name, ns)
+	err = f.WaitForPodRunning(pod.Name, ns)
+	framework.ExpectNoError(err, "error while waiting for pod %s to go to Running phase in namespace: %s", pod.Name, ns)
+
+	ginkgo.By("'kubectl attach' the pod, should be denied by the webhook")
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
+	_, err = framework.NewKubectlCommand(f.VclusterKubeconfigFile.Name(), ns, "attach", fmt.Sprintf("--namespace=%v", ns), pod.Name, "-i", "-c=container1").WithTimeout(timer.C).Exec()
+	framework.ExpectError(err, "'kubectl attach' the pod, should be denied by the webhook")
+	if e, a := "attaching to pod 'to-be-attached-pod' is not allowed", err.Error(); !strings.Contains(a, e) {
+		f.Log.Failf("unexpected 'kubectl attach' error message. expected to contain %q, got %q", e, a)
 	}
 }

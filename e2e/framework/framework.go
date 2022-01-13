@@ -61,6 +61,11 @@ type Framework struct {
 	// vcluster instance which we are testing
 	VclusterClient *kubernetes.Clientset
 
+	// VclusterKubeconfigFile is a file containing kube config
+	// of the current vcluster instance which we are testing.
+	// This file shall be deleted in the end of the test suite execution.
+	VclusterKubeconfigFile *os.File
+
 	// Scheme is the global scheme to use
 	Scheme *runtime.Scheme
 
@@ -113,18 +118,18 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	}
 
 	// run port forwarder and retrieve kubeconfig for the vcluster
-	file, err := ioutil.TempFile(os.TempDir(), "vcluster_e2e_kubeconfig_")
+	vKubeconfigFile, err := ioutil.TempFile(os.TempDir(), "vcluster_e2e_kubeconfig_")
 	if err != nil {
 		return fmt.Errorf("could not create a temporary file: %v", err)
 	}
-	defer os.Remove(file.Name())
+	// vKubeconfigFile removal is done in the Framework.Cleanup() which gets called in ginkgo's AfterSuite()
 
 	connectCmd := cmd.ConnectCmd{
 		Log: l,
 		GlobalFlags: &flags.GlobalFlags{
 			Namespace: ns,
 		},
-		KubeConfig: file.Name(),
+		KubeConfig: vKubeconfigFile.Name(),
 		LocalPort:  8440,        // choosing a port that usually should be unused
 		Address:    "127.0.0.1", // setting only ipv4 address may reduce a number of errors, see comments on kubernetes#74551
 	}
@@ -140,7 +145,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	var vclusterClient *kubernetes.Clientset
 
 	err = wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
-		output, err := ioutil.ReadFile(file.Name())
+		output, err := ioutil.ReadFile(vKubeconfigFile.Name())
 		if err != nil {
 			return false, err
 		}
@@ -172,19 +177,24 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 
 	// create the framework
 	DefaultFramework = &Framework{
-		Context:           ctx,
-		VclusterName:      name,
-		VclusterNamespace: ns,
-		Suffix:            suffix,
-		HostConfig:        hostConfig,
-		HostClient:        hostClient,
-		VclusterConfig:    vclusterConfig,
-		VclusterClient:    vclusterClient,
-		Scheme:            scheme,
-		Log:               l,
-		ClientTimeout:     timeout,
+		Context:                ctx,
+		VclusterName:           name,
+		VclusterNamespace:      ns,
+		Suffix:                 suffix,
+		HostConfig:             hostConfig,
+		HostClient:             hostClient,
+		VclusterConfig:         vclusterConfig,
+		VclusterClient:         vclusterClient,
+		VclusterKubeconfigFile: vKubeconfigFile,
+		Scheme:                 scheme,
+		Log:                    l,
+		ClientTimeout:          timeout,
 	}
 
 	l.Done("Framework successfully initialized")
 	return nil
+}
+
+func (f *Framework) Cleanup() error {
+	return os.Remove(f.VclusterKubeconfigFile.Name())
 }
