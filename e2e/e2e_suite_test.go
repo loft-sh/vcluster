@@ -54,5 +54,12 @@ func TestRunE2ETests(t *testing.T) {
 		log.GetInstance().Fatalf("Error setting up framework: %v", err)
 	}
 
+	var _ = ginkgo.AfterSuite(func() {
+		err = framework.DefaultFramework.Cleanup()
+		if err != nil {
+			log.GetInstance().Warnf("Error executing testsuite cleanup: %v", err)
+		}
+	})
+
 	ginkgo.RunSpecs(t, "Vcluster e2e suite")
 }
