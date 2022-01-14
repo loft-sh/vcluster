@@ -78,9 +78,9 @@ func (s *persistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterContex
 	})
 }
 
-var _ syncer.ControllerRegisterer = &persistentVolumeSyncer{}
+var _ syncer.ControllerModifier = &persistentVolumeSyncer{}
 
-func (s *persistentVolumeSyncer) RegisterController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *persistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(mapPVCs)), nil
 }
 

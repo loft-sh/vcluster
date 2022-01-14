@@ -19,30 +19,33 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/kubernetes"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-var ResourceControllers = map[string]func(*synccontext.RegisterContext) (syncer.Object, error){
-	"services":               services.New,
-	"configmaps":             configmaps.New,
-	"secrets":                secrets.New,
-	"endpoints":              endpoints.New,
-	"pods":                   pods.New,
-	"events":                 events.New,
-	"persistentvolumeclaims": persistentvolumeclaims.New,
-	"ingresses":              ingresses.New,
-	"storageclasses":         storageclasses.New,
-	"priorityclasses":        priorityclasses.New,
-	"nodes,fake-nodes":       nodes.New,
-	"persistentvolumes,fake-persistentvolumes": persistentvolumes.New,
-	"networkpolicies":                          networkpolicies.New,
-	"volumesnapshots":                          volumesnapshots.New,
+var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncer.Object, error){
+	"services":               newControllers(services.New),
+	"configmaps":             newControllers(configmaps.New),
+	"secrets":                newControllers(secrets.New),
+	"endpoints":              newControllers(endpoints.New),
+	"pods":                   newControllers(pods.New),
+	"events":                 newControllers(events.New),
+	"persistentvolumeclaims": newControllers(persistentvolumeclaims.New),
+	"ingresses":              newControllers(ingresses.New),
+	"storageclasses":         newControllers(storageclasses.New),
+	"priorityclasses":        newControllers(priorityclasses.New),
+	"nodes,fake-nodes":       newControllers(nodes.New),
+	"persistentvolumes,fake-persistentvolumes": newControllers(persistentvolumes.New),
+	"networkpolicies":                          newControllers(networkpolicies.New),
+	"volumesnapshots":                          newControllers(volumesnapshotclasses.New, volumesnapshots.New, volumesnapshotcontents.New),
 }
 
 func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
@@ -51,22 +54,44 @@ func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
 	// register controllers for resource synchronization
 	syncers := []syncer.Object{}
 	for k, v := range ResourceControllers {
-		controllers := strings.Split(k, ",")
-		for _, controller := range controllers {
-			if ctx.Controllers[controller] {
-				loghelper.Infof("Start %s sync controller", controller)
-				ctrl, err := v(registerContext)
-				if err != nil {
-					return nil, errors.Wrapf(err, "register %s controller", controller)
-				}
+		for _, controllerNew := range v {
+			controllers := strings.Split(k, ",")
+			for _, controller := range controllers {
+				if ctx.Controllers[controller] {
+					loghelper.Infof("Start %s sync controller", controller)
+					ctrl, err := controllerNew(registerContext)
+					if err != nil {
+						return nil, errors.Wrapf(err, "register %s controller", controller)
+					}
 
-				syncers = append(syncers, ctrl)
-				break
+					syncers = append(syncers, ctrl)
+					break
+				}
 			}
 		}
 	}
 
 	return syncers, nil
+}
+
+func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syncer.Object) error {
+	registerContext := ToRegisterContext(controllerCtx)
+	// execute in parallel because each one might be time consuming
+	errorGroup, ctx := errgroup.WithContext(controllerCtx.Context)
+
+	for _, s := range syncers {
+		initializer, ok := s.(syncer.Initializer)
+		if ok {
+			errorGroup.Go(func() error {
+				err := initializer.Init(registerContext, ctx)
+				if err != nil {
+					return errors.Wrapf(err, "ensure prerequisites for %s syncer", s.Name())
+				}
+				return nil
+			})
+		}
+	}
+	return errorGroup.Wait()
 }
 
 func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) error {
@@ -148,4 +173,8 @@ func ToRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterCont
 		VirtualManager:  ctx.VirtualManager,
 		PhysicalManager: ctx.LocalManager,
 	}
+}
+
+func newControllers(funcs ...func(*synccontext.RegisterContext) (syncer.Object, error)) []func(*synccontext.RegisterContext) (syncer.Object, error) {
+	return append([]func(*synccontext.RegisterContext) (syncer.Object, error){}, funcs...)
 }

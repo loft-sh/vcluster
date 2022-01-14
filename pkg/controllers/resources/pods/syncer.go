@@ -100,9 +100,9 @@ func (s *podSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return s.NamespacedTranslator.RegisterIndices(ctx)
 }
 
-var _ syncer.ControllerRegisterer = &podSyncer{}
+var _ syncer.ControllerModifier = &podSyncer{}
 
-func (s *podSyncer) RegisterController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *podSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	eventHandler := handler.Funcs{
 		UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 			// no need to reconcile pods if namespace labels didn't change

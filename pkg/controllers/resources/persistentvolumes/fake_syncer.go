@@ -48,9 +48,9 @@ func (r *fakePersistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterCo
 	})
 }
 
-var _ syncer.ControllerRegisterer = &fakePersistentVolumeSyncer{}
+var _ syncer.ControllerModifier = &fakePersistentVolumeSyncer{}
 
-func (r *fakePersistentVolumeSyncer) RegisterController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (r *fakePersistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 		pvc, ok := object.(*corev1.PersistentVolumeClaim)
 		if !ok || pvc == nil {
@@ -80,7 +80,7 @@ func (r *fakePersistentVolumeSyncer) ReconcileEnd() {
 
 var _ syncer.FakeSyncer = &fakePersistentVolumeSyncer{}
 
-func (r *fakePersistentVolumeSyncer) SyncDownCreate(ctx *synccontext.SyncContext, req types.NamespacedName) (ctrl.Result, error) {
+func (r *fakePersistentVolumeSyncer) FakeSyncUp(ctx *synccontext.SyncContext, req types.NamespacedName) (ctrl.Result, error) {
 	needed, err := r.pvNeeded(ctx, req.Name)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -101,7 +101,7 @@ func (r *fakePersistentVolumeSyncer) SyncDownCreate(ctx *synccontext.SyncContext
 	return ctrl.Result{}, err
 }
 
-func (r *fakePersistentVolumeSyncer) SyncDownUpdate(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (r *fakePersistentVolumeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	persistentVolume, ok := vObj.(*corev1.PersistentVolume)
 	if !ok || persistentVolume == nil {
 		return ctrl.Result{}, fmt.Errorf("%+#v is not a persistent volume", vObj)
