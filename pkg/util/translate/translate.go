@@ -93,6 +93,10 @@ func PhysicalName(name, namespace string) string {
 	return SafeConcatName(name, "x", namespace, "x", Suffix)
 }
 
+func ObjectPhysicalName(obj client.Object) string {
+	return PhysicalName(obj.GetName(), obj.GetNamespace())
+}
+
 // PhysicalNameClusterScoped returns the physical name of a cluster scoped object in the host cluster
 func PhysicalNameClusterScoped(name, physicalNamespace string) string {
 	if name == "" {
