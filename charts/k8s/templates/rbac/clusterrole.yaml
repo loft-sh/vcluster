@@ -30,4 +30,15 @@ rules:
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotcontents"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- range $key, $container := .Values.plugin }}
+  {{- if $container.rbac }}
+  {{- if $container.rbac.clusterRole }}
+  {{- if $container.rbac.clusterRole.extraRules }}
+  {{- range $ruleIndex, $rule := $container.rbac.clusterRole.extraRules }}
+  - {{ toJson $rule }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
 {{- end }}
