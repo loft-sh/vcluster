@@ -1,8 +1,13 @@
 package volumesnapshots
 
 import (
+	"context"
+	"path"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
@@ -12,6 +17,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	// file path relative to the manifests folder in the container
+	crdPath         = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshots.yaml"
+	crdKind         = "VolumeSnapshots"
+	crdGroupVersion = "snapshot.storage.k8s.io/v1"
 )
 
 var (
@@ -30,6 +42,12 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 type volumeSnapshotSyncer struct {
 	translator.NamespacedTranslator
 	volumeSnapshotContentNameTranslator translator.PhysicalNameTranslator
+}
+
+var _ syncer.Initializer = &volumeSnapshotSyncer{}
+
+func (s *volumeSnapshotSyncer) Init(registerContext *synccontext.RegisterContext, ctx context.Context) error {
+	return util.EnsureCRD(ctx, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), crdGroupVersion, crdKind)
 }
 
 var _ syncer.Syncer = &volumeSnapshotSyncer{}

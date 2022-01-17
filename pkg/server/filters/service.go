@@ -8,8 +8,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	"k8s.io/client-go/rest"
-
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/encoding"
 	"github.com/loft-sh/vcluster/pkg/util/random"

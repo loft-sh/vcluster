@@ -73,9 +73,9 @@ func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return s.NamespacedTranslator.RegisterIndices(ctx)
 }
 
-var _ syncer.ControllerRegisterer = &secretSyncer{}
+var _ syncer.ControllerModifier = &secretSyncer{}
 
-func (s *secretSyncer) RegisterController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *secretSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.includeIngresses {
 		if s.useLegacyIngress {
 			builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
