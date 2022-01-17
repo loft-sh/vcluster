@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -13,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
 
 func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {

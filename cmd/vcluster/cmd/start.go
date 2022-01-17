@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/plugin"
 	"io/ioutil"
 	"math"
 	"os"
@@ -116,6 +117,9 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().Int64Var(&options.LeaseDuration, "lease-duration", 60, "Lease duration of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RenewDeadline, "renew-deadline", 40, "Renew deadline of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RetryPeriod, "retry-period", 15, "Retry period of the leader election in seconds")
+
+	cmd.Flags().BoolVar(&options.DisablePlugins, "disable-plugins", false, "If enabled, vcluster will not load any plugins")
+	cmd.Flags().StringVar(&options.PluginListenAddress, "plugin-address", "localhost:10099", "The plugin address to listen to. If this is changed, you'll need to configure your plugins to connect to the updated port")
 
 	// Deprecated Flags
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
@@ -372,6 +376,17 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	err = writeKubeConfigToSecret(ctx, rawConfig)
 	if err != nil {
 		return err
+	}
+
+	// start plugins
+	if !ctx.Options.DisablePlugins {
+		klog.Infof("Start Plugins Manager...")
+		go func() {
+			err = plugin.DefaultManager.Start(controllers.ToRegisterContext(ctx))
+			if err != nil {
+				panic(err)
+			}
+		}()
 	}
 
 	return nil

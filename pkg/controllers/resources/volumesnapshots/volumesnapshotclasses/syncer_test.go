@@ -2,11 +2,11 @@ package volumesnapshotclasses
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"testing"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

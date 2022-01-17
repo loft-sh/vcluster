@@ -1,7 +1,7 @@
 package translate
 
 import (
-	translator2 "github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+	translator2 "github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"

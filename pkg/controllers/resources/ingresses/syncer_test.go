@@ -2,11 +2,10 @@ package ingresses
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"k8s.io/apimachinery/pkg/types"
 	"testing"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"

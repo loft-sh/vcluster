@@ -46,7 +46,7 @@ var ResourceControllers = map[string]func(*synccontext.RegisterContext) (syncer.
 }
 
 func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
-	registerContext := toRegisterContext(ctx)
+	registerContext := ToRegisterContext(ctx)
 
 	// register controllers for resource synchronization
 	syncers := []syncer.Object{}
@@ -70,7 +70,7 @@ func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
 }
 
 func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) error {
-	registerContext := toRegisterContext(ctx)
+	registerContext := ToRegisterContext(ctx)
 	for _, s := range syncers {
 		indexRegisterer, ok := s.(syncer.IndicesRegisterer)
 		if ok {
@@ -85,7 +85,7 @@ func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) er
 }
 
 func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
-	registerContext := toRegisterContext(ctx)
+	registerContext := ToRegisterContext(ctx)
 	ctx.EventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 
 	// register controller that keeps CoreDNS NodeHosts config up to date
@@ -131,7 +131,7 @@ func registerCoreDNSController(ctx *context.ControllerContext) error {
 	return nil
 }
 
-func toRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterContext {
+func ToRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterContext {
 	return &synccontext.RegisterContext{
 		Context:          ctx.Context,
 		EventBroadcaster: ctx.EventBroadcaster,

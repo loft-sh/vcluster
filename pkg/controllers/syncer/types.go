@@ -29,7 +29,9 @@ type UpSyncer interface {
 type FakeSyncer interface {
 	Object
 
+	// -> FakeSyncUp
 	SyncDownCreate(ctx *context.SyncContext, req types.NamespacedName) (ctrl.Result, error)
+	// -> FakeSync
 	SyncDownUpdate(ctx *context.SyncContext, vObj client.Object) (ctrl.Result, error)
 }
 
@@ -44,6 +46,7 @@ type IndicesRegisterer interface {
 }
 
 // ControllerRegisterer is used to modify the created controller for the syncer
+// -> ModifyController
 type ControllerRegisterer interface {
 	RegisterController(ctx *context.RegisterContext, builder *builder.Builder) (*builder.Builder, error)
 }

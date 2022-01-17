@@ -5,9 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
-
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
