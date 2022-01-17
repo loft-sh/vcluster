@@ -2,10 +2,10 @@ package storageclasses
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic/translator"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"testing"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 
