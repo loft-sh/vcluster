@@ -2,6 +2,7 @@ package pods
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"strings"
 	"time"
 
@@ -195,13 +196,13 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// execute a command in a pod to retrieve env var value
-		stdout, stderr, err := podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.ObjectPhysicalName(pod), testingContainerName, []string{"sh", "-c", "echo $" + envVarName}, nil)
+		stdout, stderr, err := podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $" + envVarName}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), cmKeyValue+"\n") // echo adds \n in the end
 		framework.ExpectEqual(string(stderr), "")
 
 		// execute a command in a pod to retrieve file content
-		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.ObjectPhysicalName(pod), testingContainerName, []string{"cat", filePath + "/" + fileName}, nil)
+		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"cat", filePath + "/" + fileName}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), cmKeyValue)
 		framework.ExpectEqual(string(stderr), "")
@@ -393,7 +394,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		// get current physical Pod resource
 		pPod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, translate.ObjectPhysicalName(pod), metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		pKey := translate.ConvertLabelKeyWithPrefix(podtranslate.NamespaceLabelPrefix, initialNsLabelKey)
+		pKey := translator.ConvertLabelKeyWithPrefix(podtranslate.NamespaceLabelPrefix, initialNsLabelKey)
 		framework.ExpectHaveKey(pPod.GetLabels(), pKey)
 		framework.ExpectEqual(pPod.GetLabels()[pKey], initialNsLabelValue)
 
@@ -416,7 +417,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			}
 			pPod, err = f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, translate.ObjectPhysicalName(pod), metav1.GetOptions{})
 			framework.ExpectNoError(err)
-			pKey = translate.ConvertLabelKeyWithPrefix(podtranslate.NamespaceLabelPrefix, additionalLabelKey)
+			pKey = translator.ConvertLabelKeyWithPrefix(podtranslate.NamespaceLabelPrefix, additionalLabelKey)
 			if value, ok := pPod.GetLabels()[pKey]; ok {
 				framework.ExpectEqual(value, additionalLabelValue)
 				return true, nil
