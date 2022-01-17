@@ -164,3 +164,57 @@ spec:
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}
       {{- end }}
+      {{- range $key, $container := .Values.plugin }}
+      - image: {{ $.Values.defaultImageRegistry }}{{ $container.image }}
+        {{- if $container.name }}
+        name: {{ $container.name | quote }}
+        {{- else }}
+        name: {{ $key | quote }}
+        {{- end }}
+        {{- if $container.imagePullPolicy }}
+        imagePullPolicy: {{ $container.imagePullPolicy }}
+        {{- end }}
+        {{- if $container.workingDir }}
+        workingDir: {{ $container.workingDir }}
+        {{- end }}
+        {{- if $container.command }}
+        command:
+          {{- range $commandIndex, $command := $container.command }}
+          - {{ $command | quote }}
+          {{- end }}
+        {{- end }}
+        {{- if $container.args }}
+        args:
+          {{- range $argIndex, $arg := $container.args }}
+          - {{ $arg | quote }}
+          {{- end }}
+        {{- end }}
+        {{- if $container.terminationMessagePath }}
+        terminationMessagePath: {{ $container.terminationMessagePath }}
+        {{- end }}
+        {{- if $container.terminationMessagePolicy }}
+        terminationMessagePolicy: {{ $container.terminationMessagePolicy }}
+        {{- end }}
+        env:
+{{ toYaml $container.env | indent 10 }}
+        envFrom:
+{{ toYaml $container.envFrom | indent 10 }}
+        securityContext:
+{{ toYaml $container.securityContext | indent 10 }}
+        lifecycle:
+{{ toYaml $container.lifecycle | indent 10 }}
+        livenessProbe:
+{{ toYaml $container.livenessProbe | indent 10 }}
+        readinessProbe:
+{{ toYaml $container.readinessProbe | indent 10 }}
+        startupProbe:
+{{ toYaml $container.startupProbe | indent 10 }}
+        volumeDevices:
+{{ toYaml $container.volumeDevices | indent 10 }}
+        volumeMounts:
+{{ toYaml $container.volumeMounts | indent 10 }}
+        {{- if $container.resources }}
+        resources:
+{{ toYaml $container.resources | indent 10 }}
+        {{- end }}
+        {{- end }}

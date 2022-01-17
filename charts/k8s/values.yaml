@@ -13,6 +13,18 @@ defaultImageRegistry: ""
 # Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
 enableHA: false
 
+# Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
+plugin: {}
+# Manually configure a plugin called test
+# test:
+#   image: ...
+#   env: ...
+#   rbac:
+#     clusterRole:
+#       extraRules: ...
+#     role:
+#       extraRules: ...
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer
