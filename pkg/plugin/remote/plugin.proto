@@ -6,18 +6,29 @@ package remote;
 option go_package = "github.com/loft-sh/vcluster/pkg/plugin/remote";
 
 service PluginInitializer {
-    rpc Register (Info) returns (Context) {}
+    rpc Register (PluginInfo) returns (Context) {}
+    rpc IsLeader (Empty) returns (LeaderInfo) {}
 }
 
-message Info {
+message LeaderInfo {
+    bool leader = 1;
+}
+
+message PluginInfo {
     string name = 1;
 }
 
 message Context {
     string virtualClusterConfig = 1;
-    string phyiscalClusterConfig = 2;
-    string targetNamespace = 3;
-    string currentNamespace = 4;
+    string physicalClusterConfig = 2;
+    string syncerConfig = 3;
 
-    string options = 5;
+    string targetNamespace = 4;
+    string currentNamespace = 5;
+
+    string options = 6;
+}
+
+message Empty {
+
 }
