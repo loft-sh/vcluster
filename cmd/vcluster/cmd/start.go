@@ -365,16 +365,10 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	ctx.LocalManager.GetCache().WaitForCacheSync(ctx.Context)
 	ctx.VirtualManager.GetCache().WaitForCacheSync(ctx.Context)
 
-	// register controllers
-	err = controllers.RegisterControllers(ctx, syncers)
-	if err != nil {
-		return err
-	}
-
 	// make sure owner is set if it is there
 	err = findOwner(ctx)
 	if err != nil {
-		klog.Errorf("Error finding vcluster pod owner: %v", err)
+		return errors.Wrap(err, "finding vcluster pod owner")
 	}
 
 	// make sure the kubernetes service is synced
@@ -390,6 +384,12 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 
 	// write the kube config to secret
 	err = writeKubeConfigToSecret(ctx, rawConfig)
+	if err != nil {
+		return err
+	}
+
+	// register controllers
+	err = controllers.RegisterControllers(ctx, syncers)
 	if err != nil {
 		return err
 	}

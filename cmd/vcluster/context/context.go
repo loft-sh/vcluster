@@ -3,9 +3,6 @@ package context
 import (
 	"context"
 	"fmt"
-	"strings"
-	"sync"
-
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
@@ -13,6 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 // VirtualClusterOptions holds the cmd flags
@@ -87,8 +85,6 @@ type ControllerContext struct {
 	NodeServiceProvider    nodeservice.NodeServiceProvider
 
 	Controllers map[string]bool
-
-	CacheSynced func()
 	LockFactory locks.LockFactory
 	Options     *VirtualClusterOptions
 	StopChan    <-chan struct{}
@@ -128,7 +124,6 @@ var DefaultEnabledControllers = []string{
 
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
 	stopChan := make(<-chan struct{})
-	cacheSynced := sync.Once{}
 	ctx := context.Background()
 	uncachedVirtualClient, err := client.New(virtualManager.GetConfig(), client.Options{
 		Scheme: virtualManager.GetScheme(),
@@ -162,14 +157,8 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 
 		NodeServiceProvider: nodeservice.NewNodeServiceProvider(currentNamespace, currentNamespaceClient, virtualManager.GetClient(), uncachedVirtualClient),
 		LockFactory:         locks.NewDefaultLockFactory(),
-		CacheSynced: func() {
-			cacheSynced.Do(func() {
-				localManager.GetCache().WaitForCacheSync(ctx)
-				virtualManager.GetCache().WaitForCacheSync(ctx)
-			})
-		},
-		StopChan: stopChan,
-		Options:  options,
+		StopChan:            stopChan,
+		Options:             options,
 	}, nil
 }
 
