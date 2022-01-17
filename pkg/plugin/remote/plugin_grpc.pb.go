@@ -18,7 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PluginInitializerClient interface {
-	Register(ctx context.Context, in *Info, opts ...grpc.CallOption) (*Context, error)
+	Register(ctx context.Context, in *PluginInfo, opts ...grpc.CallOption) (*Context, error)
+	IsLeader(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*LeaderInfo, error)
 }
 
 type pluginInitializerClient struct {
@@ -29,9 +30,18 @@ func NewPluginInitializerClient(cc grpc.ClientConnInterface) PluginInitializerCl
 	return &pluginInitializerClient{cc}
 }
 
-func (c *pluginInitializerClient) Register(ctx context.Context, in *Info, opts ...grpc.CallOption) (*Context, error) {
+func (c *pluginInitializerClient) Register(ctx context.Context, in *PluginInfo, opts ...grpc.CallOption) (*Context, error) {
 	out := new(Context)
 	err := c.cc.Invoke(ctx, "/remote.PluginInitializer/Register", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pluginInitializerClient) IsLeader(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*LeaderInfo, error) {
+	out := new(LeaderInfo)
+	err := c.cc.Invoke(ctx, "/remote.PluginInitializer/IsLeader", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +52,8 @@ func (c *pluginInitializerClient) Register(ctx context.Context, in *Info, opts .
 // All implementations must embed UnimplementedPluginInitializerServer
 // for forward compatibility
 type PluginInitializerServer interface {
-	Register(context.Context, *Info) (*Context, error)
+	Register(context.Context, *PluginInfo) (*Context, error)
+	IsLeader(context.Context, *Empty) (*LeaderInfo, error)
 	mustEmbedUnimplementedPluginInitializerServer()
 }
 
@@ -50,8 +61,11 @@ type PluginInitializerServer interface {
 type UnimplementedPluginInitializerServer struct {
 }
 
-func (UnimplementedPluginInitializerServer) Register(context.Context, *Info) (*Context, error) {
+func (UnimplementedPluginInitializerServer) Register(context.Context, *PluginInfo) (*Context, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
+}
+func (UnimplementedPluginInitializerServer) IsLeader(context.Context, *Empty) (*LeaderInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsLeader not implemented")
 }
 func (UnimplementedPluginInitializerServer) mustEmbedUnimplementedPluginInitializerServer() {}
 
@@ -67,7 +81,7 @@ func RegisterPluginInitializerServer(s grpc.ServiceRegistrar, srv PluginInitiali
 }
 
 func _PluginInitializer_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Info)
+	in := new(PluginInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -79,7 +93,25 @@ func _PluginInitializer_Register_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: "/remote.PluginInitializer/Register",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginInitializerServer).Register(ctx, req.(*Info))
+		return srv.(PluginInitializerServer).Register(ctx, req.(*PluginInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PluginInitializer_IsLeader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginInitializerServer).IsLeader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.PluginInitializer/IsLeader",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginInitializerServer).IsLeader(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -94,6 +126,10 @@ var PluginInitializer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Register",
 			Handler:    _PluginInitializer_Register_Handler,
+		},
+		{
+			MethodName: "IsLeader",
+			Handler:    _PluginInitializer_IsLeader_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -4,6 +4,7 @@ import (
 	context "context"
 	"encoding/json"
 	"fmt"
+	"go.uber.org/atomic"
 	"k8s.io/klog"
 	"net"
 
@@ -20,7 +21,8 @@ import (
 var DefaultManager Manager = &manager{}
 
 type Manager interface {
-	Start(context *synccontext.RegisterContext) error
+	Start(context *synccontext.RegisterContext, syncerConfig *clientcmdapi.Config) error
+	SetLeader(isLeader bool)
 }
 
 type manager struct {
@@ -28,14 +30,21 @@ type manager struct {
 
 	physicalKubeConfig string
 	virtualKubeConfig  string
+	syncerKubeConfig   string
 
 	targetNamespace  string
 	currentNamespace string
 
 	options string
+
+	isLeader atomic.Bool
 }
 
-func (m *manager) Start(ctx *synccontext.RegisterContext) error {
+func (m *manager) SetLeader(isLeader bool) {
+	m.isLeader.Store(isLeader)
+}
+
+func (m *manager) Start(ctx *synccontext.RegisterContext, syncerConfig *clientcmdapi.Config) error {
 	// base options
 	m.currentNamespace = ctx.CurrentNamespace
 	m.targetNamespace = ctx.TargetNamespace
@@ -69,6 +78,13 @@ func (m *manager) Start(ctx *synccontext.RegisterContext) error {
 	}
 	m.physicalKubeConfig = string(phyisicalConfigBytes)
 
+	// Syncer client config
+	syncerConfigBytes, err := clientcmd.Write(*syncerConfig)
+	if err != nil {
+		return errors.Wrap(err, "marshal syncer client config")
+	}
+	m.syncerKubeConfig = string(syncerConfigBytes)
+
 	// start the grpc server
 	lis, err := net.Listen("tcp", ctx.Options.PluginListenAddress)
 	if err != nil {
@@ -81,13 +97,20 @@ func (m *manager) Start(ctx *synccontext.RegisterContext) error {
 	return grpcServer.Serve(lis)
 }
 
-func (m *manager) Register(ctx context.Context, info *remote.Info) (*remote.Context, error) {
+func (m *manager) IsLeader(ctx context.Context, empty *remote.Empty) (*remote.LeaderInfo, error) {
+	return &remote.LeaderInfo{
+		Leader: m.isLeader.Load(),
+	}, nil
+}
+
+func (m *manager) Register(ctx context.Context, info *remote.PluginInfo) (*remote.Context, error) {
 	if info != nil && info.Name != "" {
 		klog.Infof("Registering plugin %s", info.Name)
 	}
 	return &remote.Context{
 		VirtualClusterConfig:  m.virtualKubeConfig,
-		PhyiscalClusterConfig: m.physicalKubeConfig,
+		PhysicalClusterConfig: m.physicalKubeConfig,
+		SyncerConfig:          m.syncerKubeConfig,
 		TargetNamespace:       m.targetNamespace,
 		CurrentNamespace:      m.currentNamespace,
 		Options:               m.options,

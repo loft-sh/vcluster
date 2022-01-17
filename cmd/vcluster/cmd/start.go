@@ -288,6 +288,22 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		return err
 	}
 
+	// start plugins
+	if !ctx.Options.DisablePlugins {
+		klog.Infof("Start Plugins Manager...")
+		go func() {
+			syncerConfig, err := createVClusterKubeConfig(ctx, &rawConfig)
+			if err != nil {
+				panic(err)
+			}
+
+			err = plugin.DefaultManager.Start(controllers.ToRegisterContext(ctx), syncerConfig)
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
+
 	if ctx.Options.LeaderElect {
 		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
 			return startControllers(ctx, &rawConfig, serverVersion)
@@ -378,15 +394,9 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		return err
 	}
 
-	// start plugins
+	// set leader
 	if !ctx.Options.DisablePlugins {
-		klog.Infof("Start Plugins Manager...")
-		go func() {
-			err = plugin.DefaultManager.Start(controllers.ToRegisterContext(ctx))
-			if err != nil {
-				panic(err)
-			}
-		}()
+		plugin.DefaultManager.SetLeader(true)
 	}
 
 	return nil
@@ -495,7 +505,7 @@ func syncKubernetesService(ctx *context2.ControllerContext) error {
 	return nil
 }
 
-func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config) error {
+func createVClusterKubeConfig(ctx *context2.ControllerContext, config *api.Config) (*api.Config, error) {
 	config = config.DeepCopy()
 
 	// exchange kube config server & resolve certificate
@@ -504,7 +514,7 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		if config.Clusters[i].CertificateAuthorityData == nil && config.Clusters[i].CertificateAuthority != "" {
 			o, err := ioutil.ReadFile(config.Clusters[i].CertificateAuthority)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			config.Clusters[i].CertificateAuthority = ""
@@ -524,7 +534,7 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		if config.AuthInfos[i].ClientCertificateData == nil && config.AuthInfos[i].ClientCertificate != "" {
 			o, err := ioutil.ReadFile(config.AuthInfos[i].ClientCertificate)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			config.AuthInfos[i].ClientCertificate = ""
@@ -533,12 +543,21 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		if config.AuthInfos[i].ClientKeyData == nil && config.AuthInfos[i].ClientKey != "" {
 			o, err := ioutil.ReadFile(config.AuthInfos[i].ClientKey)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			config.AuthInfos[i].ClientKey = ""
 			config.AuthInfos[i].ClientKeyData = o
 		}
+	}
+
+	return config, nil
+}
+
+func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config) error {
+	config, err := createVClusterKubeConfig(ctx, config)
+	if err != nil {
+		return err
 	}
 
 	// check if we need to write the kubeconfig secrete to the default location as well
