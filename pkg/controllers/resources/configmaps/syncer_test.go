@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -47,8 +48,8 @@ func TestSync(t *testing.T) {
 			Name:      translate.PhysicalName(baseConfigMap.Name, baseConfigMap.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
-				translate.NameAnnotation:      baseConfigMap.Name,
-				translate.NamespaceAnnotation: baseConfigMap.Namespace,
+				translator.NameAnnotation:      baseConfigMap.Name,
+				translator.NamespaceAnnotation: baseConfigMap.Namespace,
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseConfigMap.Namespace,

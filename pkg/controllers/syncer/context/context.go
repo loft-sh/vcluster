@@ -7,7 +7,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,8 +25,7 @@ type SyncContext struct {
 }
 
 type RegisterContext struct {
-	Context          context.Context
-	EventBroadcaster record.EventBroadcaster
+	Context context.Context
 
 	Options             *controllercontext.VirtualClusterOptions
 	NodeServiceProvider nodeservice.NodeServiceProvider
@@ -40,4 +38,16 @@ type RegisterContext struct {
 
 	VirtualManager  ctrl.Manager
 	PhysicalManager ctrl.Manager
+}
+
+func ConvertContext(registerContext *RegisterContext, logName string) *SyncContext {
+	return &SyncContext{
+		Context:                registerContext.Context,
+		Log:                    loghelper.New(logName),
+		TargetNamespace:        registerContext.TargetNamespace,
+		PhysicalClient:         registerContext.PhysicalManager.GetClient(),
+		VirtualClient:          registerContext.VirtualManager.GetClient(),
+		CurrentNamespace:       registerContext.CurrentNamespace,
+		CurrentNamespaceClient: registerContext.CurrentNamespaceClient,
+	}
 }
