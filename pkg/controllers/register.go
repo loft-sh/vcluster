@@ -27,8 +27,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/client-go/kubernetes"
-	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncer.Object, error){
@@ -111,7 +109,6 @@ func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) er
 
 func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
 	registerContext := ToRegisterContext(ctx)
-	ctx.EventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
 
 	// register controller that keeps CoreDNS NodeHosts config up to date
 	err := registerCoreDNSController(ctx)
@@ -158,8 +155,7 @@ func registerCoreDNSController(ctx *context.ControllerContext) error {
 
 func ToRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterContext {
 	return &synccontext.RegisterContext{
-		Context:          ctx.Context,
-		EventBroadcaster: ctx.EventBroadcaster,
+		Context: ctx.Context,
 
 		Options:             ctx.Options,
 		NodeServiceProvider: ctx.NodeServiceProvider,

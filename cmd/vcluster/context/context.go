@@ -6,7 +6,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,8 +77,6 @@ type ControllerContext struct {
 	LocalManager   ctrl.Manager
 	VirtualManager ctrl.Manager
 
-	EventBroadcaster record.EventBroadcaster
-
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 	NodeServiceProvider    nodeservice.NodeServiceProvider
@@ -146,11 +143,10 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 	}
 
 	return &ControllerContext{
-		Context:          ctx,
-		Controllers:      controllers,
-		LocalManager:     localManager,
-		VirtualManager:   virtualManager,
-		EventBroadcaster: record.NewBroadcaster(),
+		Context:        ctx,
+		Controllers:    controllers,
+		LocalManager:   localManager,
+		VirtualManager: virtualManager,
 
 		CurrentNamespace:       currentNamespace,
 		CurrentNamespaceClient: currentNamespaceClient,

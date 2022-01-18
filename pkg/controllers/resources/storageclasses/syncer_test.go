@@ -1,27 +1,16 @@
 package storageclasses
 
 import (
-	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"gotest.tools/assert"
 	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
-
 	"k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-
-func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	return &syncer{
-		NameTranslator: translator.NewMirrorBackwardTranslator(),
-		virtualClient:  vClient,
-		localClient:    pClient,
-	}
-}
 
 func TestSync(t *testing.T) {
 	baseObjectMeta := metav1.ObjectMeta{
@@ -59,12 +48,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				v1.SchemeGroupVersion.WithKind("StorageClass"): {baseSc},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Backward(ctx, baseSc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*storageClassSyncer).SyncUp(syncCtx, baseSc)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -77,12 +64,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				v1.SchemeGroupVersion.WithKind("StorageClass"): {updateSc},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, updateSc, baseSc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*storageClassSyncer).Sync(syncCtx, updateSc, baseSc)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -95,12 +80,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				v1.SchemeGroupVersion.WithKind("StorageClass"): {noUpdateSc},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, noUpdateSc, baseSc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*storageClassSyncer).Sync(syncCtx, noUpdateSc, baseSc)
+				assert.NilError(t, err)
 			},
 		},
 	})

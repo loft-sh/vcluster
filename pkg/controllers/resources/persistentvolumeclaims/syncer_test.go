@@ -1,14 +1,13 @@
 package persistentvolumeclaims
 
 import (
-	"context"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"gotest.tools/assert"
 	"testing"
 	"time"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/util/locks"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	corev1 "k8s.io/api/core/v1"
@@ -17,19 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-
-func newFakeSyncer(lockFactory locks.LockFactory, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	return &syncer{
-		useFakePersistentVolumes:     true,
-		sharedPersistentVolumesMutex: lockFactory.GetLock("pvc-controller"),
-		targetNamespace:              "test",
-		virtualClient:                vClient,
-		localClient:                  pClient,
-
-		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "pvc"),
-		translator: translate.NewDefaultTranslator("test"),
-	}
-}
 
 func TestSync(t *testing.T) {
 	vObjectMeta := metav1.ObjectMeta{
@@ -40,8 +26,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.PhysicalName("testpvc", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      vObjectMeta.Name,
-			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translator.NameAnnotation:      vObjectMeta.Name,
+			translator.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -85,10 +71,10 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translate.NameAnnotation:               vObjectMeta.Name,
-				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				"otherAnnotationKey":                   "update this",
+				translator.NameAnnotation:               vObjectMeta.Name,
+				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translator.ManagedAnnotationsAnnotation: "otherAnnotationKey",
+				"otherAnnotationKey":                    "update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -101,13 +87,13 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translate.NameAnnotation:               vObjectMeta.Name,
-				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				bindCompletedAnnotation:                "testannotation",
-				boundByControllerAnnotation:            "testannotation2",
-				storageProvisionerAnnotation:           "testannotation3",
-				"otherAnnotationKey":                   "don't update this",
+				translator.NameAnnotation:               vObjectMeta.Name,
+				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translator.ManagedAnnotationsAnnotation: "otherAnnotationKey",
+				bindCompletedAnnotation:                 "testannotation",
+				boundByControllerAnnotation:             "testannotation2",
+				storageProvisionerAnnotation:            "testannotation3",
+				"otherAnnotationKey":                    "don't update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -168,7 +154,6 @@ func TestSync(t *testing.T) {
 			Phase: corev1.VolumeBound,
 		},
 	}
-	lockFactory := locks.NewDefaultLockFactory()
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
@@ -180,12 +165,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {createdPvc},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-				_, err := syncer.Forward(ctx, basePvc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*persistentVolumeClaimSyncer).SyncDown(syncCtx, basePvc)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -198,12 +181,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {createdPvc},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-				_, err := syncer.Forward(ctx, deletePvc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*persistentVolumeClaimSyncer).SyncDown(syncCtx, deletePvc)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -216,12 +197,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {updatedPvc},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-				_, err := syncer.Update(ctx, createdPvc, updatePvc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, createdPvc, updatePvc)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -234,12 +213,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {createdPvc},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-				_, err := syncer.Update(ctx, createdPvc, basePvc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, createdPvc, basePvc)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -252,12 +229,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-				_, err := syncer.Update(ctx, createdPvc, deletePvc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, createdPvc, deletePvc)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -270,12 +245,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdatedAnnotationsPvc},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-				_, err := syncer.Update(ctx, backwardUpdateAnnotationsPvc, basePvc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, backwardUpdateAnnotationsPvc, basePvc)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -289,12 +262,11 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdateStatusPvc.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(lockFactory, pClient, vClient)
-				_, err := syncer.Update(ctx, backwardUpdateStatusPvc, basePvc, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncer.(*persistentVolumeClaimSyncer).useFakePersistentVolumes = true
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, backwardUpdateStatusPvc, basePvc)
+				assert.NilError(t, err)
 			},
 		},
 	})
