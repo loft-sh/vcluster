@@ -24,9 +24,7 @@ import (
 )
 
 const (
-	crdPath         = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotcontents.yaml"
-	crdKind         = "VolumeSnapshotContent"
-	crdGroupVersion = "snapshot.storage.k8s.io/v1"
+	crdPath = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotcontents.yaml"
 
 	HostClusterVSCAnnotation              = "vcluster.loft.sh/host-volumesnapshotcontent"
 	PhysicalVSCGarbageCollectionFinalizer = "vcluster.loft.sh/physical-volumesnapshotcontent-gc"
@@ -50,8 +48,8 @@ type volumeSnapshotContentSyncer struct {
 
 var _ syncer.Initializer = &volumeSnapshotContentSyncer{}
 
-func (s *volumeSnapshotContentSyncer) Init(registerContext *synccontext.RegisterContext, ctx context.Context) error {
-	return util.EnsureCRD(ctx, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), crdGroupVersion, crdKind)
+func (s *volumeSnapshotContentSyncer) Init(registerContext *synccontext.RegisterContext) error {
+	return util.EnsureCRDFromFile(registerContext.Context, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"))
 }
 
 func NewVolumeSnapshotContentTranslator(physicalNamespace string) translator.PhysicalNameTranslator {

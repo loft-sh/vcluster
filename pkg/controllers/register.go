@@ -74,14 +74,15 @@ func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
 
 func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syncer.Object) error {
 	registerContext := ToRegisterContext(controllerCtx)
-	// execute in parallel because each one might be time consuming
-	errorGroup, ctx := errgroup.WithContext(controllerCtx.Context)
 
+	// execute in parallel because each one might be time-consuming
+	errorGroup, ctx := errgroup.WithContext(controllerCtx.Context)
+	registerContext.Context = ctx
 	for _, s := range syncers {
 		initializer, ok := s.(syncer.Initializer)
 		if ok {
 			errorGroup.Go(func() error {
-				err := initializer.Init(registerContext, ctx)
+				err := initializer.Init(registerContext)
 				if err != nil {
 					return errors.Wrapf(err, "ensure prerequisites for %s syncer", s.Name())
 				}
@@ -89,6 +90,7 @@ func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syn
 			})
 		}
 	}
+
 	return errorGroup.Wait()
 }
 

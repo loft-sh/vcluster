@@ -11,26 +11,18 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &storageClassSyncer{
-		NameTranslator: translator.NewMirrorBackwardTranslator(),
+		Translator: translator.NewMirrorPhysicalTranslator("storageclass", &storagev1.StorageClass{}),
 	}, nil
 }
 
 type storageClassSyncer struct {
-	translator.NameTranslator
-}
-
-func (s *storageClassSyncer) Resource() client.Object {
-	return &storagev1.StorageClass{}
-}
-
-func (s *storageClassSyncer) Name() string {
-	return "storageclass"
+	translator.Translator
 }
 
 var _ syncer.UpSyncer = &storageClassSyncer{}
 
 func (s *storageClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := s.translate(pObj.(*storagev1.StorageClass))
+	vObj := s.translateBackwards(pObj.(*storagev1.StorageClass))
 	ctx.Log.Infof("create storage class %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
@@ -39,7 +31,7 @@ var _ syncer.Syncer = &storageClassSyncer{}
 
 func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if there is a change
-	updated := s.translateUpdate(pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
+	updated := s.translateUpdateBackwards(pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
 	if updated != nil {
 		ctx.Log.Infof("update storage class %s", vObj.GetName())
 		return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, updated)

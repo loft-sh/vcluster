@@ -1,8 +1,6 @@
 package syncer
 
 import (
-	"context"
-
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,7 +48,7 @@ type ControllerModifier interface {
 	ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error)
 }
 
-// Initializer is used to create and update the prerquisites of the syncer before the controller is started
+// Initializer is used to create and update the prerequisites of the syncer before the controller is started
 type Initializer interface {
-	Init(registerContext *synccontext.RegisterContext, ctx context.Context) error
+	Init(registerContext *synccontext.RegisterContext) error
 }

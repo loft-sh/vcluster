@@ -5,25 +5,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *storageClassSyncer) translate(pStorageClass *storagev1.StorageClass) *storagev1.StorageClass {
-	vObj := pStorageClass.DeepCopy()
-	vObj.ResourceVersion = ""
-	vObj.UID = ""
-	vObj.ManagedFields = nil
-	return vObj
+func (s *storageClassSyncer) translateBackwards(pStorageClass *storagev1.StorageClass) *storagev1.StorageClass {
+	return s.TranslateMetadata(pStorageClass).(*storagev1.StorageClass)
 }
 
-func (s *storageClassSyncer) translateUpdate(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
+func (s *storageClassSyncer) translateUpdateBackwards(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
 	var updated *storagev1.StorageClass
 
-	if !equality.Semantic.DeepEqual(vObj.ObjectMeta.Labels, pObj.ObjectMeta.Labels) {
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	if changed {
 		updated = newIfNil(updated, vObj)
-		updated.Labels = pObj.Labels
-	}
-
-	if !equality.Semantic.DeepEqual(vObj.ObjectMeta.Annotations, pObj.ObjectMeta.Annotations) {
-		updated = newIfNil(updated, vObj)
-		updated.Annotations = pObj.Annotations
+		updated.Labels = updatedLabels
+		updated.Annotations = updatedAnnotations
 	}
 
 	if !equality.Semantic.DeepEqual(vObj.Provisioner, pObj.Provisioner) {

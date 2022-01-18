@@ -1,7 +1,6 @@
 package translate
 
 import (
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -13,11 +12,11 @@ const (
 	HostsRewriteContainerName         = "vcluster-rewrite-hosts"
 )
 
-func rewritePodHostnameFQDN(pPod *corev1.Pod, hostsRewriteImage, fromHost, toHostname, toHostnameFQDN string) {
+func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewriteImage, fromHost, toHostname, toHostnameFQDN string) {
 	if pPod.Annotations == nil || pPod.Annotations[DisableSubdomainRewriteAnnotation] != "true" || pPod.Annotations[HostsRewrittenAnnotation] != "true" {
 		initContainer := corev1.Container{
 			Name:    HostsRewriteContainerName,
-			Image:   translate.DefaultImageRegistry() + hostsRewriteImage,
+			Image:   defaultImageRegistry + hostsRewriteImage,
 			Command: []string{"sh"},
 			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostnameFQDN + " " + toHostname + "/' /etc/hosts > /hosts/hosts"},
 			VolumeMounts: []corev1.VolumeMount{

@@ -1,7 +1,6 @@
 package volumesnapshotclasses
 
 import (
-	"context"
 	"path"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -17,33 +16,23 @@ import (
 
 const (
 	// file path relative to the manifests folder in the container
-	crdPath         = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotclasses.yaml"
-	crdKind         = "VolumeSnapshotClass"
-	crdGroupVersion = "snapshot.storage.k8s.io/v1"
+	crdPath = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotclasses.yaml"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotClassSyncer{
-		NameTranslator: translator.NewMirrorBackwardTranslator(),
+		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}),
 	}, nil
 }
 
 type volumeSnapshotClassSyncer struct {
-	translator.NameTranslator
+	translator.Translator
 }
 
 var _ syncer.Initializer = &volumeSnapshotClassSyncer{}
 
-func (s *volumeSnapshotClassSyncer) Init(registerContext *synccontext.RegisterContext, ctx context.Context) error {
-	return util.EnsureCRD(ctx, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), crdGroupVersion, crdKind)
-}
-
-func (s *volumeSnapshotClassSyncer) Resource() client.Object {
-	return &volumesnapshotv1.VolumeSnapshotClass{}
-}
-
-func (s *volumeSnapshotClassSyncer) Name() string {
-	return "volumesnapshotclass"
+func (s *volumeSnapshotClassSyncer) Init(registerContext *synccontext.RegisterContext) error {
+	return util.EnsureCRDFromFile(registerContext.Context, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotClass"))
 }
 
 var _ syncer.UpSyncer = &volumeSnapshotClassSyncer{}

@@ -6,16 +6,18 @@ import (
 )
 
 func (s *volumeSnapshotClassSyncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotClass) *volumesnapshotv1.VolumeSnapshotClass {
-	// build virtual persistent volume
-	vObj := pVSC.DeepCopy()
-	vObj.ResourceVersion = ""
-	vObj.UID = ""
-	vObj.ManagedFields = nil
-	return vObj
+	return s.TranslateMetadata(pVSC).(*volumesnapshotv1.VolumeSnapshotClass)
 }
 
 func (s *volumeSnapshotClassSyncer) translateUpdateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotClass, vVSC *volumesnapshotv1.VolumeSnapshotClass) *volumesnapshotv1.VolumeSnapshotClass {
 	var updated *volumesnapshotv1.VolumeSnapshotClass
+
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vVSC, pVSC)
+	if changed {
+		updated = newIfNil(updated, vVSC)
+		updated.Labels = updatedLabels
+		updated.Annotations = updatedAnnotations
+	}
 
 	if !equality.Semantic.DeepEqual(vVSC.Driver, pVSC.Driver) {
 		updated = newIfNil(updated, vVSC)
@@ -30,16 +32,6 @@ func (s *volumeSnapshotClassSyncer) translateUpdateBackwards(pVSC *volumesnapsho
 	if !equality.Semantic.DeepEqual(vVSC.DeletionPolicy, pVSC.DeletionPolicy) {
 		updated = newIfNil(updated, vVSC)
 		updated.DeletionPolicy = pVSC.DeletionPolicy
-	}
-
-	if !equality.Semantic.DeepEqual(vVSC.Annotations, pVSC.Annotations) {
-		updated = newIfNil(updated, vVSC)
-		updated.Annotations = pVSC.Annotations
-	}
-
-	if !equality.Semantic.DeepEqual(vVSC.Labels, pVSC.Labels) {
-		updated = newIfNil(updated, vVSC)
-		updated.Labels = pVSC.Labels
 	}
 
 	return updated

@@ -116,6 +116,9 @@ spec:
         {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
+          {{- if .Values.defaultImageRegistry }}
+          - --default-image-registry={{ .Values.defaultImageRegistry }}
+          {{- end }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}
@@ -152,13 +155,7 @@ spec:
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         env:
-          - name: DEFAULT_IMAGE_REGISTRY
-            value: {{ .Values.defaultImageRegistry }}
-          {{- if .Values.syncer.env }}
-          {{- range $key, $value := .Values.syncer.env }}
-          - {{ toJson $value }}
-          {{- end }}
-          {{- end }}
+{{ toYaml .Values.syncer.env | indent 10 }}
         volumeMounts:
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         resources:
