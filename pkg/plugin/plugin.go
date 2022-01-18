@@ -4,7 +4,9 @@ import (
 	context "context"
 	"encoding/json"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"go.uber.org/atomic"
+	"io/ioutil"
 	"k8s.io/klog"
 	"net"
 
@@ -57,7 +59,11 @@ func (m *manager) Start(ctx *synccontext.RegisterContext, syncerConfig *clientcm
 	m.options = string(out)
 
 	// Virtual client config
-	rawVirtualConfig, err := ConvertRestConfigToClientConfig(ctx.VirtualManager.GetConfig()).RawConfig()
+	convertedVirtualConfig, err := ConvertRestConfigToClientConfig(ctx.VirtualManager.GetConfig())
+	if err != nil {
+		return errors.Wrap(err, "convert virtual client config")
+	}
+	rawVirtualConfig, err := convertedVirtualConfig.RawConfig()
 	if err != nil {
 		return errors.Wrap(err, "convert virtual client config")
 	}
@@ -68,7 +74,11 @@ func (m *manager) Start(ctx *synccontext.RegisterContext, syncerConfig *clientcm
 	m.virtualKubeConfig = string(virtualConfigBytes)
 
 	// Physical client config
-	rawPhysicalConfig, err := ConvertRestConfigToClientConfig(ctx.PhysicalManager.GetConfig()).RawConfig()
+	convertedPhysicalConfig, err := ConvertRestConfigToClientConfig(ctx.PhysicalManager.GetConfig())
+	if err != nil {
+		return errors.Wrap(err, "convert physical client config")
+	}
+	rawPhysicalConfig, err := convertedPhysicalConfig.RawConfig()
 	if err != nil {
 		return errors.Wrap(err, "convert physical client config")
 	}
@@ -86,6 +96,7 @@ func (m *manager) Start(ctx *synccontext.RegisterContext, syncerConfig *clientcm
 	m.syncerKubeConfig = string(syncerConfigBytes)
 
 	// start the grpc server
+	loghelper.Infof("Plugin server listening on %s", ctx.Options.PluginListenAddress)
 	lis, err := net.Listen("tcp", ctx.Options.PluginListenAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
@@ -117,7 +128,7 @@ func (m *manager) Register(ctx context.Context, info *remote.PluginInfo) (*remot
 	}, nil
 }
 
-func ConvertRestConfigToClientConfig(config *rest.Config) clientcmd.ClientConfig {
+func ConvertRestConfigToClientConfig(config *rest.Config) (clientcmd.ClientConfig, error) {
 	contextName := "local"
 	kubeConfig := clientcmdapi.NewConfig()
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
@@ -152,5 +163,37 @@ func ConvertRestConfigToClientConfig(config *rest.Config) clientcmd.ClientConfig
 		},
 	}
 	kubeConfig.CurrentContext = contextName
-	return clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{})
+
+	// resolve certificate
+	if kubeConfig.Clusters[contextName].CertificateAuthorityData == nil && kubeConfig.Clusters[contextName].CertificateAuthority != "" {
+		o, err := ioutil.ReadFile(kubeConfig.Clusters[contextName].CertificateAuthority)
+		if err != nil {
+			return nil, err
+		}
+
+		kubeConfig.Clusters[contextName].CertificateAuthority = ""
+		kubeConfig.Clusters[contextName].CertificateAuthorityData = o
+	}
+
+	// fill in data
+	if kubeConfig.AuthInfos[contextName].ClientCertificateData == nil && kubeConfig.AuthInfos[contextName].ClientCertificate != "" {
+		o, err := ioutil.ReadFile(kubeConfig.AuthInfos[contextName].ClientCertificate)
+		if err != nil {
+			return nil, err
+		}
+
+		kubeConfig.AuthInfos[contextName].ClientCertificate = ""
+		kubeConfig.AuthInfos[contextName].ClientCertificateData = o
+	}
+	if kubeConfig.AuthInfos[contextName].ClientKeyData == nil && kubeConfig.AuthInfos[contextName].ClientKey != "" {
+		o, err := ioutil.ReadFile(kubeConfig.AuthInfos[contextName].ClientKey)
+		if err != nil {
+			return nil, err
+		}
+
+		kubeConfig.AuthInfos[contextName].ClientKey = ""
+		kubeConfig.AuthInfos[contextName].ClientKeyData = o
+	}
+
+	return clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{}), nil
 }
