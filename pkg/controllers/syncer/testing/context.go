@@ -59,10 +59,6 @@ func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name types.Name
 	return "127.0.0.1", nil
 }
 
-func newFakeEventBroadcaster() record.EventBroadcaster {
-	return &fakeEventBroadcaster{}
-}
-
 type fakeEventBroadcaster struct{}
 
 func (f *fakeEventBroadcaster) StartEventWatcher(eventHandler func(*corev1.Event)) watch.Interface {
