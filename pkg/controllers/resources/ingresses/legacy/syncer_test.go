@@ -1,14 +1,14 @@
 package legacy
 
 import (
-	"context"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"gotest.tools/assert"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,16 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-
-func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	return &syncer{
-		virtualClient: vClient,
-		localClient:   pClient,
-
-		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "endpoints"),
-		translator: translate.NewDefaultTranslator("test"),
-	}
-}
 
 func TestSync(t *testing.T) {
 	vBaseSpec := networkingv1beta1.IngressSpec{
@@ -108,8 +98,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.PhysicalName("testingress", "test"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      vObjectMeta.Name,
-			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translator.NameAnnotation:      vObjectMeta.Name,
+			translator.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -167,12 +157,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, baseIngress.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
+				_, err := syncer.(*ingressSyncer).SyncDown(syncCtx, baseIngress.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -197,21 +185,19 @@ func TestSync(t *testing.T) {
 					Spec:       pBaseSpec,
 				}},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
 				pIngress := &networkingv1beta1.Ingress{
 					ObjectMeta: pObjectMeta,
 					Spec:       networkingv1beta1.IngressSpec{},
 				}
 				pIngress.ResourceVersion = "999"
 
-				_, err := syncer.Update(ctx, pIngress, &networkingv1beta1.Ingress{
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, pIngress, &networkingv1beta1.Ingress{
 					ObjectMeta: vObjectMeta,
 					Spec:       vBaseSpec,
-				}, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				})
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -224,15 +210,13 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
 				vIngress := noUpdateIngress.DeepCopy()
 				vIngress.ResourceVersion = "999"
 
-				_, err := syncer.Update(ctx, createdIngress.DeepCopy(), vIngress, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, createdIngress.DeepCopy(), vIngress)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -245,46 +229,32 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {pBackwardUpdatedIngress.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
 				backwardUpdateIngress := backwardUpdateIngress.DeepCopy()
 				vIngress := baseIngress.DeepCopy()
 				vIngress.ResourceVersion = "999"
 
-				_, err := syncer.Update(ctx, backwardUpdateIngress, vIngress, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, backwardUpdateIngress, vIngress)
+				assert.NilError(t, err)
 
-				err = vClient.Get(ctx, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = syncCtx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
+				assert.NilError(t, err)
 
-				err = pClient.Get(ctx, types.NamespacedName{Namespace: backwardUpdateIngress.Namespace, Name: backwardUpdateIngress.Name}, backwardUpdateIngress)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = syncCtx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Namespace: backwardUpdateIngress.Namespace, Name: backwardUpdateIngress.Name}, backwardUpdateIngress)
+				assert.NilError(t, err)
 
-				_, err = syncer.Update(ctx, backwardUpdateIngress, vIngress, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, backwardUpdateIngress, vIngress)
+				assert.NilError(t, err)
 
-				err = vClient.Get(ctx, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = syncCtx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
+				assert.NilError(t, err)
 
-				err = pClient.Get(ctx, types.NamespacedName{Namespace: backwardUpdateIngress.Namespace, Name: backwardUpdateIngress.Name}, backwardUpdateIngress)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = syncCtx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Namespace: backwardUpdateIngress.Namespace, Name: backwardUpdateIngress.Name}, backwardUpdateIngress)
+				assert.NilError(t, err)
 
-				_, err = syncer.Update(ctx, backwardUpdateIngress, vIngress, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, backwardUpdateIngress, vIngress)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -297,15 +267,13 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
+			Sync: func(ctx *synccontext.RegisterContext) {
 				pIngress := backwardNoUpdateIngress.DeepCopy()
 				pIngress.ResourceVersion = "999"
 
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, pIngress, baseIngress.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, pIngress, baseIngress.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 	})

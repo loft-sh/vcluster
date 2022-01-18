@@ -1,17 +1,14 @@
 package nodes
 
 import (
-	"context"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/util/locks"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,24 +16,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func newFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) (*syncer, error) {
-	err := vClient.IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *nodeSyncer) {
+	// we need that index here as well otherwise we wouldn't find the related pod
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		return []string{pod.Spec.NodeName}
 	})
-	if err != nil {
-		return nil, err
-	}
+	assert.NilError(t, err)
 
-	return &syncer{
-		sharedNodesMutex:    lockFactory.GetLock("ingress-controller"),
-		nodeServiceProvider: &fakeNodeServiceProvider{},
-		virtualClient:       vClient,
-		podCache:            pClient,
-		localClient:         pClient,
-		scheme:              testingutil.NewScheme(),
-		useFakeKubelets:     true,
-	}, nil
+	syncContext, object := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
+	return syncContext, object.(*nodeSyncer)
 }
 
 func TestSync(t *testing.T) {
@@ -108,7 +97,6 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	lockFactory := locks.NewDefaultLockFactory()
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
@@ -118,16 +106,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeSyncer(ctx, lockFactory, pClient, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				_, err = syncer.Backward(ctx, baseNode, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.SyncUp(syncCtx, baseNode)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -137,16 +119,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeSyncer(ctx, lockFactory, pClient, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				_, err = syncer.Backward(ctx, baseNode, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.SyncUp(syncCtx, baseNode)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -156,16 +132,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeSyncer(ctx, lockFactory, pClient, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				_, err = syncer.Update(ctx, editedNode, baseNode, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, editedNode, baseNode)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -175,16 +145,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeSyncer(ctx, lockFactory, pClient, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				_, err = syncer.Update(ctx, baseNode, baseVNode, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseVNode)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -194,16 +158,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeSyncer(ctx, lockFactory, pClient, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				_, err = syncer.Update(ctx, baseNode, baseNode, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
 			},
 		},
 	})

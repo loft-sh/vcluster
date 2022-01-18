@@ -34,6 +34,10 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		return nil, err
 	}
 
+	return NewSyncer(ctx, useLegacy)
+}
+
+func NewSyncer(ctx *synccontext.RegisterContext, useLegacy bool) (syncer.Object, error) {
 	return &secretSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secret", &corev1.Secret{}),
 
