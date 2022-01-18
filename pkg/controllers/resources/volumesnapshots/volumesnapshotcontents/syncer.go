@@ -2,10 +2,12 @@ package volumesnapshotcontents
 
 import (
 	"context"
+	"path"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -22,6 +24,10 @@ import (
 )
 
 const (
+	crdPath         = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotcontents.yaml"
+	crdKind         = "VolumeSnapshotContent"
+	crdGroupVersion = "snapshot.storage.k8s.io/v1"
+
 	HostClusterVSCAnnotation              = "vcluster.loft.sh/host-volumesnapshotcontent"
 	PhysicalVSCGarbageCollectionFinalizer = "vcluster.loft.sh/physical-volumesnapshotcontent-gc"
 )
@@ -40,6 +46,12 @@ type volumeSnapshotContentSyncer struct {
 
 	targetNamespace string
 	virtualClient   client.Client
+}
+
+var _ syncer.Initializer = &volumeSnapshotContentSyncer{}
+
+func (s *volumeSnapshotContentSyncer) Init(registerContext *synccontext.RegisterContext, ctx context.Context) error {
+	return util.EnsureCRD(ctx, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), crdGroupVersion, crdKind)
 }
 
 func NewVolumeSnapshotContentTranslator(physicalNamespace string) translator.PhysicalNameTranslator {

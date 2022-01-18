@@ -70,11 +70,11 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 
-		return r.syncer.SyncDownCreate(syncContext, req.NamespacedName)
+		return r.syncer.FakeSyncUp(syncContext, req.NamespacedName)
 	}
 
 	// update object
-	return r.syncer.SyncDownUpdate(syncContext, vObj)
+	return r.syncer.FakeSync(syncContext, vObj)
 }
 
 func (r *fakeSyncer) Register(ctx *synccontext.RegisterContext) error {
@@ -86,9 +86,9 @@ func (r *fakeSyncer) Register(ctx *synccontext.RegisterContext) error {
 		Named(r.syncer.Name()).
 		For(r.syncer.Resource())
 	var err error
-	modifier, ok := r.syncer.(ControllerRegisterer)
+	modifier, ok := r.syncer.(ControllerModifier)
 	if ok {
-		controller, err = modifier.RegisterController(ctx, controller)
+		controller, err = modifier.ModifyController(ctx, controller)
 		if err != nil {
 			return err
 		}

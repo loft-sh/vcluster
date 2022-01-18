@@ -3,11 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/plugin"
 	"io/ioutil"
 	"math"
 	"os"
 	"time"
+
+	"github.com/loft-sh/vcluster/pkg/plugin"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -333,10 +334,16 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		})
 	}()
 
-	// setup controller prerequisites
+	// instantiate controllers
 	syncers, err := controllers.Create(ctx)
 	if err != nil {
-		return errors.Wrap(err, "ensure prerequisites")
+		return errors.Wrap(err, "instantiate controllers")
+	}
+
+	// execute controller initializers to setup prereqs, etc.
+	err = controllers.ExecuteInitializers(ctx, syncers)
+	if err != nil {
+		return errors.Wrap(err, "execute initializers")
 	}
 
 	// register indices

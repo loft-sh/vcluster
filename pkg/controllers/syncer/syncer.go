@@ -167,9 +167,9 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 		Watches(source.NewKindWithCache(r.syncer.Resource(), ctx.PhysicalManager.GetCache()), r).
 		For(r.syncer.Resource())
 	var err error
-	modifier, ok := r.syncer.(ControllerRegisterer)
+	modifier, ok := r.syncer.(ControllerModifier)
 	if ok {
-		controller, err = modifier.RegisterController(ctx, controller)
+		controller, err = modifier.ModifyController(ctx, controller)
 		if err != nil {
 			return err
 		}

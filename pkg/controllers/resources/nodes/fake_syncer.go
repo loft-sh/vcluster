@@ -61,9 +61,9 @@ func (r *fakeNodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error
 	})
 }
 
-var _ syncer.ControllerRegisterer = &fakeNodeSyncer{}
+var _ syncer.ControllerModifier = &fakeNodeSyncer{}
 
-func (r *fakeNodeSyncer) RegisterController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (r *fakeNodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 		pod, ok := object.(*corev1.Pod)
 		if !ok || pod == nil {
@@ -93,7 +93,7 @@ func (r *fakeNodeSyncer) ReconcileEnd() {
 
 var _ syncer.FakeSyncer = &fakeNodeSyncer{}
 
-func (r *fakeNodeSyncer) SyncDownCreate(ctx *synccontext.SyncContext, name types.NamespacedName) (ctrl.Result, error) {
+func (r *fakeNodeSyncer) FakeSyncUp(ctx *synccontext.SyncContext, name types.NamespacedName) (ctrl.Result, error) {
 	needed, err := r.nodeNeeded(ctx, name.Name)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -105,7 +105,7 @@ func (r *fakeNodeSyncer) SyncDownCreate(ctx *synccontext.SyncContext, name types
 	return ctrl.Result{}, CreateFakeNode(ctx.Context, r.nodeServiceProvider, ctx.VirtualClient, name)
 }
 
-func (r *fakeNodeSyncer) SyncDownUpdate(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	node, ok := vObj.(*corev1.Node)
 	if !ok || node == nil {
 		return ctrl.Result{}, fmt.Errorf("%#v is not a node", vObj)

@@ -61,9 +61,9 @@ func (r *nodeSyncer) Name() string {
 	return "node"
 }
 
-var _ syncer.ControllerRegisterer = &nodeSyncer{}
+var _ syncer.ControllerModifier = &nodeSyncer{}
 
-func (r *nodeSyncer) RegisterController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (r *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	// create a global pod cache for calculating the correct node resources
 	podCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{
 		Scheme: ctx.PhysicalManager.GetScheme(),
