@@ -60,6 +60,8 @@ type VirtualClusterOptions struct {
 	DisablePlugins      bool   `json:"disablePlugins"`
 	PluginListenAddress string `json:"pluginListenAddress"`
 
+	DefaultImageRegistry string `json:"defaultImageRegistry"`
+
 	// DEPRECATED FLAGS
 	DeprecatedDisableSyncResources     string
 	DeprecatedOwningStatefulSet        string

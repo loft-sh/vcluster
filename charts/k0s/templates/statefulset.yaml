@@ -115,6 +115,9 @@ spec:
           - --server-ca-cert=/data/k0s/pki/ca.crt
           - --server-ca-key=/data/k0s/pki/ca.key
           - --kube-config=/data/k0s/pki/admin.conf
+          {{- if .Values.defaultImageRegistry }}
+          - --default-image-registry={{ .Values.defaultImageRegistry }}
+          {{- end }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}
@@ -151,13 +154,7 @@ spec:
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         env:
-          - name: DEFAULT_IMAGE_REGISTRY
-            value: {{ .Values.defaultImageRegistry }}
-          {{- if .Values.syncer.env }}
-          {{- range $key, $value := .Values.syncer.env }}
-          - {{ toJson $value }}
-          {{- end }}
-          {{- end }}
+{{ toYaml .Values.syncer.env | indent 10 }}
         volumeMounts:
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         resources:

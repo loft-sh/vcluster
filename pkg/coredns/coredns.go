@@ -9,8 +9,6 @@ import (
 	"text/template"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-
 	"github.com/loft-sh/vcluster/pkg/util/applier"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
@@ -38,7 +36,7 @@ var CoreDNSVersionMap = map[string]string{
 	"1.16": "coredns/coredns:1.6.3",
 }
 
-func ApplyManifest(inClusterConfig *rest.Config, serverVersion *version.Info) error {
+func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
 	// create a temporary directory and file to output processed manifest to
 	debugOutputFile, err := prepareManifestOutput()
 	if err != nil {
@@ -46,7 +44,7 @@ func ApplyManifest(inClusterConfig *rest.Config, serverVersion *version.Info) er
 	}
 	defer debugOutputFile.Close()
 
-	vars := getManifestVariables(serverVersion)
+	vars := getManifestVariables(defaultImageRegistry, serverVersion)
 	output, err := processManifestTemplate(vars)
 	if err != nil {
 		return err
@@ -66,14 +64,14 @@ func prepareManifestOutput() (*os.File, error) {
 	return os.Create(manifestOutputPath)
 }
 
-func getManifestVariables(serverVersion *version.Info) map[string]interface{} {
+func getManifestVariables(defaultImageRegistry string, serverVersion *version.Info) map[string]interface{} {
 	var found bool
 	vars := make(map[string]interface{})
 	vars[VarImage], found = CoreDNSVersionMap[fmt.Sprintf("%s.%s", serverVersion.Major, serverVersion.Minor)]
 	if !found {
 		vars[VarImage] = DefaultImage
 	}
-	vars[VarImage] = translate.DefaultImageRegistry() + vars[VarImage].(string)
+	vars[VarImage] = defaultImageRegistry + vars[VarImage].(string)
 
 	vars[VarRunAsUser] = strconv.Itoa(os.Getuid())
 	if os.Getuid() == 0 {

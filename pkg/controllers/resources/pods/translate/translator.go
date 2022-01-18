@@ -66,6 +66,8 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		eventRecorder:   eventRecorder,
 		log:             loghelper.New("pods-syncer-translator"),
 
+		defaultImageRegistry: ctx.Options.DefaultImageRegistry,
+
 		targetNamespace:        ctx.Options.TargetNamespace,
 		clusterDomain:          ctx.Options.ClusterDomain,
 		serviceAccount:         ctx.Options.ServiceAccount,
@@ -81,6 +83,8 @@ type translator struct {
 	imageTranslator ImageTranslator
 	eventRecorder   record.EventRecorder
 	log             loghelper.Logger
+
+	defaultImageRegistry string
 
 	targetNamespace        string
 	clusterDomain          string
@@ -202,7 +206,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	// would be deployed in a non virtual kubernetes cluster
 	if pPod.Spec.Subdomain != "" {
 		if t.overrideHosts {
-			rewritePodHostnameFQDN(pPod, t.overrideHostsImage, pPod.Spec.Hostname, pPod.Spec.Hostname, pPod.Spec.Hostname+"."+pPod.Spec.Subdomain+"."+vPod.Namespace+".svc."+t.clusterDomain)
+			rewritePodHostnameFQDN(pPod, t.defaultImageRegistry, t.overrideHostsImage, pPod.Spec.Hostname, pPod.Spec.Hostname, pPod.Spec.Hostname+"."+pPod.Spec.Subdomain+"."+vPod.Namespace+".svc."+t.clusterDomain)
 		}
 
 		pPod.Spec.Subdomain = ""

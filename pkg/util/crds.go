@@ -55,7 +55,7 @@ func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (
 		return false, err
 	}
 
-	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersionKind.Group)
+	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersionKind.GroupVersion().String())
 	if err != nil {
 		return false, err
 	}

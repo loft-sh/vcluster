@@ -87,6 +87,9 @@ spec:
           - --server-ca-cert=/pki/ca.crt
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
+          {{- if .Values.defaultImageRegistry }}
+          - --default-image-registry={{ .Values.defaultImageRegistry }}
+          {{- end }}
           {{- if .Values.enableHA }}
           - --leader-elect=true
           {{- else }}
@@ -128,13 +131,7 @@ spec:
         securityContext:
 {{ toYaml .Values.syncer.securityContext | indent 10 }}
         env:
-          - name: DEFAULT_IMAGE_REGISTRY
-            value: {{ .Values.defaultImageRegistry }}
-          {{- if .Values.syncer.env }}
-          {{- range $key, $value := .Values.syncer.env }}
-          - {{ toJson $value }}
-          {{- end }}
-          {{- end }}
+{{ toYaml .Values.syncer.env | indent 10 }}
         volumeMounts:
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         resources:

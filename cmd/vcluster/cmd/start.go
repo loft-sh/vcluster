@@ -122,6 +122,8 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&options.DisablePlugins, "disable-plugins", false, "If enabled, vcluster will not load any plugins")
 	cmd.Flags().StringVar(&options.PluginListenAddress, "plugin-address", "localhost:10099", "The plugin address to listen to. If this is changed, you'll need to configure your plugins to connect to the updated port")
 
+	cmd.Flags().StringVar(&options.DefaultImageRegistry, "default-image-registry", "", "This address will be prepended to all deployed system images by vcluster")
+
 	// Deprecated Flags
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeNodes, "fake-nodes", true, "DEPRECATED: use --controllers instead")
@@ -324,7 +326,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	// setup CoreDNS according to the manifest file
 	go func() {
 		_ = wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
-			err := coredns.ApplyManifest(ctx.VirtualManager.GetConfig(), serverVersion)
+			err := coredns.ApplyManifest(ctx.Options.DefaultImageRegistry, ctx.VirtualManager.GetConfig(), serverVersion)
 			if err != nil {
 				klog.Infof("Failed to apply CoreDNS configuration from the manifest file: %v", err)
 				return false, nil
