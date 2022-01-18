@@ -36,23 +36,23 @@ type eventSyncer struct {
 	virtualClient client.Client
 }
 
-func (r *eventSyncer) Resource() client.Object {
+func (s *eventSyncer) Resource() client.Object {
 	return &corev1.Event{}
 }
 
-func (r *eventSyncer) Name() string {
+func (s *eventSyncer) Name() string {
 	return "event"
 }
 
-func (r *eventSyncer) IsManaged(pObj client.Object) (bool, error) {
+func (s *eventSyncer) IsManaged(pObj client.Object) (bool, error) {
 	return true, nil
 }
 
-func (r *eventSyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *eventSyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{}
 }
 
-func (r *eventSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (s *eventSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      pObj.GetName(),
 		Namespace: pObj.GetNamespace(),
@@ -183,7 +183,7 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 
 var _ syncer.Syncer = &eventSyncer{}
 
-func (r *eventSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *eventSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// Noop, we do nothing here
 	return ctrl.Result{}, nil
 }

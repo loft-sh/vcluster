@@ -1,34 +1,17 @@
 package configmaps
 
 import (
-	"context"
-	"github.com/loft-sh/vcluster/pkg/constants"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 )
-
-func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	err := vClient.IndexField(ctx, &corev1.Pod{}, constants.IndexByConfigMap, indexPodByConfigmap)
-	if err != nil {
-		panic(err)
-	}
-
-	return &syncer{
-		virtualClient: vClient,
-		localClient:   pClient,
-
-		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "endpoints"),
-		translator: translate.NewDefaultTranslator("test"),
-	}
-}
 
 func TestSync(t *testing.T) {
 	baseConfigMap := &corev1.ConfigMap{
@@ -90,12 +73,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("ConfigMap"): {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Forward(ctx, baseConfigMap, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*configMapSyncer).SyncDown(syncCtx, baseConfigMap)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -109,12 +90,10 @@ func TestSync(t *testing.T) {
 					syncedConfigMap,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Forward(ctx, baseConfigMap, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*configMapSyncer).SyncDown(syncCtx, baseConfigMap)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -131,12 +110,10 @@ func TestSync(t *testing.T) {
 					updatedSyncedConfigMap,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, syncedConfigMap, updatedConfigMap, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*configMapSyncer).Sync(syncCtx, syncedConfigMap, updatedConfigMap)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -150,12 +127,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("ConfigMap"): {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, syncedConfigMap, updatedConfigMap, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*configMapSyncer).Sync(syncCtx, syncedConfigMap, updatedConfigMap)
+				assert.NilError(t, err)
 			},
 		},
 	})

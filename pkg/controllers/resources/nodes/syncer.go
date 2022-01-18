@@ -53,17 +53,17 @@ type nodeSyncer struct {
 	nodeServiceProvider nodeservice.NodeServiceProvider
 }
 
-func (r *nodeSyncer) Resource() client.Object {
+func (s *nodeSyncer) Resource() client.Object {
 	return &corev1.Node{}
 }
 
-func (r *nodeSyncer) Name() string {
+func (s *nodeSyncer) Name() string {
 	return "node"
 }
 
 var _ syncer.ControllerModifier = &nodeSyncer{}
 
-func (r *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	// create a global pod cache for calculating the correct node resources
 	podCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{
 		Scheme: ctx.PhysicalManager.GetScheme(),
@@ -79,13 +79,13 @@ func (r *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder 
 		}
 	}()
 	podCache.WaitForCacheSync(ctx.Context)
-	r.podCache = podCache
+	s.podCache = podCache
 	return builder, nil
 }
 
 var _ syncer.IndicesRegisterer = &nodeSyncer{}
 
-func (r *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		if pod.Spec.NodeName == "" {
