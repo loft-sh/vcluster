@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"fmt"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"math"
 	"time"
@@ -57,6 +58,10 @@ func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (
 
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersionKind.GroupVersion().String())
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return false, nil
+		}
+
 		return false, err
 	}
 
