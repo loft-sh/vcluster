@@ -1,7 +1,6 @@
 package volumesnapshots
 
 import (
-	"context"
 	"path"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -21,9 +20,7 @@ import (
 
 const (
 	// file path relative to the manifests folder in the container
-	crdPath         = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshots.yaml"
-	crdKind         = "VolumeSnapshots"
-	crdGroupVersion = "snapshot.storage.k8s.io/v1"
+	crdPath = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshots.yaml"
 )
 
 var (
@@ -46,8 +43,8 @@ type volumeSnapshotSyncer struct {
 
 var _ syncer.Initializer = &volumeSnapshotSyncer{}
 
-func (s *volumeSnapshotSyncer) Init(registerContext *synccontext.RegisterContext, ctx context.Context) error {
-	return util.EnsureCRD(ctx, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), crdGroupVersion, crdKind)
+func (s *volumeSnapshotSyncer) Init(registerContext *synccontext.RegisterContext) error {
+	return util.EnsureCRDFromFile(registerContext.Context, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot"))
 }
 
 var _ syncer.Syncer = &volumeSnapshotSyncer{}

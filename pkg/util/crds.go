@@ -3,11 +3,10 @@ package util
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"math"
-	"path"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/applier"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -15,61 +14,57 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func EnsureCRD(ctx context.Context, config *rest.Config, crdFilePath, groupVersion, kind string) error {
-	// TODO: remove retries once this is implemented - https://github.com/loft-sh/vcluster/issues/276
-	err := wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: 5 * time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
-		err := applier.ApplyManifestFile(config, path.Join(constants.ContainerManifestsFolder, crdFilePath))
+func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath string, groupVersionKind schema.GroupVersionKind) error {
+	exists, err := KindExists(config, groupVersionKind)
+	if err != nil {
+		return err
+	} else if exists {
+		return nil
+	}
+
+	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: 5 * time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
+		err := applier.ApplyManifestFile(config, crdFilePath)
 		if err != nil {
-			loghelper.Infof("Failed to apply VolumeSnapshotClasses CRD from the manifest file: %v", err)
+			loghelper.Infof("Failed to apply CRD %s from the manifest file %s: %v", groupVersionKind.String(), crdFilePath, err)
 			return false, nil
 		}
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to apply VolumeSnapshotClasses CRD: %v", err)
+		return fmt.Errorf("failed to apply CRD %s: %v", groupVersionKind.String(), err)
 	}
 
 	var lastErr error
 	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
-		var missingKinds *[]string
-		_, missingKinds, lastErr = CRDsExist(config, kind)
-		return len(*missingKinds) == 0, nil
+		var found bool
+		found, lastErr = KindExists(config, groupVersionKind)
+		return found, nil
 	})
-
 	if err != nil {
-		return fmt.Errorf("failed to find VolumeSnapshot* CRDS: %v: %v", err, lastErr)
+		return fmt.Errorf("failed to find CRD %s: %v: %v", groupVersionKind.String(), err, lastErr)
 	}
+
 	return nil
 }
 
-// CRDsExist checks if given CRDs exist in the given group.
+// KindExists checks if given CRDs exist in the given group.
 // Returns foundKinds, notFoundKinds, error
-func CRDsExist(config *rest.Config, groupVersion string, kinds ...string) (*[]string, *[]string, error) {
+func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		return nil, nil, err
+		return false, err
 	}
 
-	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersionKind.Group)
 	if err != nil {
-		return nil, nil, err
+		return false, err
 	}
 
-	foundKinds := []string{}
-	notFoundKinds := []string{}
-	for _, kind := range kinds {
-		found := false
-		for _, r := range resources.APIResources {
-			if r.Kind == kind {
-				found = true
-				break
-			}
-		}
-		if found {
-			foundKinds = append(foundKinds, kind)
-		} else {
-			notFoundKinds = append(notFoundKinds, kind)
+	for _, r := range resources.APIResources {
+		if r.Kind == groupVersionKind.Kind {
+			return true, nil
 		}
 	}
-	return &foundKinds, &notFoundKinds, nil
+
+	return false, nil
 }
