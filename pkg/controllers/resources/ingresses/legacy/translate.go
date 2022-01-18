@@ -2,23 +2,17 @@ package legacy
 
 import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vIngress *networkingv1beta1.Ingress) (*networkingv1beta1.Ingress, error) {
-	newObj, err := s.translator.Translate(vIngress)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	newIngress := newObj.(*networkingv1beta1.Ingress)
+func (s *ingressSyncer) translate(vIngress *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
+	newIngress := s.TranslateMetadata(vIngress).(*networkingv1beta1.Ingress)
 	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
-	return newIngress, nil
+	return newIngress
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
+func (s *ingressSyncer) translateUpdate(pObj, vObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
 	var updated *networkingv1beta1.Ingress
 
 	translatedSpec := *translateSpec(vObj.Namespace, &vObj.Spec)
@@ -27,22 +21,17 @@ func (s *syncer) translateUpdate(pObj, vObj *networkingv1beta1.Ingress) *network
 		updated.Spec = translatedSpec
 	}
 
-	translatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
-	if !equality.Semantic.DeepEqual(translatedAnnotations, pObj.Annotations) {
+	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	if changed {
 		updated = newIfNil(updated, pObj)
 		updated.Annotations = translatedAnnotations
-	}
-
-	translatedLabels := s.translator.TranslateLabels(vObj)
-	if !equality.Semantic.DeepEqual(translatedLabels, pObj.Labels) {
-		updated = newIfNil(updated, pObj)
 		updated.Labels = translatedLabels
 	}
 
 	return updated
 }
 
-func (s *syncer) translateUpdateBackwards(pObj, vObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
+func (s *ingressSyncer) translateUpdateBackwards(pObj, vObj *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
 	var updated *networkingv1beta1.Ingress
 
 	if vObj.Spec.IngressClassName == nil && pObj.Spec.IngressClassName != nil {

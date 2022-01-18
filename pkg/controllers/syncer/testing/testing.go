@@ -3,10 +3,11 @@ package testing
 import (
 	"context"
 	"fmt"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"gotest.tools/assert"
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,7 +37,7 @@ type SyncTest struct {
 	ExpectedPhysicalState map[schema.GroupVersionKind][]runtime.Object
 	ExpectedVirtualState  map[schema.GroupVersionKind][]runtime.Object
 
-	Sync    func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger)
+	Sync    func(ctx *synccontext.RegisterContext)
 	Compare Compare
 }
 
@@ -47,12 +48,12 @@ func (s *SyncTest) Run(t *testing.T) {
 	vClient := testingutil.NewFakeClient(scheme, s.InitialVirtualState...)
 
 	// do the sync
-	s.Sync(ctx, pClient, vClient, scheme, loghelper.New(s.Name))
+	s.Sync(NewFakeRegisterContext(pClient, vClient))
 
 	// Compare states
 	if s.ExpectedPhysicalState != nil {
 		for gvk, objs := range s.ExpectedPhysicalState {
-			err := compareObjs(ctx, pClient, gvk, scheme, objs, s.Compare)
+			err := compareObjs(t, s.Name+" physical state", ctx, pClient, gvk, scheme, objs, s.Compare)
 			if err != nil {
 				t.Fatalf("%s - Physical State mismatch: %v", s.Name, err)
 			}
@@ -60,7 +61,7 @@ func (s *SyncTest) Run(t *testing.T) {
 	}
 	if s.ExpectedVirtualState != nil {
 		for gvk, objs := range s.ExpectedVirtualState {
-			err := compareObjs(ctx, vClient, gvk, scheme, objs, s.Compare)
+			err := compareObjs(t, s.Name+" virtual state", ctx, vClient, gvk, scheme, objs, s.Compare)
 			if err != nil {
 				t.Fatalf("%s - Virtual State mismatch: %v", s.Name, err)
 			}
@@ -68,7 +69,7 @@ func (s *SyncTest) Run(t *testing.T) {
 	}
 }
 
-func compareObjs(ctx context.Context, c client.Client, gvk schema.GroupVersionKind, scheme *runtime.Scheme, objs []runtime.Object, compare Compare) error {
+func compareObjs(t *testing.T, state string, ctx context.Context, c client.Client, gvk schema.GroupVersionKind, scheme *runtime.Scheme, objs []runtime.Object, compare Compare) error {
 	listGvk := gvk.GroupVersion().WithKind(gvk.Kind + "List")
 	list, err := scheme.New(listGvk)
 	if err != nil {
@@ -95,6 +96,8 @@ func compareObjs(ctx context.Context, c client.Client, gvk schema.GroupVersionKi
 			return err
 		}
 
+		t.Logf("\n\nExpected: \n%s\n\nExisting: \n%s\n", expectedObjsYaml, existingObjsYaml)
+		assert.Equal(t, string(expectedObjsYaml), string(existingObjsYaml), state+" mismatch")
 		return fmt.Errorf("expected objs and existing objs length do not match (%d != %d). \n\nExpected: \n%s\n\nExisting: \n%s", len(objs), len(existingObjs), expectedObjsYaml, existingObjsYaml)
 	}
 
@@ -134,6 +137,8 @@ func compareObjs(ctx context.Context, c client.Client, gvk schema.GroupVersionKi
 						return err
 					}
 
+					t.Logf("\n\nExpected: \n%s\n\nExisting: \n%s\n", expectedObjsYaml, existingObjsYaml)
+					assert.Equal(t, string(expectedObjsYaml), string(existingObjsYaml), state+" mismatch")
 					return fmt.Errorf("expected obj %s/%s and existing obj are different. \n\nExpected: %s\n\nExisting: %s", expectedAccessor.GetNamespace(), expectedAccessor.GetName(), expectedObjsYaml, existingObjsYaml)
 				}
 

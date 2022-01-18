@@ -7,12 +7,12 @@ import (
 	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/encoding"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
@@ -200,12 +200,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		vService.Name = vService.GenerateName + random.RandomString(5)
 	}
 
-	newObj, err := translate.NewDefaultTranslator(targetNamespace).Translate(vService)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	newService := newObj.(*corev1.Service)
+	newService := translator.TranslateMetadata(targetNamespace, vService).(*corev1.Service)
 	if newService.Annotations == nil {
 		newService.Annotations = map[string]string{}
 	}

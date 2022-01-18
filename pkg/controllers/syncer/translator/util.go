@@ -1,7 +1,9 @@
-package translate
+package translator
 
 import (
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,27 +95,7 @@ func ObjectPhysicalName(obj runtime.Object) string {
 		return ""
 	}
 
-	return PhysicalName(metaAccessor.GetName(), metaAccessor.GetNamespace())
-}
-
-func GetOwnerReference() []metav1.OwnerReference {
-	if Owner == nil {
-		return nil
-	}
-
-	typeAccessor, err := meta.TypeAccessor(Owner)
-	if err != nil {
-		return nil
-	}
-
-	return []metav1.OwnerReference{
-		{
-			APIVersion: typeAccessor.GetAPIVersion(),
-			Kind:       typeAccessor.GetKind(),
-			Name:       Owner.GetName(),
-			UID:        Owner.GetUID(),
-		},
-	}
+	return translate.PhysicalName(metaAccessor.GetName(), metaAccessor.GetNamespace())
 }
 
 func UniqueSlice(stringSlice []string) []string {

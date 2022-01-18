@@ -1,6 +1,7 @@
 package translate
 
 import (
+	translator2 "github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -25,7 +26,7 @@ func TestPlannedAction(t *testing.T) {
 	}
 	basicSelectorTranslatedWithMarker := &metav1.LabelSelector{MatchLabels: map[string]string{}}
 	for k, v := range basicSelector.MatchLabels {
-		basicSelectorTranslatedWithMarker.MatchLabels[translate.ConvertLabelKey(k)] = v
+		basicSelectorTranslatedWithMarker.MatchLabels[translator2.ConvertLabelKey(k)] = v
 	}
 	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.Suffix
 
@@ -93,7 +94,7 @@ func TestPlannedAction(t *testing.T) {
 			expectedTerm: corev1.PodAffinityTerm{
 				LabelSelector: appendToMatchLabels(&metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey): "good-value",
+						translator2.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey): "good-value",
 					},
 				}, translate.MarkerLabel, translate.Suffix),
 			},
@@ -116,7 +117,7 @@ func TestPlannedAction(t *testing.T) {
 				LabelSelector: appendToMatchLabels(&metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
-							Key:      translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey),
+							Key:      translator2.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey),
 							Operator: metav1.LabelSelectorOpNotIn,
 							Values:   []string{"bad-value"},
 						},

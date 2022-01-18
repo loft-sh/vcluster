@@ -4,11 +4,15 @@ import (
 	"context"
 	"time"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -17,36 +21,21 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
 	HostClusterPersistentVolumeAnnotation = "vcluster.loft.sh/host-pv"
 )
 
-func RegisterSyncerIndices(ctx *context2.ControllerContext) error {
-	// index objects by their physical name
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolume{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translatePersistentVolumeName(ctx.Options.TargetNamespace, rawObj.(*corev1.PersistentVolume).Name, rawObj)}
-	})
-}
+func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	return &persistentVolumeSyncer{
+		Translator: translator.NewClusterTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, NewPersistentVolumeTranslator(ctx.Options.TargetNamespace), HostClusterPersistentVolumeAnnotation),
 
-func RegisterSyncer(ctx *context2.ControllerContext) error {
-	return generic.RegisterSyncerWithOptions(ctx, "persistentvolume", &syncer{
-		targetNamespace: ctx.Options.TargetNamespace,
-		localClient:     ctx.LocalManager.GetClient(),
+		targetNamespace: ctx.TargetNamespace,
 		virtualClient:   ctx.VirtualManager.GetClient(),
-
-		translator: translate.NewDefaultClusterTranslator(ctx.Options.TargetNamespace, NewPersistentVolumeTranslator(ctx.Options.TargetNamespace), HostClusterPersistentVolumeAnnotation),
-	}, &generic.SyncerOptions{
-		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(mapPVCs))
-		},
-	})
+	}, nil
 }
 
 func mapPVCs(obj client.Object) []reconcile.Request {
@@ -68,47 +57,52 @@ func mapPVCs(obj client.Object) []reconcile.Request {
 	return nil
 }
 
-func NewPersistentVolumeTranslator(physicalNamespace string) translate.PhysicalNameTranslator {
+func NewPersistentVolumeTranslator(physicalNamespace string) translator.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
 		return translatePersistentVolumeName(physicalNamespace, vName, vObj)
 	}
 }
 
-type syncer struct {
-	generic.Translator
+type persistentVolumeSyncer struct {
+	translator.Translator
 
 	targetNamespace string
-	localClient     client.Client
 	virtualClient   client.Client
-
-	translator translate.Translator
 }
 
-func (s *syncer) New() client.Object {
-	return &corev1.PersistentVolume{}
+var _ syncer.IndicesRegisterer = &persistentVolumeSyncer{}
+
+func (s *persistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolume{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		return []string{translatePersistentVolumeName(ctx.Options.TargetNamespace, rawObj.(*corev1.PersistentVolume).Name, rawObj)}
+	})
 }
 
-func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+var _ syncer.ControllerModifier = &persistentVolumeSyncer{}
+
+func (s *persistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(mapPVCs)), nil
+}
+
+var _ syncer.Syncer = &persistentVolumeSyncer{}
+
+func (s *persistentVolumeSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPv := vObj.(*corev1.PersistentVolume)
 	if vPv.DeletionTimestamp != nil || (vPv.Annotations != nil && vPv.Annotations[HostClusterPersistentVolumeAnnotation] != "") {
 		if len(vPv.Finalizers) > 0 {
 			// delete the finalizer here so that the object can be deleted
 			vPv.Finalizers = []string{}
-			log.Infof("remove virtual persistent volume %s finalizers, because object should get deleted", vPv.Name)
-			return ctrl.Result{}, s.virtualClient.Update(ctx, vPv)
+			ctx.Log.Infof("remove virtual persistent volume %s finalizers, because object should get deleted", vPv.Name)
+			return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vPv)
 		}
 
-		log.Infof("remove virtual persistent volume %s, because object should get deleted", vPv.Name)
-		return ctrl.Result{}, s.virtualClient.Delete(ctx, vPv)
+		ctx.Log.Infof("remove virtual persistent volume %s, because object should get deleted", vPv.Name)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vPv)
 	}
 
-	pPv, err := s.translate(vPv)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	log.Infof("create physical persistent volume %s, because there is a virtual persistent volume", pPv.Name)
-	err = s.localClient.Create(ctx, pPv)
+	pPv := s.translate(ctx, vPv)
+	ctx.Log.Infof("create physical persistent volume %s, because there is a virtual persistent volume", pPv.Name)
+	err := ctx.PhysicalClient.Create(ctx.Context, pPv)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -116,15 +110,15 @@ func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.
 	return ctrl.Result{}, nil
 }
 
-func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
 	vPersistentVolume := vObj.(*corev1.PersistentVolume)
 
 	// check if objects are getting deleted
 	if vObj.GetDeletionTimestamp() != nil {
 		if pObj.GetDeletionTimestamp() == nil {
-			log.Infof("delete physical persistent volume %s, because virtual persistent volume is terminating", pObj.GetName())
-			err := s.localClient.Delete(ctx, pObj)
+			ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is terminating", pObj.GetName())
+			err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -134,19 +128,19 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	}
 
 	// check if the persistent volume should get synced
-	sync, vPvc, err := s.shouldSync(ctx, pPersistentVolume)
+	sync, vPvc, err := s.shouldSync(ctx.Context, pPersistentVolume)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
-		log.Infof("delete virtual persistent volume %s, because there is no virtual persistent volume claim with that volume", vPersistentVolume.Name)
-		return ctrl.Result{}, s.virtualClient.Delete(ctx, vObj)
+		ctx.Log.Infof("delete virtual persistent volume %s, because there is no virtual persistent volume claim with that volume", vPersistentVolume.Name)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 	}
 
 	// check if there is a corresponding virtual pvc
-	updatedObj := s.translateUpdateBackwards(vPersistentVolume, pPersistentVolume, vPvc)
+	updatedObj := s.translateUpdateBackwards(ctx, vPersistentVolume, pPersistentVolume, vPvc)
 	if updatedObj != nil {
-		log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
-		err = s.virtualClient.Update(ctx, updatedObj)
+		ctx.Log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
+		err = ctx.VirtualClient.Update(ctx.Context, updatedObj)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -158,8 +152,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	// check status
 	if !equality.Semantic.DeepEqual(vPersistentVolume.Status, pPersistentVolume.Status) {
 		vPersistentVolume.Status = *pPersistentVolume.Status.DeepCopy()
-		log.Infof("update virtual persistent volume %s, because status has changed", vPersistentVolume.Name)
-		err = s.virtualClient.Status().Update(ctx, vPersistentVolume)
+		ctx.Log.Infof("update virtual persistent volume %s, because status has changed", vPersistentVolume.Name)
+		err = ctx.VirtualClient.Status().Update(ctx.Context, vPersistentVolume)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -175,8 +169,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 				return ctrl.Result{}, nil
 			}
 
-			log.Infof("delete physical persistent volume %s, because virtual persistent volume is being deleted", pPersistentVolume.Name)
-			err := s.localClient.Delete(ctx, pPersistentVolume, &client.DeleteOptions{
+			ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is being deleted", pPersistentVolume.Name)
+			err := ctx.PhysicalClient.Delete(ctx.Context, pPersistentVolume, &client.DeleteOptions{
 				GracePeriodSeconds: vPersistentVolume.DeletionGracePeriodSeconds,
 				Preconditions:      metav1.NewUIDPreconditions(string(pPersistentVolume.UID)),
 			})
@@ -186,10 +180,10 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 			return ctrl.Result{}, err
 		}
 
-		updatedPv := s.translateUpdate(vPersistentVolume, pPersistentVolume)
+		updatedPv := s.translateUpdate(ctx, vPersistentVolume, pPersistentVolume)
 		if updatedPv != nil {
-			log.Infof("update physical persistent volume %s, because spec or annotations have changed", updatedPv.Name)
-			err := s.localClient.Update(ctx, updatedPv)
+			ctx.Log.Infof("update physical persistent volume %s, because spec or annotations have changed", updatedPv.Name)
+			err := ctx.PhysicalClient.Update(ctx.Context, updatedPv)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -199,30 +193,30 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	return ctrl.Result{}, nil
 }
 
-var _ generic.BackwardSyncer = &syncer{}
+var _ syncer.UpSyncer = &persistentVolumeSyncer{}
 
-func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (s *persistentVolumeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
-	sync, vPvc, err := s.shouldSync(ctx, pPersistentVolume)
+	sync, vPvc, err := s.shouldSync(ctx.Context, pPersistentVolume)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if translate.IsManagedCluster(s.targetNamespace, pObj) {
-		log.Infof("delete physical persistent volume %s, because it is not needed anymore", pPersistentVolume.Name)
-		return generic.DeleteObject(ctx, s.localClient, pObj, log)
+	} else if translate.IsManagedCluster(ctx.TargetNamespace, pObj) {
+		ctx.Log.Infof("delete physical persistent volume %s, because it is not needed anymore", pPersistentVolume.Name)
+		return syncer.DeleteObject(ctx, pObj)
 	} else if sync {
 		// create the persistent volume
 		vObj := s.translateBackwards(pPersistentVolume, vPvc)
 		if vPvc != nil {
-			log.Infof("create persistent volume %s, because it belongs to virtual pvc %s/%s and does not exist in virtual cluster", vObj.Name, vPvc.Namespace, vPvc.Name)
+			ctx.Log.Infof("create persistent volume %s, because it belongs to virtual pvc %s/%s and does not exist in virtual cluster", vObj.Name, vPvc.Namespace, vPvc.Name)
 		}
 
-		return ctrl.Result{}, s.virtualClient.Create(ctx, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (s *syncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) (bool, *corev1.PersistentVolumeClaim, error) {
+func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) (bool, *corev1.PersistentVolumeClaim, error) {
 	// is there an assigned PVC?
 	if pObj.Spec.ClaimRef == nil || pObj.Spec.ClaimRef.Namespace != s.targetNamespace {
 		if translate.IsManagedCluster(s.targetNamespace, pObj) {
@@ -247,7 +241,7 @@ func (s *syncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) 
 	return true, vPvc, nil
 }
 
-func (s *syncer) IsManaged(pObj client.Object) (bool, error) {
+func (s *persistentVolumeSyncer) IsManaged(pObj client.Object) (bool, error) {
 	pPv, ok := pObj.(*corev1.PersistentVolume)
 	if !ok {
 		return false, nil
@@ -261,15 +255,15 @@ func (s *syncer) IsManaged(pObj client.Object) (bool, error) {
 	return sync, nil
 }
 
-func (s *syncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *persistentVolumeSyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translatePersistentVolumeName(s.targetNamespace, req.Name, vObj)}
 }
 
-func (s *syncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (s *persistentVolumeSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
+	if pAnnotations != nil && pAnnotations[translator.NameAnnotation] != "" {
 		return types.NamespacedName{
-			Name: pAnnotations[translate.NameAnnotation],
+			Name: pAnnotations[translator.NameAnnotation],
 		}
 	}
 

@@ -19,63 +19,87 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
-	"k8s.io/client-go/kubernetes"
-	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/record"
+	"golang.org/x/sync/errgroup"
 )
 
-var ResourceControllers = map[string]func(*context.ControllerContext, record.EventBroadcaster) error{
-	"services":               services.Register,
-	"configmaps":             configmaps.Register,
-	"secrets":                secrets.Register,
-	"endpoints":              endpoints.Register,
-	"pods":                   pods.Register,
-	"events":                 events.Register,
-	"persistentvolumeclaims": persistentvolumeclaims.Register,
-	"ingresses":              ingresses.Register,
-	"storageclasses":         storageclasses.Register,
-	"priorityclasses":        priorityclasses.Register,
-	"nodes,fake-nodes":       nodes.Register,
-	"persistentvolumes,fake-persistentvolumes": persistentvolumes.Register,
-	"networkpolicies":                          networkpolicies.Register,
-	"volumesnapshots":                          volumesnapshots.Register,
+var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncer.Object, error){
+	"services":               newControllers(services.New),
+	"configmaps":             newControllers(configmaps.New),
+	"secrets":                newControllers(secrets.New),
+	"endpoints":              newControllers(endpoints.New),
+	"pods":                   newControllers(pods.New),
+	"events":                 newControllers(events.New),
+	"persistentvolumeclaims": newControllers(persistentvolumeclaims.New),
+	"ingresses":              newControllers(ingresses.New),
+	"storageclasses":         newControllers(storageclasses.New),
+	"priorityclasses":        newControllers(priorityclasses.New),
+	"nodes,fake-nodes":       newControllers(nodes.New),
+	"persistentvolumes,fake-persistentvolumes": newControllers(persistentvolumes.New),
+	"networkpolicies":                          newControllers(networkpolicies.New),
+	"volumesnapshots":                          newControllers(volumesnapshotclasses.New, volumesnapshots.New, volumesnapshotcontents.New),
 }
 
-var ResourceIndices = map[string]func(*context.ControllerContext) error{
-	"services":               services.RegisterIndices,
-	"configmaps":             configmaps.RegisterIndices,
-	"secrets":                secrets.RegisterIndices,
-	"endpoints":              endpoints.RegisterIndices,
-	"pods":                   pods.RegisterIndices,
-	"events":                 events.RegisterIndices,
-	"persistentvolumeclaims": persistentvolumeclaims.RegisterIndices,
-	"ingresses":              ingresses.RegisterIndices,
-	"storageclasses":         storageclasses.RegisterIndices,
-	"priorityclasses":        priorityclasses.RegisterIndices,
-	"nodes,fake-nodes":       nodes.RegisterIndices,
-	"persistentvolumes,fake-persistentvolumes": persistentvolumes.RegisterIndices,
-	"networkpolicies":                          networkpolicies.RegisterIndices,
-	"volumesnapshots":                          volumesnapshots.RegisterIndices,
-}
+func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
+	registerContext := ToRegisterContext(ctx)
 
-var ResourcePrerequisites = map[string]func(*context.ControllerContext) error{
-	"volumesnapshots": volumesnapshots.EnsurePrerequisites,
-}
+	// register controllers for resource synchronization
+	syncers := []syncer.Object{}
+	for k, v := range ResourceControllers {
+		for _, controllerNew := range v {
+			controllers := strings.Split(k, ",")
+			for _, controller := range controllers {
+				if ctx.Controllers[controller] {
+					loghelper.Infof("Start %s sync controller", controller)
+					ctrl, err := controllerNew(registerContext)
+					if err != nil {
+						return nil, errors.Wrapf(err, "register %s controller", controller)
+					}
 
-func EnsurePrerequisites(ctx *context.ControllerContext) error {
-	// call the EnsurePrerequisites for the resources that require it
-	for k, v := range ResourcePrerequisites {
-		controllers := strings.Split(k, ",")
-		for _, controller := range controllers {
-			if ctx.Controllers[controller] {
-				err := v(ctx)
-				if err != nil {
-					return errors.Wrapf(err, "ensure %s prerequisites", controller)
+					syncers = append(syncers, ctrl)
+					break
 				}
-				break
+			}
+		}
+	}
+
+	return syncers, nil
+}
+
+func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syncer.Object) error {
+	registerContext := ToRegisterContext(controllerCtx)
+	// execute in parallel because each one might be time consuming
+	errorGroup, ctx := errgroup.WithContext(controllerCtx.Context)
+
+	for _, s := range syncers {
+		initializer, ok := s.(syncer.Initializer)
+		if ok {
+			errorGroup.Go(func() error {
+				err := initializer.Init(registerContext, ctx)
+				if err != nil {
+					return errors.Wrapf(err, "ensure prerequisites for %s syncer", s.Name())
+				}
+				return nil
+			})
+		}
+	}
+	return errorGroup.Wait()
+}
+
+func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) error {
+	registerContext := ToRegisterContext(ctx)
+	for _, s := range syncers {
+		indexRegisterer, ok := s.(syncer.IndicesRegisterer)
+		if ok {
+			err := indexRegisterer.RegisterIndices(registerContext)
+			if err != nil {
+				return errors.Wrapf(err, "register indices for %s syncer", s.Name())
 			}
 		}
 	}
@@ -83,27 +107,8 @@ func EnsurePrerequisites(ctx *context.ControllerContext) error {
 	return nil
 }
 
-func RegisterIndices(ctx *context.ControllerContext) error {
-	// register the resource indices
-	for k, v := range ResourceIndices {
-		controllers := strings.Split(k, ",")
-		for _, controller := range controllers {
-			if ctx.Controllers[controller] {
-				err := v(ctx)
-				if err != nil {
-					return errors.Wrapf(err, "register %s indices", controller)
-				}
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-func RegisterControllers(ctx *context.ControllerContext) error {
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubernetes.NewForConfigOrDie(ctx.VirtualManager.GetConfig()).CoreV1().Events("")})
+func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
+	registerContext := ToRegisterContext(ctx)
 
 	// register controller that keeps CoreDNS NodeHosts config up to date
 	err := registerCoreDNSController(ctx)
@@ -112,16 +117,24 @@ func RegisterControllers(ctx *context.ControllerContext) error {
 	}
 
 	// register controllers for resource synchronization
-	for k, v := range ResourceControllers {
-		controllers := strings.Split(k, ",")
-		for _, controller := range controllers {
-			if ctx.Controllers[controller] {
-				loghelper.Infof("Start %s sync controller", controller)
-				err := v(ctx, eventBroadcaster)
+	for _, v := range syncers {
+		// fake syncer?
+		fakeSyncer, ok := v.(syncer.FakeSyncer)
+		if ok {
+			err = syncer.RegisterFakeSyncer(registerContext, fakeSyncer)
+			if err != nil {
+				return errors.Wrapf(err, "start %s syncer", v.Name())
+			}
+		} else {
+			// real syncer?
+			realSyncer, ok := v.(syncer.Syncer)
+			if ok {
+				err = syncer.RegisterSyncer(registerContext, realSyncer)
 				if err != nil {
-					return errors.Wrapf(err, "register %s controller", controller)
+					return errors.Wrapf(err, "start %s syncer", v.Name())
 				}
-				break
+			} else {
+				return fmt.Errorf("syncer %s does not implement fake syncer or syncer interface", v.Name())
 			}
 		}
 	}
@@ -138,4 +151,26 @@ func registerCoreDNSController(ctx *context.ControllerContext) error {
 		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
 	}
 	return nil
+}
+
+func ToRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterContext {
+	return &synccontext.RegisterContext{
+		Context: ctx.Context,
+
+		Options:             ctx.Options,
+		NodeServiceProvider: ctx.NodeServiceProvider,
+		Controllers:         ctx.Controllers,
+		LockFactory:         ctx.LockFactory,
+
+		TargetNamespace:        ctx.Options.TargetNamespace,
+		CurrentNamespace:       ctx.CurrentNamespace,
+		CurrentNamespaceClient: ctx.CurrentNamespaceClient,
+
+		VirtualManager:  ctx.VirtualManager,
+		PhysicalManager: ctx.LocalManager,
+	}
+}
+
+func newControllers(funcs ...func(*synccontext.RegisterContext) (syncer.Object, error)) []func(*synccontext.RegisterContext) (syncer.Object, error) {
+	return append([]func(*synccontext.RegisterContext) (syncer.Object, error){}, funcs...)
 }

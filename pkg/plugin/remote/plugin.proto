@@ -1,0 +1,34 @@
+// protoc -I . plugin.proto  --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative
+syntax = "proto3";
+
+package remote;
+
+option go_package = "github.com/loft-sh/vcluster/pkg/plugin/remote";
+
+service PluginInitializer {
+    rpc Register (PluginInfo) returns (Context) {}
+    rpc IsLeader (Empty) returns (LeaderInfo) {}
+}
+
+message LeaderInfo {
+    bool leader = 1;
+}
+
+message PluginInfo {
+    string name = 1;
+}
+
+message Context {
+    string virtualClusterConfig = 1;
+    string physicalClusterConfig = 2;
+    string syncerConfig = 3;
+
+    string targetNamespace = 4;
+    string currentNamespace = 5;
+
+    string options = 6;
+}
+
+message Empty {
+
+}

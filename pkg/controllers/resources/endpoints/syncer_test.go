@@ -1,30 +1,17 @@
 package endpoints
 
 import (
-	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 )
-
-func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	return &syncer{
-		targetNamespace:  "test",
-		currentNamespace: "test",
-		currentNamespaceClient:    pClient,
-		virtualClient:    vClient,
-
-		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "endpoints"),
-		translator: translate.NewDefaultTranslator("test"),
-	}
-}
 
 func TestSync(t *testing.T) {
 	baseEndpoints := &corev1.Endpoints{
@@ -54,8 +41,8 @@ func TestSync(t *testing.T) {
 			Name:      translate.PhysicalName(baseEndpoints.Name, baseEndpoints.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
-				translate.NameAnnotation: baseEndpoints.Name,
-				translate.NamespaceAnnotation: baseEndpoints.Namespace,
+				translator.NameAnnotation:      baseEndpoints.Name,
+				translator.NamespaceAnnotation: baseEndpoints.Namespace,
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseEndpoints.Namespace,
@@ -96,12 +83,10 @@ func TestSync(t *testing.T) {
 					syncedEndpoints,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, baseEndpoints, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*endpointsSyncer).SyncDown(syncCtx, baseEndpoints)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -117,12 +102,10 @@ func TestSync(t *testing.T) {
 					syncedUpdatedEndpoints,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, syncedEndpoints, updatedEndpoints, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*endpointsSyncer).Sync(syncCtx, syncedEndpoints, updatedEndpoints)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -143,11 +126,9 @@ func TestSync(t *testing.T) {
 					physicalKubernetesEndpoints,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				err := SyncKubernetesServiceEndpoints(ctx, vClient, pClient, physicalKubernetesEndpoints.Namespace, physicalKubernetesEndpoints.Name)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				err := SyncKubernetesServiceEndpoints(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), physicalKubernetesEndpoints.Namespace, physicalKubernetesEndpoints.Name)
+				assert.NilError(t, err)
 			},
 		},
 	})

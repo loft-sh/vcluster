@@ -3,26 +3,28 @@ package pods
 import (
 	"context"
 	"fmt"
+
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *syncer) translate(vPod *corev1.Pod) (*corev1.Pod, error) {
-	kubeIP, err := s.findKubernetesIP()
+func (s *podSyncer) translate(ctx *synccontext.SyncContext, vPod *corev1.Pod) (*corev1.Pod, error) {
+	kubeIP, err := s.findKubernetesIP(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	dnsIP, err := s.findKubernetesDNSIP()
+	dnsIP, err := s.findKubernetesDNSIP(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// get services for pod
 	serviceList := &corev1.ServiceList{}
-	err = s.virtualClient.List(context.Background(), serviceList, client.InNamespace(vPod.Namespace))
+	err = ctx.VirtualClient.List(context.Background(), serviceList, client.InNamespace(vPod.Namespace))
 	if err != nil {
 		return nil, err
 	}
@@ -37,19 +39,19 @@ func (s *syncer) translate(vPod *corev1.Pod) (*corev1.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return pPod, err
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
+func (s *podSyncer) translateUpdate(pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
 	return s.podTranslator.Diff(vObj, pObj)
 }
 
-func (s *syncer) findKubernetesIP() (string, error) {
+func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, error) {
 	pService := &corev1.Service{}
-	err := s.currentNamespaceClient.Get(context.TODO(), types.NamespacedName{
+	err := ctx.CurrentNamespaceClient.Get(context.TODO(), types.NamespacedName{
 		Name:      s.serviceName,
-		Namespace: s.currentNamespace,
+		Namespace: ctx.CurrentNamespace,
 	}, pService)
 	if err != nil {
 		return "", err
@@ -58,8 +60,8 @@ func (s *syncer) findKubernetesIP() (string, error) {
 	return pService.Spec.ClusterIP, nil
 }
 
-func (s *syncer) findKubernetesDNSIP() (string, error) {
-	ip := s.translateAndFindService("kube-system", "kube-dns")
+func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, error) {
+	ip := s.translateAndFindService(ctx, "kube-system", "kube-dns")
 	if ip == "" {
 		return "", fmt.Errorf("waiting for DNS service IP")
 	}
@@ -67,12 +69,12 @@ func (s *syncer) findKubernetesDNSIP() (string, error) {
 	return ip, nil
 }
 
-func (s *syncer) translateAndFindService(namespace, name string) string {
+func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, namespace, name string) string {
 	pName := translate.PhysicalName(name, namespace)
 	pService := &corev1.Service{}
-	err := s.localClient.Get(context.TODO(), types.NamespacedName{
+	err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{
 		Name:      pName,
-		Namespace: s.targetNamespace,
+		Namespace: ctx.TargetNamespace,
 	}, pService)
 	if err != nil {
 		return ""

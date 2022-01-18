@@ -2,23 +2,17 @@ package ingresses
 
 import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
-	newObj, err := s.translator.Translate(vIngress)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	newIngress := newObj.(*networkingv1.Ingress)
+func (s *ingressSyncer) translate(vIngress *networkingv1.Ingress) *networkingv1.Ingress {
+	newIngress := s.TranslateMetadata(vIngress).(*networkingv1.Ingress)
 	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
-	return newIngress, nil
+	return newIngress
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
+func (s *ingressSyncer) translateUpdate(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
 	var updated *networkingv1.Ingress
 
 	translatedSpec := *translateSpec(vObj.Namespace, &vObj.Spec)
@@ -26,30 +20,25 @@ func (s *syncer) translateUpdate(pObj, vObj *networkingv1.Ingress) *networkingv1
 		updated = newIfNil(updated, pObj)
 		updated.Spec = translatedSpec
 	}
-	
-	translatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
-	if !equality.Semantic.DeepEqual(translatedAnnotations, pObj.Annotations) {
+
+	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	if changed {
 		updated = newIfNil(updated, pObj)
 		updated.Annotations = translatedAnnotations
-	}
-	
-	translatedLabels := s.translator.TranslateLabels(vObj)
-	if !equality.Semantic.DeepEqual(translatedLabels, pObj.Labels) {
-		updated = newIfNil(updated, pObj)
 		updated.Labels = translatedLabels
 	}
-	
+
 	return updated
 }
 
-func (s *syncer) translateUpdateBackwards(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
+func (s *ingressSyncer) translateUpdateBackwards(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
 	var updated *networkingv1.Ingress
 
 	if vObj.Spec.IngressClassName == nil && pObj.Spec.IngressClassName != nil {
 		updated = newIfNil(updated, vObj)
 		updated.Spec.IngressClassName = pObj.Spec.IngressClassName
 	}
-	
+
 	return updated
 }
 

@@ -3,55 +3,52 @@ package persistentvolumeclaims
 import (
 	"context"
 
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *syncer) translate(targetNamespace string, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
-	newObj, err := s.translator.Translate(vPvc)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	newPvc := newObj.(*corev1.PersistentVolumeClaim)
-	newPvc = s.translateSelector(newPvc)
+func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+	newPvc := s.TranslateMetadata(vPvc).(*corev1.PersistentVolumeClaim)
+	newPvc = s.translateSelector(ctx, newPvc)
 	if newPvc.Spec.DataSource != nil && vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" &&
 		(newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" || newPvc.Spec.DataSource.Kind == "VolumeSnapshot") {
 
 		newPvc.Spec.DataSource.Name = translate.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
 	}
+
 	//TODO: add support for the .Spec.DataSourceRef field
-	return newPvc, nil
+	return newPvc
 }
 
-func (s *syncer) translateSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	if !s.useFakePersistentVolumes {
 		if vPvc.Annotations == nil || vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 			newObj := vPvc
 			newObj.Spec = *vPvc.Spec.DeepCopy()
 			if newObj.Spec.Selector != nil {
-				newObj.Spec.Selector = translate.TranslateLabelSelectorCluster(s.targetNamespace, newObj.Spec.Selector)
+				newObj.Spec.Selector = translator.TranslateLabelSelectorCluster(ctx.TargetNamespace, newObj.Spec.Selector)
 			}
 			if newObj.Spec.VolumeName != "" {
-				newObj.Spec.VolumeName = translate.PhysicalNameClusterScoped(newObj.Spec.VolumeName, s.targetNamespace)
+				newObj.Spec.VolumeName = translate.PhysicalNameClusterScoped(newObj.Spec.VolumeName, ctx.TargetNamespace)
 			}
 			if newObj.Spec.StorageClassName != nil {
 				// check if the storage class exists in the physical cluster
 				if newObj.Spec.Selector == nil && newObj.Spec.VolumeName == "" {
-					err := s.localClient.Get(context.TODO(), types.NamespacedName{Name: *newObj.Spec.StorageClassName}, &storagev1.StorageClass{})
+					err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{Name: *newObj.Spec.StorageClassName}, &storagev1.StorageClass{})
 					if err != nil && kerrors.IsNotFound(err) {
-						translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, s.targetNamespace)
+						translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, ctx.TargetNamespace)
 						newObj.Spec.StorageClassName = &translated
 					}
 				} else {
-					translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, s.targetNamespace)
+					translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, ctx.TargetNamespace)
 					newObj.Spec.StorageClassName = &translated
 				}
 			}
@@ -61,7 +58,7 @@ func (s *syncer) translateSelector(vPvc *corev1.PersistentVolumeClaim) *corev1.P
 	return vPvc
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	var updated *corev1.PersistentVolumeClaim
 
 	// allow storage size to be increased
@@ -73,23 +70,17 @@ func (s *syncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) *core
 		updated.Spec.Resources.Requests["storage"] = vObj.Spec.Resources.Requests["storage"]
 	}
 
-	updatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) {
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	if changed {
 		updated = newIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations
-	}
-
-	// check labels
-	updatedLabels := s.translator.TranslateLabels(vObj)
-	if !equality.Semantic.DeepEqual(updatedLabels, pObj.Labels) {
-		updated = newIfNil(updated, pObj)
 		updated.Labels = updatedLabels
 	}
 
 	return updated
 }
 
-func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 	var updated *corev1.PersistentVolumeClaim
 
 	// check for metadata annotations

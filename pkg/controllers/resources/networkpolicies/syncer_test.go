@@ -1,15 +1,13 @@
 package networkpolicies
 
 import (
-	"context"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"gotest.tools/assert"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -19,16 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 )
-
-func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	return &syncer{
-		virtualClient: vClient,
-		localClient:   pClient,
-
-		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "networkpolicies"),
-		translator: translate.NewDefaultTranslator("test"),
-	}
-}
 
 func TestSync(t *testing.T) {
 	somePorts := []networkingv1.NetworkPolicyPort{
@@ -62,13 +50,13 @@ func TestSync(t *testing.T) {
 	pBaseSpec := networkingv1.NetworkPolicySpec{
 		PodSelector: metav1.LabelSelector{
 			MatchLabels: map[string]string{
-				translate.ConvertLabelKey("mykey"): "mylabel",
-				translate.NamespaceLabel:           vObjectMeta.Namespace,
-				translate.MarkerLabel:              translate.Suffix,
+				translator.ConvertLabelKey("mykey"): "mylabel",
+				translate.NamespaceLabel:            vObjectMeta.Namespace,
+				translate.MarkerLabel:               translate.Suffix,
 			},
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
-					Key:      translate.ConvertLabelKey("secondkey"),
+					Key:      translator.ConvertLabelKey("secondkey"),
 					Operator: metav1.LabelSelectorOpIn,
 					Values:   []string{"label-A", "label-B"},
 				},
@@ -79,8 +67,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.PhysicalName("testnetworkpolicy", "test"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      vObjectMeta.Name,
-			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translator.NameAnnotation:      vObjectMeta.Name,
+			translator.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -135,9 +123,9 @@ func TestSync(t *testing.T) {
 			Ports: somePorts,
 			From: []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					translate.ConvertLabelKey("random-key"): "value",
-					translate.MarkerLabel:                   translate.Suffix,
-					translate.NamespaceLabel:                vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
+					translator.ConvertLabelKey("random-key"): "value",
+					translate.MarkerLabel:                    translate.Suffix,
+					translate.NamespaceLabel:                 vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
 				},
 				MatchExpressions: []metav1.LabelSelectorRequirement{},
 			}}},
@@ -157,7 +145,7 @@ func TestSync(t *testing.T) {
 
 	pnetworkPolicyWithLabelSelectorNsSelector := pnetworkPolicyWithLabelSelectorNoNs.DeepCopy()
 	delete(pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels, translate.NamespaceLabel)
-	pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels[translate.ConvertLabelKeyWithPrefix(podstranslate.NamespaceLabelPrefix, "nslabelkey")] = "abc"
+	pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels[translator.ConvertLabelKeyWithPrefix(podstranslate.NamespaceLabelPrefix, "nslabelkey")] = "abc"
 
 	vnetworkPolicyEgressWithPodSelectorNoNs := vBaseNetworkPolicy.DeepCopy()
 	vnetworkPolicyEgressWithPodSelectorNoNs.Spec.Egress = []networkingv1.NetworkPolicyEgressRule{
@@ -211,12 +199,12 @@ func TestSync(t *testing.T) {
 					},
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
-							Key:      translate.ConvertLabelKey("pod-expr-key"),
+							Key:      translator.ConvertLabelKey("pod-expr-key"),
 							Operator: metav1.LabelSelectorOpExists,
 							Values:   []string{"some-pod-key"},
 						},
 						{
-							Key:      translate.ConvertLabelKeyWithPrefix(podstranslate.NamespaceLabelPrefix, "ns-expr-key"),
+							Key:      translator.ConvertLabelKeyWithPrefix(podstranslate.NamespaceLabelPrefix, "ns-expr-key"),
 							Operator: metav1.LabelSelectorOpDoesNotExist,
 							Values:   []string{"forbidden-ns-key"},
 						},
@@ -236,12 +224,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pBaseNetworkPolicy.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, vBaseNetworkPolicy.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vBaseNetworkPolicy.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -253,12 +239,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyNoPodSelector.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, vnetworkPolicyNoPodSelector.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyNoPodSelector.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -280,21 +264,19 @@ func TestSync(t *testing.T) {
 					Spec:       pBaseSpec,
 				}},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				pNetworkPolicy := &networkingv1.NetworkPolicy{
 					ObjectMeta: pObjectMeta,
 					Spec:       networkingv1.NetworkPolicySpec{},
 				}
 				pNetworkPolicy.ResourceVersion = "999"
 
-				_, err := syncer.Update(ctx, pNetworkPolicy, &networkingv1.NetworkPolicy{
+				_, err := syncer.(*networkPolicySyncer).Sync(syncCtx, pNetworkPolicy, &networkingv1.NetworkPolicy{
 					ObjectMeta: vObjectMeta,
 					Spec:       vBaseSpec,
-				}, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				})
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -307,15 +289,13 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pBaseNetworkPolicy.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				vNetworkPolicy := vBaseNetworkPolicy.DeepCopy()
 				vNetworkPolicy.ResourceVersion = "999"
 
-				_, err := syncer.Update(ctx, pBaseNetworkPolicy.DeepCopy(), vNetworkPolicy, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err := syncer.(*networkPolicySyncer).Sync(syncCtx, pBaseNetworkPolicy.DeepCopy(), vNetworkPolicy)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -327,12 +307,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithIPBlock},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, vnetworkPolicyWithIPBlock.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithIPBlock.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -344,12 +322,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithLabelSelectorNoNs},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, vnetworkPolicyWithPodSelectorNoNs.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithPodSelectorNoNs.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -361,12 +337,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithLabelSelectorEmptyNs},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, vnetworkPolicyWithPodSelectorEmptyNs.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithPodSelectorEmptyNs.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -378,12 +352,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithLabelSelectorNsSelector},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, vnetworkPolicyWithPodSelectorNsSelector.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithPodSelectorNsSelector.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -395,12 +367,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithMatchExpressions},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, vnetworkPolicyWithMatchExpressions.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithMatchExpressions.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -412,12 +382,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyEgressWithLabelSelectorNoNs},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, vnetworkPolicyEgressWithPodSelectorNoNs.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyEgressWithPodSelectorNoNs.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 	})

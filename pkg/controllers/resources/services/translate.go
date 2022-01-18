@@ -1,25 +1,19 @@
 package services
 
 import (
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vObj *corev1.Service) (*corev1.Service, error) {
-	newObj, err := s.translator.Translate(vObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	newService := newObj.(*corev1.Service)
+func (s *serviceSyncer) translate(vObj *corev1.Service) *corev1.Service {
+	newService := s.TranslateMetadata(vObj).(*corev1.Service)
 	newService.Spec.Selector = nil
 	newService.Spec.ClusterIP = ""
 	newService.Spec.ClusterIPs = nil
-	return newService, nil
+	return newService
 }
 
-func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *corev1.Service {
+func (s *serviceSyncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *corev1.Service {
 	var updated *corev1.Service
 
 	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP {
@@ -45,31 +39,25 @@ func (s *syncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *corev1.Se
 	return updated
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Service {
+func (s *serviceSyncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Service {
 	var updated *corev1.Service
+
+	// check annotations
+	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	// remove the ServiceBlockDeletion annotation if it's not needed
+	if vObj.Spec.ClusterIP == pObj.Spec.ClusterIP {
+		delete(updatedAnnotations, ServiceBlockDeletion)
+	}
+	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) || !equality.Semantic.DeepEqual(updatedLabels, pObj.Labels) {
+		updated = newIfNil(updated, pObj)
+		updated.Annotations = updatedAnnotations
+		updated.Labels = updatedLabels
+	}
 
 	// check ports
 	if !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
 		updated = newIfNil(updated, pObj)
 		updated.Spec.Ports = vObj.Spec.Ports
-	}
-
-	// check annotations
-	updatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
-	// remove the ServiceBlockDeletion annotation if it's not needed
-	if vObj.Spec.ClusterIP == pObj.Spec.ClusterIP {
-		delete(updatedAnnotations, ServiceBlockDeletion)
-	}
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) {
-		updated = newIfNil(updated, pObj)
-		updated.Annotations = updatedAnnotations
-	}
-
-	// check labels
-	updatedLabels := s.translator.TranslateLabels(vObj)
-	if !equality.Semantic.DeepEqual(updatedLabels, pObj.Labels) {
-		updated = newIfNil(updated, pObj)
-		updated.Labels = updatedLabels
 	}
 
 	// publish not ready addresses

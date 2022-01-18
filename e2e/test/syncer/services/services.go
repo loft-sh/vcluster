@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"time"
 
 	"github.com/loft-sh/vcluster/e2e/framework"
 	"github.com/loft-sh/vcluster/pkg/util/random"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,7 +107,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		_, err = f.VclusterClient.CoreV1().Services(ns).Get(f.Context, service.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		_, err = f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.ObjectPhysicalName(&service), metav1.GetOptions{})
+		_, err = f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(service.Name, service.Namespace), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 	})
 

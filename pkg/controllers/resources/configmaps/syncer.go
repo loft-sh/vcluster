@@ -5,17 +5,16 @@ import (
 	"fmt"
 	"strings"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,82 +23,58 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
-	err := generic.RegisterSyncerIndices(ctx, &corev1.ConfigMap{})
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	return &configMapSyncer{
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{}),
+	}, nil
+}
+
+type configMapSyncer struct {
+	translator.NamespacedTranslator
+}
+
+var _ syncer.IndicesRegisterer = &configMapSyncer{}
+
+func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+	err := s.NamespacedTranslator.RegisterIndices(ctx)
 	if err != nil {
 		return err
 	}
 
 	// index pods by their used config maps
-	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, indexPodByConfigmap)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func indexPodByConfigmap(rawObj client.Object) []string {
-	pod := rawObj.(*corev1.Pod)
-	return pods.ConfigNamesFromPod(pod)
-}
-
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	return generic.RegisterSyncerWithOptions(ctx, "configmap", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.ConfigMap{}),
-
-		virtualClient: ctx.VirtualManager.GetClient(),
-		localClient:   ctx.LocalManager.GetClient(),
-
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "configmap-syncer"}), "configmap"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
-	}, &generic.SyncerOptions{
-		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(mapPods))
-		},
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
+		pod := rawObj.(*corev1.Pod)
+		return pods.ConfigNamesFromPod(pod)
 	})
 }
 
-type syncer struct {
-	generic.Translator
+var _ syncer.ControllerModifier = &configMapSyncer{}
 
-	virtualClient client.Client
-	localClient   client.Client
-
-	creator    *generic.GenericCreator
-	translator translate.Translator
+func (s *configMapSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
 }
 
-func (s *syncer) New() client.Object {
-	return &corev1.ConfigMap{}
-}
-
-func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	createNeeded, err := s.isConfigMapUsed(vObj)
+func (s *configMapSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	createNeeded, err := s.isConfigMapUsed(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !createNeeded {
 		return ctrl.Result{}, nil
 	}
 
-	pObj, err := s.translate(vObj.(*corev1.ConfigMap))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return s.creator.Create(ctx, vObj, pObj, log)
+	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.ConfigMap)))
 }
 
-func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	used, err := s.isConfigMapUsed(vObj)
+func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+	used, err := s.isConfigMapUsed(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !used {
 		pConfigMap, _ := meta.Accessor(pObj)
-		log.Infof("delete physical config map %s/%s, because it is not used anymore", pConfigMap.GetNamespace(), pConfigMap.GetName())
-		err = s.localClient.Delete(ctx, pObj)
+		ctx.Log.Infof("delete physical config map %s/%s, because it is not used anymore", pConfigMap.GetNamespace(), pConfigMap.GetName())
+		err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
 		if err != nil {
-			log.Infof("error deleting physical object %s/%s in physical cluster: %v", pConfigMap.GetNamespace(), pConfigMap.GetName(), err)
+			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pConfigMap.GetNamespace(), pConfigMap.GetName(), err)
 			return ctrl.Result{}, err
 		}
 
@@ -107,17 +82,17 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	}
 
 	// did the configmap change?
-	return s.creator.Update(ctx, vObj, s.translateUpdate(pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap)), log)
+	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap)))
 }
 
-func (s *syncer) isConfigMapUsed(vObj runtime.Object) (bool, error) {
+func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {
 	configMap, ok := vObj.(*corev1.ConfigMap)
 	if !ok || configMap == nil {
 		return false, fmt.Errorf("%#v is not a config map", vObj)
 	}
 
 	podList := &corev1.PodList{}
-	err := s.virtualClient.List(context.TODO(), podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
+	err := ctx.VirtualClient.List(context.TODO(), podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
 	if err != nil {
 		return false, err
 	}

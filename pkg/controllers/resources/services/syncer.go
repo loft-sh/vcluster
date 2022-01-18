@@ -4,15 +4,15 @@ import (
 	"context"
 	"time"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,60 +20,24 @@ import (
 
 var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
 
-func RegisterIndices(ctx *context2.ControllerContext) error {
-	err := generic.RegisterSyncerIndices(ctx, &corev1.Service{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	return &serviceSyncer{
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}),
+		serviceName:          ctx.Options.ServiceName,
+	}, nil
 }
 
-func Register(ctx *context2.ControllerContext, eventBroadcaster record.EventBroadcaster) error {
-	recorder := eventBroadcaster.NewRecorder(ctx.VirtualManager.GetScheme(), corev1.EventSource{Component: "service-syncer"})
-	return generic.RegisterSyncer(ctx, "service", &syncer{
-		Translator: generic.NewNamespacedTranslator(ctx.Options.TargetNamespace, ctx.VirtualManager.GetClient(), &corev1.Service{}),
+type serviceSyncer struct {
+	translator.NamespacedTranslator
 
-		currentNamespaceClient: ctx.CurrentNamespaceClient,
-		currentNamespace:       ctx.CurrentNamespace,
-		serviceName:            ctx.Options.ServiceName,
-
-		localClient:   ctx.LocalManager.GetClient(),
-		virtualClient: ctx.VirtualManager.GetClient(),
-
-		creator:    generic.NewGenericCreator(ctx.LocalManager.GetClient(), recorder, "service"),
-		translator: translate.NewDefaultTranslator(ctx.Options.TargetNamespace),
-	})
+	serviceName string
 }
 
-type syncer struct {
-	generic.Translator
-
-	currentNamespaceClient client.Client
-	currentNamespace       string
-	serviceName            string
-
-	localClient   client.Client
-	virtualClient client.Client
-
-	creator    *generic.GenericCreator
-	translator translate.Translator
+func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.Service)))
 }
 
-func (s *syncer) New() client.Object {
-	return &corev1.Service{}
-}
-
-func (s *syncer) Forward(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
-	pObj, err := s.translate(vObj.(*corev1.Service))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return s.creator.Create(ctx, vObj, pObj, log)
-}
-
-func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	vService := vObj.(*corev1.Service)
 	pService := pObj.(*corev1.Service)
 
@@ -87,18 +51,18 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	if newService != nil {
 		if vService.Spec.ClusterIP != pService.Spec.ClusterIP {
 			newService.Spec.ClusterIPs = nil
-			log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
+			ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
 
 			// recreate the new service with the correct cluster ip
-			_, err := recreateService(ctx, s.virtualClient, newService)
+			_, err := recreateService(ctx.Context, ctx.VirtualClient, newService)
 			if err != nil {
-				log.Errorf("error creating virtual service: %s/%s", vService.Namespace, vService.Name)
+				ctx.Log.Errorf("error creating virtual service: %s/%s", vService.Namespace, vService.Name)
 				return ctrl.Result{}, err
 			}
 		} else {
 			// update with correct ports
-			log.Infof("update virtual service %s/%s, because spec is out of sync", vService.Namespace, vService.Name)
-			err := s.virtualClient.Update(ctx, newService)
+			ctx.Log.Infof("update virtual service %s/%s, because spec is out of sync", vService.Namespace, vService.Name)
+			err := ctx.VirtualClient.Update(ctx.Context, newService)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -112,8 +76,8 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	if !equality.Semantic.DeepEqual(vService.Status, pService.Status) {
 		newService := vService.DeepCopy()
 		newService.Status = pService.Status
-		log.Infof("update virtual service %s/%s, because status is out of sync", vService.Namespace, vService.Name)
-		err := s.virtualClient.Status().Update(ctx, newService)
+		ctx.Log.Infof("update virtual service %s/%s, because status is out of sync", vService.Namespace, vService.Name)
+		err := ctx.VirtualClient.Status().Update(ctx.Context, newService)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -122,16 +86,16 @@ func (s *syncer) Update(ctx context.Context, pObj client.Object, vObj client.Obj
 	}
 
 	// forward update
-	return s.creator.Update(ctx, vObj, s.translateUpdate(pService, vService), log)
+	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pService, vService))
 }
 
 func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Service) bool {
 	return vService.Spec.Type == corev1.ServiceTypeExternalName && pService.Spec.Type != vService.Spec.Type && pService.Spec.ClusterIP != ""
 }
 
-var _ generic.BackwardSyncer = &syncer{}
+var _ syncer.UpSyncer = &serviceSyncer{}
 
-func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (s *serviceSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	if !translate.IsManaged(pObj) {
 		return ctrl.Result{}, nil
 	}
@@ -144,7 +108,7 @@ func (s *syncer) Backward(ctx context.Context, pObj client.Object, log loghelper
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return generic.DeleteObject(ctx, s.localClient, pObj, log)
+	return syncer.DeleteObject(ctx, pObj)
 }
 
 func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) (*corev1.Service, error) {
@@ -171,18 +135,18 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 	return vService, nil
 }
 
-var _ generic.Starter = &syncer{}
+var _ syncer.Starter = &serviceSyncer{}
 
-func (s *syncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {
+func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service
 	if req.Name == "kubernetes" && req.Namespace == "default" {
-		return true, SyncKubernetesService(ctx, s.virtualClient, s.currentNamespaceClient, s.currentNamespace, s.serviceName)
+		return true, SyncKubernetesService(ctx.Context, ctx.VirtualClient, ctx.CurrentNamespaceClient, ctx.CurrentNamespace, s.serviceName)
 	}
 
 	return false, nil
 }
 
-func (s *syncer) ReconcileEnd() {}
+func (s *serviceSyncer) ReconcileEnd() {}
 
 func SyncKubernetesService(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceNamespace, serviceName string) error {
 	// get physical service

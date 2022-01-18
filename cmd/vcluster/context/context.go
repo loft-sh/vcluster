@@ -10,53 +10,55 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
-	"sync"
 )
 
 // VirtualClusterOptions holds the cmd flags
 type VirtualClusterOptions struct {
-	Controllers string
+	Controllers string `json:"controllers,omitempty"`
 
-	ServerCaCert        string
-	ServerCaKey         string
-	TLSSANs             []string
-	RequestHeaderCaCert string
-	ClientCaCert        string
-	KubeConfig          string
+	ServerCaCert        string   `json:"serverCaCert,omitempty"`
+	ServerCaKey         string   `json:"serverCaKey,omitempty"`
+	TLSSANs             []string `json:"tlsSans,omitempty"`
+	RequestHeaderCaCert string   `json:"requestHeaderCaCert,omitempty"`
+	ClientCaCert        string   `json:"clientCaCert"`
+	KubeConfig          string   `json:"kubeConfig"`
 
-	KubeConfigSecret          string
-	KubeConfigSecretNamespace string
-	KubeConfigServer          string
+	KubeConfigSecret          string `json:"kubeConfigSecret"`
+	KubeConfigSecretNamespace string `json:"kubeConfigSecretNamespace"`
+	KubeConfigServer          string `json:"kubeConfigServer"`
 
-	BindAddress string
-	Port        int
+	BindAddress string `json:"bindAddress"`
+	Port        int    `json:"port"`
 
-	Name string
+	Name string `json:"name"`
 
-	TargetNamespace string
-	ServiceName     string
+	TargetNamespace string `json:"targetNamespace"`
+	ServiceName     string `json:"serviceName"`
 
-	SetOwner bool
+	SetOwner bool `json:"setOwner"`
 
-	SyncAllNodes        bool
-	SyncNodeChanges     bool
-	DisableFakeKubelets bool
+	SyncAllNodes        bool `json:"syncAllNodes"`
+	SyncNodeChanges     bool `json:"syncNodeChanges"`
+	DisableFakeKubelets bool `json:"disableFakeKubelets"`
 
-	TranslateImages []string
+	TranslateImages []string `json:"translateImages"`
 
-	NodeSelector        string
-	ServiceAccount      string
-	EnforceNodeSelector bool
+	NodeSelector        string `json:"nodeSelector"`
+	ServiceAccount      string `json:"serviceAccount"`
+	EnforceNodeSelector bool   `json:"enforceNodeSelector"`
 
-	OverrideHosts               bool
-	OverrideHostsContainerImage string
+	OverrideHosts               bool   `json:"overrideHosts"`
+	OverrideHostsContainerImage string `json:"overrideHostsContainerImage"`
 
-	ClusterDomain string
+	ClusterDomain string `json:"clusterDomain"`
 
-	LeaderElect   bool
-	LeaseDuration int64
-	RenewDeadline int64
-	RetryPeriod   int64
+	LeaderElect   bool  `json:"leaderElect"`
+	LeaseDuration int64 `json:"leaseDuration"`
+	RenewDeadline int64 `json:"renewDeadline"`
+	RetryPeriod   int64 `json:"retryPeriod"`
+
+	DisablePlugins      bool   `json:"disablePlugins"`
+	PluginListenAddress string `json:"pluginListenAddress"`
 
 	// DEPRECATED FLAGS
 	DeprecatedDisableSyncResources     string
@@ -80,8 +82,6 @@ type ControllerContext struct {
 	NodeServiceProvider    nodeservice.NodeServiceProvider
 
 	Controllers map[string]bool
-
-	CacheSynced func()
 	LockFactory locks.LockFactory
 	Options     *VirtualClusterOptions
 	StopChan    <-chan struct{}
@@ -121,7 +121,6 @@ var DefaultEnabledControllers = []string{
 
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
 	stopChan := make(<-chan struct{})
-	cacheSynced := sync.Once{}
 	ctx := context.Background()
 	uncachedVirtualClient, err := client.New(virtualManager.GetConfig(), client.Options{
 		Scheme: virtualManager.GetScheme(),
@@ -154,14 +153,8 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 
 		NodeServiceProvider: nodeservice.NewNodeServiceProvider(currentNamespace, currentNamespaceClient, virtualManager.GetClient(), uncachedVirtualClient),
 		LockFactory:         locks.NewDefaultLockFactory(),
-		CacheSynced: func() {
-			cacheSynced.Do(func() {
-				localManager.GetCache().WaitForCacheSync(ctx)
-				virtualManager.GetCache().WaitForCacheSync(ctx)
-			})
-		},
-		StopChan: stopChan,
-		Options:  options,
+		StopChan:            stopChan,
+		Options:             options,
 	}, nil
 }
 

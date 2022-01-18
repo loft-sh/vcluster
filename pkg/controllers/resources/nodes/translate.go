@@ -2,7 +2,9 @@ package nodes
 
 import (
 	"context"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -12,28 +14,28 @@ import (
 	"k8s.io/klog"
 )
 
-func (s *syncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) *corev1.Node {
+func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) *corev1.Node {
 	var updated *corev1.Node
-	
+
 	if !equality.Semantic.DeepEqual(vNode.Spec, pNode.Spec) {
 		updated = newIfNil(updated, vNode)
 		updated.Spec = pNode.Spec
 	}
-	
+
 	if !equality.Semantic.DeepEqual(vNode.Annotations, pNode.Annotations) {
 		updated = newIfNil(updated, vNode)
 		updated.Annotations = pNode.Annotations
 	}
-	
+
 	if !equality.Semantic.DeepEqual(vNode.Labels, pNode.Labels) {
 		updated = newIfNil(updated, vNode)
 		updated.Labels = pNode.Labels
 	}
-	
+
 	return updated
 }
 
-func (s *syncer) translateUpdateStatus(ctx context.Context, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
+func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
 	if s.useFakeKubelets {
@@ -47,7 +49,7 @@ func (s *syncer) translateUpdateStatus(ctx context.Context, pNode *corev1.Node, 
 
 		// translate addresses
 		// create a new service for this node
-		nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, types.NamespacedName{Name: vNode.Name})
+		nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, types.NamespacedName{Name: vNode.Name})
 		if err != nil {
 			return nil, errors.Wrap(err, "get vNode IP")
 		}

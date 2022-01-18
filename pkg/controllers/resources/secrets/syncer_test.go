@@ -1,11 +1,11 @@
 package secrets
 
 import (
-	"context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,18 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
 
-func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	return &syncer{
-		virtualClient:    vClient,
-		localClient:      pClient,
-		includeIngresses: true,
-
-		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "secret"),
-		translator: translate.NewDefaultTranslator("test"),
-	}
+func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, syncer.Object) {
+	return generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+		return NewSyncer(ctx, false)
+	})
 }
 
 func TestSync(t *testing.T) {
@@ -45,8 +40,8 @@ func TestSync(t *testing.T) {
 			Name:      translate.PhysicalName(baseSecret.Name, baseSecret.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
-				translate.NameAnnotation: baseSecret.Name,
-				translate.NamespaceAnnotation: baseSecret.Namespace,
+				translator.NameAnnotation:      baseSecret.Name,
+				translator.NamespaceAnnotation: baseSecret.Namespace,
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseSecret.Namespace,
@@ -85,12 +80,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Secret"): {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Forward(ctx, baseSecret, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.(*secretSyncer).SyncDown(syncContext, baseSecret)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -104,12 +97,10 @@ func TestSync(t *testing.T) {
 					syncedSecret,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Forward(ctx, baseSecret, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.(*secretSyncer).SyncDown(syncContext, baseSecret)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -126,12 +117,10 @@ func TestSync(t *testing.T) {
 					updatedSyncedSecret,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, syncedSecret, updatedSecret, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.(*secretSyncer).Sync(syncContext, syncedSecret, updatedSecret)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -145,12 +134,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Secret"): {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, syncedSecret, updatedSecret, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.(*secretSyncer).Sync(syncContext, syncedSecret, updatedSecret)
+				assert.NilError(t, err)
 			},
 		},
 	})

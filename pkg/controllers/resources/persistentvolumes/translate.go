@@ -1,24 +1,20 @@
 package persistentvolumes
 
 import (
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vPv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
-	target, err := s.translator.Translate(vPv)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *persistentVolumeSyncer) translate(ctx *synccontext.SyncContext, vPv *corev1.PersistentVolume) *corev1.PersistentVolume {
 	// translate the persistent volume
-	pPV := target.(*corev1.PersistentVolume)
+	pPV := s.TranslateMetadata(vPv).(*corev1.PersistentVolume)
 	pPV.Spec.ClaimRef = nil
-	pPV.Spec.StorageClassName = translateStorageClass(s.targetNamespace, vPv.Spec.StorageClassName)
-	// TODO: translate the storage secrets
+	pPV.Spec.StorageClassName = translateStorageClass(ctx.TargetNamespace, vPv.Spec.StorageClassName)
 
-	return pPV, nil
+	// TODO: translate the storage secrets
+	return pPV
 }
 
 func translateStorageClass(physicalNamespace, vStorageClassName string) string {
@@ -28,7 +24,7 @@ func translateStorageClass(physicalNamespace, vStorageClassName string) string {
 	return translate.PhysicalNameClusterScoped(vStorageClassName, physicalNamespace)
 }
 
-func (s *syncer) translateBackwards(pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolume {
+func (s *persistentVolumeSyncer) translateBackwards(pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolume {
 	// build virtual persistent volume
 	vObj := pPv.DeepCopy()
 	vObj.ResourceVersion = ""
@@ -47,7 +43,7 @@ func (s *syncer) translateBackwards(pPv *corev1.PersistentVolume, vPvc *corev1.P
 	return vObj
 }
 
-func (s *syncer) translateUpdateBackwards(vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolume {
+func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncContext, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolume {
 	var updated *corev1.PersistentVolume
 
 	// build virtual persistent volume
@@ -60,7 +56,7 @@ func (s *syncer) translateUpdateBackwards(vPv *corev1.PersistentVolume, pPv *cor
 	}
 
 	// check storage class
-	if !translate.IsManagedCluster(s.targetNamespace, pPv) {
+	if !translate.IsManagedCluster(ctx.TargetNamespace, pPv) {
 		if !equality.Semantic.DeepEqual(vPv.Spec.StorageClassName, translatedSpec.StorageClassName) {
 			updated = newIfNil(updated, vPv)
 			updated.Spec.StorageClassName = translatedSpec.StorageClassName
@@ -76,7 +72,7 @@ func (s *syncer) translateUpdateBackwards(vPv *corev1.PersistentVolume, pPv *cor
 	return updated
 }
 
-func (s *syncer) translateUpdate(vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) *corev1.PersistentVolume {
+func (s *persistentVolumeSyncer) translateUpdate(ctx *synccontext.SyncContext, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) *corev1.PersistentVolume {
 	var updated *corev1.PersistentVolume
 
 	// TODO: translate the storage secrets
@@ -100,7 +96,7 @@ func (s *syncer) translateUpdate(vPv *corev1.PersistentVolume, pPv *corev1.Persi
 		updated.Spec.PersistentVolumeReclaimPolicy = vPv.Spec.PersistentVolumeReclaimPolicy
 	}
 
-	translatedStorageClassName := translateStorageClass(s.targetNamespace, vPv.Spec.StorageClassName)
+	translatedStorageClassName := translateStorageClass(ctx.TargetNamespace, vPv.Spec.StorageClassName)
 	if !equality.Semantic.DeepEqual(pPv.Spec.StorageClassName, translatedStorageClassName) {
 		updated = newIfNil(updated, pPv)
 		updated.Spec.StorageClassName = translatedStorageClassName
@@ -121,16 +117,11 @@ func (s *syncer) translateUpdate(vPv *corev1.PersistentVolume, pPv *corev1.Persi
 		updated.Spec.MountOptions = vPv.Spec.MountOptions
 	}
 
-	updatedAnnotations := s.translator.TranslateAnnotations(vPv, pPv)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pPv.Annotations) {
+	// check labels & annotations
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vPv, pPv)
+	if changed {
 		updated = newIfNil(updated, pPv)
 		updated.Annotations = updatedAnnotations
-	}
-
-	// check labels
-	updatedLabels := s.translator.TranslateLabels(vPv)
-	if !equality.Semantic.DeepEqual(updatedLabels, pPv.Labels) {
-		updated = newIfNil(updated, pPv)
 		updated.Labels = updatedLabels
 	}
 

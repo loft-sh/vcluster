@@ -1,7 +1,7 @@
 package pods
 
 import (
-	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -28,7 +28,7 @@ func ConfigNamesFromPod(pod *corev1.Pod) []string {
 			}
 		}
 	}
-	return translate.UniqueSlice(configMaps)
+	return translator.UniqueSlice(configMaps)
 }
 
 func SecretNamesFromPod(pod *corev1.Pod) []string {
@@ -46,7 +46,7 @@ func SecretNamesFromPod(pod *corev1.Pod) []string {
 		secrets = append(secrets, pod.Namespace+"/"+pod.Spec.ImagePullSecrets[i].Name)
 	}
 	secrets = append(secrets, SecretNamesFromVolumes(pod)...)
-	return translate.UniqueSlice(secrets)
+	return translator.UniqueSlice(secrets)
 }
 
 func ConfigNamesFromContainer(namespace string, container *corev1.Container) []string {

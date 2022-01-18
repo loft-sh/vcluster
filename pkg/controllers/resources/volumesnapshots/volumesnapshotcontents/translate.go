@@ -8,21 +8,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (s *syncer) translate(vVSC *volumesnapshotv1.VolumeSnapshotContent) (*volumesnapshotv1.VolumeSnapshotContent, error) {
-	target, err := s.translator.Translate(vVSC)
-	if err != nil {
-		return nil, err
-	}
-
-	pVSC := target.(*volumesnapshotv1.VolumeSnapshotContent)
+func (s *volumeSnapshotContentSyncer) translate(vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
+	pVSC := s.TranslateMetadata(vVSC).(*volumesnapshotv1.VolumeSnapshotContent)
 	pVSC.Spec.VolumeSnapshotRef = corev1.ObjectReference{
 		Namespace: s.targetNamespace,
 		Name:      translate.PhysicalName(vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace),
 	}
-	return pVSC, nil
+	return pVSC
 }
 
-func (s *syncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotContent, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshotContent {
+func (s *volumeSnapshotContentSyncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotContent, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshotContent {
 	// build virtual VolumeSnapshotContent object
 	vObj := pVSC.DeepCopy()
 	vObj.ResourceVersion = ""
@@ -39,7 +34,7 @@ func (s *syncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotContent
 	return vObj
 }
 
-func (s *syncer) translateUpdateBackwards(pVSC, vVSC *volumesnapshotv1.VolumeSnapshotContent, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshotContent {
+func (s *volumeSnapshotContentSyncer) translateUpdateBackwards(pVSC, vVSC *volumesnapshotv1.VolumeSnapshotContent, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshotContent {
 	var updated *volumesnapshotv1.VolumeSnapshotContent
 
 	// add a finalizer to ensure that we delete the physical VolumeSnapshotContent object when virtual is being deleted
@@ -61,7 +56,7 @@ func (s *syncer) translateUpdateBackwards(pVSC, vVSC *volumesnapshotv1.VolumeSna
 	return updated
 }
 
-func (s *syncer) translateUpdate(vVSC *volumesnapshotv1.VolumeSnapshotContent, pVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
+func (s *volumeSnapshotContentSyncer) translateUpdate(vVSC *volumesnapshotv1.VolumeSnapshotContent, pVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
 	var updated *volumesnapshotv1.VolumeSnapshotContent
 
 	if !equality.Semantic.DeepEqual(pVSC.Spec.DeletionPolicy, vVSC.Spec.DeletionPolicy) {
@@ -74,15 +69,10 @@ func (s *syncer) translateUpdate(vVSC *volumesnapshotv1.VolumeSnapshotContent, p
 		updated.Spec.VolumeSnapshotClassName = vVSC.Spec.VolumeSnapshotClassName
 	}
 
-	updatedAnnotations := s.translator.TranslateAnnotations(vVSC, pVSC)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pVSC.Annotations) {
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vVSC, pVSC)
+	if changed {
 		updated = newIfNil(updated, pVSC)
 		updated.Annotations = updatedAnnotations
-	}
-
-	updatedLabels := s.translator.TranslateLabels(vVSC)
-	if !equality.Semantic.DeepEqual(updatedLabels, pVSC.Labels) {
-		updated = newIfNil(updated, pVSC)
 		updated.Labels = updatedLabels
 	}
 

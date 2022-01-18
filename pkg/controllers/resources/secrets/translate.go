@@ -1,26 +1,20 @@
 package secrets
 
 import (
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(vObj *corev1.Secret) (*corev1.Secret, error) {
-	newObj, err := s.translator.Translate(vObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting metadata")
-	}
-
-	newSecret := newObj.(*corev1.Secret)
+func (s *secretSyncer) translate(vObj *corev1.Secret) *corev1.Secret {
+	newSecret := s.TranslateMetadata(vObj).(*corev1.Secret)
 	if newSecret.Type == corev1.SecretTypeServiceAccountToken {
 		newSecret.Type = corev1.SecretTypeOpaque
 	}
 
-	return newSecret, nil
+	return newSecret
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *corev1.Secret) *corev1.Secret {
+func (s *secretSyncer) translateUpdate(pObj, vObj *corev1.Secret) *corev1.Secret {
 	var updated *corev1.Secret
 
 	// check data
@@ -36,16 +30,10 @@ func (s *syncer) translateUpdate(pObj, vObj *corev1.Secret) *corev1.Secret {
 	}
 
 	// check annotations
-	updatedAnnotations := s.translator.TranslateAnnotations(vObj, pObj)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) {
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	if changed {
 		updated = newIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations
-	}
-
-	// check labels
-	updatedLabels := s.translator.TranslateLabels(vObj)
-	if !equality.Semantic.DeepEqual(updatedLabels, pObj.Labels) {
-		updated = newIfNil(updated, pObj)
 		updated.Labels = updatedLabels
 	}
 

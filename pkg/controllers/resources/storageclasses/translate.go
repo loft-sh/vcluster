@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *syncer) translate(pStorageClass *storagev1.StorageClass) *storagev1.StorageClass {
+func (s *storageClassSyncer) translate(pStorageClass *storagev1.StorageClass) *storagev1.StorageClass {
 	vObj := pStorageClass.DeepCopy()
 	vObj.ResourceVersion = ""
 	vObj.UID = ""
@@ -13,9 +13,9 @@ func (s *syncer) translate(pStorageClass *storagev1.StorageClass) *storagev1.Sto
 	return vObj
 }
 
-func (s *syncer) translateUpdate(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
+func (s *storageClassSyncer) translateUpdate(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
 	var updated *storagev1.StorageClass
-	
+
 	if !equality.Semantic.DeepEqual(vObj.ObjectMeta.Labels, pObj.ObjectMeta.Labels) {
 		updated = newIfNil(updated, vObj)
 		updated.Labels = pObj.Labels
@@ -60,7 +60,7 @@ func (s *syncer) translateUpdate(pObj, vObj *storagev1.StorageClass) *storagev1.
 		updated = newIfNil(updated, vObj)
 		updated.AllowedTopologies = pObj.AllowedTopologies
 	}
-	
+
 	return updated
 }
 

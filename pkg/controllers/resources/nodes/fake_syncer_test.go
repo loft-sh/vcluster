@@ -1,7 +1,8 @@
 package nodes
 
 import (
-	"context"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"gotest.tools/assert"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
@@ -9,11 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/resources/generic/testing"
-	"github.com/loft-sh/vcluster/pkg/util/locks"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
-
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -23,29 +20,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type fakeNodeServiceProvider struct{}
-
-func (f *fakeNodeServiceProvider) Start(ctx context.Context) {}
-func (f *fakeNodeServiceProvider) Lock()                     {}
-func (f *fakeNodeServiceProvider) Unlock()                   {}
-func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
-	return "127.0.0.1", nil
-}
-
-func newFakeFakeSyncer(ctx context.Context, lockFactory locks.LockFactory, vClient *testingutil.FakeIndexClient) (*fakeSyncer, error) {
-	err := vClient.IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+func newFakeFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *fakeNodeSyncer) {
+	// we need that index here as well otherwise we wouldn't find the related pod
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		return []string{pod.Spec.NodeName}
 	})
-	if err != nil {
-		return nil, err
-	}
+	assert.NilError(t, err)
 
-	return &fakeSyncer{
-		sharedNodesMutex:    lockFactory.GetLock("nodes-controller"),
-		nodeServiceProvider: &fakeNodeServiceProvider{},
-		virtualClient:       vClient,
-	}, nil
+	syncContext, object := generictesting.FakeStartSyncer(t, ctx, NewFakeSyncer)
+	return syncContext, object.(*fakeNodeSyncer)
 }
 
 func TestFakeSync(t *testing.T) {
@@ -144,7 +128,6 @@ func TestFakeSync(t *testing.T) {
 			Images: []corev1.ContainerImage{},
 		},
 	}
-	lockFactory := locks.NewDefaultLockFactory()
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
@@ -154,16 +137,10 @@ func TestFakeSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeFakeSyncer(ctx, lockFactory, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				_, err = syncer.Create(ctx, baseName, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeFakeSyncer(t, ctx)
+				_, err := syncer.FakeSyncUp(syncContext, baseName)
+				assert.NilError(t, err)
 			},
 			Compare: func(obj1 runtime.Object, obj2 runtime.Object) bool {
 				node1, ok1 := obj1.(*corev1.Node)
@@ -196,16 +173,11 @@ func TestFakeSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer, err := newFakeFakeSyncer(ctx, lockFactory, vClient)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeFakeSyncer(t, ctx)
 
-				_, err = syncer.Update(ctx, baseNode, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err := syncer.FakeSync(syncContext, baseNode)
+				assert.NilError(t, err)
 			},
 		},
 	})

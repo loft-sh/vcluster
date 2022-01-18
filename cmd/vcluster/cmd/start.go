@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/plugin"
+
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/apis"
@@ -116,6 +118,9 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().Int64Var(&options.LeaseDuration, "lease-duration", 60, "Lease duration of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RenewDeadline, "renew-deadline", 40, "Renew deadline of the leader election in seconds")
 	cmd.Flags().Int64Var(&options.RetryPeriod, "retry-period", 15, "Retry period of the leader election in seconds")
+
+	cmd.Flags().BoolVar(&options.DisablePlugins, "disable-plugins", false, "If enabled, vcluster will not load any plugins")
+	cmd.Flags().StringVar(&options.PluginListenAddress, "plugin-address", "localhost:10099", "The plugin address to listen to. If this is changed, you'll need to configure your plugins to connect to the updated port")
 
 	// Deprecated Flags
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
@@ -284,6 +289,22 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		return err
 	}
 
+	// start plugins
+	if !ctx.Options.DisablePlugins {
+		klog.Infof("Start Plugins Manager...")
+		go func() {
+			syncerConfig, err := createVClusterKubeConfig(ctx, &rawConfig)
+			if err != nil {
+				panic(err)
+			}
+
+			err = plugin.DefaultManager.Start(controllers.ToRegisterContext(ctx), syncerConfig)
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
+
 	if ctx.Options.LeaderElect {
 		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
 			return startControllers(ctx, &rawConfig, serverVersion)
@@ -313,16 +334,22 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		})
 	}()
 
-	// setup controller prerequisites
-	err := controllers.EnsurePrerequisites(ctx)
+	// instantiate controllers
+	syncers, err := controllers.Create(ctx)
 	if err != nil {
-		return errors.Wrap(err, "ensure prerequisites")
+		return errors.Wrap(err, "instantiate controllers")
 	}
 
-	// register the indices
-	err = controllers.RegisterIndices(ctx)
+	// execute controller initializers to setup prereqs, etc.
+	err = controllers.ExecuteInitializers(ctx, syncers)
 	if err != nil {
-		return errors.Wrap(err, "register controllers")
+		return errors.Wrap(err, "execute initializers")
+	}
+
+	// register indices
+	err = controllers.RegisterIndices(ctx, syncers)
+	if err != nil {
+		return err
 	}
 
 	// start the local manager
@@ -348,7 +375,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	// make sure owner is set if it is there
 	err = findOwner(ctx)
 	if err != nil {
-		klog.Errorf("Error finding vcluster pod owner: %v", err)
+		return errors.Wrap(err, "finding vcluster pod owner")
 	}
 
 	// make sure the kubernetes service is synced
@@ -362,16 +389,21 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		ctx.NodeServiceProvider.Start(ctx.Context)
 	}()
 
-	// register controllers
-	err = controllers.RegisterControllers(ctx)
-	if err != nil {
-		return err
-	}
-
 	// write the kube config to secret
 	err = writeKubeConfigToSecret(ctx, rawConfig)
 	if err != nil {
 		return err
+	}
+
+	// register controllers
+	err = controllers.RegisterControllers(ctx, syncers)
+	if err != nil {
+		return err
+	}
+
+	// set leader
+	if !ctx.Options.DisablePlugins {
+		plugin.DefaultManager.SetLeader(true)
 	}
 
 	return nil
@@ -480,7 +512,7 @@ func syncKubernetesService(ctx *context2.ControllerContext) error {
 	return nil
 }
 
-func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config) error {
+func createVClusterKubeConfig(ctx *context2.ControllerContext, config *api.Config) (*api.Config, error) {
 	config = config.DeepCopy()
 
 	// exchange kube config server & resolve certificate
@@ -489,7 +521,7 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		if config.Clusters[i].CertificateAuthorityData == nil && config.Clusters[i].CertificateAuthority != "" {
 			o, err := ioutil.ReadFile(config.Clusters[i].CertificateAuthority)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			config.Clusters[i].CertificateAuthority = ""
@@ -509,7 +541,7 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		if config.AuthInfos[i].ClientCertificateData == nil && config.AuthInfos[i].ClientCertificate != "" {
 			o, err := ioutil.ReadFile(config.AuthInfos[i].ClientCertificate)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			config.AuthInfos[i].ClientCertificate = ""
@@ -518,12 +550,21 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		if config.AuthInfos[i].ClientKeyData == nil && config.AuthInfos[i].ClientKey != "" {
 			o, err := ioutil.ReadFile(config.AuthInfos[i].ClientKey)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			config.AuthInfos[i].ClientKey = ""
 			config.AuthInfos[i].ClientKeyData = o
 		}
+	}
+
+	return config, nil
+}
+
+func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config) error {
+	config, err := createVClusterKubeConfig(ctx, config)
+	if err != nil {
+		return err
 	}
 
 	// check if we need to write the kubeconfig secrete to the default location as well

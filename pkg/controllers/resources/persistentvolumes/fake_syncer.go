@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/generic"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,49 +21,66 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterFakeSyncer(ctx *context2.ControllerContext) error {
-	return generic.RegisterFakeSyncerWithOptions(ctx, "fake-persistent-volumes", &fakeSyncer{
-		sharedMutex:   ctx.LockFactory.GetLock("persistent-volumes-controller"),
-		virtualClient: ctx.VirtualManager.GetClient(),
-	}, &generic.SyncerOptions{
-		ModifyController: func(builder *builder.Builder) *builder.Builder {
-			return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-				pvc, ok := object.(*corev1.PersistentVolumeClaim)
-				if !ok || pvc == nil {
-					return []reconcile.Request{}
-				}
-
-				return []reconcile.Request{
-					{
-						NamespacedName: types.NamespacedName{
-							Name: pvc.Spec.VolumeName,
-						},
-					},
-				}
-			}))
-		},
-	})
+func NewFakeSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	return &fakePersistentVolumeSyncer{
+		sharedMutex: ctx.LockFactory.GetLock("persistent-volumes-controller"),
+	}, nil
 }
 
-type fakeSyncer struct {
-	sharedMutex   sync.Locker
-	virtualClient client.Client
+type fakePersistentVolumeSyncer struct {
+	sharedMutex sync.Locker
 }
 
-func (r *fakeSyncer) New() client.Object {
+func (r *fakePersistentVolumeSyncer) Resource() client.Object {
 	return &corev1.PersistentVolume{}
 }
 
-func (r *fakeSyncer) ReconcileStart(ctx context.Context, req ctrl.Request) (bool, error) {
+func (r *fakePersistentVolumeSyncer) Name() string {
+	return "fake-persistentvolume"
+}
+
+var _ syncer.IndicesRegisterer = &fakePersistentVolumeSyncer{}
+
+func (r *fakePersistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+		pod := rawObj.(*corev1.PersistentVolumeClaim)
+		return []string{pod.Spec.VolumeName}
+	})
+}
+
+var _ syncer.ControllerModifier = &fakePersistentVolumeSyncer{}
+
+func (r *fakePersistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		pvc, ok := object.(*corev1.PersistentVolumeClaim)
+		if !ok || pvc == nil {
+			return []reconcile.Request{}
+		}
+
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name: pvc.Spec.VolumeName,
+				},
+			},
+		}
+	})), nil
+}
+
+var _ syncer.Starter = &fakePersistentVolumeSyncer{}
+
+func (r *fakePersistentVolumeSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	r.sharedMutex.Lock()
 	return false, nil
 }
 
-func (r *fakeSyncer) ReconcileEnd() {
+func (r *fakePersistentVolumeSyncer) ReconcileEnd() {
 	r.sharedMutex.Unlock()
 }
 
-func (r *fakeSyncer) Create(ctx context.Context, req types.NamespacedName, log loghelper.Logger) (ctrl.Result, error) {
+var _ syncer.FakeSyncer = &fakePersistentVolumeSyncer{}
+
+func (r *fakePersistentVolumeSyncer) FakeSyncUp(ctx *synccontext.SyncContext, req types.NamespacedName) (ctrl.Result, error) {
 	needed, err := r.pvNeeded(ctx, req.Name)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -73,19 +89,19 @@ func (r *fakeSyncer) Create(ctx context.Context, req types.NamespacedName, log l
 	}
 
 	pvcList := &corev1.PersistentVolumeClaimList{}
-	err = r.virtualClient.List(ctx, pvcList, client.MatchingFields{constants.IndexByAssigned: req.Name})
+	err = ctx.VirtualClient.List(ctx.Context, pvcList, client.MatchingFields{constants.IndexByAssigned: req.Name})
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if len(pvcList.Items) == 0 {
 		return ctrl.Result{}, nil
 	}
 
-	log.Infof("Create fake persistent volume for PVC %s/%s", pvcList.Items[0].Namespace, pvcList.Items[0].Name)
-	err = CreateFakePersistentVolume(ctx, r.virtualClient, req, &pvcList.Items[0])
+	ctx.Log.Infof("Create fake persistent volume for PVC %s/%s", pvcList.Items[0].Namespace, pvcList.Items[0].Name)
+	err = CreateFakePersistentVolume(ctx.Context, ctx.VirtualClient, req, &pvcList.Items[0])
 	return ctrl.Result{}, err
 }
 
-func (r *fakeSyncer) Update(ctx context.Context, vObj client.Object, log loghelper.Logger) (ctrl.Result, error) {
+func (r *fakePersistentVolumeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	persistentVolume, ok := vObj.(*corev1.PersistentVolume)
 	if !ok || persistentVolume == nil {
 		return ctrl.Result{}, fmt.Errorf("%+#v is not a persistent volume", vObj)
@@ -98,8 +114,8 @@ func (r *fakeSyncer) Update(ctx context.Context, vObj client.Object, log loghelp
 		return ctrl.Result{}, nil
 	}
 
-	log.Infof("Delete fake persistent volume %s", vObj.GetName())
-	err = r.virtualClient.Delete(ctx, vObj)
+	ctx.Log.Infof("Delete fake persistent volume %s", vObj.GetName())
+	err = ctx.VirtualClient.Delete(ctx.Context, vObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -113,7 +129,7 @@ func (r *fakeSyncer) Update(ctx context.Context, vObj client.Object, log loghelp
 	if len(pv.Finalizers) > 0 {
 		orig := pv.DeepCopy()
 		pv.Finalizers = []string{}
-		err = r.virtualClient.Patch(ctx, pv, client.MergeFrom(orig))
+		err = ctx.VirtualClient.Patch(ctx.Context, pv, client.MergeFrom(orig))
 		if err != nil && !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
@@ -122,9 +138,9 @@ func (r *fakeSyncer) Update(ctx context.Context, vObj client.Object, log loghelp
 	return ctrl.Result{}, nil
 }
 
-func (r *fakeSyncer) pvNeeded(ctx context.Context, pvName string) (bool, error) {
+func (r *fakePersistentVolumeSyncer) pvNeeded(ctx *synccontext.SyncContext, pvName string) (bool, error) {
 	pvcList := &corev1.PersistentVolumeClaimList{}
-	err := r.virtualClient.List(ctx, pvcList, client.MatchingFields{constants.IndexByAssigned: pvName})
+	err := ctx.VirtualClient.List(ctx.Context, pvcList, client.MatchingFields{constants.IndexByAssigned: pvName})
 	if err != nil {
 		return false, err
 	}

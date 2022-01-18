@@ -2,7 +2,6 @@ package coredns
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path"
@@ -15,7 +14,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/applier"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 const (
@@ -56,7 +54,7 @@ func ApplyManifest(inClusterConfig *rest.Config, serverVersion *version.Info) er
 	// write manifest into a file for easier debugging
 	_, _ = debugOutputFile.Write(*output)
 
-	return callApply(inClusterConfig, output)
+	return applier.ApplyManifest(inClusterConfig, output)
 }
 
 func prepareManifestOutput() (*os.File, error) {
@@ -104,19 +102,4 @@ func processManifestTemplate(vars map[string]interface{}) (*[]byte, error) {
 	}
 	output := buf.Bytes()
 	return &output, nil
-}
-
-func callApply(inClusterConfig *rest.Config, manifest *[]byte) error {
-	restMapper, err := apiutil.NewDynamicRESTMapper(inClusterConfig)
-	if err != nil {
-		return fmt.Errorf("unable to initialize NewDynamicRESTMapper")
-	}
-
-	a := applier.DirectApplier{}
-	opts := applier.ApplierOptions{
-		Manifest:   string(*manifest),
-		RESTConfig: inClusterConfig,
-		RESTMapper: restMapper,
-	}
-	return a.Apply(context.Background(), opts)
 }
