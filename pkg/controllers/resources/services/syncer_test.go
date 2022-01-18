@@ -1,14 +1,14 @@
 package services
 
 import (
-	"context"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"gotest.tools/assert"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,19 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-
-func newFakeSyncer(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	return &syncer{
-		serviceName:            "myservice",
-		currentNamespace:       "test",
-		currentNamespaceClient: pClient,
-		virtualClient:          vClient,
-		localClient:            pClient,
-
-		creator:    generic.NewGenericCreator(pClient, &testingutil.FakeEventRecorder{}, "service"),
-		translator: translate.NewDefaultTranslator("test"),
-	}
-}
 
 func TestSync(t *testing.T) {
 	vObjectMeta := metav1.ObjectMeta{
@@ -40,8 +27,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.PhysicalName("testservice", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      vObjectMeta.Name,
-			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translator.NameAnnotation:      vObjectMeta.Name,
+			translator.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
@@ -96,10 +83,10 @@ func TestSync(t *testing.T) {
 			Namespace:   pObjectMeta.Namespace,
 			ClusterName: pObjectMeta.ClusterName,
 			Annotations: map[string]string{
-				translate.NameAnnotation:               vObjectMeta.Name,
-				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translate.ManagedAnnotationsAnnotation: "a",
-				"a":                                    "b",
+				translator.NameAnnotation:               vObjectMeta.Name,
+				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translator.ManagedAnnotationsAnnotation: "a",
+				"a":                                     "b",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -206,12 +193,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Forward(ctx, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).SyncDown(syncCtx, baseService)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -224,12 +209,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {updatedForwardService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, createdByServerService, updateForwardService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdByServerService, updateForwardService)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -242,12 +225,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, createdService, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdService, baseService)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -260,30 +241,22 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				baseService := baseService.DeepCopy()
 				updateBackwardSpecService := updateBackwardSpecService.DeepCopy()
-				_, err := syncer.Update(ctx, updateBackwardSpecService, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecService, baseService)
+				assert.NilError(t, err)
 
-				err = vClient.Get(ctx, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = ctx.VirtualManager.GetClient().Get(ctx.Context, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
+				assert.NilError(t, err)
 
-				err = pClient.Get(ctx, types.NamespacedName{Namespace: updateBackwardSpecService.Namespace, Name: updateBackwardSpecService.Name}, updateBackwardSpecService)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = ctx.PhysicalManager.GetClient().Get(ctx.Context, types.NamespacedName{Namespace: updateBackwardSpecService.Namespace, Name: updateBackwardSpecService.Name}, updateBackwardSpecService)
+				assert.NilError(t, err)
 
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
-				_, err = syncer.Update(ctx, updateBackwardSpecService, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err = syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecService, baseService)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -296,30 +269,22 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecRecreateService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				baseService := baseService.DeepCopy()
 				updateBackwardSpecRecreateService := updateBackwardSpecRecreateService.DeepCopy()
-				_, err := syncer.Update(ctx, updateBackwardSpecRecreateService, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecRecreateService, baseService)
+				assert.NilError(t, err)
 
-				err = vClient.Get(ctx, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = ctx.VirtualManager.GetClient().Get(ctx.Context, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
+				assert.NilError(t, err)
 
-				err = pClient.Get(ctx, types.NamespacedName{Namespace: updateBackwardSpecRecreateService.Namespace, Name: updateBackwardSpecRecreateService.Name}, updateBackwardSpecRecreateService)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = ctx.PhysicalManager.GetClient().Get(ctx.Context, types.NamespacedName{Namespace: updateBackwardSpecRecreateService.Namespace, Name: updateBackwardSpecRecreateService.Name}, updateBackwardSpecRecreateService)
+				assert.NilError(t, err)
 
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
-				_, err = syncer.Update(ctx, updateBackwardSpecRecreateService, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+				_, err = syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecRecreateService, baseService)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -332,12 +297,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardStatusService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, updateBackwardStatusService, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardStatusService, baseService)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -350,12 +313,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(pClient, vClient)
-				_, err := syncer.Update(ctx, createdService, baseService, log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdService, baseService)
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -368,11 +329,9 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				err := SyncKubernetesService(ctx, vClient, pClient, "default", "kubernetes")
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -385,11 +344,9 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				err := SyncKubernetesService(ctx, vClient, pClient, "default", "kubernetes")
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -402,11 +359,9 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithClusterIPService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				err := SyncKubernetesService(ctx, vClient, pClient, "default", "kubernetes")
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -419,11 +374,9 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithPortsService.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				err := SyncKubernetesService(ctx, vClient, pClient, "default", "kubernetes")
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				assert.NilError(t, err)
 			},
 		},
 	})

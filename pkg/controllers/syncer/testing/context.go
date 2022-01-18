@@ -7,16 +7,28 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/locks"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"testing"
 )
 
-func FakeStartSyncer(object syncer.Object) error {
+func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func(ctx *synccontext.RegisterContext) (syncer.Object, error)) (*synccontext.SyncContext, syncer.Object) {
+	object, err := create(ctx)
+	assert.NilError(t, err)
 
+	// run register indices
+	registerer, ok := object.(syncer.IndicesRegisterer)
+	if ok {
+		err := registerer.RegisterIndices(ctx)
+		assert.NilError(t, err)
+	}
+
+	return synccontext.ConvertContext(ctx, object.Name()), object
 }
 
 func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {

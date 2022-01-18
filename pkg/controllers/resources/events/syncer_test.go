@@ -1,12 +1,11 @@
 package events
 
 import (
-	"context"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,26 +18,15 @@ import (
 
 var targetNamespace = "p-test"
 
-func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *backwardController {
-	err := vClient.IndexField(ctx, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *eventSyncer) {
+	// we need that index here as well otherwise we wouldn't find the related pod
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translate.ObjectPhysicalName(rawObj)}
 	})
-	if err != nil {
-		panic(err)
-	}
+	assert.NilError(t, err)
 
-	return &backwardController{
-		synced:          func() {},
-		targetNamespace: targetNamespace,
-
-		virtualClient: vClient,
-		virtualScheme: testingutil.NewScheme(),
-
-		localClient: pClient,
-		localScheme: testingutil.NewScheme(),
-
-		log: loghelper.New("events-test"),
-	}
+	syncContext, object := generictesting.FakeStartSyncer(t, ctx, New)
+	return syncContext, object.(*eventSyncer)
 }
 
 func TestSync(t *testing.T) {
@@ -112,15 +100,13 @@ func TestSync(t *testing.T) {
 					vEvent,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
+			Sync: func(registerContext *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, registerContext)
+				_, err := syncer.ReconcileStart(syncContext, ctrl.Request{NamespacedName: types.NamespacedName{
 					Namespace: pEvent.Namespace,
 					Name:      pEvent.Name,
 				}})
-				if err != nil {
-					t.Fatal(err)
-				}
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -139,15 +125,13 @@ func TestSync(t *testing.T) {
 					vEventUpdated,
 				},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
+			Sync: func(registerContext *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, registerContext)
+				_, err := syncer.ReconcileStart(syncContext, ctrl.Request{NamespacedName: types.NamespacedName{
 					Namespace: pEvent.Namespace,
 					Name:      pEvent.Name,
 				}})
-				if err != nil {
-					t.Fatal(err)
-				}
+				assert.NilError(t, err)
 			},
 		},
 	})

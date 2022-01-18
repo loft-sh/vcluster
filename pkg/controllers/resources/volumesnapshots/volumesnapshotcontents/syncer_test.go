@@ -1,15 +1,15 @@
 package volumesnapshotcontents
 
 import (
-	"context"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"gotest.tools/assert"
 	"testing"
 	"time"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,27 +20,19 @@ import (
 )
 
 const (
-	targetNamespace = "testns"
+	targetNamespace = "test"
 )
 
-func newFakeSyncer(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *syncer {
-	err := vClient.IndexField(ctx, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName(targetNamespace))
-	if err != nil {
-		panic(err)
-	}
-	err = vClient.IndexField(ctx, &volumesnapshotv1.VolumeSnapshot{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *volumeSnapshotContentSyncer) {
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName(targetNamespace))
+	assert.NilError(t, err)
+	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshot{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		return []string{translate.ObjectPhysicalName(rawObj)}
 	})
-	if err != nil {
-		panic(err)
-	}
+	assert.NilError(t, err)
 
-	return &syncer{
-		virtualClient:   vClient,
-		localClient:     pClient,
-		targetNamespace: targetNamespace,
-		translator:      translate.NewDefaultClusterTranslator(targetNamespace, NewVolumeSnapshotContentTranslator(targetNamespace)),
-	}
+	syncContext, object := generictesting.FakeStartSyncer(t, ctx, New)
+	return syncContext, object.(*volumeSnapshotContentSyncer)
 }
 
 func TestSync(t *testing.T) {
@@ -81,7 +73,7 @@ func TestSync(t *testing.T) {
 		Name:            translate.PhysicalNameClusterScoped(vPreProvisioned.Name, targetNamespace),
 		ResourceVersion: "12345",
 		Annotations: map[string]string{
-			translate.NameAnnotation: vObjectMeta.Name,
+			translator.NameAnnotation: vObjectMeta.Name,
 		},
 	}
 	pPreProvisioned := &volumesnapshotv1.VolumeSnapshotContent{
@@ -179,12 +171,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDynamic.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Backward(ctx, pDynamic.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.SyncUp(syncCtx, pDynamic.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -197,12 +187,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pPreProvisioned.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Forward(ctx, vPreProvisioned.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.SyncDown(syncCtx, vPreProvisioned.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -215,12 +203,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDynamic.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, pDynamic.DeepCopy(), vDynamic.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, pDynamic.DeepCopy(), vDynamic.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -233,12 +219,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDynamic.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, pDynamic.DeepCopy(), vInvalidMutation.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, pDynamic.DeepCopy(), vInvalidMutation.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -251,12 +235,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pWithStatus.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, pWithStatus.DeepCopy(), vWithGCFinalizer.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, pWithStatus.DeepCopy(), vWithGCFinalizer.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -269,12 +251,10 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pModifiedDeletionPolicy.DeepCopy()},
 			},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, pModifiedDeletionPolicy.DeepCopy(), vModifiedDeletionPolicy.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, pModifiedDeletionPolicy.DeepCopy(), vModifiedDeletionPolicy.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -286,12 +266,10 @@ func TestSync(t *testing.T) {
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {}},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, pPreProvisioned.DeepCopy(), vDeleting.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, pPreProvisioned.DeepCopy(), vDeleting.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -303,12 +281,10 @@ func TestSync(t *testing.T) {
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {}},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Forward(ctx, vDeletingWithGCFinalizer.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.SyncDown(syncCtx, vDeletingWithGCFinalizer.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -320,12 +296,10 @@ func TestSync(t *testing.T) {
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDeletingWithOneFinalizer.DeepCopy()}},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, pDeletingWithOneFinalizer.DeepCopy(), vDeletingWithMoreFinalizers.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, pDeletingWithOneFinalizer.DeepCopy(), vDeletingWithMoreFinalizers.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 		{
@@ -337,12 +311,10 @@ func TestSync(t *testing.T) {
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDeletingWithStatus.DeepCopy()}},
-			Sync: func(ctx context.Context, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient, scheme *runtime.Scheme, log loghelper.Logger) {
-				syncer := newFakeSyncer(ctx, pClient, vClient)
-				_, err := syncer.Update(ctx, pDeletingWithStatus.DeepCopy(), vDeletingWithOneFinalizer.DeepCopy(), log)
-				if err != nil {
-					t.Fatal(err)
-				}
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, pDeletingWithStatus.DeepCopy(), vDeletingWithOneFinalizer.DeepCopy())
+				assert.NilError(t, err)
 			},
 		},
 	})
