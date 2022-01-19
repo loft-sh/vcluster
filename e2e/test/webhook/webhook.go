@@ -791,6 +791,6 @@ func testAttachingPodWebhook(f *framework.Framework, ns string) {
 	_, err = framework.NewKubectlCommand(f.VclusterKubeconfigFile.Name(), ns, "attach", fmt.Sprintf("--namespace=%v", ns), pod.Name, "-i", "-c=container1").WithTimeout(timer.C).Exec()
 	framework.ExpectError(err, "'kubectl attach' the pod, should be denied by the webhook")
 	if e, a := "attaching to pod 'to-be-attached-pod' is not allowed", err.Error(); !strings.Contains(a, e) {
-		f.Log.Failf("unexpected 'kubectl attach' error message. expected to contain %q, got %q", e, a)
+		framework.Failf("unexpected 'kubectl attach' error message. expected to contain %q, got %q", e, a)
 	}
 }

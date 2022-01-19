@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
@@ -282,7 +283,7 @@ func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interfa
 	)
 	authInfoResolverWrapper := func(resolver webhook.AuthenticationInfoResolver) webhook.AuthenticationInfoResolver {
 		return &kubeConfigProvider{
-			kubeConfig: vConfig,
+			vConfig: vConfig,
 		}
 	}
 
@@ -310,15 +311,31 @@ func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interfa
 }
 
 type kubeConfigProvider struct {
-	kubeConfig *rest.Config
+	vConfig *rest.Config
 }
 
 func (c *kubeConfigProvider) ClientConfigFor(hostPort string) (*rest.Config, error) {
-	return c.kubeConfig, nil
+	return c.clientConfig(hostPort)
 }
 
 func (c *kubeConfigProvider) ClientConfigForService(serviceName, serviceNamespace string, servicePort int) (*rest.Config, error) {
-	return c.kubeConfig, nil
+	return c.clientConfig(net.JoinHostPort(serviceName+"."+serviceNamespace+".svc", strconv.Itoa(servicePort)))
+}
+
+func (c *kubeConfigProvider) clientConfig(target string) (*rest.Config, error) {
+	if target == "kubernetes.default.svc:443" {
+		return setGlobalDefaults(c.vConfig), nil
+	}
+
+	// anonymous
+	return setGlobalDefaults(&rest.Config{}), nil
+}
+
+func setGlobalDefaults(config *rest.Config) *rest.Config {
+	config.UserAgent = "kube-apiserver-admission"
+	config.Timeout = 30 * time.Second
+
+	return config
 }
 
 type emptyConfigProvider struct{}

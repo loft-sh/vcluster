@@ -134,8 +134,8 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		Address:    "127.0.0.1", // setting only ipv4 address may reduce a number of errors, see comments on kubernetes#74551
 	}
 	go func() {
-		//TODO: perhaps forward stdout/stder to debug level logs?
-		err = connectCmd.Connect(name)
+		//TODO: perhaps forward stdout/stderr to debug level logs?
+		err = connectCmd.Connect(name, nil)
 		if err != nil {
 			l.Fatalf("failed to connect to the vcluster: %v", err)
 		}

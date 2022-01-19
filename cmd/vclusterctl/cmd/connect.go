@@ -9,6 +9,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"math/rand"
+	"net"
 	"os"
 	"os/exec"
 	"sort"
@@ -94,7 +95,7 @@ vcluster connect test -n test -- kubectl get ns
 	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	cobraCmd.Flags().StringVar(&cmd.PodName, "pod", "", "The pod to connect to")
 	cobraCmd.Flags().StringVar(&cmd.Server, "server", "", "The server to connect to")
-	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", randomInt(), "The local port to forward the virtual cluster to")
+	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 0, "The local port to forward the virtual cluster to. If empty, vcluster will use a random unused port")
 	cobraCmd.Flags().StringVar(&cmd.Address, "address", "", "The local address to start port forwarding under")
 	cobraCmd.Flags().StringVar(&cmd.ServiceAccount, "service-account", "", "If specified, vcluster will create a service account token to connect to the virtual cluster instead of using the default client cert / key. Service account must exist and can be used as namespace/name.")
 	cobraCmd.Flags().StringVar(&cmd.ServiceAccountClusterRole, "cluster-role", "", "If specified, vcluster will create the service account if it does not exist and also add a cluster role binding for the given cluster role to it. Requires --service-account to be set")
@@ -113,12 +114,45 @@ func (cmd *ConnectCmd) Run(args []string) error {
 	return cmd.Connect(vclusterName, args[1:])
 }
 
-func randomInt() int {
+func randomPort() int {
 	rand.Seed(time.Now().UnixNano())
-	return 10000 + rand.Intn(2000)
+	for i := 0; i < 10; i++ {
+		port := 10000 + rand.Intn(3000)
+		s, err := checkPort(port)
+		if s && err == nil {
+			return port
+		}
+	}
+
+	// just try another port
+	return 10000 + rand.Intn(3000)
+}
+
+func checkPort(port int) (status bool, err error) {
+	// Concatenate a colon and the port
+	host := "localhost:" + strconv.Itoa(port)
+
+	// Try to create a server with the port
+	server, err := net.Listen("tcp", host)
+
+	// if it fails then the port is likely taken
+	if err != nil {
+		return false, err
+	}
+
+	// close the server
+	_ = server.Close()
+
+	// we successfully used and closed the port
+	// so it's now available to be used again
+	return true, nil
 }
 
 func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
+	if cmd.LocalPort == 0 {
+		cmd.LocalPort = randomPort()
+	}
+
 	if cmd.ServiceAccountClusterRole != "" && cmd.ServiceAccount == "" {
 		return fmt.Errorf("expected --service-account to be defined as well")
 	}
