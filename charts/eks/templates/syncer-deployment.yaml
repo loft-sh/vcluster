@@ -1,0 +1,192 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- if .Values.syncer.labels }}
+{{ toYaml .Values.syncer.labels | indent 4 }}
+{{- end }}
+  {{- if .Values.syncer.annotations }}
+  annotations:
+{{ toYaml .Values.syncer.annotations | indent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.syncer.replicas }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      {{- if (eq (int .Values.syncer.replicas) 1) }}
+      maxUnavailable: 0
+      {{- else }}
+      maxUnavailable: 1
+      {{- end }}
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: vcluster
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: vcluster
+        release: {{ .Release.Name }}
+    spec:
+      terminationGracePeriodSeconds: 10
+      {{- if .Values.syncer.affinity }}
+      affinity:
+{{ toYaml .Values.syncer.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.syncer.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{ toYaml .Values.syncer.topologySpreadConstraints | indent 8 }}
+      {{- end }}
+      nodeSelector:
+{{ toYaml .Values.syncer.nodeSelector | indent 8 }}
+      affinity:
+{{ toYaml .Values.syncer.affinity | indent 8 }}
+      tolerations:
+{{ toYaml .Values.syncer.tolerations | indent 8 }}
+      {{- if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- else }}
+      serviceAccountName: vc-{{ .Release.Name }}
+      {{- end }}
+      volumes:
+        - name: certs
+          secret:
+            secretName: {{ .Release.Name }}-certs
+      {{- if .Values.syncer.volumes }}
+{{ toYaml .Values.syncer.volumes | indent 8 }}
+      {{- end }}
+      containers:
+      - name: syncer
+        {{- if .Values.syncer.image }}
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
+        {{- else }}
+        image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
+        {{- if .Values.syncer.workingDir }}
+        workingDir: {{ .Values.syncer.workingDir }}
+        {{- end }}
+        {{- if .Values.syncer.command }}
+        command:
+        {{- range $f := .Values.syncer.command }}
+        - {{ $f | quote }}
+        {{- end }}
+        {{- end }}
+        {{- if not .Values.syncer.noArgs }}
+        args:
+          - --name={{ .Release.Name }}
+          - --request-header-ca-cert=/pki/ca.crt
+          - --client-ca-cert=/pki/ca.crt
+          - --server-ca-cert=/pki/ca.crt
+          - --server-ca-key=/pki/ca.key
+          - --kube-config=/pki/admin.conf
+          {{- if .Values.defaultImageRegistry }}
+          - --default-image-registry={{ .Values.defaultImageRegistry }}
+          {{- end }}
+          {{- if .Values.enableHA }}
+          - --leader-elect=true
+          {{- else }}
+          - --leader-elect=false
+          {{- end }}
+          {{- if .Values.ingress.enabled }}
+          - --tls-san={{ .Values.ingress.host }}
+          {{- end }}
+          {{- range $f := .Values.syncer.extraArgs }}
+          - {{ $f | quote }}
+          {{- end }}
+        {{- else }}
+        args:
+{{ toYaml .Values.syncer.extraArgs | indent 10 }}
+        {{- end }}
+        {{- if .Values.syncer.livenessProbe }}
+        {{- if .Values.syncer.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTPS
+          failureThreshold: 10
+          initialDelaySeconds: 60
+          periodSeconds: 2
+        {{- end }}
+        {{- end }}
+        {{- if .Values.syncer.readinessProbe }}
+        {{- if .Values.syncer.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8443
+            scheme: HTTPS
+          failureThreshold: 30
+          periodSeconds: 2
+        {{- end }}
+        {{- end }}
+        securityContext:
+{{ toYaml .Values.syncer.securityContext | indent 10 }}
+        env:
+{{ toYaml .Values.syncer.env | indent 10 }}
+        volumeMounts:
+{{ toYaml .Values.syncer.volumeMounts | indent 10 }}
+        resources:
+{{ toYaml .Values.syncer.resources | indent 10 }}
+      {{- range $key, $container := .Values.plugin }}
+      - image: {{ $.Values.defaultImageRegistry }}{{ $container.image }}
+        {{- if $container.name }}
+        name: {{ $container.name | quote }}
+        {{- else }}
+        name: {{ $key | quote }}
+        {{- end }}
+        {{- if $container.imagePullPolicy }}
+        imagePullPolicy: {{ $container.imagePullPolicy }}
+        {{- end }}
+        {{- if $container.workingDir }}
+        workingDir: {{ $container.workingDir }}
+        {{- end }}
+        {{- if $container.command }}
+        command:
+          {{- range $commandIndex, $command := $container.command }}
+          - {{ $command | quote }}
+          {{- end }}
+        {{- end }}
+        {{- if $container.args }}
+        args:
+          {{- range $argIndex, $arg := $container.args }}
+          - {{ $arg | quote }}
+          {{- end }}
+        {{- end }}
+        {{- if $container.terminationMessagePath }}
+        terminationMessagePath: {{ $container.terminationMessagePath }}
+        {{- end }}
+        {{- if $container.terminationMessagePolicy }}
+        terminationMessagePolicy: {{ $container.terminationMessagePolicy }}
+        {{- end }}
+        env:
+{{ toYaml $container.env | indent 10 }}
+        envFrom:
+{{ toYaml $container.envFrom | indent 10 }}
+        securityContext:
+{{ toYaml $container.securityContext | indent 10 }}
+        lifecycle:
+{{ toYaml $container.lifecycle | indent 10 }}
+        livenessProbe:
+{{ toYaml $container.livenessProbe | indent 10 }}
+        readinessProbe:
+{{ toYaml $container.readinessProbe | indent 10 }}
+        startupProbe:
+{{ toYaml $container.startupProbe | indent 10 }}
+        volumeDevices:
+{{ toYaml $container.volumeDevices | indent 10 }}
+        volumeMounts:
+{{ toYaml $container.volumeMounts | indent 10 }}
+        {{- if $container.resources }}
+        resources:
+{{ toYaml $container.resources | indent 10 }}
+        {{- end }}
+        {{- end }}

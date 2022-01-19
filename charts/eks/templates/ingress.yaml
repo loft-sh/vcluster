@@ -1,0 +1,26 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: {{ .Values.ingress.apiVersion }}
+kind: Ingress
+metadata:
+  {{- if .Values.ingress.annotations }}
+  annotations:
+  {{- toYaml .Values.ingress.annotations | nindent 4 }}
+  {{- end }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- if .Values.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressClassName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - backend:
+              service:
+                name: {{ .Release.Name }}
+                port:
+                  name: https
+            path: /
+            pathType: {{ .Values.ingress.pathType }}
+{{- end }}

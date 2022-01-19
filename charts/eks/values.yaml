@@ -1,0 +1,178 @@
+# Make sure the service-cidr is the exact service cidr of the host cluster.
+# If this does not match, you won't be able to create services within the vcluster. You can find out
+# the service cidr of the host cluster by creating a service with a not allowed ClusterIP in the host cluster.
+# This will yield an error message in the form of: 
+# The Service "faulty-service" is invalid: spec.clusterIP: Invalid value: "1.1.1.1": provided IP is not in the valid range. The range of valid IPs is 10.96.0.0/12
+serviceCIDR: "10.96.0.0/12"
+
+# DefaultImageRegistry will be prepended to all deployed vcluster images, such as the vcluster pod, coredns etc.. Deployed
+# images within the vcluster will not be rewritten.
+defaultImageRegistry: ""
+
+# If the control plane is deployed in high availability mode
+# Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
+enableHA: false
+
+# Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
+plugin: {}
+# Manually configure a plugin called test
+# test:
+#   image: ...
+#   env: ...
+#   rbac:
+#     clusterRole:
+#       extraRules: ...
+#     role:
+#       extraRules: ...
+
+# Syncer configuration
+syncer:
+  # Image to use for the syncer
+  # image: loftsh/vcluster
+  extraArgs: []
+  volumeMounts:
+    - mountPath: /pki
+      name: certs
+      readOnly: true
+  env: []
+  livenessProbe:
+    enabled: true
+  readinessProbe:
+    enabled: true
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # Extra volumes 
+  volumes: []
+  # The amount of replicas to run the deployment with
+  replicas: 1
+  # NodeSelector used to schedule the syncer
+  nodeSelector: {}
+  # Affinity to apply to the syncer deployment
+  affinity: {}
+  # Tolerations to apply to the syncer deployment
+  tolerations: []
+  # Extra Labels for the syncer deployment
+  labels: {}
+  # Extra Annotations for the syncer deployment
+  annotations: {}
+
+# Etcd settings
+etcd:
+  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.4.16-eks-1-21-8
+  # The amount of replicas to run 
+  replicas: 1
+  # NodeSelector used
+  nodeSelector: {}
+  # Affinity to apply
+  affinity: {}
+  # Tolerations to apply
+  tolerations: []
+  # Extra Labels 
+  labels: {}
+  # Extra Annotations
+  annotations: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 100Mi
+  # Storage settings for the etcd
+  storage:
+    # If this is disabled, vcluster will use an emptyDir instead
+    # of a PersistentVolumeClaim
+    persistence: true
+    # Size of the persistent volume claim
+    size: 5Gi
+    # Optional StorageClass used for the pvc
+    # if empty default StorageClass defined in your host cluster will be used
+    #className:
+    
+# Kubernetes Controller Manager settings
+controller:
+  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.21.5-eks-1-21-8
+  # The amount of replicas to run the deployment with
+  replicas: 1
+  # NodeSelector used 
+  nodeSelector: {}
+  # Affinity to apply 
+  affinity: {}
+  # Tolerations to apply 
+  tolerations: []
+  # Extra Labels 
+  labels: {}
+  # Extra Annotations
+  annotations: {}
+  resources:
+    requests:
+      cpu: 200m
+
+# Kubernetes API Server settings
+api:
+  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.21.5-eks-1-21-8
+  extraArgs: []
+  # The amount of replicas to run the deployment with
+  replicas: 1
+  # NodeSelector used to schedule the syncer
+  nodeSelector: {}
+  # Affinity to apply to the syncer deployment
+  affinity: {}
+  # Tolerations to apply to the syncer deployment
+  tolerations: []
+  # Extra Labels for the syncer deployment
+  labels: {}
+  # Extra Annotations for the syncer deployment
+  annotations: {}
+  resources:
+    requests:
+      cpu: 200m
+  
+# Service account that should be used by the vcluster
+serviceAccount:
+  create: true
+  # Optional name of the service account to use
+  # name: default
+
+# Roles & ClusterRoles for the vcluster
+rbac:
+  clusterRole:
+    # Enable this to let the vcluster sync
+    # real nodes, storage classes and priority classes
+    create: false
+  role:
+    # This is required for basic functionality of vcluster
+    create: true
+    # Extended role permissions are required for some optional features, e.g. Networkpolicy sync
+    extended: false
+
+# Service configurations
+service:
+  type: ClusterIP
+  
+# PreInstall hook configuration
+preInstall:
+  enabled: true
+
+# Configure the ingress resource that allows you to access the vcluster
+ingress:
+  # Enable ingress record generation
+  enabled: false
+  # Ingress path type
+  pathType: ImplementationSpecific
+  apiVersion: networking.k8s.io/v1
+  ingressClassName: ""
+  host: vcluster.local
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+# Set "enable" to true when running vcluster in an OpenShift host
+# This will add an extra rule to the deployed role binding in order 
+# to manage service endpoints
+openshift:
+  enable: false
+  
