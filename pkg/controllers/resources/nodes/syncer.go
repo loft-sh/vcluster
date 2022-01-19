@@ -199,7 +199,7 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 		return false, err
 	}
 
-	return len(podList.Items) > 0, nil
+	return len(filterOutDaemonSets(podList)) > 0, nil
 }
 
 var _ syncer.Starter = &nodeSyncer{}
