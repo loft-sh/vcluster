@@ -62,6 +62,14 @@ module.exports = {
       ],
     },
     {
+      type: "category",
+      label: "Plugins",
+      collapsed: false,
+      items: [
+          'plugins/overview',
+      ]
+    },
+    {
       type: 'doc',
       id: 'troubleshooting',
     },
