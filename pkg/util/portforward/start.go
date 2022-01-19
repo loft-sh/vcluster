@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"io"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -11,18 +12,17 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport/spdy"
 	"net/http"
-	"os"
 	"time"
 )
 
-func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace string, localPort, remotePort string, interrupt chan struct{}, log log.Logger) error {
+func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace string, localPort, remotePort string, interrupt chan struct{}, stdout io.Writer, stderr io.Writer, log log.Logger) error {
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
 	// restart port forwarding
-	stopChan, err := StartPortForwarding(config, kubeClient, address, pod, namespace, localPort, remotePort, log)
+	stopChan, err := StartPortForwarding(config, kubeClient, address, pod, namespace, localPort, remotePort, stdout, stderr, log)
 	if err != nil {
 		return fmt.Errorf("error starting port forwarding: %v", err)
 	}
@@ -33,7 +33,7 @@ func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace
 			close(stopChan)
 			return nil
 		case <-stopChan:
-			log.Info("Restart port forwarding")
+			log.Info("Restarting port forwarding")
 
 			// wait for loft pod to start
 			err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
@@ -54,7 +54,7 @@ func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace
 			}
 
 			// restart port forwarding
-			stopChan, err = StartPortForwarding(config, kubeClient, address, pod, namespace, localPort, remotePort, log)
+			stopChan, err = StartPortForwarding(config, kubeClient, address, pod, namespace, localPort, remotePort, stdout, stderr, log)
 			if err != nil {
 				log.Warnf("error starting port forwarding: %v", err)
 				continue
@@ -65,8 +65,7 @@ func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace
 	}
 }
 
-func StartPortForwarding(config *rest.Config, client kubernetes.Interface, address, pod, namespace, localPort, remotePort string, log log.Logger) (chan struct{}, error) {
-	log.Info("Starting port-forwarding at " + localPort + ":" + remotePort)
+func StartPortForwarding(config *rest.Config, client kubernetes.Interface, address, pod, namespace, localPort, remotePort string, stdout io.Writer, stderr io.Writer, log log.Logger) (chan struct{}, error) {
 	execRequest := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod).
@@ -86,7 +85,7 @@ func StartPortForwarding(config *rest.Config, client kubernetes.Interface, addre
 	errChan := make(chan error)
 	readyChan := make(chan struct{})
 	stopChan := make(chan struct{})
-	forwarder, err := NewOnAddresses(dialer, []string{address}, []string{localPort + ":" + remotePort}, stopChan, readyChan, errChan, os.Stdout, os.Stderr)
+	forwarder, err := NewOnAddresses(dialer, []string{address}, []string{localPort + ":" + remotePort}, stopChan, readyChan, errChan, stdout, stderr)
 	if err != nil {
 		return nil, err
 	}

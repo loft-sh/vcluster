@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"io"
 	"io/ioutil"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"math/rand"
+	"net"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,9 +76,12 @@ Connect to a virtual cluster
 
 Example:
 vcluster connect test --namespace test
+# Open a new bash with the vcluster KUBECONFIG defined
+vcluster connect test -n test -- bash 
+vcluster connect test -n test -- kubectl get ns
 #######################################################
 	`,
-		Args: cobra.MaximumNArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
@@ -88,7 +95,7 @@ vcluster connect test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	cobraCmd.Flags().StringVar(&cmd.PodName, "pod", "", "The pod to connect to")
 	cobraCmd.Flags().StringVar(&cmd.Server, "server", "", "The server to connect to")
-	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 8443, "The local port to forward the virtual cluster to")
+	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 0, "The local port to forward the virtual cluster to. If empty, vcluster will use a random unused port")
 	cobraCmd.Flags().StringVar(&cmd.Address, "address", "", "The local address to start port forwarding under")
 	cobraCmd.Flags().StringVar(&cmd.ServiceAccount, "service-account", "", "If specified, vcluster will create a service account token to connect to the virtual cluster instead of using the default client cert / key. Service account must exist and can be used as namespace/name.")
 	cobraCmd.Flags().StringVar(&cmd.ServiceAccountClusterRole, "cluster-role", "", "If specified, vcluster will create the service account if it does not exist and also add a cluster role binding for the given cluster role to it. Requires --service-account to be set")
@@ -104,10 +111,48 @@ func (cmd *ConnectCmd) Run(args []string) error {
 		vclusterName = args[0]
 	}
 
-	return cmd.Connect(vclusterName)
+	return cmd.Connect(vclusterName, args[1:])
 }
 
-func (cmd *ConnectCmd) Connect(vclusterName string) error {
+func randomPort() int {
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < 10; i++ {
+		port := 10000 + rand.Intn(3000)
+		s, err := checkPort(port)
+		if s && err == nil {
+			return port
+		}
+	}
+
+	// just try another port
+	return 10000 + rand.Intn(3000)
+}
+
+func checkPort(port int) (status bool, err error) {
+	// Concatenate a colon and the port
+	host := "localhost:" + strconv.Itoa(port)
+
+	// Try to create a server with the port
+	server, err := net.Listen("tcp", host)
+
+	// if it fails then the port is likely taken
+	if err != nil {
+		return false, err
+	}
+
+	// close the server
+	_ = server.Close()
+
+	// we successfully used and closed the port
+	// so it's now available to be used again
+	return true, nil
+}
+
+func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
+	if cmd.LocalPort == 0 {
+		cmd.LocalPort = randomPort()
+	}
+
 	if cmd.ServiceAccountClusterRole != "" && cmd.ServiceAccount == "" {
 		return fmt.Errorf("expected --service-account to be defined as well")
 	}
@@ -138,14 +183,16 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 
 	podName := cmd.PodName
 	if podName == "" {
-		err = wait.PollImmediate(time.Second, time.Second*10, func() (done bool, err error) {
+		waitErr := wait.PollImmediate(time.Second, time.Second*6, func() (bool, error) {
 			// get vcluster pod name
-			pods, err := kubeClient.CoreV1().Pods(cmd.Namespace).List(context.Background(), metav1.ListOptions{
+			var pods *corev1.PodList
+			pods, err = kubeClient.CoreV1().Pods(cmd.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: "app=vcluster,release=" + vclusterName,
 			})
 			if err != nil {
 				return false, err
 			} else if len(pods.Items) == 0 {
+				err = fmt.Errorf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
 				return false, nil
 			}
 
@@ -154,14 +201,15 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 				return pods.Items[i].CreationTimestamp.Unix() > pods.Items[j].CreationTimestamp.Unix()
 			})
 			if pods.Items[0].DeletionTimestamp != nil {
+				err = fmt.Errorf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
 				return false, nil
 			}
 
 			podName = pods.Items[0].Name
 			return true, nil
 		})
-		if err != nil {
-			return errors.Wrap(err, "finding vcluster pod")
+		if waitErr != nil {
+			return fmt.Errorf("finding vcluster pod: %v - %v", waitErr, err)
 		}
 	}
 
@@ -177,7 +225,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 	}
 
 	// check if the vcluster is exposed
-	if vclusterName != "" && cmd.Server == "" {
+	if vclusterName != "" && cmd.Server == "" && len(command) == 0 {
 		printedWaiting := false
 		err = wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
 			service, err := kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), vclusterName, metav1.GetOptions{})
@@ -246,19 +294,31 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 		}
 	}
 
-	// we want to use a service account token in the kube config
+	// start port forwarding
 	var (
 		interruptChan chan struct{}
 		errorChan     chan error
 	)
-	if cmd.ServiceAccount != "" {
+	if cmd.ServiceAccount != "" || cmd.Server == "" || len(command) > 0 {
 		interruptChan = make(chan struct{})
 		errorChan = make(chan error)
-		go func() {
-			errorChan <- portforward.StartPortForwardingWithRestart(restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, interruptChan, cmd.Log)
-		}()
 
-		token, err := cmd.createServiceAccountToken(*kubeConfig.DeepCopy())
+		// silence port-forwarding if a command is used
+		stdout := io.Writer(os.Stdout)
+		stderr := io.Writer(os.Stderr)
+		if len(command) > 0 {
+			stdout = ioutil.Discard
+			stderr = ioutil.Discard
+		}
+
+		go func() {
+			errorChan <- portforward.StartPortForwardingWithRestart(restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, interruptChan, stdout, stderr, cmd.Log)
+		}()
+	}
+
+	// we want to use a service account token in the kube config
+	if cmd.ServiceAccount != "" {
+		token, err := cmd.createServiceAccountToken(*kubeConfig)
 		if err != nil {
 			return err
 		}
@@ -273,6 +333,12 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 		}
 	}
 
+	// check if we should execute command
+	if len(command) > 0 {
+		return cmd.executeCommand(*kubeConfig, command, interruptChan, errorChan)
+	}
+
+	// write kube config to buffer
 	out, err := clientcmd.Write(*kubeConfig)
 	if err != nil {
 		return err
@@ -313,37 +379,133 @@ func (cmd *ConnectCmd) Connect(vclusterName string) error {
 			return errors.Wrap(err, "write kube config")
 		}
 
+		cmd.Log.Infof("Use `vcluster connect %s -n %s -- kubectl get ns` to execute a command directly within this terminal", vclusterName, cmd.Namespace)
 		cmd.Log.Donef("Virtual cluster kube config written to: %s. You can access the cluster via `kubectl --kubeconfig %s get namespaces`", cmd.KubeConfig, cmd.KubeConfig)
 	}
 
 	if cmd.Server != "" {
-		if interruptChan != nil {
-			close(interruptChan)
-			return <-errorChan
+		if interruptChan == nil {
+			return nil
 		}
 
-		return nil
-	} else if errorChan != nil {
+		// Stop port-forwarding here
+		close(interruptChan)
 		return <-errorChan
 	}
 
-	return portforward.StartPortForwardingWithRestart(restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, nil, cmd.Log)
+	return <-errorChan
 }
 
-func (cmd *ConnectCmd) createServiceAccountToken(vclusterKubeConfig api.Config) (string, error) {
-	// wait until we can access the virtual cluster
-	for k := range vclusterKubeConfig.Clusters {
-		vclusterKubeConfig.Clusters[k].Server = "https://localhost:" + strconv.Itoa(cmd.LocalPort)
+func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string, interruptChan chan struct{}, errorChan chan error) error {
+	defer close(interruptChan)
+
+	// wait for vcluster to be ready
+	err := cmd.waitForVCluster(vKubeConfig, errorChan)
+	if err != nil {
+		return err
 	}
 
-	vRestConfig, err := clientcmd.NewDefaultClientConfig(vclusterKubeConfig, &clientcmd.ConfigOverrides{}).ClientConfig()
+	// convert to local kube config
+	vKubeConfig = cmd.getLocalVClusterConfig(vKubeConfig)
+	out, err := clientcmd.Write(vKubeConfig)
 	if err != nil {
-		return "", errors.Wrap(err, "create virtual rest config")
+		return err
+	}
+
+	// write a temporary kube file
+	tempFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return errors.Wrap(err, "create temp file")
+	}
+	defer os.Remove(tempFile.Name())
+
+	_, err = tempFile.Write(out)
+	if err != nil {
+		return errors.Wrap(err, "write kube config to temp file")
+	}
+
+	err = tempFile.Close()
+	if err != nil {
+		return errors.Wrap(err, "close temp file")
+	}
+
+	commandErrChan := make(chan error)
+	execCmd := exec.Command(command[0], command[1:]...)
+	execCmd.Env = os.Environ()
+	execCmd.Env = append(execCmd.Env, "KUBECONFIG="+tempFile.Name())
+	execCmd.Stdout = os.Stdout
+	execCmd.Stdin = os.Stdin
+	execCmd.Stderr = os.Stderr
+	err = execCmd.Start()
+	if err != nil {
+		return err
+	}
+	go func() {
+		commandErrChan <- execCmd.Wait()
+	}()
+
+	select {
+	case err := <-errorChan:
+		if execCmd.Process != nil {
+			_ = execCmd.Process.Kill()
+		}
+
+		return errors.Wrap(err, "error port-forwarding")
+	case err := <-commandErrChan:
+		return err
+	}
+}
+
+func (cmd *ConnectCmd) getLocalVClusterConfig(vKubeConfig api.Config) api.Config {
+	// wait until we can access the virtual cluster
+	vKubeConfig = *vKubeConfig.DeepCopy()
+	for k := range vKubeConfig.Clusters {
+		vKubeConfig.Clusters[k].Server = "https://localhost:" + strconv.Itoa(cmd.LocalPort)
+	}
+	return vKubeConfig
+}
+
+func (cmd *ConnectCmd) getLocalVClusterClient(vKubeConfig api.Config) (kubernetes.Interface, error) {
+	vRestConfig, err := clientcmd.NewDefaultClientConfig(cmd.getLocalVClusterConfig(vKubeConfig), &clientcmd.ConfigOverrides{}).ClientConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "create virtual rest config")
 	}
 
 	vKubeClient, err := kubernetes.NewForConfig(vRestConfig)
 	if err != nil {
-		return "", errors.Wrap(err, "create virtual kube client")
+		return nil, errors.Wrap(err, "create virtual kube client")
+	}
+
+	return vKubeClient, nil
+}
+
+func (cmd *ConnectCmd) waitForVCluster(vKubeConfig api.Config, errorChan chan error) error {
+	vKubeClient, err := cmd.getLocalVClusterClient(vKubeConfig)
+	if err != nil {
+		return err
+	}
+
+	err = wait.PollImmediate(time.Millisecond*200, time.Minute*3, func() (bool, error) {
+		select {
+		case err := <-errorChan:
+			return false, err
+		default:
+			// check if service account exists
+			_, err = vKubeClient.CoreV1().ServiceAccounts("default").Get(context.TODO(), "default", metav1.GetOptions{})
+			return err == nil, nil
+		}
+	})
+	if err != nil {
+		return errors.Wrap(err, "wait for vcluster to become ready")
+	}
+
+	return nil
+}
+
+func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string, error) {
+	vKubeClient, err := cmd.getLocalVClusterClient(vKubeConfig)
+	if err != nil {
+		return "", err
 	}
 
 	var (
@@ -367,7 +529,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(vclusterKubeConfig api.Config) 
 	}
 	token := ""
 	cmd.Log.Infof("Create service account token for %s/%s", serviceAccountNamespace, serviceAccount)
-	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
+	err = wait.Poll(time.Second, time.Minute*3, func() (bool, error) {
 		// check if namespace exists
 		_, err := vKubeClient.CoreV1().Namespaces().Get(context.TODO(), serviceAccountNamespace, metav1.GetOptions{})
 		if err != nil {

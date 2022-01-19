@@ -279,7 +279,8 @@ func (cmd *CreateCmd) Run(args []string) error {
 			Log:         cmd.log,
 		}
 
-		return connectCmd.Connect(args[0])
+		// TODO: allow commands here as well?
+		return connectCmd.Connect(args[0], nil)
 	}
 	return nil
 }
