@@ -166,6 +166,9 @@ vcluster create my-vcluster -n my-vcluster -f plugin.yaml -f other-values.yaml
 
 # Install a plugin with remote url
 vcluster create my-vcluster -n my-vcluster -f https://github.com/my-org/my-plugin/plugin.yaml -f other-values.yaml
+
+# Install a plugin with helm with remote url
+helm install my-vcluster vcluster -n my-vcluster --repo https://charts.loft.sh -f https://github.com/my-org/my-plugin/plugin.yaml -f other-values.yaml
 ```
 
 :::warning Don't install untrusted plugins
