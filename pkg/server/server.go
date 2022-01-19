@@ -2,6 +2,12 @@ package server
 
 import (
 	"context"
+	"io"
+	"net"
+	"net/http"
+	"strconv"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
@@ -17,7 +23,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
-	"io"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,11 +45,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
-	"net"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 )
 
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
@@ -280,7 +282,7 @@ func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interfa
 	)
 	authInfoResolverWrapper := func(resolver webhook.AuthenticationInfoResolver) webhook.AuthenticationInfoResolver {
 		return &kubeConfigProvider{
-			kubeConfig: vConfig,
+			vConfig: vConfig,
 		}
 	}
 
@@ -308,15 +310,31 @@ func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interfa
 }
 
 type kubeConfigProvider struct {
-	kubeConfig *rest.Config
+	vConfig *rest.Config
 }
 
 func (c *kubeConfigProvider) ClientConfigFor(hostPort string) (*rest.Config, error) {
-	return c.kubeConfig, nil
+	return c.clientConfig(hostPort)
 }
 
 func (c *kubeConfigProvider) ClientConfigForService(serviceName, serviceNamespace string, servicePort int) (*rest.Config, error) {
-	return c.kubeConfig, nil
+	return c.clientConfig(net.JoinHostPort(serviceName+"."+serviceNamespace+".svc", strconv.Itoa(servicePort)))
+}
+
+func (c *kubeConfigProvider) clientConfig(target string) (*rest.Config, error) {
+	if target == "kubernetes.default.svc:443" {
+		return setGlobalDefaults(c.vConfig), nil
+	}
+
+	// anonymous
+	return setGlobalDefaults(&rest.Config{}), nil
+}
+
+func setGlobalDefaults(config *rest.Config) *rest.Config {
+	config.UserAgent = "kube-apiserver-admission"
+	config.Timeout = 30 * time.Second
+
+	return config
 }
 
 type emptyConfigProvider struct{}
