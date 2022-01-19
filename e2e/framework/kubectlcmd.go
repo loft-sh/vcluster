@@ -31,8 +31,9 @@ type TestKubeconfig struct {
 // NewTestKubeconfig returns a new Kubeconfig struct instance.
 func NewTestKubeconfig(kubeconfig, namespace string) *TestKubeconfig {
 	return &TestKubeconfig{
-		KubeConfig: kubeconfig,
-		Namespace:  namespace,
+		KubeConfig:  kubeconfig,
+		Namespace:   namespace,
+		KubectlPath: "kubectl",
 	}
 }
 

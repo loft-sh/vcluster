@@ -1,6 +1,9 @@
 package framework
 
 import (
+	"fmt"
+
+	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 )
 
@@ -30,7 +33,7 @@ func ExpectNoErrorWithOffset(offset int, err error, explain ...interface{}) {
 	gomega.ExpectWithOffset(1+offset, err).NotTo(gomega.HaveOccurred(), explain...)
 }
 
-// ExpectConsistOf expects actual contains precisely the extra elements.  The ordering of the elements does not matter.
+// ExpectConsistOf expects actual contains precisely the extra elements. The ordering of the elements does not matter.
 func ExpectConsistOf(actual interface{}, extra interface{}, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, actual).To(gomega.ConsistOf(extra), explain...)
 }
@@ -45,7 +48,12 @@ func ExpectEmpty(actual interface{}, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, actual).To(gomega.BeEmpty(), explain...)
 }
 
-// ExpectMatchRegexp expects the the string to match the provided regular expression
+// ExpectMatchRegexp expects the string to match the provided regular expression
 func ExpectMatchRegexp(actual string, regexp string, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, actual).To(gomega.MatchRegexp(regexp), explain...)
+}
+
+// ExpectMatchRegexp expects the string to match the provided regular expression
+func Failf(format string, args ...interface{}) {
+	ginkgo.Fail(fmt.Sprintf(format, args...))
 }
