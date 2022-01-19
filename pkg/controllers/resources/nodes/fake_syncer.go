@@ -129,7 +129,7 @@ func (r *fakeNodeSyncer) nodeNeeded(ctx *synccontext.SyncContext, nodeName strin
 		return false, err
 	}
 
-	return len(podList.Items) > 0, nil
+	return len(filterOutDaemonSets(podList)) > 0, nil
 }
 
 // this is not a real guid, but it doesn't really matter because it should just look right and not be an actual guid
@@ -260,4 +260,29 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeSer
 	}
 
 	return nil
+}
+
+// Filter away DaemonSet Pods using OwnerReferences
+func filterOutDaemonSets(pl *corev1.PodList) []corev1.Pod {
+	var podsNoDaemonSets []corev1.Pod
+
+	for _, item := range pl.Items {
+		var isDaemonSet bool
+
+		// ensure pod has owner references
+		if len(item.OwnerReferences) > 0 {
+
+			// cover edge case with multiple owner refs
+			for _, ownerRef := range item.OwnerReferences {
+				if ownerRef.APIVersion == "apps/v1" && ownerRef.Kind == "DaemonSet" {
+					isDaemonSet = true
+				}
+			}
+		}
+		if !isDaemonSet {
+			podsNoDaemonSets = append(podsNoDaemonSets, item)
+		}
+	}
+
+	return podsNoDaemonSets
 }
