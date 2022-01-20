@@ -1,5 +1,5 @@
 apiVersion: v2
-name: vcluster-k8s
+name: vcluster-eks
 description: vcluster - Virtual Kubernetes Clusters (k8s)
 
 # A chart can be either an 'application' or a 'library' chart.

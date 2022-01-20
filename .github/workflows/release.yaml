@@ -100,6 +100,7 @@ jobs:
           helm cm-push --force --version="$RELEASE_VERSION" charts/k3s/ chartmuseum
           helm cm-push --force --version="$RELEASE_VERSION" charts/k0s/ chartmuseum
           helm cm-push --force --version="$RELEASE_VERSION" charts/k8s/ chartmuseum
+          helm cm-push --force --version="$RELEASE_VERSION" charts/eks/ chartmuseum
         env:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
