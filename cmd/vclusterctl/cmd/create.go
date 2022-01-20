@@ -28,9 +28,7 @@ import (
 )
 
 var (
-	AllowedDistros           = []string{"k3s", "k0s", "k8s"}
-	errorMessageIPFamily     = "expected an IPv6 value as indicated by " // Dual-stack cluster with .spec.ipFamilies=["IPv6"]
-	errorMessageIPv4Disabled = "IPv4 is not configured on this cluster"  // IPv6 only cluster
+	AllowedDistros = []string{"k3s", "k0s", "k8s"}
 )
 
 // CreateCmd holds the login cmd flags
@@ -164,18 +162,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	// get service cidr
 	if cmd.CIDR == "" {
-		cmd.CIDR, err = values.GetServiceCIDR(client, cmd.Namespace, false)
-		if err != nil {
-			idx := strings.Index(err.Error(), errorMessageIPFamily)
-			idz := strings.Index(err.Error(), errorMessageIPv4Disabled)
-			if idx != -1 || idz != -1 {
-				cmd.CIDR, err = values.GetServiceCIDR(client, cmd.Namespace, true)
-			}
-			if err != nil {
-				cmd.log.Warn(err)
-				cmd.CIDR = "10.96.0.0/12"
-			}
-		}
+		cmd.CIDR = values.GetServiceCIDR(client, cmd.Namespace)
 	}
 
 	var kubernetesVersion *version.Info
