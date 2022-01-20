@@ -1,0 +1,105 @@
+---
+title: Security
+sidebar_label: Security
+---
+
+import NonRootSegment from '../fragments/non-root-vcluster.mdx'
+
+vcluster can drastically increase security in multi-tenancy clusters. vcluster provides you the three security benefits out of the box:
+- **Full control-plane isolation** with separate api endpoint and data storage
+- **DNS isolation** as vcluster workloads are not able to resolve any services of the host cluster
+- Guarantee that all workloads, services and other namespaced objects are **created in a single namespace** in the host cluster. If deployed with default settings, vcluster also ensures that no access to any cluster scoped object is required.
+
+Besides these benefits, there are a couple of other areas you need to tune to achieve really secure multi-tenancy:
+- **Workload isolation** inside the namespace where the virtual cluster is deployed with resource quotas, limit ranges and admission controllers
+- **Network isolation** between vcluster namespaces with network policies (needs to be supported by your underlying CNI plugin)
+
+In general we recommend to deploy a single vcluster into a namespace and then isolate the namespace, which is far easier than isolating multiple vclusters from each other in a single namespace.
+
+## Workload Isolation
+
+vcluster by default will not isolate any workloads in the host cluster and only ensures that those are deployed in the same namespace.
+However, isolating workloads in a single namespace can be done with in-built Kubernetes features.
+
+### Resource Quota & Limit Range
+
+To ensure a vcluster will not consume too many resources in the host cluster, you can use a single [ResourceQuota](https://kubernetes.io/docs/concepts/policy/resource-quotas/) in the namespace where the virtual cluster is running. This could look like:
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: vcluster-quota
+spec:
+  hard:
+    cpu: "10"
+    memory: 20Gi
+    pods: "10"
+```
+
+This allows the vcluster and all of the pods deployed inside it to only consume up to 10 vCores, 20GB of memory or to have 10 pods at maximum. If you use a resource quota, you probably also want to use a [LimitRange](https://kubernetes.io/docs/concepts/policy/limit-range/) that makes sure that needed resources are defined for each pod. For example:
+
+```yaml
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: vcluster-limit-range
+spec:
+  limits:
+  - default:
+      memory: 512Mi
+      cpu: "1"
+    defaultRequest:
+      memory: 128Mi
+      cpu: 100m
+    type: Container
+```
+
+This limit range would ensure that containers that do not set `resources.requests` and `resources.limits` would get appropriate limits set automatically.
+
+### Pod Security
+
+Besides restricting pod resources, it's also necessary to disallow certain potential harmful pod configurations, such as privileged pods or pods that use hostPath.
+If you are using Kubernetes v1.23 or higher, you can restrict the namespace where the virtual cluster is running in via the [Pod Security Admission Controller](https://kubernetes.io/docs/concepts/security/pod-security-admission/):
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-vcluster-namespace
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+```
+
+To see all supported levels and modes, please take a look at the [Kubernetes docs](https://kubernetes.io/docs/concepts/security/pod-security-standards/).
+
+If you are using below Kubernetes v1.23 clusters, you can use the deprecated [PodSecurityPolicies](https://kubernetes.io/docs/concepts/policy/pod-security-policy/) to disallow critical workloads.
+
+If you want more control over this, you can also use an admission controller, that let's you define your own policies, such as [OPA](https://www.openpolicyagent.org/docs/v0.12.2/kubernetes-admission-control/), [jsPolicy](https://www.jspolicy.com/) or [Kyverno](https://kyverno.io/).
+
+### Advanced Isolation
+
+Besides this basic workload isolation, you could also dive into more advanced isolation methods, such as isolating the workloads on separate nodes or through an other container runtime. Using different nodes for your vcluster workloads can be accomplished through the [--node-selector flag](../architecture/nodes.mdx) on vcluster syncer.
+
+## Network Isolation
+
+Workloads created by vcluster will be able to communicate with other workloads in the host cluster through their cluster ips. This can be sometimes beneficial if you want to purposely access a host cluster service, which is a good method to share services between vclusters. However, you often want to isolate namespaces and do not want the pods running inside vcluster to have access to other workloads in the host cluster.
+This requirement can be accomplished by using [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) for the namespace where vcluster is installed in.
+
+:::info
+Network policies do not work in all Kubernetes clusters and need to be supported by the underlying CNI plugin.
+:::
+
+## Other Topics
+
+### Running as non root
+
+vcluster is able to be ran as a non root user. Steps below show how to set the desired UID for syncer and control plane. The syncer also passes this UID down to the vcluster DNS deployment.
+
+<NonRootSegment/>
+
+### Workload & Network Isolation within the vcluster
+
+The above mentioned methods also work for isolating workloads inside the vcluster itself, as you can just deploy resource quotas, limit ranges, admission controllers and network policies in there. To allow network policies to function correctly, you'll need to [enable this in vcluster](../architecture/networking.mdx) itself though.
