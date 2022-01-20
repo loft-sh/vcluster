@@ -10,7 +10,12 @@ There are multiple ways how you can access a vcluster with an external applicati
 Please make sure to [install the vcluster CLI](../getting-started/setup.mdx). Create a kubeconfig via:
 
 ```
+# Create a kubeconfig.yaml
 vcluster connect my-vcluster -n my-vcluster
+
+# Execute a command directly with vcluster context
+vcluster connect my-vcluster -n my-vcluster -- kubectl get namespaces
+vcluster connect my-vcluster -n my-vcluster -- bash
 ```
 
 Depending on if the vcluster was created with the `--expose` flag, the CLI will either start port-forwarding or create a kubeconfig that can be used directly.

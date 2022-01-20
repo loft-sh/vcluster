@@ -59,6 +59,7 @@ module.exports = {
         'operator/other-distributions',
         'operator/restricted-hosts',
         'operator/pausing-vcluster',
+        'operator/security',
       ],
     },
     {
