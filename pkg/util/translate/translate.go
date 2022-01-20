@@ -16,6 +16,8 @@ var (
 	NamespaceLabel = "vcluster.loft.sh/namespace"
 	MarkerLabel    = "vcluster.loft.sh/managed-by"
 	Suffix         = "suffix"
+
+	t = true
 )
 
 var Owner client.Object
@@ -65,6 +67,7 @@ func GetOwnerReference() []metav1.OwnerReference {
 			Kind:       typeAccessor.GetKind(),
 			Name:       Owner.GetName(),
 			UID:        Owner.GetUID(),
+			Controller: &t,
 		},
 	}
 }
