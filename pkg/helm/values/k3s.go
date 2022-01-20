@@ -15,6 +15,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var (
+	errorMessageIPFamily     = "expected an IPv6 value as indicated by " // Dual-stack cluster with .spec.ipFamilies=["IPv6"]
+	errorMessageIPv4Disabled = "IPv4 is not configured on this cluster"  // IPv6 only cluster
+)
+
 var K3SVersionMap = map[string]string{
 	"1.23": "rancher/k3s:v1.23.1-k3s1",
 	"1.22": "rancher/k3s:v1.22.5-k3s1",
@@ -145,7 +150,7 @@ func GetKubernetesMinorVersion(serverVersion *version.Info) (int, error) {
 	return strconv.Atoi(replaceRegEx.ReplaceAllString(serverVersion.Minor, ""))
 }
 
-func GetServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {
+func getServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {
 	clusterIP := "4.4.4.4"
 	if ipv6 {
 		// https://www.ietf.org/rfc/rfc3849.txt
@@ -175,4 +180,19 @@ func GetServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (s
 	}
 
 	return strings.TrimSpace(errorMessage[idx+len(errorMessageFind):]), nil
+}
+
+func GetServiceCIDR(client kubernetes.Interface, namespace string) string {
+	cidr, err := getServiceCIDR(client, namespace, false)
+	if err != nil {
+		idx := strings.Index(err.Error(), errorMessageIPFamily)
+		idz := strings.Index(err.Error(), errorMessageIPv4Disabled)
+		if idx != -1 || idz != -1 {
+			cidr, err = getServiceCIDR(client, namespace, true)
+		}
+		if err != nil {
+			return "10.96.0.0/12"
+		}
+	}
+	return cidr
 }
