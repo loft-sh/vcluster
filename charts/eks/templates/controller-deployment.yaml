@@ -75,7 +75,11 @@ spec:
           - '--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle'
           - '--horizontal-pod-autoscaler-sync-period=60s'
           - '--kubeconfig=/run/config/pki/controller-manager.conf'
+          - '--port=0'
+          - '--profiling=false'
           - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
+          - '--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256'
+          - '--use-service-account-credentials=true'
           {{- if .Values.enableHA }}
           - '--leader-elect=true'
           {{- else }}

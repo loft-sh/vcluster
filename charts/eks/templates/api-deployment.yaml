@@ -67,6 +67,10 @@ spec:
           - kube-apiserver
           - '--advertise-address=0.0.0.0'
           - '--allow-privileged=true'
+          - '--audit-log-maxage=30'
+          - '--audit-log-maxbackup=10'
+          - '--audit-log-maxsize=512'
+          - '--cloud-provider=external'
           - '--authorization-mode=Node,RBAC'
           - '--client-ca-file=/run/config/pki/ca.crt'
           - '--enable-admission-plugins=NodeRestriction'
@@ -79,6 +83,7 @@ spec:
           - '--kubelet-client-certificate=/run/config/pki/apiserver-kubelet-client.crt'
           - '--kubelet-client-key=/run/config/pki/apiserver-kubelet-client.key'
           - '--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname'
+          - '--profiling=false'
           - '--proxy-client-cert-file=/run/config/pki/front-proxy-client.crt'
           - '--proxy-client-key-file=/run/config/pki/front-proxy-client.key'
           - '--requestheader-allowed-names=front-proxy-client'
