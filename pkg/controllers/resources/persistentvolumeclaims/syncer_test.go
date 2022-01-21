@@ -123,37 +123,6 @@ func TestSync(t *testing.T) {
 		Spec:       backwardUpdateStatusPvc.Spec,
 		Status:     backwardUpdateStatusPvc.Status,
 	}
-	persistentVolume := &corev1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "myvolume",
-			Labels: map[string]string{
-				"vcluster.loft.sh/fake-pv": "true",
-			},
-			Annotations: map[string]string{
-				"kubernetes.io/createdby":              "fake-pv-provisioner",
-				"pv.kubernetes.io/bound-by-controller": "true",
-				"pv.kubernetes.io/provisioned-by":      "fake-pv-provisioner",
-			},
-		},
-		Spec: corev1.PersistentVolumeSpec{
-			PersistentVolumeSource: corev1.PersistentVolumeSource{
-				FlexVolume: &corev1.FlexPersistentVolumeSource{
-					Driver: "fake",
-				},
-			},
-			ClaimRef: &corev1.ObjectReference{
-				Kind:            "PersistentVolumeClaim",
-				Namespace:       "testns",
-				Name:            "testpvc",
-				APIVersion:      corev1.SchemeGroupVersion.Version,
-				ResourceVersion: generictesting.FakeClientResourceVersion,
-			},
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
-		},
-		Status: corev1.PersistentVolumeStatus{
-			Phase: corev1.VolumeBound,
-		},
-	}
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
@@ -257,7 +226,6 @@ func TestSync(t *testing.T) {
 			InitialPhysicalState: []runtime.Object{backwardUpdateStatusPvc.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdatedStatusPvc.DeepCopy()},
-				corev1.SchemeGroupVersion.WithKind("PersistentVolume"):      {persistentVolume.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdateStatusPvc.DeepCopy()},

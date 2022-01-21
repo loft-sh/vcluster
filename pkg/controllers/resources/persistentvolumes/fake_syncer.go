@@ -53,7 +53,7 @@ var _ syncer.ControllerModifier = &fakePersistentVolumeSyncer{}
 func (r *fakePersistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 		pvc, ok := object.(*corev1.PersistentVolumeClaim)
-		if !ok || pvc == nil {
+		if !ok || pvc == nil || pvc.Spec.VolumeName == "" {
 			return []reconcile.Request{}
 		}
 
@@ -65,17 +65,6 @@ func (r *fakePersistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterC
 			},
 		}
 	})), nil
-}
-
-var _ syncer.Starter = &fakePersistentVolumeSyncer{}
-
-func (r *fakePersistentVolumeSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	r.sharedMutex.Lock()
-	return false, nil
-}
-
-func (r *fakePersistentVolumeSyncer) ReconcileEnd() {
-	r.sharedMutex.Unlock()
 }
 
 var _ syncer.FakeSyncer = &fakePersistentVolumeSyncer{}
