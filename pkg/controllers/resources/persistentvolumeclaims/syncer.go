@@ -1,13 +1,10 @@
 package persistentvolumeclaims
 
 import (
-	"sync"
-
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -36,16 +33,14 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &persistentVolumeClaimSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation),
 
-		useFakePersistentVolumes:     !ctx.Controllers["persistentvolumes"],
-		sharedPersistentVolumesMutex: ctx.LockFactory.GetLock("persistent-volumes-controller"),
+		useFakePersistentVolumes: !ctx.Controllers["persistentvolumes"],
 	}, nil
 }
 
 type persistentVolumeClaimSyncer struct {
 	translator.NamespacedTranslator
 
-	useFakePersistentVolumes     bool
-	sharedPersistentVolumesMutex sync.Locker
+	useFakePersistentVolumes bool
 }
 
 var _ syncer.Syncer = &persistentVolumeClaimSyncer{}
@@ -137,9 +132,6 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 }
 
 func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) error {
-	s.sharedPersistentVolumesMutex.Lock()
-	defer s.sharedPersistentVolumesMutex.Unlock()
-
 	// ensure the persistent volume is available in the virtual cluster
 	vPV := &corev1.PersistentVolume{}
 	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.Spec.VolumeName}, vPV)
@@ -147,18 +139,6 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 		if !kerrors.IsNotFound(err) {
 			log.Infof("error retrieving virtual pv %s: %v", pObj.Spec.VolumeName, err)
 			return err
-		}
-
-		if s.useFakePersistentVolumes {
-			// now insert it into the virtual cluster
-			log.Infof("create virtual fake pv %s, because pvc %s/%s uses it and it is not available in virtual cluster", pObj.Spec.VolumeName, vObj.Namespace, vObj.Name)
-
-			// create fake persistent volume
-			err = persistentvolumes.CreateFakePersistentVolume(ctx.Context, ctx.VirtualClient, types.NamespacedName{Name: pObj.Spec.VolumeName}, vObj)
-			if err != nil {
-				log.Infof("error creating virtual fake persistent volume %s: %v", pObj.Spec.VolumeName, err)
-				return err
-			}
 		}
 	}
 

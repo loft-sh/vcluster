@@ -1,6 +1,7 @@
 package events
 
 import (
+	"k8s.io/apimachinery/pkg/api/equality"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -176,7 +177,11 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 	// copy metadata
 	vObj.ObjectMeta = *vOldObj.ObjectMeta.DeepCopy()
 
-	// update existing event
+	// update existing event only if changed
+	if equality.Semantic.DeepEqual(vObj, vOldObj) {
+		return nil
+	}
+
 	ctx.Log.Infof("update virtual event %s/%s", vObj.Namespace, vObj.Name)
 	return ctx.VirtualClient.Update(ctx.Context, vObj)
 }
