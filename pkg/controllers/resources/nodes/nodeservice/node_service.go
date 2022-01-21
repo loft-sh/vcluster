@@ -181,7 +181,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 
 	// set owning stateful set if defined
 	if translate.Owner != nil {
-		nodeService.SetOwnerReferences(translate.GetOwnerReference())
+		nodeService.SetOwnerReferences(translate.GetOwnerReference(nil))
 	}
 
 	// create the service

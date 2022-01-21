@@ -16,8 +16,6 @@ var (
 	NamespaceLabel = "vcluster.loft.sh/namespace"
 	MarkerLabel    = "vcluster.loft.sh/managed-by"
 	Suffix         = "suffix"
-
-	t = true
 )
 
 var Owner client.Object
@@ -51,7 +49,7 @@ func IsManaged(obj runtime.Object) bool {
 	return metaAccessor.GetLabels()[MarkerLabel] == Suffix
 }
 
-func GetOwnerReference() []metav1.OwnerReference {
+func GetOwnerReference(object client.Object) []metav1.OwnerReference {
 	if Owner == nil {
 		return nil
 	}
@@ -61,13 +59,18 @@ func GetOwnerReference() []metav1.OwnerReference {
 		return nil
 	}
 
+	isController := false
+	if object != nil {
+		ctrl := metav1.GetControllerOf(object)
+		isController = ctrl != nil
+	}
 	return []metav1.OwnerReference{
 		{
 			APIVersion: typeAccessor.GetAPIVersion(),
 			Kind:       typeAccessor.GetKind(),
 			Name:       Owner.GetName(),
 			UID:        Owner.GetUID(),
-			Controller: &t,
+			Controller: &isController,
 		},
 	}
 }
