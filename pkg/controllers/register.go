@@ -159,10 +159,8 @@ func ToRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterCont
 	return &synccontext.RegisterContext{
 		Context: ctx.Context,
 
-		Options:             ctx.Options,
-		NodeServiceProvider: ctx.NodeServiceProvider,
-		Controllers:         ctx.Controllers,
-		LockFactory:         ctx.LockFactory,
+		Options:     ctx.Options,
+		Controllers: ctx.Controllers,
 
 		TargetNamespace:        ctx.Options.TargetNamespace,
 		CurrentNamespace:       ctx.CurrentNamespace,

@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
 	var err error
 	var nodeSelector labels.Selector
 	if ctx.Options.SyncAllNodes {
@@ -35,7 +35,7 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	}
 
 	return &nodeSyncer{
-		nodeServiceProvider: ctx.NodeServiceProvider,
+		nodeServiceProvider: nodeService,
 		nodeSelector:        nodeSelector,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 
@@ -82,10 +82,15 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder 
 	}()
 	podCache.WaitForCacheSync(ctx.Context)
 	s.podCache = podCache
-	return modifyController(ctx, builder)
+	return modifyController(ctx, s.nodeServiceProvider, builder)
 }
 
-func modifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func modifyController(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider, builder *builder.Builder) (*builder.Builder, error) {
+	// start the node service provider
+	go func() {
+		nodeService.Start(ctx.Context)
+	}()
+
 	return builder.Watches(source.NewKindWithCache(&corev1.Pod{}, ctx.PhysicalManager.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 		pod, ok := object.(*corev1.Pod)
 		if !ok || pod == nil || pod.Namespace != ctx.TargetNamespace || !translate.IsManaged(pod) || pod.Spec.NodeName == "" {

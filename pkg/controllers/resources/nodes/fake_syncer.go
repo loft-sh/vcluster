@@ -22,9 +22,9 @@ var (
 	FakeNodesVersion = "v1.19.1"
 )
 
-func NewFakeSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
-		nodeServiceProvider: ctx.NodeServiceProvider,
+		nodeServiceProvider: nodeService,
 	}, nil
 }
 
@@ -49,7 +49,7 @@ func (r *fakeNodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error
 var _ syncer.ControllerModifier = &fakeNodeSyncer{}
 
 func (r *fakeNodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return modifyController(ctx, builder)
+	return modifyController(ctx, r.nodeServiceProvider, builder)
 }
 
 var _ syncer.FakeSyncer = &fakeNodeSyncer{}

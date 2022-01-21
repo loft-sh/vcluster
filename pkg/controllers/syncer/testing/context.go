@@ -5,12 +5,10 @@ import (
 	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/util/locks"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -40,23 +38,12 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 			TargetNamespace: "test",
 		},
 		Controllers:            controllercontext.ExistingControllers,
-		NodeServiceProvider:    &fakeNodeServiceProvider{},
-		LockFactory:            locks.NewDefaultLockFactory(),
 		TargetNamespace:        "test",
 		CurrentNamespace:       "test",
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),
 	}
-}
-
-type fakeNodeServiceProvider struct{}
-
-func (f *fakeNodeServiceProvider) Start(ctx context.Context) {}
-func (f *fakeNodeServiceProvider) Lock()                     {}
-func (f *fakeNodeServiceProvider) Unlock()                   {}
-func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
-	return "127.0.0.1", nil
 }
 
 type fakeEventBroadcaster struct{}

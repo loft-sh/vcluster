@@ -4,8 +4,6 @@ import (
 	"context"
 
 	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"github.com/loft-sh/vcluster/pkg/util/locks"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,10 +25,8 @@ type SyncContext struct {
 type RegisterContext struct {
 	Context context.Context
 
-	Options             *controllercontext.VirtualClusterOptions
-	NodeServiceProvider nodeservice.NodeServiceProvider
-	Controllers         map[string]bool
-	LockFactory         locks.LockFactory
+	Options     *controllercontext.VirtualClusterOptions
+	Controllers map[string]bool
 
 	TargetNamespace        string
 	CurrentNamespace       string
