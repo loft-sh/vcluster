@@ -3,15 +3,12 @@ package pods
 import (
 	"context"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
@@ -68,14 +65,10 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &podSyncer{
 		NamespacedTranslator: namespacedTranslator,
 
-		sharedNodesMutex: ctx.LockFactory.GetLock("nodes-controller"),
-
 		serviceName:          ctx.Options.ServiceName,
 		virtualClusterClient: virtualClusterClient,
-		nodeServiceProvider:  ctx.NodeServiceProvider,
 
 		podTranslator: podTranslator,
-		useFakeNodes:  !ctx.Controllers["nodes"],
 		nodeSelector:  nodeSelector,
 	}, nil
 }
@@ -83,15 +76,12 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 type podSyncer struct {
 	translator.NamespacedTranslator
 
-	useFakeNodes     bool
-	sharedNodesMutex sync.Locker
-	serviceName      string
+	serviceName string
 
 	podTranslator        translatepods.Translator
 	virtualClusterClient kubernetes.Interface
 
-	nodeServiceProvider nodeservice.NodeServiceProvider
-	nodeSelector        *metav1.LabelSelector
+	nodeSelector *metav1.LabelSelector
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -212,10 +202,10 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 
 	// make sure node exists for pod
 	if pPod.Spec.NodeName != "" {
-		assigned, err := s.ensureNode(ctx, pPod, vPod)
+		requeue, err := s.ensureNode(ctx, pPod, vPod)
 		if err != nil {
 			return ctrl.Result{}, err
-		} else if assigned {
+		} else if requeue {
 			return ctrl.Result{Requeue: true}, nil
 		}
 	} else if pPod.Spec.NodeName != "" && vPod.Spec.NodeName != "" && pPod.Spec.NodeName != vPod.Spec.NodeName {
@@ -256,11 +246,8 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 }
 
 func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, vObj *corev1.Pod) (bool, error) {
-	s.sharedNodesMutex.Lock()
-	defer s.sharedNodesMutex.Unlock()
-
 	// ensure the node is available in the virtual cluster, if not and we sync the pod to the virtual cluster,
-	// it will get deleted automatically by kubernetes so we ensure the node is synced or alternatively we could fake it
+	// it will get deleted automatically by kubernetes so we ensure the node is synced
 	vNode := &corev1.Node{}
 	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.Spec.NodeName}, vNode)
 	if err != nil {
@@ -269,39 +256,7 @@ func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, v
 			return false, err
 		}
 
-		if !s.useFakeNodes {
-			// we have to sync the node
-			// so first get the physical node
-			pNode := &corev1.Node{}
-			err = ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: pObj.Spec.NodeName}, pNode)
-			if err != nil {
-				ctx.Log.Infof("error retrieving physical node %s: %v", pObj.Spec.NodeName, err)
-				return false, err
-			}
-
-			// now insert it into the virtual cluster
-			ctx.Log.Infof("create virtual node %s, because pod %s/%s uses it and it is not available in virtual cluster", pObj.Spec.NodeName, vObj.Namespace, vObj.Name)
-			vNode = pNode.DeepCopy()
-			vNode.ObjectMeta = metav1.ObjectMeta{
-				Name: pNode.Name,
-			}
-
-			err = ctx.VirtualClient.Create(ctx.Context, vNode)
-			if err != nil {
-				ctx.Log.Infof("error creating virtual node %s: %v", pObj.Spec.NodeName, err)
-				return false, err
-			}
-		} else {
-			// now insert it into the virtual cluster
-			ctx.Log.Infof("create virtual fake node %s, because pod %s/%s uses it and it is not available in virtual cluster", pObj.Spec.NodeName, vObj.Namespace, vObj.Name)
-
-			// create fake node
-			err = nodes.CreateFakeNode(ctx.Context, s.nodeServiceProvider, ctx.VirtualClient, types.NamespacedName{Name: pObj.Spec.NodeName})
-			if err != nil {
-				ctx.Log.Infof("error creating virtual fake node %s: %v", pObj.Spec.NodeName, err)
-				return false, err
-			}
-		}
+		return true, nil
 	}
 
 	if vObj.Spec.NodeName != pObj.Spec.NodeName {
