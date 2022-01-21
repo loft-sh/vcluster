@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -152,18 +151,9 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		pPod.Annotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	}
 	if _, ok := pPod.Annotations[ClusterAutoScalerAnnotation]; !ok {
-		// evictable
-		isEvictable := false
-		for _, ownerReference := range vPod.OwnerReferences {
-			if ownerReference.Controller != nil && *ownerReference.Controller && ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && (ownerReference.Kind == "ReplicaSet" || ownerReference.Kind == "StatefulSet") {
-				isEvictable = true
-				break
-			} else if ownerReference.Controller != nil && *ownerReference.Controller && ownerReference.APIVersion == batchv1.SchemeGroupVersion.String() && (ownerReference.Kind == "Job" || ownerReference.Kind == "CronJob") {
-				isEvictable = true
-				break
-			}
-		}
-
+		// check if the vPod would be evictable
+		controller := metav1.GetControllerOf(vPod)
+		isEvictable := controller != nil
 		pPod.Annotations[ClusterAutoScalerAnnotation] = strconv.FormatBool(isEvictable)
 	}
 

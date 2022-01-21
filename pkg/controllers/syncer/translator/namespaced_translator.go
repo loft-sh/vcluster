@@ -247,7 +247,7 @@ func setupMetadataWithName(targetNamespace string, vObj client.Object, translato
 
 		// set owning stateful set if defined
 		if translate.Owner != nil {
-			m.SetOwnerReferences(translate.GetOwnerReference())
+			m.SetOwnerReferences(translate.GetOwnerReference(vObj))
 		}
 	}
 

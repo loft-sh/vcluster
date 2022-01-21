@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
 	"math"
 	"os"
 	"time"
@@ -28,11 +29,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -420,81 +418,14 @@ func findOwner(ctx *context2.ControllerContext) error {
 	}
 
 	if ctx.Options.SetOwner {
-		// get current pod
-		podName, err := os.Hostname()
+		service := &corev1.Service{}
+		err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.CurrentNamespace, Name: ctx.Options.ServiceName}, service)
 		if err != nil {
-			klog.Errorf("Couldn't find current hostname: %v, will skip setting owner", err)
-			return nil // ignore error here
+			return errors.Wrap(err, "get vcluster service")
 		}
 
-		pod := &corev1.Pod{}
-		err = ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.CurrentNamespace, Name: podName}, pod)
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				klog.Errorf("Couldn't find current pod: %v, will skip setting owner", err)
-				return nil
-			}
-
-			return errors.Wrap(err, "get owning pod")
-		}
-
-		// check owner of pod
-		controller := metav1.GetControllerOf(pod)
-		if controller == nil {
-			klog.Errorf("No controller for pod %s/%s found, will skip setting owner", pod.Namespace, pod.Name)
-			return nil
-		} else if controller.APIVersion != appsv1.SchemeGroupVersion.String() || (controller.Kind != "ReplicaSet" && controller.Kind != "StatefulSet") {
-			klog.Errorf("Unsupported owner kind %s and apiVersion %s, will skip setting owner", controller.Kind, controller.APIVersion)
-			return nil
-		}
-
-		// statefulset
-		if controller.Kind == "StatefulSet" {
-			statefulSet := &appsv1.StatefulSet{}
-			err = ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: controller.Name}, statefulSet)
-			if err != nil {
-				return errors.Wrap(err, "get owning stateful set")
-			}
-
-			statefulSet.APIVersion = appsv1.SchemeGroupVersion.String()
-			statefulSet.Kind = "StatefulSet"
-			translate.Owner = statefulSet
-			return nil
-		}
-
-		// replicaset
-		replicaSet := &appsv1.ReplicaSet{}
-		err = ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: controller.Name}, replicaSet)
-		if err != nil {
-			return errors.Wrap(err, "get owning replica set")
-		}
-
-		// check owner of replica set
-		replicaSetController := metav1.GetControllerOf(replicaSet)
-		if controller == nil || replicaSetController.APIVersion != appsv1.SchemeGroupVersion.String() || replicaSetController.Kind != "Deployment" {
-			replicaSet.APIVersion = appsv1.SchemeGroupVersion.String()
-			replicaSet.Kind = "ReplicaSet"
-			translate.Owner = replicaSet
-			return nil
-		}
-
-		// deployment
-		deployment := &appsv1.Deployment{}
-		err = ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Namespace, Name: replicaSetController.Name}, deployment)
-		if err != nil {
-			return errors.Wrap(err, "get owning deployment")
-		}
-
-		deployment.APIVersion = appsv1.SchemeGroupVersion.String()
-		deployment.Kind = "Deployment"
-		translate.Owner = deployment
+		translate.Owner = service
 		return nil
-	} else if ctx.Options.DeprecatedOwningStatefulSet != "" {
-		statefulSet := &appsv1.StatefulSet{}
-		err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.CurrentNamespace, Name: ctx.Options.DeprecatedOwningStatefulSet}, statefulSet)
-		if err != nil {
-			return errors.Wrap(err, "get owning statefulset")
-		}
 	}
 
 	return nil

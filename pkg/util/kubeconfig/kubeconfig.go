@@ -73,7 +73,7 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 
 		// set owner reference
 		if translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
-			kubeConfigSecret.OwnerReferences = translate.GetOwnerReference()
+			kubeConfigSecret.OwnerReferences = translate.GetOwnerReference(nil)
 		}
 
 		err = clienthelper.Apply(ctx, client, kubeConfigSecret, loghelper.New("apply-secret"))
