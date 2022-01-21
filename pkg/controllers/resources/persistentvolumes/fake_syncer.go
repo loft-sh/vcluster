@@ -3,8 +3,6 @@ package persistentvolumes
 import (
 	"context"
 	"fmt"
-	"sync"
-
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -22,14 +20,10 @@ import (
 )
 
 func NewFakeSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	return &fakePersistentVolumeSyncer{
-		sharedMutex: ctx.LockFactory.GetLock("persistent-volumes-controller"),
-	}, nil
+	return &fakePersistentVolumeSyncer{}, nil
 }
 
-type fakePersistentVolumeSyncer struct {
-	sharedMutex sync.Locker
-}
+type fakePersistentVolumeSyncer struct{}
 
 func (r *fakePersistentVolumeSyncer) Resource() client.Object {
 	return &corev1.PersistentVolume{}

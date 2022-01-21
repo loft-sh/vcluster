@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,7 +25,9 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 	})
 	assert.NilError(t, err)
 
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
+	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+		return NewSyncer(ctx, &fakeNodeServiceProvider{})
+	})
 	return syncContext, object.(*nodeSyncer)
 }
 

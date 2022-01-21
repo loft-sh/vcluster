@@ -2,12 +2,11 @@ package nodes
 
 import (
 	"context"
-	"sync"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,9 +17,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
 	var err error
 	var nodeSelector labels.Selector
 	if ctx.Options.SyncAllNodes {
@@ -33,21 +35,21 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	}
 
 	return &nodeSyncer{
-		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
-		nodeServiceProvider: ctx.NodeServiceProvider,
+		nodeServiceProvider: nodeService,
 		nodeSelector:        nodeSelector,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 
-		virtualClient: ctx.VirtualManager.GetClient(),
+		physicalClient: ctx.PhysicalManager.GetClient(),
+		virtualClient:  ctx.VirtualManager.GetClient(),
 	}, nil
 }
 
 type nodeSyncer struct {
-	sharedNodesMutex sync.Locker
-	nodeSelector     labels.Selector
-	useFakeKubelets  bool
+	nodeSelector    labels.Selector
+	useFakeKubelets bool
 
-	virtualClient client.Client
+	physicalClient client.Client
+	virtualClient  client.Client
 
 	podCache            client.Reader
 	nodeServiceProvider nodeservice.NodeServiceProvider
@@ -80,12 +82,62 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder 
 	}()
 	podCache.WaitForCacheSync(ctx.Context)
 	s.podCache = podCache
-	return builder, nil
+	return modifyController(ctx, s.nodeServiceProvider, builder)
+}
+
+func modifyController(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider, builder *builder.Builder) (*builder.Builder, error) {
+	// start the node service provider
+	go func() {
+		nodeService.Start(ctx.Context)
+	}()
+
+	return builder.Watches(source.NewKindWithCache(&corev1.Pod{}, ctx.PhysicalManager.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		pod, ok := object.(*corev1.Pod)
+		if !ok || pod == nil || pod.Namespace != ctx.TargetNamespace || !translate.IsManaged(pod) || pod.Spec.NodeName == "" {
+			return []reconcile.Request{}
+		}
+
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name: pod.Spec.NodeName,
+				},
+			},
+		}
+	})).Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		pod, ok := object.(*corev1.Pod)
+		if !ok || pod == nil || pod.Spec.NodeName == "" {
+			return []reconcile.Request{}
+		}
+
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name: pod.Spec.NodeName,
+				},
+			},
+		}
+	})), nil
 }
 
 var _ syncer.IndicesRegisterer = &nodeSyncer{}
 
 func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+	return registerIndices(ctx)
+}
+
+func registerIndices(ctx *synccontext.RegisterContext) error {
+	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+		pod := rawObj.(*corev1.Pod)
+		if pod.Namespace != ctx.TargetNamespace || !translate.IsManaged(pod) || pod.Spec.NodeName == "" {
+			return nil
+		}
+		return []string{pod.Spec.NodeName}
+	})
+	if err != nil {
+		return err
+	}
+
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		if pod.Spec.NodeName == "" {
@@ -193,22 +245,27 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 		return s.nodeSelector.Matches(ls), nil
 	}
 
+	return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)
+}
+
+func isNodeNeededByPod(ctx context.Context, virtualClient client.Client, physicalClient client.Client, nodeName string) (bool, error) {
+	// search virtual cache
 	podList := &corev1.PodList{}
-	err := s.virtualClient.List(ctx, podList, client.MatchingFields{constants.IndexByAssigned: pObj.Name})
+	err := virtualClient.List(ctx, podList, client.MatchingFields{constants.IndexByAssigned: nodeName})
 	if err != nil {
 		return false, err
+	} else if len(filterOutDaemonSets(podList)) > 0 {
+		return true, nil
 	}
 
-	return len(filterOutDaemonSets(podList)) > 0, nil
-}
+	// search physical cache
+	podList = &corev1.PodList{}
+	err = physicalClient.List(ctx, podList, client.MatchingFields{constants.IndexByAssigned: nodeName})
+	if err != nil {
+		return false, err
+	} else if len(filterOutDaemonSets(podList)) > 0 {
+		return true, nil
+	}
 
-var _ syncer.Starter = &nodeSyncer{}
-
-func (s *nodeSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	s.sharedNodesMutex.Lock()
 	return false, nil
-}
-
-func (s *nodeSyncer) ReconcileEnd() {
-	s.sharedNodesMutex.Unlock()
 }

@@ -3,9 +3,7 @@ package context
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
-	"github.com/loft-sh/vcluster/pkg/util/locks"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,10 +79,8 @@ type ControllerContext struct {
 
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
-	NodeServiceProvider    nodeservice.NodeServiceProvider
 
 	Controllers map[string]bool
-	LockFactory locks.LockFactory
 	Options     *VirtualClusterOptions
 	StopChan    <-chan struct{}
 }
@@ -124,13 +120,6 @@ var DefaultEnabledControllers = []string{
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
 	stopChan := make(<-chan struct{})
 	ctx := context.Background()
-	uncachedVirtualClient, err := client.New(virtualManager.GetConfig(), client.Options{
-		Scheme: virtualManager.GetScheme(),
-		Mapper: virtualManager.GetRESTMapper(),
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	// create a new current namespace client
 	currentNamespaceClient, err := newCurrentNamespaceClient(ctx, currentNamespace, localManager, options)
@@ -153,10 +142,8 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 		CurrentNamespace:       currentNamespace,
 		CurrentNamespaceClient: currentNamespaceClient,
 
-		NodeServiceProvider: nodeservice.NewNodeServiceProvider(currentNamespace, currentNamespaceClient, virtualManager.GetClient(), uncachedVirtualClient),
-		LockFactory:         locks.NewDefaultLockFactory(),
-		StopChan:            stopChan,
-		Options:             options,
+		StopChan: stopChan,
+		Options:  options,
 	}, nil
 }
 

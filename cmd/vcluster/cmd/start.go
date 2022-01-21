@@ -384,11 +384,6 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		return errors.Wrap(err, "sync kubernetes service")
 	}
 
-	// start the node service provider
-	go func() {
-		ctx.NodeServiceProvider.Start(ctx.Context)
-	}()
-
 	// write the kube config to secret
 	err = writeKubeConfigToSecret(ctx, rawConfig)
 	if err != nil {

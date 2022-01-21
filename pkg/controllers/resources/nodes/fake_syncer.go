@@ -3,24 +3,17 @@ package nodes
 import (
 	"context"
 	"fmt"
-	"sync"
-
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/pkg/errors"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/random"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,15 +22,13 @@ var (
 	FakeNodesVersion = "v1.19.1"
 )
 
-func NewFakeSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
-		sharedNodesMutex:    ctx.LockFactory.GetLock("nodes-controller"),
-		nodeServiceProvider: ctx.NodeServiceProvider,
+		nodeServiceProvider: nodeService,
 	}, nil
 }
 
 type fakeNodeSyncer struct {
-	sharedNodesMutex    sync.Locker
 	nodeServiceProvider nodeservice.NodeServiceProvider
 }
 
@@ -52,43 +43,13 @@ func (r *fakeNodeSyncer) Name() string {
 var _ syncer.IndicesRegisterer = &fakeNodeSyncer{}
 
 func (r *fakeNodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
-		pod := rawObj.(*corev1.Pod)
-		if pod.Spec.NodeName == "" {
-			return nil
-		}
-		return []string{pod.Spec.NodeName}
-	})
+	return registerIndices(ctx)
 }
 
 var _ syncer.ControllerModifier = &fakeNodeSyncer{}
 
 func (r *fakeNodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-		pod, ok := object.(*corev1.Pod)
-		if !ok || pod == nil {
-			return []reconcile.Request{}
-		}
-
-		return []reconcile.Request{
-			{
-				NamespacedName: types.NamespacedName{
-					Name: pod.Spec.NodeName,
-				},
-			},
-		}
-	})), nil
-}
-
-var _ syncer.Starter = &fakeNodeSyncer{}
-
-func (r *fakeNodeSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	r.sharedNodesMutex.Lock()
-	return false, nil
-}
-
-func (r *fakeNodeSyncer) ReconcileEnd() {
-	r.sharedNodesMutex.Unlock()
+	return modifyController(ctx, r.nodeServiceProvider, builder)
 }
 
 var _ syncer.FakeSyncer = &fakeNodeSyncer{}
@@ -123,13 +84,7 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 }
 
 func (r *fakeNodeSyncer) nodeNeeded(ctx *synccontext.SyncContext, nodeName string) (bool, error) {
-	podList := &corev1.PodList{}
-	err := ctx.VirtualClient.List(ctx.Context, podList, client.MatchingFields{constants.IndexByAssigned: nodeName})
-	if err != nil {
-		return false, err
-	}
-
-	return len(filterOutDaemonSets(podList)) > 0, nil
+	return isNodeNeededByPod(ctx.Context, ctx.VirtualClient, ctx.PhysicalClient, nodeName)
 }
 
 // this is not a real guid, but it doesn't really matter because it should just look right and not be an actual guid
@@ -271,7 +226,6 @@ func filterOutDaemonSets(pl *corev1.PodList) []corev1.Pod {
 
 		// ensure pod has owner references
 		if len(item.OwnerReferences) > 0 {
-
 			// cover edge case with multiple owner refs
 			for _, ownerRef := range item.OwnerReferences {
 				if ownerRef.APIVersion == "apps/v1" && ownerRef.Kind == "DaemonSet" {
