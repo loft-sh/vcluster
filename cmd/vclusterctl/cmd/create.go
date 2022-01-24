@@ -207,6 +207,11 @@ func (cmd *CreateCmd) Run(args []string) error {
 	extraValues := []string{}
 	if len(cmd.ExtraValues) > 0 {
 		for _, file := range cmd.ExtraValues {
+			if strings.HasPrefix(file, "http://") || strings.HasPrefix(file, "https://") {
+				extraValues = append(extraValues, file)
+				continue
+			}
+
 			out, err := ioutil.ReadFile(file)
 			if err != nil {
 				return errors.Wrap(err, "read values file")
