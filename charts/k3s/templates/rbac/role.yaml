@@ -22,6 +22,9 @@ rules:
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- if .Values.rbac.role.extended }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]

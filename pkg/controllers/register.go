@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumeclaims"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/poddisruptionbudgets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
@@ -41,9 +42,10 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 	"storageclasses":         newControllers(storageclasses.New),
 	"priorityclasses":        newControllers(priorityclasses.New),
 	"nodes,fake-nodes":       newControllers(nodes.New),
+	"poddisruptionbudgets":   newControllers(poddisruptionbudgets.New),
+	"networkpolicies":        newControllers(networkpolicies.New),
+	"volumesnapshots":        newControllers(volumesnapshotclasses.New, volumesnapshots.New, volumesnapshotcontents.New),
 	"persistentvolumes,fake-persistentvolumes": newControllers(persistentvolumes.New),
-	"networkpolicies":                          newControllers(networkpolicies.New),
-	"volumesnapshots":                          newControllers(volumesnapshotclasses.New, volumesnapshots.New, volumesnapshotcontents.New),
 }
 
 func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {

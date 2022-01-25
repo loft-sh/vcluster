@@ -3,11 +3,12 @@ package context
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 // VirtualClusterOptions holds the cmd flags
@@ -102,6 +103,7 @@ var ExistingControllers = map[string]bool{
 	"priorityclasses":        true,
 	"networkpolicies":        true,
 	"volumesnapshots":        true,
+	"poddisruptionbudgets":   true,
 }
 
 var DefaultEnabledControllers = []string{
@@ -115,6 +117,7 @@ var DefaultEnabledControllers = []string{
 	"ingresses",
 	"fake-nodes",
 	"fake-persistentvolumes",
+	"poddisruptionbudgets",
 }
 
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
