@@ -1,11 +1,12 @@
 package volumesnapshotcontents
 
 import (
+	"testing"
+	"time"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
-	"testing"
-	"time"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -36,6 +37,7 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 }
 
 func TestSync(t *testing.T) {
+	addToSchemeFuncs := []func(s *runtime.Scheme) error{volumesnapshotv1.AddToScheme}
 	vVolumeSnapshot := &volumesnapshotv1.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "snapshoty-mcsnapshotface",
@@ -162,6 +164,7 @@ func TestSync(t *testing.T) {
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Create dynamic VolumeSnapshotContent from host",
 			InitialVirtualState:  []runtime.Object{vVolumeSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pDynamic.DeepCopy(), pVolumeSnapshot.DeepCopy()},
@@ -178,6 +181,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Create pre-provisioned VolumeSnapshotContent from vcluster",
 			InitialVirtualState:  []runtime.Object{vPreProvisioned.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{},
@@ -194,6 +198,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Ensure a finalizer is added to a virtual VolumeSnapshotContent",
 			InitialVirtualState:  []runtime.Object{vDynamic.DeepCopy(), vVolumeSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pDynamic.DeepCopy(), pVolumeSnapshot.DeepCopy()},
@@ -210,6 +215,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Immutable .spec.VolumeSnapshotRef field is not synced on update",
 			InitialVirtualState:  []runtime.Object{vDynamic.DeepCopy(), vVolumeSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pDynamic.DeepCopy(), pVolumeSnapshot.DeepCopy()},
@@ -226,6 +232,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Update status from physical to virtual",
 			InitialVirtualState:  []runtime.Object{vWithGCFinalizer.DeepCopy(), vVolumeSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pWithStatus.DeepCopy(), pVolumeSnapshot.DeepCopy()},
@@ -242,6 +249,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Update .spec.DeletionPolicy from virtual to physical",
 			InitialVirtualState:  []runtime.Object{vModifiedDeletionPolicy.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pPreProvisioned.DeepCopy()},
@@ -258,6 +266,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Delete in host when virtual is being deleted",
 			InitialVirtualState:  []runtime.Object{vDeleting.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pPreProvisioned.DeepCopy()},
@@ -273,6 +282,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Clear finalizers from virtual resource that is being deleted after physical is deleted",
 			InitialVirtualState:  []runtime.Object{vDeletingWithGCFinalizer.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{},
@@ -288,6 +298,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Sync finalizers from physical to virtual during deletion",
 			InitialVirtualState:  []runtime.Object{vDeletingWithMoreFinalizers.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pDeletingWithOneFinalizer.DeepCopy()},
@@ -303,6 +314,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Sync status from physical to virtual during deletion",
 			InitialVirtualState:  []runtime.Object{vDeletingWithOneFinalizer.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pDeletingWithStatus.DeepCopy()},

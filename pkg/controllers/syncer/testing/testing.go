@@ -3,9 +3,10 @@ package testing
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
-	"testing"
 
 	"github.com/ghodss/yaml"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
@@ -29,7 +30,8 @@ func RunTests(t *testing.T, tests []*SyncTest) {
 type Compare func(obj1 runtime.Object, obj2 runtime.Object) bool
 
 type SyncTest struct {
-	Name string
+	Name             string
+	AddToSchemeFuncs []func(s *runtime.Scheme) error
 
 	InitialPhysicalState []runtime.Object
 	InitialVirtualState  []runtime.Object
@@ -43,6 +45,12 @@ type SyncTest struct {
 
 func (s *SyncTest) Run(t *testing.T) {
 	scheme := testingutil.NewScheme()
+	for _, f := range s.AddToSchemeFuncs {
+		err := f(scheme)
+		if err != nil {
+			t.Fatalf("%s - failed to extend scheme: %v", s.Name, err)
+		}
+	}
 	ctx := context.Background()
 	pClient := testingutil.NewFakeClient(scheme, s.InitialPhysicalState...)
 	vClient := testingutil.NewFakeClient(scheme, s.InitialVirtualState...)

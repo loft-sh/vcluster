@@ -1,11 +1,12 @@
 package volumesnapshots
 
 import (
+	"testing"
+	"time"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
-	"testing"
-	"time"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -21,6 +22,7 @@ const (
 )
 
 func TestSync(t *testing.T) {
+	addToSchemeFuncs := []func(s *runtime.Scheme) error{volumesnapshotv1.AddToScheme}
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "test-snapshot",
 		Namespace:       "test",
@@ -98,6 +100,7 @@ func TestSync(t *testing.T) {
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Create with PersistentVolume source",
 			InitialVirtualState:  []runtime.Object{vPVSourceSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{},
@@ -114,6 +117,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Create with VolumeSnapshotContent source",
 			InitialVirtualState:  []runtime.Object{vVSCSourceSnapshot.DeepCopy(), vVolumeSnapshotContent.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{},
@@ -130,6 +134,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Immutable .spec.source field is not synced on update",
 			InitialVirtualState:  []runtime.Object{vVSCSourceSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pPVSourceSnapshot.DeepCopy()},
@@ -146,6 +151,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Nil VolumeSnapshotClassName is handled correctly on update",
 			InitialVirtualState:  []runtime.Object{vPVSourceSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pWithNilClass.DeepCopy()},
@@ -162,6 +168,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "VolumeSnapshotClassName is changed on update",
 			InitialVirtualState:  []runtime.Object{vWithNilClass.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pWithNilClass.DeepCopy()},
@@ -178,6 +185,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Sync finalizers from physical to virtual",
 			InitialVirtualState:  []runtime.Object{vPVSourceSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pWithFinalizers},
@@ -194,6 +202,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Sync status from physical to virtual",
 			InitialVirtualState:  []runtime.Object{vPVSourceSnapshot.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pWithStatus},
@@ -210,6 +219,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Delete in host when virtual is being deleted",
 			InitialVirtualState:  []runtime.Object{vDeletingSnapshot},
 			InitialPhysicalState: []runtime.Object{pPVSourceSnapshot.DeepCopy()},

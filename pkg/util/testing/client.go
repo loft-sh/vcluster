@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,11 +19,6 @@ import (
 func NewScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	err := clientgoscheme.AddToScheme(scheme)
-	if err != nil {
-		panic(err)
-	}
-
-	err = volumesnapshotv1.AddToScheme(scheme)
 	if err != nil {
 		panic(err)
 	}
