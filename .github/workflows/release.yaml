@@ -8,8 +8,6 @@ jobs:
   publish-cli:
     if: startsWith(github.ref, 'refs/tags/v') == true
     runs-on: macos-latest
-    permissions:
-      id-token: write   # This is the key for OIDC!
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v2
@@ -41,8 +39,6 @@ jobs:
   publish-images:
     if: startsWith(github.ref, 'refs/tags/v') == true
     runs-on: ubuntu-18.04
-    permissions:
-      id-token: write   # This is the key for OIDC!
     steps:
       - uses: actions/checkout@v2
       - uses: sigstore/cosign-installer@main
