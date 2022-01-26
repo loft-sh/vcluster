@@ -29,6 +29,9 @@ rules:
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshots"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- if .Values.openshift.enable }}
   - apiGroups: [""]
