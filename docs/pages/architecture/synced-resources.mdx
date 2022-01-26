@@ -70,4 +70,4 @@ Disabling certain resources such as services, endpoints or pods can lead to a no
 
 Syncing other resources such as deployments, statefulsets and namespaces is usually not needed as those just control lower level resources and since those lower level resources are synced the cluster can function correctly. 
 
-However, there might be cases though were custom syncing of resources might be needed or beneficial. In order to accomplish this, vcluster provides an SDK to develop your own resource syncers. This is currently a work in progress and will be added in the form of plugins to vcluster shortly (ETA February-March 2022).
+However, there might be cases though were custom syncing of resources might be needed or beneficial. In order to accomplish this, vcluster provides an [SDK](https://github.com/loft-sh/vcluster-sdk) to develop your own resource syncers as plugins. To find out more, please take a look at the [plugins documenation](../plugins/overview.mdx).
