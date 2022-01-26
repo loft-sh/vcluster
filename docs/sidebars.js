@@ -63,6 +63,15 @@ module.exports = {
       ],
     },
     {
+      type: "category",
+      label: "Plugins",
+      collapsed: false,
+      items: [
+          'plugins/overview',
+          'plugins/tutorial',
+      ]
+    },
+    {
       type: 'doc',
       id: 'troubleshooting',
     },
