@@ -67,6 +67,7 @@ module.exports = {
       collapsed: false,
       items: [
           'plugins/overview',
+          'plugins/tutorial',
       ]
     },
     {
