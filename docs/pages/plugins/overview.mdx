@@ -3,6 +3,10 @@ title: Overview
 sidebar_label: Overview
 ---
 
+:::warning
+This is an alpha feature and only available in the preview `v0.6.0` versions of vcluster
+:::
+
 Plugins are a feature to extend the capabilities of vcluster. They allow you to add custom functionality, such as:
 
 1. Syncing specific resources from or to the virtual clusters including cluster scoped resources like cluster roles
@@ -30,7 +34,7 @@ With these credentials the plugin controllers are started, similar to how vclust
 ### Plugin Controllers
 
 Resource syncing is the heart of vcluster which enables the virtual cluster to behave like an actual Kubernetes cluster.
-A syncer in vcluster is a [Kubernetes controller](https://kubernetes.io/docs/concepts/architecture/controller/) that runs in the virtual cluster.
+A [Kubernetes controller](https://kubernetes.io/docs/concepts/architecture/controller/) that is responsible for resource syncing in vcluster is called a syncer.
 This controller reacts on changes to objects within the virtual cluster as well as on changes on objects within the host cluster.
 The syncer tries to map each virtual object to a physical object in the host cluster and then compares those.
 After a change was discovered, the syncer will ensure that the virtual cluster object as well as the physical cluster object are aligned in a desired state,
@@ -52,85 +56,6 @@ The vcluster SDK let's you write custom plugin controllers with just a few lines
 
 Since the plugin SDK interfaces are mostly compatible with the vcluster syncers, you can also take a look how those are implemented in [vcluster itself](https://github.com/loft-sh/vcluster/tree/main/pkg/controllers/resources), which work in most cases the same way as if those would be implemented in a plugin.
 It would be even possible to reimplement all vcluster syncers in a separate plugin.
-
-#### ConfigMap Syncer Example
-
-Using the vcluster SDK, this is how a simple config map syncer could look like:
-```
-package main
-
-import (
-    ...
-)
-
-func main() {
-	ctx := plugin.MustInit("configmap-plugin")
-	plugin.MustRegister(&configMapSyncer{
-	    NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{}),
-	})
-	plugin.MustStart()
-}
-
-// Our struct that holds the common functionality and implements the syncer interface
-type configMapSyncer struct {
-	translator.NamespacedTranslator
-}
-
-// Make sure the interface is implemented
-var _ syncer.Syncer = &configMapSyncer{}
-
-// SyncDown defines the action that should be taken by the syncer if a virtual cluster object
-// exists, but has no corresponding physical cluster object yet. The physical cluster
-// object would get synced down from the virtual cluster to the host cluster in this scenario.
-func (s *configMapSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.TranslateMetadata(vObj).(*corev1.ConfigMap))
-}
-
-// Sync defines the action that should be taken by the syncer if a virtual cluster object and
-// physical cluster object exist and either one of them has changed. The syncer is expected
-// to reconcile in this case without knowledge of which object has actually changed. This
-// is needed to avoid race conditions and defining a clear hierarchy what fields should be managed
-// by which side.
-func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap)))
-}
-
-// translates the virtual object changes to the physical object
-func (s *configMapSyncer) translateUpdate(pObj, vObj *corev1.ConfigMap) *corev1.ConfigMap {
-	var updated *corev1.ConfigMap
-
-	// check annotations & labels
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
-	if changed {
-		updated = newIfNil(updated, pObj)
-		updated.Labels = updatedLabels
-		updated.Annotations = updatedAnnotations
-	}
-
-	// check data
-	if !equality.Semantic.DeepEqual(vObj.Data, pObj.Data) {
-		updated = newIfNil(updated, pObj)
-		updated.Data = vObj.Data
-	}
-
-	// check binary data
-	if !equality.Semantic.DeepEqual(vObj.BinaryData, pObj.BinaryData) {
-		updated = newIfNil(updated, pObj)
-		updated.BinaryData = vObj.BinaryData
-	}
-
-	return updated
-}
-
-func newIfNil(updated *corev1.ConfigMap, pObj *corev1.ConfigMap) *corev1.ConfigMap {
-	if updated == nil {
-		return pObj.DeepCopy()
-	}
-	return updated
-}
-```
-
-This syncer would sync all virtual cluster configmaps to the same host cluster namespace, as well as changes to those.
 
 ## Loading and Installing Plugins to vcluster
 
@@ -171,6 +96,10 @@ vcluster create my-vcluster -n my-vcluster -f https://github.com/my-org/my-plugi
 helm install my-vcluster vcluster -n my-vcluster --repo https://charts.loft.sh -f https://github.com/my-org/my-plugin/plugin.yaml -f other-values.yaml
 ```
 
+:::info Examples
+You can take a look at the [vcluster-sdk](https://github.com/loft-sh/vcluster-sdk/tree/main/examples) for some working examples
+:::
+
 :::warning Don't install untrusted plugins
-A plugin runs with the same permissions as vcluster itself does in the Kubernetes cluster and can also define additional permissions through its `plugin.yaml`, so make double sure you only install plugins you trust.
+A plugin runs with the same permissions as vcluster itself does in the Kubernetes cluster and can also define additional permissions through its `plugin.yaml`, so make sure you only install plugins you trust.
 :::

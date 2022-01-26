@@ -3,7 +3,7 @@ title: "Development tutorial"
 sidebar_label: "Development tutorial"
 ---
 
-In this tutorial we will implement a ConfigMap syncer. Vcluster syncs ConfigMaps out of the box, but only those that are used by one of the pods created in the vcluster. Here we will have a step-by-step look at a plugin implementation that will synchronize all ConfigMaps using the [vcluster plugin SDK](https://github.com/loft-sh/vcluster-sdk).
+In this tutorial we will implement a ConfigMap syncer. Vcluster syncs ConfigMaps out of the box, but only those that are used by one of the pods created in vcluster. Here we will have a step-by-step look at a plugin implementation that will synchronize all ConfigMaps using the [vcluster plugin SDK](https://github.com/loft-sh/vcluster-sdk).
 
 
 ### Prerequisites
@@ -17,7 +17,12 @@ Before starting to develop, make sure you have installed the following tools on 
 
 ## Implementation
 
-We can start our project by creating a `main.go` file:
+Check out the vcluster plugin example via:
+```
+git clone https://github.com/loft-sh/vcluster-plugin-example.git
+```
+
+You'll see a bunch of files already created, but lets take a look at the `main.go` file:
 ```
 package main
 
@@ -44,7 +49,7 @@ Let's break down what is happening in the `main()` function above.
 
 ### Implementing a syncer for a namespaced resource
 
-In this chapter, we will be writing the `sync-all-configmaps.go` file that we shall create in the `syncer` directory.
+In this chapter, we take a look at the `sync-all-configmaps.go` file that can be found in the `syncer` directory.
 
 ```
 package syncers
@@ -136,9 +141,7 @@ As you might have noticed, the changes to the Immutable field of the ConfigMap a
 Also, notice that this example lacks the updates to the ConfigMap resource in vcluster. Here we propagate the changes only down to the ConfigMap in the host cluster, but there are resources or use cases where a syncer would update the synced resource in vcluster. For example, this might be an update of the status subresource or synchronization of any other field that some controller sets on the host side, e.g., finalizers. Implementation of such updates needs to be considered on case-by-case basis.
 For some use cases, you may need to sync the resources in the opposite direction, from the host cluster up into the vcluster, or even in both directions. If that is what your plugin needs to do, you will implement the [`UpSyncer`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer#UpSyncer) interface defined by the SDK.
 
-### Add go.mod and Dockerfile
-
-Before you can build your plugins container image, you will need `go.mod` and `Dockerfile` files. You can find both of them and all the code from this tutorial in the example plugin project on GitHub - [github.com/loft-sh/vcluster-plugin-example](https://github.com/loft-sh/vcluster-plugin-example).
+### Build and push your plugin
 
 Now you can run docker commands to build your container image and push it to the registry.
 `docker build -t your_org/vcluster-sync-all-configmaps . && docker push your_org/vcluster-sync-all-configmaps`
@@ -165,5 +168,38 @@ You can deploy your plugin to a vcluster using the same commands as [described o
 vcluster create my-vcluster -n my-vcluster -f plugin.yaml
 ```
 
-When developing your plugin we recommend using the [devspace](https://devspace.sh/) CLI tool for running your local plugin source code in Kubernetes. The appropriate configuration is present in our [example vcluster plugin project](https://github.com/loft-sh/vcluster-plugin-example), and you can read the instruction on how to use it in [its ReadMe](https://github.com/loft-sh/vcluster-plugin-example#readme).
+### Fast Plugin Development with DevSpace
+
+When developing your plugin we recommend using the [devspace](https://devspace.sh/) CLI tool for running your local plugin source code directly in Kubernetes. The appropriate configuration is already present in the `devspace.yaml` and you can start developing by running the following command:
+
+:::info
+If you want to develop within a remote Kubernetes cluster (as opposed to docker-desktop or minikube), make sure to exchange `PLUGIN_IMAGE` in the `devspace.yaml` with a valid registry path you can push to.
+:::
+
+After successfully setting up the tools, start the development environment with:
+```
+devspace dev -n vcluster
+```
+
+After a while a terminal should show up with additional instructions. Enter the following command to start the plugin:
+```
+go run -mod vendor main.go
+```
+
+The output should look something like this:
+```
+I0124 11:20:14.702799    4185 logr.go:249] plugin: Try creating context...
+I0124 11:20:14.730044    4185 logr.go:249] plugin: Waiting for vcluster to become leader...
+I0124 11:20:14.731097    4185 logr.go:249] plugin: Starting syncers...
+[...]
+I0124 11:20:15.957331    4185 logr.go:249] plugin: Successfully started plugin.
+```
+
+You can now change a file locally in your IDE and then restart the command in the terminal to apply the changes to the plugin.
+
+After you are done developing or you want to recreate the environment, delete the development environment with:
+```
+devspace purge -n vcluster
+```
+
 
