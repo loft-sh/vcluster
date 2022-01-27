@@ -13,7 +13,7 @@ import (
 
 // VirtualClusterOptions holds the cmd flags
 type VirtualClusterOptions struct {
-	Controllers string `json:"controllers,omitempty"`
+	Controllers []string `json:"controllers,omitempty"`
 
 	ServerCaCert        string   `json:"serverCaCert,omitempty"`
 	ServerCaKey         string   `json:"serverCaKey,omitempty"`
@@ -151,11 +151,7 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 }
 
 func parseControllers(options *VirtualClusterOptions) (map[string]bool, error) {
-	controllers := []string{}
-	if options.Controllers != "" {
-		controllers = strings.Split(options.Controllers, ",")
-	}
-	controllers = append(controllers, DefaultEnabledControllers...)
+	controllers := append(DefaultEnabledControllers, options.Controllers...)
 
 	// migrate deprecated flags
 	if len(options.DeprecatedDisableSyncResources) > 0 {
