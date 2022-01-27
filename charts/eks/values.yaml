@@ -31,6 +31,9 @@ syncer:
   # image: loftsh/vcluster
   extraArgs: []
   volumeMounts:
+    - name: coredns
+      configMap:
+      name: custom-deployments
     - mountPath: /pki
       name: certs
       readOnly: true
@@ -129,6 +132,10 @@ api:
     requests:
       cpu: 200m
   
+# Core DNS settings
+coredns:
+  image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.4-eks-1-21-8
+
 # Service account that should be used by the vcluster
 serviceAccount:
   create: true
