@@ -57,6 +57,9 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
+        - name: coredns
+          configMap:
+            name: custom-deployments
         - name: certs
           secret:
             secretName: {{ .Release.Name }}-certs
