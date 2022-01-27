@@ -88,6 +88,8 @@ type ControllerContext struct {
 }
 
 var ExistingControllers = map[string]bool{
+	// helm charts need to be updated when changing this!
+	// values.yaml references these in .sync.*
 	"services":               true,
 	"configmaps":             true,
 	"secrets":                true,
@@ -108,6 +110,8 @@ var ExistingControllers = map[string]bool{
 }
 
 var DefaultEnabledControllers = []string{
+	// helm charts need to be updated when changing this!
+	// values.yaml and template/_helpers.tpl reference these
 	"services",
 	"configmaps",
 	"secrets",

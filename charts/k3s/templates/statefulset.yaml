@@ -122,6 +122,13 @@ spec:
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}
+          {{- include "vcluster.syncer.syncArgs" . | indent 10 }}
+          {{- if .Values.sync.nodes.syncAllNodes }}
+          - --sync-all-nodes
+          {{- end }}
+          {{- if .Values.sync.nodes.nodeSelector }}
+          - --node-selector={{ .Values.sync.nodes.nodeSelector }}
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}

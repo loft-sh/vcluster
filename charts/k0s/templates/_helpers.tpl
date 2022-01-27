@@ -57,3 +57,37 @@ Get
 {{- define "vcluster.admin.accessKey" -}}
 {{- now | unixEpoch | toString | trunc 8 | sha256sum -}}
 {{- end -}}
+
+{{/*
+Syncer flags for enabling/disabling controllers
+Prints only the flags that modify the defaults:
+- when default controller has enabled: false => `- "--sync=-controller`
+- when non-default controller has enabled: true => `- "--sync=controller`
+*/}}
+{{- define "vcluster.syncer.syncArgs" -}}
+{{- $defaultEnabled := list "services" "configmaps" "secrets" "endpoints" "pods" "events" "persistentvolumeclaims" "ingresses" "fake-nodes" "fake-persistentvolumes" -}}
+{{- range $key, $val := .Values.sync }}
+{{- if and (has $key $defaultEnabled) (not $val.enabled) }}
+- --sync=-{{ $key }}
+{{- else if and (not (has $key $defaultEnabled)) ($val.enabled)}}
+- --sync={{ $key }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Cluster role rules defined by plugins
+*/}}
+{{- define "vcluster.plugin.clusterRoleExtraRules" -}}
+{{- range $key, $container := .Values.plugin }}
+{{- if $container.rbac }}
+{{- if $container.rbac.clusterRole }}
+{{- if $container.rbac.clusterRole.extraRules }}
+{{- range $ruleIndex, $rule := $container.rbac.clusterRole.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
