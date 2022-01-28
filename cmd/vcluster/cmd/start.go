@@ -44,7 +44,6 @@ import (
 	"k8s.io/klog"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -387,7 +386,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	// write the kube config to secret
 	err = writeKubeConfigToSecret(ctx, rawConfig)
 	if err != nil {
-		return err
+		klog.Errorf("Error writing kube config to secret: %v", err)
 	}
 
 	// register controllers
@@ -497,16 +496,6 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 
 	// check if we need to write the kubeconfig secrete to the default location as well
 	if ctx.Options.KubeConfigSecret != "" {
-		// we have to create a new client here, because the cached version will always say
-		// the secret does not exist in another namespace
-		localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			Mapper: ctx.LocalManager.GetRESTMapper(),
-		})
-		if err != nil {
-			return errors.Wrap(err, "create uncached client")
-		}
-
 		// which namespace should we create the additional secret in?
 		secretNamespace := ctx.Options.KubeConfigSecretNamespace
 		if secretNamespace == "" {
@@ -514,12 +503,12 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		}
 
 		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
+		err = kubeconfig.WriteKubeConfig(ctx.LocalManager.GetConfig(), ctx.Options.KubeConfigSecret, secretNamespace, config)
 		if err != nil {
 			return fmt.Errorf("creating %s secret in the %s ns failed: %v", ctx.Options.KubeConfigSecret, secretNamespace, err)
 		}
 	}
 
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), ctx.CurrentNamespace, config)
+	return kubeconfig.WriteKubeConfig(ctx.LocalManager.GetConfig(), kubeconfig.GetDefaultSecretName(translate.Suffix), ctx.CurrentNamespace, config)
 }

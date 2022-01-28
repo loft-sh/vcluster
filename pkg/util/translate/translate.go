@@ -50,12 +50,12 @@ func IsManaged(obj runtime.Object) bool {
 }
 
 func GetOwnerReference(object client.Object) []metav1.OwnerReference {
-	if Owner == nil {
+	if Owner == nil || Owner.GetName() == "" || Owner.GetUID() == "" {
 		return nil
 	}
 
 	typeAccessor, err := meta.TypeAccessor(Owner)
-	if err != nil {
+	if err != nil || typeAccessor.GetAPIVersion() == "" || typeAccessor.GetKind() == "" {
 		return nil
 	}
 

@@ -15,10 +15,10 @@ func ApplyManifestFile(inClusterConfig *rest.Config, filename string) error {
 		return fmt.Errorf("function ApplyManifestFile failed, unable to read %s file: %v", filename, err)
 	}
 
-	return ApplyManifest(inClusterConfig, &manifest)
+	return ApplyManifest(inClusterConfig, manifest)
 }
 
-func ApplyManifest(inClusterConfig *rest.Config, manifest *[]byte) error {
+func ApplyManifest(inClusterConfig *rest.Config, manifest []byte) error {
 	restMapper, err := apiutil.NewDynamicRESTMapper(inClusterConfig)
 	if err != nil {
 		return fmt.Errorf("unable to initialize NewDynamicRESTMapper")
@@ -26,7 +26,7 @@ func ApplyManifest(inClusterConfig *rest.Config, manifest *[]byte) error {
 
 	a := DirectApplier{}
 	opts := ApplierOptions{
-		Manifest:   string(*manifest),
+		Manifest:   string(manifest),
 		RESTConfig: inClusterConfig,
 		RESTMapper: restMapper,
 	}

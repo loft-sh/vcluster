@@ -98,7 +98,7 @@ func compareObjs(t *testing.T, state string, ctx context.Context, c client.Clien
 
 		t.Logf("\n\nExpected: \n%s\n\nExisting: \n%s\n", expectedObjsYaml, existingObjsYaml)
 		assert.Equal(t, string(expectedObjsYaml), string(existingObjsYaml), state+" mismatch")
-		return fmt.Errorf("expected objs and existing objs length do not match (%d != %d). \n\nExpected: \n%s\n\nExisting: \n%s", len(objs), len(existingObjs), expectedObjsYaml, existingObjsYaml)
+		return fmt.Errorf("expected objs and existing objs length do not match (%d != %d)", len(objs), len(existingObjs))
 	}
 
 	for _, expectedObj := range objs {
@@ -120,26 +120,26 @@ func compareObjs(t *testing.T, state string, ctx context.Context, c client.Clien
 
 				// compare objs
 				existingObj := stripObject(existingObjRaw)
+				expectedObjsYaml, err := yaml.Marshal(expectedObj)
+				if err != nil {
+					return err
+				}
+				existingObjsYaml, err := yaml.Marshal(existingObj)
+				if err != nil {
+					return err
+				}
+
 				isEqual := false
 				if compare != nil {
 					isEqual = compare(expectedObj, existingObj)
 				} else {
-					isEqual = apiequality.Semantic.DeepEqual(expectedObj, existingObj)
+					isEqual = apiequality.Semantic.DeepEqual(expectedObj, existingObj) || string(expectedObjsYaml) == string(existingObjsYaml)
 				}
 
 				if !isEqual {
-					expectedObjsYaml, err := yaml.Marshal(expectedObj)
-					if err != nil {
-						return err
-					}
-					existingObjsYaml, err := yaml.Marshal(existingObj)
-					if err != nil {
-						return err
-					}
-
 					t.Logf("\n\nExpected: \n%s\n\nExisting: \n%s\n", expectedObjsYaml, existingObjsYaml)
 					assert.Equal(t, string(expectedObjsYaml), string(existingObjsYaml), state+" mismatch")
-					return fmt.Errorf("expected obj %s/%s and existing obj are different. \n\nExpected: %s\n\nExisting: %s", expectedAccessor.GetNamespace(), expectedAccessor.GetName(), expectedObjsYaml, existingObjsYaml)
+					return fmt.Errorf("expected obj %s/%s and existing obj are different", expectedAccessor.GetNamespace(), expectedAccessor.GetName())
 				}
 
 				break

@@ -3,11 +3,12 @@ package kubeconfig
 import (
 	"context"
 	"fmt"
+	"github.com/ghodss/yaml"
+	"github.com/loft-sh/vcluster/pkg/util/applier"
 	"io/ioutil"
+	"k8s.io/client-go/rest"
 	"os"
 
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -16,7 +17,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 	CertificateKeySecretKey = "client-key"
 )
 
-func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secretNamespace string, config *api.Config) error {
+func WriteKubeConfig(currentNamespaceConfig *rest.Config, secretName, secretNamespace string, config *api.Config) error {
 	out, err := clientcmd.Write(*config)
 	if err != nil {
 		return err
@@ -46,7 +46,6 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 	}
 
 	if secretName != "" {
-
 		clientCmdConfig := clientcmd.NewDefaultClientConfig(*config, &clientcmd.ConfigOverrides{CurrentContext: config.CurrentContext})
 		clientConfig, err := clientCmdConfig.ClientConfig()
 		if err != nil {
@@ -58,6 +57,10 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 		key := clientConfig.KeyData
 
 		kubeConfigSecret := &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
 				Namespace: secretNamespace,
@@ -76,7 +79,12 @@ func WriteKubeConfig(ctx context.Context, client client.Client, secretName, secr
 			kubeConfigSecret.OwnerReferences = translate.GetOwnerReference(nil)
 		}
 
-		err = clienthelper.Apply(ctx, client, kubeConfigSecret, loghelper.New("apply-secret"))
+		out, err := yaml.Marshal(kubeConfigSecret)
+		if err != nil {
+			return err
+		}
+
+		err = applier.ApplyManifest(currentNamespaceConfig, out)
 		if err != nil {
 			return errors.Wrap(err, "apply generated kube config secret")
 		}
