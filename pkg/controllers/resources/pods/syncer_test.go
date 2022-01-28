@@ -42,43 +42,23 @@ func TestSync(t *testing.T) {
 			NodeName: "test456",
 		},
 	}
-	deletingPod := &corev1.Pod{
-		ObjectMeta: pObjectMeta,
-		Spec: corev1.PodSpec{
-			NodeName: "test456",
-		},
-	}
-	now := metav1.Now()
-	deletingPod.DeletionTimestamp = &now
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
-			Name:                 "Delete physical pod",
+			Name:                 "Delete virtual pod",
 			InitialVirtualState:  []runtime.Object{basePod.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{createdPod},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {basePod},
+				corev1.SchemeGroupVersion.WithKind("Pod"): {},
 			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {
+					createdPod,
+				},
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).Sync(syncCtx, createdPod.DeepCopy(), basePod)
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                 "Don't delete virtual pod",
-			InitialVirtualState:  []runtime.Object{basePod.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{deletingPod},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {basePod.DeepCopy()},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {deletingPod},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).Sync(syncCtx, deletingPod, basePod.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
