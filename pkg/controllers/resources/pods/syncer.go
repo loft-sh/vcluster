@@ -3,6 +3,7 @@ package pods
 import (
 	"context"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -52,7 +53,13 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 			return nil, errors.New("at least one label=value pair has to be defined in the label selector")
 		}
 	}
-
+	var tolerations []*corev1.Toleration
+	if len(ctx.Options.Tolerations) > 0 {
+		for _, toleration := range ctx.Options.Tolerations {
+			key, value, effect := parseToleration(toleration)
+			tolerations = append(tolerations, &corev1.Toleration{Key: key, Value: value, Effect: corev1.TaintEffect(effect)})
+		}
+	}
 	// create new namespaced translator
 	namespacedTranslator := translator.NewNamespacedTranslator(ctx, "pod", &corev1.Pod{})
 
@@ -70,7 +77,18 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 		podTranslator: podTranslator,
 		nodeSelector:  nodeSelector,
+		tolerations:   tolerations,
 	}, nil
+}
+
+func parseToleration(toleration string) (key string, value string, effect string) {
+	eqSplit := strings.Split(toleration, "=")
+	colonSplit := strings.Split(eqSplit[1], ":")
+
+	key = eqSplit[0]
+	value = colonSplit[0]
+	effect = colonSplit[1]
+	return key, value, effect
 }
 
 type podSyncer struct {
@@ -82,6 +100,7 @@ type podSyncer struct {
 	virtualClusterClient kubernetes.Interface
 
 	nodeSelector *metav1.LabelSelector
+	tolerations  []*corev1.Toleration
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -142,6 +161,9 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 	}
 
 	// ensure node selector
+	for _, toleration := range s.tolerations {
+		pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, *toleration)
+	}
 	if s.nodeSelector != nil {
 		// 2 cases:
 		// 1. Pod already has a nodeName -> then we check if the node exists in the virtual cluster
