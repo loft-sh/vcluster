@@ -172,12 +172,6 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	// should pod get deleted?
 	if pPod.DeletionTimestamp != nil {
 		if vPod.DeletionTimestamp == nil {
-			// In this case we do not want to delete the virtual pod as we specifically requested the physical pod
-			// to be deleted.
-			if pPod.Spec.NodeName != "" && vPod.Spec.NodeName != "" && pPod.Spec.NodeName != vPod.Spec.NodeName {
-				return ctrl.Result{}, nil
-			}
-
 			gracePeriod := minimumGracePeriodInSeconds
 			if vPod.Spec.TerminationGracePeriodSeconds != nil {
 				gracePeriod = *vPod.Spec.TerminationGracePeriodSeconds
@@ -253,6 +247,17 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 }
 
 func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, vObj *corev1.Pod) (bool, error) {
+	if vObj.Spec.NodeName != pObj.Spec.NodeName && vObj.Spec.NodeName != "" {
+		// node of virtual and physical pod are different, we delete the virtual pod to try to recover from this state
+		ctx.Log.Infof("delete virtual pod %s/%s, because virtual and physical pods have different assigned nodes", vObj.Namespace, vObj.Name)
+		err := ctx.VirtualClient.Delete(ctx.Context, vObj)
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+
 	// ensure the node is available in the virtual cluster, if not and we sync the pod to the virtual cluster,
 	// it will get deleted automatically by kubernetes so we ensure the node is synced
 	vNode := &corev1.Node{}
@@ -267,18 +272,6 @@ func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, v
 	}
 
 	if vObj.Spec.NodeName != pObj.Spec.NodeName {
-		if vObj.Spec.NodeName != "" {
-			// node of virtual and physical pod are different, we have to delete the physical pod
-			// then to try to get the cluster into a correct state again.
-			ctx.Log.Infof("delete physical pod %s/%s, because virtual and physical pods have different assigned nodes")
-			err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
-			if err != nil {
-				return false, err
-			}
-
-			return true, nil
-		}
-
 		err = s.assignNodeToPod(ctx, pObj, vObj)
 		if err != nil {
 			return false, err
