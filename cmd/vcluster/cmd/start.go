@@ -185,20 +185,9 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		return err
 	}
 
-	if len(options.Tolerations) > 0 {
-		for _, toleration := range options.Tolerations {
-			eqSplit := strings.Split(toleration, "=")
-			if len(eqSplit) < 2 {
-				klog.Fatalf("Toleration: %v improperly formatted", toleration)
-				return errors.New("Toleration improperly formatted")
-			} else {
-				clSplit := strings.Split(eqSplit[1], ":")
-				if len(clSplit) < 2 {
-					klog.Fatalf("Toleration: %v improperly formatted", toleration)
-					return errors.New("Toleration improperly formatted")
-				}
-			}
-		}
+	err = validateTolerations(options.Tolerations)
+	if err != nil {
+		return err
 	}
 
 	// set suffix
@@ -336,6 +325,25 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	<-ctx.StopChan
+	return nil
+}
+
+func validateTolerations(tolerations []string) error {
+	if len(tolerations) > 0 {
+		for _, toleration := range tolerations {
+			eqSplit := strings.Split(toleration, "=")
+			if len(eqSplit) < 2 {
+				klog.Fatalf("Toleration: %v improperly formatted", toleration)
+				return errors.New("Toleration improperly formatted")
+			} else {
+				clSplit := strings.Split(eqSplit[1], ":")
+				if len(clSplit) < 2 {
+					klog.Fatalf("Toleration: %v improperly formatted", toleration)
+					return errors.New("Toleration improperly formatted")
+				}
+			}
+		}
+	}
 	return nil
 }
 
