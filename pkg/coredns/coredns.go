@@ -37,20 +37,23 @@ var CoreDNSVersionMap = map[string]string{
 }
 
 func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
-	// create a temporary directory and file to output processed manifest to
-	debugOutputFile, err := prepareManifestOutput()
-	if err != nil {
-		return err
-	}
-	defer debugOutputFile.Close()
-
 	vars := getManifestVariables(defaultImageRegistry, serverVersion)
 	output, err := processManifestTemplate(vars)
 	if err != nil {
 		return err
 	}
+
 	// write manifest into a file for easier debugging
-	_, _ = debugOutputFile.Write(*output)
+	if os.Getenv("DEBUG") == "true" {
+		// create a temporary directory and file to output processed manifest to
+		debugOutputFile, err := prepareManifestOutput()
+		if err != nil {
+			return err
+		}
+		defer debugOutputFile.Close()
+
+		_, _ = debugOutputFile.Write(output)
+	}
 
 	return applier.ApplyManifest(inClusterConfig, output)
 }
@@ -87,7 +90,7 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 	return vars
 }
 
-func processManifestTemplate(vars map[string]interface{}) (*[]byte, error) {
+func processManifestTemplate(vars map[string]interface{}) ([]byte, error) {
 	manifestInputPath := path.Join(constants.ContainerManifestsFolder, ManifestRelativePath)
 	manifestTemplate, err := template.ParseFiles(manifestInputPath)
 	if err != nil {
@@ -98,6 +101,5 @@ func processManifestTemplate(vars map[string]interface{}) (*[]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("manifestTemplate.Execute failed for manifest %s: %v", manifestInputPath, err)
 	}
-	output := buf.Bytes()
-	return &output, nil
+	return buf.Bytes(), nil
 }

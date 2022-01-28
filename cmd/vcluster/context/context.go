@@ -117,7 +117,6 @@ var DefaultEnabledControllers = []string{
 	"ingresses",
 	"fake-nodes",
 	"fake-persistentvolumes",
-	"poddisruptionbudgets",
 }
 
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {

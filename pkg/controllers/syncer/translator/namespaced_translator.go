@@ -139,8 +139,8 @@ func (n *namespacedTranslator) TranslateMetadata(vObj client.Object) client.Obje
 	return TranslateMetadata(n.physicalNamespace, vObj, n.excludedAnnotations...)
 }
 
-func TranslateMetadata(phyiscalNamespace string, vObj client.Object, excludedAnnotations ...string) client.Object {
-	pObj, err := setupMetadataWithName(phyiscalNamespace, vObj, DefaultPhysicalName)
+func TranslateMetadata(physicalNamespace string, vObj client.Object, excludedAnnotations ...string) client.Object {
+	pObj, err := setupMetadataWithName(physicalNamespace, vObj, DefaultPhysicalName)
 	if err != nil {
 		return nil
 	}

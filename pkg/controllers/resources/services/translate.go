@@ -10,7 +10,26 @@ func (s *serviceSyncer) translate(vObj *corev1.Service) *corev1.Service {
 	newService.Spec.Selector = nil
 	newService.Spec.ClusterIP = ""
 	newService.Spec.ClusterIPs = nil
+	StripNodePorts(newService)
 	return newService
+}
+
+func StripNodePorts(vObj *corev1.Service) {
+	for i := range vObj.Spec.Ports {
+		vObj.Spec.Ports[i].NodePort = 0
+	}
+}
+
+func portsEqual(pObj, vObj *corev1.Service) bool {
+	pSpec := pObj.Spec.DeepCopy()
+	vSpec := vObj.Spec.DeepCopy()
+	for i := range pSpec.Ports {
+		pSpec.Ports[i].NodePort = 0
+	}
+	for i := range vSpec.Ports {
+		vSpec.Ports[i].NodePort = 0
+	}
+	return equality.Semantic.DeepEqual(pSpec.Ports, vSpec.Ports)
 }
 
 func (s *serviceSyncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *corev1.Service {
@@ -36,6 +55,12 @@ func (s *serviceSyncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *co
 		updated.Spec.LoadBalancerSourceRanges = pObj.Spec.LoadBalancerSourceRanges
 	}
 
+	// check if we need to sync node ports from host to virtual
+	if portsEqual(pObj, vObj) && !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
+		updated = newIfNil(updated, vObj)
+		updated.Spec.Ports = pObj.Spec.Ports
+	}
+
 	return updated
 }
 
@@ -58,6 +83,9 @@ func (s *serviceSyncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Serv
 	if !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
 		updated = newIfNil(updated, pObj)
 		updated.Spec.Ports = vObj.Spec.Ports
+
+		// make sure node ports will be reset here
+		StripNodePorts(updated)
 	}
 
 	// publish not ready addresses
