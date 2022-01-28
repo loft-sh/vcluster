@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	corev1 "k8s.io/api/core/v1"
 	"math"
 	"os"
+	"strings"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/loft-sh/vcluster/pkg/plugin"
 
@@ -104,6 +106,7 @@ func NewStartCommand() *cobra.Command {
 
 	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
 	cmd.Flags().BoolVar(&options.EnforceNodeSelector, "enforce-node-selector", true, "If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector")
+	cmd.Flags().StringSliceVar(&options.Tolerations, "toleration", []string{}, "If set will apply the provided tolerations to all pods in the vcluster")
 	cmd.Flags().StringVar(&options.NodeSelector, "node-selector", "", "If set, nodes with the given node selector will be synced to the virtual cluster. This will implicitly set --fake-nodes=false")
 	cmd.Flags().StringVar(&options.ServiceAccount, "service-account", "", "If set, will set this host service account on the synced pods")
 
@@ -180,6 +183,22 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	if len(options.Tolerations) > 0 {
+		for _, toleration := range options.Tolerations {
+			eqSplit := strings.Split(toleration, "=")
+			if len(eqSplit) < 2 {
+				klog.Fatalf("Toleration: %v improperly formatted", toleration)
+				return errors.New("Toleration improperly formatted")
+			} else {
+				clSplit := strings.Split(eqSplit[1], ":")
+				if len(clSplit) < 2 {
+					klog.Fatalf("Toleration: %v improperly formatted", toleration)
+					return errors.New("Toleration improperly formatted")
+				}
+			}
+		}
 	}
 
 	// set suffix
