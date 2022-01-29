@@ -3,7 +3,6 @@ package pods
 import (
 	"context"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -12,6 +11,7 @@ import (
 
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -55,9 +55,9 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	}
 	var tolerations []*corev1.Toleration
 	if len(ctx.Options.Tolerations) > 0 {
-		for _, toleration := range ctx.Options.Tolerations {
-			key, value, effect := parseToleration(toleration)
-			tolerations = append(tolerations, &corev1.Toleration{Key: key, Value: value, Effect: corev1.TaintEffect(effect)})
+		for _, t := range ctx.Options.Tolerations {
+			toleration, _ := toleration.ParseToleration(t)
+			tolerations = append(tolerations, &toleration)
 		}
 	}
 	// create new namespaced translator
@@ -79,16 +79,6 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		nodeSelector:  nodeSelector,
 		tolerations:   tolerations,
 	}, nil
-}
-
-func parseToleration(toleration string) (key string, value string, effect string) {
-	eqSplit := strings.Split(toleration, "=")
-	colonSplit := strings.Split(eqSplit[1], ":")
-
-	key = eqSplit[0]
-	value = colonSplit[0]
-	effect = colonSplit[1]
-	return key, value, effect
 }
 
 type podSyncer struct {

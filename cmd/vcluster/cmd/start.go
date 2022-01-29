@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +27,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -184,10 +184,11 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	if err != nil {
 		return err
 	}
-
-	err = validateTolerations(options.Tolerations)
-	if err != nil {
-		return err
+	for _, t := range options.Tolerations {
+		_, err := toleration.ParseToleration(t)
+		if err != nil {
+			return err
+		}
 	}
 
 	// set suffix
@@ -325,25 +326,6 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	<-ctx.StopChan
-	return nil
-}
-
-func validateTolerations(tolerations []string) error {
-	if len(tolerations) > 0 {
-		for _, toleration := range tolerations {
-			eqSplit := strings.Split(toleration, "=")
-			if len(eqSplit) < 2 {
-				klog.Fatalf("Toleration: %v improperly formatted", toleration)
-				return errors.New("Toleration improperly formatted")
-			} else {
-				clSplit := strings.Split(eqSplit[1], ":")
-				if len(clSplit) < 2 {
-					klog.Fatalf("Toleration: %v improperly formatted", toleration)
-					return errors.New("Toleration improperly formatted")
-				}
-			}
-		}
-	}
 	return nil
 }
 
