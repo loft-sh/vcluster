@@ -150,10 +150,11 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 		return ctrl.Result{}, err
 	}
 
-	// ensure node selector
+	// ensure tolerations
 	for _, toleration := range s.tolerations {
 		pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, *toleration)
 	}
+	// ensure node selector
 	if s.nodeSelector != nil {
 		// 2 cases:
 		// 1. Pod already has a nodeName -> then we check if the node exists in the virtual cluster
