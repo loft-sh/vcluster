@@ -150,7 +150,10 @@ rbac:
 # Service configurations
 service:
   type: ClusterIP
-  
+  # Configuration for LoadBalancer service type
+  externalIPs: []
+  externalTrafficPolicy: ""
+
 # PreInstall hook configuration
 preInstall:
   enabled: true
