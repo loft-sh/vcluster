@@ -121,6 +121,9 @@ annotations: {}
 # Service configurations
 service:
   type: ClusterIP
+  # Configuration for LoadBalancer service type
+  externalIPs: []
+  externalTrafficPolicy: ""
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
