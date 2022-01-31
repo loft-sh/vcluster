@@ -11,6 +11,7 @@ import (
 
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -52,7 +53,13 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 			return nil, errors.New("at least one label=value pair has to be defined in the label selector")
 		}
 	}
-
+	var tolerations []*corev1.Toleration
+	if len(ctx.Options.Tolerations) > 0 {
+		for _, t := range ctx.Options.Tolerations {
+			toleration, _ := toleration.ParseToleration(t)
+			tolerations = append(tolerations, &toleration)
+		}
+	}
 	// create new namespaced translator
 	namespacedTranslator := translator.NewNamespacedTranslator(ctx, "pod", &corev1.Pod{})
 
@@ -70,6 +77,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 		podTranslator: podTranslator,
 		nodeSelector:  nodeSelector,
+		tolerations:   tolerations,
 	}, nil
 }
 
@@ -82,6 +90,7 @@ type podSyncer struct {
 	virtualClusterClient kubernetes.Interface
 
 	nodeSelector *metav1.LabelSelector
+	tolerations  []*corev1.Toleration
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -141,6 +150,10 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 		return ctrl.Result{}, err
 	}
 
+	// ensure tolerations
+	for _, toleration := range s.tolerations {
+		pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, *toleration)
+	}
 	// ensure node selector
 	if s.nodeSelector != nil {
 		// 2 cases:
