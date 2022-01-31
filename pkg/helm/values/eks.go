@@ -56,11 +56,13 @@ func getDefaultEKSReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 
 	// build values
 	values := `api:
-  image: ##API_IMAGE##
-controller:
-  image: ##CONTROLLER_IMAGE##
-etcd:
-  image: ##ETCD_IMAGE##
+	image: ##API_IMAGE##
+  controller:
+	image: ##CONTROLLER_IMAGE##
+  etcd:
+	image: ##ETCD_IMAGE##
+  coredns:
+	image: ##COREDNS_IMAGE##
 `
 	values = strings.ReplaceAll(values, "##API_IMAGE##", apiImage)
 	values = strings.ReplaceAll(values, "##CONTROLLER_IMAGE##", controllerImage)
