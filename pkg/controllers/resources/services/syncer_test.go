@@ -4,6 +4,7 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -183,6 +184,71 @@ func TestSync(t *testing.T) {
 		},
 	}
 
+	vServicePorts1 := &corev1.Service{
+		ObjectMeta: vObjectMeta,
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "test",
+					Port:       123,
+					NodePort:   567,
+					TargetPort: intstr.FromInt(10),
+				},
+			},
+		},
+	}
+	vServicePorts1Synced := &corev1.Service{
+		ObjectMeta: vObjectMeta,
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "test",
+					Port:       123,
+					NodePort:   456,
+					TargetPort: intstr.FromInt(10),
+				},
+			},
+		},
+	}
+	pServicePorts1 := &corev1.Service{
+		ObjectMeta: pObjectMeta,
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "test",
+					Port:       123,
+					NodePort:   456,
+					TargetPort: intstr.FromInt(10),
+				},
+			},
+		},
+	}
+	pServicePorts2 := &corev1.Service{
+		ObjectMeta: pObjectMeta,
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "test123",
+					Port:       123,
+					NodePort:   456,
+					TargetPort: intstr.FromInt(10),
+				},
+			},
+		},
+	}
+	pServicePorts2Synced := &corev1.Service{
+		ObjectMeta: pObjectMeta,
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "test",
+					Port:       123,
+					TargetPort: intstr.FromInt(10),
+				},
+			},
+		},
+	}
+
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                "Create Forward",
@@ -196,6 +262,38 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).SyncDown(syncCtx, baseService)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Sync node ports physical -> virtual",
+			InitialVirtualState:  []runtime.Object{vServicePorts1.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pServicePorts1.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {vServicePorts1Synced.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {pServicePorts1.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts1, vServicePorts1)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Sync ports virtual -> physical",
+			InitialVirtualState:  []runtime.Object{vServicePorts1.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pServicePorts2.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {vServicePorts1.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {pServicePorts2Synced.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts2, vServicePorts1)
 				assert.NilError(t, err)
 			},
 		},

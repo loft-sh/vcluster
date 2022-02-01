@@ -15,6 +15,17 @@ spec:
       port: 443
       targetPort: 8443
       protocol: TCP
+  {{- if (eq (.Values.service.type) "LoadBalancer") }}
+  {{- if .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
+  {{- if .Values.service.externalIPs }}
+  externalIPs:
+    {{- range $f := .Values.service.externalIPs }}
+    - {{ $f }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
   selector:
     app: vcluster
     release: {{ .Release.Name }}

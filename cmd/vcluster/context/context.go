@@ -22,9 +22,10 @@ type VirtualClusterOptions struct {
 	ClientCaCert        string   `json:"clientCaCert"`
 	KubeConfig          string   `json:"kubeConfig"`
 
-	KubeConfigSecret          string `json:"kubeConfigSecret"`
-	KubeConfigSecretNamespace string `json:"kubeConfigSecretNamespace"`
-	KubeConfigServer          string `json:"kubeConfigServer"`
+	KubeConfigSecret          string   `json:"kubeConfigSecret"`
+	KubeConfigSecretNamespace string   `json:"kubeConfigSecretNamespace"`
+	KubeConfigServer          string   `json:"kubeConfigServer"`
+	Tolerations               []string `json:"tolerations,omitempty"`
 
 	BindAddress string `json:"bindAddress"`
 	Port        int    `json:"port"`
@@ -117,7 +118,6 @@ var DefaultEnabledControllers = []string{
 	"ingresses",
 	"fake-nodes",
 	"fake-persistentvolumes",
-	"poddisruptionbudgets",
 }
 
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {

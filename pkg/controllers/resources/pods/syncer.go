@@ -11,6 +11,7 @@ import (
 
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -52,7 +53,13 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 			return nil, errors.New("at least one label=value pair has to be defined in the label selector")
 		}
 	}
-
+	var tolerations []*corev1.Toleration
+	if len(ctx.Options.Tolerations) > 0 {
+		for _, t := range ctx.Options.Tolerations {
+			toleration, _ := toleration.ParseToleration(t)
+			tolerations = append(tolerations, &toleration)
+		}
+	}
 	// create new namespaced translator
 	namespacedTranslator := translator.NewNamespacedTranslator(ctx, "pod", &corev1.Pod{})
 
@@ -70,6 +77,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 		podTranslator: podTranslator,
 		nodeSelector:  nodeSelector,
+		tolerations:   tolerations,
 	}, nil
 }
 
@@ -82,6 +90,7 @@ type podSyncer struct {
 	virtualClusterClient kubernetes.Interface
 
 	nodeSelector *metav1.LabelSelector
+	tolerations  []*corev1.Toleration
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -141,6 +150,10 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 		return ctrl.Result{}, err
 	}
 
+	// ensure tolerations
+	for _, toleration := range s.tolerations {
+		pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, *toleration)
+	}
 	// ensure node selector
 	if s.nodeSelector != nil {
 		// 2 cases:
@@ -176,6 +189,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 			if vPod.Spec.TerminationGracePeriodSeconds != nil {
 				gracePeriod = *vPod.Spec.TerminationGracePeriodSeconds
 			}
+
 			ctx.Log.Infof("delete virtual pod %s/%s, because the physical pod is being deleted", vPod.Namespace, vPod.Name)
 			if err := ctx.VirtualClient.Delete(ctx.Context, vPod, &client.DeleteOptions{GracePeriodSeconds: &gracePeriod}); err != nil {
 				return ctrl.Result{}, err
@@ -246,6 +260,17 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 }
 
 func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, vObj *corev1.Pod) (bool, error) {
+	if vObj.Spec.NodeName != pObj.Spec.NodeName && vObj.Spec.NodeName != "" {
+		// node of virtual and physical pod are different, we delete the virtual pod to try to recover from this state
+		ctx.Log.Infof("delete virtual pod %s/%s, because virtual and physical pods have different assigned nodes", vObj.Namespace, vObj.Name)
+		err := ctx.VirtualClient.Delete(ctx.Context, vObj)
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+
 	// ensure the node is available in the virtual cluster, if not and we sync the pod to the virtual cluster,
 	// it will get deleted automatically by kubernetes so we ensure the node is synced
 	vNode := &corev1.Node{}

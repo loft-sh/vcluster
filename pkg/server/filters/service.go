@@ -151,7 +151,6 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 	// we try to patch the service as this has the best chances to go through
 	originalPService := pService.DeepCopy()
-	pService.Spec.Ports = newVService.Spec.Ports
 	pService.Spec.Type = newVService.Spec.Type
 	pService.Spec.ClusterIP = ""
 	err = localClient.Patch(ctx, pService, client.MergeFrom(originalPService))
@@ -206,6 +205,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 	}
 	newService.Annotations[services.ServiceBlockDeletion] = "true"
 	newService.Spec.Selector = nil
+	services.StripNodePorts(newService)
 	err = localClient.Create(req.Context(), newService)
 	if err != nil {
 		klog.Infof("Error creating service in physical cluster: %v", err)

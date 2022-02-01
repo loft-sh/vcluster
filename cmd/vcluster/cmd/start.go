@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	corev1 "k8s.io/api/core/v1"
 	"math"
 	"os"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/loft-sh/vcluster/pkg/plugin"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -44,7 +46,6 @@ import (
 	"k8s.io/klog"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -104,6 +105,7 @@ func NewStartCommand() *cobra.Command {
 
 	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
 	cmd.Flags().BoolVar(&options.EnforceNodeSelector, "enforce-node-selector", true, "If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector")
+	cmd.Flags().StringSliceVar(&options.Tolerations, "enforce-toleration", []string{}, "If set will apply the provided tolerations to all pods in the vcluster")
 	cmd.Flags().StringVar(&options.NodeSelector, "node-selector", "", "If set, nodes with the given node selector will be synced to the virtual cluster. This will implicitly set --fake-nodes=false")
 	cmd.Flags().StringVar(&options.ServiceAccount, "service-account", "", "If set, will set this host service account on the synced pods")
 
@@ -180,6 +182,12 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	})
 	if err != nil {
 		return err
+	}
+	for _, t := range options.Tolerations {
+		_, err := toleration.ParseToleration(t)
+		if err != nil {
+			return err
+		}
 	}
 
 	// set suffix
@@ -387,7 +395,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	// write the kube config to secret
 	err = writeKubeConfigToSecret(ctx, rawConfig)
 	if err != nil {
-		return err
+		klog.Errorf("Error writing kube config to secret: %v", err)
 	}
 
 	// register controllers
@@ -497,16 +505,6 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 
 	// check if we need to write the kubeconfig secrete to the default location as well
 	if ctx.Options.KubeConfigSecret != "" {
-		// we have to create a new client here, because the cached version will always say
-		// the secret does not exist in another namespace
-		localClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			Mapper: ctx.LocalManager.GetRESTMapper(),
-		})
-		if err != nil {
-			return errors.Wrap(err, "create uncached client")
-		}
-
 		// which namespace should we create the additional secret in?
 		secretNamespace := ctx.Options.KubeConfigSecretNamespace
 		if secretNamespace == "" {
@@ -514,12 +512,12 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		}
 
 		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx.Context, localClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
+		err = kubeconfig.WriteKubeConfig(ctx.LocalManager.GetConfig(), ctx.Options.KubeConfigSecret, secretNamespace, config)
 		if err != nil {
 			return fmt.Errorf("creating %s secret in the %s ns failed: %v", ctx.Options.KubeConfigSecret, secretNamespace, err)
 		}
 	}
 
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), ctx.CurrentNamespace, config)
+	return kubeconfig.WriteKubeConfig(ctx.LocalManager.GetConfig(), kubeconfig.GetDefaultSecretName(translate.Suffix), ctx.CurrentNamespace, config)
 }
