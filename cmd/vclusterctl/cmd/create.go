@@ -28,9 +28,7 @@ import (
 )
 
 var (
-	AllowedDistros           = []string{"k3s", "k0s", "k8s", "eks"}
-	errorMessageIPFamily     = "expected an IPv6 value as indicated by " // Dual-stack cluster with .spec.ipFamilies=["IPv6"]
-	errorMessageIPv4Disabled = "IPv4 is not configured on this cluster"  // IPv6 only cluster
+	AllowedDistros = []string{"k3s", "k0s", "k8s", "eks"}
 )
 
 // CreateCmd holds the login cmd flags
