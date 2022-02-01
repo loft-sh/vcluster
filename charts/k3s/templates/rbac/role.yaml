@@ -22,13 +22,17 @@ rules:
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
-  {{- if .Values.rbac.role.extended }}
+  {{- if or .Values.sync.networkpolicies.enabled .Values.rbac.role.extended }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.volumesnapshots.enabled .Values.rbac.role.extended }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshots"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.poddisruptionbudgets.enabled .Values.rbac.role.extended }}
   - apiGroups: ["policy"]
     resources: ["poddisruptionbudgets"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]

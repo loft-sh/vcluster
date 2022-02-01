@@ -13,7 +13,7 @@ import (
 
 // VirtualClusterOptions holds the cmd flags
 type VirtualClusterOptions struct {
-	Controllers string `json:"controllers,omitempty"`
+	Controllers []string `json:"controllers,omitempty"`
 
 	ServerCaCert        string   `json:"serverCaCert,omitempty"`
 	ServerCaKey         string   `json:"serverCaKey,omitempty"`
@@ -88,6 +88,8 @@ type ControllerContext struct {
 }
 
 var ExistingControllers = map[string]bool{
+	// helm charts need to be updated when changing this!
+	// values.yaml references these in .sync.*
 	"services":               true,
 	"configmaps":             true,
 	"secrets":                true,
@@ -108,6 +110,8 @@ var ExistingControllers = map[string]bool{
 }
 
 var DefaultEnabledControllers = []string{
+	// helm charts need to be updated when changing this!
+	// values.yaml and template/_helpers.tpl reference these
 	"services",
 	"configmaps",
 	"secrets",
@@ -151,11 +155,7 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 }
 
 func parseControllers(options *VirtualClusterOptions) (map[string]bool, error) {
-	controllers := []string{}
-	if options.Controllers != "" {
-		controllers = strings.Split(options.Controllers, ",")
-	}
-	controllers = append(controllers, DefaultEnabledControllers...)
+	controllers := append(DefaultEnabledControllers, options.Controllers...)
 
 	// migrate deprecated flags
 	if len(options.DeprecatedDisableSyncResources) > 0 {

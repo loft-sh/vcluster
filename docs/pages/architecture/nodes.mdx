@@ -9,9 +9,22 @@ By default, vcluster will create fake nodes for every pod `spec.nodeName` it enc
 
 Vcluster supports multiple modes to customize node syncing behaviour:
 - **Fake Nodes** (default): vcluster will create fake nodes for each `spec.nodeName`. If there are no more pods on a node, the fake node will be deleted (no cluster role for vcluster is needed)
-- **Real Nodes** (--sync=nodes): vcluster will copy and sync real nodes information for each `spec.nodeName`. If there are no more pods on a node within vcluster, the virtual cluster node will be deleted. Vcluster needs permission to the host cluster nodes, you can enable this via `vcluster create ... --create-cluster-role`
-- **Real Nodes All** (--sync=nodes --sync-all-nodes): vcluster will always sync all nodes from the host cluster to the vcluster, no matter where pods are running. This is useful if you want to use DaemonSets within the vcluster. Vcluster needs permission to the host cluster nodes, you can enable this via `vcluster create ... --create-cluster-role`
-- **Real Nodes Label Selector** (--sync=nodes --node-selector label1=value1): vcluster will only sync nodes that match the given label selector. You can also specify `--enforce-node-selector` to enforce scheduling only on these nodes. Vcluster needs permission to the host cluster nodes, you can enable this via `vcluster create ... --create-cluster-role`
+- **Real Nodes** : vcluster will copy and sync real nodes information for each `spec.nodeName`. If there are no more pods on a node within vcluster, the virtual cluster node will be deleted. This mode requires helm value `.sync.nodes.enabled: true`, as described below.
+- **Real Nodes All** : vcluster will always sync all nodes from the host cluster to the vcluster, no matter where pods are running. This is useful if you want to use DaemonSets within the vcluster. This mode requires following helm values: `.sync.nodes.enabled: true` and `.sync.nodes.syncAllNodes: true`.
+- **Real Nodes Label Selector** vcluster will only sync nodes that match the given label selector. This mode requires following helm values: `.sync.nodes.enabled: true` and `.sync.nodes.nodeSelector: "label1=value1"`. You can also specify `--enforce-node-selector` to enforce scheduling only on these nodes. 
+
+
+To set the `.sync.nodes.enabled: true` helm value add the following to your `values.yaml` file:
+```
+sync:
+  nodes:
+    enabled: true
+```
+Then you can create the vcluster with:
+
+```yaml
+vcluster create my-vcluster -n my-vcluster -f values.yaml
+```
 
 :::info DaemonSets
 If you want to use DaemonSets within vcluster, we recommend to either use the *Real Nodes All* or *Real Nodes Label Selector* option, as this will hard delete the nodes that are not there anymore from vcluster. If you are using fake nodes or just the used real nodes option, daemon sets will essentially never let vcluster delete an unused node as it will always be occupied by a daemon set pod. 
@@ -22,12 +35,10 @@ If you want to use DaemonSets within vcluster, we recommend to either use the *R
 For example, if you want to create a vcluster that syncs all nodes from the host cluster, you can create a file `values.yaml`:
 
 ```yaml
-rbac:
-  clusterRole:
-    create: true
-
-syncer:
-  extraArgs: ["--sync=nodes", "--sync-all-nodes"]
+sync:
+  nodes:
+    enabled: true
+    syncAllNodes: true
 ```
 
 Then you can create the vcluster with:

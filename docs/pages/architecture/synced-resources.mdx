@@ -3,10 +3,10 @@ title: Synced Resources
 sidebar_label: Synced Resources
 ---
 
-This section lists all resources that can be synced or mirrored by vcluster currently in the table below. Those resources can be activated or deactivated via the `--sync` flag of the syncer. By default, certain resources are already activated and you can either disable the default resources or tell vcluster to sync other supported resources as well.
+This section lists all resources that can be synced or mirrored by vcluster currently in the table below. Those resources can be activated or deactivated via the `values.yaml` as described below, or with the `--sync` flag of the syncer. By default, certain resources are already activated and you can either disable the default resources or tell vcluster to sync other supported resources as well.
 
 | Resource               | Description                                                                                                                                                                                                                                                                                | Default Enabled |
-|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- --------|-----------------|
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
 | services               | Mirrors services between host and virtual cluster                                                                                                                                                                                                                                          | Yes             |
 | endpoints              | Mirrors endpoints between host and virtual cluster                                                                                                                                                                                                                                         | Yes             |
 | configmaps             | Mirrors used configmaps by pods between host and virtual cluster                                                                                                                                                                                                                           | Yes             |
@@ -25,42 +25,32 @@ This section lists all resources that can be synced or mirrored by vcluster curr
 | volumesnapshots        | Enables volumesnapshot, volumesnapshotcontents and volumesnapshotclasses support. Syncing behaves similar to persistentvolumeclaims, persistentvolumes and storage classes. Requires a cluster role as well as extended namespace role. For more information see [storage](./storage.mdx). | No              |
 | poddisruptionbudgets   | Syncs created poddisruptionbudgets from virtual cluster to host cluster. Requires extended namespace role                                                                                                                                                                                  | No              |
 
-By default, vcluster runs with a minimal set of RBAC permissions to allow execution in restricted environments. Certain resources require extra permissions:
-1. **Cluster Role**: The cluster role can be enabled via the helm value `rbac.clusterRole.create: true`
-2. **Extended Namespace Role**: The extended rules for the namespace role can be enabled via the helm value `rbac.role.extended: true`
+By default, vcluster runs with a minimal set of RBAC permissions to allow execution in restricted environments. Certain resources require extra permissions, which will be automatically given to the vcluster ServiceAccount if you enable the resource sync with the associated helm value.
 
-E.g. to enable cluster role and extended namespace role, use the following `values.yaml`:
+## Enable or disable synced resources
 
+To enable a resource syncronization, for example persistent volumes, and automatically create the necessary RBAC permissions, add the following to your `values.yaml`:
 ```
-rbac:
-  clusterRole: 
-    create: true
-  role:
-    extended: true
+sync:
+  persistentvolumes:
+    enabled: true
 ```
-
 then create or upgrade the vcluster with:
 
 ```
 vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
 ```
 
-## Enable or disable synced resources
-
-To disable a default synced resource, prefix the resource with `-`, so for example if you don't want to sync ingresses, specify this in the `--sync` flag like this: 
-
-```yaml
-syncer:
-  extraArgs:
-  - --sync=-ingresses # Disables ingress sync
+To disable a resource that is synced by default, for example if you don't want to sync ingresses, set the following in your `values.yaml`: 
 ```
+sync:
+  ingresses:
+    enabled: false
+```
+then create or upgrade the vcluster with:
 
-If you also want to enable a non default synced resource, just add the resource name to the `--sync` flag like this:
-
-```yaml
-syncer:
-  extraArgs:
-  - --sync=priorityclasses,-ingresses # Enables priority classes sync and disables ingresses sync
+```
+vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
 ```
 
 :::warning Correct Cluster Functionality
