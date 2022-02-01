@@ -24,10 +24,16 @@ Each vcluster has its own DNS service (CoreDNS by default) which allows pods in 
 By default (this can be disabled), the vcluster also synchronizes Ingress resources. That means that you can create an ingress in a vcluster to make a service in this vcluster available via a hostname/domain. However, instead of having to run a separate ingress controller in each vcluster, the ingress resource will be synchronized to the underlying cluster (by default) which means that vcluster can use a shared ingress controller that is running inside the host cluster. This helps to share resources across different vclusters and is easier for users of vclusters because otherwise, they would need to install an ingress controller and manually configure DNS for each vcluster.
 
 ### Disable Ingress Sync
-If you do **not** want ingresses to be synchronized and instead, you want to use a separate ingress controller within a vcluster, you can add the following syncer configuration in the vcluster configuration:
-```yaml
-syncer:
-  extraArgs: ["--sync=-ingresses"] # Disable ingress sync
+If you do **not** want ingresses to be synchronized and instead, you want to use a separate ingress controller within a vcluster, set the following in your `values.yaml`: 
+```
+sync:
+  ingresses:
+    enabled: false
+```
+then create or upgrade the vcluster with:
+
+```
+vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
 ```
 
 ### SSL Certificates
@@ -43,11 +49,14 @@ Network Policies in vcluster rely on the support for this feature in the host cl
 :::
 
 ### Enable Network Policy Sync
-To enable the synchronization of the Network Policy resources vcluster will require additional permissions in it's role and a flag for the syncer component. Following configuration values will enable it:
-```yaml
-syncer:
-  extraArgs: ["--sync=networkpolicies"]
-rbac:
-  role:
-    extended: true
+To enable the synchronization of the Network Policy resources add the following to your `values.yaml`:
+```
+sync:
+  networkpolicies:
+    enabled: true
+```
+then create or upgrade the vcluster with:
+
+```
+vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
 ```

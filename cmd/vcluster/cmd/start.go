@@ -126,13 +126,13 @@ func NewStartCommand() *cobra.Command {
 
 	// Deprecated Flags
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
-	cmd.Flags().BoolVar(&options.DeprecatedUseFakeNodes, "fake-nodes", true, "DEPRECATED: use --controllers instead")
-	cmd.Flags().BoolVar(&options.DeprecatedUseFakePersistentVolumes, "fake-persistent-volumes", true, "DEPRECATED: use --controllers instead")
-	cmd.Flags().BoolVar(&options.DeprecatedEnableStorageClasses, "enable-storage-classes", false, "DEPRECATED: use --controllers instead")
-	cmd.Flags().BoolVar(&options.DeprecatedEnablePriorityClasses, "enable-priority-classes", false, "DEPRECATED: use --controllers instead")
+	cmd.Flags().BoolVar(&options.DeprecatedUseFakeNodes, "fake-nodes", true, "DEPRECATED: use --sync=-fake-nodes instead")
+	cmd.Flags().BoolVar(&options.DeprecatedUseFakePersistentVolumes, "fake-persistent-volumes", true, "DEPRECATED: use --sync=-fake-persistentvolumes instead")
+	cmd.Flags().BoolVar(&options.DeprecatedEnableStorageClasses, "enable-storage-classes", false, "DEPRECATED: use --sync=storageclasses instead")
+	cmd.Flags().BoolVar(&options.DeprecatedEnablePriorityClasses, "enable-priority-classes", false, "DEPRECATED: use --sync=priorityclasses instead")
 	cmd.Flags().StringVar(&options.DeprecatedSuffix, "suffix", "", "DEPRECATED: use --name instead")
 	cmd.Flags().StringVar(&options.DeprecatedOwningStatefulSet, "owning-statefulset", "", "DEPRECATED: use --set-owner instead")
-	cmd.Flags().StringVar(&options.DeprecatedDisableSyncResources, "disable-sync-resources", "", "DEPRECATED: use --controllers instead")
+	cmd.Flags().StringVar(&options.DeprecatedDisableSyncResources, "disable-sync-resources", "", "DEPRECATED: use --sync instead")
 
 	return cmd
 }

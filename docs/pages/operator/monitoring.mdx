@@ -6,12 +6,14 @@ sidebar_label: Monitoring & Metrics API
 You can monitor the vcluster either from the host cluster or directly from within the vcluster.
 
 :::info
-In order to get node metrics from within the vcluster, vcluster will need to have RBAC permissions to access them. You can enable this via `vcluster create myvcluster --create-cluster-role`
+In order to get node metrics from within the vcluster, vcluster will need to have RBAC permissions to access them. These permissions are given to vcluster when synchronization of the real nodes is enabled. See [Nodes documentation page](../architecture/nodes.mdx) for more details.
 :::
 
 ## Installing metrics server
 
-Make sure the vcluster has access to the host clusters nodes (create via the `--create-cluster-role` or set the helm value `rbac.clusterRole.create: true`). Install the [metrics server](https://github.com/kubernetes-sigs/metrics-server#installation) via the official method into the vcluster.
+Make sure the vcluster has access to the host clusters nodes. [Enabling real nodes synchronization](../architecture/nodes.mdx) will create the required RBAC permissions. 
+
+Install the [metrics server](https://github.com/kubernetes-sigs/metrics-server#installation) via the official method into the vcluster.
 
 Wait until the metrics server has started. You should be now able to use `kubectl top pods` and `kubectl top nodes` within the vcluster:
 ```
@@ -30,7 +32,7 @@ By default, vcluster will create a service for each node which redirects incomin
 Vcluster is able to rewrite node stats and metrics. This means monitoring a vcluster works similar to monitoring a regular Kubernetes cluster.
 
 :::info
-You need to make sure the vcluster has access to the host clusters nodes (create via the `--create-cluster-role` or set the helm value `rbac.clusterRole.create: true`).
+You need to make sure that vcluster has access to the host clusters nodes. [Enabling real nodes synchronization](../architecture/nodes.mdx) will create the required RBAC permissions.
 :::
 
 Please follow the [official Kuberentes documentation](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-usage-monitoring/) on how to monitor a Kubernetes cluster.

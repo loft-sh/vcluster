@@ -11,34 +11,26 @@ sidebar_label: Storage
 Since the vcluster's syncer synchronizes pods to the underlying host cluster to schedule them, vcluster users can (by default, this can be configured in advanced options) use the storage classes of the underlying host cluster to create persistent volume claims and to mount persistent volumes.
 
 
-vcluster provides a variety of flags to adjust this behavior, including:
-
-```bash
---sync=storageclasses          If enabled, the virtual cluster will sync storage classes (make sure rbac.clusterRole.create is true in the options)
---sync=persistentvolumes       If enabled, the virtual cluster will create fake persistent volumes instead of copying the actual physical persistent volumes config (default true) (if false make sure rbac.clusterRole.create is true in the options)
-```
+vcluster provides helm values to adjust this behavior during vcluster installation or upgrade. Find out more below. 
 
 ### Sync Persistent Volumes
 
-By default, creating persistent volumes in the vcluster will have no effect, as vcluster runs without any cluster scoped access in the host cluster. However, if you create a vcluster with the CLI flag `--create-cluster-role` (equivalent to the helm value `rbac.clusterRole.create=true`), you can enable persistent volume sync.
+By default, creating persistent volumes in the vcluster will have no effect, as vcluster runs without any cluster scoped access in the host cluster. However, if you enable persistentvolumes sync via helm values, the appropriate CluterRole will be created in the host cluster and the syncer will be started with a flag that enables persistent volume synchronization from vcluster down to the underlying host cluster.
 
 #### Create a vcluster with persistent volume sync
 
-Create a `values.yaml` in the form of:
-
-```yaml
-rbac: 
-  clusterRole:
-    create: true
-syncer:
-  extraArgs:
-  - --sync=storageclasses,persistentvolumes
+To enable the synchronization of the PersistentVolume and StorageClass resources add the following to your `values.yaml`:
 ```
-
-Then deploy the vcluster with:
+sync:
+  persistentvolumes:
+    enabled: true
+  storageclasses:
+    enabled: true
+```
+then create or upgrade the vcluster with:
 
 ```
-vcluster create my-vcluster -n my-vcluster -f values.yaml
+vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
 ```
 
 #### How does it work?
@@ -103,23 +95,16 @@ It is also recommended for the host cluster to have [the volume snapshots valida
 
 #### Create a vcluster with volume snapshots sync
 
-Create a `values.yaml` file in the form of:
-
-```yaml
-rbac: 
-  clusterRole:
-    create: true
-  role:
-    extended: true
-syncer:
-  extraArgs:
-  - --sync=volumesnapshots
+To enable synchronization of all resources relevant for the volume snapshotting, and automatically create the necessary RBAC permissions, add the following to your `values.yaml`:
 ```
-
-Then deploy the vcluster with:
+sync:
+  volumesnapshots:
+    enabled: true
+```
+then create or upgrade the vcluster with:
 
 ```
-vcluster create my-vcluster -n my-vcluster -f values.yaml
+vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
 ```
 
 :::info 
