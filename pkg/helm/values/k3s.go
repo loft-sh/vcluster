@@ -21,10 +21,10 @@ var (
 )
 
 var K3SVersionMap = map[string]string{
-	"1.23": "rancher/k3s:v1.23.1-k3s1",
-	"1.22": "rancher/k3s:v1.22.5-k3s1",
-	"1.21": "rancher/k3s:v1.21.4-k3s1",
-	"1.20": "rancher/k3s:v1.20.11-k3s2",
+	"1.23": "rancher/k3s:v1.23.3-k3s1",
+	"1.22": "rancher/k3s:v1.22.6-k3s1",
+	"1.21": "rancher/k3s:v1.21.9-k3s1",
+	"1.20": "rancher/k3s:v1.20.15-k3s1",
 	"1.19": "rancher/k3s:v1.19.13-k3s1",
 	"1.18": "rancher/k3s:v1.18.20-k3s1",
 	"1.17": "rancher/k3s:v1.17.17-k3s1",
