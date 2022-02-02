@@ -15,7 +15,7 @@ vcluster provides helm values to adjust this behavior during vcluster installati
 
 ### Sync Persistent Volumes
 
-By default, creating persistent volumes in the vcluster will have no effect, as vcluster runs without any cluster scoped access in the host cluster. However, if you enable persistentvolumes sync via helm values, the appropriate CluterRole will be created in the host cluster and the syncer will be started with a flag that enables persistent volume synchronization from vcluster down to the underlying host cluster.
+By default, creating persistent volumes in the vcluster will have no effect, as vcluster runs without any cluster scoped access in the host cluster. However, if you enable persistentvolumes sync via helm values, the appropriate ClusterRole will be created in the host cluster and the syncer will be started with a flag that enables persistent volume synchronization from vcluster down to the underlying host cluster.
 
 #### Create a vcluster with persistent volume sync
 
