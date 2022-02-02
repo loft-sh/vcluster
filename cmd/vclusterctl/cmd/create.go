@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	AllowedDistros = []string{"k3s", "k0s", "k8s"}
+	AllowedDistros = []string{"k3s", "k0s", "k8s", "eks"}
 )
 
 // CreateCmd holds the login cmd flags

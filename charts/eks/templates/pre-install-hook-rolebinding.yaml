@@ -1,0 +1,19 @@
+{{- if .Values.preInstall.enabled }}
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}-pre-install
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-pre-install
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-pre-install
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

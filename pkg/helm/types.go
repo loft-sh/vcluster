@@ -6,6 +6,7 @@ const (
 	K3SChart = "vcluster"
 	K0SChart = "vcluster-k0s"
 	K8SChart = "vcluster-k8s"
+	EKSChart = "vcluster-eks"
 )
 
 // ChartOptions holds the chart options

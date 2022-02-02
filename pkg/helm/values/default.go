@@ -12,6 +12,8 @@ func GetDefaultReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (s
 		return getDefaultK0SReleaseValues(chartOptions, log)
 	} else if chartOptions.ChartName == helm.K8SChart {
 		return getDefaultK8SReleaseValues(chartOptions, log)
+	} else if chartOptions.ChartName == helm.EKSChart {
+		return getDefaultEKSReleaseValues(chartOptions, log)
 	}
 
 	return "", nil

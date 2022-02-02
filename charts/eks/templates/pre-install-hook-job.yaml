@@ -1,0 +1,46 @@
+{{- if .Values.preInstall.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-pre-install
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: {{ .Release.Name }}-pre-install
+    spec:
+      serviceAccountName: {{ .Release.Name }}-pre-install
+      restartPolicy: OnFailure
+      nodeSelector:
+{{ toYaml .Values.preInstall.nodeSelector | indent 8 }}
+      affinity:
+{{ toYaml .Values.preInstall.affinity | indent 8 }}
+      tolerations:
+{{ toYaml .Values.preInstall.tolerations | indent 8 }}
+      containers:
+        - name: certs
+          {{- if .Values.syncer.image }}
+          image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
+          {{- else }}
+          image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+          {{- end }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0
+          command:
+            - /vcluster
+            - certs
+          args:
+            - --prefix={{ .Release.Name }}
+            - --etcd-replicas={{ .Values.etcd.replicas }}
+            {{- if .Values.serviceCIDR }}
+            - --service-cidr={{ .Values.serviceCIDR }}
+            {{- end }}
+          resources:
+{{ toYaml .Values.etcd.resources | indent 12 }}
+{{- end }}
