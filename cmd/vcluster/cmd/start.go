@@ -106,7 +106,7 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
 	cmd.Flags().BoolVar(&options.EnforceNodeSelector, "enforce-node-selector", true, "If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector")
 	cmd.Flags().StringSliceVar(&options.Tolerations, "enforce-toleration", []string{}, "If set will apply the provided tolerations to all pods in the vcluster")
-	cmd.Flags().StringVar(&options.NodeSelector, "node-selector", "", "If set, nodes with the given node selector will be synced to the virtual cluster. This will implicitly set --fake-nodes=false")
+	cmd.Flags().StringVar(&options.NodeSelector, "node-selector", "", "If nodes sync is enabled, nodes with the given node selector will be synced to the virtual cluster. If fake nodes are used, and --enforce-node-selector flag is set, then vcluster will ensure that no pods are scheduled outside of the node selector.")
 	cmd.Flags().StringVar(&options.ServiceAccount, "service-account", "", "If set, will set this host service account on the synced pods")
 
 	cmd.Flags().BoolVar(&options.OverrideHosts, "override-hosts", true, "If enabled, vcluster will override a containers /etc/hosts file if there is a subdomain specified for the pod (spec.subdomain).")
