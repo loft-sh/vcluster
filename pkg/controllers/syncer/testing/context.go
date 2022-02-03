@@ -2,6 +2,8 @@ package testing
 
 import (
 	"context"
+	"testing"
+
 	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -12,7 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	"testing"
+)
+
+const (
+	DefaultTestTargetNamespace     = "test"
+	DefaultTestCurrentNamespace    = "vcluster"
+	DefaultTestVclusterName        = "vcluster"
+	DefaultTestVclusterServiceName = "vcluster"
 )
 
 func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func(ctx *synccontext.RegisterContext) (syncer.Object, error)) (*synccontext.SyncContext, syncer.Object) {
@@ -33,13 +41,13 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 	return &synccontext.RegisterContext{
 		Context: context.TODO(),
 		Options: &controllercontext.VirtualClusterOptions{
-			Name:            "vcluster",
-			ServiceName:     "vcluster",
-			TargetNamespace: "test",
+			Name:            DefaultTestVclusterName,
+			ServiceName:     DefaultTestVclusterServiceName,
+			TargetNamespace: DefaultTestTargetNamespace,
 		},
 		Controllers:            controllercontext.ExistingControllers,
-		TargetNamespace:        "test",
-		CurrentNamespace:       "test",
+		TargetNamespace:        DefaultTestTargetNamespace,
+		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),

@@ -160,7 +160,12 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 		// 1. Pod already has a nodeName -> then we check if the node exists in the virtual cluster
 		// 2. Pod has no nodeName -> then we set the nodeSelector
 		if pPod.Spec.NodeName == "" {
-			pPod.Spec.NodeSelector = s.nodeSelector.MatchLabels
+			if pPod.Spec.NodeSelector == nil {
+				pPod.Spec.NodeSelector = map[string]string{}
+			}
+			for k, v := range s.nodeSelector.MatchLabels {
+				pPod.Spec.NodeSelector[k] = v
+			}
 		} else {
 			// make sure the node does exist in the virtual cluster
 			err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: pPod.Spec.NodeName}, &corev1.Node{})
