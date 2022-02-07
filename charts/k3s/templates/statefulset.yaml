@@ -61,8 +61,8 @@ spec:
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
       {{- if not .Values.storage.persistence }}
-      - name: data
-        emptyDir: {}
+        - name: data
+          emptyDir: {}
       {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
