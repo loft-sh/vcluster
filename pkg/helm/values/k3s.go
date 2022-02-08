@@ -49,7 +49,7 @@ var baseArgsMap = map[string]string{
 }
 
 var replaceRegEx = regexp.MustCompile("[^0-9]+")
-var errorMessageFind = "provided IP is not in the valid range. The range of valid IPs is "
+var errorMessageFind = "The range of valid IPs is "
 
 func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
 	var (
