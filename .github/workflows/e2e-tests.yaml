@@ -73,6 +73,11 @@ jobs:
       id: wait-until-vcluster-is-ready
       run: kubectl wait --for=condition=ready pod -l app=vcluster -n vcluster --timeout=300s
       continue-on-error: true
+
+    # - name: Setup upterm session for debugging
+    #   uses: lhotari/action-upterm@v1
+    #   with:
+    #     limit-access-to-actor: true
     
     - name: Collect deployment information in case vcluster fails to start
       if: steps.wait-until-vcluster-is-ready.outcome == 'failure'
@@ -89,8 +94,11 @@ jobs:
       run: VCLUSTER_SUFFIX=vcluster go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
       continue-on-error: true
 
-    - name: Print vcluster logs if e2e tests fail
-      if: steps.execute-e2e-tests.outcome == 'failure'
+    - name: Print vcluster logs
       run: |
         kubectl logs -l app=vcluster -n vcluster -c syncer --tail=5000
+
+    - name: Fail job if e2e tests failed
+      if: steps.execute-e2e-tests.outcome == 'failure'
+      run: |
         exit 1

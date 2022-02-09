@@ -170,6 +170,13 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	return s, nil
 }
 
+func Log(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		klog.Infof("Server request %s: %s", req.Method, req.URL) //dev
+		h.ServeHTTP(w, req)
+	})
+}
+
 // ServeOnListenerTLS starts the server using given listener with TLS, loops forever until an error occurs
 func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan struct{}) error {
 	// kubernetes build handler configuration
@@ -268,6 +275,7 @@ func createCachedClient(ctx context.Context, config *rest.Config, namespace stri
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
 	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.currentNamespaceClient)
+	defaultHandler = Log(defaultHandler)
 	return defaultHandler
 }
 

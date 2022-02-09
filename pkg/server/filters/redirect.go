@@ -102,6 +102,7 @@ func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, paramet
 					return err
 				}
 			} else if info.Subresource == "attach" {
+				klog.Info("handle pod attach") //dev
 				kind = corev1.SchemeGroupVersion.WithKind("PodAttachOptions")
 				opts = &corev1.PodAttachOptions{}
 				if err := parameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, opts); err != nil {

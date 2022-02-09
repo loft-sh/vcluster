@@ -146,7 +146,9 @@ func isTimeout(err error) bool {
 
 // Exec runs the kubectl executable.
 func (b KubectlBuilder) Exec() (string, error) {
-	stdout, _, err := b.ExecWithFullOutput()
+	stdout, stderr, err := b.ExecWithFullOutput()
+	fmt.Print(stdout) //dev
+	fmt.Print(stderr) //dev
 	return stdout, err
 }
 
