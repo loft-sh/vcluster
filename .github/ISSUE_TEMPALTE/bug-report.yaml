@@ -1,0 +1,109 @@
+name: Bug Report
+description: Report a bug encountered while operating vcluster
+labels: 
+- kind/bug
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: |
+        Please provide as much info as possible. Not doing so may result in your bug not being addressed in a timely manner.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it (as minimally and precisely as possible)?
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else we need to know?
+
+  - type: textarea
+    id: k8sVersion
+    attributes:
+      label: Host cluster Kubernetes version
+      value: |
+        <details>
+        
+        ```console
+        $ kubectl version
+        # paste output here
+        ```
+
+        </details>
+    validations:
+      required: true
+  
+  - type: textarea
+    id: k8sDistro
+    attributes:
+      label: Host cluster Kubernetes distribution
+      value: |
+        <details>
+
+        ```
+        # Write here
+        ```
+
+        </details>
+    validations:
+      required: true
+
+  - type: textarea
+    id: vclusterVersion
+    attributes:
+      label: vlcuster version
+      value: |
+        <details>
+        
+        ```console
+        $ vcluster --version
+        # paste output here
+        ```
+
+        </details>
+    validations:
+      required: true
+
+  - type: textarea
+    id: vclusterK8sDistro
+    attributes:
+      label: Vcluster Kubernetes distribution(k3s(default)), k8s, k0s)
+      value: |
+        <details>
+
+        ```
+        # Write here
+        ```
+
+        </details>
+    validations:
+      required: true
+  
+  - type: textarea
+    id: osVersion
+    attributes:
+      label: OS and Arch
+      value: |
+        <details>
+
+        ```
+        OS: 
+        Arch:
+        ```
+        </details>
+    validations:
+      required: true
