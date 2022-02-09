@@ -110,6 +110,9 @@ spec:
           labelSelector:
             matchLabels:
               k8s-app: kube-dns
+      securityContext:
+          seccompProfile:
+            type: RuntimeDefault
       containers:
       - name: coredns
         image: {{.IMAGE}}
@@ -145,7 +148,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - all
+            - ALL
           readOnlyRootFilesystem: true
         livenessProbe:
           httpGet:

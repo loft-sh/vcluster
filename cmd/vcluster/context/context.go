@@ -62,6 +62,7 @@ type VirtualClusterOptions struct {
 
 	DefaultImageRegistry string `json:"defaultImageRegistry"`
 
+	EnforcePodSecurityStandard string `json:"enforcePodSecurityStandard"`
 	// DEPRECATED FLAGS
 	DeprecatedDisableSyncResources     string
 	DeprecatedOwningStatefulSet        string

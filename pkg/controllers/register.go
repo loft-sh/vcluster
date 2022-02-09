@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
+	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
@@ -114,6 +115,14 @@ func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) er
 func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
 	registerContext := ToRegisterContext(ctx)
 
+	// register controller that maintains pod security standard check
+	if ctx.Options.EnforcePodSecurityStandard != "" {
+		err := registerPodSecurityController(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	// register controller that keeps CoreDNS NodeHosts config up to date
 	err := registerCoreDNSController(ctx)
 	if err != nil {
@@ -153,6 +162,19 @@ func registerCoreDNSController(ctx *context.ControllerContext) error {
 	}).SetupWithManager(ctx.VirtualManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
+	}
+	return nil
+}
+
+func registerPodSecurityController(ctx *context.ControllerContext) error {
+	err := (&podsecurity.PodSecurityReconciler{
+		Client:              ctx.VirtualManager.GetClient(),
+		PodSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
+		Log:                 loghelper.New("podSecurity-controller"),
+	}).SetupWithManager(ctx.VirtualManager)
+
+	if err != nil {
+		return fmt.Errorf("unable to setup pod security controller: %v", err)
 	}
 	return nil
 }

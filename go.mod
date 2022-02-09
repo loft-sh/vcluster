@@ -27,19 +27,19 @@ require (
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/square/go-jose.v2 v2.2.2
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.23.0
+	k8s.io/api v0.23.3
 	k8s.io/apiextensions-apiserver v0.23.0
-	k8s.io/apimachinery v0.23.0
-	k8s.io/apiserver v0.23.0
+	k8s.io/apimachinery v0.23.3
+	k8s.io/apiserver v0.23.3
 	k8s.io/cli-runtime v0.23.0
-	k8s.io/client-go v0.23.0
+	k8s.io/client-go v0.23.3
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.30.0
 	k8s.io/kube-aggregator v0.23.0
 	k8s.io/kubectl v0.23.0
 	k8s.io/kubelet v0.23.0
-	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
+	k8s.io/pod-security-admission v0.23.3
+	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 	sigs.k8s.io/controller-runtime v0.11.0
 )
