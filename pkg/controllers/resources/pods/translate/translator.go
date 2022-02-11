@@ -29,15 +29,16 @@ import (
 )
 
 const (
-	OwnerSetKind                  = "vcluster.loft.sh/owner-set-kind"
-	NamespaceAnnotation           = "vcluster.loft.sh/namespace"
-	NameAnnotation                = "vcluster.loft.sh/name"
-	LabelsAnnotation              = "vcluster.loft.sh/labels"
-	NamespaceLabelPrefix          = "vcluster.loft.sh/ns-label"
-	UIDAnnotation                 = "vcluster.loft.sh/uid"
-	ClusterAutoScalerAnnotation   = "cluster-autoscaler.kubernetes.io/safe-to-evict"
-	ServiceAccountNameAnnotation  = "vcluster.loft.sh/service-account-name"
-	ServiceAccountTokenAnnotation = "vcluster.loft.sh/token-"
+	OwnerSetKind                          = "vcluster.loft.sh/owner-set-kind"
+	NamespaceAnnotation                   = "vcluster.loft.sh/namespace"
+	NameAnnotation                        = "vcluster.loft.sh/name"
+	LabelsAnnotation                      = "vcluster.loft.sh/labels"
+	NamespaceLabelPrefix                  = "vcluster.loft.sh/ns-label"
+	UIDAnnotation                         = "vcluster.loft.sh/uid"
+	ClusterAutoScalerAnnotation           = "cluster-autoscaler.kubernetes.io/safe-to-evict"
+	ServiceAccountNameAnnotation          = "vcluster.loft.sh/service-account-name"
+	ServiceAccountTokenAnnotation         = "vcluster.loft.sh/token-"
+	OverwriteServiceAccountNameAnnotation = "vcluster.loft.sh/overwrite-service-account-name"
 )
 
 var (
@@ -133,6 +134,9 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Annotations[ServiceAccountNameAnnotation]
 		if _, ok := vPod.Annotations[LabelsAnnotation]; ok {
 			pPod.Annotations[LabelsAnnotation] = vPod.Annotations[LabelsAnnotation]
+		}
+		if overWriteSAName, ok := vPod.Annotations[OverwriteServiceAccountNameAnnotation]; ok {
+			pPod.Spec.ServiceAccountName = overWriteSAName
 		}
 	}
 	if pPod.Annotations[NamespaceAnnotation] == "" {
