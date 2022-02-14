@@ -49,7 +49,12 @@ import (
 )
 
 var (
-	scheme = runtime.NewScheme()
+	scheme                      = runtime.NewScheme()
+	allowedPodSecurityStandards = map[string]bool{
+		"privileged": true,
+		"baseline":   true,
+		"restricted": true,
+	}
 )
 
 func init() {
@@ -124,6 +129,8 @@ func NewStartCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&options.DefaultImageRegistry, "default-image-registry", "", "This address will be prepended to all deployed system images by vcluster")
 
+	cmd.Flags().StringVar(&options.EnforcePodSecurityStandard, "enforce-pod-security-standard", "", "This can be set to privileged, baseline, restricted and vcluster would make sure during translation that these policies are enforced.")
+
 	// Deprecated Flags
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeNodes, "fake-nodes", true, "DEPRECATED: use --sync=-fake-nodes instead")
@@ -138,6 +145,11 @@ func NewStartCommand() *cobra.Command {
 }
 
 func ExecuteStart(options *context2.VirtualClusterOptions) error {
+	// check the value of pod security standard
+	if options.EnforcePodSecurityStandard != "" && !allowedPodSecurityStandards[options.EnforcePodSecurityStandard] {
+		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", options.EnforcePodSecurityStandard)
+	}
+
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
 	err := wait.Poll(time.Second, time.Minute*10, func() (bool, error) {

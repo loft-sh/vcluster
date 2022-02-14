@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/pod-security-admission/api"
 	"k8s.io/utils/pointer"
 )
 
@@ -101,6 +102,27 @@ func TestSync(t *testing.T) {
 		"otherLabel": "abc",
 	}
 
+	// pod security standards test objects
+	vPodPSS := &corev1.Pod{
+		ObjectMeta: vObjectMeta,
+	}
+
+	pPodPss := pPodBase.DeepCopy()
+
+	vPodPSSR := &corev1.Pod{
+		ObjectMeta: vObjectMeta,
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "test-container",
+					Ports: []corev1.ContainerPort{
+						{HostPort: 80},
+					},
+				},
+			},
+		},
+	}
+
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Delete virtual pod",
@@ -137,6 +159,56 @@ func TestSync(t *testing.T) {
 				ctx.Options.NodeSelector = nodeSelectorOption
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodWithNodeSelector.DeepCopy())
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "SyncDown pods without any pod security standards",
+			InitialVirtualState:  []runtime.Object{vPodPSS.DeepCopy(), vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodPSS.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodPss.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSS.DeepCopy())
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Enforce privileged pod security standard",
+			InitialVirtualState:  []runtime.Object{vPodPSS.DeepCopy(), vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodPSS.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodPss.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.EnforcePodSecurityStandard = string(api.LevelPrivileged)
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSS.DeepCopy())
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Enforce restricted pod security standard",
+			InitialVirtualState:  []runtime.Object{vPodPSSR.DeepCopy(), vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodPSSR.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.EnforcePodSecurityStandard = string(api.LevelRestricted)
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSSR.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

@@ -23,6 +23,7 @@ const (
 	VarRunAsUser          = "RUN_AS_USER"
 	VarRunAsNonRoot       = "RUN_AS_NON_ROOT"
 	VarLogInDebug         = "LOG_IN_DEBUG"
+	UID                   = "1001"
 )
 
 var CoreDNSVersionMap = map[string]string{
@@ -76,12 +77,13 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 	}
 	vars[VarImage] = defaultImageRegistry + vars[VarImage].(string)
 
-	vars[VarRunAsUser] = strconv.Itoa(os.Getuid())
-	if os.Getuid() == 0 {
-		vars[VarRunAsNonRoot] = "false"
-	} else {
-		vars[VarRunAsNonRoot] = "true"
+	uid := os.Getuid()
+	vars[VarRunAsUser] = strconv.Itoa(uid)
+	vars[VarRunAsNonRoot] = "true"
+	if uid == 0 {
+		vars[VarRunAsUser] = UID
 	}
+
 	if os.Getenv("DEBUG") == "true" {
 		vars[VarLogInDebug] = "log"
 	} else {

@@ -78,6 +78,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		podTranslator: podTranslator,
 		nodeSelector:  nodeSelector,
 		tolerations:   tolerations,
+
+		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
 	}, nil
 }
 
@@ -91,6 +93,8 @@ type podSyncer struct {
 
 	nodeSelector *metav1.LabelSelector
 	tolerations  []*corev1.Toleration
+
+	podSecurityStandard string
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -143,6 +147,16 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
+	}
+
+	// validate virtual pod before syncing it to the host cluster
+	if s.podSecurityStandard != "" {
+		valid, err := s.isPodSecurityStandardsValid(ctx.Context, vPod, ctx.Log)
+		if err != nil {
+			return ctrl.Result{}, err
+		} else if !valid {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	pPod, err := s.translate(ctx, vPod)
@@ -253,6 +267,16 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
+	}
+
+	// validate virtual pod before syncing it to the host cluster
+	if s.podSecurityStandard != "" {
+		valid, err := s.isPodSecurityStandardsValid(ctx.Context, vPod, ctx.Log)
+		if err != nil {
+			return ctrl.Result{}, err
+		} else if !valid {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// update the virtual pod if the spec has changed
