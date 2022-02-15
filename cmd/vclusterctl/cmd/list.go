@@ -3,13 +3,14 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"github.com/loft-sh/vcluster/pkg/helm"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -86,7 +87,10 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	releases, err := helm.NewSecrets(client).List(context.Background(), nil, namespace)
+	var pods *corev1.PodList
+	pods, err = client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: "app=vcluster",
+	})
 	if err != nil {
 		if kerrors.IsForbidden(err) {
 			// try the current namespace instead
@@ -96,24 +100,25 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			} else if namespace == "" {
 				namespace = "default"
 			}
-
-			releases, err = helm.NewSecrets(client).List(context.Background(), nil, namespace)
+			pods, err = client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "app=vcluster",
+			})
 			if err != nil {
 				return err
 			}
-		} else {
-			return errors.Wrap(err, "list stateful sets")
 		}
+	} else if len(pods.Items) == 0 {
+		return fmt.Errorf("can't find vcluster(s) in namespace %s", cmd.Namespace)
 	}
 
 	vclusters := []VCluster{}
-	for _, s := range releases {
-		if s.Chart != nil && s.Chart.Metadata != nil && (s.Chart.Metadata.Name == "vcluster" || s.Chart.Metadata.Name == "vcluster-k0s" || s.Chart.Metadata.Name == "vcluster-k8s") {
+	for _, p := range pods.Items {
+		if v, ok := p.Labels["release"]; ok {
 			vclusters = append(vclusters, VCluster{
-				Name:       s.Name,
-				Namespace:  s.Namespace,
-				Created:    s.Info.FirstDeployed.Time,
-				AgeSeconds: int(time.Since(s.Info.FirstDeployed.Time).Seconds()),
+				Name:       v,
+				Namespace:  p.Namespace,
+				Created:    p.GetCreationTimestamp().Time,
+				AgeSeconds: int(time.Since(p.GetCreationTimestamp().Time).Seconds()),
 			})
 		}
 	}
