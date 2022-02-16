@@ -33,6 +33,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &persistentVolumeClaimSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation),
 
+		storageClassesEnabled:    ctx.Controllers["storageclasses"],
 		useFakePersistentVolumes: !ctx.Controllers["persistentvolumes"],
 	}, nil
 }
@@ -40,6 +41,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 type persistentVolumeClaimSyncer struct {
 	translator.NamespacedTranslator
 
+	storageClassesEnabled    bool
 	useFakePersistentVolumes bool
 }
 
@@ -59,7 +61,13 @@ func (s *persistentVolumeClaimSyncer) SyncDown(ctx *synccontext.SyncContext, vOb
 		return ctrl.Result{}, err
 	}
 
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx, vPvc))
+	newPvc, err := s.translate(ctx, vPvc)
+	if err != nil {
+		s.EventRecorder().Event(vPvc, "Warning", "SyncError", err.Error())
+		return ctrl.Result{}, err
+	}
+
+	return s.SyncDownCreate(ctx, vObj, newPvc)
 }
 
 func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {

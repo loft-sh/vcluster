@@ -2,6 +2,8 @@ package storageclasses
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	"testing"
 
@@ -13,76 +15,77 @@ import (
 )
 
 func TestSync(t *testing.T) {
-	baseObjectMeta := metav1.ObjectMeta{
-		Name:      "testsc",
-		Namespace: "testns",
+	vObjectMeta := metav1.ObjectMeta{
+		Name: "testsc",
 	}
-	baseSc := &v1.StorageClass{
-		ObjectMeta: baseObjectMeta,
+	vObject := &v1.StorageClass{
+		ObjectMeta:  vObjectMeta,
+		Provisioner: "my-provisioner",
 	}
-	updateSc := &v1.StorageClass{
-		ObjectMeta:  baseObjectMeta,
-		Provisioner: "someProvisioner",
+	pObject := &v1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: translate.PhysicalNameClusterScoped(vObjectMeta.Name, generictesting.DefaultTestTargetNamespace),
+			Labels: map[string]string{
+				translate.MarkerLabel: translate.Suffix,
+			},
+			Annotations: map[string]string{
+				translator.NameAnnotation: "testsc",
+			},
+		},
+		Provisioner: "my-provisioner",
 	}
-	updateSc.Labels = map[string]string{
-		"a": "b",
+	vObjectUpdated := &v1.StorageClass{
+		ObjectMeta:  vObjectMeta,
+		Provisioner: "my-provisioner",
+		Parameters: map[string]string{
+			"TEST": "TEST",
+		},
 	}
-	updatedSc := &v1.StorageClass{
-		ObjectMeta:  baseObjectMeta,
-		Provisioner: "someProvisioner",
-	}
-	updatedSc.Labels = map[string]string{
-		"a": "b",
-	}
-	noUpdateSc := &v1.StorageClass{
-		ObjectMeta: baseObjectMeta,
+	pObjectUpdated := &v1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: translate.PhysicalNameClusterScoped(vObjectMeta.Name, generictesting.DefaultTestTargetNamespace),
+			Labels: map[string]string{
+				translate.MarkerLabel: translate.Suffix,
+			},
+			Annotations: map[string]string{
+				translator.NameAnnotation: "testsc",
+			},
+		},
+		Provisioner: "my-provisioner",
+		Parameters: map[string]string{
+			"TEST": "TEST",
+		},
 	}
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
-			Name:                 "Create backward",
-			InitialPhysicalState: []runtime.Object{baseSc},
+			Name:                "Sync Down",
+			InitialVirtualState: []runtime.Object{vObject},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("StorageClass"): {baseSc},
+				v1.SchemeGroupVersion.WithKind("StorageClass"): {vObject},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("StorageClass"): {baseSc},
+				v1.SchemeGroupVersion.WithKind("StorageClass"): {pObject},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*storageClassSyncer).SyncUp(syncCtx, baseSc)
+				_, err := syncer.(*storageClassSyncer).SyncDown(syncCtx, vObject)
 				assert.NilError(t, err)
 			},
 		},
 		{
-			Name:                 "Update backward",
-			InitialVirtualState:  []runtime.Object{baseSc},
-			InitialPhysicalState: []runtime.Object{updateSc},
+			Name:                 "Sync",
+			InitialVirtualState:  []runtime.Object{vObjectUpdated},
+			InitialPhysicalState: []runtime.Object{pObject},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("StorageClass"): {updatedSc},
+				v1.SchemeGroupVersion.WithKind("StorageClass"): {vObjectUpdated},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("StorageClass"): {updateSc},
+				v1.SchemeGroupVersion.WithKind("StorageClass"): {pObjectUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*storageClassSyncer).Sync(syncCtx, updateSc, baseSc)
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                 "No Update backward",
-			InitialVirtualState:  []runtime.Object{baseSc},
-			InitialPhysicalState: []runtime.Object{noUpdateSc},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("StorageClass"): {baseSc},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("StorageClass"): {noUpdateSc},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*storageClassSyncer).Sync(syncCtx, noUpdateSc, baseSc)
+				_, err := syncer.(*storageClassSyncer).Sync(syncCtx, pObject, vObjectUpdated)
 				assert.NilError(t, err)
 			},
 		},

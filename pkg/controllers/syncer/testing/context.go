@@ -38,6 +38,10 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 }
 
 func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	enabledControllers := map[string]bool{}
+	for k, v := range controllercontext.ExistingControllers {
+		enabledControllers[k] = v
+	}
 	return &synccontext.RegisterContext{
 		Context: context.TODO(),
 		Options: &controllercontext.VirtualClusterOptions{
@@ -45,7 +49,7 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 			ServiceName:     DefaultTestVclusterServiceName,
 			TargetNamespace: DefaultTestTargetNamespace,
 		},
-		Controllers:            controllercontext.ExistingControllers,
+		Controllers:            enabledControllers,
 		TargetNamespace:        DefaultTestTargetNamespace,
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,

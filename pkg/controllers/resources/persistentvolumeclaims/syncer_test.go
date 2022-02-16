@@ -3,6 +3,7 @@ package persistentvolumeclaims
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"testing"
 	"time"
@@ -124,7 +125,11 @@ func TestSync(t *testing.T) {
 		Status:     backwardUpdateStatusPvc.Status,
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	generictesting.RunTestsWithContext(t, func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		ctx := generictesting.NewFakeRegisterContext(pClient, vClient)
+		ctx.Controllers["storageclasses"] = false
+		return ctx
+	}, []*generictesting.SyncTest{
 		{
 			Name:                "Create forward",
 			InitialVirtualState: []runtime.Object{basePvc},

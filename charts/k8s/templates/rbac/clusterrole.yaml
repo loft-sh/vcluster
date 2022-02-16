@@ -30,7 +30,7 @@ rules:
   {{- if or .Values.sync.storageclasses.enabled .Values.rbac.clusterRole.create }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
-    verbs: ["get", "watch", "list"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
   {{- end }}
   {{- if or .Values.sync.priorityclasses.enabled .Values.rbac.clusterRole.create }}
   - apiGroups: ["scheduling.k8s.io"]
