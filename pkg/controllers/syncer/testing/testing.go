@@ -20,13 +20,9 @@ const (
 	FakeClientResourceVersion = "999"
 )
 
-func RunTests(t *testing.T, tests []*SyncTest) {
-	for _, test := range tests {
-		test.Run(t)
-	}
-}
-
 type Compare func(obj1 runtime.Object, obj2 runtime.Object) bool
+
+type NewContextFunc func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext
 
 type SyncTest struct {
 	Name string
@@ -41,14 +37,26 @@ type SyncTest struct {
 	Compare Compare
 }
 
-func (s *SyncTest) Run(t *testing.T) {
+func RunTests(t *testing.T, tests []*SyncTest) {
+	for _, test := range tests {
+		test.Run(t, NewFakeRegisterContext)
+	}
+}
+
+func RunTestsWithContext(t *testing.T, createContext NewContextFunc, tests []*SyncTest) {
+	for _, test := range tests {
+		test.Run(t, createContext)
+	}
+}
+
+func (s *SyncTest) Run(t *testing.T, createContext NewContextFunc) {
 	scheme := testingutil.NewScheme()
 	ctx := context.Background()
 	pClient := testingutil.NewFakeClient(scheme, s.InitialPhysicalState...)
 	vClient := testingutil.NewFakeClient(scheme, s.InitialVirtualState...)
 
 	// do the sync
-	s.Sync(NewFakeRegisterContext(pClient, vClient))
+	s.Sync(createContext(pClient, vClient))
 
 	// Compare states
 	if s.ExpectedPhysicalState != nil {

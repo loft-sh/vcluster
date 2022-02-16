@@ -35,6 +35,9 @@ func (s *persistentVolumeSyncer) translateBackwards(pPv *corev1.PersistentVolume
 		vObj.Spec.ClaimRef.UID = vPvc.UID
 		vObj.Spec.ClaimRef.Name = vPvc.Name
 		vObj.Spec.ClaimRef.Namespace = vPvc.Namespace
+		if vPvc.Spec.StorageClassName != nil {
+			vObj.Spec.StorageClassName = *vPvc.Spec.StorageClassName
+		}
 	}
 	if vObj.Annotations == nil {
 		vObj.Annotations = map[string]string{}
@@ -53,6 +56,9 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 		translatedSpec.ClaimRef.UID = vPvc.UID
 		translatedSpec.ClaimRef.Name = vPvc.Name
 		translatedSpec.ClaimRef.Namespace = vPvc.Namespace
+		if vPvc.Spec.StorageClassName != nil {
+			translatedSpec.StorageClassName = *vPvc.Spec.StorageClassName
+		}
 	}
 
 	// check storage class

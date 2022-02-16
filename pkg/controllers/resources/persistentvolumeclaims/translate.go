@@ -2,11 +2,10 @@ package persistentvolumeclaims
 
 import (
 	"context"
-
+	"fmt"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -15,47 +14,77 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+var (
+	deprecatedStorageClassAnnotation = "volume.beta.kubernetes.io/storage-class"
+)
+
+func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
 	newPvc := s.TranslateMetadata(vPvc).(*corev1.PersistentVolumeClaim)
-	newPvc = s.translateSelector(ctx, newPvc)
+	newPvc, err := s.translateSelector(ctx, newPvc)
+	if err != nil {
+		return nil, err
+	}
 	if newPvc.Spec.DataSource != nil && vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" &&
 		(newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" || newPvc.Spec.DataSource.Kind == "VolumeSnapshot") {
-
 		newPvc.Spec.DataSource.Name = translate.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
 	}
 
 	//TODO: add support for the .Spec.DataSourceRef field
-	return newPvc
+	return newPvc, nil
 }
 
-func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
-	if !s.useFakePersistentVolumes {
-		if vPvc.Annotations == nil || vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
-			newObj := vPvc
-			newObj.Spec = *vPvc.Spec.DeepCopy()
-			if newObj.Spec.Selector != nil {
-				newObj.Spec.Selector = translator.TranslateLabelSelectorCluster(ctx.TargetNamespace, newObj.Spec.Selector)
-			}
-			if newObj.Spec.VolumeName != "" {
-				newObj.Spec.VolumeName = translate.PhysicalNameClusterScoped(newObj.Spec.VolumeName, ctx.TargetNamespace)
-			}
-			if newObj.Spec.StorageClassName != nil {
-				// check if the storage class exists in the physical cluster
-				if newObj.Spec.Selector == nil && newObj.Spec.VolumeName == "" {
-					err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{Name: *newObj.Spec.StorageClassName}, &storagev1.StorageClass{})
-					if err != nil && kerrors.IsNotFound(err) {
-						translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, ctx.TargetNamespace)
-						newObj.Spec.StorageClassName = &translated
-					}
-				} else {
-					translated := translate.PhysicalNameClusterScoped(*newObj.Spec.StorageClassName, ctx.TargetNamespace)
-					newObj.Spec.StorageClassName = &translated
-				}
-			}
-			return newObj
+func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+	vPvc = vPvc.DeepCopy()
+
+	storageClassName := ""
+	if vPvc.Spec.StorageClassName != nil && *vPvc.Spec.StorageClassName != "" {
+		storageClassName = *vPvc.Spec.StorageClassName
+	} else if vPvc.Annotations != nil && vPvc.Annotations[deprecatedStorageClassAnnotation] != "" {
+		storageClassName = vPvc.Annotations[deprecatedStorageClassAnnotation]
+	}
+
+	// translate storage class if we manage those in vcluster
+	if s.storageClassesEnabled {
+		if storageClassName == "" && vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
+			return nil, fmt.Errorf("no storage class defined for pvc %s/%s", vPvc.Namespace, vPvc.Name)
+		}
+
+		// translate storage class name if there is any
+		if storageClassName != "" {
+			translated := translate.PhysicalNameClusterScoped(storageClassName, ctx.TargetNamespace)
+			delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
+			vPvc.Spec.StorageClassName = &translated
 		}
 	}
-	return vPvc
+
+	// translate selector & volume name
+	if !s.useFakePersistentVolumes {
+		if vPvc.Annotations == nil || vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
+			if vPvc.Spec.Selector != nil {
+				vPvc.Spec.Selector = translator.TranslateLabelSelectorCluster(ctx.TargetNamespace, vPvc.Spec.Selector)
+			}
+			if vPvc.Spec.VolumeName != "" {
+				vPvc.Spec.VolumeName = translate.PhysicalNameClusterScoped(vPvc.Spec.VolumeName, ctx.TargetNamespace)
+			}
+			// check if the storage class exists in the physical cluster
+			if !s.storageClassesEnabled && storageClassName != "" {
+				// Should the PVC be dynamically provisioned or not?
+				if vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
+					err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
+					if err != nil && kerrors.IsNotFound(err) {
+						translated := translate.PhysicalNameClusterScoped(storageClassName, ctx.TargetNamespace)
+						delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
+						vPvc.Spec.StorageClassName = &translated
+					}
+				} else {
+					translated := translate.PhysicalNameClusterScoped(storageClassName, ctx.TargetNamespace)
+					delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
+					vPvc.Spec.StorageClassName = &translated
+				}
+			}
+		}
+	}
+	return vPvc, nil
 }
 
 func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {

@@ -1,8 +1,6 @@
 package priorityclasses
 
 import (
-	"time"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -39,7 +37,7 @@ func (s *priorityClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client
 	err := ctx.PhysicalClient.Create(ctx.Context, newPriorityClass)
 	if err != nil {
 		ctx.Log.Infof("error syncing %s to physical cluster: %v", vObj.GetName(), err)
-		return ctrl.Result{RequeueAfter: time.Second}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
