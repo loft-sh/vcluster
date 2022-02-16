@@ -32,6 +32,11 @@ rules:
     resources: ["volumesnapshots"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if or .Values.sync.serviceaccounts.enabled .Values.rbac.role.extended }}
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   {{- if or .Values.sync.poddisruptionbudgets.enabled .Values.rbac.role.extended }}
   - apiGroups: ["policy"]
     resources: ["poddisruptionbudgets"]

@@ -70,6 +70,8 @@ sync:
     enabled: false
   poddisruptionbudgets:
     enabled: false
+  serviceaccounts:
+    enabled: false
 
 # Syncer configuration
 syncer:

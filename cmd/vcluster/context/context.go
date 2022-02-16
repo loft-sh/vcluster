@@ -108,6 +108,7 @@ var ExistingControllers = map[string]bool{
 	"networkpolicies":        true,
 	"volumesnapshots":        true,
 	"poddisruptionbudgets":   true,
+	"serviceaccounts":        true,
 }
 
 var DefaultEnabledControllers = []string{
