@@ -72,6 +72,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		serviceAccount:         ctx.Options.ServiceAccount,
 		overrideHosts:          ctx.Options.OverrideHosts,
 		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
+		serviceAccountsEnabled: ctx.Controllers["serviceaccounts"],
 		priorityClassesEnabled: ctx.Controllers["priorityclasses"],
 	}, nil
 }
@@ -85,6 +86,7 @@ type translator struct {
 
 	defaultImageRegistry string
 
+	serviceAccountsEnabled bool
 	targetNamespace        string
 	clusterDomain          string
 	serviceAccount         string
@@ -108,6 +110,16 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	pPod.Status = corev1.PodStatus{}
 	pPod.Spec.DeprecatedServiceAccount = ""
 	pPod.Spec.ServiceAccountName = t.serviceAccount
+	if t.serviceAccountsEnabled {
+		vPodServiceAccountName := vPod.Spec.DeprecatedServiceAccount
+		if vPod.Spec.ServiceAccountName != "" {
+			vPodServiceAccountName = vPod.Spec.ServiceAccountName
+		}
+		if vPodServiceAccountName != "" {
+			pPod.Spec.ServiceAccountName = translate.PhysicalName(vPodServiceAccountName, vPod.Namespace)
+		}
+	}
+
 	pPod.Spec.AutomountServiceAccountToken = &False
 	pPod.Spec.EnableServiceLinks = &False
 

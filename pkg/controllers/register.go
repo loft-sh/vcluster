@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 	"strings"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -46,6 +47,7 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 	"poddisruptionbudgets":   newControllers(poddisruptionbudgets.New),
 	"networkpolicies":        newControllers(networkpolicies.New),
 	"volumesnapshots":        newControllers(volumesnapshotclasses.New, volumesnapshots.New, volumesnapshotcontents.New),
+	"serviceaccounts":        newControllers(serviceaccounts.New),
 	"persistentvolumes,fake-persistentvolumes": newControllers(persistentvolumes.New),
 }
 
