@@ -71,6 +71,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.4.0)")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh", "The virtual cluster chart repo to use")
+	cobraCmd.Flags().StringVar(&cmd.LocalChartDir, "local-chart-dir", "", "The virtual cluster local chart dir to use")
 	cobraCmd.Flags().StringVar(&cmd.K3SImage, "k3s-image", "", "DEPRECATED: use --extra-values instead")
 	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k3s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(AllowedDistros, ", ")))
 	cobraCmd.Flags().StringVar(&cmd.ReleaseValues, "release-values", "", "DEPRECATED: use --extra-values instead")
@@ -254,6 +255,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 	// we have to upgrade / install the chart
 	err = helm.NewClient(&rawConfig, cmd.log).Upgrade(args[0], cmd.Namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
+		Path:        cmd.LocalChartDir,
 		Repo:        cmd.ChartRepo,
 		Version:     cmd.ChartVersion,
 		Values:      chartValues,
