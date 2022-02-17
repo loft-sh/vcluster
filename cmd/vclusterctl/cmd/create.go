@@ -83,6 +83,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", false, "If true will run vcluster connect directly after the vcluster was created")
 	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
+	cobraCmd.Flags().BoolVar(&cmd.Isolate, "isolate", false, "If true vcluster and its workloads will run in an isolated environment")
 	return cobraCmd
 }
 
@@ -300,6 +301,7 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helm.Cha
 		DisableIngressSync: cmd.DisableIngressSync,
 		Expose:             cmd.Expose,
 		K3SImage:           cmd.K3SImage,
+		Isolate:            cmd.Isolate,
 		KubernetesVersion:  kubernetesVersion,
 	}, nil
 }

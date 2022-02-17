@@ -121,6 +121,9 @@ spec:
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}
+          {{- if .Values.isolation.enabled }}
+          - --enforce-pod-security-standard={{ .Values.isolation.podSecurityStandard }}
+          {{- end}}
           {{- include "vcluster.syncer.syncArgs" . | indent 10 -}}
           {{- if .Values.sync.nodes.syncAllNodes }}
           - --sync-all-nodes

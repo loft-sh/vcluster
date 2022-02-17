@@ -19,6 +19,6 @@ type CreateOptions struct {
 	Expose             bool
 	Connect            bool
 	Upgrade            bool
-
-	ReleaseValues string
+	Isolate            bool
+	ReleaseValues      string
 }
