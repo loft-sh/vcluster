@@ -64,6 +64,7 @@ func TestSync(t *testing.T) {
 		ExternalName:             "external",
 		ExternalTrafficPolicy:    corev1.ServiceExternalTrafficPolicyTypeLocal,
 		SessionAffinity:          corev1.ServiceAffinityClientIP,
+		LoadBalancerSourceRanges: []string{"backwardRange"},
 		SessionAffinityConfig: &corev1.SessionAffinityConfig{
 			ClientIP: &corev1.ClientIPConfig{},
 		},
@@ -94,17 +95,15 @@ func TestSync(t *testing.T) {
 		Spec: updateForwardSpec,
 	}
 	updateBackwardSpec := corev1.ServiceSpec{
-		ExternalName:             "backwardExternal",
-		ExternalIPs:              []string{"123:221:123:221"},
-		LoadBalancerIP:           "123:213:123:213",
-		LoadBalancerSourceRanges: []string{"backwardRange"},
+		ExternalName:   "backwardExternal",
+		ExternalIPs:    []string{"123:221:123:221"},
+		LoadBalancerIP: "123:213:123:213",
 	}
 	updateBackwardRecreateSpec := corev1.ServiceSpec{
-		ClusterIP:                "123:123:123:123",
-		ExternalName:             updateBackwardSpec.ExternalName,
-		ExternalIPs:              updateBackwardSpec.ExternalIPs,
-		LoadBalancerIP:           updateBackwardSpec.LoadBalancerIP,
-		LoadBalancerSourceRanges: updateBackwardSpec.LoadBalancerSourceRanges,
+		ClusterIP:      "123:123:123:123",
+		ExternalName:   updateBackwardSpec.ExternalName,
+		ExternalIPs:    updateBackwardSpec.ExternalIPs,
+		LoadBalancerIP: updateBackwardSpec.LoadBalancerIP,
 	}
 	updateBackwardSpecService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -113,7 +112,11 @@ func TestSync(t *testing.T) {
 			Labels:      pObjectMeta.Labels,
 			Annotations: pObjectMeta.Annotations,
 		},
-		Spec: updateBackwardSpec,
+		Spec: corev1.ServiceSpec{
+			ExternalName:   "backwardExternal",
+			ExternalIPs:    []string{"123:221:123:221"},
+			LoadBalancerIP: "123:213:123:213",
+		},
 	}
 	updatedBackwardSpecService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -121,9 +124,8 @@ func TestSync(t *testing.T) {
 			Namespace: vObjectMeta.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			ExternalIPs:              []string{"123:221:123:221"},
-			LoadBalancerIP:           "123:213:123:213",
-			LoadBalancerSourceRanges: []string{"backwardRange"},
+			ExternalIPs:    []string{"123:221:123:221"},
+			LoadBalancerIP: "123:213:123:213",
 		},
 	}
 	updateBackwardSpecRecreateService := &corev1.Service{
@@ -142,10 +144,9 @@ func TestSync(t *testing.T) {
 			ClusterName: vObjectMeta.ClusterName,
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP:                "123:123:123:123",
-			ExternalIPs:              []string{"123:221:123:221"},
-			LoadBalancerIP:           "123:213:123:213",
-			LoadBalancerSourceRanges: []string{"backwardRange"},
+			ClusterIP:      "123:123:123:123",
+			ExternalIPs:    []string{"123:221:123:221"},
+			LoadBalancerIP: "123:213:123:213",
 		},
 	}
 	updateBackwardStatus := corev1.ServiceStatus{

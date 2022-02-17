@@ -50,11 +50,6 @@ func (s *serviceSyncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *co
 		updated.Spec.LoadBalancerIP = pObj.Spec.LoadBalancerIP
 	}
 
-	if !equality.Semantic.DeepEqual(vObj.Spec.LoadBalancerSourceRanges, pObj.Spec.LoadBalancerSourceRanges) {
-		updated = newIfNil(updated, vObj)
-		updated.Spec.LoadBalancerSourceRanges = pObj.Spec.LoadBalancerSourceRanges
-	}
-
 	// check if we need to sync node ports from host to virtual
 	if portsEqual(pObj, vObj) && !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
 		updated = newIfNil(updated, vObj)
@@ -122,6 +117,12 @@ func (s *serviceSyncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Serv
 	if !equality.Semantic.DeepEqual(vObj.Spec.SessionAffinityConfig, pObj.Spec.SessionAffinityConfig) {
 		updated = newIfNil(updated, pObj)
 		updated.Spec.SessionAffinityConfig = vObj.Spec.SessionAffinityConfig
+	}
+
+	// load balancer source ranges
+	if !equality.Semantic.DeepEqual(vObj.Spec.LoadBalancerSourceRanges, pObj.Spec.LoadBalancerSourceRanges) {
+		updated = newIfNil(updated, pObj)
+		updated.Spec.LoadBalancerSourceRanges = vObj.Spec.LoadBalancerSourceRanges
 	}
 
 	// healthCheckNodePort
