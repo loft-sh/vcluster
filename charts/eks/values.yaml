@@ -25,6 +25,58 @@ plugin: {}
 #     role:
 #       extraRules: ...
 
+# Resource syncers that should be enabled/disabled.
+# Enabling syncers will impact RBAC Role and ClusterRole permissions.
+# To disable a syncer set "enabled: false".
+# See docs for details - https://www.vcluster.com/docs/architecture/synced-resources
+sync:
+  services:
+    enabled: true
+  configmaps:
+    enabled: true
+  secrets:
+    enabled: true
+  endpoints:
+    enabled: true
+  pods:
+    enabled: true
+  events:
+    enabled: true
+  persistentvolumeclaims:
+    enabled: true
+  ingresses:
+    enabled: true
+  fake-nodes:
+    enabled: true # will be ignored if nodes.enabled = true
+  fake-persistentvolumes:
+    enabled: true # will be ignored if persistentvolumes.enabled = true
+  nodes:
+    enabled: false
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
+    # will sync all nodes instead of only the ones where some pods are running. 
+    syncAllNodes: false
+    # nodeSelector is used to limit which nodes get synced to the vcluster,
+    # and which nodes are used to run vcluster pods. 
+    # A valid string representation of a label selector must be used. 
+    nodeSelector: ""
+    # syncNodeChanges allows vcluster user edits of the nodes to be synced down to the host nodes.
+    # Write permissions on node resource will be given to the vcluster.
+    syncNodeChanges: false
+  persistentvolumes:
+    enabled: false
+  storageclasses:
+    enabled: false
+  priorityclasses:
+    enabled: false
+  networkpolicies:
+    enabled: false
+  volumesnapshots:
+    enabled: false
+  poddisruptionbudgets:
+    enabled: false
+  serviceaccounts:
+    enabled: false
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer
@@ -145,13 +197,18 @@ serviceAccount:
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Enable this to let the vcluster sync
-    # real nodes, storage classes and priority classes
+    # Deprecated ! 
+    # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
+    # Support for this value will be removed in a future version of the vcluster
     create: false
   role:
-    # This is required for basic functionality of vcluster
+    # Deprecated !
+    # Support for this value will be removed in a future version of the vcluster
+    # and basic role will always be created
     create: true
-    # Extended role permissions are required for some optional features, e.g. Networkpolicy sync
+    # Deprecated ! 
+    # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
+    # Support for this value will be removed in a future version of the vcluster
     extended: false
 
 # Service configurations

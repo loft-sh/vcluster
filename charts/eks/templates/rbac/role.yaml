@@ -22,12 +22,24 @@ rules:
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
-  {{- if .Values.rbac.role.extended }}
+  {{- if or .Values.sync.networkpolicies.enabled .Values.rbac.role.extended }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.volumesnapshots.enabled .Values.rbac.role.extended }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshots"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.serviceaccounts.enabled .Values.rbac.role.extended }}
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.poddisruptionbudgets.enabled .Values.rbac.role.extended }}
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- if .Values.openshift.enable }}
@@ -35,15 +47,5 @@ rules:
     resources: ["endpoints/restricted"]
     verbs: ["create"]
   {{- end }}
-  {{- range $key, $container := .Values.plugin }}
-  {{- if $container.rbac }}
-  {{- if $container.rbac.role }}
-  {{- if $container.rbac.role.extraRules }}
-  {{- range $ruleIndex, $rule := $container.rbac.role.extraRules }}
-  - {{ toJson $rule }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
+  {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
 {{- end }}

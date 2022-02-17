@@ -47,15 +47,5 @@ rules:
     resources: ["endpoints/restricted"]
     verbs: ["create"]
   {{- end }}
-  {{- range $key, $container := .Values.plugin }}
-  {{- if $container.rbac }}
-  {{- if $container.rbac.role }}
-  {{- if $container.rbac.role.extraRules }}
-  {{- range $ruleIndex, $rule := $container.rbac.role.extraRules }}
-  - {{ toJson $rule }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
+  {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
 {{- end }}
