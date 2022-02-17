@@ -91,3 +91,20 @@ Cluster role rules defined by plugins
 {{- end }}
 {{- end }}
 {{- end -}}
+
+{{/*
+Role rules defined by plugins
+*/}}
+{{- define "vcluster.plugin.roleExtraRules" -}}
+{{- range $key, $container := .Values.plugin }}
+{{- if $container.rbac }}
+{{- if $container.rbac.role }}
+{{- if $container.rbac.role.extraRules }}
+{{- range $ruleIndex, $rule := $container.rbac.role.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
