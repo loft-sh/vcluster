@@ -250,8 +250,8 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 		annotations := item.GetAnnotations()
 
 		if annotations["vcluster.loft.sh/owner-set-kind"] != "DaemonSet" {
-			podsNoDaemoSets = append(podsNoDaemoSets, item)
+			podsNoDaemonSets = append(podsNoDaemonSets, item)
 		}
 	}
-	return podsNoDaemoSets
+	return podsNoDaemonSets
 }
