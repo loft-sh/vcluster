@@ -243,7 +243,7 @@ func filterOutVirtualDaemonSets(pl *corev1.PodList) []corev1.Pod {
 
 // Filter away physical DaemonSet Pods using annotations to enable scale down
 func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
-	var podsNoDaemoSets []corev1.Pod
+	var podsNoDaemonSets []corev1.Pod
 
 	for _, item := range pl.Items {
 
