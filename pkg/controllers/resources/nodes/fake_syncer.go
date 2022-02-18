@@ -3,7 +3,9 @@ package nodes
 import (
 	"context"
 	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -248,9 +250,11 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 	for _, item := range pl.Items {
 
 		annotations := item.GetAnnotations()
-
-		if annotations["vcluster.loft.sh/owner-set-kind"] != "DaemonSet" {
-			podsNoDaemonSets = append(podsNoDaemonSets, item)
+		ownerSetKind, exists := annotations[translate.OwnerSetKind]
+		if exists {
+			if ownerSetKind != "DaemonSet" {
+				podsNoDaemonSets = append(podsNoDaemonSets, item)
+			}
 		}
 	}
 	return podsNoDaemonSets
