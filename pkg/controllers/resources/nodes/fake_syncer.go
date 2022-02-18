@@ -217,8 +217,8 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeSer
 	return nil
 }
 
-// Filter away DaemonSet Pods using OwnerReferences
-func filterOutDaemonSets(pl *corev1.PodList) []corev1.Pod {
+// Filter away  virtual DaemonSet Pods using OwnerReferences to enable scale down
+func filterOutVirtualDaemonSets(pl *corev1.PodList) []corev1.Pod {
 	var podsNoDaemonSets []corev1.Pod
 
 	for _, item := range pl.Items {
@@ -239,4 +239,19 @@ func filterOutDaemonSets(pl *corev1.PodList) []corev1.Pod {
 	}
 
 	return podsNoDaemonSets
+}
+
+// Filter away physical DaemonSet Pods using annotations to enable scale down
+func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
+	var podsNoDaemoSets []corev1.Pod
+
+	for _, item := range pl.Items {
+
+		annotations := item.GetAnnotations()
+
+		if annotations["vcluster.loft.sh/owner-set-kind"] != "DaemonSet" {
+			podsNoDaemoSets = append(podsNoDaemoSets, item)
+		}
+	}
+	return podsNoDaemoSets
 }
