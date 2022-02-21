@@ -3,7 +3,9 @@ package nodes
 import (
 	"context"
 	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -217,8 +219,8 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeSer
 	return nil
 }
 
-// Filter away DaemonSet Pods using OwnerReferences
-func filterOutDaemonSets(pl *corev1.PodList) []corev1.Pod {
+// Filter away  virtual DaemonSet Pods using OwnerReferences to enable scale down
+func filterOutVirtualDaemonSets(pl *corev1.PodList) []corev1.Pod {
 	var podsNoDaemonSets []corev1.Pod
 
 	for _, item := range pl.Items {
@@ -238,5 +240,17 @@ func filterOutDaemonSets(pl *corev1.PodList) []corev1.Pod {
 		}
 	}
 
+	return podsNoDaemonSets
+}
+
+// Filter away physical DaemonSet Pods using annotations to enable scale down
+func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
+	var podsNoDaemonSets []corev1.Pod
+
+	for _, item := range pl.Items {
+		if item.Annotations == nil || item.Annotations[translate.OwnerSetKind] != "DaemonSet" {
+			podsNoDaemonSets = append(podsNoDaemonSets, item)
+		}
+	}
 	return podsNoDaemonSets
 }

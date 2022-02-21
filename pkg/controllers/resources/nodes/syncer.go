@@ -249,12 +249,13 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 }
 
 func isNodeNeededByPod(ctx context.Context, virtualClient client.Client, physicalClient client.Client, nodeName string) (bool, error) {
+
 	// search virtual cache
 	podList := &corev1.PodList{}
 	err := virtualClient.List(ctx, podList, client.MatchingFields{constants.IndexByAssigned: nodeName})
 	if err != nil {
 		return false, err
-	} else if len(filterOutDaemonSets(podList)) > 0 {
+	} else if len(filterOutVirtualDaemonSets(podList)) > 0 {
 		return true, nil
 	}
 
@@ -263,7 +264,7 @@ func isNodeNeededByPod(ctx context.Context, virtualClient client.Client, physica
 	err = physicalClient.List(ctx, podList, client.MatchingFields{constants.IndexByAssigned: nodeName})
 	if err != nil {
 		return false, err
-	} else if len(filterOutDaemonSets(podList)) > 0 {
+	} else if len(filterOutPhysicalDaemonSets(podList)) > 0 {
 		return true, nil
 	}
 
