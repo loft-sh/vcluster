@@ -248,9 +248,7 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 	var podsNoDaemonSets []corev1.Pod
 
 	for _, item := range pl.Items {
-
-		annotations := item.GetAnnotations()
-		if kind, ok := annotations[translate.OwnerSetKind]; ok && kind != "DaemonSet" {
+		if item.Annotations == nil || item.Annotations[translate.OwnerSetKind] != "DaemonSet" {
 			podsNoDaemonSets = append(podsNoDaemonSets, item)
 		}
 	}
