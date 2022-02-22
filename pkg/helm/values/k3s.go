@@ -86,6 +86,13 @@ func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
   image: ##IMAGE##
 ##BASEARGS##
 `
+	if chartOptions.Isolate {
+		values += `
+securityContext:
+  runAsUser: 12345
+  runAsNonRoot: true`
+	}
+
 	values = strings.ReplaceAll(values, "##IMAGE##", image)
 	if chartOptions.K3SImage == "" {
 		baseArgs := baseArgsMap[serverVersionString]
@@ -100,11 +107,13 @@ func addCommonReleaseValues(values string, chartOptions *helm.ChartOptions) (str
 serviceCIDR: ##CIDR##
 storage:
   size: 5Gi`
+
 	if chartOptions.DisableIngressSync {
 		values += `
 syncer:
   extraArgs: ["--disable-sync-resources=ingresses"]`
 	}
+
 	if chartOptions.CreateClusterRole {
 		values += `
 rbac:
@@ -116,6 +125,12 @@ rbac:
 		values += `
 service:
   type: LoadBalancer`
+	}
+
+	if chartOptions.Isolate {
+		values += `
+isolation:
+  enabled: true`
 	}
 
 	values = strings.ReplaceAll(values, "##CIDR##", chartOptions.CIDR)

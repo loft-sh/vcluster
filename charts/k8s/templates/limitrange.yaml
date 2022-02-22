@@ -1,0 +1,15 @@
+{{- if and .Values.isolation.enabled .Values.isolation.limitRange.enabled }}
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ .Release.Name }}-limit-range
+spec:
+  limits:
+  - default:
+      memory: {{ .Values.isolation.limitRange.default.memory }}
+      cpu: {{ .Values.isolation.limitRange.default.cpu | quote }}
+    defaultRequest:
+      memory: {{ .Values.isolation.limitRange.defaultRequest.memory }}
+      cpu: {{ .Values.isolation.limitRange.defaultRequest.cpu | quote }}
+    type: Container
+{{- end }}

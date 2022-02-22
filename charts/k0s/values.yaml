@@ -223,4 +223,27 @@ securityContext:
 # to manage service endpoints
 openshift:
   enable: false
+
+isolation:
+  enabled: false
+
+  podSecurityStandard: baseline
+
+  resourceQuota:
+    enabled: true
+    quota:
+      cpu: 10
+      memory: 20Gi
+      pods: 10
+    scopeSelector:
+      matchExpressions:
+    scopes:
   
+  limitRange:
+    enabled: true
+    default:
+      memory: 512Mi
+      cpu: "1"
+    defaultRequest:
+      memory: 128Mi
+      cpu: 100m
