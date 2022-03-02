@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncachedVirtualClient client.Client, virtualConfig *rest.Config, targetNamespace string) http.Handler {
+func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncachedVirtualClient client.Client, virtualConfig *rest.Config, targetNamespace string, syncedLabels []string) http.Handler {
 	decoder := encoding.NewDecoder(uncachedLocalClient.Scheme(), false)
 	s := serializer.NewCodecFactory(uncachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -58,7 +58,7 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 						return
 					}
 
-					svc, err := createService(req, decoder, uncachedLocalClient, uncachedVirtualImpersonatingClient, info.Namespace, targetNamespace)
+					svc, err := createService(req, decoder, uncachedLocalClient, uncachedVirtualImpersonatingClient, info.Namespace, targetNamespace, syncedLabels)
 					if err != nil {
 						responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 						return
@@ -173,7 +173,7 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 	return newVService, nil
 }
 
-func createService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, fromNamespace, targetNamespace string) (runtime.Object, error) {
+func createService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, fromNamespace, targetNamespace string, syncedLabels []string) (runtime.Object, error) {
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
 	rawObj, err := ioutil.ReadAll(req.Body)
 	if err != nil {
@@ -199,7 +199,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		vService.Name = vService.GenerateName + random.RandomString(5)
 	}
 
-	newService := translator.TranslateMetadata(targetNamespace, vService).(*corev1.Service)
+	newService := translator.TranslateMetadata(targetNamespace, vService, syncedLabels).(*corev1.Service)
 	if newService.Annotations == nil {
 		newService.Annotations = map[string]string{}
 	}

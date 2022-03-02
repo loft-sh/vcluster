@@ -22,6 +22,7 @@ func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		obj:                 obj,
 		nameTranslator:      nameTranslator,
+		syncedLabels:        ctx.Options.SyncLabels,
 	}
 }
 
@@ -32,6 +33,7 @@ type clusterTranslator struct {
 	obj                 client.Object
 	nameTranslator      PhysicalNameTranslator
 	excludedAnnotations []string
+	syncedLabels        []string
 }
 
 func (n *clusterTranslator) Name() string {
@@ -93,8 +95,14 @@ func (n *clusterTranslator) TranslateMetadataUpdate(vObj client.Object, pObj cli
 func (n *clusterTranslator) TranslateLabels(vObj client.Object) map[string]string {
 	newLabels := map[string]string{}
 	if vObj != nil {
+		vObjLabels := vObj.GetLabels()
 		for k, v := range vObj.GetLabels() {
 			newLabels[convertNamespacedLabelKey(n.physicalNamespace, k)] = v
+		}
+		for _, k := range n.syncedLabels {
+			if value, ok := vObjLabels[k]; ok {
+				newLabels[k] = value
+			}
 		}
 	}
 	newLabels[translate.MarkerLabel] = translate.SafeConcatName(n.physicalNamespace, "x", translate.Suffix)
