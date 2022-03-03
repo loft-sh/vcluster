@@ -227,9 +227,11 @@ func translateLabels(vObj client.Object, syncedLabels []string) map[string]strin
 
 		newLabels[ConvertLabelKey(k)] = v
 	}
-	for _, k := range syncedLabels {
-		if value, ok := vObjLabels[k]; ok {
-			newLabels[k] = value
+	if vObjLabels != nil {
+		for _, k := range syncedLabels {
+			if value, ok := vObjLabels[k]; ok {
+				newLabels[k] = value
+			}
 		}
 	}
 

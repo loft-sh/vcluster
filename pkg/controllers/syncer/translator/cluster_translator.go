@@ -96,12 +96,14 @@ func (n *clusterTranslator) TranslateLabels(vObj client.Object) map[string]strin
 	newLabels := map[string]string{}
 	if vObj != nil {
 		vObjLabels := vObj.GetLabels()
-		for k, v := range vObj.GetLabels() {
+		for k, v := range vObjLabels {
 			newLabels[convertNamespacedLabelKey(n.physicalNamespace, k)] = v
 		}
-		for _, k := range n.syncedLabels {
-			if value, ok := vObjLabels[k]; ok {
-				newLabels[k] = value
+		if vObjLabels != nil {
+			for _, k := range n.syncedLabels {
+				if value, ok := vObjLabels[k]; ok {
+					newLabels[k] = value
+				}
 			}
 		}
 	}
