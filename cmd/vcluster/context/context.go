@@ -64,7 +64,7 @@ type VirtualClusterOptions struct {
 
 	EnforcePodSecurityStandard string `json:"enforcePodSecurityStandard"`
 
-	SyncLabels []string `json:syncLabels`
+	SyncLabels []string `json:"syncLabels"`
 
 	// DEPRECATED FLAGS
 	DeprecatedDisableSyncResources     string
