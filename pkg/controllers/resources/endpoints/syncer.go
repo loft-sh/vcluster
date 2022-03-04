@@ -38,7 +38,7 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 var _ syncer.Starter = &endpointsSyncer{}
 
 func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	// dont do anything for the kubernetes service
+	// don't do anything for the kubernetes service
 	if req.Name == "kubernetes" && req.Namespace == "default" {
 		return true, SyncKubernetesServiceEndpoints(ctx.Context, ctx.VirtualClient, ctx.CurrentNamespaceClient, ctx.CurrentNamespace, s.serviceName)
 	}
