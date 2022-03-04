@@ -226,10 +226,6 @@ kubectl get ns
 
 ### Ingress without SSL-Passthrough
 
-:::warning
-This only works with the `v0.6.0` vclusterctl versions of vcluster
-:::
-
 If you cannot configure your ingress controller to use ssl-passthrough, you can also create an ingress similar to this:
 ```
 apiVersion: networking.k8s.io/v1
@@ -272,10 +268,6 @@ kubectl get ns
 ```
 
 ## In-Cluster
-
-:::warning
-This only works with the `v0.6.0` vclusterctl versions of vcluster
-:::
 
 In order to access the virtual cluster from within the host cluster, you can directly connect to the vcluster service. Make sure you can access that service and then create a kube config in the following form:
 ```

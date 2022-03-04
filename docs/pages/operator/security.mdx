@@ -1,6 +1,6 @@
 ---
-title: Security
-sidebar_label: Security
+title: Isolation & Security
+sidebar_label: Isolation & Security
 ---
 
 import NonRootSegment from '../fragments/non-root-vcluster.mdx'
@@ -10,16 +10,59 @@ vcluster can drastically increase security in multi-tenancy clusters. vcluster p
 - **DNS isolation** as vcluster workloads are not able to resolve any services of the host cluster
 - Guarantee that all workloads, services and other namespaced objects are **created in a single namespace** in the host cluster. If deployed with default settings, vcluster also ensures that no access to any cluster scoped object is required.
 
-Besides these benefits, there are a couple of other areas you need to tune to achieve really secure multi-tenancy:
-- **Workload isolation** inside the namespace where the virtual cluster is deployed with resource quotas, limit ranges and admission controllers
-- **Network isolation** between vcluster namespaces with network policies (needs to be supported by your underlying CNI plugin)
+Besides these benefits, vcluster by default will **not** provide any workload or network isolation. Starting with version v0.7.0, vcluster has a feature called [isolated mode](#isolated-mode), which you can enable to prevent vcluster workloads from breaking out of their virtual environment.
 
-In general we recommend to deploy a single vcluster into a namespace and then isolate the namespace, which is far easier than isolating multiple vclusters from each other in a single namespace.
+In general, we recommend to deploy a single vcluster into a namespace and then isolate the namespace, which is far easier than isolating multiple vclusters from each other in a single namespace.
+
+## Isolated Mode
+
+:::warning
+This is an alpha feature and only available in v0.7.0 and newer vcluster versions
+:::
+
+vcluster offers a feature called isolated mode to automatically isolate workloads in a virtual cluster. Isolated mode can be enabled via the `--isolate` flag in `vcluster create` or through the helm value `isolation.enabled: true`:
+
+```
+# Creates a new vcluster with isolated workloads
+vcluster create my-vcluster -n my-vcluster-namespace --isolate
+```
+
+This feature imposes a couple of restrictions on vcluster workloads to make sure they do not break out of their virtual environment:
+1. vcluster enforces a [Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/) on syncer level, which means that for example pods that try to run as privileged container or mount a host path will not be synced to the host cluster. Current valid options are baseline (default in isolated mode) and restricted.
+2. vcluster deploys a [resource quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/) as well as a [limit range](https://kubernetes.io/docs/concepts/policy/limit-range/) alongside the vcluster itself. This allows restricting resource consumption of vcluster workloads. If enabled, sane defaults for those 2 resources are chosen.
+3. (Coming soon) vcluster deploys a network policy alongside itself that will restrict access of vcluster workloads to other pods in the host cluster.
+
+You can adjust isolation settings through helm values. The default values are (also check [values.yaml](https://github.com/loft-sh/vcluster/blob/v0.7.0-alpha.1/charts/k3s/values.yaml)):
+```yaml
+isolation:
+  enabled: false
+
+  # Either baseline or restricted
+  podSecurityStandard: baseline
+
+  # Resource Quota settings
+  resourceQuota:
+    enabled: true
+    quota:
+      cpu: 10
+      memory: 20Gi
+      pods: 10
+
+  # LimitRange settings
+  limitRange:
+    enabled: true
+    default:
+      memory: 512Mi
+      cpu: "1"
+    defaultRequest:
+      memory: 128Mi
+      cpu: 100m
+```
 
 ## Workload Isolation
 
 vcluster by default will not isolate any workloads in the host cluster and only ensures that those are deployed in the same namespace.
-However, isolating workloads in a single namespace can be done with in-built Kubernetes features.
+However, isolating workloads in a single namespace can be done with in-built Kubernetes features or using the isolated mode shown above.
 
 ### Resource Quota & Limit Range
 
