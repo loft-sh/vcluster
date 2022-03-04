@@ -23,7 +23,7 @@ func (s *podSyncer) isPodSecurityStandardsValid(ctx context.Context, pod *corev1
 	} else if result != nil {
 		if !result.Allowed {
 			log.Errorf("%s pod creation not allowed: %s", pod.Name, result.Result.Message)
-			s.EventRecorder().Eventf(pod, "Warning", "SyncError", `Pod %s is forbidden: violates PodSecurity %s: %s`, pod.Name, s.podSecurityStandard, result.Result.Message)
+			s.EventRecorder().Eventf(pod, "Warning", "SyncError", `Pod %s is forbidden: %s`, pod.Name, result.Result.Message)
 		}
 		return result.Allowed, nil
 	}
