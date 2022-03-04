@@ -38,6 +38,7 @@ func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj clie
 		name: name,
 
 		physicalNamespace:   ctx.TargetNamespace,
+		syncedLabels:        ctx.Options.SyncLabels,
 		excludedAnnotations: excludedAnnotations,
 
 		virtualClient: ctx.VirtualManager.GetClient(),
@@ -52,6 +53,7 @@ type namespacedTranslator struct {
 
 	physicalNamespace   string
 	excludedAnnotations []string
+	syncedLabels        []string
 
 	virtualClient client.Client
 	obj           client.Object
@@ -136,27 +138,27 @@ func (n *namespacedTranslator) PhysicalToVirtual(pObj client.Object) types.Names
 }
 
 func (n *namespacedTranslator) TranslateMetadata(vObj client.Object) client.Object {
-	return TranslateMetadata(n.physicalNamespace, vObj, n.excludedAnnotations...)
+	return TranslateMetadata(n.physicalNamespace, vObj, n.syncedLabels, n.excludedAnnotations...)
 }
 
-func TranslateMetadata(physicalNamespace string, vObj client.Object, excludedAnnotations ...string) client.Object {
+func TranslateMetadata(physicalNamespace string, vObj client.Object, syncedLabels []string, excludedAnnotations ...string) client.Object {
 	pObj, err := setupMetadataWithName(physicalNamespace, vObj, DefaultPhysicalName)
 	if err != nil {
 		return nil
 	}
 
-	pObj.SetLabels(translateLabels(vObj))
+	pObj.SetLabels(translateLabels(vObj, syncedLabels))
 	pObj.SetAnnotations(translateAnnotations(vObj, nil, excludedAnnotations))
 	return pObj
 }
 
 func (n *namespacedTranslator) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
-	return TranslateMetadataUpdate(vObj, pObj, n.excludedAnnotations...)
+	return TranslateMetadataUpdate(vObj, pObj, n.syncedLabels, n.excludedAnnotations...)
 }
 
-func TranslateMetadataUpdate(vObj client.Object, pObj client.Object, excludedAnnotations ...string) (bool, map[string]string, map[string]string) {
+func TranslateMetadataUpdate(vObj client.Object, pObj client.Object, syncedLabels []string, excludedAnnotations ...string) (bool, map[string]string, map[string]string) {
 	updatedAnnotations := translateAnnotations(vObj, pObj, excludedAnnotations)
-	updatedLabels := translateLabels(vObj)
+	updatedLabels := translateLabels(vObj, syncedLabels)
 	return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels
 }
 
@@ -214,15 +216,23 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 	return retMap
 }
 
-func translateLabels(vObj client.Object) map[string]string {
+func translateLabels(vObj client.Object, syncedLabels []string) map[string]string {
 	newLabels := map[string]string{}
-	for k, v := range vObj.GetLabels() {
+	vObjLabels := vObj.GetLabels()
+	for k, v := range vObjLabels {
 		if k == translate.NamespaceLabel {
 			newLabels[k] = v
 			continue
 		}
 
 		newLabels[ConvertLabelKey(k)] = v
+	}
+	if vObjLabels != nil {
+		for _, k := range syncedLabels {
+			if value, ok := vObjLabels[k]; ok {
+				newLabels[k] = value
+			}
+		}
 	}
 
 	newLabels[translate.MarkerLabel] = translate.Suffix

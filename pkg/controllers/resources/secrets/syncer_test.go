@@ -23,10 +23,15 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 }
 
 func TestSync(t *testing.T) {
+	testLabel := "test-label"
+	testLabelValue := "label-value"
 	baseSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
 			Namespace: "test",
+			Labels: map[string]string{
+				testLabel: testLabelValue,
+			},
 		},
 	}
 	updatedSecret := &corev1.Secret{
@@ -44,7 +49,9 @@ func TestSync(t *testing.T) {
 				translator.NamespaceAnnotation: baseSecret.Namespace,
 			},
 			Labels: map[string]string{
-				translate.NamespaceLabel: baseSecret.Namespace,
+				translate.NamespaceLabel:              baseSecret.Namespace,
+				testLabel:                             testLabelValue,
+				translator.ConvertLabelKey(testLabel): testLabelValue,
 			},
 		},
 	}
@@ -98,6 +105,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.SyncLabels = []string{testLabel}
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.(*secretSyncer).SyncDown(syncContext, baseSecret)
 				assert.NilError(t, err)
@@ -118,6 +126,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.SyncLabels = []string{testLabel}
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.(*secretSyncer).Sync(syncContext, syncedSecret, updatedSecret)
 				assert.NilError(t, err)

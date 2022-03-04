@@ -74,6 +74,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
 		serviceAccountsEnabled: ctx.Controllers["serviceaccounts"],
 		priorityClassesEnabled: ctx.Controllers["priorityclasses"],
+		syncedLabels:           ctx.Options.SyncLabels,
 	}, nil
 }
 
@@ -93,6 +94,7 @@ type translator struct {
 	overrideHosts          bool
 	overrideHostsImage     string
 	priorityClassesEnabled bool
+	syncedLabels           []string
 }
 
 func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -104,7 +106,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 
 	// convert to core object
-	pPod := translator2.TranslateMetadata(t.targetNamespace, vPod).(*corev1.Pod)
+	pPod := translator2.TranslateMetadata(t.targetNamespace, vPod, t.syncedLabels).(*corev1.Pod)
 
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}
@@ -779,7 +781,7 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 	}
 
 	// check annotations
-	_, updatedAnnotations, updatedLabels := translator2.TranslateMetadataUpdate(vPod, pPod, getExcludedAnnotations(pPod)...)
+	_, updatedAnnotations, updatedLabels := translator2.TranslateMetadataUpdate(vPod, pPod, t.syncedLabels, getExcludedAnnotations(pPod)...)
 	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {
