@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"math"
 	"os"
 	"time"
@@ -450,11 +451,23 @@ func findOwner(ctx *context2.ControllerContext) error {
 func syncKubernetesService(ctx *context2.ControllerContext) error {
 	err := services.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.CurrentNamespaceClient, ctx.CurrentNamespace, ctx.Options.ServiceName)
 	if err != nil {
+		if kerrors.IsConflict(err) {
+			klog.Errorf("Error syncing kubernetes service: %v", err)
+			time.Sleep(time.Second)
+			return syncKubernetesService(ctx)
+		}
+
 		return errors.Wrap(err, "sync kubernetes service")
 	}
 
 	err = endpoints.SyncKubernetesServiceEndpoints(ctx.Context, ctx.VirtualManager.GetClient(), ctx.CurrentNamespaceClient, ctx.CurrentNamespace, ctx.Options.ServiceName)
 	if err != nil {
+		if kerrors.IsConflict(err) {
+			klog.Errorf("Error syncing kubernetes service endpoints: %v", err)
+			time.Sleep(time.Second)
+			return syncKubernetesService(ctx)
+		}
+
 		return errors.Wrap(err, "sync kubernetes service endpoints")
 	}
 
