@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/metrics"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/prometheus/common/expfmt"
 	corev1 "k8s.io/api/core/v1"
@@ -175,6 +176,22 @@ func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vCli
 		pod.PodRef.Name = vPod.Name
 		pod.PodRef.Namespace = vPod.Namespace
 		pod.PodRef.UID = string(vPod.UID)
+
+		for _, volume := range pod.VolumeStats {
+			if volume.PVCRef != nil {
+				vPVC := &corev1.PersistentVolumeClaim{}
+				err = clienthelper.GetByIndex(ctx, vClient, vPVC, constants.IndexByPhysicalName, volume.PVCRef.Name)
+				if err != nil {
+					return nil, err
+				}
+				if vPVC == nil {
+					continue
+				}
+				volume.PVCRef.Name = vPVC.Name
+				volume.PVCRef.Namespace = vPVC.Namespace
+			}
+		}
+
 		newPods = append(newPods, pod)
 	}
 	stats.Pods = newPods

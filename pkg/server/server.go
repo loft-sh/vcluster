@@ -99,6 +99,13 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		return nil, err
 	}
 	cachedVirtualClient, err := createCachedClient(ctx.Context, virtualConfig, corev1.NamespaceAll, uncachedVirtualClient.RESTMapper(), uncachedVirtualClient.Scheme(), func(cache cache.Cache) error {
+		err := cache.IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+			return []string{translator.ObjectPhysicalName(rawObj)}
+		})
+		if err != nil {
+			return err
+		}
+
 		return cache.IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 			return []string{translator.ObjectPhysicalName(rawObj)}
 		})
