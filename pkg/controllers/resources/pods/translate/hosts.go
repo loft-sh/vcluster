@@ -2,6 +2,7 @@ package translate
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -19,6 +20,16 @@ func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewrite
 			Image:   defaultImageRegistry + hostsRewriteImage,
 			Command: []string{"sh"},
 			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostnameFQDN + " " + toHostname + "/' /etc/hosts > /hosts/hosts"},
+			Resources: corev1.ResourceRequirements{
+				Limits: map[corev1.ResourceName]resource.Quantity{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+				Requests: map[corev1.ResourceName]resource.Quantity{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("32Mi"),
+				},
+			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					MountPath: "/hosts",
