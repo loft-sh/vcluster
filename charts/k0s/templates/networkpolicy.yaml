@@ -1,0 +1,59 @@
+{{- if and .Values.isolation.enabled .Values.isolation.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-workloads
+spec:
+  podSelector:
+    matchLabels:
+      vcluster.loft.sh/managed-by: {{ .Release.Name }}
+  egress:
+    - ports:
+        - port: 443
+        - port: 8443
+      to:
+        - podSelector:
+            matchLabels:
+              release: {{ .Release.Name }}
+    - ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 127.0.0.0/8
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+  policyTypes:
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-control-plane
+spec:
+  podSelector:
+    matchLabels:
+      release: {{ .Release.Name }}
+  egress:
+    - ports:
+        - port: 443
+        - port: 8443
+    - to:
+        - podSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: 'kube-system'
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+  policyTypes:
+    - Egress
+{{- end }}

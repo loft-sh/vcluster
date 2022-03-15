@@ -68,7 +68,9 @@ data:
           fallthrough
         }
         prometheus :9153
-        forward . /etc/resolv.conf
+        forward . /etc/resolv.conf 8.8.8.8 {
+          policy sequential
+        }
         cache 30
         loop
         reload
