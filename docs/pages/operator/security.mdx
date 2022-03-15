@@ -28,27 +28,28 @@ vcluster create my-vcluster -n my-vcluster-namespace --isolate
 ```
 
 This feature imposes a couple of restrictions on vcluster workloads to make sure they do not break out of their virtual environment:
-1. vcluster enforces a [Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/) on syncer level, which means that for example pods that try to run as privileged container or mount a host path will not be synced to the host cluster. Current valid options are baseline (default in isolated mode) and restricted.
+1. vcluster enforces a [Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/) on syncer level, which means that for example pods that try to run as a privileged container or mount a host path will not be synced to the host cluster. Current valid options are either baseline (default in isolated mode) or restricted. This works for every Kubernetes version regardless of Pod Security Standard support, as this is implemented in vcluster directly. Rejected pods will stay pending in the vcluster and in newer Kubernetes version they will be denied by the admission controller as well.
 2. vcluster deploys a [resource quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/) as well as a [limit range](https://kubernetes.io/docs/concepts/policy/limit-range/) alongside the vcluster itself. This allows restricting resource consumption of vcluster workloads. If enabled, sane defaults for those 2 resources are chosen.
-3. (Coming soon) vcluster deploys a network policy alongside itself that will restrict access of vcluster workloads to other pods in the host cluster.
+3. vcluster deploys a [network policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) alongside itself that will restrict access of vcluster workloads as well as the vcluster control plane to other pods in the host cluster. (only works if your host [cluster CNI supports network policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/#prerequisites))
 
 You can adjust isolation settings through helm values. The default values are (also check [values.yaml](https://github.com/loft-sh/vcluster/blob/v0.7.0-alpha.1/charts/k3s/values.yaml)):
 ```yaml
 isolation:
   enabled: false
 
-  # Either baseline or restricted
   podSecurityStandard: baseline
 
-  # Resource Quota settings
   resourceQuota:
     enabled: true
     quota:
       cpu: 10
       memory: 20Gi
       pods: 10
+      requests.storage: "100Gi"
+    scopeSelector:
+      matchExpressions:
+    scopes:
 
-  # LimitRange settings
   limitRange:
     enabled: true
     default:
@@ -57,12 +58,15 @@ isolation:
     defaultRequest:
       memory: 128Mi
       cpu: 100m
+
+  networkPolicy:
+    enabled: true
 ```
 
 ## Workload Isolation
 
 vcluster by default will not isolate any workloads in the host cluster and only ensures that those are deployed in the same namespace.
-However, isolating workloads in a single namespace can be done with in-built Kubernetes features or using the isolated mode shown above.
+However, isolating workloads in a single namespace can be done with in-built Kubernetes features or using the [isolated mode](#isolated-mode) shown above.
 
 ### Resource Quota & Limit Range
 
@@ -129,7 +133,7 @@ Besides this basic workload isolation, you could also dive into more advanced is
 ## Network Isolation
 
 Workloads created by vcluster will be able to communicate with other workloads in the host cluster through their cluster ips. This can be sometimes beneficial if you want to purposely access a host cluster service, which is a good method to share services between vclusters. However, you often want to isolate namespaces and do not want the pods running inside vcluster to have access to other workloads in the host cluster.
-This requirement can be accomplished by using [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) for the namespace where vcluster is installed in.
+This requirement can be accomplished by using [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) for the namespace where vcluster is installed in or using the [isolated mode](#isolated-mode) shown above.
 
 :::info
 Network policies do not work in all Kubernetes clusters and need to be supported by the underlying CNI plugin.

@@ -22,13 +22,6 @@ deployments:
       chart:
         name: ./charts/k3s
       values:
-        isolation:
-          enabled: true
-          podSecurityStandard: ""
-          resourceQuota:
-            enabled: false
-          limitRange:
-            enabled: false
         serviceCIDR: ${SERVICE_CIDR}
         etcd:
           replicas: 3
