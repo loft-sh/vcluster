@@ -226,7 +226,17 @@ securityContext:
 # to manage service endpoints
 openshift:
   enable: false
-  
+
+# If enabled will deploy the coredns configmap
+coredns:
+  enabled: true
+  # image: my-core-dns-image:latest
+  # config: |-
+  #   .:1053 {
+  #      ...
+
+# If enabled will deploy vcluster in an isolated mode with pod security
+# standards, limit ranges and resource quotas
 isolation:
   enabled: false
 
@@ -238,6 +248,7 @@ isolation:
       cpu: 10
       memory: 20Gi
       pods: 10
+      requests.storage: "100Gi"
     scopeSelector:
       matchExpressions:
     scopes:
@@ -250,3 +261,6 @@ isolation:
     defaultRequest:
       memory: 128Mi
       cpu: 100m
+
+  networkPolicy:
+    enabled: true

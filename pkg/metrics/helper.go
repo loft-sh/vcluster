@@ -60,19 +60,22 @@ func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, targetNam
 		newMetrics := []*dto.Metric{}
 		for _, m := range fam.Metric {
 			var (
-				pod       string
-				namespace string
+				pod                   string
+				persistentvolumeclaim string
+				namespace             string
 			)
 			for _, l := range m.Label {
 				if l.GetName() == "pod" {
 					pod = l.GetValue()
 				} else if l.GetName() == "namespace" {
 					namespace = l.GetValue()
+				} else if l.GetName() == "persistentvolumeclaim" {
+					persistentvolumeclaim = l.GetValue()
 				}
 			}
 
 			// Add metrics that are pod and namespace independent
-			if pod == "" && namespace == "" {
+			if persistentvolumeclaim == "" && pod == "" {
 				newMetrics = append(newMetrics, m)
 				continue
 			}
@@ -82,20 +85,41 @@ func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, targetNam
 				continue
 			}
 
-			// search if we can find the pod by name in the virtual cluster
-			podList := &corev1.PodList{}
-			err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: pod})
-			if err != nil {
-				return nil, err
+			// rewrite pod
+			if pod != "" {
+				// search if we can find the pod by name in the virtual cluster
+				podList := &corev1.PodList{}
+				err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: pod})
+				if err != nil {
+					return nil, err
+				}
+
+				// skip the metric if the pod couldn't be found in the virtual cluster
+				if len(podList.Items) == 0 {
+					continue
+				}
+
+				pod = podList.Items[0].Name
+				namespace = podList.Items[0].Namespace
 			}
 
-			// skip the metric if the pod couldn't be found in the virtual cluster
-			if len(podList.Items) == 0 {
-				continue
-			}
+			// rewrite persistentvolumeclaim
+			if persistentvolumeclaim != "" {
+				// search if we can find the pvc by name in the virtual cluster
+				pvcList := &corev1.PersistentVolumeClaimList{}
+				err := vClient.List(ctx, pvcList, client.MatchingFields{constants.IndexByPhysicalName: persistentvolumeclaim})
+				if err != nil {
+					return nil, err
+				}
 
-			pod = podList.Items[0].Name
-			namespace = podList.Items[0].Namespace
+				// skip the metric if the pvc couldn't be found in the virtual cluster
+				if len(pvcList.Items) == 0 {
+					continue
+				}
+
+				persistentvolumeclaim = pvcList.Items[0].Name
+				namespace = pvcList.Items[0].Namespace
+			}
 
 			// exchange label values
 			for _, l := range m.Label {
@@ -104,6 +128,9 @@ func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, targetNam
 				}
 				if l.GetName() == "namespace" {
 					l.Value = &namespace
+				}
+				if l.GetName() == "persistentvolumeclaim" {
+					l.Value = &persistentvolumeclaim
 				}
 			}
 

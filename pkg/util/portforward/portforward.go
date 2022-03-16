@@ -22,7 +22,6 @@ import (
 	"go.uber.org/atomic"
 	"io"
 	"io/ioutil"
-	"k8s.io/klog"
 	"net"
 	"net/http"
 	"sort"
@@ -32,7 +31,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/httpstream"
-	"k8s.io/apimachinery/pkg/util/runtime"
 )
 
 // PortForwardProtocolV1Name is the subprotocol used for port forwarding.
@@ -388,7 +386,9 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 	go func() {
 		// Copy from the remote side to the local port.
 		if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			klog.Infof("error copying from remote stream to local connection: %v", err)
+			if pf.errOut != nil {
+				fmt.Fprintf(pf.errOut, "error copying from remote stream to local connection: %v\n", err)
+			}
 		}
 
 		// inform the select below that the remote copy is done
@@ -401,7 +401,9 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 
 		// Copy from the local port to the remote side.
 		if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			klog.Infof("error copying from local connection to remote stream: %v", err)
+			if pf.errOut != nil {
+				fmt.Fprintf(pf.errOut, "error copying from local connection to remote stream: %v\n", err)
+			}
 
 			// break out of the select below without waiting for the other copy to finish
 			close(localError)
@@ -421,7 +423,9 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 		if strings.Contains(err.Error(), "container") {
 			pf.raiseError(err)
 		} else {
-			klog.Info(err)
+			if pf.errOut != nil {
+				fmt.Fprintf(pf.errOut, "%v\n", err)
+			}
 		}
 	}
 }
@@ -431,7 +435,9 @@ func (pf *PortForwarder) Close() {
 	// stop all listeners
 	for _, l := range pf.listeners {
 		if err := l.Close(); err != nil {
-			runtime.HandleError(fmt.Errorf("error closing listener: %v", err))
+			if pf.errOut != nil {
+				fmt.Fprintf(pf.errOut, "error closing listener: %v\n", err)
+			}
 		}
 	}
 }

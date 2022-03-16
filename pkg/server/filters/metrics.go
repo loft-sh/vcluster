@@ -177,6 +177,7 @@ func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vCli
 		pod.PodRef.Namespace = vPod.Namespace
 		pod.PodRef.UID = string(vPod.UID)
 
+		newVolumes := []statsv1alpha1.VolumeStats{}
 		for _, volume := range pod.VolumeStats {
 			if volume.PVCRef != nil {
 				vPVC := &corev1.PersistentVolumeClaim{}
@@ -190,7 +191,10 @@ func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vCli
 				volume.PVCRef.Name = vPVC.Name
 				volume.PVCRef.Namespace = vPVC.Namespace
 			}
+
+			newVolumes = append(newVolumes, volume)
 		}
+		pod.VolumeStats = newVolumes
 
 		newPods = append(newPods, pod)
 	}
