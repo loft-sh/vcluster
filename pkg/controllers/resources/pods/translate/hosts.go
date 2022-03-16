@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"github.com/loft-sh/vcluster/pkg/coredns"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -13,13 +14,22 @@ const (
 	HostsRewriteContainerName         = "vcluster-rewrite-hosts"
 )
 
+var (
+	nonRoot = true
+)
+
 func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewriteImage, fromHost, toHostname, toHostnameFQDN string) {
 	if pPod.Annotations == nil || pPod.Annotations[DisableSubdomainRewriteAnnotation] != "true" || pPod.Annotations[HostsRewrittenAnnotation] != "true" {
+		userID := coredns.GetUserID()
 		initContainer := corev1.Container{
 			Name:    HostsRewriteContainerName,
 			Image:   defaultImageRegistry + hostsRewriteImage,
 			Command: []string{"sh"},
 			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostnameFQDN + " " + toHostname + "/' /etc/hosts > /hosts/hosts"},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:    &userID,
+				RunAsNonRoot: &nonRoot,
+			},
 			Resources: corev1.ResourceRequirements{
 				Limits: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceCPU:    resource.MustParse("100m"),
