@@ -235,6 +235,14 @@ ingress:
 openshift:
   enable: false
 
+# If enabled will deploy the coredns configmap
+coredns:
+  enabled: true
+  # image: my-core-dns-image:latest
+  # config: |-
+  #   .:1053 {
+  #      ...
+
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas
 isolation:

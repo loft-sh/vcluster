@@ -60,6 +60,11 @@ spec:
         - name: certs
           secret:
             secretName: {{ .Release.Name }}-certs
+      {{- if .Values.coredns.enabled }}
+        - name: coredns
+          configMap:
+            name: {{ .Release.Name }}-coredns
+      {{- end }}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
       {{- end }}
@@ -143,6 +148,11 @@ spec:
         env:
 {{ toYaml .Values.syncer.env | indent 10 }}
         volumeMounts:
+        {{- if .Values.coredns.enabled }}
+          - name: coredns
+            mountPath: /manifests/coredns
+            readOnly: true
+        {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}

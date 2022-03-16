@@ -22,6 +22,12 @@ deployments:
       chart:
         name: ./charts/k3s
       values:
+        isolation:
+          enabled: true
+          resourceQuota:
+            enabled: false
+          limitRange:
+            enabled: false
         serviceCIDR: ${SERVICE_CIDR}
         etcd:
           replicas: 3
@@ -69,7 +75,6 @@ dev:
         - '!/cmd'
         - '!/vendor'
         - '!/hack'
-        - '!/manifests'
         - '!/go.mod'
         - '!/go.sum'
         - '!/devspace_start.sh'

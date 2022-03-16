@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	Namespace             = "kube-system"
 	DefaultImage          = "coredns/coredns"
 	ManifestRelativePath  = "coredns/coredns.yaml"
 	ManifestsOutputFolder = "/tmp/manifests-to-apply"
