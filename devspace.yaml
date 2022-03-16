@@ -78,6 +78,8 @@ dev:
         - '!/go.mod'
         - '!/go.sum'
         - '!/devspace_start.sh'
+        - '!/manifests'
+        - '/manifests/coredns'
 commands:
   - name: dev
     command: "devspace dev -n vcluster $@"
