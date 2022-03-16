@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"text/template"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -22,7 +21,7 @@ const (
 	VarRunAsUser          = "RUN_AS_USER"
 	VarRunAsNonRoot       = "RUN_AS_NON_ROOT"
 	VarLogInDebug         = "LOG_IN_DEBUG"
-	UID                   = "1001"
+	UID                   = int64(1001)
 )
 
 var CoreDNSVersionMap = map[string]string{
@@ -75,20 +74,25 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 		vars[VarImage] = DefaultImage
 	}
 	vars[VarImage] = defaultImageRegistry + vars[VarImage].(string)
-
-	uid := os.Getuid()
-	vars[VarRunAsUser] = strconv.Itoa(uid)
+	vars[VarRunAsUser] = fmt.Sprintf("%v", GetUserID())
 	vars[VarRunAsNonRoot] = "true"
-	if uid == 0 {
-		vars[VarRunAsUser] = UID
-	}
-
 	if os.Getenv("DEBUG") == "true" {
 		vars[VarLogInDebug] = "log"
 	} else {
 		vars[VarLogInDebug] = ""
 	}
 	return vars
+}
+
+// GetUserID retrieves the current user id and if the current process is running
+// as root we fallback to UID 1001
+func GetUserID() int64 {
+	uid := os.Getuid()
+	if uid == 0 {
+		return UID
+	}
+
+	return int64(uid)
 }
 
 func processManifestTemplate(vars map[string]interface{}) ([]byte, error) {
