@@ -8,6 +8,7 @@ spec:
     matchLabels:
       vcluster.loft.sh/managed-by: {{ .Release.Name }}
   egress:
+    # Allows outgoing connections to the vcluster control plane
     - ports:
         - port: 443
         - port: 8443
@@ -15,11 +16,14 @@ spec:
         - podSelector:
             matchLabels:
               release: {{ .Release.Name }}
+    # Allows outgoing connections to DNS server
     - ports:
       - port: 53
         protocol: UDP
       - port: 53
         protocol: TCP
+    # Allows outgoing connections to the internet or
+    # other vcluster workloads
     - to:
         - podSelector:
             matchLabels:
@@ -43,9 +47,14 @@ spec:
     matchLabels:
       release: {{ .Release.Name }}
   egress:
+    # Allows outgoing connections to all pods with
+    # port 443 or 8443. This is needed for host Kubernetes
+    # access
     - ports:
         - port: 443
         - port: 8443
+    # Allows outgoing connections to all vcluster workloads
+    # or kube system dns server
     - to:
         - podSelector: {}
         - namespaceSelector:
