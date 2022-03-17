@@ -22,8 +22,6 @@ deployments:
       chart:
         name: ./charts/k3s
       values:
-        isolation:
-          enabled: true
         serviceCIDR: ${SERVICE_CIDR}
         etcd:
           replicas: 3
