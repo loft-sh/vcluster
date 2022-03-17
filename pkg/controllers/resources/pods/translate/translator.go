@@ -75,7 +75,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		serviceAccountsEnabled:  ctx.Controllers["serviceaccounts"],
 		priorityClassesEnabled:  ctx.Controllers["priorityclasses"],
 		syncedLabels:            ctx.Options.SyncLabels,
-		syncServiceAccountToken: ctx.Options.SyncServiceAccountToken,
+		skipServiceAccountToken: ctx.Options.SkipServiceAccountToken,
 	}, nil
 }
 
@@ -96,7 +96,7 @@ type translator struct {
 	overrideHostsImage      string
 	priorityClassesEnabled  bool
 	syncedLabels            []string
-	syncServiceAccountToken bool
+	skipServiceAccountToken bool
 }
 
 func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -363,7 +363,7 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 			}
 		}
 		if projectedVolume.Sources[i].ServiceAccountToken != nil {
-			if !t.syncServiceAccountToken {
+			if t.skipServiceAccountToken {
 				continue
 			}
 			serviceAccountName := "default"

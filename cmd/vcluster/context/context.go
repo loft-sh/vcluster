@@ -65,7 +65,7 @@ type VirtualClusterOptions struct {
 	EnforcePodSecurityStandard string `json:"enforcePodSecurityStandard"`
 
 	SyncLabels              []string `json:"syncLabels"`
-	SyncServiceAccountToken bool     `json:"syncServiceAccountToken"`
+	SkipServiceAccountToken bool     `json:"skipServiceAccountToken"`
 
 	// DEPRECATED FLAGS
 	DeprecatedDisableSyncResources     string

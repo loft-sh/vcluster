@@ -132,7 +132,7 @@ func NewStartCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&options.EnforcePodSecurityStandard, "enforce-pod-security-standard", "", "This can be set to privileged, baseline, restricted and vcluster would make sure during translation that these policies are enforced.")
 	cmd.Flags().StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions.")
-	cmd.Flags().BoolVar(&options.SyncServiceAccountToken, "sync-service-account-token", true, "Sync vcluster-issued ServiceAccountToken onto physical pod")
+	cmd.Flags().BoolVar(&options.SkipServiceAccountToken, "skip-service-account-token", false, "Skip issuing of serviceAccountToken to physical pod by vcluster")
 
 	// Deprecated Flags
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
