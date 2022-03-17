@@ -67,14 +67,15 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 
 		defaultImageRegistry: ctx.Options.DefaultImageRegistry,
 
-		targetNamespace:        ctx.Options.TargetNamespace,
-		clusterDomain:          ctx.Options.ClusterDomain,
-		serviceAccount:         ctx.Options.ServiceAccount,
-		overrideHosts:          ctx.Options.OverrideHosts,
-		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
-		serviceAccountsEnabled: ctx.Controllers["serviceaccounts"],
-		priorityClassesEnabled: ctx.Controllers["priorityclasses"],
-		syncedLabels:           ctx.Options.SyncLabels,
+		targetNamespace:         ctx.Options.TargetNamespace,
+		clusterDomain:           ctx.Options.ClusterDomain,
+		serviceAccount:          ctx.Options.ServiceAccount,
+		overrideHosts:           ctx.Options.OverrideHosts,
+		overrideHostsImage:      ctx.Options.OverrideHostsContainerImage,
+		serviceAccountsEnabled:  ctx.Controllers["serviceaccounts"],
+		priorityClassesEnabled:  ctx.Controllers["priorityclasses"],
+		syncedLabels:            ctx.Options.SyncLabels,
+		syncServiceAccountToken: ctx.Options.SyncServiceAccountToken,
 	}, nil
 }
 
@@ -87,14 +88,15 @@ type translator struct {
 
 	defaultImageRegistry string
 
-	serviceAccountsEnabled bool
-	targetNamespace        string
-	clusterDomain          string
-	serviceAccount         string
-	overrideHosts          bool
-	overrideHostsImage     string
-	priorityClassesEnabled bool
-	syncedLabels           []string
+	serviceAccountsEnabled  bool
+	targetNamespace         string
+	clusterDomain           string
+	serviceAccount          string
+	overrideHosts           bool
+	overrideHostsImage      string
+	priorityClassesEnabled  bool
+	syncedLabels            []string
+	syncServiceAccountToken bool
 }
 
 func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -361,6 +363,9 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 			}
 		}
 		if projectedVolume.Sources[i].ServiceAccountToken != nil {
+			if !t.syncServiceAccountToken {
+				continue
+			}
 			serviceAccountName := "default"
 			if vPod.Spec.ServiceAccountName != "" {
 				serviceAccountName = vPod.Spec.ServiceAccountName
