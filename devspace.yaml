@@ -24,10 +24,6 @@ deployments:
       values:
         isolation:
           enabled: true
-          resourceQuota:
-            enabled: false
-          limitRange:
-            enabled: false
         serviceCIDR: ${SERVICE_CIDR}
         etcd:
           replicas: 3

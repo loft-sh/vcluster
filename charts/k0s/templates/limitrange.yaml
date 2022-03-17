@@ -6,10 +6,12 @@ metadata:
 spec:
   limits:
   - default:
-      memory: {{ .Values.isolation.limitRange.default.memory }}
-      cpu: {{ .Values.isolation.limitRange.default.cpu | quote }}
+      {{- range $key, $val := .Values.isolation.limitRange.default }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
     defaultRequest:
-      memory: {{ .Values.isolation.limitRange.defaultRequest.memory }}
-      cpu: {{ .Values.isolation.limitRange.defaultRequest.cpu | quote }}
+      {{- range $key, $val := .Values.isolation.limitRange.defaultRequest }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
     type: Container
 {{- end }}
