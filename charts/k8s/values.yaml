@@ -253,10 +253,21 @@ isolation:
   resourceQuota:
     enabled: true
     quota:
-      cpu: 10
-      memory: 20Gi
-      pods: 10
+      requests.cpu: 10
+      requests.memory: 20Gi
       requests.storage: "100Gi"
+      requests.ephemeral-storage: 60Gi
+      limits.cpu: 20
+      limits.memory: 40Gi
+      limits.ephemeral-storage: 160Gi
+      services.nodeports: 0
+      services.loadbalancers: 1
+      count/endpoints: 40
+      count/pods: 20
+      count/services: 20
+      count/secrets: 100
+      count/configmaps: 100
+      count/persistentvolumeclaims: 20
     scopeSelector:
       matchExpressions:
     scopes:
@@ -264,9 +275,11 @@ isolation:
   limitRange:
     enabled: true
     default:
+      ephemeral-storage: 8Gi
       memory: 512Mi
       cpu: "1"
     defaultRequest:
+      ephemeral-storage: 3Gi
       memory: 128Mi
       cpu: 100m
 
