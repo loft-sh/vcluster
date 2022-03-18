@@ -128,9 +128,11 @@ data:
               labelSelector:
                 matchLabels:
                   k8s-app: kube-dns
+          {{- if .Values.isolation.enabled }}
           securityContext:
             seccompProfile:
               type: RuntimeDefault
+          {{- end }}
           containers:
             - name: coredns
               {{- if .Values.coredns.image }}
