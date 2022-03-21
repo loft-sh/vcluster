@@ -66,6 +66,8 @@ sync:
     enabled: false
   storageclasses:
     enabled: false
+  legacy-storageclasses:
+    enabled: false
   priorityclasses:
     enabled: false
   networkpolicies:
