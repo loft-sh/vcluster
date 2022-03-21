@@ -24,6 +24,8 @@ To enable the synchronization of the PersistentVolume and StorageClass resources
 sync:
   persistentvolumes:
     enabled: true
+  # If you want to create custom storage classes
+  # inside the vcluster.
   storageclasses:
     enabled: true
 ```
