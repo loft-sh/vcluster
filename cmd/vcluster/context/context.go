@@ -107,6 +107,7 @@ var ExistingControllers = map[string]bool{
 	"nodes":                  true,
 	"persistentvolumes":      true,
 	"storageclasses":         true,
+	"legacy-storageclasses":  true,
 	"priorityclasses":        true,
 	"networkpolicies":        true,
 	"volumesnapshots":        true,
