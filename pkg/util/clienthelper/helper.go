@@ -118,15 +118,6 @@ func GVKFrom(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersionKin
 	return gvks[0], nil
 }
 
-func CurrentPodName() (string, error) {
-	podNameEnv := os.Getenv("POD_NAME")
-	if podNameEnv != "" {
-		return podNameEnv, nil
-	}
-
-	return os.Hostname()
-}
-
 func NewImpersonatingClient(config *rest.Config, mapper meta.RESTMapper, user user.Info, scheme *runtime.Scheme) (client.Client, error) {
 	// Impersonate user
 	restConfig := rest.CopyConfig(config)
