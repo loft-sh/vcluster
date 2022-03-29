@@ -16,10 +16,10 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		return nil, err
 	}
 
-	nodeService := nodeservice.NewNodeServiceProvider(ctx.CurrentNamespace, ctx.CurrentNamespaceClient, ctx.VirtualManager.GetClient(), uncachedVirtualClient)
-
+	nodeService := nodeservice.NewNodeServiceProvider(ctx.Options.ServiceName, ctx.CurrentNamespace, ctx.CurrentNamespaceClient, ctx.VirtualManager.GetClient(), uncachedVirtualClient)
 	if !ctx.Controllers["nodes"] {
 		return NewFakeSyncer(ctx, nodeService)
 	}
+
 	return NewSyncer(ctx, nodeService)
 }

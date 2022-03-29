@@ -2,12 +2,10 @@ package nodeservice
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -40,8 +38,9 @@ type NodeServiceProvider interface {
 	GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error)
 }
 
-func NewNodeServiceProvider(currentNamespace string, currentNamespaceClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
+func NewNodeServiceProvider(serviceName, currentNamespace string, currentNamespaceClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
 	return &nodeServiceProvider{
+		serviceName:            serviceName,
 		currentNamespace:       currentNamespace,
 		currentNamespaceClient: currentNamespaceClient,
 		virtualClient:          virtualClient,
@@ -50,6 +49,7 @@ func NewNodeServiceProvider(currentNamespace string, currentNamespaceClient clie
 }
 
 type nodeServiceProvider struct {
+	serviceName            string
 	currentNamespace       string
 	currentNamespaceClient client.Client
 
@@ -133,29 +133,11 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 		return service.Spec.ClusterIP, nil
 	}
 
-	// create a new service if we can't find one
-	podName, err := clienthelper.CurrentPodName()
-	if err != nil {
-		return "", errors.Wrap(err, "get current pod name")
-	}
-
 	// find out the labels to select ourself
-	pod := &corev1.Pod{}
-	err = n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: n.currentNamespace}, pod)
+	vclusterService := &corev1.Service{}
+	err = n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vclusterService)
 	if err != nil {
-		return "", errors.Wrap(err, "get pod")
-	} else if len(pod.Labels) == 0 {
-		return "", fmt.Errorf("vcluster pod has no labels to select it")
-	}
-
-	// create label selector
-	labelSelector := map[string]string{}
-	for k, v := range pod.Labels {
-		if k == "controller-revision-hash" || k == "statefulset.kubernetes.io/pod-name" || k == "pod-template-hash" {
-			continue
-		}
-
-		labelSelector[k] = v
+		return "", errors.Wrap(err, "get vcluster service")
 	}
 
 	// create the new service
@@ -175,11 +157,11 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 					TargetPort: intstr.FromInt(KubeletTargetPort),
 				},
 			},
-			Selector: labelSelector,
+			Selector: vclusterService.Spec.Selector,
 		},
 	}
 
-	// set owning stateful set if defined
+	// set owner if defined
 	if translate.Owner != nil {
 		nodeService.SetOwnerReferences(translate.GetOwnerReference(nil))
 	}
