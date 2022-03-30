@@ -1,9 +1,10 @@
 package volumesnapshotclasses
 
 import (
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
-	"testing"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -13,6 +14,7 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	addToSchemeFuncs := []func(s *runtime.Scheme) error{volumesnapshotv1.AddToScheme}
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "testclass",
 		Namespace:       "test",
@@ -29,6 +31,7 @@ func TestSync(t *testing.T) {
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Create backward",
 			InitialVirtualState:  []runtime.Object{},
 			InitialPhysicalState: []runtime.Object{vBaseVSC.DeepCopy()},
@@ -45,6 +48,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Update backward",
 			InitialVirtualState:  []runtime.Object{vBaseVSC.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{vMoreParamsVSC.DeepCopy()},
@@ -61,6 +65,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:     addToSchemeFuncs,
 			Name:                 "Ignore forward update",
 			InitialVirtualState:  []runtime.Object{vMoreParamsVSC.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{vBaseVSC.DeepCopy()},
@@ -77,6 +82,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			AddToSchemeFuncs:      addToSchemeFuncs,
 			Name:                  "Delete backward",
 			InitialVirtualState:   []runtime.Object{vBaseVSC.DeepCopy()},
 			InitialPhysicalState:  []runtime.Object{},
