@@ -121,6 +121,9 @@ spec:
         {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
+          {{- if .Values.sync.services.syncServiceSelector }}
+          - --sync-service-selector
+          {{- end }}
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}

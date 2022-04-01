@@ -17,14 +17,17 @@ import (
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &endpointsSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "endpoints", &corev1.Endpoints{}),
-		serviceName:          ctx.Options.ServiceName,
+
+		syncServiceSelector: ctx.Options.SyncServiceSelector,
+		serviceName:         ctx.Options.ServiceName,
 	}, nil
 }
 
 type endpointsSyncer struct {
 	translator.NamespacedTranslator
 
-	serviceName string
+	syncServiceSelector bool
+	serviceName         string
 }
 
 func (s *endpointsSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -43,6 +46,9 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 		return true, SyncKubernetesServiceEndpoints(ctx.Context, ctx.VirtualClient, ctx.CurrentNamespaceClient, ctx.CurrentNamespace, s.serviceName)
 	}
 
+	if s.syncServiceSelector {
+		return true, nil
+	}
 	return false, nil
 }
 

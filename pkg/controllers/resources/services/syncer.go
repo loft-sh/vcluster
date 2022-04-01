@@ -23,14 +23,17 @@ var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &serviceSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}),
-		serviceName:          ctx.Options.ServiceName,
+
+		syncServiceSelector: ctx.Options.SyncServiceSelector,
+		serviceName:         ctx.Options.ServiceName,
 	}, nil
 }
 
 type serviceSyncer struct {
 	translator.NamespacedTranslator
 
-	serviceName string
+	syncServiceSelector bool
+	serviceName         string
 }
 
 func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
