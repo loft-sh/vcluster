@@ -234,7 +234,7 @@ func mergeStrings(physical []string, virtual []string, oldPhysical []string) []s
 		newMerged = append(newMerged, o)
 	}
 
-	return merged
+	return newMerged
 }
 
 func mergeResources(a corev1.ResourceList, b corev1.ResourceList) corev1.ResourceList {

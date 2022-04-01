@@ -136,7 +136,7 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions.")
 
 	// Deprecated Flags
-	cmd.Flags().BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "DEPRECATED: use --enable-scheduler instead")
+	cmd.Flags().BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeNodes, "fake-nodes", true, "DEPRECATED: use --sync=-fake-nodes instead")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakePersistentVolumes, "fake-persistent-volumes", true, "DEPRECATED: use --sync=-fake-persistentvolumes instead")

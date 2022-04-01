@@ -150,7 +150,7 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 
 	// check if nodes controller needs to be enabled
 	if (options.SyncAllNodes || options.EnableScheduler) && !controllers["nodes"] {
-		controllers["nodes"] = true
+		return nil, fmt.Errorf("you cannot use --sync-all-nodes and --enable-scheduler without enabling nodes sync")
 	}
 
 	return &ControllerContext{

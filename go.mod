@@ -28,18 +28,18 @@ require (
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/square/go-jose.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.23.3
-	k8s.io/apiextensions-apiserver v0.23.0
-	k8s.io/apimachinery v0.23.3
-	k8s.io/apiserver v0.23.3
-	k8s.io/cli-runtime v0.23.0
-	k8s.io/client-go v0.23.3
+	k8s.io/api v0.23.5
+	k8s.io/apiextensions-apiserver v0.23.5
+	k8s.io/apimachinery v0.23.5
+	k8s.io/apiserver v0.23.5
+	k8s.io/cli-runtime v0.23.5
+	k8s.io/client-go v0.23.5
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.30.0
-	k8s.io/kube-aggregator v0.23.0
-	k8s.io/kubectl v0.23.0
-	k8s.io/kubelet v0.23.0
-	k8s.io/pod-security-admission v0.23.3
+	k8s.io/kube-aggregator v0.23.5
+	k8s.io/kubectl v0.23.5
+	k8s.io/kubelet v0.23.5
+	k8s.io/pod-security-admission v0.23.5
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed
-	sigs.k8s.io/controller-runtime v0.11.0
+	sigs.k8s.io/controller-runtime v0.11.2
 )
