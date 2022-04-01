@@ -151,7 +151,7 @@ spec:
             path: /healthz
             port: 8443
             scheme: HTTPS
-          failureThreshold: 10
+          failureThreshold: 60
           initialDelaySeconds: 60
           periodSeconds: 2
         {{- end }}
@@ -163,7 +163,7 @@ spec:
             path: /readyz
             port: 8443
             scheme: HTTPS
-          failureThreshold: 30
+          failureThreshold: 60
           periodSeconds: 2
         {{- end }}
         {{- end }}
