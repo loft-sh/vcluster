@@ -15,6 +15,10 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	if ctx.Options.SyncServiceSelector {
+		return NewKubernetesEndpointsSyncer(ctx)
+	}
+
 	return &endpointsSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "endpoints", &corev1.Endpoints{}),
 		serviceName:          ctx.Options.ServiceName,
