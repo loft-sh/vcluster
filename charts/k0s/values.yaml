@@ -28,6 +28,7 @@ plugin: {}
 sync:
   services:
     enabled: true
+    syncServiceSelector: false
   configmaps:
     enabled: true
   secrets:

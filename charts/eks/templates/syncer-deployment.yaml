@@ -90,6 +90,9 @@ spec:
           - --server-ca-cert=/pki/ca.crt
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
+          {{- if .Values.sync.services.syncServiceSelector }}
+          - --sync-service-selector
+          {{- end }}
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}
