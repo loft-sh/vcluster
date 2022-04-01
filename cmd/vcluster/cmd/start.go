@@ -135,7 +135,7 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions.")
 
 	// Deprecated Flags
-	cmd.Flags().BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "DEPRECATED: use --enable-scheduler instead")
+	cmd.Flags().BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeNodes, "fake-nodes", true, "DEPRECATED: use --sync=-fake-nodes instead")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakePersistentVolumes, "fake-persistent-volumes", true, "DEPRECATED: use --sync=-fake-persistentvolumes instead")
@@ -156,45 +156,48 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
-	for {
+	err := wait.Poll(time.Second, time.Hour, func() (bool, error) {
 		out, err := ioutil.ReadFile(options.KubeConfig)
 		if err != nil {
 			if os.IsNotExist(err) {
 				klog.Info("couldn't find virtual cluster kube-config, will retry in 1 seconds")
-				continue
+				return false, nil
 			}
 
-			return err
+			return false, err
 		}
 
 		// parse virtual cluster config
 		clientConfig, err = clientcmd.NewClientConfigFromBytes(out)
 		if err != nil {
-			return errors.Wrap(err, "read kube config")
+			return false, errors.Wrap(err, "read kube config")
 		}
 
 		restConfig, err := clientConfig.ClientConfig()
 		if err != nil {
-			return errors.Wrap(err, "read kube client config")
+			return false, errors.Wrap(err, "read kube client config")
 		}
 
 		kubeClient, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
-			return errors.Wrap(err, "create kube client")
+			return false, errors.Wrap(err, "create kube client")
 		}
 
 		_, err = kubeClient.Discovery().ServerVersion()
 		if err != nil {
 			klog.Infof("couldn't retrieve virtual cluster version (%v), will retry in 1 seconds", err)
-			continue
+			return false, nil
 		}
 		_, err = kubeClient.CoreV1().ServiceAccounts("default").Get(context.Background(), "default", metav1.GetOptions{})
 		if err != nil {
 			klog.Infof("default ServiceAccount is not available yet, will retry in 1 seconds")
-			continue
+			return false, nil
 		}
 
-		break
+		return true, nil
+	})
+	if err != nil {
+		return err
 	}
 
 	// parse tolerations
