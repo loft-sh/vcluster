@@ -205,10 +205,8 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 	}
 
 	// if scheduler is enabled we only sync if the pod has a node name
-	if s.enableScheduler {
-		if pPod.Spec.NodeName == "" {
-			return ctrl.Result{}, nil
-		}
+	if s.enableScheduler && pPod.Spec.NodeName == "" {
+		return ctrl.Result{}, nil
 	}
 
 	return s.SyncDownCreate(ctx, vPod, pPod)

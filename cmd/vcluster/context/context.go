@@ -38,6 +38,7 @@ type VirtualClusterOptions struct {
 	SetOwner bool `json:"setOwner,omitempty"`
 
 	SyncAllNodes        bool `json:"syncAllNodes,omitempty"`
+	EnableScheduler     bool `json:"enableScheduler,omitempty"`
 	DisableFakeKubelets bool `json:"disableFakeKubelets,omitempty"`
 
 	TranslateImages []string `json:"translateImages,omitempty"`

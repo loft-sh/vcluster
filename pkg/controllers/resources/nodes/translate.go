@@ -22,17 +22,47 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		updated.Spec = pNode.Spec
 	}
 
-	if !equality.Semantic.DeepEqual(vNode.Annotations, pNode.Annotations) {
+	annotations := mergeStringMap(vNode.Annotations, pNode.Annotations)
+	if !equality.Semantic.DeepEqual(vNode.Annotations, annotations) {
 		updated = newIfNil(updated, vNode)
 		updated.Annotations = pNode.Annotations
 	}
 
-	if !equality.Semantic.DeepEqual(vNode.Labels, pNode.Labels) {
+	labels := mergeStringMap(vNode.Labels, pNode.Labels)
+	if !equality.Semantic.DeepEqual(vNode.Labels, labels) {
 		updated = newIfNil(updated, vNode)
 		updated.Labels = pNode.Labels
 	}
 
 	return updated
+}
+
+func mergeResources(a corev1.ResourceList, b corev1.ResourceList) corev1.ResourceList {
+	merged := corev1.ResourceList{}
+	for k, v := range a {
+		merged[k] = v
+	}
+	for k, v := range b {
+		merged[k] = v
+	}
+	if len(merged) == 0 {
+		return nil
+	}
+	return merged
+}
+
+func mergeStringMap(a map[string]string, b map[string]string) map[string]string {
+	merged := map[string]string{}
+	for k, v := range a {
+		merged[k] = v
+	}
+	for k, v := range b {
+		merged[k] = v
+	}
+	if len(merged) == 0 {
+		return nil
+	}
+	return merged
 }
 
 func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
@@ -111,6 +141,18 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		if storageEphemeral > 0 {
 			translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageEphemeral, resource.BinarySI)
 		}
+	}
+
+	// calculate what's in capacity & allocatable
+	capacity := mergeResources(vNode.Status.Capacity, translatedStatus.Capacity)
+	if len(capacity) > 0 {
+		translatedStatus.Capacity = capacity
+	}
+
+	// allocatable
+	allocatable := mergeResources(vNode.Status.Allocatable, translatedStatus.Allocatable)
+	if len(allocatable) > 0 {
+		translatedStatus.Allocatable = allocatable
 	}
 
 	// check if the status has changed
