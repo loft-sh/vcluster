@@ -218,6 +218,11 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		translate.Suffix = "vcluster"
 	}
 
+	// check if enable scheduler works correctly
+	if options.EnableScheduler && !options.SyncAllNodes && len(options.NodeSelector) == 0 {
+		options.SyncAllNodes = true
+	}
+
 	// migrate fake kubelet flag
 	if !options.DeprecatedUseFakeKubelets {
 		options.DisableFakeKubelets = true

@@ -3,7 +3,7 @@ name: vcluster
 
 vars:
   SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
-  K3S_IMAGE: rancher/k3s:v1.23.3-k3s1
+  K3S_IMAGE: rancher/k3s:v1.23.5-k3s1
   # Make sure you install the vcluster cli prior to running this with DevSpace
   SERVICE_CIDR: $(vcluster get service-cidr)
 

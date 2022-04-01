@@ -60,6 +60,11 @@ sync:
     # and which nodes are used to run vcluster pods. 
     # A valid string representation of a label selector must be used. 
     nodeSelector: ""
+    # if true, vcluster will run with a scheduler and node changes are possible
+    # from within the virtual cluster. This is useful if you would like to
+    # taint, drain and label nodes from within the virtual cluster
+    enableScheduler: false
+    # DEPRECATED: use enable scheduler instead
     # syncNodeChanges allows vcluster user edits of the nodes to be synced down to the host nodes.
     # Write permissions on node resource will be given to the vcluster.
     syncNodeChanges: false
@@ -163,6 +168,25 @@ controller:
   resources:
     requests:
       cpu: 200m
+
+# Kubernetes Scheduler settings. Only enabled if sync.nodes.enableScheduler is true
+scheduler:
+  image: k8s.gcr.io/kube-scheduler:v1.23.1
+  # The amount of replicas to run the deployment with
+  replicas: 1
+  # NodeSelector used
+  nodeSelector: {}
+  # Affinity to apply
+  affinity: {}
+  # Tolerations to apply
+  tolerations: []
+  # Extra Labels
+  labels: {}
+  # Extra Annotations
+  annotations: {}
+  resources:
+    requests:
+      cpu: 100m
 
 # Kubernetes API Server settings
 api:

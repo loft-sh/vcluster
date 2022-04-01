@@ -54,6 +54,7 @@ func NewCertsCommand() *cobra.Command {
 var certMap = map[string]string{
 	certs.AdminKubeConfigFileName:             certs.AdminKubeConfigFileName,
 	certs.ControllerManagerKubeConfigFileName: certs.ControllerManagerKubeConfigFileName,
+	certs.SchedulerKubeConfigFileName:         certs.SchedulerKubeConfigFileName,
 
 	certs.APIServerCertName: certs.APIServerCertName,
 	certs.APIServerKeyName:  certs.APIServerKeyName,

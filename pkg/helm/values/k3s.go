@@ -21,9 +21,9 @@ var (
 )
 
 var K3SVersionMap = map[string]string{
-	"1.23": "rancher/k3s:v1.23.3-k3s1",
-	"1.22": "rancher/k3s:v1.22.6-k3s1",
-	"1.21": "rancher/k3s:v1.21.9-k3s1",
+	"1.23": "rancher/k3s:v1.23.5-k3s1",
+	"1.22": "rancher/k3s:v1.22.8-k3s1",
+	"1.21": "rancher/k3s:v1.21.11-k3s1",
 	"1.20": "rancher/k3s:v1.20.15-k3s1",
 	"1.19": "rancher/k3s:v1.19.13-k3s1",
 	"1.18": "rancher/k3s:v1.18.20-k3s1",
@@ -38,7 +38,6 @@ const noDeployValues = `  baseArgs:
     - --no-deploy=traefik,servicelb,metrics-server,local-storage
     - --disable-network-policy
     - --disable-agent
-    - --disable-scheduler
     - --disable-cloud-controller
     - --flannel-backend=none
     - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle`

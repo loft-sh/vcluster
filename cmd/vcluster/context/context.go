@@ -148,6 +148,11 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 		return nil, err
 	}
 
+	// check if nodes controller needs to be enabled
+	if (options.SyncAllNodes || options.EnableScheduler) && !controllers["nodes"] {
+		controllers["nodes"] = true
+	}
+
 	return &ControllerContext{
 		Context:        ctx,
 		Controllers:    controllers,

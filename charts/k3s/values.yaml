@@ -56,6 +56,11 @@ sync:
     # and which nodes are used to run vcluster pods. 
     # A valid string representation of a label selector must be used. 
     nodeSelector: ""
+    # if true, vcluster will run with a scheduler and node changes are possible
+    # from within the virtual cluster. This is useful if you would like to
+    # taint, drain and label nodes from within the virtual cluster
+    enableScheduler: false
+    # DEPRECATED: use enable scheduler instead
     # syncNodeChanges allows vcluster user edits of the nodes to be synced down to the host nodes.
     # Write permissions on node resource will be given to the vcluster.
     syncNodeChanges: false
@@ -110,10 +115,8 @@ vcluster:
     - --disable=traefik,servicelb,metrics-server,local-storage,coredns
     - --disable-network-policy
     - --disable-agent
-    - --disable-scheduler
     - --disable-cloud-controller
     - --flannel-backend=none
-    - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
   # Extra arguments for k3s. Make sure the service-cidr is the exact service cidr of the host cluster.
   # If this does not match, you won't be able to create services within the vcluster. You can find out
   # the service cidr of the host cluster by creating a service with a not allowed ClusterIP in the host cluster.
