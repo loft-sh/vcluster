@@ -11,10 +11,15 @@ metadata:
     heritage: "{{ .Release.Service }}"
 rules:
   - apiGroups: [""]
-    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "endpoints", "persistentvolumeclaims"]
+    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- if not .Values.sync.services.syncServiceSelector }}
   - apiGroups: [""]
-    resources: ["events", "pods/log"]
+    resources: ["endpoints"]
+    verbs: ["create", "delete", "patch", "update"]
+  {{- end }}
+  - apiGroups: [""]
+    resources: ["endpoints", "events", "pods/log"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
@@ -43,9 +48,11 @@ rules:
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- if .Values.openshift.enable }}
+  {{- if not .Values.sync.services.syncServiceSelector }}
   - apiGroups: [""]
     resources: ["endpoints/restricted"]
     verbs: ["create"]
+  {{- end }}
   {{- end }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
 {{- end }}

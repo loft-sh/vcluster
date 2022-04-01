@@ -106,7 +106,6 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().IntVar(&options.Port, "port", 8443, "The port to bind to")
 
 	cmd.Flags().BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
-	cmd.Flags().BoolVar(&options.SyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
 	cmd.Flags().BoolVar(&options.DisableFakeKubelets, "disable-fake-kubelets", false, "If disabled, the virtual cluster will not create fake kubelet endpoints to support metrics-servers")
 
 	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
@@ -114,6 +113,8 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&options.Tolerations, "enforce-toleration", []string{}, "If set will apply the provided tolerations to all pods in the vcluster")
 	cmd.Flags().StringVar(&options.NodeSelector, "node-selector", "", "If nodes sync is enabled, nodes with the given node selector will be synced to the virtual cluster. If fake nodes are used, and --enforce-node-selector flag is set, then vcluster will ensure that no pods are scheduled outside of the node selector.")
 	cmd.Flags().StringVar(&options.ServiceAccount, "service-account", "", "If set, will set this host service account on the synced pods")
+
+	cmd.Flags().BoolVar(&options.SyncServiceSelector, "sync-service-selector", false, "If enabled, vcluster will sync services with their selector instead of syncing the endpoints")
 
 	cmd.Flags().BoolVar(&options.OverrideHosts, "override-hosts", true, "If enabled, vcluster will override a containers /etc/hosts file if there is a subdomain specified for the pod (spec.subdomain).")
 	cmd.Flags().StringVar(&options.OverrideHostsContainerImage, "override-hosts-container-image", translatepods.HostsRewriteImage, "The image for the init container that is used for creating the override hosts file.")
@@ -134,6 +135,7 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions.")
 
 	// Deprecated Flags
+	cmd.Flags().BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeNodes, "fake-nodes", true, "DEPRECATED: use --sync=-fake-nodes instead")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakePersistentVolumes, "fake-persistent-volumes", true, "DEPRECATED: use --sync=-fake-persistentvolumes instead")
@@ -154,7 +156,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
-	err := wait.Poll(time.Second, time.Minute*10, func() (bool, error) {
+	err := wait.Poll(time.Second, time.Hour, func() (bool, error) {
 		out, err := ioutil.ReadFile(options.KubeConfig)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -197,6 +199,8 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	if err != nil {
 		return err
 	}
+
+	// parse tolerations
 	for _, t := range options.Tolerations {
 		_, err := toleration.ParseToleration(t)
 		if err != nil {

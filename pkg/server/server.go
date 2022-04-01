@@ -165,10 +165,10 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	}
 
 	h := handler.ImpersonatingHandler("", virtualConfig)
-	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Options.TargetNamespace, ctx.Options.SyncLabels)
+	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Options.TargetNamespace, ctx.Options.SyncLabels, ctx.Options.SyncServiceSelector)
 	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, ctx.Options.TargetNamespace, s.redirectResources)
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient, ctx.Options.TargetNamespace)
-	if ctx.Options.SyncNodeChanges {
+	if ctx.Options.DeprecatedSyncNodeChanges {
 		h = filters.WithNodeChanges(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
 	h = filters.WithFakeKubelet(h, localConfig, cachedVirtualClient, ctx.Options.TargetNamespace)

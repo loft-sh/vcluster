@@ -1,17 +1,36 @@
 package services
 
 import (
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 func (s *serviceSyncer) translate(vObj *corev1.Service) *corev1.Service {
 	newService := s.TranslateMetadata(vObj).(*corev1.Service)
-	newService.Spec.Selector = nil
+	if s.syncServiceSelector {
+		RewriteSelector(newService, vObj)
+	} else {
+		newService.Spec.Selector = nil
+	}
 	newService.Spec.ClusterIP = ""
 	newService.Spec.ClusterIPs = nil
 	StripNodePorts(newService)
 	return newService
+}
+
+func RewriteSelector(pObj, vObj *corev1.Service) {
+	if vObj.Spec.Selector != nil {
+		pObj.Spec.Selector = map[string]string{}
+		for k, v := range vObj.Spec.Selector {
+			pObj.Spec.Selector[translator.ConvertLabelKeyWithPrefix(translator.LabelPrefix, k)] = v
+		}
+		pObj.Spec.Selector[translate.NamespaceLabel] = vObj.Namespace
+		pObj.Spec.Selector[translate.MarkerLabel] = translate.Suffix
+	} else {
+		pObj.Spec.Selector = nil
+	}
 }
 
 func StripNodePorts(vObj *corev1.Service) {
@@ -129,6 +148,16 @@ func (s *serviceSyncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Serv
 	if vObj.Spec.HealthCheckNodePort != pObj.Spec.HealthCheckNodePort {
 		updated = newIfNil(updated, pObj)
 		updated.Spec.HealthCheckNodePort = vObj.Spec.HealthCheckNodePort
+	}
+
+	// translate selector
+	if s.syncServiceSelector {
+		translated := pObj.DeepCopy()
+		RewriteSelector(translated, vObj)
+		if !equality.Semantic.DeepEqual(translated.Spec.Selector, pObj.Spec.Selector) {
+			updated = newIfNil(updated, pObj)
+			updated.Spec.Selector = translated.Spec.Selector
+		}
 	}
 
 	return updated
