@@ -159,10 +159,11 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 }
 
 func registerCoreDNSController(ctx *context.ControllerContext) error {
-	err := (&coredns.CoreDNSNodeHostsReconciler{
+	controller := &coredns.CoreDNSNodeHostsReconciler{
 		Client: ctx.VirtualManager.GetClient(),
 		Log:    loghelper.New("corednsnodehosts-controller"),
-	}).SetupWithManager(ctx.VirtualManager)
+	}
+	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
 	}
@@ -170,12 +171,12 @@ func registerCoreDNSController(ctx *context.ControllerContext) error {
 }
 
 func registerPodSecurityController(ctx *context.ControllerContext) error {
-	err := (&podsecurity.PodSecurityReconciler{
+	controller := &podsecurity.PodSecurityReconciler{
 		Client:              ctx.VirtualManager.GetClient(),
 		PodSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
 		Log:                 loghelper.New("podSecurity-controller"),
-	}).SetupWithManager(ctx.VirtualManager)
-
+	}
+	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup pod security controller: %v", err)
 	}

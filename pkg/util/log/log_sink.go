@@ -13,30 +13,41 @@ type WithDepth interface {
 }
 
 func NewLog(level int) logr.Logger {
-	return logr.New(&log{
+	return logr.New(&logSink{
 		level: level,
-		depth: 1,
+		depth: 2,
 	})
 }
 
-type log struct {
+type logSink struct {
 	current  int
 	level    int
 	prefixes []string
 	depth    int
 }
 
-func (l *log) WithDepth(depth int) logr.Logger {
-	return logr.New(&log{
+var _ logr.CallDepthLogSink = &logSink{}
+
+func (l *logSink) WithCallDepth(depth int) logr.LogSink {
+	return &logSink{
 		level:    l.level,
 		current:  l.current,
 		prefixes: l.prefixes,
-		depth:    depth,
+		depth:    l.depth + depth,
+	}
+}
+
+func (l *logSink) WithDepth(depth int) logr.Logger {
+	return logr.New(&logSink{
+		level:    l.level,
+		current:  l.current,
+		prefixes: l.prefixes,
+		depth:    l.depth + depth,
 	})
 }
 
-func (l *log) Init(info logr.RuntimeInfo) {
-
+func (l *logSink) Init(info logr.RuntimeInfo) {
+	//l.depth = info.CallDepth
 }
 
 // Info logs a non-error message with the given key/value pairs as context.
@@ -45,14 +56,14 @@ func (l *log) Init(info logr.RuntimeInfo) {
 // the log line.  The key/value pairs can then be used to add additional
 // variable information.  The key/value pairs should alternate string
 // keys and arbitrary values.
-func (l *log) Info(level int, msg string, keysAndValues ...interface{}) {
+func (l *logSink) Info(level int, msg string, keysAndValues ...interface{}) {
 	klog.InfoDepth(l.depth, l.formatMsg(msg, keysAndValues...))
 }
 
-// Enabled tests whether this InfoLogger is enabled.  For example,
+// Enabled tests whether this InfoLogger is enabled. For example,
 // commandline flags might be used to set the logging verbosity and disable
 // some info logs.
-func (l *log) Enabled(level int) bool {
+func (l *logSink) Enabled(level int) bool {
 	return true
 }
 
@@ -64,7 +75,7 @@ func (l *log) Enabled(level int) bool {
 // The msg field should be used to add context to any underlying error,
 // while the err field should be used to attach the actual error that
 // triggered this log line, if present.
-func (l *log) Error(err error, msg string, keysAndValues ...interface{}) {
+func (l *logSink) Error(err error, msg string, keysAndValues ...interface{}) {
 	newKeysAndValues := []interface{}{err}
 	newKeysAndValues = append(newKeysAndValues, keysAndValues...)
 	klog.ErrorDepth(l.depth, l.formatMsg(msg, newKeysAndValues...))
@@ -73,14 +84,14 @@ func (l *log) Error(err error, msg string, keysAndValues ...interface{}) {
 // V returns an InfoLogger value for a specific verbosity level.  A higher
 // verbosity level means a log message is less important.  It's illegal to
 // pass a log level less than zero.
-func (l *log) V(level int) logr.Logger {
+func (l *logSink) V(level int) logr.Logger {
 	if level < l.level {
 		return logr.New(&silent{})
 	}
 
 	prefixes := []string{}
 	prefixes = append(prefixes, l.prefixes...)
-	return logr.New(&log{
+	return logr.New(&logSink{
 		level:    l.level,
 		current:  level,
 		prefixes: prefixes,
@@ -90,12 +101,12 @@ func (l *log) V(level int) logr.Logger {
 
 // WithValues adds some key-value pairs of context to a logger.
 // See Info for documentation on how key/value pairs work.
-func (l *log) WithValues(keysAndValues ...interface{}) logr.LogSink {
+func (l *logSink) WithValues(keysAndValues ...interface{}) logr.LogSink {
 	prefixes := []string{}
 	prefixes = append(prefixes, l.prefixes...)
 	prefixes = append(prefixes, formatKeysAndValues(keysAndValues...))
 
-	return &log{
+	return &logSink{
 		level:    l.level,
 		current:  l.current,
 		prefixes: prefixes,
@@ -108,9 +119,9 @@ func (l *log) WithValues(keysAndValues ...interface{}) logr.LogSink {
 // suffixes to the logger's name.  It's strongly recommended
 // that name segments contain only letters, digits, and hyphens
 // (see the package documentation for more information).
-func (l *log) WithName(name string) logr.LogSink {
+func (l *logSink) WithName(name string) logr.LogSink {
 	if name == "" {
-		return &log{
+		return &logSink{
 			level:    l.level,
 			current:  l.current,
 			prefixes: l.prefixes,
@@ -122,7 +133,7 @@ func (l *log) WithName(name string) logr.LogSink {
 	prefixes = append(prefixes, l.prefixes...)
 	prefixes = append(prefixes, name)
 
-	return &log{
+	return &logSink{
 		level:    l.level,
 		current:  l.current,
 		prefixes: prefixes,
@@ -130,7 +141,7 @@ func (l *log) WithName(name string) logr.LogSink {
 	}
 }
 
-func (l *log) formatMsg(msg string, keysAndValues ...interface{}) string {
+func (l *logSink) formatMsg(msg string, keysAndValues ...interface{}) string {
 	prefixes := strings.Join(l.prefixes, ": ")
 	addString := formatKeysAndValues(keysAndValues...)
 
