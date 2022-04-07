@@ -22,10 +22,6 @@ deployments:
       chart:
         name: ./charts/k3s
       values:
-        sync:
-          nodes:
-            enabled: true
-            enableScheduler: true
         serviceCIDR: ${SERVICE_CIDR}
         etcd:
           replicas: 3
