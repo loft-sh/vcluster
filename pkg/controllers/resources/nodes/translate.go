@@ -78,7 +78,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		translatedSpec.Taints = newTaintsObjects
 
 		// encode taints
-		out, err := json.Marshal(newTaints)
+		out, err := json.Marshal(physical)
 		if err != nil {
 			klog.Errorf("error encoding taints: %v", err)
 		} else {

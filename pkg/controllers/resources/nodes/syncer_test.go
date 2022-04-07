@@ -139,6 +139,12 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, editedNode, baseNode)
 				assert.NilError(t, err)
+
+				err = ctx.VirtualManager.GetClient().Get(ctx.Context, types.NamespacedName{Name: baseNode.Name}, baseNode)
+				assert.NilError(t, err)
+
+				_, err = syncer.Sync(syncCtx, editedNode, baseNode)
+				assert.NilError(t, err)
 			},
 		},
 		{

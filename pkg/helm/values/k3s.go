@@ -39,8 +39,7 @@ const noDeployValues = `  baseArgs:
     - --disable-network-policy
     - --disable-agent
     - --disable-cloud-controller
-    - --flannel-backend=none
-    - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle`
+    - --flannel-backend=none`
 
 var baseArgsMap = map[string]string{
 	"1.17": noDeployValues,
