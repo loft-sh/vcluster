@@ -3,7 +3,7 @@ vars:
   - name: SYNCER_IMAGE
     value: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
   - name: K3S_IMAGE
-    value: rancher/k3s:v1.23.3-k3s1
+    value: rancher/k3s:v1.23.5-k3s1
   # Replace this with your clusters service CIDR, you can find it out via
   # kubectl apply -f hack/wrong-cluster-ip-service.yaml
   - name: SERVICE_CIDR
@@ -22,6 +22,10 @@ deployments:
       chart:
         name: ./charts/k3s
       values:
+        sync:
+          nodes:
+            enabled: true
+            enableScheduler: true
         serviceCIDR: ${SERVICE_CIDR}
         etcd:
           replicas: 3
@@ -93,7 +97,7 @@ profiles:
         value:
           image: ${SYNCER_IMAGE}
   - name: deploy
-    parents: 
+    parents:
       - profile: parent-deploy
     patches:
       - op: remove
@@ -103,7 +107,7 @@ profiles:
         value: {}
   - name: k3s
     # This profile is empty for now because the default config is for k3s
-    # Keep the empty profile because it's used in the distribution matrix of the GH workflow for e2e. 
+    # Keep the empty profile because it's used in the distribution matrix of the GH workflow for e2e.
   - name: k0s
     patches:
       - op: replace
@@ -129,27 +133,27 @@ profiles:
     patches:
       - op: replace
         path: deployments.name=vcluster.helm.values.syncer.resources
-        value: 
+        value:
           requests:
             cpu: "0"
       - op: replace
         path: deployments.name=vcluster.helm.values.vcluster.resources
-        value: 
+        value:
           requests:
             cpu: "0"
       - op: replace
         path: deployments.name=vcluster.helm.values.etcd.resources
-        value: 
+        value:
           requests:
             cpu: "0"
       - op: replace
         path: deployments.name=vcluster.helm.values.controller.resources
-        value: 
+        value:
           requests:
             cpu: "0"
       - op: replace
         path: deployments.name=vcluster.helm.values.api.resources
-        value: 
+        value:
           requests:
             cpu: "0"
   - name: sync-networkpolicies
@@ -166,17 +170,17 @@ profiles:
           imageFlag: "-t"
       - op: replace
         path: deployments.name=vcluster.helm.values.openshift
-        value: 
+        value:
           enable: true
   - name: deploy-crc
-    parents: 
+    parents:
       - profile: parent-deploy
       - profile: parent-crc
   - name: dev-crc
-    parents: 
+    parents:
       - profile: parent-crc
     patches:
       - op: replace
         path: images.vcluster.build.custom.args
-        value: 
-         - "--target=builder"
+        value:
+          - "--target=builder"

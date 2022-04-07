@@ -35,6 +35,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 	}
 
 	return &nodeSyncer{
+		enableScheduler: ctx.Options.EnableScheduler,
+
 		nodeServiceProvider: nodeService,
 		nodeSelector:        nodeSelector,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
@@ -45,6 +47,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 }
 
 type nodeSyncer struct {
+	enableScheduler bool
+
 	nodeSelector    labels.Selector
 	useFakeKubelets bool
 
@@ -193,7 +197,8 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 			return ctrl.Result{}, err
 		}
 
-		vNode = updatedVNode
+		// we will requeue here anyways
+		return ctrl.Result{}, nil
 	}
 
 	updated := s.translateUpdateBackwards(pNode, vNode)
@@ -249,7 +254,6 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 }
 
 func isNodeNeededByPod(ctx context.Context, virtualClient client.Client, physicalClient client.Client, nodeName string) (bool, error) {
-
 	// search virtual cache
 	podList := &corev1.PodList{}
 	err := virtualClient.List(ctx, podList, client.MatchingFields{constants.IndexByAssigned: nodeName})

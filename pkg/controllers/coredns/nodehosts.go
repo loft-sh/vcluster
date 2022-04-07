@@ -3,6 +3,7 @@ package coredns
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -59,7 +60,7 @@ func (r *CoreDNSNodeHostsReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *CoreDNSNodeHostsReconciler) compileNodehosts(ctx context.Context) (string, error) {
-	var nodehosts string
+	nodehosts := []string{}
 	nodes := &corev1.NodeList{}
 	err := r.Client.List(ctx, nodes)
 	if err != nil {
@@ -75,9 +76,9 @@ func (r *CoreDNSNodeHostsReconciler) compileNodehosts(ctx context.Context) (stri
 				nodeHostname = address.Address
 			}
 		}
-		nodehosts += fmt.Sprintf("%s %s\n", nodeAddress, nodeHostname)
+		nodehosts = append(nodehosts, fmt.Sprintf("%s %s", nodeAddress, nodeHostname))
 	}
-	return nodehosts, nil
+	return strings.Join(nodehosts, "\n"), nil
 }
 
 // SetupWithManager adds the controller to the manager

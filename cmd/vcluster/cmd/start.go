@@ -106,6 +106,7 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().IntVar(&options.Port, "port", 8443, "The port to bind to")
 
 	cmd.Flags().BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
+	cmd.Flags().BoolVar(&options.EnableScheduler, "enable-scheduler", false, "If enabled, will expect a scheduler running in the virtual cluster")
 	cmd.Flags().BoolVar(&options.DisableFakeKubelets, "disable-fake-kubelets", false, "If disabled, the virtual cluster will not create fake kubelet endpoints to support metrics-servers")
 
 	cmd.Flags().StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
@@ -215,6 +216,11 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 	if translate.Suffix == "" {
 		translate.Suffix = "vcluster"
+	}
+
+	// check if enable scheduler works correctly
+	if options.EnableScheduler && !options.SyncAllNodes && len(options.NodeSelector) == 0 {
+		options.SyncAllNodes = true
 	}
 
 	// migrate fake kubelet flag

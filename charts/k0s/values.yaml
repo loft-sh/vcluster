@@ -56,6 +56,11 @@ sync:
     # and which nodes are used to run vcluster pods. 
     # A valid string representation of a label selector must be used. 
     nodeSelector: ""
+    # if true, vcluster will run with a scheduler and node changes are possible
+    # from within the virtual cluster. This is useful if you would like to
+    # taint, drain and label nodes from within the virtual cluster
+    enableScheduler: false
+    # DEPRECATED: use enable scheduler instead
     # syncNodeChanges allows vcluster user edits of the nodes to be synced down to the host nodes.
     # Write permissions on node resource will be given to the vcluster.
     syncNodeChanges: false
@@ -107,7 +112,6 @@ vcluster:
     - controller
     - --config=/etc/k0s/config.yaml
     - --data-dir=/data/k0s
-    - --disable-components=konnectivity-server,kube-scheduler,csr-approver,default-psp,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
   # Extra arguments for k0s.
   extraArgs: []
   volumeMounts:

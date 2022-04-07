@@ -72,7 +72,13 @@ spec:
           - '--cluster-name=kubernetes'
           - '--cluster-signing-cert-file=/run/config/pki/ca.crt'
           - '--cluster-signing-key-file=/run/config/pki/ca.key'
+          {{- if not .Values.sync.nodes.enableScheduler }}
           - '--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle'
+          {{- else }}
+          - '--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle'
+          - '--node-monitor-grace-period=1h'
+          - '--node-monitor-period=1h'
+          {{- end }}
           - '--horizontal-pod-autoscaler-sync-period=60s'
           - '--kubeconfig=/run/config/pki/controller-manager.conf'
           - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'

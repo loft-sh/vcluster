@@ -20,30 +20,24 @@ type logger struct {
 }
 
 func New(name string) Logger {
-	l := ctrl.Log.WithName(name)
-	l.WithCallDepth(2)
 	return &logger{
-		l,
+		ctrl.Log.WithName(name).WithCallDepth(1),
 	}
 }
 func NewFromExisting(log logr.Logger, name string) Logger {
 	return &logger{
-		log.WithName(name),
+		log.WithName(name).WithCallDepth(1),
 	}
 }
-func NewWithoutName(log logr.Logger) Logger {
+
+func (l *logger) WithName(name string) Logger {
 	return &logger{
-		log.WithName(""),
+		Logger: l.Logger.WithName(name),
 	}
 }
 
 func (l *logger) Base() logr.Logger {
 	return l.Logger
-}
-func (l *logger) WithName(name string) Logger {
-	return &logger{
-		Logger: l.Logger.WithName(name),
-	}
 }
 
 func (l *logger) Infof(format string, a ...interface{}) {
@@ -63,11 +57,4 @@ func Infof(format string, a ...interface{}) {
 	l = l.WithCallDepth(2)
 
 	(&logger{l}).Infof(format, a...)
-}
-
-func Errorf(format string, a ...interface{}) {
-	l := ctrl.Log.WithName("")
-	l = l.WithCallDepth(2)
-
-	(&logger{l}).Errorf(format, a...)
 }

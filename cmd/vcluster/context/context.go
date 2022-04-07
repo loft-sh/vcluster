@@ -38,6 +38,7 @@ type VirtualClusterOptions struct {
 	SetOwner bool `json:"setOwner,omitempty"`
 
 	SyncAllNodes        bool `json:"syncAllNodes,omitempty"`
+	EnableScheduler     bool `json:"enableScheduler,omitempty"`
 	DisableFakeKubelets bool `json:"disableFakeKubelets,omitempty"`
 
 	TranslateImages []string `json:"translateImages,omitempty"`
@@ -145,6 +146,11 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 	controllers, err := parseControllers(options)
 	if err != nil {
 		return nil, err
+	}
+
+	// check if nodes controller needs to be enabled
+	if (options.SyncAllNodes || options.EnableScheduler) && !controllers["nodes"] {
+		return nil, fmt.Errorf("you cannot use --sync-all-nodes and --enable-scheduler without enabling nodes sync")
 	}
 
 	return &ControllerContext{

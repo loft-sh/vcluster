@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"os"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/helm/values"
 )
 
@@ -59,7 +59,7 @@ func main() {
 	}
 
 	// loop over core-dns versions
-	for _, image := range coredns.CoreDNSVersionMap {
+	for _, image := range constants.CoreDNSVersionMap {
 		if contains(images, image) {
 			continue
 		}

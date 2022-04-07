@@ -84,6 +84,11 @@ spec:
           {{- range $f := .Values.vcluster.baseArgs }}
           - {{ $f | quote }}
           {{- end }}
+          {{- if not .Values.sync.nodes.enableScheduler }}
+          - --disable-components=konnectivity-server,kube-scheduler,csr-approver,default-psp,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
+          {{- else }}
+          - --disable-components=konnectivity-server,csr-approver,default-psp,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
+          {{- end }}
           {{- range $f := .Values.vcluster.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
@@ -120,6 +125,9 @@ spec:
           - --server-ca-cert=/data/k0s/pki/ca.crt
           - --server-ca-key=/data/k0s/pki/ca.key
           - --kube-config=/data/k0s/pki/admin.conf
+          {{- if .Values.sync.nodes.enableScheduler }}
+          - --enable-scheduler
+          {{- end }}
           {{- if .Values.sync.services.syncServiceSelector }}
           - --sync-service-selector
           {{- end }}

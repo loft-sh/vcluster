@@ -53,13 +53,18 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 			return nil, errors.New("at least one label=value pair has to be defined in the label selector")
 		}
 	}
+
+	// parse tolerations
 	var tolerations []*corev1.Toleration
 	if len(ctx.Options.Tolerations) > 0 {
 		for _, t := range ctx.Options.Tolerations {
-			toleration, _ := toleration.ParseToleration(t)
-			tolerations = append(tolerations, &toleration)
+			tol, err := toleration.ParseToleration(t)
+			if err == nil {
+				tolerations = append(tolerations, &tol)
+			}
 		}
 	}
+
 	// create new namespaced translator
 	namespacedTranslator := translator.NewNamespacedTranslator(ctx, "pod", &corev1.Pod{})
 
@@ -72,7 +77,9 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &podSyncer{
 		NamespacedTranslator: namespacedTranslator,
 
-		serviceName:          ctx.Options.ServiceName,
+		serviceName:     ctx.Options.ServiceName,
+		enableScheduler: ctx.Options.EnableScheduler,
+
 		virtualClusterClient: virtualClusterClient,
 
 		podTranslator: podTranslator,
@@ -86,7 +93,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 type podSyncer struct {
 	translator.NamespacedTranslator
 
-	serviceName string
+	serviceName     string
+	enableScheduler bool
 
 	podTranslator        translatepods.Translator
 	virtualClusterClient kubernetes.Interface
@@ -159,15 +167,17 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 		}
 	}
 
+	// translate the pod
 	pPod, err := s.translate(ctx, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// ensure tolerations
-	for _, toleration := range s.tolerations {
-		pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, *toleration)
+	for _, tol := range s.tolerations {
+		pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, *tol)
 	}
+
 	// ensure node selector
 	if s.nodeSelector != nil {
 		// 2 cases:
@@ -192,6 +202,11 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 				return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 			}
 		}
+	}
+
+	// if scheduler is enabled we only sync if the pod has a node name
+	if s.enableScheduler && pPod.Spec.NodeName == "" {
+		return ctrl.Result{}, nil
 	}
 
 	return s.SyncDownCreate(ctx, vPod, pPod)
