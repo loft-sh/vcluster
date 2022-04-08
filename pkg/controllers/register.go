@@ -2,8 +2,10 @@ package controllers
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
@@ -118,6 +120,11 @@ func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) er
 func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
 	registerContext := ToRegisterContext(ctx)
 
+	err := registerK8SDefaultEndpointController(ctx)
+	if err != nil {
+		return err
+	}
+
 	// register controller that maintains pod security standard check
 	if ctx.Options.EnforcePodSecurityStandard != "" {
 		err := registerPodSecurityController(ctx)
@@ -127,7 +134,7 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 	}
 
 	// register controller that keeps CoreDNS NodeHosts config up to date
-	err := registerCoreDNSController(ctx)
+	err = registerCoreDNSController(ctx)
 	if err != nil {
 		return err
 	}
@@ -177,6 +184,22 @@ func registerPodSecurityController(ctx *context.ControllerContext) error {
 		Log:                 loghelper.New("podSecurity-controller"),
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)
+	if err != nil {
+		return fmt.Errorf("unable to setup pod security controller: %v", err)
+	}
+	return nil
+}
+
+func registerK8SDefaultEndpointController(ctx *context.ControllerContext) error {
+	controller := &k8sdefaultendpoint.K8SDefaultEndpointReconciler{
+		LocalClient:         ctx.LocalManager.GetClient(),
+		VirtualClient:       ctx.VirtualManager.GetClient(),
+		ServiceName:         ctx.Options.ServiceName,
+		ServiceNamespace:    ctx.CurrentNamespace,
+		VirtualManagerCache: ctx.VirtualManager.GetCache(),
+		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
+	}
+	err := controller.SetupWithManager(ctx.LocalManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup pod security controller: %v", err)
 	}

@@ -24,8 +24,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &serviceSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}),
 
-		syncServiceSelector: ctx.Options.SyncServiceSelector,
-		serviceName:         ctx.Options.ServiceName,
+		serviceName: ctx.Options.ServiceName,
 	}, nil
 }
 

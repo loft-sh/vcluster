@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -10,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"testing"
 )
 
 func TestSync(t *testing.T) {
@@ -54,24 +55,6 @@ func TestSync(t *testing.T) {
 		Subsets:    updatedEndpoints.Subsets,
 	}
 
-	physicalKubernetesEndpoints := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test",
-			Name:      "fake-kuberentes",
-		},
-		Subsets: updatedEndpoints.Subsets,
-	}
-	virtualKubernetesEndpoints := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "kubernetes",
-		},
-	}
-	syncedVirtualKubernetesEndpoints := &corev1.Endpoints{
-		ObjectMeta: virtualKubernetesEndpoints.ObjectMeta,
-		Subsets:    updatedEndpoints.Subsets,
-	}
-
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name: "Forward create",
@@ -105,29 +88,6 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*endpointsSyncer).Sync(syncCtx, syncedEndpoints, updatedEndpoints)
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name: "Sync kubernetes service endpoints",
-			InitialVirtualState: []runtime.Object{
-				virtualKubernetesEndpoints,
-			},
-			InitialPhysicalState: []runtime.Object{
-				physicalKubernetesEndpoints,
-			},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Endpoints"): {
-					syncedVirtualKubernetesEndpoints,
-				},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Endpoints"): {
-					physicalKubernetesEndpoints,
-				},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				err := SyncKubernetesServiceEndpoints(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), physicalKubernetesEndpoints.Namespace, physicalKubernetesEndpoints.Name)
 				assert.NilError(t, err)
 			},
 		},

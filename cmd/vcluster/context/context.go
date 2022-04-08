@@ -64,8 +64,7 @@ type VirtualClusterOptions struct {
 
 	EnforcePodSecurityStandard string `json:"enforcePodSecurityStandard,omitempty"`
 
-	SyncLabels          []string `json:"syncLabels,omitempty"`
-	SyncServiceSelector bool     `json:"syncServiceSelector,omitempty"`
+	SyncLabels []string `json:"syncLabels,omitempty"`
 
 	// DEPRECATED FLAGS
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
