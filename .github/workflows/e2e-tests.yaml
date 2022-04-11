@@ -60,7 +60,6 @@ jobs:
           kubectl get pods -n kube-system
           echo "kubectl config current-context:" $(kubectl config current-context)
           echo "KUBECONFIG env var:" ${KUBECONFIG}
-          kubectl get storageclass
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
