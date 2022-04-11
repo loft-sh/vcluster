@@ -42,6 +42,38 @@ func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 	})
 }
 
+func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error {
+	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
+		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(pvcName, ns), metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+
+			return false, err
+		}
+
+		if pvc.Status.Phase != corev1.ClaimBound {
+			return false, nil
+		}
+
+		vpvc, err := f.VclusterClient.CoreV1().PersistentVolumeClaims(ns).Get(f.Context, pvcName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+
+			return false, err
+		}
+
+		if vpvc.Status.Phase != corev1.ClaimBound {
+			return false, nil
+		}
+
+		return true, nil
+	})
+}
+
 func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		_, err := f.VclusterClient.CoreV1().ServiceAccounts(ns).Get(f.Context, saName, metav1.GetOptions{})
