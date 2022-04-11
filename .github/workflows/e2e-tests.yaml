@@ -4,6 +4,7 @@ on:
   release:
     types: [created]
   pull_request:
+    types: [opened,synchronize,reopened,edited]
     branches:
       - main
       - v0.5
@@ -32,9 +33,7 @@ jobs:
       with:
         version: "v0.11.1"
         image: kindest/node:v1.21.1
-      run: |
-        kubectl get storageclass
-      
+     
       # Disabling the use of Calico plugin due to unstability
     #     config: "./hack/kind-config.yaml"
     #     wait: "120s" # Workaround because wait flag for kind always times out when cnofig contains networking.disableDefaultCNI: true. TODO: replace with something more sofisticated
@@ -61,6 +60,7 @@ jobs:
           kubectl get pods -n kube-system
           echo "kubectl config current-context:" $(kubectl config current-context)
           echo "KUBECONFIG env var:" ${KUBECONFIG}
+          kubectl get storageclass
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
