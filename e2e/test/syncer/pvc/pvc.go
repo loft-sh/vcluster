@@ -45,6 +45,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 
 	ginkgo.It("Test pvc provisioned successfully and is synced back to vcluster", func() {
 		pvcName := "test"
+		podName := "nginx-test"
 
 		q, err := resource.ParseQuantity("3Gi")
 		framework.ExpectNoError(err)
@@ -60,6 +61,34 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: q,
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+
+		framework.ExpectNoError(err)
+
+		// add a pod bound to the volume as by default storage class on kind is configured with
+		// volume binding mode as WaitForFirstConsumer
+		_, err = f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: podName,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "nginx",
+						Image: "nginx",
+					},
+				},
+				Volumes: []corev1.Volume{
+					{
+						Name: "nginx-pvc",
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: pvcName,
+							},
+						},
 					},
 				},
 			},
