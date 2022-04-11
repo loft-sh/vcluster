@@ -32,6 +32,8 @@ jobs:
       with:
         version: "v0.11.1"
         image: kindest/node:v1.21.1
+      run: |
+        kubectl get storageclass
       
       # Disabling the use of Calico plugin due to unstability
     #     config: "./hack/kind-config.yaml"
