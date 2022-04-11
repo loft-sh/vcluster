@@ -44,7 +44,7 @@ func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 
 func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error {
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
-		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(f.VclusterNamespace).Get(f.Context, pvcName+"-x-"+ns+"-x-"+f.Suffix, metav1.GetOptions{})
+		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(pvcName, ns), metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
