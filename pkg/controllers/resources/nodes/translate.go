@@ -144,7 +144,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		translatedStatus.Addresses = newAddresses
 	}
 
-	// calculate whats really allocatable
+	// calculate what's really allocatable
 	if translatedStatus.Allocatable != nil {
 		cpu := translatedStatus.Allocatable.Cpu().MilliValue()
 		memory := translatedStatus.Allocatable.Memory().Value()
@@ -188,7 +188,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		}
 	}
 
-	// if scheduler is enabled we allow custom capacity and allocatable's
+	// if scheduler is enabled we allow custom capacity and allocatable
 	if s.enableScheduler {
 		// calculate what's in capacity & allocatable
 		capacity := mergeResources(vNode.Status.Capacity, translatedStatus.Capacity)

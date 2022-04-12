@@ -3,6 +3,7 @@ package persistentvolumes
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -48,7 +49,7 @@ func TestSync(t *testing.T) {
 	basePvObjectMeta := metav1.ObjectMeta{
 		Name: "testpv",
 		Annotations: map[string]string{
-			"vcluster.loft.sh/host-pv": "testpv",
+			HostClusterPersistentVolumeAnnotation: "testpv",
 		},
 	}
 	basePPv := &corev1.PersistentVolume{
@@ -214,6 +215,79 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncContext, basePPv, baseVPv)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Sync PV Size",
+			InitialVirtualState: []runtime.Object{
+				&corev1.PersistentVolumeClaim{
+					ObjectMeta: basePvc.ObjectMeta,
+				},
+				&corev1.PersistentVolume{
+					ObjectMeta: baseVPv.ObjectMeta,
+					Spec: corev1.PersistentVolumeSpec{
+						Capacity: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("5Gi"),
+						},
+						ClaimRef: baseVPv.Spec.ClaimRef,
+					},
+				},
+			},
+			InitialPhysicalState: []runtime.Object{
+				&corev1.PersistentVolume{
+					ObjectMeta: basePPv.ObjectMeta,
+					Spec: corev1.PersistentVolumeSpec{
+						Capacity: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("20Gi"),
+						},
+						ClaimRef: basePPv.Spec.ClaimRef,
+					},
+				},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {
+					&corev1.PersistentVolume{
+						ObjectMeta: baseVPv.ObjectMeta,
+						Spec: corev1.PersistentVolumeSpec{
+							Capacity: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("20Gi"),
+							},
+							ClaimRef: baseVPv.Spec.ClaimRef,
+						},
+					},
+				},
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {
+					&corev1.PersistentVolumeClaim{
+						ObjectMeta: basePvc.ObjectMeta,
+					},
+				},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {
+					&corev1.PersistentVolume{
+						ObjectMeta: basePPv.ObjectMeta,
+						Spec: corev1.PersistentVolumeSpec{
+							Capacity: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("20Gi"),
+							},
+							ClaimRef: basePPv.Spec.ClaimRef,
+						},
+					},
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+
+				vPv := &corev1.PersistentVolume{}
+				err := syncContext.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: baseVPv.Name}, vPv)
+				assert.NilError(t, err)
+
+				pPv := &corev1.PersistentVolume{}
+				err = syncContext.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: basePPv.Name}, pPv)
+				assert.NilError(t, err)
+
+				_, err = syncer.Sync(syncContext, pPv, vPv)
 				assert.NilError(t, err)
 			},
 		},
