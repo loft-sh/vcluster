@@ -12,6 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func TestSync(t *testing.T) {
@@ -55,6 +57,13 @@ func TestSync(t *testing.T) {
 		Subsets:    updatedEndpoints.Subsets,
 	}
 
+	request := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: "default",
+			Name:      "kubernetes",
+		},
+	}
+
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name: "Forward create",
@@ -89,6 +98,14 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*endpointsSyncer).Sync(syncCtx, syncedEndpoints, updatedEndpoints)
 				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Don't sync default/kubernetes endpoint",
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				ok, _ := syncer.(*endpointsSyncer).ReconcileStart(syncCtx, request)
+				assert.Equal(t, ok, true)
 			},
 		},
 	})
