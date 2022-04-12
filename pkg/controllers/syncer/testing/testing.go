@@ -25,7 +25,8 @@ type Compare func(obj1 runtime.Object, obj2 runtime.Object) bool
 type NewContextFunc func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext
 
 type SyncTest struct {
-	Name string
+	Name  string
+	Focus bool
 
 	InitialPhysicalState []runtime.Object
 	InitialVirtualState  []runtime.Object
@@ -38,8 +39,23 @@ type SyncTest struct {
 }
 
 func RunTests(t *testing.T, tests []*SyncTest) {
+	// run focus first
+	hasFocus := false
 	for _, test := range tests {
-		test.Run(t, NewFakeRegisterContext)
+		if test.Focus {
+			test.Run(t, NewFakeRegisterContext)
+			hasFocus = true
+		}
+	}
+
+	if !hasFocus {
+		for _, test := range tests {
+			test.Run(t, NewFakeRegisterContext)
+		}
+	} else {
+		// Fail test set so that we do not accidentally use focused tests in
+		// the pipeline
+		t.Error("Focused test")
 	}
 }
 

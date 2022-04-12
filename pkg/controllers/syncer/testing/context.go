@@ -2,6 +2,8 @@ package testing
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/util/log"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"testing"
 
 	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -34,7 +36,9 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 		assert.NilError(t, err)
 	}
 
-	return synccontext.ConvertContext(ctx, object.Name()), object
+	syncCtx := synccontext.ConvertContext(ctx, object.Name())
+	syncCtx.Log = loghelper.NewFromExisting(log.NewLog(0), object.Name())
+	return syncCtx, object
 }
 
 func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {

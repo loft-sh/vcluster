@@ -75,6 +75,12 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 		updated.Spec.ClaimRef = translatedSpec.ClaimRef
 	}
 
+	// check pv size
+	if vPv.Annotations != nil && vPv.Annotations[HostClusterPersistentVolumeAnnotation] != "" && !equality.Semantic.DeepEqual(pPv.Spec.Capacity, vPv.Spec.Capacity) {
+		updated = newIfNil(updated, vPv)
+		updated.Spec.Capacity = translatedSpec.Capacity
+	}
+
 	return updated
 }
 

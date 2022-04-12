@@ -3,6 +3,7 @@ package testing
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/loft-sh/vcluster/pkg/util/log"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,7 +61,7 @@ func (f *fakeManager) AddReadyzCheck(name string, check healthz.Checker) error {
 
 func (f *fakeManager) GetWebhookServer() *webhook.Server { return nil }
 
-func (f *fakeManager) GetLogger() logr.Logger { return logr.Logger{} }
+func (f *fakeManager) GetLogger() logr.Logger { return log.NewLog(0) }
 
 func (f *fakeManager) GetControllerOptions() v1alpha1.ControllerConfigurationSpec {
 	return v1alpha1.ControllerConfigurationSpec{}
