@@ -70,7 +70,7 @@ func (s *serviceSyncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *co
 	}
 
 	// check if we need to sync node ports from host to virtual
-	if portsEqual(pObj, vObj) && !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
+	if pObj.Spec.Type == vObj.Spec.Type && portsEqual(pObj, vObj) && !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
 		updated = newIfNil(updated, vObj)
 		updated.Spec.Ports = pObj.Spec.Ports
 	}
