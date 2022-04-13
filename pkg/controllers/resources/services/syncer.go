@@ -31,8 +31,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 type serviceSyncer struct {
 	translator.NamespacedTranslator
 
-	syncServiceSelector bool
-	serviceName         string
+	serviceName string
 }
 
 func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
