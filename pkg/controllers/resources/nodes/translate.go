@@ -201,6 +201,25 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		if len(allocatable) > 0 {
 			translatedStatus.Allocatable = allocatable
 		}
+
+		if translatedStatus.Capacity == nil {
+			translatedStatus.Capacity = corev1.ResourceList{}
+		}
+		if translatedStatus.Allocatable == nil {
+			translatedStatus.Allocatable = corev1.ResourceList{}
+		}
+		for k := range translatedStatus.Allocatable {
+			_, found := translatedStatus.Capacity[k]
+			if !found {
+				delete(translatedStatus.Allocatable, k)
+			}
+		}
+		for k := range translatedStatus.Capacity {
+			_, found := translatedStatus.Allocatable[k]
+			if !found {
+				translatedStatus.Allocatable[k] = translatedStatus.Capacity[k]
+			}
+		}
 	}
 
 	// check if the status has changed
