@@ -74,6 +74,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
 		serviceAccountsEnabled: ctx.Controllers["serviceaccounts"],
 		priorityClassesEnabled: ctx.Controllers["priorityclasses"],
+		enableScheduler:        ctx.Options.EnableScheduler,
 		syncedLabels:           ctx.Options.SyncLabels,
 	}, nil
 }
@@ -94,6 +95,7 @@ type translator struct {
 	overrideHosts          bool
 	overrideHostsImage     string
 	priorityClassesEnabled bool
+	enableScheduler        bool
 	syncedLabels           []string
 }
 
@@ -258,10 +260,16 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 
 	// translate topology spread constraints
-	translateTopologySpreadConstraints(vPod, pPod)
+	if t.enableScheduler {
+		pPod.Spec.TopologySpreadConstraints = nil
+		pPod.Spec.Affinity = nil
+	} else {
+		// translate topology spread constraints
+		translateTopologySpreadConstraints(vPod, pPod)
 
-	// translate pod affinity
-	t.translatePodAffinity(vPod, pPod)
+		// translate pod affinity
+		t.translatePodAffinity(vPod, pPod)
+	}
 
 	// translate node selector
 	for k, v := range vPod.Spec.NodeSelector {
