@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name:  {{ .Release.Name }}-quota
-  namespace: {{ .Values.isolation.targetNamespace | default .Release.Namespace }}
+  namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
 spec:
   hard:
     {{- range $key, $val := .Values.isolation.resourceQuota.quota }}

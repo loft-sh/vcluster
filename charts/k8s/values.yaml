@@ -274,7 +274,7 @@ coredns:
 # standards, limit ranges and resource quotas
 isolation:
   enabled: false
-  targetNamespace: null
+  namespace: null
 
   podSecurityStandard: baseline
 
