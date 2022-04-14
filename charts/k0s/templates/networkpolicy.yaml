@@ -30,13 +30,11 @@ spec:
             matchLabels:
               vcluster.loft.sh/managed-by: {{ .Release.Name }}
         - ipBlock:
-            cidr: 0.0.0.0/0
+            cidr: {{ .Values.isolation.networkPolicy.outgoingConnections.ipBlock.cidr }}
             except:
-              - 100.64.0.0/10
-              - 127.0.0.0/8
-              - 10.0.0.0/8
-              - 172.16.0.0/12
-              - 192.168.0.0/16
+              {{- range .Values.isolation.networkPolicy.outgoingConnections.ipBlock.except }}
+              - {{ . }}
+              {{- end }}
   policyTypes:
     - Egress
 ---
