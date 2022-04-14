@@ -9,11 +9,7 @@ import (
 
 func (s *serviceSyncer) translate(vObj *corev1.Service) *corev1.Service {
 	newService := s.TranslateMetadata(vObj).(*corev1.Service)
-	if s.syncServiceSelector {
-		RewriteSelector(newService, vObj)
-	} else {
-		newService.Spec.Selector = nil
-	}
+	RewriteSelector(newService, vObj)
 	newService.Spec.ClusterIP = ""
 	newService.Spec.ClusterIPs = nil
 	StripNodePorts(newService)
@@ -151,13 +147,11 @@ func (s *serviceSyncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Serv
 	}
 
 	// translate selector
-	if s.syncServiceSelector {
-		translated := pObj.DeepCopy()
-		RewriteSelector(translated, vObj)
-		if !equality.Semantic.DeepEqual(translated.Spec.Selector, pObj.Spec.Selector) {
-			updated = newIfNil(updated, pObj)
-			updated.Spec.Selector = translated.Spec.Selector
-		}
+	translated := pObj.DeepCopy()
+	RewriteSelector(translated, vObj)
+	if !equality.Semantic.DeepEqual(translated.Spec.Selector, pObj.Spec.Selector) {
+		updated = newIfNil(updated, pObj)
+		updated.Spec.Selector = translated.Spec.Selector
 	}
 
 	return updated

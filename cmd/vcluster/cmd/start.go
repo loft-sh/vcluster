@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"math"
 	"os"
 	"time"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -17,7 +18,6 @@ import (
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -114,8 +114,6 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&options.Tolerations, "enforce-toleration", []string{}, "If set will apply the provided tolerations to all pods in the vcluster")
 	cmd.Flags().StringVar(&options.NodeSelector, "node-selector", "", "If nodes sync is enabled, nodes with the given node selector will be synced to the virtual cluster. If fake nodes are used, and --enforce-node-selector flag is set, then vcluster will ensure that no pods are scheduled outside of the node selector.")
 	cmd.Flags().StringVar(&options.ServiceAccount, "service-account", "", "If set, will set this host service account on the synced pods")
-
-	cmd.Flags().BoolVar(&options.SyncServiceSelector, "sync-service-selector", false, "If enabled, vcluster will sync services with their selector instead of syncing the endpoints")
 
 	cmd.Flags().BoolVar(&options.OverrideHosts, "override-hosts", true, "If enabled, vcluster will override a containers /etc/hosts file if there is a subdomain specified for the pod (spec.subdomain).")
 	cmd.Flags().StringVar(&options.OverrideHostsContainerImage, "override-hosts-container-image", translatepods.HostsRewriteImage, "The image for the init container that is used for creating the override hosts file.")
@@ -469,18 +467,6 @@ func syncKubernetesService(ctx *context2.ControllerContext) error {
 
 		return errors.Wrap(err, "sync kubernetes service")
 	}
-
-	err = endpoints.SyncKubernetesServiceEndpoints(ctx.Context, ctx.VirtualManager.GetClient(), ctx.CurrentNamespaceClient, ctx.CurrentNamespace, ctx.Options.ServiceName)
-	if err != nil {
-		if kerrors.IsConflict(err) {
-			klog.Errorf("Error syncing kubernetes service endpoints: %v", err)
-			time.Sleep(time.Second)
-			return syncKubernetesService(ctx)
-		}
-
-		return errors.Wrap(err, "sync kubernetes service endpoints")
-	}
-
 	return nil
 }
 

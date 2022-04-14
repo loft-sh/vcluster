@@ -24,16 +24,14 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &serviceSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}),
 
-		syncServiceSelector: ctx.Options.SyncServiceSelector,
-		serviceName:         ctx.Options.ServiceName,
+		serviceName: ctx.Options.ServiceName,
 	}, nil
 }
 
 type serviceSyncer struct {
 	translator.NamespacedTranslator
 
-	syncServiceSelector bool
-	serviceName         string
+	serviceName string
 }
 
 func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {

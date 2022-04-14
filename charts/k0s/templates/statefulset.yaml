@@ -128,9 +128,6 @@ spec:
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
           {{- end }}
-          {{- if .Values.sync.services.syncServiceSelector }}
-          - --sync-service-selector
-          {{- end }}
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}
