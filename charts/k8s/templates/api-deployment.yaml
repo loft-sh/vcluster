@@ -94,6 +94,7 @@ spec:
           - '--tls-cert-file=/run/config/pki/apiserver.crt'
           - '--tls-private-key-file=/run/config/pki/apiserver.key'
           - '--watch-cache=false'
+          - '--endpoint-reconciler-type=none'
           {{- range $f := .Values.api.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
