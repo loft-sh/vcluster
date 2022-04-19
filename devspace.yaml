@@ -116,6 +116,11 @@ profiles:
       - op: replace
         path: deployments.name=vcluster.helm.chart.name
         value: ./charts/k8s
+  - name: eks
+    patches:
+      - op: replace
+        path: deployments.name=vcluster.helm.chart.name
+        value: ./charts/eks
   - name: kind-load
     patches:
       - op: add
