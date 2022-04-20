@@ -1,8 +1,12 @@
 package persistentvolumeclaims
 
 import (
+	"context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/pkg/errors"
+	"k8s.io/klog"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -103,9 +107,11 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 
 	// make sure the persistent volume is synced / faked
 	if pPvc.Spec.VolumeName != "" {
-		err := s.ensurePersistentVolume(ctx, pPvc, vPvc, ctx.Log)
+		requeue, err := s.ensurePersistentVolume(ctx, pPvc, vPvc, ctx.Log)
 		if err != nil {
 			return ctrl.Result{}, err
+		} else if requeue {
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
@@ -139,14 +145,14 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	return s.SyncDownUpdate(ctx, vPvc, s.translateUpdate(pPvc, vPvc))
 }
 
-func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) error {
+func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) (bool, error) {
 	// ensure the persistent volume is available in the virtual cluster
 	vPV := &corev1.PersistentVolume{}
 	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.Spec.VolumeName}, vPV)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			log.Infof("error retrieving virtual pv %s: %v", pObj.Spec.VolumeName, err)
-			return err
+			return false, err
 		}
 	}
 
@@ -157,22 +163,97 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 			err = clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, vObj, constants.IndexByPhysicalName, pObj.Spec.VolumeName)
 			if err != nil {
 				log.Infof("error retrieving virtual persistent volume %s: %v", pObj.Spec.VolumeName, err)
-				return err
+				return false, err
 			}
 
 			newVolumeName = vObj.Name
 		}
 
 		if newVolumeName != vObj.Spec.VolumeName {
-			log.Infof("update virtual pvc %s/%s volume name to %s", vObj.Namespace, vObj.Name, newVolumeName)
+			if vObj.Spec.VolumeName != "" {
+				log.Infof("recreate persistent volume claim because volumeName differs between physical and virtual pvc: %s != %s", vObj.Spec.VolumeName, newVolumeName)
+				s.EventRecorder().Eventf(vObj, corev1.EventTypeWarning, "VolumeNameDiffers", "recreate persistent volume claim because volumeName differs between physical and virtual pvc: %s != %s", vObj.Spec.VolumeName, newVolumeName)
+				_, err = recreatePersistentVolumeClaim(ctx.Context, ctx.VirtualClient, vPV, vObj, newVolumeName, log)
+				if err != nil {
+					log.Infof("error recreating virtual persistent volume claim: %v", err)
+					return false, err
 
+				}
+
+				return true, nil
+			}
+
+			log.Infof("update virtual pvc %s/%s volume name to %s", vObj.Namespace, vObj.Name, newVolumeName)
 			vObj.Spec.VolumeName = newVolumeName
 			err = ctx.VirtualClient.Update(ctx.Context, vObj)
 			if err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
 
-	return nil
+	return false, nil
+}
+
+func recreatePersistentVolumeClaim(ctx context.Context, virtualClient client.Client, vPV *corev1.PersistentVolume, vPVC *corev1.PersistentVolumeClaim, volumeName string, log loghelper.Logger) (*corev1.PersistentVolumeClaim, error) {
+	// check if we should lock the pv from deletion
+	if vPV != nil && vPV.Name != "" {
+		// lock pv
+		before := vPV.DeepCopy()
+		if vPV.Annotations == nil {
+			vPV.Annotations = map[string]string{}
+		}
+		timestamp, err := metav1.Now().MarshalText()
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal time")
+		}
+		vPV.Annotations[persistentvolumes.LockPersistentVolume] = string(timestamp)
+		err = virtualClient.Patch(ctx, vPV, client.MergeFrom(before))
+		if err != nil {
+			return nil, errors.Wrap(err, "patch persistent volume")
+		}
+
+		// reset pv
+		defer func() {
+			before := vPV.DeepCopy()
+			delete(vPV.Annotations, persistentvolumes.LockPersistentVolume)
+
+			err := virtualClient.Patch(ctx, vPV, client.MergeFrom(before))
+			if err != nil {
+				log.Errorf("error resetting pv %s: %v", vPV.Name, err)
+			}
+		}()
+	}
+
+	// remove finalizers & delete
+	if len(vPVC.Finalizers) > 0 {
+		vPVC.Finalizers = []string{}
+		err := virtualClient.Update(ctx, vPVC)
+		if err != nil {
+			return nil, errors.Wrap(err, "remove finalizers")
+		}
+	}
+
+	// delete & create with correct volume name
+	err := virtualClient.Delete(ctx, vPVC)
+	if err != nil && !kerrors.IsNotFound(err) {
+		return nil, errors.Wrap(err, "delete pvc")
+	}
+
+	// make sure we don't set the resource version during create
+	vPVC = vPVC.DeepCopy()
+	vPVC.ResourceVersion = ""
+	vPVC.UID = ""
+	vPVC.DeletionTimestamp = nil
+	vPVC.Generation = 0
+	vPVC.Spec.VolumeName = volumeName
+
+	// create the new service with the correct volume name
+	err = virtualClient.Create(ctx, vPVC)
+	if err != nil {
+		klog.Errorf("error recreating virtual pvc: %s/%s: %v", vPVC.Namespace, vPVC.Name, err)
+		return nil, errors.Wrap(err, "create pvc")
+	}
+
+	return vPVC, nil
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
 
@@ -239,6 +240,66 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				syncer.(*persistentVolumeClaimSyncer).useFakePersistentVolumes = true
 				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, backwardUpdateStatusPvc, basePvc)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Recreate pvc if volume name is different",
+			InitialVirtualState: []runtime.Object{
+				&corev1.PersistentVolumeClaim{
+					ObjectMeta: basePvc.ObjectMeta,
+					Spec: corev1.PersistentVolumeClaimSpec{
+						VolumeName: "test",
+					},
+				},
+			},
+			InitialPhysicalState: []runtime.Object{
+				&corev1.PersistentVolumeClaim{
+					ObjectMeta: pObjectMeta,
+					Spec: corev1.PersistentVolumeClaimSpec{
+						VolumeName: "test2",
+					},
+				},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {
+					&corev1.PersistentVolumeClaim{
+						ObjectMeta: basePvc.ObjectMeta,
+						Spec: corev1.PersistentVolumeClaimSpec{
+							VolumeName: "test2",
+						},
+					},
+				},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {
+					&corev1.PersistentVolumeClaim{
+						ObjectMeta: pObjectMeta,
+						Spec: corev1.PersistentVolumeClaimSpec{
+							VolumeName: "test2",
+						},
+					},
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncer.(*persistentVolumeClaimSyncer).useFakePersistentVolumes = true
+
+				vPVC := &corev1.PersistentVolumeClaim{}
+				err := syncCtx.VirtualClient.Get(syncCtx.Context, types.NamespacedName{
+					Namespace: basePvc.Namespace,
+					Name:      basePvc.Name,
+				}, vPVC)
+				assert.NilError(t, err)
+
+				pPVC := &corev1.PersistentVolumeClaim{}
+				err = syncCtx.PhysicalClient.Get(syncCtx.Context, types.NamespacedName{
+					Namespace: pObjectMeta.Namespace,
+					Name:      pObjectMeta.Name,
+				}, pPVC)
+				assert.NilError(t, err)
+
+				_, err = syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, pPVC, vPVC)
 				assert.NilError(t, err)
 			},
 		},

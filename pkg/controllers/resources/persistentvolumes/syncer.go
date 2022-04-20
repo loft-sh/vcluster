@@ -27,6 +27,7 @@ import (
 
 const (
 	HostClusterPersistentVolumeAnnotation = "vcluster.loft.sh/host-pv"
+	LockPersistentVolume                  = "vcluster.loft.sh/lock"
 )
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
@@ -113,6 +114,17 @@ func (s *persistentVolumeSyncer) SyncDown(ctx *synccontext.SyncContext, vObj cli
 func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
 	vPersistentVolume := vObj.(*corev1.PersistentVolume)
+
+	// check if locked
+	if vPersistentVolume.Annotations != nil && vPersistentVolume.Annotations[LockPersistentVolume] != "" {
+		t := &metav1.Time{}
+		err := t.UnmarshalText([]byte(vPersistentVolume.Annotations[LockPersistentVolume]))
+		if err != nil {
+			ctx.Log.Debugf("error parsing %s: %v", LockPersistentVolume, err)
+		} else if t.Add(time.Minute).After(time.Now()) {
+			return ctrl.Result{RequeueAfter: time.Second}, nil
+		}
+	}
 
 	// check if objects are getting deleted
 	if vObj.GetDeletionTimestamp() != nil {
