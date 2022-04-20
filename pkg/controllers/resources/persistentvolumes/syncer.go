@@ -122,6 +122,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 		if err != nil {
 			ctx.Log.Debugf("error parsing %s: %v", LockPersistentVolume, err)
 		} else if t.Add(time.Minute).After(time.Now()) {
+			ctx.Log.Debugf("requeue because persistent volume %s is locked", vPersistentVolume.Name)
 			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 	}
