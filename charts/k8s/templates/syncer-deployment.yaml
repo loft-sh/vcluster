@@ -92,6 +92,7 @@ spec:
           - --server-ca-cert=/pki/ca.crt
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
+          - --service-account=vc-workload-{{ .Release.Name }}
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
           {{- end }}
