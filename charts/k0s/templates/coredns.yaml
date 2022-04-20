@@ -105,7 +105,7 @@ data:
         k8s-app: kube-dns
         kubernetes.io/name: "CoreDNS"
     spec:
-      replicas: 1
+      replicas: {{ .Values.coredns.replicas }}
       strategy:
         type: RollingUpdate
         rollingUpdate:

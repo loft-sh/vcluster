@@ -23,6 +23,8 @@ deployments:
         name: ./charts/k3s
       values:
         serviceCIDR: ${SERVICE_CIDR}
+        coredns:
+          replicas: 3
         etcd:
           replicas: 3
         api:
@@ -73,7 +75,6 @@ dev:
         - '!/go.sum'
         - '!/devspace_start.sh'
         - '!/manifests'
-        - '/manifests/coredns'
 commands:
   - name: dev
     command: "devspace dev -n vcluster $@"

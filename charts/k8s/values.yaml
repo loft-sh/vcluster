@@ -264,6 +264,7 @@ openshift:
 # If enabled will deploy the coredns configmap
 coredns:
   enabled: true
+  replicas: 1
   # image: my-core-dns-image:latest
   # config: |-
   #   .:1053 {
