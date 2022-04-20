@@ -19,6 +19,10 @@ controller:
 # Scale up api server
 api:
   replicas: 3
+
+# Scale up DNS server
+coredns:
+  replicas: 3
 ```
 
 Then create the vcluster with the following command:
@@ -31,6 +35,8 @@ Check that vcluster including the control plane are running correctly:
 kubectl get po -n vcluster
 NAME                                                READY   STATUS    RESTARTS   AGE
 coredns-6ff7df994d-m5pcd-x-kube-system-x-vcluster   1/1     Running   0          23m
+coredns-6ff7df994d-dfgjb-x-kube-system-x-vcluster   1/1     Running   0          23m
+coredns-6ff7df994d-weuir-x-kube-system-x-vcluster   1/1     Running   0          23m
 vcluster-9d88f577-m55xf                             1/1     Running   0          30m
 vcluster-9d88f577-drsxz                             1/1     Running   0          30m
 vcluster-9d88f577-maslo                             1/1     Running   0          30m
