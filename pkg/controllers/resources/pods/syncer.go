@@ -2,6 +2,7 @@ package pods
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"reflect"
 	"time"
 
@@ -358,7 +359,21 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 		return err
 	}
 
-	return nil
+	// wait until cache is updated
+	err = wait.PollImmediate(time.Millisecond*50, time.Second*2, func() (done bool, err error) {
+		vPod := &corev1.Pod{}
+		err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return true, nil
+			}
+
+			return false, err
+		}
+
+		return vPod.Spec.NodeName != "", nil
+	})
+	return err
 }
 
 func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {

@@ -415,10 +415,14 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	}
 
 	// write the kube config to secret
-	err = writeKubeConfigToSecret(ctx, rawConfig)
-	if err != nil {
-		klog.Errorf("Error writing kube config to secret: %v", err)
-	}
+	go func() {
+		wait.Until(func() {
+			err = writeKubeConfigToSecret(ctx, rawConfig)
+			if err != nil {
+				klog.Errorf("Error writing kube config to secret: %v", err)
+			}
+		}, time.Minute, ctx.StopChan)
+	}()
 
 	// register controllers
 	err = controllers.RegisterControllers(ctx, syncers)
@@ -534,12 +538,12 @@ func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config
 		}
 
 		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx.LocalManager.GetConfig(), ctx.Options.KubeConfigSecret, secretNamespace, config)
+		err = kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
 		if err != nil {
 			return fmt.Errorf("creating %s secret in the %s ns failed: %v", ctx.Options.KubeConfigSecret, secretNamespace, err)
 		}
 	}
 
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx.LocalManager.GetConfig(), kubeconfig.GetDefaultSecretName(translate.Suffix), ctx.CurrentNamespace, config)
+	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), ctx.CurrentNamespace, config)
 }
