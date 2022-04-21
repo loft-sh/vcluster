@@ -90,7 +90,7 @@ spec:
           - --server-ca-cert=/pki/ca.crt
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
-          
+          - --service-account=vc-workload-{{ .Release.Name }}
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}

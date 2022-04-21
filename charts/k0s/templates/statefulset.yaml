@@ -120,6 +120,7 @@ spec:
         {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
+          - --service-account=vc-workload-{{ .Release.Name }}
           - --request-header-ca-cert=/data/k0s/pki/ca.crt
           - --client-ca-cert=/data/k0s/pki/ca.crt
           - --server-ca-cert=/data/k0s/pki/ca.crt

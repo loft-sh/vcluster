@@ -131,6 +131,7 @@ spec:
         {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
+          - --service-account=vc-workload-{{ .Release.Name }}
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
           {{- end }}
