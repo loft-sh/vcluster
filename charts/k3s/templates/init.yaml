@@ -5,6 +5,6 @@ metadata:
   name: {{ .Release.Name }}-init-manifests
   namespace: {{ .Release.Namespace }}
 data:
-  initmanifest.yaml: |-
+  initmanifests.yaml: |-
     {{ .Values.init.manifests | nindent 4 | trim }}
 {{- end }}
