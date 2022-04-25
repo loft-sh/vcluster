@@ -398,7 +398,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 			klog.Infof("checking for changes to init manifests")
 			changed, err := manifests.ChangeDetected(ctx.CurrentNamespaceClient, ctx.CurrentNamespace)
 			if err != nil {
-				klog.Infof("error occured while watching init manifests in namespace %s: %v", ctx.CurrentNamespace, err)
+				klog.Infof("error occurred while watching init manifests in namespace %s: %v", ctx.CurrentNamespace, err)
 				return
 			}
 
