@@ -12,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/loft-sh/vcluster/pkg/manifests"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -24,6 +25,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
+
 	"github.com/loft-sh/vcluster/pkg/server"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -362,6 +364,29 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 			klog.Infof("CoreDNS configuration from the manifest file applied successfully")
 			return true, nil
 		})
+	}()
+
+	// setup init manifests according to .Values.init.manifests
+	go func() {
+		_ = wait.ExponentialBackoff(wait.Backoff{
+			Duration: time.Second,
+			Factor:   1.5,
+			Cap:      time.Minute,
+			Steps:    math.MaxInt32},
+			func() (bool, error) {
+				err := manifests.ApplyInitManifests(ctx.VirtualManager.GetConfig())
+				if err != nil {
+					if errors.Is(err, os.ErrNotExist) {
+						klog.Infof("init manifests does not exist, nothing to apply")
+						return true, nil
+					}
+
+					klog.Infof("Failed to apply init configuration from the manifest file: %v", err)
+					return false, nil
+				}
+				klog.Infof("Init configuration from the manifest file applied successfully")
+				return true, nil
+			})
 	}()
 
 	// instantiate controllers
