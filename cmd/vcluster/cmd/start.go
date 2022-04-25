@@ -366,8 +366,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 		})
 	}()
 
-	// setup init manifests according to .Values.init.manifests
-	go func() {
+	initManifestsApplier := func() {
 		_ = wait.ExponentialBackoff(wait.Backoff{
 			Duration: time.Second,
 			Factor:   1.5,
@@ -387,6 +386,29 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 				klog.Infof("Init configuration from the manifest file applied successfully")
 				return true, nil
 			})
+	}
+
+	// setup init manifests according to .Values.init.manifests
+	go initManifestsApplier()
+
+	// poll forever and watch for init manifest file changes
+	go func() {
+		wait.Forever(func() {
+			// check for changes
+			klog.Infof("checking for changes to init manifests")
+			changed, err := manifests.ChangeDetected(ctx.CurrentNamespaceClient, ctx.CurrentNamespace)
+			if err != nil {
+				klog.Infof("error occured while watching init manifests in namespace %s: %v", ctx.CurrentNamespace, err)
+				return
+			}
+
+			if changed {
+				klog.Info("detected change in init manifests, triggering re-apply")
+				go initManifestsApplier()
+			} else {
+				klog.Info("no change detected in init manifests")
+			}
+		}, time.Second*10)
 	}()
 
 	// instantiate controllers
