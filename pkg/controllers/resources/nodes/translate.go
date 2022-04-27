@@ -7,7 +7,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -145,10 +144,10 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 	}
 
 	// calculate what's really allocatable
-	if translatedStatus.Allocatable != nil {
-		cpu := translatedStatus.Allocatable.Cpu().MilliValue()
-		memory := translatedStatus.Allocatable.Memory().Value()
-		storageEphemeral := translatedStatus.Allocatable.StorageEphemeral().Value()
+	if translatedStatus.Allocatable != nil && translatedStatus.Capacity != nil {
+		cpu := translatedStatus.Capacity.Cpu().MilliValue()
+		memory := translatedStatus.Capacity.Memory().Value()
+		storageEphemeral := translatedStatus.Capacity.StorageEphemeral().Value()
 
 		podList := &corev1.PodList{}
 		err := s.podCache.List(context.TODO(), podList)
@@ -157,8 +156,6 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		} else {
 			for _, pod := range podList.Items {
 				if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
-					continue
-				} else if pod.Labels != nil && pod.Labels[translate.MarkerLabel] == translate.Suffix {
 					continue
 				} else if pod.Spec.NodeName != pNode.Name {
 					continue
