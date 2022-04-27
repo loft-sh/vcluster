@@ -240,6 +240,14 @@ coredns:
   # config: |-
   #   .:1053 {
   #      ...
+  # CoreDNS service configurations
+  service:
+    type: ClusterIP
+    # Configuration for LoadBalancer service type
+    externalIPs: []
+    externalTrafficPolicy: ""
+    # Extra Annotations
+    annotations: {}
 
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas
