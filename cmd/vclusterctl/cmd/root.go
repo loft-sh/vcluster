@@ -63,6 +63,6 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(NewCompletionCmd())
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
-
+	rootCmd.AddCommand(versionCmd)
 	return rootCmd
 }
