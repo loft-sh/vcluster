@@ -161,6 +161,10 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 	// now we have the cluster ip that we can apply to the new service
 	newVService.Spec.ClusterIP = pService.Spec.ClusterIP
+	// also we need to apply newly allocated node ports
+	newVService.Spec.HealthCheckNodePort = pService.Spec.HealthCheckNodePort
+	newVService.Spec.Ports = pService.Spec.Ports
+
 	err = virtualClient.Update(ctx, newVService)
 	if err != nil {
 		// this is actually worst case that can happen, as we have somehow now a really strange
