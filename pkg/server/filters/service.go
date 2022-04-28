@@ -152,6 +152,7 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 	// we try to patch the service as this has the best chances to go through
 	originalPService := pService.DeepCopy()
 	pService.Spec.Type = newVService.Spec.Type
+	pService.Spec.Ports = newVService.Spec.Ports
 	pService.Spec.ClusterIP = ""
 	err = localClient.Patch(ctx, pService, client.MergeFrom(originalPService))
 	if err != nil {

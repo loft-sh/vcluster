@@ -1,11 +1,12 @@
 package services
 
 import (
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -249,6 +250,60 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
+	vServiceClusterIPFromExternal := &corev1.Service{
+		ObjectMeta: vObjectMeta,
+		Spec: corev1.ServiceSpec{
+			ExternalName: "test.com",
+			Type:         corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: 80,
+				},
+			},
+		},
+	}
+	pServiceExternal := &corev1.Service{
+		ObjectMeta: pObjectMeta,
+		Spec: corev1.ServiceSpec{
+			ExternalName: "test.com",
+			Type:         corev1.ServiceTypeExternalName,
+		},
+	}
+	pServiceClusterIPFromExternal := &corev1.Service{
+		ObjectMeta: pObjectMeta,
+		Spec: corev1.ServiceSpec{
+			ExternalName: "test.com",
+			Type:         corev1.ServiceTypeClusterIP,
+			Ports:        vServiceClusterIPFromExternal.Spec.Ports,
+		},
+	}
+	selectorKey := "test"
+	vServiceNodePortFromExternal := &corev1.Service{
+		ObjectMeta: vObjectMeta,
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{selectorKey: "test-key"},
+			Type:     corev1.ServiceTypeNodePort,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: 80,
+				},
+			},
+		},
+	}
+	pServiceNodePortFromExternal := &corev1.Service{
+		ObjectMeta: pObjectMeta,
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				translator.ConvertLabelKeyWithPrefix(translator.LabelPrefix, selectorKey): vServiceNodePortFromExternal.Spec.Selector[selectorKey],
+				translate.NamespaceLabel: vServiceNodePortFromExternal.Namespace,
+				translate.MarkerLabel:    translate.Suffix,
+			},
+			Type:  corev1.ServiceTypeNodePort,
+			Ports: vServiceNodePortFromExternal.Spec.Ports,
+		},
+	}
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
@@ -475,6 +530,38 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Sync kubernetes service change type ExternalName to ClusterIP",
+			InitialVirtualState:  []runtime.Object{vServiceClusterIPFromExternal.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pServiceExternal.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {vServiceClusterIPFromExternal.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {pServiceClusterIPFromExternal.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServiceExternal, vServiceClusterIPFromExternal)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Sync kubernetes service change type ExternalName to NodePort",
+			InitialVirtualState:  []runtime.Object{vServiceNodePortFromExternal.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pServiceExternal.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {vServiceNodePortFromExternal.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {pServiceNodePortFromExternal.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServiceExternal, vServiceNodePortFromExternal)
 				assert.NilError(t, err)
 			},
 		},
