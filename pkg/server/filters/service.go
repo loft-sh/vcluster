@@ -152,6 +152,7 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 	// we try to patch the service as this has the best chances to go through
 	originalPService := pService.DeepCopy()
 	pService.Spec.Type = newVService.Spec.Type
+	pService.Spec.Ports = newVService.Spec.Ports
 	pService.Spec.ClusterIP = ""
 	err = localClient.Patch(ctx, pService, client.MergeFrom(originalPService))
 	if err != nil {
@@ -160,6 +161,10 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 	// now we have the cluster ip that we can apply to the new service
 	newVService.Spec.ClusterIP = pService.Spec.ClusterIP
+	// also we need to apply newly allocated node ports
+	newVService.Spec.HealthCheckNodePort = pService.Spec.HealthCheckNodePort
+	newVService.Spec.Ports = pService.Spec.Ports
+
 	err = virtualClient.Update(ctx, newVService)
 	if err != nil {
 		// this is actually worst case that can happen, as we have somehow now a really strange

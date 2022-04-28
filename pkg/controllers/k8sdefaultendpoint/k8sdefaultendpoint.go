@@ -129,6 +129,7 @@ func syncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Cl
 			vSlices.Labels = newSlice.Labels
 			vSlices.AddressType = newSlice.AddressType
 			vSlices.Endpoints = newSlice.Endpoints
+			vSlices.Ports = newSlice.Ports
 			return nil
 		})
 		return err
