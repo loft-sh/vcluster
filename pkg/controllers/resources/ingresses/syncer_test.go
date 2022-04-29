@@ -284,6 +284,75 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name: "Translate annotation",
+			InitialVirtualState: []runtime.Object{
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      baseIngress.Name,
+						Namespace: baseIngress.Namespace,
+						Labels:    baseIngress.Labels,
+						Annotations: map[string]string{
+							"nginx.ingress.kubernetes.io/auth-secret": "my-secret",
+						},
+					},
+				},
+			},
+			InitialPhysicalState: []runtime.Object{
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      createdIngress.Name,
+						Namespace: createdIngress.Namespace,
+						Labels:    createdIngress.Labels,
+					},
+				},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {
+					&networkingv1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      baseIngress.Name,
+							Namespace: baseIngress.Namespace,
+							Labels:    baseIngress.Labels,
+							Annotations: map[string]string{
+								"nginx.ingress.kubernetes.io/auth-secret": "my-secret",
+							},
+						},
+					},
+				},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {
+					&networkingv1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      createdIngress.Name,
+							Namespace: createdIngress.Namespace,
+							Labels:    createdIngress.Labels,
+							Annotations: map[string]string{
+								"nginx.ingress.kubernetes.io/auth-secret": translate.PhysicalName("my-secret", baseIngress.Namespace),
+								"vcluster.loft.sh/managed-annotations":    "nginx.ingress.kubernetes.io/auth-secret",
+								"vcluster.loft.sh/object-name":            baseIngress.Name,
+								"vcluster.loft.sh/object-namespace":       baseIngress.Namespace,
+							},
+						},
+					},
+				},
+			},
+			Sync: func(registerContext *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+
+				vIngress := &networkingv1.Ingress{}
+				err := syncCtx.VirtualClient.Get(syncCtx.Context, types.NamespacedName{Name: baseIngress.Name, Namespace: baseIngress.Namespace}, vIngress)
+				assert.NilError(t, err)
+
+				pIngress := &networkingv1.Ingress{}
+				err = syncCtx.PhysicalClient.Get(syncCtx.Context, types.NamespacedName{Name: createdIngress.Name, Namespace: createdIngress.Namespace}, pIngress)
+				assert.NilError(t, err)
+
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, pIngress, vIngress)
+				assert.NilError(t, err)
+			},
+		},
 	})
 }
 

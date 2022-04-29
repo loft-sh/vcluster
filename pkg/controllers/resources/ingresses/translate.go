@@ -9,6 +9,7 @@ import (
 func (s *ingressSyncer) translate(vIngress *networkingv1.Ingress) *networkingv1.Ingress {
 	newIngress := s.TranslateMetadata(vIngress).(*networkingv1.Ingress)
 	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
+	newIngress.Annotations, _ = translateIngressAnnotations(newIngress.Annotations, vIngress.Namespace)
 	return newIngress
 }
 
@@ -21,8 +22,9 @@ func (s *ingressSyncer) translateUpdate(pObj, vObj *networkingv1.Ingress) *netwo
 		updated.Spec = translatedSpec
 	}
 
-	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
-	if changed {
+	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	translatedAnnotations, _ = translateIngressAnnotations(translatedAnnotations, vObj.Namespace)
+	if !equality.Semantic.DeepEqual(translatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(translatedLabels, pObj.GetLabels()) {
 		updated = newIfNil(updated, pObj)
 		updated.Annotations = translatedAnnotations
 		updated.Labels = translatedLabels
