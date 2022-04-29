@@ -276,11 +276,15 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 
 	// translate node selector
-	for k, v := range vPod.Spec.NodeSelector {
-		if pPod.Spec.NodeSelector == nil {
-			pPod.Spec.NodeSelector = map[string]string{}
+	if t.enableScheduler {
+		pPod.Spec.NodeSelector = nil
+	} else {
+		for k, v := range vPod.Spec.NodeSelector {
+			if pPod.Spec.NodeSelector == nil {
+				pPod.Spec.NodeSelector = map[string]string{}
+			}
+			pPod.Spec.NodeSelector[k] = v
 		}
-		pPod.Spec.NodeSelector[k] = v
 	}
 
 	return pPod, nil
