@@ -121,6 +121,12 @@ data:
           priorityClassName: "system-cluster-critical"
           serviceAccountName: coredns
           nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 12 }}
+          affinity:
+{{ toYaml .Values.affinity | indent 12 }}
+          tolerations:
+{{ toYaml .Values.tolerations | indent 12 }}
+          nodeSelector:
             kubernetes.io/os: linux
           topologySpreadConstraints:
             - maxSkew: 1
