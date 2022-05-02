@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm/values"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
+	"golang.org/x/mod/semver"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -172,7 +173,21 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	var kubernetesVersion *version.Info
 	if cmd.KubernetesVersion != "" {
-		kubernetesVersion, err = values.ParseKubernetesVersionInfo(cmd.KubernetesVersion)
+		if cmd.KubernetesVersion[0] != 'v' {
+			cmd.KubernetesVersion = "v" + cmd.KubernetesVersion
+		}
+
+		if !semver.IsValid(cmd.KubernetesVersion) {
+			return fmt.Errorf("please use valid semantic versioning format, e.g. vX.X")
+		}
+
+		majorMinorVer := semver.MajorMinor(cmd.KubernetesVersion)
+
+		if splittedVersion := strings.Split(cmd.KubernetesVersion, "."); len(splittedVersion) > 2 {
+			cmd.log.Warnf("currently we only support major.minor version (%s) and not the patch version (%s)", majorMinorVer, cmd.KubernetesVersion)
+		}
+
+		kubernetesVersion, err = values.ParseKubernetesVersionInfo(majorMinorVer)
 		if err != nil {
 			return err
 		}
