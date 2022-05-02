@@ -4,10 +4,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
@@ -60,10 +62,42 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 
 func SecretNamesFromIngress(ingress *networkingv1.Ingress) []string {
 	secrets := []string{}
+	_, extraSecrets := translateIngressAnnotations(ingress.Annotations, ingress.Namespace)
+	secrets = append(secrets, extraSecrets...)
 	for _, tls := range ingress.Spec.TLS {
 		if tls.SecretName != "" {
 			secrets = append(secrets, ingress.Namespace+"/"+tls.SecretName)
 		}
 	}
 	return translator.UniqueSlice(secrets)
+}
+
+var TranslateAnnotations = map[string]bool{
+	"nginx.ingress.kubernetes.io/auth-secret":      true,
+	"nginx.ingress.kubernetes.io/auth-tls-secret":  true,
+	"nginx.ingress.kubernetes.io/proxy-ssl-secret": true,
+}
+
+func translateIngressAnnotations(annotations map[string]string, ingressNamespace string) (map[string]string, []string) {
+	foundSecrets := []string{}
+	newAnnotations := map[string]string{}
+	for k, v := range annotations {
+		if !TranslateAnnotations[k] {
+			newAnnotations[k] = v
+			continue
+		}
+
+		splitted := strings.Split(annotations[k], "/")
+		if len(splitted) == 1 {
+			foundSecrets = append(foundSecrets, ingressNamespace+"/"+splitted[0])
+			newAnnotations[k] = translate.PhysicalName(splitted[0], ingressNamespace)
+		} else if len(splitted) == 2 {
+			foundSecrets = append(foundSecrets, splitted[0]+"/"+splitted[1])
+			newAnnotations[k] = translate.PhysicalName(splitted[1], splitted[0])
+		} else {
+			newAnnotations[k] = v
+		}
+	}
+
+	return newAnnotations, foundSecrets
 }
