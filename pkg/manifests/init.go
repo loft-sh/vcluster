@@ -74,7 +74,7 @@ func ApplyGivenInitManifests(ctx context.Context, vClient client.Client, default
 			}
 
 			// we only reach here in case the object already exists
-			// hence we make sure we propogate any updates to the
+			// hence we make sure we propagate any updates to the
 			// particular manifest
 			err = vClient.Update(ctx, obj, &client.UpdateOptions{})
 			if err != nil {

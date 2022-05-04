@@ -48,7 +48,7 @@ func ManifestStringToUnstructureArray(rawManifests, defaultNamespace string) ([]
 			return nil, fmt.Errorf("failed to marshal manifest: %v", err)
 		}
 
-		klog.Info("successfully converted raw manifest obj to unstructured object: [%s:%s:%s]", obj.GetAPIVersion(), obj.GetKind(), obj.GetName())
+		klog.Infof("successfully converted raw manifest obj to unstructured object: [%s:%s:%s]", obj.GetAPIVersion(), obj.GetKind(), obj.GetName())
 		if len(obj.Object) == 0 {
 			klog.Infof("object len %d, hence skipping: %v", len(obj.Object), obj)
 			continue
