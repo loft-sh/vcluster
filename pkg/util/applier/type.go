@@ -12,14 +12,28 @@ import (
 )
 
 type Applier interface {
-	Apply(ctx context.Context, options ApplierOptions) error
+	Apply(ctx context.Context, options applierOptions) error
 }
 
-type ApplierOptions struct {
+type applierOptions struct {
 	Manifest string
 
 	RESTConfig *rest.Config
 	RESTMapper meta.RESTMapper
 	Namespace  string
 	ExtraArgs  []string
+}
+
+type ApplyOptions func(*applierOptions)
+
+func WithNamespace(ns string) ApplyOptions {
+	return func(opts *applierOptions) {
+		opts.Namespace = ns
+	}
+}
+
+func WithExtraArgs(args []string) ApplyOptions {
+	return func(opts *applierOptions) {
+		opts.ExtraArgs = args
+	}
 }

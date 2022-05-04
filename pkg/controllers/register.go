@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
+	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -139,6 +140,12 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 		return err
 	}
 
+	// register init manifests configmap watcher controller
+	err = registerInitManifestsController(ctx)
+	if err != nil {
+		return err
+	}
+
 	// register controllers for resource synchronization
 	for _, v := range syncers {
 		// fake syncer?
@@ -160,6 +167,21 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 				return fmt.Errorf("syncer %s does not implement fake syncer or syncer interface", v.Name())
 			}
 		}
+	}
+
+	return nil
+}
+
+func registerInitManifestsController(ctx *context.ControllerContext) error {
+	controller := &manifests.InitManifestsConfigMapReconciler{
+		Client:   ctx.LocalManager.GetClient(),
+		Log:      loghelper.New("initmanifests-controller"),
+		VManager: ctx.VirtualManager,
+	}
+
+	err := controller.SetupWithManager(ctx.LocalManager)
+	if err != nil {
+		return fmt.Errorf("unable to setup init manifests configmap controller: %v", err)
 	}
 
 	return nil

@@ -7,11 +7,12 @@ Originally sourced from https://github.com/kubernetes-sigs/kubebuilder-declarati
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -33,7 +34,7 @@ func NewDirectApplier() *DirectApplier {
 	return &DirectApplier{}
 }
 
-func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
+func (d *DirectApplier) Apply(ctx context.Context, opt applierOptions) error {
 	ioStreams := genericclioptions.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,

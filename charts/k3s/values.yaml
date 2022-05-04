@@ -296,4 +296,5 @@ isolation:
 
 # manifests to setup when initializing a vcluster
 init:
-  manifests: null
+  manifests: |-
+    ---

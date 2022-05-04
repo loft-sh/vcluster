@@ -12,7 +12,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/loft-sh/vcluster/pkg/manifests"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -364,51 +363,6 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 			klog.Infof("CoreDNS configuration from the manifest file applied successfully")
 			return true, nil
 		})
-	}()
-
-	initManifestsApplier := func() {
-		_ = wait.ExponentialBackoff(wait.Backoff{
-			Duration: time.Second,
-			Factor:   1.5,
-			Cap:      time.Minute,
-			Steps:    math.MaxInt32},
-			func() (bool, error) {
-				err := manifests.ApplyInitManifests(ctx.VirtualManager.GetConfig())
-				if err != nil {
-					if errors.Is(err, os.ErrNotExist) {
-						klog.Infof("init manifests does not exist, nothing to apply")
-						return true, nil
-					}
-
-					klog.Infof("Failed to apply init configuration from the manifest file: %v", err)
-					return false, nil
-				}
-				klog.Infof("Init configuration from the manifest file applied successfully")
-				return true, nil
-			})
-	}
-
-	// setup init manifests according to .Values.init.manifests
-	go initManifestsApplier()
-
-	// poll forever and watch for init manifest file changes
-	go func() {
-		wait.Forever(func() {
-			// check for changes
-			klog.Infof("checking for changes to init manifests")
-			changed, err := manifests.ChangeDetected(ctx.CurrentNamespaceClient, ctx.CurrentNamespace)
-			if err != nil {
-				klog.Infof("error occurred while watching init manifests in namespace %s: %v", ctx.CurrentNamespace, err)
-				return
-			}
-
-			if changed {
-				klog.Info("detected change in init manifests, triggering re-apply")
-				go initManifestsApplier()
-			} else {
-				klog.Info("no change detected in init manifests")
-			}
-		}, time.Second*10)
 	}()
 
 	// instantiate controllers
