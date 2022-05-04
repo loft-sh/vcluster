@@ -52,7 +52,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		framework.ExpectNoError(err)
 	})
 
-	ginkgo.FIt("Test if init manifests are initially empty", func() {
+	ginkgo.It("Test if init manifests are initially empty", func() {
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
@@ -62,7 +62,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		framework.ExpectEqual(initmanifests.Data["initmanifests.yaml"], "---")
 	})
 
-	ginkgo.FIt("Test if manifest is synced with the vcluster", func() {
+	ginkgo.It("Test if manifest is synced with the vcluster", func() {
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
