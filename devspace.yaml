@@ -23,6 +23,13 @@ deployments:
         name: ./charts/k3s
       values:
         serviceCIDR: ${SERVICE_CIDR}
+        mapServices:
+          fromVirtual:
+            - from: test/test
+              to: test
+          fromPhysical:
+            - from: test/test
+              to: default/test
         coredns:
           replicas: 3
         etcd:

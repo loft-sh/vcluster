@@ -108,3 +108,21 @@ Role rules defined by plugins
 {{- end }}
 {{- end }}
 {{- end -}}
+
+{{/*
+Virtual cluster service mapping
+*/}}
+{{- define "vcluster.serviceMapping.fromVirtual" -}}
+{{- range $key, $value := .Values.mapServices.fromVirtual }}
+- '--map-virtual-service={{ $value.from }}={{ $value.to }}'
+{{- end }}
+{{- end -}}
+
+{{/*
+Physical cluster service mapping
+*/}}
+{{- define "vcluster.serviceMapping.fromPhysical" -}}
+{{- range $key, $value := .Values.mapServices.fromPhysical }}
+- '--map-physical-service={{ $value.from }}={{ $value.to }}'
+{{- end }}
+{{- end -}}

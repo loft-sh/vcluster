@@ -64,6 +64,9 @@ type VirtualClusterOptions struct {
 
 	EnforcePodSecurityStandard string `json:"enforcePodSecurityStandard,omitempty"`
 
+	MapPhysicalServices []string `json:"mapPhysicalServices,omitempty"`
+	MapVirtualServices  []string `json:"mapVirtualServices,omitempty"`
+
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
 	// DEPRECATED FLAGS

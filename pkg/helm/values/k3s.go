@@ -102,9 +102,7 @@ securityContext:
 
 func addCommonReleaseValues(values string, chartOptions *helm.ChartOptions) (string, error) {
 	values += `
-serviceCIDR: ##CIDR##
-storage:
-  size: 5Gi`
+serviceCIDR: ##CIDR##`
 
 	if chartOptions.DisableIngressSync {
 		values += `

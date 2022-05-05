@@ -154,6 +154,8 @@ spec:
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
+          {{- include "vcluster.serviceMapping.fromPhysical" . | indent 10 }}
+          {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
         {{- else }}
         args:
 {{ toYaml .Values.syncer.extraArgs | indent 10 }}
