@@ -16,7 +16,7 @@ import (
 const (
 	InitManifestSuffix      = "-init-manifests"
 	DefaultNamespaceIfEmpty = corev1.NamespaceDefault
-	LAST_APPLIED_KEY        = "vcluster.loft.sh/last-applied-init-manifests"
+	LastAppliedManifestKey  = "vcluster.loft.sh/last-applied-init-manifests"
 )
 
 type InitManifestsConfigMapReconciler struct {
@@ -52,14 +52,15 @@ func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ct
 
 	manifests := strings.Join(cmData, "\n---\n")
 
-	err = initmanifests.ApplyGivenInitManifests(ctx, r.VirtualManager.GetClient(), DefaultNamespaceIfEmpty, manifests)
+	lastAppliedManifests := cm.ObjectMeta.Annotations[LastAppliedManifestKey]
+	err = initmanifests.ApplyGivenInitManifests(ctx, r.VirtualManager.GetClient(), DefaultNamespaceIfEmpty, manifests, lastAppliedManifests)
 	if err != nil {
 		r.Log.Errorf("error applying init manifests: %v", err)
 
 		return ctrl.Result{}, err
 	}
 	// apply successful, store in an annotation in the configmap itself
-	cm.ObjectMeta.Annotations[LAST_APPLIED_KEY] = manifests
+	cm.ObjectMeta.Annotations[LastAppliedManifestKey] = manifests
 	err = r.Client.Update(ctx, &cm, &client.UpdateOptions{})
 	if err != nil {
 		r.Log.Errorf("error updating config map with last applied annotation: %v", err)

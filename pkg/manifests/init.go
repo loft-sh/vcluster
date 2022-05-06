@@ -12,16 +12,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	lastAppliedObjects util.UnstructuredMap
-)
-
-func init() {
-	lastAppliedObjects = make(util.UnstructuredMap)
-}
-
-func ApplyGivenInitManifests(ctx context.Context, vClient client.Client, defaultNamespace, rawManifests string) error {
+func ApplyGivenInitManifests(ctx context.Context,
+	vClient client.Client,
+	defaultNamespace,
+	rawManifests,
+	lastAppliedManifest string) error {
 	currentlyApplyingObjects := make(util.UnstructuredMap)
+
+	lastAppliedObjects, err := populateLastAppliedMap(lastAppliedManifest, defaultNamespace)
+	if err != nil {
+		klog.Errorf("unable to parse objects from last applied manifests: %v", err)
+		return errors.Wrap(err, "unable to parse last applied manifests")
+	}
 
 	objs, err := util.ManifestStringToUnstructureArray(rawManifests, defaultNamespace)
 	if err != nil {
@@ -87,4 +89,19 @@ func ApplyGivenInitManifests(ctx context.Context, vClient client.Client, default
 	lastAppliedObjects = currentlyApplyingObjects
 	klog.Infof("successfully applied all init manifest objects")
 	return nil
+}
+
+func populateLastAppliedMap(manifests, defaultNamespace string) (util.UnstructuredMap, error) {
+	m := make(util.UnstructuredMap)
+
+	objs, err := util.ManifestStringToUnstructureArray(manifests, defaultNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, obj := range objs {
+		m[util.UnstructuredToKObject(*obj)] = obj.DeepCopy()
+	}
+
+	return m, nil
 }
