@@ -73,11 +73,6 @@ spec:
         - name: data
           emptyDir: {}
       {{- end }}
-      {{- if .Values.init.manifests }}
-        - name: initmanifests
-          configMap:
-            name: {{ .Release.Name }}-init-manifests
-      {{- end }}
       containers:
       - name: etcd
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.etcd.image }}"
@@ -125,11 +120,6 @@ spec:
             readOnly: true
         {{- if .Values.etcd.volumeMounts }}
 {{ toYaml .Values.etcd.volumeMounts | indent 10 }}
-        {{- end }}
-        {{- if .Values.init.manifests }}
-          - name: initmanifests
-            mountPath: /manifests/init
-            readOnly: true
         {{- end }}
         resources:
 {{ toYaml .Values.etcd.resources | indent 10 }}
