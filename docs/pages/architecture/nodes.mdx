@@ -5,9 +5,9 @@ sidebar_label: Nodes
 
 By default, vcluster will create fake nodes for every pod `spec.nodeName` it encounters within the virtual cluster. Those fake nodes are created because vcluster has no RBAC permissions by default to view the real nodes in the host cluster, as this would need a cluster role and cluster role binding. It will also create a fake kubelet endpoint for each node that will forward requests to the actual node or rewrite them to preserve virtual cluster names.
 
-### Node Syncing Modes
+## Node Syncing Modes
 
-Vcluster supports multiple modes to customize node syncing behaviour:
+vcluster supports multiple modes to customize node syncing behaviour:
 - **Fake Nodes** (default): vcluster will create fake nodes for each `spec.nodeName`. If there are no more pods on a node, the fake node will be deleted (no cluster role for vcluster is needed)
 - **Real Nodes** : vcluster will copy and sync real nodes information for each `spec.nodeName`. If there are no more pods on a node within vcluster, the virtual cluster node will be deleted. This mode requires helm value `.sync.nodes.enabled: true`, as described below.
 - **Real Nodes All** : vcluster will always sync all nodes from the host cluster to the vcluster, no matter where pods are running. This is useful if you want to use DaemonSets within the vcluster. This mode requires following helm values: `.sync.nodes.enabled: true` and `.sync.nodes.syncAllNodes: true`.
@@ -46,3 +46,4 @@ Then you can create the vcluster with:
 ```yaml
 vcluster create my-vcluster -n my-vcluster -f values.yaml
 ```
+
