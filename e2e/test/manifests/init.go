@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	TEST_MANIFEST_NAME      = "test-configmap"
-	TEST_MANIFEST_NAMESPACE = "default"
+	TestManifestName      = "test-configmap"
+	TestManifestNamespace = "default"
 
-	INIT_MANIFEST_CONFIGMAP_SUFFIX = "init-manifests"
+	InitManifestConfigmapSuffix = "init-manifests"
 )
 
 var _ = ginkgo.Describe("Init manifests are synced and applied as expected", func() {
@@ -44,7 +44,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, INIT_MANIFEST_CONFIGMAP_SUFFIX), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		initmanifests.Data["initmanifests.yaml"] = "---"
@@ -56,7 +56,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, INIT_MANIFEST_CONFIGMAP_SUFFIX), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		framework.ExpectEqual(initmanifests.Data["initmanifests.yaml"], "---")
@@ -66,7 +66,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, INIT_MANIFEST_CONFIGMAP_SUFFIX), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		testManifest := fmt.Sprintf(`apiVersion: v1
@@ -75,16 +75,16 @@ metadata:
   name: %s
 data:
   foo: bar
-`, TEST_MANIFEST_NAME)
+`, TestManifestName)
 
 		initmanifests.Data["initmanifests.yaml"] = testManifest
 		_, err = f.HostClient.CoreV1().ConfigMaps(f.VclusterNamespace).Update(f.Context, initmanifests, metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 
-		err = f.WaitForInitManifestConfigMapCreation(TEST_MANIFEST_NAME, TEST_MANIFEST_NAMESPACE)
+		err = f.WaitForInitManifestConfigMapCreation(TestManifestName, TestManifestNamespace)
 		framework.ExpectNoError(err)
 
-		manifest, err := f.VclusterClient.CoreV1().ConfigMaps(TEST_MANIFEST_NAMESPACE).Get(f.Context, TEST_MANIFEST_NAME, metav1.GetOptions{})
+		manifest, err := f.VclusterClient.CoreV1().ConfigMaps(TestManifestNamespace).Get(f.Context, TestManifestName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		framework.ExpectHaveKey(manifest.Data, "foo", "modified init manifest is supposed to have the foo key")
 		framework.ExpectEqual(manifest.Data["foo"], "bar")
