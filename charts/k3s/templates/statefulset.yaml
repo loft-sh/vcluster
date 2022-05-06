@@ -69,11 +69,6 @@ spec:
         - name: data
           emptyDir: {}
       {{- end }}
-      {{- if .Values.init.manifests }}
-        - name: initmanifests
-          configMap:
-            name: {{ .Release.Name }}-init-manifests
-      {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
@@ -194,11 +189,6 @@ spec:
         {{- if .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns
-            readOnly: true
-        {{- end }}
-        {{- if .Values.init.manifests }}
-          - name: initmanifests
-            mountPath: /manifests/init
             readOnly: true
         {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
