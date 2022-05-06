@@ -86,7 +86,6 @@ func ApplyGivenInitManifests(ctx context.Context,
 		delete(lastAppliedObjects, util.UnstructuredToKObject(*obj))
 	}
 
-	lastAppliedObjects = currentlyApplyingObjects
 	klog.Infof("successfully applied all init manifest objects")
 	return nil
 }
