@@ -34,7 +34,7 @@ func NewDirectApplier() *DirectApplier {
 	return &DirectApplier{}
 }
 
-func (d *DirectApplier) Apply(ctx context.Context, opt applierOptions) error {
+func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 	ioStreams := genericclioptions.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,
@@ -49,10 +49,7 @@ func (d *DirectApplier) Apply(ctx context.Context, opt applierOptions) error {
 
 	f := cmdutil.NewFactory(restClientGetter)
 	res := resource.NewBuilder(restClientGetter).Unstructured().Stream(ioReader, "manifestString").Do()
-	infos, err := res.Infos()
-	if err != nil {
-		return err
-	}
+	infos, resErr := res.Infos()
 
 	// Populate the namespace on any namespace-scoped objects
 	if opt.Namespace != "" {
@@ -76,7 +73,12 @@ func (d *DirectApplier) Apply(ctx context.Context, opt applierOptions) error {
 		IOStreams: ioStreams,
 	}
 
-	return applyOpts.Run()
+	err = applyOpts.Run()
+	if err != nil {
+		return err
+	}
+
+	return resErr
 }
 
 func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions, error) {
