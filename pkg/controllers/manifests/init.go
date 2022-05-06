@@ -2,7 +2,6 @@ package manifests
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,15 +15,15 @@ import (
 
 const (
 	InitManifestSuffix      = "-init-manifests"
-	ConfigMapDataKey        = "initmanifests.yaml"
-	DefaultNamespaceIfEmpty = "default"
+	DefaultNamespaceIfEmpty = corev1.NamespaceDefault
+	LAST_APPLIED_KEY        = "vcluster.loft.sh/last-applied-init-manifests"
 )
 
 type InitManifestsConfigMapReconciler struct {
 	client.Client
 	Log loghelper.Logger
 
-	VManager ctrl.Manager
+	VirtualManager ctrl.Manager
 }
 
 func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -46,16 +45,24 @@ func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, nil
 	}
 
-	manifests, ok := cm.Data[ConfigMapDataKey]
-	if !ok {
-		r.Log.Errorf("key %s not found in the configmap", ConfigMapDataKey)
-		return ctrl.Result{}, fmt.Errorf("key %s not found in the configmap", ConfigMapDataKey)
+	var cmData []string
+	for _, v := range cm.Data {
+		cmData = append(cmData, v)
 	}
 
-	err = initmanifests.ApplyGivenInitManifests(ctx, r.VManager.GetClient(), DefaultNamespaceIfEmpty, manifests)
+	manifests := strings.Join(cmData, "\n---\n")
+
+	err = initmanifests.ApplyGivenInitManifests(ctx, r.VirtualManager.GetClient(), DefaultNamespaceIfEmpty, manifests)
 	if err != nil {
 		r.Log.Errorf("error applying init manifests: %v", err)
 
+		return ctrl.Result{}, err
+	}
+	// apply successful, store in an annotation in the configmap itself
+	cm.ObjectMeta.Annotations[LAST_APPLIED_KEY] = manifests
+	err = r.Client.Update(ctx, &cm, &client.UpdateOptions{})
+	if err != nil {
+		r.Log.Errorf("error updating config map with last applied annotation: %v", err)
 		return ctrl.Result{}, err
 	}
 

@@ -174,9 +174,9 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 
 func registerInitManifestsController(ctx *context.ControllerContext) error {
 	controller := &manifests.InitManifestsConfigMapReconciler{
-		Client:   ctx.LocalManager.GetClient(),
-		Log:      loghelper.New("initmanifests-controller"),
-		VManager: ctx.VirtualManager,
+		Client:         ctx.LocalManager.GetClient(),
+		Log:            loghelper.New("initmanifests-controller"),
+		VirtualManager: ctx.VirtualManager,
 	}
 
 	err := controller.SetupWithManager(ctx.LocalManager)
