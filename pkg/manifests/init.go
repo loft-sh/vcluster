@@ -93,6 +93,10 @@ func ApplyGivenInitManifests(ctx context.Context,
 func populateLastAppliedMap(manifests, defaultNamespace string) (util.UnstructuredMap, error) {
 	m := make(util.UnstructuredMap)
 
+	if manifests == "" {
+		return m, nil
+	}
+
 	objs, err := util.ManifestStringToUnstructureArray(manifests, defaultNamespace)
 	if err != nil {
 		return nil, err
