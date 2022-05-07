@@ -74,6 +74,20 @@ func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error 
 	})
 }
 
+func (f *Framework) WaitForInitManifestConfigMapCreation(configMapName, ns string) error {
+	return wait.PollImmediate(time.Millisecond*500, PollTimeout, func() (bool, error) {
+		_, err := f.VclusterClient.CoreV1().ConfigMaps(ns).Get(f.Context, configMapName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+
+		return true, nil
+	})
+}
+
 func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		_, err := f.VclusterClient.CoreV1().ServiceAccounts(ns).Get(f.Context, saName, metav1.GetOptions{})

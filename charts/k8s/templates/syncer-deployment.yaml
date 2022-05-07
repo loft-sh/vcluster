@@ -93,7 +93,7 @@ spec:
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
           - --service-account=vc-workload-{{ .Release.Name }}
-          {{- include "vcluster.serviceMapping.fromPhysical" . | indent 10 }}
+          {{- include "vcluster.serviceMapping.fromHost" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler

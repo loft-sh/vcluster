@@ -27,7 +27,7 @@ deployments:
           fromVirtual:
             - from: test/test
               to: test
-          fromPhysical:
+          fromHost:
             - from: test/test
               to: default/test
         coredns:

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
+	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -143,6 +144,12 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 		return err
 	}
 
+	// register init manifests configmap watcher controller
+	err = registerInitManifestsController(ctx)
+	if err != nil {
+		return err
+	}
+
 	// register service syncer to map services between host and virtual cluster
 	err = registerServiceSyncControllers(ctx)
 	if err != nil {
@@ -175,9 +182,24 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 	return nil
 }
 
+func registerInitManifestsController(ctx *context.ControllerContext) error {
+	controller := &manifests.InitManifestsConfigMapReconciler{
+		LocalClient:    ctx.LocalManager.GetClient(),
+		Log:            loghelper.New("initmanifests-controller"),
+		VirtualManager: ctx.VirtualManager,
+	}
+
+	err := controller.SetupWithManager(ctx.LocalManager)
+	if err != nil {
+		return fmt.Errorf("unable to setup init manifests configmap controller: %v", err)
+	}
+
+	return nil
+}
+
 func registerServiceSyncControllers(ctx *context.ControllerContext) error {
-	if len(ctx.Options.MapPhysicalServices) > 0 {
-		mapping, err := parseMapping(ctx.Options.MapPhysicalServices, ctx.Options.TargetNamespace, "")
+	if len(ctx.Options.MapHostServices) > 0 {
+		mapping, err := parseMapping(ctx.Options.MapHostServices, ctx.Options.TargetNamespace, "")
 		if err != nil {
 			return errors.Wrap(err, "parse physical service mapping")
 		}
@@ -209,9 +231,10 @@ func registerServiceSyncControllers(ctx *context.ControllerContext) error {
 		controller := &servicesync.ServiceSyncer{
 			SyncServices:    mapping,
 			CreateNamespace: true,
+			CreateEndpoints: true,
 			From:            globalLocalManager,
 			To:              ctx.VirtualManager,
-			Log:             loghelper.New("map-physical-service-syncer"),
+			Log:             loghelper.New("map-host-service-syncer"),
 		}
 		err = controller.Register()
 		if err != nil {
@@ -226,11 +249,10 @@ func registerServiceSyncControllers(ctx *context.ControllerContext) error {
 		}
 
 		controller := &servicesync.ServiceSyncer{
-			SyncServices:    mapping,
-			CreateNamespace: false,
-			From:            ctx.VirtualManager,
-			To:              ctx.LocalManager,
-			Log:             loghelper.New("map-virtual-service-syncer"),
+			SyncServices: mapping,
+			From:         ctx.VirtualManager,
+			To:           ctx.LocalManager,
+			Log:          loghelper.New("map-virtual-service-syncer"),
 		}
 		err = controller.Register()
 		if err != nil {

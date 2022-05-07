@@ -11,13 +11,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 )
 
 type ServiceSyncer struct {
-	SyncServices    map[string]types.NamespacedName
+	SyncServices map[string]types.NamespacedName
+
 	CreateNamespace bool
+	CreateEndpoints bool
 
 	From ctrl.Manager
 	To   ctrl.Manager
@@ -38,7 +43,18 @@ func (e *ServiceSyncer) Register() error {
 	return ctrl.NewControllerManagedBy(e.From).
 		Named("servicesync").
 		For(&corev1.Service{}).
-		Watches(source.NewKindWithCache(&corev1.Service{}, e.To.GetCache()), &serviceHandler{Mapping: reverseMapping}).
+		Watches(source.NewKindWithCache(&corev1.Service{}, e.To.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+			if object == nil {
+				return nil
+			}
+
+			from, ok := reverseMapping[object.GetNamespace()+"/"+object.GetName()]
+			if !ok {
+				return nil
+			}
+
+			return []reconcile.Request{{NamespacedName: from}}
+		})).
 		Complete(e)
 }
 
@@ -65,7 +81,7 @@ func (e *ServiceSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				Namespace: to.Namespace,
 			},
 		})
-		if err != nil && !kerrors.IsNotFound(err) && !kerrors.IsForbidden(err) {
+		if err != nil && !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 
@@ -76,9 +92,63 @@ func (e *ServiceSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	fromService = fromService.DeepCopy()
 	services.StripNodePorts(fromService)
 
+	// if we should create endpoints
+	if e.CreateEndpoints {
+		return e.syncServiceAndEndpoints(ctx, fromService, to)
+	}
+
+	return e.syncServiceWithSelector(ctx, fromService, to)
+}
+
+func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService *corev1.Service, to types.NamespacedName) (ctrl.Result, error) {
 	// compare to endpoint and service
 	toService := &corev1.Service{}
-	err = e.To.GetClient().Get(ctx, to, toService)
+	err := e.To.GetClient().Get(ctx, to, toService)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+
+		// create service
+		toService = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      to.Name,
+				Namespace: to.Namespace,
+				Annotations: map[string]string{
+					constants.SkipSyncAnnotation: "true",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: fromService.Spec.Ports,
+			},
+		}
+		services.RewriteSelector(toService, fromService)
+		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
+		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
+	} else if toService.Annotations == nil || toService.Annotations[constants.SkipSyncAnnotation] != "true" {
+		// skip as it seems the service was user created
+		return ctrl.Result{}, nil
+	}
+
+	// rewrite selector
+	targetService := toService.DeepCopy()
+	services.RewriteSelector(targetService, fromService)
+
+	// compare service ports
+	if !apiequality.Semantic.DeepEqual(toService.Spec.Ports, fromService.Spec.Ports) || !apiequality.Semantic.DeepEqual(toService.Spec.Selector, targetService.Spec.Selector) {
+		e.Log.Infof("Update target service %s/%s because ports or selector are different", to.Namespace, to.Name)
+		toService.Spec.Ports = fromService.Spec.Ports
+		toService.Spec.Selector = targetService.Spec.Selector
+		return ctrl.Result{}, e.To.GetClient().Update(ctx, toService)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService *corev1.Service, to types.NamespacedName) (ctrl.Result, error) {
+	// compare to endpoint and service
+	toService := &corev1.Service{}
+	err := e.To.GetClient().Get(ctx, to, toService)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err

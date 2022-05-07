@@ -7,11 +7,12 @@ Originally sourced from https://github.com/kubernetes-sigs/kubebuilder-declarati
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -48,10 +49,7 @@ func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 
 	f := cmdutil.NewFactory(restClientGetter)
 	res := resource.NewBuilder(restClientGetter).Unstructured().Stream(ioReader, "manifestString").Do()
-	infos, err := res.Infos()
-	if err != nil {
-		return err
-	}
+	infos, resErr := res.Infos()
 
 	// Populate the namespace on any namespace-scoped objects
 	if opt.Namespace != "" {
@@ -75,7 +73,12 @@ func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 		IOStreams: ioStreams,
 	}
 
-	return applyOpts.Run()
+	err = applyOpts.Run()
+	if err != nil {
+		return err
+	}
+
+	return resErr
 }
 
 func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions, error) {

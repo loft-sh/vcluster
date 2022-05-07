@@ -95,7 +95,7 @@ mapServices:
   # from the host cluster into the virtual cluster.
   # If the namespace does not exist, vcluster will
   # also create the namespace for the service.
-  fromPhysical: []
+  fromHost: []
 
 # Syncer configuration
 syncer:
@@ -261,3 +261,7 @@ ingress:
 openshift:
   enable: false
   
+# manifests to setup when initializing a vcluster
+init:
+  manifests: |-
+    ---

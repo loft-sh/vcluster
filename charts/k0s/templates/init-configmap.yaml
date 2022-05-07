@@ -1,0 +1,15 @@
+{{- if .Values.init.manifests }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-init-manifests
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+data:
+  initmanifests.yaml: |-
+    {{ .Values.init.manifests | nindent 4 | trim }}
+{{- end }}
