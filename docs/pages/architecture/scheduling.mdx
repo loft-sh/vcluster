@@ -11,6 +11,40 @@ sidebar_label: Pod Scheduling
 Vcluster runs your workloads by replicating pods from the virtual cluster to the host cluster. We call this process synchronization or sync for short. This process is executed by the "syncer" component of the vcluster.
 To control how vcluster pods are scheduled on the host cluster, you may need to pass additional arguments to the syncer, or set certain helm chart values during vcluster installation and upgrade. Some of these options are described in the chapters below.
 
+## Separate vcluster Scheduler
+
+:::info
+Version v0.8.0 or higher required
+:::
+
+By default, vcluster will reuse the scheduler of the host cluster to schedule workloads. This saves computing resources, but also has some limitations:
+1. Labeling nodes inside the virtual cluster has no effect on scheduling
+2. Draining or tainting nodes inside the virtual cluster has no effect on scheduling
+3. You cannot use custom schedulers inside the vcluster
+
+Sometimes you want to label a node inside the vcluster to modify workload scheduling through features such as [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) or [topology spreading](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/). vcluster supports running a scheduler inside the virtual cluster instead of reusing the host cluster's scheduler.
+vcluster will then only sync pods that already have a node assigned to the host cluster.
+
+You can enable the virtual scheduler via the `values.yaml` of vcluster:
+```yaml
+sync:
+  nodes:
+    enabled: true
+    enableScheduler: true
+    # Either syncAllNodes or nodeSelector is required
+    syncAllNodes: true
+```
+
+Then create or upgrade a vcluster with:
+```
+vcluster create my-vcluster -n my-vcluster-namespace -f values.yaml
+```
+
+Now you can taint and label nodes inside the virtual cluster without actually modifying the host cluster nodes.
+
+## Reuse Host Scheduler
+
+If you don't want to use a separate scheduler inside the vcluster, you can also customize to a certain degree how the host scheduler will schedule your virtual cluster workloads.
 
 ### Using priority classes
 
