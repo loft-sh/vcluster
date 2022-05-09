@@ -2,6 +2,10 @@ package controllers
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
@@ -146,6 +150,12 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 		return err
 	}
 
+	// register service syncer to map services between host and virtual cluster
+	err = registerServiceSyncControllers(ctx)
+	if err != nil {
+		return err
+	}
+
 	// register controllers for resource synchronization
 	for _, v := range syncers {
 		// fake syncer?
@@ -185,6 +195,120 @@ func registerInitManifestsController(ctx *context.ControllerContext) error {
 	}
 
 	return nil
+}
+
+func registerServiceSyncControllers(ctx *context.ControllerContext) error {
+	if len(ctx.Options.MapHostServices) > 0 {
+		mapping, err := parseMapping(ctx.Options.MapHostServices, ctx.Options.TargetNamespace, "")
+		if err != nil {
+			return errors.Wrap(err, "parse physical service mapping")
+		}
+
+		// sync we are syncing from arbitrary physical namespaces we need to create a new
+		// manager that listens on global services
+		globalLocalManager, err := ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
+			Scheme:             ctx.LocalManager.GetScheme(),
+			MetricsBindAddress: "0",
+			LeaderElection:     false,
+			NewClient:          blockingcacheclient.NewCacheClient,
+		})
+		if err != nil {
+			return err
+		}
+
+		// start the manager
+		go func() {
+			err := globalLocalManager.Start(ctx.Context)
+			if err != nil {
+				panic(err)
+			}
+		}()
+
+		// Wait for caches to be synced
+		globalLocalManager.GetCache().WaitForCacheSync(ctx.Context)
+
+		// register controller
+		controller := &servicesync.ServiceSyncer{
+			SyncServices:    mapping,
+			CreateNamespace: true,
+			CreateEndpoints: true,
+			From:            globalLocalManager,
+			To:              ctx.VirtualManager,
+			Log:             loghelper.New("map-host-service-syncer"),
+		}
+		err = controller.Register()
+		if err != nil {
+			return errors.Wrap(err, "register physical service sync controller")
+		}
+	}
+
+	if len(ctx.Options.MapVirtualServices) > 0 {
+		mapping, err := parseMapping(ctx.Options.MapVirtualServices, "", ctx.Options.TargetNamespace)
+		if err != nil {
+			return errors.Wrap(err, "parse physical service mapping")
+		}
+
+		controller := &servicesync.ServiceSyncer{
+			SyncServices: mapping,
+			From:         ctx.VirtualManager,
+			To:           ctx.LocalManager,
+			Log:          loghelper.New("map-virtual-service-syncer"),
+		}
+		err = controller.Register()
+		if err != nil {
+			return errors.Wrap(err, "register virtual service sync controller")
+		}
+	}
+
+	return nil
+}
+
+func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace string) (map[string]types.NamespacedName, error) {
+	ret := map[string]types.NamespacedName{}
+	for _, m := range mappings {
+		splitted := strings.Split(m, "=")
+		if len(splitted) != 2 {
+			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
+		} else if len(splitted[0]) == 0 || len(splitted[1]) == 0 {
+			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
+		}
+
+		fromSplitted := strings.Split(splitted[0], "/")
+		if len(fromSplitted) == 1 {
+			if fromDefaultNamespace == "" {
+				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
+			}
+
+			splitted[0] = fromDefaultNamespace + "/" + splitted[0]
+		} else if len(fromSplitted) != 2 {
+			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
+		}
+
+		toSplitted := strings.Split(splitted[1], "/")
+		if len(toSplitted) == 1 {
+			if toDefaultNamespace == "" {
+				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=namespace2/service2")
+			}
+
+			ret[splitted[0]] = types.NamespacedName{
+				Namespace: toDefaultNamespace,
+				Name:      splitted[1],
+			}
+		} else if len(toSplitted) == 2 {
+			if toDefaultNamespace != "" {
+				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
+			}
+
+			ret[splitted[0]] = types.NamespacedName{
+				Namespace: toSplitted[0],
+				Name:      toSplitted[1],
+			}
+		} else {
+			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
+		}
+	}
+
+	return ret, nil
 }
 
 func registerCoreDNSController(ctx *context.ControllerContext) error {

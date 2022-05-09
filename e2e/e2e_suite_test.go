@@ -23,6 +23,7 @@ import (
 	// Register tests
 	_ "github.com/loft-sh/vcluster/e2e/test/coredns"
 	_ "github.com/loft-sh/vcluster/e2e/test/k8sdefaultendpoint"
+	_ "github.com/loft-sh/vcluster/e2e/test/servicesync"
 	_ "github.com/loft-sh/vcluster/e2e/test/manifests"
 	_ "github.com/loft-sh/vcluster/e2e/test/syncer/networkpolicies"
 	_ "github.com/loft-sh/vcluster/e2e/test/syncer/pods"

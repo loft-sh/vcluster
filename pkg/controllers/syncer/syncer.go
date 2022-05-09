@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/constants"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -78,6 +79,11 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 
 		vObj = nil
+	}
+
+	// check if we should skip resource
+	if vObj != nil && vObj.GetAnnotations() != nil && vObj.GetAnnotations()[constants.SkipSyncAnnotation] == "true" {
+		return ctrl.Result{}, nil
 	}
 
 	// translate to physical name

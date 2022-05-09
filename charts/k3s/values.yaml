@@ -80,6 +80,24 @@ sync:
   serviceaccounts:
     enabled: false
 
+# Map Services between host and virtual cluster
+mapServices:
+  # Services that should get mapped from the
+  # virtual cluster to the host cluster.
+  # vcluster will make sure to sync the service
+  # ip to the host cluster automatically as soon
+  # as the service exists.
+  # For example:
+  # fromVirtual:
+  #   from: my-namespace/name
+  #   to: host-service
+  fromVirtual: []
+  # Same as from virtual, but instead sync services
+  # from the host cluster into the virtual cluster.
+  # If the namespace does not exist, vcluster will
+  # also create the namespace for the service.
+  fromHost: []
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer

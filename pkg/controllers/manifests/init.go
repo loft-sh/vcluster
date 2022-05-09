@@ -28,20 +28,20 @@ type InitManifestsConfigMapReconciler struct {
 }
 
 func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// TODO: implement better filteration through predicates
+	if req.Name != translate.Suffix+InitManifestSuffix {
+		return ctrl.Result{}, nil
+	}
+
 	cm := &corev1.ConfigMap{}
 	err := r.LocalClient.Get(ctx, req.NamespacedName, cm)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			r.Log.Errorf("configmap not found %v", err)
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		}
 
 		return ctrl.Result{}, err
-	}
-
-	// TODO: implement better filteration through predicates
-	if cm.Name != translate.Suffix+InitManifestSuffix {
-		return ctrl.Result{}, nil
 	}
 
 	var cmData []string
