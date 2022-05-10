@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"io/ioutil"
 	"math"
 	"os"
@@ -26,7 +28,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
 
 	"github.com/loft-sh/vcluster/pkg/server"
-	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
@@ -127,12 +128,13 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().Int64Var(&options.RetryPeriod, "retry-period", 15, "Retry period of the leader election in seconds")
 
 	cmd.Flags().BoolVar(&options.DisablePlugins, "disable-plugins", false, "If enabled, vcluster will not load any plugins")
-	cmd.Flags().StringVar(&options.PluginListenAddress, "plugin-address", "localhost:10099", "The plugin address to listen to. If this is changed, you'll need to configure your plugins to connect to the updated port")
+	cmd.Flags().StringVar(&options.PluginListenAddress, "plugin-listen-address", "localhost:10099", "The plugin address to listen to. If this is changed, you'll need to configure your plugins to connect to the updated port")
 
 	cmd.Flags().StringVar(&options.DefaultImageRegistry, "default-image-registry", "", "This address will be prepended to all deployed system images by vcluster")
 
 	cmd.Flags().StringVar(&options.EnforcePodSecurityStandard, "enforce-pod-security-standard", "", "This can be set to privileged, baseline, restricted and vcluster would make sure during translation that these policies are enforced.")
 	cmd.Flags().StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions.")
+	cmd.Flags().StringSliceVar(&options.PluginAddresses, "plugin-address", []string{}, "A plugin and its grpc server address. E.g. my-plugin=localhost:14000")
 
 	cmd.Flags().StringSliceVar(&options.MapVirtualServices, "map-virtual-service", []string{}, "Maps a given service inside the virtual cluster to a service inside the host cluster. E.g. default/test=physical-service")
 	cmd.Flags().StringSliceVar(&options.MapHostServices, "map-host-service", []string{}, "Maps a given service inside the host cluster to a service inside the virtual cluster. E.g. other-namespace/my-service=my-vcluster-namespace/my-service")
@@ -264,13 +266,33 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	inClusterConfig.Burst = 80
 	inClusterConfig.Timeout = 0
 
+	// start leader election for controllers
+	rawConfig, err := clientConfig.RawConfig()
+	if err != nil {
+		return err
+	}
+
+	// start plugins
+	if !options.DisablePlugins {
+		klog.Infof("Start Plugins Manager...")
+		syncerConfig, err := createVClusterKubeConfig(&rawConfig, options)
+		if err != nil {
+			return err
+		}
+
+		err = plugin.DefaultManager.Start(currentNamespace, options.TargetNamespace, virtualClusterConfig, inClusterConfig, syncerConfig, options)
+		if err != nil {
+			return err
+		}
+	}
+
 	klog.Info("Using physical cluster at " + inClusterConfig.Host)
 	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
 		Namespace:          options.TargetNamespace,
-		NewClient:          blockingcacheclient.NewCacheClient,
+		NewClient:          pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
 	})
 	if err != nil {
 		return err
@@ -279,7 +301,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		Scheme:             scheme,
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
-		NewClient:          blockingcacheclient.NewCacheClient,
+		NewClient:          pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
 	})
 	if err != nil {
 		return err
@@ -316,28 +338,6 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 			klog.Fatalf("Error serving: %v", err)
 		}
 	}()
-
-	// start leader election for controllers
-	rawConfig, err := clientConfig.RawConfig()
-	if err != nil {
-		return err
-	}
-
-	// start plugins
-	if !ctx.Options.DisablePlugins {
-		klog.Infof("Start Plugins Manager...")
-		go func() {
-			syncerConfig, err := createVClusterKubeConfig(ctx, &rawConfig)
-			if err != nil {
-				panic(err)
-			}
-
-			err = plugin.DefaultManager.Start(controllers.ToRegisterContext(ctx), syncerConfig)
-			if err != nil {
-				panic(err)
-			}
-		}()
-	}
 
 	if ctx.Options.LeaderElect {
 		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
@@ -478,7 +478,7 @@ func syncKubernetesService(ctx *context2.ControllerContext) error {
 	return nil
 }
 
-func createVClusterKubeConfig(ctx *context2.ControllerContext, config *api.Config) (*api.Config, error) {
+func createVClusterKubeConfig(config *api.Config, options *context2.VirtualClusterOptions) (*api.Config, error) {
 	config = config.DeepCopy()
 
 	// exchange kube config server & resolve certificate
@@ -494,10 +494,10 @@ func createVClusterKubeConfig(ctx *context2.ControllerContext, config *api.Confi
 			config.Clusters[i].CertificateAuthorityData = o
 		}
 
-		if ctx.Options.KubeConfigServer != "" {
-			config.Clusters[i].Server = ctx.Options.KubeConfigServer
+		if options.KubeConfigServer != "" {
+			config.Clusters[i].Server = options.KubeConfigServer
 		} else {
-			config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", ctx.Options.Port)
+			config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", options.Port)
 		}
 	}
 
@@ -528,7 +528,7 @@ func createVClusterKubeConfig(ctx *context2.ControllerContext, config *api.Confi
 }
 
 func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config) error {
-	config, err := createVClusterKubeConfig(ctx, config)
+	config, err := createVClusterKubeConfig(config, ctx.Options)
 	if err != nil {
 		return err
 	}
