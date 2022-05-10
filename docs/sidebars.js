@@ -54,6 +54,7 @@ module.exports = {
         'operator/external-access',
         'operator/external-datastore',
         'operator/accessing-vcluster',
+        'operator/init-manifests',
         'operator/monitoring',
         'operator/high-availability',
         'operator/other-distributions',
