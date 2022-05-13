@@ -53,6 +53,11 @@ spec:
       tolerations:
 {{ toYaml .Values.api.tolerations | indent 8 }}
       automountServiceAccountToken: false
+      {{- if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- else }}
+      serviceAccountName: vc-{{ .Release.Name }}
+      {{- end }}
       volumes:
         - name: certs
           secret:
