@@ -49,11 +49,12 @@ spec:
       release: {{ .Release.Name }}
   egress:
     # Allows outgoing connections to all pods with
-    # port 443 or 8443. This is needed for host Kubernetes
+    # port 443, 8443 or 6443. This is needed for host Kubernetes
     # access
     - ports:
         - port: 443
         - port: 8443
+        - port: 6443
     # Allows outgoing connections to all vcluster workloads
     # or kube system dns server
     - to:
