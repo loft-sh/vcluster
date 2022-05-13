@@ -52,11 +52,14 @@ func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ct
 	// make array stable or otherwise order is random
 	sort.Strings(cmData)
 	manifests := strings.Join(cmData, "\n---\n")
-	lastAppliedManifests := cm.ObjectMeta.Annotations[LastAppliedManifestKey]
-	if lastAppliedManifests != "" {
-		lastAppliedManifests, err = compress.Uncompress(lastAppliedManifests)
-		if err != nil {
-			r.Log.Errorf("error decompressing manifests: %v", err)
+	lastAppliedManifests := ""
+	if cm.ObjectMeta.Annotations != nil {
+		lastAppliedManifests = cm.ObjectMeta.Annotations[LastAppliedManifestKey]
+		if lastAppliedManifests != "" {
+			lastAppliedManifests, err = compress.Uncompress(lastAppliedManifests)
+			if err != nil {
+				r.Log.Errorf("error decompressing manifests: %v", err)
+			}
 		}
 	}
 
@@ -80,6 +83,9 @@ func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	// update annotation
+	if cm.ObjectMeta.Annotations == nil {
+		cm.ObjectMeta.Annotations = map[string]string{}
+	}
 	cm.ObjectMeta.Annotations[LastAppliedManifestKey] = compressedManifests
 	err = r.LocalClient.Update(ctx, cm, &client.UpdateOptions{})
 	if err != nil {
