@@ -253,6 +253,15 @@ coredns:
     # Extra Annotations
     annotations: {}
 
+  # NodeSelector used to schedule the vcluster
+  nodeSelector: {}
+
+  # Affinity to apply to the vcluster statefulset
+  affinity: {}
+
+  # Tolerations to apply to the vcluster statefulset
+  tolerations: []
+
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas
 isolation:
