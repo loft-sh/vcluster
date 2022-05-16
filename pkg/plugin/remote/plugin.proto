@@ -10,12 +10,44 @@ service PluginInitializer {
     rpc IsLeader (Empty) returns (LeaderInfo) {}
 }
 
+service Plugin {
+    rpc Register (RegisterPluginRequest) returns (RegisterPluginResult) {}
+    rpc Mutate (MutateRequest) returns (MutateResult) {}
+}
+
+message RegisterPluginRequest {
+
+}
+
+message RegisterPluginResult {
+    repeated ClientHook clientHooks = 1;
+}
+
+message ClientHook {
+    string apiVersion = 1;
+    string kind = 2;
+    repeated string types = 3;
+}
+
+message MutateRequest {
+    string apiVersion = 1;
+    string kind = 2;
+    string object = 3;
+    string type = 4;
+}
+
+message MutateResult {
+    string object = 1;
+    bool mutated = 2;
+}
+
 message LeaderInfo {
     bool leader = 1;
 }
 
 message PluginInfo {
     string name = 1;
+    string version = 2;
 }
 
 message Context {

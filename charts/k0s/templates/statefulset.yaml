@@ -126,6 +126,11 @@ spec:
           - --server-ca-cert=/data/k0s/pki/ca.crt
           - --server-ca-key=/data/k0s/pki/ca.key
           - --kube-config=/data/k0s/pki/admin.conf
+          {{- $counter := -1 -}}
+          {{- range $key, $container := .Values.plugin }}
+          {{- $counter = add1 $counter }}
+          - --plugin-address={{ $key }}=localhost:{{ add 14000 $counter }}
+          {{- end }}
           {{- include "vcluster.serviceMapping.fromHost" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
           {{- if .Values.sync.nodes.enableScheduler }}
@@ -191,7 +196,9 @@ spec:
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}
       {{- end }}
+      {{- $counter := -1 -}}
       {{- range $key, $container := .Values.plugin }}
+      {{- $counter = add1 $counter }}
       - image: {{ $.Values.defaultImageRegistry }}{{ $container.image }}
         {{- if $container.name }}
         name: {{ $container.name | quote }}
@@ -223,7 +230,11 @@ spec:
         terminationMessagePolicy: {{ $container.terminationMessagePolicy }}
         {{- end }}
         env:
+          - name: VCLUSTER_PLUGIN_ADDRESS
+            value: "localhost:{{ add 14000 $counter }}"
+        {{- if $container.env }}
 {{ toYaml $container.env | indent 10 }}
+        {{- end }}
         envFrom:
 {{ toYaml $container.envFrom | indent 10 }}
         securityContext:

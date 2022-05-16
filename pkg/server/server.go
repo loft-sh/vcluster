@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"io"
 	"net"
 	"net/http"
@@ -113,6 +114,12 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	if err != nil {
 		return nil, err
 	}
+
+	// wrap clients
+	uncachedVirtualClient = pluginhookclient.WrapVirtualClient(uncachedVirtualClient)
+	cachedVirtualClient = pluginhookclient.WrapVirtualClient(cachedVirtualClient)
+	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
+	cachedLocalClient = pluginhookclient.WrapPhysicalClient(cachedLocalClient)
 
 	certSyncer, err := cert.NewSyncer(ctx.CurrentNamespace, cachedLocalClient, ctx.Options)
 	if err != nil {

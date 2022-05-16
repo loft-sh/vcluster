@@ -57,8 +57,9 @@ type VirtualClusterOptions struct {
 	RenewDeadline int64 `json:"renewDeadline,omitempty"`
 	RetryPeriod   int64 `json:"retryPeriod,omitempty"`
 
-	DisablePlugins      bool   `json:"disablePlugins,omitempty"`
-	PluginListenAddress string `json:"pluginListenAddress,omitempty"`
+	DisablePlugins      bool     `json:"disablePlugins,omitempty"`
+	PluginListenAddress string   `json:"pluginListenAddress,omitempty"`
+	PluginAddresses     []string `json:"pluginAddresses,omitempty"`
 
 	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
 

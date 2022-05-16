@@ -4,11 +4,16 @@ import (
 	context "context"
 	"encoding/json"
 	"fmt"
+	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"go.uber.org/atomic"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"net"
+	"strings"
+	"sync"
+	"time"
 
 	remote "github.com/loft-sh/vcluster/pkg/plugin/remote"
 	grpc "google.golang.org/grpc"
@@ -16,16 +21,28 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/pkg/errors"
 )
 
-var DefaultManager Manager = &manager{}
+var DefaultManager Manager = &manager{
+	clientHooks:    map[VersionKindType][]*Plugin{},
+	pluginVersions: map[string]string{},
+}
 
 type Manager interface {
-	Start(context *synccontext.RegisterContext, syncerConfig *clientcmdapi.Config) error
+	Start(
+		currentNamespace, targetNamespace string,
+		virtualKubeConfig *rest.Config,
+		physicalKubeConfig *rest.Config,
+		syncerConfig *clientcmdapi.Config,
+		options *context2.VirtualClusterOptions,
+	) error
 	SetLeader(isLeader bool)
+	ClientHooksFor(versionKindType VersionKindType) []*Plugin
+	HasClientHooks() bool
 }
+
+var _ remote.PluginInitializerServer = &manager{}
 
 type manager struct {
 	remote.UnimplementedPluginInitializerServer
@@ -39,27 +56,56 @@ type manager struct {
 
 	options string
 
-	isLeader atomic.Bool
+	isLeader    atomic.Bool
+	clientHooks map[VersionKindType][]*Plugin
+
+	pluginMutex    sync.Mutex
+	pluginVersions map[string]string
+}
+
+type VersionKindType struct {
+	ApiVersion string
+	Kind       string
+	Type       string
+}
+
+type Plugin struct {
+	Name    string
+	Address string
+}
+
+func (m *manager) HasClientHooks() bool {
+	return len(m.clientHooks) > 0
+}
+
+func (m *manager) ClientHooksFor(versionKindType VersionKindType) []*Plugin {
+	return m.clientHooks[versionKindType]
 }
 
 func (m *manager) SetLeader(isLeader bool) {
 	m.isLeader.Store(isLeader)
 }
 
-func (m *manager) Start(ctx *synccontext.RegisterContext, syncerConfig *clientcmdapi.Config) error {
+func (m *manager) Start(
+	currentNamespace, targetNamespace string,
+	virtualKubeConfig *rest.Config,
+	physicalKubeConfig *rest.Config,
+	syncerConfig *clientcmdapi.Config,
+	options *context2.VirtualClusterOptions,
+) error {
 	// base options
-	m.currentNamespace = ctx.CurrentNamespace
-	m.targetNamespace = ctx.TargetNamespace
+	m.currentNamespace = currentNamespace
+	m.targetNamespace = targetNamespace
 
 	// Context options
-	out, err := json.Marshal(ctx.Options)
+	out, err := json.Marshal(options)
 	if err != nil {
 		return errors.Wrap(err, "marshal options")
 	}
 	m.options = string(out)
 
 	// Virtual client config
-	convertedVirtualConfig, err := ConvertRestConfigToClientConfig(ctx.VirtualManager.GetConfig())
+	convertedVirtualConfig, err := ConvertRestConfigToClientConfig(virtualKubeConfig)
 	if err != nil {
 		return errors.Wrap(err, "convert virtual client config")
 	}
@@ -74,7 +120,7 @@ func (m *manager) Start(ctx *synccontext.RegisterContext, syncerConfig *clientcm
 	m.virtualKubeConfig = string(virtualConfigBytes)
 
 	// Physical client config
-	convertedPhysicalConfig, err := ConvertRestConfigToClientConfig(ctx.PhysicalManager.GetConfig())
+	convertedPhysicalConfig, err := ConvertRestConfigToClientConfig(physicalKubeConfig)
 	if err != nil {
 		return errors.Wrap(err, "convert physical client config")
 	}
@@ -96,8 +142,8 @@ func (m *manager) Start(ctx *synccontext.RegisterContext, syncerConfig *clientcm
 	m.syncerKubeConfig = string(syncerConfigBytes)
 
 	// start the grpc server
-	loghelper.Infof("Plugin server listening on %s", ctx.Options.PluginListenAddress)
-	lis, err := net.Listen("tcp", ctx.Options.PluginListenAddress)
+	loghelper.Infof("Plugin server listening on %s", options.PluginListenAddress)
+	lis, err := net.Listen("tcp", options.PluginListenAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
@@ -105,7 +151,91 @@ func (m *manager) Start(ctx *synccontext.RegisterContext, syncerConfig *clientcm
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	remote.RegisterPluginInitializerServer(grpcServer, m)
-	return grpcServer.Serve(lis)
+	go func() {
+		err := grpcServer.Serve(lis)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	return m.registerClientHooks(options)
+}
+
+func (m *manager) registerClientHooks(options *context2.VirtualClusterOptions) error {
+	now := time.Now()
+	for _, pluginAddress := range options.PluginAddresses {
+		splitted := strings.Split(pluginAddress, "=")
+		if len(splitted) != 2 {
+			return fmt.Errorf("error parsing plugin address '%s': expected plugin=address", pluginAddress)
+		}
+
+		err := wait.PollImmediate(time.Second, time.Minute*3, func() (done bool, err error) {
+			// check if old plugin version
+			m.pluginMutex.Lock()
+			version, ok := m.pluginVersions[splitted[0]]
+			if ok && version == "" {
+				m.pluginMutex.Unlock()
+				return true, nil
+			}
+			m.pluginMutex.Unlock()
+
+			// try to reach plugin grpc server
+			conn, err := grpc.Dial(splitted[1], grpc.WithInsecure())
+			if err != nil {
+				if time.Since(now) > time.Second*20 {
+					klog.Infof("Error dialing plugin %s: %v", splitted[0], err)
+				}
+				return false, nil
+			}
+			defer conn.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
+
+			registerResult, err := remote.NewPluginClient(conn).Register(ctx, &remote.RegisterPluginRequest{})
+			if err != nil {
+				if time.Since(now) > time.Second*20 {
+					klog.Infof("Error registering plugin %s: %v", splitted[0], err)
+				}
+				return false, nil
+			}
+
+			// register new client hooks
+			plugin := &Plugin{
+				Name:    splitted[0],
+				Address: splitted[1],
+			}
+			for _, clientHookInfo := range registerResult.ClientHooks {
+				if clientHookInfo.ApiVersion == "" {
+					return false, fmt.Errorf("api version is empty in plugin %s hook", plugin.Name)
+				} else if clientHookInfo.Kind == "" {
+					return false, fmt.Errorf("kind is empty in plugin %s hook", plugin.Name)
+				}
+
+				for _, t := range clientHookInfo.Types {
+					if t == "" {
+						continue
+					}
+
+					versionKindType := VersionKindType{
+						ApiVersion: clientHookInfo.ApiVersion,
+						Kind:       clientHookInfo.Kind,
+						Type:       t,
+					}
+					m.clientHooks[versionKindType] = append(m.clientHooks[versionKindType], plugin)
+				}
+
+				klog.Infof("Register client hook for %s %s in plugin %s", clientHookInfo.ApiVersion, clientHookInfo.Kind, plugin.Name)
+			}
+
+			return true, nil
+		})
+		if err != nil {
+			return fmt.Errorf("error waiting for plugin %s: %v", splitted[0], err)
+		}
+	}
+
+	return nil
 }
 
 func (m *manager) IsLeader(ctx context.Context, empty *remote.Empty) (*remote.LeaderInfo, error) {
@@ -117,7 +247,12 @@ func (m *manager) IsLeader(ctx context.Context, empty *remote.Empty) (*remote.Le
 func (m *manager) Register(ctx context.Context, info *remote.PluginInfo) (*remote.Context, error) {
 	if info != nil && info.Name != "" {
 		klog.Infof("Registering plugin %s", info.Name)
+
+		m.pluginMutex.Lock()
+		m.pluginVersions[info.Name] = info.Version
+		m.pluginMutex.Unlock()
 	}
+
 	return &remote.Context{
 		VirtualClusterConfig:  m.virtualKubeConfig,
 		PhysicalClusterConfig: m.physicalKubeConfig,

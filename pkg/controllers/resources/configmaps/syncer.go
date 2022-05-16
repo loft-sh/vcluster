@@ -89,6 +89,8 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	configMap, ok := vObj.(*corev1.ConfigMap)
 	if !ok || configMap == nil {
 		return false, fmt.Errorf("%#v is not a config map", vObj)
+	} else if configMap.Annotations != nil && configMap.Annotations[constants.SyncResourceAnnotation] == "true" {
+		return true, nil
 	}
 
 	podList := &corev1.PodList{}

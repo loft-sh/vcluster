@@ -127,6 +127,8 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 	secret, ok := vObj.(*corev1.Secret)
 	if !ok || secret == nil {
 		return false, fmt.Errorf("%#v is not a secret", vObj)
+	} else if secret.Annotations != nil && secret.Annotations[constants.SyncResourceAnnotation] == "true" {
+		return true, nil
 	}
 
 	isUsed, err := isSecretUsedByPods(context.TODO(), ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
