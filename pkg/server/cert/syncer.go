@@ -127,7 +127,7 @@ func (s *syncer) getSANs() ([]string, error) {
 	return retSANs, nil
 }
 
-func (s *syncer) RunOnce() error {
+func (s *syncer) RunOnce(ctx context.Context) error {
 	s.currentCertMutex.Lock()
 	defer s.currentCertMutex.Unlock()
 
@@ -154,7 +154,7 @@ func (s *syncer) regen(extraSANs []string) error {
 	return nil
 }
 
-func (s *syncer) Run(workers int, stopCh <-chan struct{}) {
+func (s *syncer) Run(ctx context.Context, workers int) {
 	wait.JitterUntil(func() {
 		extraSANs, err := s.getSANs()
 		if err != nil {
@@ -176,5 +176,5 @@ func (s *syncer) Run(workers int, stopCh <-chan struct{}) {
 				l.Enqueue()
 			}
 		}
-	}, time.Second*2, 1.25, true, stopCh)
+	}, time.Second*2, 1.25, true, ctx.Done())
 }

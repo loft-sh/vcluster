@@ -88,7 +88,7 @@ func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions,
 	}
 
 	// allow for a success message operation to be specified at print time
-	dryRunVerifier := resource.NewDryRunVerifier(dynamicClient, flags.Factory.OpenAPIGetter())
+	dryRunVerifier := resource.NewQueryParamVerifier(dynamicClient, flags.Factory.OpenAPIGetter(), resource.QueryParamDryRun)
 	toPrinter := func(operation string) (printers.ResourcePrinter, error) {
 		flags.PrintFlags.NamePrintFlags.Operation = operation
 		cmdutil.PrintFlagsWithDryRunStrategy(flags.PrintFlags, cmdutil.DryRunNone)

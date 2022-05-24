@@ -32,7 +32,6 @@ func TestFakeSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "testpvc",
 			Namespace:       "testns",
-			ClusterName:     "myvcluster",
 			ResourceVersion: generictesting.FakeClientResourceVersion,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
