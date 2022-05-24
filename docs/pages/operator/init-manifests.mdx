@@ -1,0 +1,20 @@
+---
+title: Applying manifests on initialization
+sidebar_label: Applying manifests on init
+---
+
+Starting in version 0.8.0, vcluster allows users to apply manifests as soon as the vcluster is started. This can be useful for users configuring internal vcluster resources.
+
+This can be configured via `helm` values:
+
+```yaml
+init:
+  manifests: |-
+    apiVersion: v1
+    kind: Service
+    ...
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    ...
+```
