@@ -232,7 +232,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 
 	// create server
 	klog.Info("Starting tls proxy server at " + address + ":" + strconv.Itoa(port))
-	stopped, err := serverConfig.SecureServing.Serve(s.buildHandlerChain(serverConfig), serverConfig.RequestTimeout, stopChan)
+	stopped, _, err := serverConfig.SecureServing.Serve(s.buildHandlerChain(serverConfig), serverConfig.RequestTimeout, stopChan)
 	if err != nil {
 		return err
 	}

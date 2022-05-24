@@ -92,6 +92,7 @@ type ClientBuilder struct {
 	initObject         []client.Object
 	initLists          []client.ObjectList
 	initRuntimeObjects []runtime.Object
+	objectTracker      testing.ObjectTracker
 }
 
 // WithScheme sets this builder's internal scheme.
@@ -128,6 +129,12 @@ func (f *ClientBuilder) WithRuntimeObjects(initRuntimeObjs ...runtime.Object) *C
 	return f
 }
 
+// WithObjectTracker can be optionally used to initialize this fake client with testing.ObjectTracker.
+func (f *ClientBuilder) WithObjectTracker(ot testing.ObjectTracker) *ClientBuilder {
+	f.objectTracker = ot
+	return f
+}
+
 // Build builds and returns a new fake client.
 func (f *ClientBuilder) Build() client.WithWatch {
 	if f.scheme == nil {
@@ -137,7 +144,14 @@ func (f *ClientBuilder) Build() client.WithWatch {
 		f.restMapper = meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	}
 
-	tracker := versionedTracker{ObjectTracker: testing.NewObjectTracker(f.scheme, scheme.Codecs.UniversalDecoder()), scheme: f.scheme}
+	var tracker versionedTracker
+
+	if f.objectTracker == nil {
+		tracker = versionedTracker{ObjectTracker: testing.NewObjectTracker(f.scheme, scheme.Codecs.UniversalDecoder()), scheme: f.scheme}
+	} else {
+		tracker = versionedTracker{ObjectTracker: f.objectTracker, scheme: f.scheme}
+	}
+
 	for _, obj := range f.initObject {
 		if err := tracker.Add(obj); err != nil {
 			panic(fmt.Errorf("failed to add object %v to fake client: %w", obj, err))
@@ -201,7 +215,7 @@ func (t versionedTracker) Add(obj runtime.Object) error {
 func (t versionedTracker) Create(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
-		return fmt.Errorf("failed to get accessor for object: %v", err)
+		return fmt.Errorf("failed to get accessor for object: %w", err)
 	}
 	if accessor.GetName() == "" {
 		return apierrors.NewInvalid(
@@ -227,7 +241,7 @@ func (t versionedTracker) Create(gvr schema.GroupVersionResource, obj runtime.Ob
 
 // convertFromUnstructuredIfNecessary will convert *unstructured.Unstructured for a GVK that is recocnized
 // by the schema into the whatever the schema produces with New() for said GVK.
-// This is required because the tracker unconditionally saves on manipulations, but it's List() implementation
+// This is required because the tracker unconditionally saves on manipulations, but its List() implementation
 // tries to assign whatever it finds into a ListType it gets from schema.New() - Thus we have to ensure
 // we save as the very same type, otherwise subsequent List requests will fail.
 func convertFromUnstructuredIfNecessary(s *runtime.Scheme, o runtime.Object) (runtime.Object, error) {
@@ -255,7 +269,7 @@ func convertFromUnstructuredIfNecessary(s *runtime.Scheme, o runtime.Object) (ru
 func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
-		return fmt.Errorf("failed to get accessor for object: %v", err)
+		return fmt.Errorf("failed to get accessor for object: %w", err)
 	}
 
 	if accessor.GetName() == "" {
@@ -301,7 +315,7 @@ func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Ob
 	}
 	intResourceVersion, err := strconv.ParseUint(oldAccessor.GetResourceVersion(), 10, 64)
 	if err != nil {
-		return fmt.Errorf("can not convert resourceVersion %q to int: %v", oldAccessor.GetResourceVersion(), err)
+		return fmt.Errorf("can not convert resourceVersion %q to int: %w", oldAccessor.GetResourceVersion(), err)
 	}
 	intResourceVersion++
 	accessor.SetResourceVersion(strconv.FormatUint(intResourceVersion, 10))
@@ -352,9 +366,7 @@ func (c *fakeClient) Watch(ctx context.Context, list client.ObjectList, opts ...
 		return nil, err
 	}
 
-	if strings.HasSuffix(gvk.Kind, "List") {
-		gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
-	}
+	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
 
 	listOpts := client.ListOptions{}
 	listOpts.ApplyOptions(opts)
@@ -371,9 +383,7 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 
 	originalKind := gvk.Kind
 
-	if strings.HasSuffix(gvk.Kind, "List") {
-		gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
-	}
+	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
 
 	if _, isUnstructuredList := obj.(*unstructured.UnstructuredList); isUnstructuredList && !c.scheme.Recognizes(gvk) {
 		// We need to register the ListKind with UnstructuredList:
@@ -477,6 +487,12 @@ func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...clie
 	delOptions := client.DeleteOptions{}
 	delOptions.ApplyOptions(opts)
 
+	for _, dryRunOpt := range delOptions.DryRun {
+		if dryRunOpt == metav1.DryRunAll {
+			return nil
+		}
+	}
+
 	// Check the ResourceVersion if that Precondition was specified.
 	if delOptions.Preconditions != nil && delOptions.Preconditions.ResourceVersion != nil {
 		name := accessor.GetName()
@@ -510,6 +526,12 @@ func (c *fakeClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ..
 
 	dcOptions := client.DeleteAllOfOptions{}
 	dcOptions.ApplyOptions(opts)
+
+	for _, dryRunOpt := range dcOptions.DryRun {
+		if dryRunOpt == metav1.DryRunAll {
+			return nil
+		}
+	}
 
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	o, err := c.tracker.List(gvr, gvk, dcOptions.Namespace)

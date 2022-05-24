@@ -21,7 +21,6 @@ func TestSync(t *testing.T) {
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "testPDB",
 		Namespace:       "default",
-		ClusterName:     "myvcluster",
 		ResourceVersion: generictesting.FakeClientResourceVersion,
 	}
 	pObjectMeta := metav1.ObjectMeta{

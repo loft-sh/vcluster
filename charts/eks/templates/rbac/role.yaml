@@ -18,6 +18,11 @@ rules:
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]
   {{- end }}
+  {{- if .Values.enableHA }}
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   - apiGroups: [""]
     resources: ["endpoints", "events", "pods/log"]
     verbs: ["get", "list", "watch"]

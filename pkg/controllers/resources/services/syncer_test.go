@@ -21,9 +21,8 @@ import (
 
 func TestSync(t *testing.T) {
 	vObjectMeta := metav1.ObjectMeta{
-		Name:        "testservice",
-		Namespace:   "testns",
-		ClusterName: "myvcluster",
+		Name:      "testservice",
+		Namespace: "testns",
 	}
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      translate.PhysicalName("testservice", "testns"),
@@ -38,9 +37,8 @@ func TestSync(t *testing.T) {
 		},
 	}
 	vKubernetesObjectMeta := metav1.ObjectMeta{
-		Name:        "kubernetes",
-		Namespace:   "default",
-		ClusterName: "myvcluster",
+		Name:      "kubernetes",
+		Namespace: "default",
 	}
 	baseService := &corev1.Service{
 		ObjectMeta: vObjectMeta,
@@ -75,16 +73,14 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vObjectMeta.Name,
 			Namespace:   vObjectMeta.Namespace,
-			ClusterName: vObjectMeta.ClusterName,
 			Annotations: map[string]string{"a": "b"},
 		},
 		Spec: updateForwardSpec,
 	}
 	updatedForwardService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        pObjectMeta.Name,
-			Namespace:   pObjectMeta.Namespace,
-			ClusterName: pObjectMeta.ClusterName,
+			Name:      pObjectMeta.Name,
+			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
 				translator.NameAnnotation:               vObjectMeta.Name,
 				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
@@ -140,9 +136,8 @@ func TestSync(t *testing.T) {
 	}
 	updatedBackwardSpecRecreateService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        vObjectMeta.Name,
-			Namespace:   vObjectMeta.Namespace,
-			ClusterName: vObjectMeta.ClusterName,
+			Name:      vObjectMeta.Name,
+			Namespace: vObjectMeta.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP:      "123:123:123:123",

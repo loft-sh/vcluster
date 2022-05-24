@@ -295,6 +295,5 @@ func ResetObjectMetadata(obj metav1.Object) {
 	obj.SetDeletionGracePeriodSeconds(nil)
 	obj.SetOwnerReferences(nil)
 	obj.SetFinalizers(nil)
-	obj.SetClusterName("")
 	obj.SetManagedFields(nil)
 }
