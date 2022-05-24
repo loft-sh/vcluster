@@ -44,10 +44,17 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 	}
 
 	// Lock required for leader election
-	rl, err := resourcelock.New("configmapsleases", ctx.CurrentNamespace, translate.SafeConcatName("vcluster", translate.Suffix, "controller"), leaderElectionClient.CoreV1(), leaderElectionClient.CoordinationV1(), resourcelock.ResourceLockConfig{
-		Identity:      id + "-external-vcluster-controller",
-		EventRecorder: recorder,
-	})
+	rl, err := resourcelock.New(
+		resourcelock.ConfigMapsLeasesResourceLock,
+		ctx.CurrentNamespace,
+		translate.SafeConcatName("vcluster", translate.Suffix, "controller"),
+		leaderElectionClient.CoreV1(),
+		leaderElectionClient.CoordinationV1(),
+		resourcelock.ResourceLockConfig{
+			Identity:      id + "-external-vcluster-controller",
+			EventRecorder: recorder,
+		},
+	)
 	if err != nil {
 		return err
 	}
