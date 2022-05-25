@@ -27,6 +27,11 @@ rules:
     resources: ["persistentvolumes"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
   {{- end }}
+  {{- if .Values.sync.nodes.enableScheduler }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
   {{- if or .Values.sync.storageclasses.enabled .Values.rbac.clusterRole.create }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
