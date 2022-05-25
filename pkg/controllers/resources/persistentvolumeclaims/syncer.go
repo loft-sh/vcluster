@@ -31,13 +31,15 @@ const (
 	bindCompletedAnnotation      = "pv.kubernetes.io/bind-completed"
 	boundByControllerAnnotation  = "pv.kubernetes.io/bound-by-controller"
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
+	selectedNodeAnnotation       = "volume.kubernetes.io/selected-node"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &persistentVolumeClaimSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation, selectedNodeAnnotation),
 
 		storageClassesEnabled:    ctx.Controllers["storageclasses"],
+		schedulerEnabled:         ctx.Options.EnableScheduler,
 		useFakePersistentVolumes: !ctx.Controllers["persistentvolumes"],
 	}, nil
 }
@@ -46,6 +48,7 @@ type persistentVolumeClaimSyncer struct {
 	translator.NamespacedTranslator
 
 	storageClassesEnabled    bool
+	schedulerEnabled         bool
 	useFakePersistentVolumes bool
 }
 
@@ -142,7 +145,12 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	// forward update
-	return s.SyncDownUpdate(ctx, vPvc, s.translateUpdate(pPvc, vPvc))
+	pPvc, err := s.translateUpdate(ctx, pPvc, vPvc)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return s.SyncDownUpdate(ctx, vPvc, pPvc)
 }
 
 func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) (bool, error) {
