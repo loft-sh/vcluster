@@ -2,7 +2,7 @@ package syncer
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -82,7 +82,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// check if we should skip resource
-	if vObj != nil && vObj.GetAnnotations() != nil && vObj.GetAnnotations()[constants.SkipSyncAnnotation] == "true" {
+	if vObj != nil && vObj.GetLabels() != nil && vObj.GetLabels()[translate.ControllerLabel] != "" {
 		return ctrl.Result{}, nil
 	}
 
@@ -95,6 +95,11 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 
 		pObj = nil
+	}
+
+	// check if we should skip resource
+	if pObj != nil && pObj.GetLabels() != nil && pObj.GetLabels()[translate.ControllerLabel] != "" {
+		return ctrl.Result{}, nil
 	}
 
 	// check what function we should call
