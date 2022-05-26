@@ -2,9 +2,9 @@ package servicesync
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -114,8 +114,8 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      to.Name,
 				Namespace: to.Namespace,
-				Annotations: map[string]string{
-					constants.SkipSyncAnnotation: "true",
+				Labels: map[string]string{
+					translate.ControllerLabel: "vcluster",
 				},
 			},
 			Spec: corev1.ServiceSpec{
@@ -125,7 +125,7 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 		services.RewriteSelector(toService, fromService)
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
-	} else if toService.Annotations == nil || toService.Annotations[constants.SkipSyncAnnotation] != "true" {
+	} else if toService.Labels == nil || toService.Labels[translate.ControllerLabel] != "vcluster" {
 		// skip as it seems the service was user created
 		return ctrl.Result{}, nil
 	}
@@ -179,8 +179,8 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      to.Name,
 				Namespace: to.Namespace,
-				Annotations: map[string]string{
-					constants.SkipSyncAnnotation: "true",
+				Labels: map[string]string{
+					translate.ControllerLabel: "vcluster",
 				},
 			},
 			Spec: corev1.ServiceSpec{
@@ -190,7 +190,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 		}
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
-	} else if toService.Annotations == nil || toService.Annotations[constants.SkipSyncAnnotation] != "true" {
+	} else if toService.Labels == nil || toService.Labels[translate.ControllerLabel] != "vcluster" {
 		// skip as it seems the service was user created
 		return ctrl.Result{}, nil
 	}
@@ -215,8 +215,8 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      to.Name,
 				Namespace: to.Namespace,
-				Annotations: map[string]string{
-					constants.SkipSyncAnnotation: "true",
+				Labels: map[string]string{
+					translate.ControllerLabel: "vcluster",
 				},
 			},
 			Subsets: []corev1.EndpointSubset{

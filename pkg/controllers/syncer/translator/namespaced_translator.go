@@ -147,7 +147,7 @@ func TranslateMetadata(physicalNamespace string, vObj client.Object, syncedLabel
 		return nil
 	}
 
-	pObj.SetLabels(translateLabels(vObj, syncedLabels))
+	pObj.SetLabels(translateLabels(vObj, nil, syncedLabels))
 	pObj.SetAnnotations(translateAnnotations(vObj, nil, excludedAnnotations))
 	return pObj
 }
@@ -158,7 +158,7 @@ func (n *namespacedTranslator) TranslateMetadataUpdate(vObj client.Object, pObj 
 
 func TranslateMetadataUpdate(vObj client.Object, pObj client.Object, syncedLabels []string, excludedAnnotations ...string) (bool, map[string]string, map[string]string) {
 	updatedAnnotations := translateAnnotations(vObj, pObj, excludedAnnotations)
-	updatedLabels := translateLabels(vObj, syncedLabels)
+	updatedLabels := translateLabels(vObj, pObj, syncedLabels)
 	return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels
 }
 
@@ -216,7 +216,7 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 	return retMap
 }
 
-func translateLabels(vObj client.Object, syncedLabels []string) map[string]string {
+func translateLabels(vObj client.Object, pObj client.Object, syncedLabels []string) map[string]string {
 	newLabels := map[string]string{}
 	vObjLabels := vObj.GetLabels()
 	for k, v := range vObjLabels {
@@ -232,6 +232,12 @@ func translateLabels(vObj client.Object, syncedLabels []string) map[string]strin
 			if value, ok := vObjLabels[k]; ok {
 				newLabels[k] = value
 			}
+		}
+	}
+	if pObj != nil {
+		pObjLabels := pObj.GetLabels()
+		if pObjLabels != nil && pObjLabels[translate.ControllerLabel] != "" {
+			newLabels[translate.ControllerLabel] = pObjLabels[translate.ControllerLabel]
 		}
 	}
 

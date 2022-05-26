@@ -81,18 +81,18 @@ func (n *clusterTranslator) TranslateMetadata(vObj client.Object) client.Object 
 		return nil
 	}
 
-	pObj.SetLabels(n.TranslateLabels(vObj))
+	pObj.SetLabels(n.TranslateLabels(vObj, nil))
 	pObj.SetAnnotations(n.TranslateAnnotations(vObj, nil))
 	return pObj
 }
 
 func (n *clusterTranslator) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
 	updatedAnnotations := n.TranslateAnnotations(vObj, pObj)
-	updatedLabels := n.TranslateLabels(vObj)
+	updatedLabels := n.TranslateLabels(vObj, pObj)
 	return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels
 }
 
-func (n *clusterTranslator) TranslateLabels(vObj client.Object) map[string]string {
+func (n *clusterTranslator) TranslateLabels(vObj client.Object, pObj client.Object) map[string]string {
 	newLabels := map[string]string{}
 	if vObj != nil {
 		vObjLabels := vObj.GetLabels()
@@ -105,6 +105,12 @@ func (n *clusterTranslator) TranslateLabels(vObj client.Object) map[string]strin
 					newLabels[k] = value
 				}
 			}
+		}
+	}
+	if pObj != nil {
+		pObjLabels := pObj.GetLabels()
+		if pObjLabels != nil && pObjLabels[translate.ControllerLabel] != "" {
+			newLabels[translate.ControllerLabel] = pObjLabels[translate.ControllerLabel]
 		}
 	}
 	newLabels[translate.MarkerLabel] = translate.SafeConcatName(n.physicalNamespace, "x", translate.Suffix)

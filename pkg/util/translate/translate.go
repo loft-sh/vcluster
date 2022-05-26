@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	NamespaceLabel = "vcluster.loft.sh/namespace"
-	MarkerLabel    = "vcluster.loft.sh/managed-by"
-	Suffix         = "suffix"
+	NamespaceLabel  = "vcluster.loft.sh/namespace"
+	MarkerLabel     = "vcluster.loft.sh/managed-by"
+	ControllerLabel = "vcluster.loft.sh/controlled-by"
+	Suffix          = "suffix"
 )
 
 var Owner client.Object
@@ -36,17 +37,6 @@ func SafeConcatName(name ...string) string {
 		return strings.Replace(fullPath[0:52]+"-"+hex.EncodeToString(digest[0:])[0:10], ".-", "-", -1)
 	}
 	return fullPath
-}
-
-func IsManaged(obj runtime.Object) bool {
-	metaAccessor, err := meta.Accessor(obj)
-	if err != nil {
-		return false
-	} else if metaAccessor.GetLabels() == nil {
-		return false
-	}
-
-	return metaAccessor.GetLabels()[MarkerLabel] == Suffix
 }
 
 func GetOwnerReference(object client.Object) []metav1.OwnerReference {
@@ -73,6 +63,17 @@ func GetOwnerReference(object client.Object) []metav1.OwnerReference {
 			Controller: &isController,
 		},
 	}
+}
+
+func IsManaged(obj runtime.Object) bool {
+	metaAccessor, err := meta.Accessor(obj)
+	if err != nil {
+		return false
+	} else if metaAccessor.GetLabels() == nil {
+		return false
+	}
+
+	return metaAccessor.GetLabels()[MarkerLabel] == Suffix
 }
 
 func IsManagedCluster(physicalNamespace string, obj runtime.Object) bool {

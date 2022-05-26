@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -71,6 +72,11 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		return r.syncer.FakeSyncUp(syncContext, req.NamespacedName)
+	}
+
+	// check if we should skip resource
+	if vObj != nil && vObj.GetLabels() != nil && vObj.GetLabels()[translate.ControllerLabel] != "" {
+		return ctrl.Result{}, nil
 	}
 
 	// update object
