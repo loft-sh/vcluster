@@ -1,8 +1,10 @@
-Thank you for installing {{ .Chart.Name }}.
+Thank you for installing vcluster.
 
-Your release is named {{ .Release.Name }}.
+Your vcluster is named {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
 
-To learn more about the release, try:
+To connect to the vcluster, use vcluster CLI (https://www.vcluster.com/docs/getting-started/setup):
+  $ vcluster connect {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ vcluster connect {{ .Release.Name }} -n {{ .Release.Namespace }} -- kubectl get ns
 
-  $ helm status {{ .Release.Name }}
-  $ helm get all {{ .Release.Name }}
+
+For more information, please take a look at the vcluster docs at https://www.vcluster.com/docs
