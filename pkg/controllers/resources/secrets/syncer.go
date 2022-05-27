@@ -74,6 +74,12 @@ func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 		}
 	}
 
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPodSecret, func(rawObj client.Object) []string {
+		return pods.SecretNamesFromPod(rawObj.(*corev1.Pod))
+	})
+	if err != nil {
+		return err
+	}
 	return s.NamespacedTranslator.RegisterIndices(ctx)
 }
 
@@ -230,17 +236,10 @@ func mapPods(obj client.Object) []reconcile.Request {
 
 func isSecretUsedByPods(ctx context.Context, vClient client.Client, secretName string) (bool, error) {
 	podList := &corev1.PodList{}
-	err := vClient.List(ctx, podList)
+	err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPodSecret: secretName})
 	if err != nil {
 		return false, err
 	}
-	for _, pod := range podList.Items {
-		for _, secret := range pods.SecretNamesFromPod(&pod) {
-			if secret == secretName {
-				return true, nil
-			}
-		}
-	}
 
-	return false, nil
+	return meta.LenList(podList) > 0, nil
 }
