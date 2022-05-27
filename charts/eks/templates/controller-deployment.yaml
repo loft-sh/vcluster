@@ -60,6 +60,9 @@ spec:
       {{- if .Values.controller.volumes }}
 {{ toYaml .Values.controller.volumes | indent 8 }}
       {{- end }}
+      {{- if .Values.controller.priorityClassName }}
+      priorityClassName: {{ .Values.controller.priorityClassName }}
+      {{- end }}
       containers:
       - name: kube-controller-manager
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.controller.image }}"

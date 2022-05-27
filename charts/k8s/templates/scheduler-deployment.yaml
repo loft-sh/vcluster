@@ -65,6 +65,9 @@ spec:
       {{- if .Values.scheduler.volumes }}
 {{ toYaml .Values.scheduler.volumes | indent 8 }}
       {{- end }}
+      {{- if .Values.scheduler.priorityClassName }}
+      priorityClassName: {{ .Values.scheduler.priorityClassName }}
+      {{- end }}
       containers:
       - name: kube-scheduler
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.scheduler.image }}"

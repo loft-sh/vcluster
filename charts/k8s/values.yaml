@@ -136,6 +136,7 @@ syncer:
   labels: {}
   # Extra Annotations for the syncer deployment
   annotations: {}
+  priorityClassName: ""
 
 # Etcd settings
 etcd:
@@ -166,7 +167,8 @@ etcd:
     # Optional StorageClass used for the pvc
     # if empty default StorageClass defined in your host cluster will be used
     #className:
-    
+  priorityClassName: ""
+
 # Kubernetes Controller Manager settings
 controller:
   image: k8s.gcr.io/kube-controller-manager:v1.23.1
@@ -185,6 +187,7 @@ controller:
   resources:
     requests:
       cpu: 200m
+  priorityClassName: ""
 
 # Kubernetes Scheduler settings. Only enabled if sync.nodes.enableScheduler is true
 scheduler:
@@ -204,6 +207,7 @@ scheduler:
   resources:
     requests:
       cpu: 100m
+  priorityClassName: ""
 
 # Kubernetes API Server settings
 api:
@@ -224,7 +228,8 @@ api:
   resources:
     requests:
       cpu: 200m
-  
+  priorityClassName: ""
+
 # Service account that should be used by the vcluster
 serviceAccount:
   create: true
@@ -257,6 +262,7 @@ service:
 # PreInstall hook configuration
 preInstall:
   enabled: true
+  priorityClassName: ""
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:

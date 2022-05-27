@@ -68,6 +68,9 @@ spec:
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
       {{- end }}
+      {{- if .Values.syncer.priorityClassName }}
+      priorityClassName: {{ .Values.syncer.priorityClassName }}
+      {{- end }}
       containers:
       - name: syncer
         {{- if .Values.syncer.image }}

@@ -69,6 +69,9 @@ spec:
         - name: data
           emptyDir: {}
       {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
