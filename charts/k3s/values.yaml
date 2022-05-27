@@ -1,10 +1,3 @@
-# Make sure the service-cidr is the exact service cidr of the host cluster.
-# If this does not match, you won't be able to create services within the vcluster. You can find out
-# the service cidr of the host cluster by creating a service with a not allowed ClusterIP in the host cluster.
-# This will yield an error message in the form of: 
-# The Service "faulty-service" is invalid: spec.clusterIP: Invalid value: "1.1.1.1": provided IP is not in the valid range. The range of valid IPs is 10.96.0.0/12
-#serviceCIDR: "10.96.0.0/12"
-
 # DefaultImageRegistry will be prepended to all deployed vcluster images, such as the vcluster pod, coredns etc.. Deployed
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""
@@ -215,7 +208,7 @@ service:
   # Configuration for LoadBalancer service type
   externalIPs: []
   externalTrafficPolicy: ""
-
+  
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
   # Enable ingress record generation

@@ -89,7 +89,11 @@ spec:
           {{- end }}
           - '--horizontal-pod-autoscaler-sync-period=60s'
           - '--kubeconfig=/run/config/pki/controller-manager.conf'
+          {{- if .Values.serviceCIDR }}
           - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
+          {{- else }}
+          - '--service-cluster-ip-range=$(SERVICE_CIDR)'
+          {{- end }}
           {{- if .Values.enableHA }}
           - '--leader-elect=true'
           {{- else }}
@@ -129,7 +133,16 @@ spec:
         securityContext:
 {{ toYaml .Values.controller.securityContext | indent 10 }}
         env:
+          {{- if .Values.controller.env }}
 {{ toYaml .Values.controller.env | indent 10 }}
+          {{- end }}
+          {{- if not .Values.serviceCIDR }}
+          - name: SERVICE_CIDR
+            valueFrom:
+              configMapKeyRef:
+                name: "vc-cidr-{{ .Release.Name }}"
+                key: cidr
+          {{- end }}
         volumeMounts:
           - mountPath: /run/config/pki
             name: certs

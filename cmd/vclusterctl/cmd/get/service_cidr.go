@@ -5,7 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/loft-sh/vcluster/pkg/helm/values"
+	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -69,7 +69,7 @@ func (cmd *serviceCIDRCmd) Run(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	cidr := values.GetServiceCIDR(client, cmd.Namespace)
+	cidr := servicecidr.GetServiceCIDR(client, cmd.Namespace)
 
 	_, err = cmd.log.Write([]byte(cidr))
 	if err != nil {

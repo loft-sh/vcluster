@@ -2,19 +2,21 @@ package cmd
 
 import (
 	"context"
+	"io/ioutil"
+	"path/filepath"
+	"strconv"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"strconv"
-	"strings"
 )
 
 // CertsCmd holds the certs flags
@@ -42,7 +44,7 @@ func NewCertsCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&options.ClusterName, "cluster-name", "kubernetes", "The cluster name")
 	cmd.Flags().StringVar(&options.ClusterDomain, "cluster-domain", "cluster.local", "The cluster domain ending that should be used for the virtual cluster")
-	cmd.Flags().StringVar(&options.ServiceCIDR, "service-cidr", "10.96.0.0/12", "Service CIDR is the subnet used by k8s services")
+	cmd.Flags().StringVar(&options.ServiceCIDR, "service-cidr", "", "Service CIDR is the subnet used by k8s services")
 	cmd.Flags().StringVar(&options.Prefix, "prefix", "vcluster", "Release name and prefix for generating the assets")
 	cmd.Flags().StringVar(&options.Namespace, "namespace", "", "Namespace where to deploy the cert secret to")
 	cmd.Flags().StringVar(&options.CertificateDir, "certificate-dir", "certs", "The temporary directory where the certificates will be stored")
@@ -105,6 +107,15 @@ func ExecuteCerts(options *CertsCmd) error {
 		}
 	}
 
+	cidr := options.ServiceCIDR
+	if cidr == "" {
+		cidr, err = servicecidr.EnsureServiceCIDRConfigmap(context.Background(), kubeClient, options.Namespace, options.Prefix)
+		if err != nil {
+			klog.Errorf("Failed to retrieve service CIDR range")
+			return err
+		}
+	}
+
 	secretName := options.Prefix + "-certs"
 	_, err = kubeClient.CoreV1().Secrets(options.Namespace).Get(context.Background(), secretName, metav1.GetOptions{})
 	if err == nil {
@@ -131,7 +142,7 @@ func ExecuteCerts(options *CertsCmd) error {
 		ServerCertSANs: serverSans,
 		PeerCertSANs:   serverSans,
 	}
-	cfg.Networking.ServiceSubnet = options.ServiceCIDR
+	cfg.Networking.ServiceSubnet = cidr
 	cfg.Networking.DNSDomain = options.ClusterDomain
 	cfg.ControlPlaneEndpoint = options.Prefix + "-api"
 	cfg.CertificatesDir = options.CertificateDir

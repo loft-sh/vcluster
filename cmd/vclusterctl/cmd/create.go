@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm/values"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
+	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"golang.org/x/mod/semver"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
@@ -168,7 +169,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	// get service cidr
 	if cmd.CIDR == "" {
-		cmd.CIDR = values.GetServiceCIDR(client, cmd.Namespace)
+		cmd.CIDR = servicecidr.GetServiceCIDR(client, cmd.Namespace)
 	}
 
 	var kubernetesVersion *version.Info

@@ -96,7 +96,14 @@ spec:
           - {{ $f | quote }}
           {{- end }}
         env:
+          {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
+          {{- end }}
+          - name: CONFIG_READY
+            valueFrom:
+              secretKeyRef:
+                name: "vc-{{ .Release.Name }}-config"
+                key: CONFIG_READY
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
