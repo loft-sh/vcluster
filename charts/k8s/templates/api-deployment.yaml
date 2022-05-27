@@ -65,6 +65,9 @@ spec:
       {{- if .Values.api.volumes }}
 {{ toYaml .Values.api.volumes | indent 8 }}
       {{- end }}
+      {{- if .Values.api.priorityClassName }}
+      priorityClassName: {{ .Values.api.priorityClassName }}
+      {{- end }}
       containers:
       - name: kube-apiserver
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.api.image }}"

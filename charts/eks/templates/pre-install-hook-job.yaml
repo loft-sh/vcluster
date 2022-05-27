@@ -22,6 +22,9 @@ spec:
 {{ toYaml .Values.preInstall.affinity | indent 8 }}
       tolerations:
 {{ toYaml .Values.preInstall.tolerations | indent 8 }}
+      {{- if .Values.preInstall.priorityClassName }}
+      priorityClassName: {{ .Values.preInstall.priorityClassName }}
+      {{- end }}
       containers:
         - name: certs
           {{- if .Values.syncer.image }}

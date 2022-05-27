@@ -78,6 +78,9 @@ spec:
         - name: data
           emptyDir: {}
       {{- end }}
+      {{- if .Values.etcd.priorityClassName }}
+      priorityClassName: {{ .Values.etcd.priorityClassName }}
+      {{- end }}
       containers:
       - name: etcd
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.etcd.image }}"

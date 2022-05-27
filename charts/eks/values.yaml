@@ -134,6 +134,7 @@ syncer:
   labels: {}
   # Extra Annotations for the syncer deployment
   annotations: {}
+  priorityClassName: ""
 
 # Etcd settings
 etcd:
@@ -164,7 +165,8 @@ etcd:
     # Optional StorageClass used for the pvc
     # if empty default StorageClass defined in your host cluster will be used
     #className:
-    
+  priorityClassName: ""
+
 # Kubernetes Controller Manager settings
 controller:
   image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.21.5-eks-1-21-8
@@ -183,6 +185,7 @@ controller:
   resources:
     requests:
       cpu: 200m
+  priorityClassName: ""
 
 # Kubernetes API Server settings
 api:
@@ -203,7 +206,8 @@ api:
   resources:
     requests:
       cpu: 200m
-  
+  priorityClassName: ""
+
 # Core DNS settings
 coredns:
   image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.4-eks-1-21-8
@@ -239,6 +243,7 @@ service:
 # PreInstall hook configuration
 preInstall:
   enabled: true
+  priorityClassName: ""
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:

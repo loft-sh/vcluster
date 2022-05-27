@@ -143,6 +143,7 @@ vcluster:
     requests:
       cpu: 200m
       memory: 256Mi
+  priorityClassName: ""
 
 # Storage settings for the vcluster
 storage:
@@ -189,6 +190,9 @@ nodeSelector: {}
 
 # Affinity to apply to the vcluster statefulset
 affinity: {}
+
+# PriorityClassName to apply to the vcluster statefulset
+priorityClassName: ""
 
 # Tolerations to apply to the vcluster statefulset
 tolerations: []
