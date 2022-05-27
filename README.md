@@ -127,6 +127,9 @@ vcluster create vcluster-1 -n host-namespace-1 --connect
 
 # OR: Use --expose to create a vcluster with an externally accessible LoadBalancer
 vcluster create vcluster-1 -n host-namespace-1 --connect --expose 
+
+# OR: Use --isolate to create an isolated environment for the vcluster workloads
+vcluster create vcluster-1 -n host-namespace-1 --connect --isolate
 ```
 
 Take a look at the [vcluster docs](https://www.vcluster.com/docs/getting-started/deployment) to see how to deploy a vcluster using Helm or Kubectl instead.
