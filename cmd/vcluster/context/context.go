@@ -59,7 +59,7 @@ type VirtualClusterOptions struct {
 
 	DisablePlugins      bool     `json:"disablePlugins,omitempty"`
 	PluginListenAddress string   `json:"pluginListenAddress,omitempty"`
-	PluginAddresses     []string `json:"pluginAddresses,omitempty"`
+	Plugins             []string `json:"plugins,omitempty"`
 
 	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
 

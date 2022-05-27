@@ -5,28 +5,32 @@ package remote;
 
 option go_package = "github.com/loft-sh/vcluster/pkg/plugin/remote";
 
-service PluginInitializer {
+service VCluster {
+    // Deprecated: Use GetContext & RegisterPlugin instead
     rpc Register (PluginInfo) returns (Context) {}
+
+    rpc RegisterPlugin (RegisterPluginRequest) returns (RegisterPluginResult) {}
+    rpc GetContext (Empty) returns (Context) {}
     rpc IsLeader (Empty) returns (LeaderInfo) {}
 }
 
 service Plugin {
-    rpc Register (RegisterPluginRequest) returns (RegisterPluginResult) {}
     rpc Mutate (MutateRequest) returns (MutateResult) {}
 }
 
 message RegisterPluginRequest {
-
+    string version = 1;
+    string name = 2;
+    string address = 3;
+    repeated ClientHook clientHooks = 4;
 }
 
 message RegisterPluginResult {
-    repeated ClientHook clientHooks = 1;
+
 }
 
-message ClientHook {
-    string apiVersion = 1;
-    string kind = 2;
-    repeated string types = 3;
+message PluginInfo {
+    string name = 1;
 }
 
 message MutateRequest {
@@ -43,11 +47,13 @@ message MutateResult {
 
 message LeaderInfo {
     bool leader = 1;
+    string runID = 2;
 }
 
-message PluginInfo {
-    string name = 1;
-    string version = 2;
+message ClientHook {
+    string apiVersion = 1;
+    string kind = 2;
+    repeated string types = 3;
 }
 
 message Context {
