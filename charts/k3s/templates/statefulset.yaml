@@ -132,10 +132,10 @@ spec:
         args:
           - --name={{ .Release.Name }}
           - --service-account=vc-workload-{{ .Release.Name }}
-          {{- $counter := -1 -}}
           {{- range $key, $container := .Values.plugin }}
-          {{- $counter = add1 $counter }}
-          - --plugin-address={{ $key }}=localhost:{{ add 14000 $counter }}
+          {{- if not $container.optional }}
+          - --plugins={{ $key }}
+          {{- end }}
           {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler

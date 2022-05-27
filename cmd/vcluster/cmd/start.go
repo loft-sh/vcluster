@@ -134,7 +134,7 @@ func NewStartCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&options.EnforcePodSecurityStandard, "enforce-pod-security-standard", "", "This can be set to privileged, baseline, restricted and vcluster would make sure during translation that these policies are enforced.")
 	cmd.Flags().StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions.")
-	cmd.Flags().StringSliceVar(&options.PluginAddresses, "plugin-address", []string{}, "A plugin and its grpc server address. E.g. my-plugin=localhost:14000")
+	cmd.Flags().StringSliceVar(&options.Plugins, "plugins", []string{}, "The plugins to wait for during startup")
 
 	cmd.Flags().StringSliceVar(&options.MapVirtualServices, "map-virtual-service", []string{}, "Maps a given service inside the virtual cluster to a service inside the host cluster. E.g. default/test=physical-service")
 	cmd.Flags().StringSliceVar(&options.MapHostServices, "map-host-service", []string{}, "Maps a given service inside the host cluster to a service inside the virtual cluster. E.g. other-namespace/my-service=my-vcluster-namespace/my-service")

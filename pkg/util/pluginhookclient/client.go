@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
+	"strings"
 	"time"
 )
 
@@ -36,7 +37,7 @@ func NewVirtualPluginClientFactory(delegate cluster.NewClientFunc) cluster.NewCl
 }
 
 func NewPluginClient(virtual bool, delegate cluster.NewClientFunc) cluster.NewClientFunc {
-	if !plugin.DefaultManager.HasClientHooks() {
+	if !plugin.DefaultManager.HasPlugins() {
 		return delegate
 	}
 
@@ -71,6 +72,10 @@ type Client struct {
 }
 
 func (c *Client) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Get(ctx, key, obj)
+	}
+
 	err := c.Client.Get(ctx, key, obj)
 	if err != nil {
 		return err
@@ -80,7 +85,26 @@ func (c *Client) Get(ctx context.Context, key client.ObjectKey, obj client.Objec
 }
 
 func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-	err := c.Client.List(ctx, list, opts...)
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.List(ctx, list, opts...)
+	}
+
+	// check if there is a hook for this operation
+	gvk, err := apiutil.GVKForObject(list, c.scheme)
+	if err != nil {
+		return err
+	}
+	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
+	clientHooks := plugin.DefaultManager.ClientHooksFor(plugin.VersionKindType{
+		ApiVersion: gvk.GroupVersion().String(),
+		Kind:       gvk.Kind,
+		Type:       "Get" + c.suffix,
+	})
+	if len(clientHooks) == 0 {
+		return c.Client.List(ctx, list, opts...)
+	}
+
+	err = c.Client.List(ctx, list, opts...)
 	if err != nil {
 		return err
 	}
@@ -101,6 +125,10 @@ func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...clien
 }
 
 func (c *Client) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Create(ctx, obj, opts...)
+	}
+
 	err := executeClientHooksFor(ctx, obj, "Create"+c.suffix, c.scheme)
 	if err != nil {
 		return err
@@ -110,6 +138,10 @@ func (c *Client) Create(ctx context.Context, obj client.Object, opts ...client.C
 }
 
 func (c *Client) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Patch(ctx, obj, patch, opts...)
+	}
+
 	err := executeClientHooksFor(ctx, obj, "Update"+c.suffix, c.scheme)
 	if err != nil {
 		return err
@@ -119,6 +151,10 @@ func (c *Client) Patch(ctx context.Context, obj client.Object, patch client.Patc
 }
 
 func (c *Client) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Update(ctx, obj, opts...)
+	}
+
 	err := executeClientHooksFor(ctx, obj, "Update"+c.suffix, c.scheme)
 	if err != nil {
 		return err
@@ -128,6 +164,10 @@ func (c *Client) Update(ctx context.Context, obj client.Object, opts ...client.U
 }
 
 func (c *Client) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Delete(ctx, obj, opts...)
+	}
+
 	err := executeClientHooksFor(ctx, obj, "Delete"+c.suffix, c.scheme)
 	if err != nil {
 		return err
@@ -156,6 +196,10 @@ type StatusClient struct {
 }
 
 func (c *StatusClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Status().Update(ctx, obj, opts...)
+	}
+
 	err := executeClientHooksFor(ctx, obj, "Update"+c.suffix, c.scheme)
 	if err != nil {
 		return err
@@ -165,6 +209,10 @@ func (c *StatusClient) Update(ctx context.Context, obj client.Object, opts ...cl
 }
 
 func (c *StatusClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Status().Patch(ctx, obj, patch, opts...)
+	}
+
 	err := executeClientHooksFor(ctx, obj, "Update"+c.suffix, c.scheme)
 	if err != nil {
 		return err

@@ -18,122 +18,196 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// PluginInitializerClient is the client API for PluginInitializer service.
+// VClusterClient is the client API for VCluster service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type PluginInitializerClient interface {
+type VClusterClient interface {
+	// Deprecated: Use GetContext & RegisterPlugin instead
 	Register(ctx context.Context, in *PluginInfo, opts ...grpc.CallOption) (*Context, error)
+	GetContext(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Context, error)
+	RegisterPlugin(ctx context.Context, in *RegisterPluginRequest, opts ...grpc.CallOption) (*RegisterPluginResult, error)
 	IsLeader(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*LeaderInfo, error)
 }
 
-type pluginInitializerClient struct {
+type vClusterClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewPluginInitializerClient(cc grpc.ClientConnInterface) PluginInitializerClient {
-	return &pluginInitializerClient{cc}
+func NewVClusterClient(cc grpc.ClientConnInterface) VClusterClient {
+	return &vClusterClient{cc}
 }
 
-func (c *pluginInitializerClient) Register(ctx context.Context, in *PluginInfo, opts ...grpc.CallOption) (*Context, error) {
+func (c *vClusterClient) Register(ctx context.Context, in *PluginInfo, opts ...grpc.CallOption) (*Context, error) {
 	out := new(Context)
-	err := c.cc.Invoke(ctx, "/remote.PluginInitializer/Register", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remote.VCluster/Register", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *pluginInitializerClient) IsLeader(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*LeaderInfo, error) {
+func (c *vClusterClient) GetContext(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Context, error) {
+	out := new(Context)
+	err := c.cc.Invoke(ctx, "/remote.VCluster/GetContext", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vClusterClient) RegisterPlugin(ctx context.Context, in *RegisterPluginRequest, opts ...grpc.CallOption) (*RegisterPluginResult, error) {
+	out := new(RegisterPluginResult)
+	err := c.cc.Invoke(ctx, "/remote.VCluster/RegisterPlugin", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vClusterClient) IsLeader(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*LeaderInfo, error) {
 	out := new(LeaderInfo)
-	err := c.cc.Invoke(ctx, "/remote.PluginInitializer/IsLeader", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/remote.VCluster/IsLeader", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// PluginInitializerServer is the server API for PluginInitializer service.
-// All implementations must embed UnimplementedPluginInitializerServer
+// VClusterServer is the server API for VCluster service.
+// All implementations must embed UnimplementedVClusterServer
 // for forward compatibility
-type PluginInitializerServer interface {
+type VClusterServer interface {
+	// Deprecated: Use GetContext & RegisterPlugin instead
 	Register(context.Context, *PluginInfo) (*Context, error)
+	GetContext(context.Context, *Empty) (*Context, error)
+	RegisterPlugin(context.Context, *RegisterPluginRequest) (*RegisterPluginResult, error)
 	IsLeader(context.Context, *Empty) (*LeaderInfo, error)
-	mustEmbedUnimplementedPluginInitializerServer()
+	mustEmbedUnimplementedVClusterServer()
 }
 
-// UnimplementedPluginInitializerServer must be embedded to have forward compatible implementations.
-type UnimplementedPluginInitializerServer struct {
+// UnimplementedVClusterServer must be embedded to have forward compatible implementations.
+type UnimplementedVClusterServer struct {
 }
 
-func (UnimplementedPluginInitializerServer) Register(context.Context, *PluginInfo) (*Context, error) {
+func (UnimplementedVClusterServer) Register(context.Context, *PluginInfo) (*Context, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
-func (UnimplementedPluginInitializerServer) IsLeader(context.Context, *Empty) (*LeaderInfo, error) {
+func (UnimplementedVClusterServer) GetContext(context.Context, *Empty) (*Context, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetContext not implemented")
+}
+func (UnimplementedVClusterServer) RegisterPlugin(context.Context, *RegisterPluginRequest) (*RegisterPluginResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterPlugin not implemented")
+}
+func (UnimplementedVClusterServer) IsLeader(context.Context, *Empty) (*LeaderInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IsLeader not implemented")
 }
-func (UnimplementedPluginInitializerServer) mustEmbedUnimplementedPluginInitializerServer() {}
+func (UnimplementedVClusterServer) mustEmbedUnimplementedVClusterServer() {}
 
-// UnsafePluginInitializerServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to PluginInitializerServer will
+// UnsafeVClusterServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to VClusterServer will
 // result in compilation errors.
-type UnsafePluginInitializerServer interface {
-	mustEmbedUnimplementedPluginInitializerServer()
+type UnsafeVClusterServer interface {
+	mustEmbedUnimplementedVClusterServer()
 }
 
-func RegisterPluginInitializerServer(s grpc.ServiceRegistrar, srv PluginInitializerServer) {
-	s.RegisterService(&PluginInitializer_ServiceDesc, srv)
+func RegisterVClusterServer(s grpc.ServiceRegistrar, srv VClusterServer) {
+	s.RegisterService(&VCluster_ServiceDesc, srv)
 }
 
-func _PluginInitializer_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _VCluster_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PluginInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PluginInitializerServer).Register(ctx, in)
+		return srv.(VClusterServer).Register(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remote.PluginInitializer/Register",
+		FullMethod: "/remote.VCluster/Register",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginInitializerServer).Register(ctx, req.(*PluginInfo))
+		return srv.(VClusterServer).Register(ctx, req.(*PluginInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PluginInitializer_IsLeader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _VCluster_GetContext_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PluginInitializerServer).IsLeader(ctx, in)
+		return srv.(VClusterServer).GetContext(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/remote.PluginInitializer/IsLeader",
+		FullMethod: "/remote.VCluster/GetContext",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginInitializerServer).IsLeader(ctx, req.(*Empty))
+		return srv.(VClusterServer).GetContext(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// PluginInitializer_ServiceDesc is the grpc.ServiceDesc for PluginInitializer service.
+func _VCluster_RegisterPlugin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterPluginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VClusterServer).RegisterPlugin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.VCluster/RegisterPlugin",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VClusterServer).RegisterPlugin(ctx, req.(*RegisterPluginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VCluster_IsLeader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VClusterServer).IsLeader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.VCluster/IsLeader",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VClusterServer).IsLeader(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// VCluster_ServiceDesc is the grpc.ServiceDesc for VCluster service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var PluginInitializer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "remote.PluginInitializer",
-	HandlerType: (*PluginInitializerServer)(nil),
+var VCluster_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "remote.VCluster",
+	HandlerType: (*VClusterServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Register",
-			Handler:    _PluginInitializer_Register_Handler,
+			Handler:    _VCluster_Register_Handler,
+		},
+		{
+			MethodName: "GetContext",
+			Handler:    _VCluster_GetContext_Handler,
+		},
+		{
+			MethodName: "RegisterPlugin",
+			Handler:    _VCluster_RegisterPlugin_Handler,
 		},
 		{
 			MethodName: "IsLeader",
-			Handler:    _PluginInitializer_IsLeader_Handler,
+			Handler:    _VCluster_IsLeader_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -144,7 +218,6 @@ var PluginInitializer_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PluginClient interface {
-	Register(ctx context.Context, in *RegisterPluginRequest, opts ...grpc.CallOption) (*RegisterPluginResult, error)
 	Mutate(ctx context.Context, in *MutateRequest, opts ...grpc.CallOption) (*MutateResult, error)
 }
 
@@ -154,15 +227,6 @@ type pluginClient struct {
 
 func NewPluginClient(cc grpc.ClientConnInterface) PluginClient {
 	return &pluginClient{cc}
-}
-
-func (c *pluginClient) Register(ctx context.Context, in *RegisterPluginRequest, opts ...grpc.CallOption) (*RegisterPluginResult, error) {
-	out := new(RegisterPluginResult)
-	err := c.cc.Invoke(ctx, "/remote.Plugin/Register", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *pluginClient) Mutate(ctx context.Context, in *MutateRequest, opts ...grpc.CallOption) (*MutateResult, error) {
@@ -178,7 +242,6 @@ func (c *pluginClient) Mutate(ctx context.Context, in *MutateRequest, opts ...gr
 // All implementations must embed UnimplementedPluginServer
 // for forward compatibility
 type PluginServer interface {
-	Register(context.Context, *RegisterPluginRequest) (*RegisterPluginResult, error)
 	Mutate(context.Context, *MutateRequest) (*MutateResult, error)
 	mustEmbedUnimplementedPluginServer()
 }
@@ -187,9 +250,6 @@ type PluginServer interface {
 type UnimplementedPluginServer struct {
 }
 
-func (UnimplementedPluginServer) Register(context.Context, *RegisterPluginRequest) (*RegisterPluginResult, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
-}
 func (UnimplementedPluginServer) Mutate(context.Context, *MutateRequest) (*MutateResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Mutate not implemented")
 }
@@ -204,24 +264,6 @@ type UnsafePluginServer interface {
 
 func RegisterPluginServer(s grpc.ServiceRegistrar, srv PluginServer) {
 	s.RegisterService(&Plugin_ServiceDesc, srv)
-}
-
-func _Plugin_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RegisterPluginRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PluginServer).Register(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/remote.Plugin/Register",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginServer).Register(ctx, req.(*RegisterPluginRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Plugin_Mutate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -249,10 +291,6 @@ var Plugin_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "remote.Plugin",
 	HandlerType: (*PluginServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Register",
-			Handler:    _Plugin_Register_Handler,
-		},
 		{
 			MethodName: "Mutate",
 			Handler:    _Plugin_Mutate_Handler,
