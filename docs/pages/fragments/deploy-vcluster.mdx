@@ -23,6 +23,9 @@ vcluster create vcluster-1 -n host-namespace-1 -f values.yaml
     
 # OR: Use --distro to specify either k0s or vanilla k8s as backing virtual cluster
 vcluster create vcluster-1 -n host-namespace-1 --distro k8s
+
+# OR: Use --isolate to create an isolated environment for the vcluster workloads
+vcluster create vcluster-1 -n host-namespace-1 --isolate
 ```
 
 </TabItem>
