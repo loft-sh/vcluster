@@ -215,6 +215,10 @@ service:
   # Configuration for LoadBalancer service type
   externalIPs: []
   externalTrafficPolicy: ""
+  # Extra Labels for the service
+  labels: {}
+  # Extra Annotations for the service
+  annotations: {}
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
@@ -269,6 +273,15 @@ coredns:
     externalTrafficPolicy: ""
     # Extra Annotations
     annotations: {}
+
+  # NodeSelector used to schedule the vcluster
+  nodeSelector: {}
+
+  # Affinity to apply to the vcluster statefulset
+  affinity: {}
+
+  # Tolerations to apply to the vcluster statefulset
+  tolerations: []
 
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas
