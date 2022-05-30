@@ -125,7 +125,7 @@ func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) er
 func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
 	registerContext := ToRegisterContext(ctx)
 
-	err := registerK8SDefaultEndpointController(ctx)
+	err := k8sdefaultendpoint.Register(ctx)
 	if err != nil {
 		return err
 	}
@@ -330,22 +330,6 @@ func registerPodSecurityController(ctx *context.ControllerContext) error {
 		Log:                 loghelper.New("podSecurity-controller"),
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)
-	if err != nil {
-		return fmt.Errorf("unable to setup pod security controller: %v", err)
-	}
-	return nil
-}
-
-func registerK8SDefaultEndpointController(ctx *context.ControllerContext) error {
-	controller := &k8sdefaultendpoint.K8SDefaultEndpointReconciler{
-		LocalClient:         ctx.LocalManager.GetClient(),
-		VirtualClient:       ctx.VirtualManager.GetClient(),
-		ServiceName:         ctx.Options.ServiceName,
-		ServiceNamespace:    ctx.CurrentNamespace,
-		VirtualManagerCache: ctx.VirtualManager.GetCache(),
-		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
-	}
-	err := controller.SetupWithManager(ctx.LocalManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup pod security controller: %v", err)
 	}

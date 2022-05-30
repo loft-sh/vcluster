@@ -2,6 +2,8 @@ package k8sdefaultendpoint
 
 import (
 	"context"
+	"fmt"
+	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -21,7 +23,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-type K8SDefaultEndpointReconciler struct {
+type provider interface {
+	createClientObject() client.Object
+	createOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error
+}
+
+type EndpointController struct {
 	ServiceName      string
 	ServiceNamespace string
 
@@ -30,10 +37,32 @@ type K8SDefaultEndpointReconciler struct {
 	VirtualManagerCache cache.Cache
 
 	Log loghelper.Logger
+
+	provider provider
 }
 
-func (e *K8SDefaultEndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := syncKubernetesServiceEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
+func NewEndpointController(ctx *controllercontext.ControllerContext, provider provider) *EndpointController {
+	return &EndpointController{
+		LocalClient:         ctx.LocalManager.GetClient(),
+		VirtualClient:       ctx.VirtualManager.GetClient(),
+		ServiceName:         ctx.Options.ServiceName,
+		ServiceNamespace:    ctx.CurrentNamespace,
+		VirtualManagerCache: ctx.VirtualManager.GetCache(),
+		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
+		provider:            provider,
+	}
+}
+
+func (e *EndpointController) Register(mgr ctrl.Manager) error {
+	err := e.SetupWithManager(mgr)
+	if err != nil {
+		return fmt.Errorf("unable to setup pod security controller: %v", err)
+	}
+	return nil
+}
+
+func (e *EndpointController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	err := e.syncKubernetesServiceEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: time.Second}, err
 	}
@@ -41,7 +70,7 @@ func (e *K8SDefaultEndpointReconciler) Reconcile(ctx context.Context, req ctrl.R
 }
 
 // SetupWithManager adds the controller to the manager
-func (e *K8SDefaultEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	// creating a predicate to receive reconcile requests for kubernetes endpoint only
 	pp := func(object client.Object) bool {
 		return object.GetNamespace() == e.ServiceNamespace && object.GetName() == e.ServiceName
@@ -59,12 +88,12 @@ func (e *K8SDefaultEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			builder.WithPredicates(pfuncs, predicate.ResourceVersionChangedPredicate{})).
 		Watches(source.NewKindWithCache(&corev1.Endpoints{}, e.VirtualManagerCache),
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
-		Watches(source.NewKindWithCache(&discovery.EndpointSlice{}, e.VirtualManagerCache),
+		Watches(source.NewKindWithCache(e.provider.createClientObject(), e.VirtualManagerCache),
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
 		Complete(e)
 }
 
-func syncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceName, serviceNamespace string) error {
+func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceName, serviceNamespace string) error {
 	// get physical service endpoints
 	pEndpoints := &corev1.Endpoints{}
 	err := localClient.Get(ctx, types.NamespacedName{
@@ -118,89 +147,10 @@ func syncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Cl
 	}
 
 	if result == controllerutil.OperationResultCreated || result == controllerutil.OperationResultUpdated {
-		vSlices := &discovery.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "default",
-				Name:      "kubernetes",
-			},
-		}
-		_, err = controllerutil.CreateOrPatch(ctx, virtualClient, vSlices, func() error {
-			newSlice := endpointSliceFromEndpoints(vEndpoints)
-			vSlices.Labels = newSlice.Labels
-			vSlices.AddressType = newSlice.AddressType
-			vSlices.Endpoints = newSlice.Endpoints
-			vSlices.Ports = newSlice.Ports
-			return nil
-		})
-		return err
+		return e.provider.createOrPatch(ctx, virtualClient, vEndpoints)
 	}
 
 	return err
-}
-
-// endpointSliceFromEndpoints generates an EndpointSlice from an Endpoints
-// resource.
-// From: https://github.com/kubernetes/kubernetes/blob/7380fc735aca591325ae1fabf8dab194b40367de/pkg/controlplane/reconcilers/endpointsadapter.go#L121-L151
-func endpointSliceFromEndpoints(endpoints *corev1.Endpoints) *discovery.EndpointSlice {
-	endpointSlice := &discovery.EndpointSlice{}
-	endpointSlice.Name = endpoints.Name
-	endpointSlice.Labels = map[string]string{discovery.LabelServiceName: endpoints.Name}
-
-	// TODO: Add support for dual stack here (and in the rest of
-	// EndpointsAdapter).
-	endpointSlice.AddressType = discovery.AddressTypeIPv4
-
-	if len(endpoints.Subsets) > 0 {
-		subset := endpoints.Subsets[0]
-		for i := range subset.Ports {
-			endpointSlice.Ports = append(endpointSlice.Ports, discovery.EndpointPort{
-				Port:     &subset.Ports[i].Port,
-				Name:     &subset.Ports[i].Name,
-				Protocol: &subset.Ports[i].Protocol,
-			})
-		}
-
-		if allAddressesIPv6(append(subset.Addresses, subset.NotReadyAddresses...)) {
-			endpointSlice.AddressType = discovery.AddressTypeIPv6
-		}
-
-		endpointSlice.Endpoints = append(endpointSlice.Endpoints, getEndpointsFromAddresses(subset.Addresses, endpointSlice.AddressType, true)...)
-		endpointSlice.Endpoints = append(endpointSlice.Endpoints, getEndpointsFromAddresses(subset.NotReadyAddresses, endpointSlice.AddressType, false)...)
-	}
-
-	return endpointSlice
-}
-
-// getEndpointsFromAddresses returns a list of Endpoints from addresses that
-// match the provided address type.
-// From: https://github.com/kubernetes/kubernetes/blob/7380fc735aca591325ae1fabf8dab194b40367de/pkg/controlplane/reconcilers/endpointsadapter.go#L153-L166
-func getEndpointsFromAddresses(addresses []corev1.EndpointAddress, addressType discovery.AddressType, ready bool) []discovery.Endpoint {
-	endpoints := []discovery.Endpoint{}
-	isIPv6AddressType := addressType == discovery.AddressTypeIPv6
-
-	for _, address := range addresses {
-		if utilnet.IsIPv6String(address.IP) == isIPv6AddressType {
-			endpoints = append(endpoints, endpointFromAddress(address, ready))
-		}
-	}
-
-	return endpoints
-}
-
-// endpointFromAddress generates an Endpoint from an EndpointAddress resource.
-// From: https://github.com/kubernetes/kubernetes/blob/7380fc735aca591325ae1fabf8dab194b40367de/pkg/controlplane/reconcilers/endpointsadapter.go#L168-L181
-func endpointFromAddress(address corev1.EndpointAddress, ready bool) discovery.Endpoint {
-	ep := discovery.Endpoint{
-		Addresses:  []string{address.IP},
-		Conditions: discovery.EndpointConditions{Ready: &ready},
-		TargetRef:  address.TargetRef,
-	}
-
-	if address.NodeName != nil {
-		ep.NodeName = address.NodeName
-	}
-
-	return ep
 }
 
 // allAddressesIPv6 returns true if all provided addresses are IPv6.
