@@ -212,7 +212,7 @@ api:
 coredns:
   image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.4-eks-1-21-8
   replicas: 1
-
+  resources: ""
 # Service account that should be used by the vcluster
 serviceAccount:
   create: true
