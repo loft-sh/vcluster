@@ -44,7 +44,6 @@ func (p *v1Provider) endpointSliceFromEndpoints(endpoints *corev1.Endpoints) *di
 	// TODO: Add support for dual stack here (and in the rest of
 	// EndpointsAdapter).
 	endpointSlice.AddressType = discovery.AddressTypeIPv4
-
 	if len(endpoints.Subsets) > 0 {
 		subset := endpoints.Subsets[0]
 		for i := range subset.Ports {
@@ -54,11 +53,9 @@ func (p *v1Provider) endpointSliceFromEndpoints(endpoints *corev1.Endpoints) *di
 				Protocol: &subset.Ports[i].Protocol,
 			})
 		}
-
 		if allAddressesIPv6(append(subset.Addresses, subset.NotReadyAddresses...)) {
 			endpointSlice.AddressType = discovery.AddressTypeIPv6
 		}
-
 		endpointSlice.Endpoints = append(endpointSlice.Endpoints, p.getEndpointsFromAddresses(subset.Addresses, endpointSlice.AddressType, true)...)
 		endpointSlice.Endpoints = append(endpointSlice.Endpoints, p.getEndpointsFromAddresses(subset.NotReadyAddresses, endpointSlice.AddressType, false)...)
 	}
@@ -72,7 +69,6 @@ func (p *v1Provider) endpointSliceFromEndpoints(endpoints *corev1.Endpoints) *di
 func (p *v1Provider) getEndpointsFromAddresses(addresses []corev1.EndpointAddress, addressType discovery.AddressType, ready bool) []discovery.Endpoint {
 	endpoints := []discovery.Endpoint{}
 	isIPv6AddressType := addressType == discovery.AddressTypeIPv6
-
 	for _, address := range addresses {
 		if utilnet.IsIPv6String(address.IP) == isIPv6AddressType {
 			endpoints = append(endpoints, p.endpointFromAddress(address, ready))
@@ -86,11 +82,10 @@ func (p *v1Provider) getEndpointsFromAddresses(addresses []corev1.EndpointAddres
 // From: https://github.com/kubernetes/kubernetes/blob/7380fc735aca591325ae1fabf8dab194b40367de/pkg/controlplane/reconcilers/endpointsadapter.go#L168-L181
 func (p *v1Provider) endpointFromAddress(address corev1.EndpointAddress, ready bool) discovery.Endpoint {
 	ep := discovery.Endpoint{
-		Addresses:  []string{address.IP},
 		Conditions: discovery.EndpointConditions{Ready: &ready},
+		Addresses:  []string{address.IP},
 		TargetRef:  address.TargetRef,
 	}
-
 	if address.NodeName != nil {
 		ep.NodeName = address.NodeName
 	}
