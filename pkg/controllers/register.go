@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
@@ -183,13 +184,39 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 }
 
 func registerInitManifestsController(ctx *context.ControllerContext) error {
+	currentNamespaceManager := ctx.LocalManager
+	if ctx.Options.TargetNamespace != ctx.CurrentNamespace {
+		var err error
+		currentNamespaceManager, err = ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
+			Scheme:             ctx.LocalManager.GetScheme(),
+			MetricsBindAddress: "0",
+			LeaderElection:     false,
+			Namespace:          ctx.CurrentNamespace,
+			NewClient:          pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
+		})
+		if err != nil {
+			return err
+		}
+
+		// start the manager
+		go func() {
+			err := currentNamespaceManager.Start(ctx.Context)
+			if err != nil {
+				panic(err)
+			}
+		}()
+
+		// Wait for caches to be synced
+		currentNamespaceManager.GetCache().WaitForCacheSync(ctx.Context)
+	}
+
 	controller := &manifests.InitManifestsConfigMapReconciler{
-		LocalClient:    ctx.LocalManager.GetClient(),
+		LocalClient:    currentNamespaceManager.GetClient(),
 		Log:            loghelper.New("initmanifests-controller"),
 		VirtualManager: ctx.VirtualManager,
 	}
 
-	err := controller.SetupWithManager(ctx.LocalManager)
+	err := controller.SetupWithManager(currentNamespaceManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup init manifests configmap controller: %v", err)
 	}
