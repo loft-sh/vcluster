@@ -38,3 +38,10 @@ sidebar_label: Config Reference
       --tls-san strings                           Add additional hostname or IP as a Subject Alternative Name in the TLS cert
       --translate-image strings                   Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)
 ```
+
+All of these syncer flags can be set and configured through the values override file when creating the vcluster. In particular these syncer flags go into the `extraArgs` section of the values
+```
+syncer:
+  extraArgs:
+    - --set-owner=false
+```
