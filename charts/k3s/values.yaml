@@ -122,7 +122,7 @@ syncer:
 # Virtual Cluster (k3s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: rancher/k3s:v1.23.3-k3s1
+  image: rancher/k3s:v1.24.1-rc1-k3s1
   command:
     - /bin/k3s
   baseArgs:
