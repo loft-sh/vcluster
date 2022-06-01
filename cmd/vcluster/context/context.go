@@ -156,6 +156,11 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 		return nil, fmt.Errorf("you cannot use --sync-all-nodes and --enable-scheduler without enabling nodes sync")
 	}
 
+	// check if storage classes and legacy storage classes are enabled at the same time
+	if controllers["storageclasses"] && controllers["legacy-storageclasses"] {
+		return nil, fmt.Errorf("you cannot sync storage classes and legacy storage classes at the same time. Choose only one of them")
+	}
+
 	return &ControllerContext{
 		Context:        ctx,
 		Controllers:    controllers,
