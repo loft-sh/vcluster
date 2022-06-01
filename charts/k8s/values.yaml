@@ -301,6 +301,7 @@ coredns:
     externalTrafficPolicy: ""
     # Extra Annotations
     annotations: {}
+  resources: ""
 
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas

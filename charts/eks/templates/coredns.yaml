@@ -4,6 +4,10 @@ metadata:
   name: custom-deployments
   namespace: {{ .Release.Namespace }}
 data:
+{{- if .Values.coredns.resources }}
+  coredns.yaml: |-
+{{ .Values.coredns.resources | indent 4 }}
+{{- else }}
   coredns.yaml: |-
     apiVersion: v1
     kind: ServiceAccount
@@ -225,3 +229,4 @@ data:
       - name: metrics
         port: 9153
         protocol: TCP
+{{- end }}
