@@ -77,7 +77,7 @@ jobs:
 
     - name: Wait until vcluster is ready
       id: wait-until-vcluster-is-ready
-      run: kubectl wait --for=condition=ready pod -l app=vcluster -n vcluster --timeout=300s
+      run: kubectl wait --for=condition=ready pod -l app=vcluster -n vcluster --timeout=600s
       continue-on-error: true
     
     - name: Collect deployment information in case vcluster fails to start

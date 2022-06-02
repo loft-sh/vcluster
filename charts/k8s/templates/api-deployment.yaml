@@ -83,7 +83,6 @@ spec:
           - '--etcd-certfile=/run/config/pki/apiserver-etcd-client.crt'
           - '--etcd-keyfile=/run/config/pki/apiserver-etcd-client.key'
           - '--etcd-servers=https://{{ .Release.Name }}-etcd:2379'
-          - '--insecure-port=0'
           - '--kubelet-client-certificate=/run/config/pki/apiserver-kubelet-client.crt'
           - '--kubelet-client-key=/run/config/pki/apiserver-kubelet-client.key'
           - '--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname'
