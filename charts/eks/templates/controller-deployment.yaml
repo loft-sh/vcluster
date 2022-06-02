@@ -80,7 +80,11 @@ spec:
           - '--kubeconfig=/run/config/pki/controller-manager.conf'
           - '--port=0'
           - '--profiling=false'
+          {{- if .Values.serviceCIDR }}
           - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
+          {{- else }}
+          - '--service-cluster-ip-range=$(SERVICE_CIDR)'
+          {{- end }}
           - '--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256'
           - '--use-service-account-credentials=true'
           {{- if .Values.enableHA }}
@@ -122,7 +126,16 @@ spec:
         securityContext:
 {{ toYaml .Values.controller.securityContext | indent 10 }}
         env:
+          {{- if .Values.controller.env }}
 {{ toYaml .Values.controller.env | indent 10 }}
+          {{- end }}
+          {{- if not .Values.serviceCIDR }}
+          - name: SERVICE_CIDR
+            valueFrom:
+              configMapKeyRef:
+                name: "vc-cidr-{{ .Release.Name }}"
+                key: cidr
+          {{- end }}
         volumeMounts:
           - mountPath: /run/config/pki
             name: certs

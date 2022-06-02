@@ -101,13 +101,24 @@ spec:
           {{- end }}
           {{- if .Values.serviceCIDR }}
             --service-cidr={{ .Values.serviceCIDR }}
+          {{- else }}
+            --service-cidr=$(SERVICE_CIDR)
           {{- end }}
           {{- range $f := .Values.vcluster.extraArgs }}
             {{ $f }}
           {{- end }}
             && true
         env:
+          {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
+          {{- end }}
+          {{- if not .Values.serviceCIDR }}
+          - name: SERVICE_CIDR
+            valueFrom:
+              configMapKeyRef:
+                name: "vc-cidr-{{ .Release.Name }}"
+                key: cidr
+          {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:

@@ -18,6 +18,7 @@ COPY vendor/ vendor/
 
 # Copy the go source
 COPY cmd/vcluster cmd/vcluster
+COPY cmd/vclusterctl cmd/vclusterctl
 COPY pkg/ pkg/
 
 # Symlink /manifests folder to the synced location for development purposes

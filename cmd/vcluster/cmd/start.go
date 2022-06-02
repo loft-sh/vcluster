@@ -3,20 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
-	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"io/ioutil"
 	"math"
 	"os"
 	"time"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-
-	corev1 "k8s.io/api/core/v1"
-
-	"github.com/loft-sh/vcluster/pkg/plugin"
-
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers"
@@ -26,16 +17,23 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
-
+	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/server"
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
+	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -159,9 +157,48 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", options.EnforcePodSecurityStandard)
 	}
 
+	// set suffix
+	translate.Suffix = options.Name
+	if translate.Suffix == "" {
+		translate.Suffix = options.DeprecatedSuffix
+	}
+	if translate.Suffix == "" {
+		translate.Suffix = "vcluster"
+	}
+
+	// get current namespace
+	currentNamespace, err := clienthelper.CurrentNamespace()
+	if err != nil {
+		return err
+	}
+
+	// get host cluster config and tweak rate-limiting configuration
+	inClusterConfig := ctrl.GetConfigOrDie()
+	inClusterConfig.QPS = 40
+	inClusterConfig.Burst = 80
+	inClusterConfig.Timeout = 0
+
+	inClusterClient, err := kubernetes.NewForConfig(inClusterConfig)
+	if err != nil {
+		return err
+	}
+
+	// Ensure that service CIDR range is written into the expected location
+	err = wait.Poll(5*time.Second, 2*time.Minute, func() (bool, error) {
+		err = ensureServiceCIDR(inClusterClient, currentNamespace, translate.Suffix)
+		if err != nil {
+			klog.Errorf("failed to ensure that service CIDR range is written into the expected location: %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return err
+	}
+
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
-	err := wait.Poll(time.Second, time.Hour, func() (bool, error) {
+	err = wait.Poll(time.Second, time.Hour, func() (bool, error) {
 		out, err := ioutil.ReadFile(options.KubeConfig)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -213,15 +250,6 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		}
 	}
 
-	// set suffix
-	translate.Suffix = options.Name
-	if translate.Suffix == "" {
-		translate.Suffix = options.DeprecatedSuffix
-	}
-	if translate.Suffix == "" {
-		translate.Suffix = "vcluster"
-	}
-
 	// check if enable scheduler works correctly
 	if options.EnableScheduler && !options.SyncAllNodes && len(options.NodeSelector) == 0 {
 		options.SyncAllNodes = true
@@ -240,12 +268,6 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	// set kubelet port
 	nodeservice.KubeletTargetPort = options.Port
 
-	// get current namespace
-	currentNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return err
-	}
-
 	// ensure target namespace
 	if options.TargetNamespace == "" {
 		options.TargetNamespace = currentNamespace
@@ -255,16 +277,11 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	if err != nil {
 		return err
 	}
-	inClusterConfig := ctrl.GetConfigOrDie()
 
 	// We increase the limits here so that we don't get any problems
 	virtualClusterConfig.QPS = 1000
 	virtualClusterConfig.Burst = 2000
 	virtualClusterConfig.Timeout = 0
-
-	inClusterConfig.QPS = 40
-	inClusterConfig.Burst = 80
-	inClusterConfig.Timeout = 0
 
 	// start leader election for controllers
 	rawConfig, err := clientConfig.RawConfig()
@@ -352,6 +369,24 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	<-ctx.StopChan
 	return nil
+}
+
+func ensureServiceCIDR(c kubernetes.Interface, currentNamespace, vclusterName string) error {
+	// check if k0s config Secret exists
+	_, err := c.CoreV1().Secrets(currentNamespace).Get(context.Background(), servicecidr.GetK0sSecretName(vclusterName), metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	// if k0s secret was found ensure it contains service CIDR range
+	if err == nil {
+		klog.Info("k0s config secret detected, syncer will ensure that it contains service CIDR")
+		return servicecidr.EnsureServiceCIDRInK0sSecret(context.Background(), c, currentNamespace, vclusterName)
+	}
+
+	// in all other cases ensure that a valid CIDR range is in the designated ConfigMap
+	_, err = servicecidr.EnsureServiceCIDRConfigmap(context.Background(), c, currentNamespace, vclusterName)
+	return err
 }
 
 func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, serverVersion *version.Info) error {

@@ -4,10 +4,6 @@ vars:
     value: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
   - name: K3S_IMAGE
     value: rancher/k3s:v1.23.5-k3s1
-  # Replace this with your clusters service CIDR, you can find it out via
-  # kubectl apply -f hack/wrong-cluster-ip-service.yaml
-  - name: SERVICE_CIDR
-    value: 10.96.0.0/12
 images:
   vcluster:
     image: ${SYNCER_IMAGE}
@@ -22,7 +18,7 @@ deployments:
       chart:
         name: ./charts/k3s
       values:
-        serviceCIDR: ${SERVICE_CIDR}
+        serviceCIDR: $([ $1 == "dev" ] && vcluster get service-cidr || echo "null")
         mapServices:
           fromVirtual:
             - from: test/test

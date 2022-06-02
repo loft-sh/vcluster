@@ -45,5 +45,5 @@ spec:
             - --service-cidr={{ .Values.serviceCIDR }}
             {{- end }}
           resources:
-{{ toYaml .Values.etcd.resources | indent 12 }}
+{{ toYaml .Values.preInstall.resources | indent 12 }}
 {{- end }}

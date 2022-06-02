@@ -97,7 +97,11 @@ spec:
           - '--service-account-issuer=https://kubernetes.default.svc.cluster.local'
           - '--service-account-key-file=/run/config/pki/sa.pub'
           - '--service-account-signing-key-file=/run/config/pki/sa.key'
+          {{- if .Values.serviceCIDR }}
           - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
+          {{- else }}
+          - '--service-cluster-ip-range=$(SERVICE_CIDR)'
+          {{- end }}
           - '--tls-cert-file=/run/config/pki/apiserver.crt'
           - '--tls-private-key-file=/run/config/pki/apiserver.key'
           - '--watch-cache=false'
@@ -127,7 +131,16 @@ spec:
         securityContext:
 {{ toYaml .Values.api.securityContext | indent 10 }}
         env:
+          {{- if .Values.api.env }}
 {{ toYaml .Values.api.env | indent 10 }}
+          {{- end }}
+          {{- if not .Values.serviceCIDR }}
+          - name: SERVICE_CIDR
+            valueFrom:
+              configMapKeyRef:
+                name: "vc-cidr-{{ .Release.Name }}"
+                key: cidr
+          {{- end }}
         volumeMounts:
           - mountPath: /run/config/pki
             name: certs
