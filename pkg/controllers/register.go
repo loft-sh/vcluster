@@ -5,7 +5,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 
@@ -188,7 +190,10 @@ func registerInitManifestsController(ctx *context.ControllerContext) error {
 	if ctx.Options.TargetNamespace != ctx.CurrentNamespace {
 		var err error
 		currentNamespaceManager, err = ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
-			Scheme:             ctx.LocalManager.GetScheme(),
+			Scheme: ctx.LocalManager.GetScheme(),
+			MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
+				return ctx.LocalManager.GetRESTMapper(), nil
+			},
 			MetricsBindAddress: "0",
 			LeaderElection:     false,
 			Namespace:          ctx.CurrentNamespace,
@@ -234,7 +239,10 @@ func registerServiceSyncControllers(ctx *context.ControllerContext) error {
 		// sync we are syncing from arbitrary physical namespaces we need to create a new
 		// manager that listens on global services
 		globalLocalManager, err := ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
-			Scheme:             ctx.LocalManager.GetScheme(),
+			Scheme: ctx.LocalManager.GetScheme(),
+			MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
+				return ctx.LocalManager.GetRESTMapper(), nil
+			},
 			MetricsBindAddress: "0",
 			LeaderElection:     false,
 			NewClient:          blockingcacheclient.NewCacheClient,
