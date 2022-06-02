@@ -184,7 +184,14 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	// Ensure that service CIDR range is written into the expected location
-	err = ensureServiceCIDR(inClusterClient, currentNamespace, translate.Suffix)
+	err = wait.Poll(5*time.Second, 2*time.Minute, func() (bool, error) {
+		err = ensureServiceCIDR(inClusterClient, currentNamespace, translate.Suffix)
+		if err != nil {
+			klog.Errorf("failed to ensure that service CIDR range is written into the expected location: %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
 	if err != nil {
 		return err
 	}
