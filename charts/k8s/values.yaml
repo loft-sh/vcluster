@@ -252,10 +252,13 @@ service:
   externalIPs: []
   externalTrafficPolicy: ""
 
-# PreInstall hook configuration
-preInstall:
+# job configuration
+job:
   enabled: true
   priorityClassName: ""
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
