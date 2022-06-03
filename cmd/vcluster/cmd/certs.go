@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -177,7 +178,7 @@ func ExecuteCerts(options *CertsCmd) error {
 
 	// finally create the secret
 	_, err = kubeClient.CoreV1().Secrets(options.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
-	if err != nil {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return errors.Wrap(err, "create certs secret")
 	}
 

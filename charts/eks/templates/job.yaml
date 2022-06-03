@@ -1,29 +1,25 @@
-{{- if .Values.preInstall.enabled }}
+{{- if .Values.job.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-pre-install
+  name: {{ .Release.Name }}-job
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "3"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 3
   template:
     metadata:
-      name: {{ .Release.Name }}-pre-install
+      name: {{ .Release.Name }}-job
     spec:
-      serviceAccountName: {{ .Release.Name }}-pre-install
+      serviceAccountName: {{ .Release.Name }}-job
       restartPolicy: OnFailure
       nodeSelector:
-{{ toYaml .Values.preInstall.nodeSelector | indent 8 }}
+{{ toYaml .Values.job.nodeSelector | indent 8 }}
       affinity:
-{{ toYaml .Values.preInstall.affinity | indent 8 }}
+{{ toYaml .Values.job.affinity | indent 8 }}
       tolerations:
-{{ toYaml .Values.preInstall.tolerations | indent 8 }}
-      {{- if .Values.preInstall.priorityClassName }}
-      priorityClassName: {{ .Values.preInstall.priorityClassName }}
+{{ toYaml .Values.job.tolerations | indent 8 }}
+      {{- if .Values.job.priorityClassName }}
+      priorityClassName: {{ .Values.job.priorityClassName }}
       {{- end }}
       containers:
         - name: certs
@@ -33,8 +29,6 @@ spec:
           image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
           {{- end }}
           imagePullPolicy: IfNotPresent
-          securityContext:
-            runAsUser: 0
           command:
             - /vcluster
             - certs
@@ -44,6 +38,21 @@ spec:
             {{- if .Values.serviceCIDR }}
             - --service-cidr={{ .Values.serviceCIDR }}
             {{- end }}
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: cert-storage
+              mountPath: /certs
           resources:
-{{ toYaml .Values.preInstall.resources | indent 12 }}
+{{ toYaml .Values.job.resources | indent 12 }}
+      volumes:
+        - name: cert-storage
+          emptyDir: {}
 {{- end }}
