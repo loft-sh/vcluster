@@ -169,7 +169,7 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 	managedAnnotations := []string{}
 	if vObj != nil {
 		for k, v := range vObj.GetAnnotations() {
-			if exists(excluded, k) {
+			if translate.Exists(excluded, k) {
 				continue
 			}
 
@@ -185,12 +185,12 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 			oldManagedAnnotations := strings.Split(oldManagedAnnotationsStr, "\n")
 
 			for key, value := range pAnnotations {
-				if exists(excluded, key) {
+				if translate.Exists(excluded, key) {
 					if value != "" {
 						retMap[key] = value
 					}
 					continue
-				} else if exists(managedAnnotations, key) || (exists(oldManagedAnnotations, key) && !exists(managedAnnotations, key)) {
+				} else if translate.Exists(managedAnnotations, key) || (translate.Exists(oldManagedAnnotations, key) && !translate.Exists(managedAnnotations, key)) {
 					continue
 				}
 
@@ -277,16 +277,6 @@ func ConvertLabelKey(key string) string {
 func ConvertLabelKeyWithPrefix(prefix, key string) string {
 	digest := sha256.Sum256([]byte(key))
 	return translate.SafeConcatName(prefix, translate.Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
-}
-
-func exists(a []string, k string) bool {
-	for _, i := range a {
-		if i == k {
-			return true
-		}
-	}
-
-	return false
 }
 
 // ResetObjectMetadata resets the objects metadata except name, namespace and annotations

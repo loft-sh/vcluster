@@ -29,8 +29,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		translatedSpec = pNode.Spec.DeepCopy()
 	)
 	if s.enableScheduler {
-		annotations = mergeStringMap(vNode.Annotations, pNode.Annotations)
-		labels = mergeStringMap(vNode.Labels, pNode.Labels)
+		labels, annotations = translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, TaintsAnnotation)
 
 		// merge taints together
 		oldPhysical := []string{}
@@ -88,8 +87,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 			annotations[TaintsAnnotation] = string(out)
 		}
 	} else {
-		annotations = pNode.Annotations
-		labels = pNode.Labels
+		labels, annotations = translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels)
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Spec, *translatedSpec) {
@@ -258,20 +256,6 @@ func mergeStrings(physical []string, virtual []string, oldPhysical []string) []s
 
 func mergeResources(a corev1.ResourceList, b corev1.ResourceList) corev1.ResourceList {
 	merged := corev1.ResourceList{}
-	for k, v := range a {
-		merged[k] = v
-	}
-	for k, v := range b {
-		merged[k] = v
-	}
-	if len(merged) == 0 {
-		return nil
-	}
-	return merged
-}
-
-func mergeStringMap(a map[string]string, b map[string]string) map[string]string {
-	merged := map[string]string{}
 	for k, v := range a {
 		merged[k] = v
 	}
