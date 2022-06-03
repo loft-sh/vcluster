@@ -3,6 +3,7 @@ package coredns
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -33,7 +34,7 @@ type CoreDNSNodeHostsReconciler struct {
 
 func (r *CoreDNSNodeHostsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// prepare the value of NodeHosts key
-	nodehosts, err := r.compileNodehosts(ctx)
+	nodehosts, err := r.compileNodeHosts(ctx)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: time.Second}, err
 	}
@@ -59,7 +60,7 @@ func (r *CoreDNSNodeHostsReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-func (r *CoreDNSNodeHostsReconciler) compileNodehosts(ctx context.Context) (string, error) {
+func (r *CoreDNSNodeHostsReconciler) compileNodeHosts(ctx context.Context) (string, error) {
 	nodehosts := []string{}
 	nodes := &corev1.NodeList{}
 	err := r.Client.List(ctx, nodes)
@@ -78,6 +79,7 @@ func (r *CoreDNSNodeHostsReconciler) compileNodehosts(ctx context.Context) (stri
 		}
 		nodehosts = append(nodehosts, fmt.Sprintf("%s %s", nodeAddress, nodeHostname))
 	}
+	sort.Strings(nodehosts)
 	return strings.Join(nodehosts, "\n"), nil
 }
 
