@@ -4,6 +4,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
@@ -80,7 +81,9 @@ func TestSync(t *testing.T) {
 				"test": "true",
 			},
 			Annotations: map[string]string{
-				"test": "true",
+				"test":                                 "true",
+				translate.ManagedAnnotationsAnnotation: "test",
+				translate.ManagedLabelsAnnotation:      "test",
 			},
 		},
 		Status: corev1.NodeStatus{

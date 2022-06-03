@@ -3,6 +3,7 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"sort"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,6 +18,9 @@ var (
 	MarkerLabel     = "vcluster.loft.sh/managed-by"
 	ControllerLabel = "vcluster.loft.sh/controlled-by"
 	Suffix          = "suffix"
+
+	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
+	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
 )
 
 var Owner client.Object
@@ -105,4 +109,96 @@ func PhysicalNameClusterScoped(name, physicalNamespace string) string {
 		return ""
 	}
 	return SafeConcatName("vcluster", name, "x", physicalNamespace, "x", Suffix)
+}
+
+func ApplyMetadata(fromAnnotations map[string]string, toAnnotations map[string]string, fromLabels map[string]string, toLabels map[string]string, excludeAnnotations ...string) (labels map[string]string, annotations map[string]string) {
+	mergedAnnotations := ApplyAnnotations(fromAnnotations, toAnnotations, excludeAnnotations...)
+	return ApplyLabels(fromLabels, toLabels, mergedAnnotations)
+}
+
+func ApplyAnnotations(fromAnnotations map[string]string, toAnnotations map[string]string, excludeAnnotations ...string) map[string]string {
+	if toAnnotations == nil {
+		toAnnotations = map[string]string{}
+	}
+
+	excludedKeys := []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation}
+	excludedKeys = append(excludedKeys, excludeAnnotations...)
+	mergedAnnotations, managedKeys := ApplyMaps(fromAnnotations, toAnnotations, ApplyMapsOptions{
+		ManagedKeys: strings.Split(toAnnotations[ManagedAnnotationsAnnotation], "\n"),
+		ExcludeKeys: excludedKeys,
+	})
+	if managedKeys == "" {
+		delete(mergedAnnotations, ManagedAnnotationsAnnotation)
+	} else {
+		mergedAnnotations[ManagedAnnotationsAnnotation] = managedKeys
+	}
+
+	return mergedAnnotations
+}
+
+func ApplyLabels(fromLabels map[string]string, toLabels map[string]string, toAnnotations map[string]string) (labels map[string]string, annotations map[string]string) {
+	if toAnnotations == nil {
+		toAnnotations = map[string]string{}
+	}
+
+	mergedLabels, managedKeys := ApplyMaps(fromLabels, toLabels, ApplyMapsOptions{
+		ManagedKeys: strings.Split(toAnnotations[ManagedLabelsAnnotation], "\n"),
+		ExcludeKeys: []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation},
+	})
+	mergedAnnotations := map[string]string{}
+	for k, v := range toAnnotations {
+		mergedAnnotations[k] = v
+	}
+	if managedKeys == "" {
+		delete(mergedAnnotations, ManagedLabelsAnnotation)
+	} else {
+		mergedAnnotations[ManagedLabelsAnnotation] = managedKeys
+	}
+
+	return mergedLabels, mergedAnnotations
+}
+
+type ApplyMapsOptions struct {
+	ManagedKeys []string
+	ExcludeKeys []string
+}
+
+func ApplyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
+	retMap := map[string]string{}
+	managedKeys := []string{}
+	for k, v := range fromMap {
+		if Exists(opts.ExcludeKeys, k) {
+			continue
+		}
+
+		retMap[k] = v
+		managedKeys = append(managedKeys, k)
+	}
+
+	for key, value := range toMap {
+		if Exists(opts.ExcludeKeys, key) {
+			if value != "" {
+				retMap[key] = value
+			}
+			continue
+		} else if Exists(managedKeys, key) || Exists(opts.ManagedKeys, key) {
+			continue
+		}
+
+		retMap[key] = value
+	}
+
+	sort.Strings(managedKeys)
+	managedKeysStr := strings.Join(managedKeys, "\n")
+	return retMap, managedKeysStr
+}
+
+func Exists(a []string, k string) bool {
+	for _, i := range a {
+		if i == k {
+			return true
+		}
+	}
+
+	return false
 }
