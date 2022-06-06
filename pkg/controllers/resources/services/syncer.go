@@ -78,6 +78,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		newService := vService.DeepCopy()
 		newService.Status = pService.Status
 		ctx.Log.Infof("update virtual service %s/%s, because status is out of sync", vService.Namespace, vService.Name)
+		translator.PrintChanges(vService, newService, ctx.Log)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, newService)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -87,7 +88,12 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	}
 
 	// forward update
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pService, vService))
+	newService = s.translateUpdate(pService, vService)
+	if newService != nil {
+		translator.PrintChanges(pService, newService, ctx.Log)
+	}
+
+	return s.SyncDownUpdate(ctx, vObj, newService)
 }
 
 func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Service) bool {

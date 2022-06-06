@@ -274,6 +274,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		newPod := vPod.DeepCopy()
 		newPod.Status = strippedPod.Status
 		ctx.Log.Infof("update virtual pod %s/%s, because status has changed", vPod.Namespace, vPod.Name)
+		translator.PrintChanges(vPod, newPod, ctx.Log)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, newPod)
 		if err != nil {
 			if !kerrors.IsConflict(err) {
@@ -299,6 +300,8 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	updatedPod, err := s.translateUpdate(pPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
+	} else if updatedPod != nil {
+		translator.PrintChanges(pPod, updatedPod, ctx.Log)
 	}
 
 	return s.SyncDownUpdate(ctx, vPod, updatedPod)

@@ -6,6 +6,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -192,6 +193,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 		return ctrl.Result{}, errors.Wrap(err, "update node status")
 	} else if updatedVNode != nil {
 		ctx.Log.Infof("update virtual node %s, because status has changed", pNode.Name)
+		translator.PrintChanges(vNode, updatedVNode, ctx.Log)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, updatedVNode)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -204,6 +206,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 	updated := s.translateUpdateBackwards(pNode, vNode)
 	if updated != nil {
 		ctx.Log.Infof("update virtual node %s, because spec has changed", pNode.Name)
+		translator.PrintChanges(vNode, updated, ctx.Log)
 		err = ctx.VirtualClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err

@@ -27,5 +27,10 @@ func (s *networkPolicySyncer) SyncDown(ctx *synccontext.SyncContext, vObj client
 }
 
 func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pObj.(*networkingv1.NetworkPolicy), vObj.(*networkingv1.NetworkPolicy)))
+	newNetworkPolicy := s.translateUpdate(pObj.(*networkingv1.NetworkPolicy), vObj.(*networkingv1.NetworkPolicy))
+	if newNetworkPolicy != nil {
+		translator.PrintChanges(pObj, newNetworkPolicy, ctx.Log)
+	}
+
+	return s.SyncDownUpdate(ctx, vObj, newNetworkPolicy)
 }

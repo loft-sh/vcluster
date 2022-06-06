@@ -62,6 +62,7 @@ func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, pObj clie
 	updated := s.translateUpdateBackwards(pObj.(*volumesnapshotv1.VolumeSnapshotClass), vObj.(*volumesnapshotv1.VolumeSnapshotClass))
 	if updated != nil {
 		ctx.Log.Infof("updating virtual VolumeSnapshotClass %s, because it differs from the physical one", updated.Name)
+		translator.PrintChanges(vObj, updated, ctx.Log)
 		err := ctx.VirtualClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err

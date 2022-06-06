@@ -122,6 +122,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	updated := s.translateUpdateBackwards(pPvc, vPvc)
 	if updated != nil {
 		ctx.Log.Infof("update virtual persistent volume claim %s/%s, because the spec has changed", vPvc.Namespace, vPvc.Name)
+		translator.PrintChanges(vPvc, updated, ctx.Log)
 		err := ctx.VirtualClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -133,9 +134,11 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 
 	// check backwards status
 	if !equality.Semantic.DeepEqual(vPvc.Status, pPvc.Status) {
-		vPvc.Status = *pPvc.Status.DeepCopy()
+		newPvc := vPvc.DeepCopy()
+		newPvc.Status = *pPvc.Status.DeepCopy()
 		ctx.Log.Infof("update virtual persistent volume claim %s/%s, because the status has changed", vPvc.Namespace, vPvc.Name)
-		err := ctx.VirtualClient.Status().Update(ctx.Context, vPvc)
+		translator.PrintChanges(vPvc, newPvc, ctx.Log)
+		err := ctx.VirtualClient.Status().Update(ctx.Context, newPvc)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -145,12 +148,14 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	// forward update
-	pPvc, err := s.translateUpdate(ctx, pPvc, vPvc)
+	newPvc, err := s.translateUpdate(ctx, pPvc, vPvc)
 	if err != nil {
 		return ctrl.Result{}, err
+	} else if newPvc != nil {
+		translator.PrintChanges(pPvc, newPvc, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vPvc, pPvc)
+	return s.SyncDownUpdate(ctx, vPvc, newPvc)
 }
 
 func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) (bool, error) {

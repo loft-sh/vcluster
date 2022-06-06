@@ -183,6 +183,7 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 	}
 
 	ctx.Log.Infof("update virtual event %s/%s", vObj.Namespace, vObj.Name)
+	translator.PrintChanges(vOldObj, vObj, ctx.Log)
 	return ctx.VirtualClient.Update(ctx.Context, vObj)
 }
 

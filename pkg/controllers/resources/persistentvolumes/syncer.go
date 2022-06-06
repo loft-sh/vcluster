@@ -153,6 +153,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	updatedObj := s.translateUpdateBackwards(ctx, vPersistentVolume, pPersistentVolume, vPvc)
 	if updatedObj != nil {
 		ctx.Log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
+		translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
 		err = ctx.VirtualClient.Update(ctx.Context, updatedObj)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -164,9 +165,11 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 
 	// check status
 	if !equality.Semantic.DeepEqual(vPersistentVolume.Status, pPersistentVolume.Status) {
-		vPersistentVolume.Status = *pPersistentVolume.Status.DeepCopy()
+		updatedObj := vPersistentVolume.DeepCopy()
+		updatedObj.Status = *pPersistentVolume.Status.DeepCopy()
 		ctx.Log.Infof("update virtual persistent volume %s, because status has changed", vPersistentVolume.Name)
-		err = ctx.VirtualClient.Status().Update(ctx.Context, vPersistentVolume)
+		translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
+		err = ctx.VirtualClient.Status().Update(ctx.Context, updatedObj)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -196,6 +199,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 		updatedPv := s.translateUpdate(ctx, vPersistentVolume, pPersistentVolume)
 		if updatedPv != nil {
 			ctx.Log.Infof("update physical persistent volume %s, because spec or annotations have changed", updatedPv.Name)
+			translator.PrintChanges(pPersistentVolume, updatedPv, ctx.Log)
 			err := ctx.PhysicalClient.Update(ctx.Context, updatedPv)
 			if err != nil {
 				return ctrl.Result{}, err

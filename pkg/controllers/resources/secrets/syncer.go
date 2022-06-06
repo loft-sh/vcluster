@@ -126,7 +126,12 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pObj.(*corev1.Secret), vObj.(*corev1.Secret)))
+	newSecret := s.translateUpdate(pObj.(*corev1.Secret), vObj.(*corev1.Secret))
+	if newSecret != nil {
+		translator.PrintChanges(pObj, newSecret, ctx.Log)
+	}
+
+	return s.SyncDownUpdate(ctx, vObj, newSecret)
 }
 
 func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {

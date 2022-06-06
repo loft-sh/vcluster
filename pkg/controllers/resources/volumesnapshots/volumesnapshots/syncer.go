@@ -96,6 +96,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			updated := vVS.DeepCopy()
 			updated.Finalizers = pVS.Finalizers
 			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshot %s, because finalizers on the physical resource changed", vVS.Name)
+			translator.PrintChanges(vObj, updated, ctx.Log)
 			err := ctx.VirtualClient.Update(ctx.Context, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{}, nil
@@ -105,9 +106,11 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			}
 		}
 		if !equality.Semantic.DeepEqual(vVS.Status, pVS.Status) {
-			vVS.Status = pVS.Status.DeepCopy()
+			updated := vVS.DeepCopy()
+			updated.Status = pVS.Status.DeepCopy()
 			ctx.Log.Infof("update virtual VolumeSnapshot %s, because status has changed", vVS.Name)
-			err := ctx.VirtualClient.Status().Update(ctx.Context, vVS)
+			translator.PrintChanges(vObj, updated, ctx.Log)
+			err := ctx.VirtualClient.Status().Update(ctx.Context, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
@@ -129,6 +132,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 	updated := s.translateUpdateBackwards(pVS, vVS)
 	if updated != nil {
 		ctx.Log.Infof("update virtual volume snapshot %s/%s, because the spec has changed", vVS.Namespace, vVS.Name)
+		translator.PrintChanges(vObj, updated, ctx.Log)
 		err := ctx.VirtualClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -139,9 +143,11 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 
 	// check backwards status
 	if !equality.Semantic.DeepEqual(vVS.Status, pVS.Status) {
-		vVS.Status = pVS.Status.DeepCopy()
+		updated := vVS.DeepCopy()
+		updated.Status = pVS.Status.DeepCopy()
 		ctx.Log.Infof("update virtual volume snapshot %s/%s, because the status has changed", vVS.Namespace, vVS.Name)
-		err := ctx.VirtualClient.Status().Update(ctx.Context, vVS)
+		translator.PrintChanges(vObj, updated, ctx.Log)
+		err := ctx.VirtualClient.Status().Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -149,5 +155,10 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 	}
 
 	// forward update
-	return s.SyncDownUpdate(ctx, vVS, s.translateUpdate(pVS, vVS))
+	updated = s.translateUpdate(pVS, vVS)
+	if updated != nil {
+		translator.PrintChanges(pVS, updated, ctx.Log)
+	}
+
+	return s.SyncDownUpdate(ctx, vVS, updated)
 }

@@ -81,8 +81,13 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		return ctrl.Result{}, nil
 	}
 
+	newConfigMap := s.translateUpdate(pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
+	if newConfigMap != nil {
+		translator.PrintChanges(pObj, newConfigMap, ctx.Log)
+	}
+
 	// did the configmap change?
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap)))
+	return s.SyncDownUpdate(ctx, vObj, newConfigMap)
 }
 
 func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {
