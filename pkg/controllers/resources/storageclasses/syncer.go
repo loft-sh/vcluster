@@ -40,6 +40,7 @@ func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Obje
 	updated := s.translateUpdate(pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
 	if updated != nil {
 		ctx.Log.Infof("updating physical storage class %s, because virtual storage class has changed", updated.Name)
+		translator.PrintChanges(pObj, updated, ctx.Log)
 		err := ctx.PhysicalClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err

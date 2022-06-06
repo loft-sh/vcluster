@@ -33,6 +33,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	updated := s.translateUpdateBackwards(pObj.(*networkingv1beta1.Ingress), vObj.(*networkingv1beta1.Ingress))
 	if updated != nil {
 		ctx.Log.Infof("update virtual ingress %s/%s, because ingress class name is out of sync", vIngress.Namespace, vIngress.Name)
+		translator.PrintChanges(vIngress, updated, ctx.Log)
 		err := ctx.VirtualClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -46,6 +47,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		newIngress := vIngress.DeepCopy()
 		newIngress.Status = pIngress.Status
 		ctx.Log.Infof("update virtual ingress %s/%s, because status is out of sync", vIngress.Namespace, vIngress.Name)
+		translator.PrintChanges(vIngress, newIngress, ctx.Log)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, newIngress)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -55,7 +57,12 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pIngress, vIngress))
+	newIngress := s.translateUpdate(pIngress, vIngress)
+	if newIngress != nil {
+		translator.PrintChanges(pObj, newIngress, ctx.Log)
+	}
+
+	return s.SyncDownUpdate(ctx, vObj, newIngress)
 }
 
 func SecretNamesFromIngress(ingress *networkingv1beta1.Ingress) []string {

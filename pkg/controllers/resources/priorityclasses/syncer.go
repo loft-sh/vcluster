@@ -48,6 +48,7 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Obj
 	updated := s.translateUpdate(pObj.(*schedulingv1.PriorityClass), vObj.(*schedulingv1.PriorityClass))
 	if updated != nil {
 		ctx.Log.Infof("updating physical priority class %s, because virtual priority class has changed", updated.Name)
+		translator.PrintChanges(pObj, updated, ctx.Log)
 		err := ctx.PhysicalClient.Update(ctx.Context, updated)
 		if err != nil {
 			return ctrl.Result{}, err

@@ -137,6 +137,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 			updated := vVSC.DeepCopy()
 			updated.Finalizers = pVSC.Finalizers
 			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshotContent %s, because finalizers on the physical resource changed", vVSC.Name)
+			translator.PrintChanges(vObj, updated, ctx.Log)
 			err := s.virtualClient.Update(ctx.Context, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{RequeueAfter: time.Second}, nil
@@ -146,9 +147,11 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 			}
 		}
 		if !equality.Semantic.DeepEqual(vVSC.Status, pVSC.Status) {
-			vVSC.Status = pVSC.Status.DeepCopy()
+			updated := vVSC.DeepCopy()
+			updated.Status = pVSC.Status.DeepCopy()
 			ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because status has changed", vVSC.Name)
-			err := s.virtualClient.Status().Update(ctx.Context, vVSC)
+			translator.PrintChanges(vObj, updated, ctx.Log)
+			err := s.virtualClient.Status().Update(ctx.Context, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
@@ -169,14 +172,17 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	updatedObj := s.translateUpdateBackwards(pVSC, vVSC, vVS)
 	if updatedObj != nil {
 		ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because spec or metadata(annotations or labels) have changed", vVSC.Name)
+		translator.PrintChanges(vObj, updatedObj, ctx.Log)
 		return ctrl.Result{}, s.virtualClient.Update(ctx.Context, updatedObj)
 	}
 
 	// update virtual status if it differs
 	if !equality.Semantic.DeepEqual(vVSC.Status, pVSC.Status) {
-		vVSC.Status = pVSC.Status.DeepCopy()
+		newVSC := vVSC.DeepCopy()
+		newVSC.Status = pVSC.Status.DeepCopy()
+		translator.PrintChanges(vObj, newVSC, ctx.Log)
 		ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because status has changed", vVSC.Name)
-		return ctrl.Result{}, s.virtualClient.Status().Update(ctx.Context, vVSC)
+		return ctrl.Result{}, s.virtualClient.Status().Update(ctx.Context, newVSC)
 	}
 
 	// update the physical VolumeSnapshotContent if the virtual has changed
@@ -200,6 +206,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 		updatedPv := s.translateUpdate(vVSC, pVSC)
 		if updatedPv != nil {
 			ctx.Log.Infof("update physical VolumeSnapshotContent %s, because spec or annotations have changed", updatedPv.Name)
+			translator.PrintChanges(pVSC, updatedPv, ctx.Log)
 			err := ctx.PhysicalClient.Update(ctx.Context, updatedPv)
 			if err != nil {
 				return ctrl.Result{}, err

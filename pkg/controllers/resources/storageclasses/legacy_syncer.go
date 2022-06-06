@@ -34,6 +34,7 @@ func (s *legacyStorageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj clien
 	updated := s.translateUpdateBackwards(pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
 	if updated != nil {
 		ctx.Log.Infof("update storage class %s", vObj.GetName())
+		translator.PrintChanges(pObj, updated, ctx.Log)
 		return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, updated)
 	}
 

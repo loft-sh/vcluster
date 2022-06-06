@@ -26,6 +26,10 @@ func (pdb *pdbSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object)
 func (pdb *pdbSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	vPDB := vObj.(*policyv1.PodDisruptionBudget)
 	pPDB := pObj.(*policyv1.PodDisruptionBudget)
+	newPDB := pdb.translateUpdate(pPDB, vPDB)
+	if newPDB != nil {
+		translator.PrintChanges(pObj, newPDB, ctx.Log)
+	}
 
-	return pdb.SyncDownUpdate(ctx, vObj, pdb.translateUpdate(pPDB, vPDB))
+	return pdb.SyncDownUpdate(ctx, vObj, newPDB)
 }

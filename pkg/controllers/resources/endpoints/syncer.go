@@ -27,7 +27,12 @@ func (s *endpointsSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Obj
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(ctx, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints)))
+	newEndpoints := s.translateUpdate(ctx, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+	if newEndpoints != nil {
+		translator.PrintChanges(pObj, newEndpoints, ctx.Log)
+	}
+
+	return s.SyncDownUpdate(ctx, vObj, newEndpoints)
 }
 
 var _ syncer.Starter = &endpointsSyncer{}

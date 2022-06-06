@@ -26,5 +26,10 @@ func (s *serviceAccountSyncer) SyncDown(ctx *synccontext.SyncContext, vObj clien
 
 func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// did the service account change?
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(pObj.(*corev1.ServiceAccount), vObj.(*corev1.ServiceAccount)))
+	newServiceAccount := s.translateUpdate(pObj.(*corev1.ServiceAccount), vObj.(*corev1.ServiceAccount))
+	if newServiceAccount != nil {
+		translator.PrintChanges(pObj, newServiceAccount, ctx.Log)
+	}
+
+	return s.SyncDownUpdate(ctx, vObj, newServiceAccount)
 }
