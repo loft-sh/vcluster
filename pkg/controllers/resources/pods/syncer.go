@@ -146,7 +146,10 @@ var _ syncer.Syncer = &podSyncer{}
 
 func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPod := vObj.(*corev1.Pod)
-	if vPod.DeletionTimestamp != nil {
+	// in some scenarios it is possible that the pod was already started and the physical pod
+	// was deleted without vcluster's knowledge. In this case we are deleting the virtual pod
+	// as well, to avoid conflicts with nodes if we would resync the same pod to the host cluster again.
+	if vPod.DeletionTimestamp != nil || vPod.Status.StartTime != nil {
 		// delete pod immediately
 		ctx.Log.Infof("delete pod %s/%s immediately, because it is being deleted & there is no physical pod", vPod.Namespace, vPod.Name)
 		err := ctx.VirtualClient.Delete(ctx.Context, vPod, &client.DeleteOptions{
