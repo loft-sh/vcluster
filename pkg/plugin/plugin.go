@@ -183,7 +183,7 @@ func (m *manager) Start(
 func (m *manager) waitForPlugins(options *context2.VirtualClusterOptions) error {
 	for _, plugin := range options.Plugins {
 		klog.Infof("Waiting for plugin %s to register...", plugin)
-		err := wait.PollImmediate(time.Millisecond*100, time.Minute*3, func() (done bool, err error) {
+		err := wait.PollImmediate(time.Millisecond*100, time.Minute*10, func() (done bool, err error) {
 			m.pluginMutex.Lock()
 			defer m.pluginMutex.Unlock()
 
@@ -235,7 +235,7 @@ func (m *manager) RegisterPlugin(ctx context.Context, info *remote.RegisterPlugi
 		newPlugins[info.Name] = info
 
 		// regenerate client hooks
-		newClientHooks, err := regenerateClientHooks(m.pluginVersions)
+		newClientHooks, err := regenerateClientHooks(newPlugins)
 		if err != nil {
 			klog.Infof("Error regenerating client hooks for plugin %s: %v", info.Name, err)
 			return nil, errors.Wrap(err, "generate client hooks")
