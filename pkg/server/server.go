@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -22,6 +22,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -179,6 +180,11 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		h = filters.WithNodeChanges(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
 	h = filters.WithFakeKubelet(h, localConfig, cachedVirtualClient, ctx.Options.TargetNamespace)
+
+	if os.Getenv("DEBUG") == "true" {
+		h = filters.WithPprof(h)
+	}
+
 	serverhelper.HandleRoute(s.handler, "/", h)
 
 	return s, nil
