@@ -41,12 +41,13 @@ import (
 type ConnectCmd struct {
 	*flags.GlobalFlags
 
-	KubeConfig    string
-	PodName       string
-	UpdateCurrent bool
-	Print         bool
-	LocalPort     int
-	Address       string
+	KubeConfigContextName string
+	KubeConfig            string
+	PodName               string
+	UpdateCurrent         bool
+	Print                 bool
+	LocalPort             int
+	Address               string
 
 	ServiceAccount            string
 	ServiceAccountClusterRole string
@@ -90,6 +91,7 @@ vcluster connect test -n test -- kubectl get ns
 		},
 	}
 
+	cobraCmd.Flags().StringVar(&cmd.KubeConfigContextName, "kube-config-context-name", "", "kube-config-context-name to be set")
 	cobraCmd.Flags().StringVar(&cmd.KubeConfig, "kube-config", "./kubeconfig.yaml", "Writes the created kube config to this file")
 	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", false, "If true updates the current kube config")
 	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
@@ -222,6 +224,44 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 	// find out port we should listen to locally
 	if len(kubeConfig.Clusters) != 1 {
 		return fmt.Errorf("unexpected kube config")
+	}
+
+	if cmd.KubeConfigContextName != "" {
+		// update cluster
+		clusterKeys := make([]string, 0, len(kubeConfig.Clusters))
+		for k := range kubeConfig.Clusters {
+			clusterKeys = append(clusterKeys, k)
+		}
+		for _, clusterKey := range clusterKeys {
+			kubeConfig.Clusters[cmd.KubeConfigContextName] = kubeConfig.Clusters[clusterKey]
+			delete(kubeConfig.Clusters, clusterKey)
+		}
+
+		// update context
+		contextKeys := make([]string, 0, len(kubeConfig.Contexts))
+		for k := range kubeConfig.Contexts {
+			contextKeys = append(contextKeys, k)
+		}
+		for _, contextKey := range contextKeys {
+			ctx := kubeConfig.Contexts[contextKey]
+			ctx.Cluster = cmd.KubeConfigContextName
+			ctx.AuthInfo = cmd.KubeConfigContextName
+			kubeConfig.Contexts[cmd.KubeConfigContextName] = ctx
+			delete(kubeConfig.Contexts, contextKey)
+		}
+
+		// update authInfo
+		authInfos := make([]string, 0, len(kubeConfig.AuthInfos))
+		for k := range kubeConfig.AuthInfos {
+			authInfos = append(authInfos, k)
+		}
+		for _, authInfo := range authInfos {
+			kubeConfig.AuthInfos[cmd.KubeConfigContextName] = kubeConfig.AuthInfos[authInfo]
+			delete(kubeConfig.AuthInfos, authInfo)
+		}
+
+		// update current-context
+		kubeConfig.CurrentContext = cmd.KubeConfigContextName
 	}
 
 	// check if the vcluster is exposed
@@ -357,10 +397,14 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 		}
 
 		contextName := ""
-		if vclusterName != "" {
-			contextName = "vcluster_" + cmd.Namespace + "_" + vclusterName
+		if cmd.KubeConfigContextName != "" {
+			contextName = cmd.KubeConfigContextName
 		} else {
-			contextName = "vcluster_" + cmd.Namespace + "_" + cmd.PodName
+			if vclusterName != "" {
+				contextName = "vcluster_" + cmd.Namespace + "_" + vclusterName
+			} else {
+				contextName = "vcluster_" + cmd.Namespace + "_" + cmd.PodName
+			}
 		}
 		err = updateKubeConfig(contextName, clusterConfig, authConfig, false)
 		if err != nil {
