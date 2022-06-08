@@ -3,13 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 )
@@ -18,6 +19,8 @@ import (
 type ResumeCmd struct {
 	*flags.GlobalFlags
 	Log log.Logger
+
+	kubeClient *kubernetes.Clientset
 }
 
 // NewResumeCmd creates a new command
@@ -52,13 +55,28 @@ vcluster resume test --namespace test
 
 // Run executes the functionality
 func (cmd *ResumeCmd) Run(args []string) error {
-	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: cmd.Context,
-	})
+	err := cmd.prepare(args[0])
+	if err != nil {
+		return err
+	}
+
+	err = resumeVCluster(cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
+	if err != nil {
+		return err
+	}
+
+	cmd.Log.Donef("Successfully resumed vcluster %s in namespace %s", args[0], cmd.Namespace)
+	return nil
+}
+
+func (cmd *ResumeCmd) prepare(vClusterName string) error {
+	vCluster, err := find.GetVCluster(cmd.Context, vClusterName, cmd.Namespace)
+	if err != nil {
+		return err
+	}
 
 	// load the rest config
-	kubeConfig, err := kubeClientConfig.ClientConfig()
+	kubeConfig, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
 		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
@@ -68,53 +86,49 @@ func (cmd *ResumeCmd) Run(args []string) error {
 		return err
 	}
 
-	if cmd.Namespace == "" {
-		cmd.Namespace, _, err = kubeClientConfig.Namespace()
-		if err != nil {
-			return err
-		} else if cmd.Namespace == "" {
-			cmd.Namespace = "default"
-		}
-	}
+	cmd.Namespace = vCluster.Namespace
+	cmd.kubeClient = kubeClient
+	return nil
+}
 
+func resumeVCluster(kubeClient *kubernetes.Clientset, name, namespace string, log log.Logger) error {
 	// scale down vcluster itself
-	labelSelector := "app=vcluster,release=" + args[0]
-	found, err := cmd.scaleUpStatefulSet(kubeClient, labelSelector)
+	labelSelector := "app=vcluster,release=" + name
+	found, err := scaleUpStatefulSet(kubeClient, labelSelector, namespace, log)
 	if err != nil {
 		return err
 	} else if !found {
-		found, err = cmd.scaleUpDeployment(kubeClient, labelSelector)
+		found, err = scaleUpDeployment(kubeClient, labelSelector, namespace, log)
 		if err != nil {
 			return err
 		} else if !found {
-			return errors.Errorf("couldn't find a paused vcluster %s in namespace %s. Make sure the vcluster exists and was paused previously", args[0], cmd.Namespace)
+			return errors.Errorf("couldn't find a paused vcluster %s in namespace %s. Make sure the vcluster exists and was paused previously", name, namespace)
 		}
 
 		// scale down kube api server
-		_, err = cmd.scaleUpDeployment(kubeClient, "app=vcluster-api,release="+args[0])
+		_, err = scaleUpDeployment(kubeClient, "app=vcluster-api,release="+name, namespace, log)
 		if err != nil {
 			return err
 		}
 
 		// scale down kube controller
-		_, err = cmd.scaleUpDeployment(kubeClient, "app=vcluster-controller,release="+args[0])
+		_, err = scaleUpDeployment(kubeClient, "app=vcluster-controller,release="+name, namespace, log)
 		if err != nil {
 			return err
 		}
 
 		// scale down etcd
-		_, err = cmd.scaleUpStatefulSet(kubeClient, "app=vcluster-etcd,release="+args[0])
+		_, err = scaleUpStatefulSet(kubeClient, "app=vcluster-etcd,release="+name, namespace, log)
 		if err != nil {
 			return err
 		}
 	}
 
-	cmd.Log.Donef("Successfully resumed vcluster %s in namespace %s", args[0], cmd.Namespace)
 	return nil
 }
 
-func (cmd *ResumeCmd) scaleUpDeployment(kubeClient kubernetes.Interface, labelSelector string) (bool, error) {
-	list, err := kubeClient.AppsV1().Deployments(cmd.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+func scaleUpDeployment(kubeClient kubernetes.Interface, labelSelector string, namespace string, log log.Logger) (bool, error) {
+	list, err := kubeClient.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return false, err
 	} else if len(list.Items) == 0 {
@@ -122,7 +136,7 @@ func (cmd *ResumeCmd) scaleUpDeployment(kubeClient kubernetes.Interface, labelSe
 	}
 
 	for _, item := range list.Items {
-		if item.Annotations == nil || item.Annotations[PausedAnnotation] != "true" {
+		if item.Annotations == nil || item.Annotations[constants.PausedAnnotation] != "true" {
 			return false, nil
 		}
 
@@ -132,13 +146,13 @@ func (cmd *ResumeCmd) scaleUpDeployment(kubeClient kubernetes.Interface, labelSe
 		if item.Annotations[PausedReplicasAnnotation] != "" {
 			replicas, err = strconv.Atoi(item.Annotations[PausedReplicasAnnotation])
 			if err != nil {
-				cmd.Log.Warnf("error parsing old replicas: %v", err)
+				log.Warnf("error parsing old replicas: %v", err)
 				replicas = 1
 			}
 		}
 
 		replicas32 := int32(replicas)
-		delete(item.Annotations, PausedAnnotation)
+		delete(item.Annotations, constants.PausedAnnotation)
 		delete(item.Annotations, PausedReplicasAnnotation)
 		item.Spec.Replicas = &replicas32
 
@@ -149,7 +163,7 @@ func (cmd *ResumeCmd) scaleUpDeployment(kubeClient kubernetes.Interface, labelSe
 		}
 
 		// patch deployment
-		_, err = kubeClient.AppsV1().Deployments(cmd.Namespace).Patch(context.TODO(), item.Name, patch.Type(), data, metav1.PatchOptions{})
+		_, err = kubeClient.AppsV1().Deployments(namespace).Patch(context.TODO(), item.Name, patch.Type(), data, metav1.PatchOptions{})
 		if err != nil {
 			return false, errors.Wrap(err, "patch deployment")
 		}
@@ -158,8 +172,8 @@ func (cmd *ResumeCmd) scaleUpDeployment(kubeClient kubernetes.Interface, labelSe
 	return true, nil
 }
 
-func (cmd *ResumeCmd) scaleUpStatefulSet(kubeClient kubernetes.Interface, labelSelector string) (bool, error) {
-	list, err := kubeClient.AppsV1().StatefulSets(cmd.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+func scaleUpStatefulSet(kubeClient kubernetes.Interface, labelSelector string, namespace string, log log.Logger) (bool, error) {
+	list, err := kubeClient.AppsV1().StatefulSets(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return false, err
 	} else if len(list.Items) == 0 {
@@ -167,7 +181,7 @@ func (cmd *ResumeCmd) scaleUpStatefulSet(kubeClient kubernetes.Interface, labelS
 	}
 
 	for _, item := range list.Items {
-		if item.Annotations == nil || item.Annotations[PausedAnnotation] != "true" {
+		if item.Annotations == nil || item.Annotations[constants.PausedAnnotation] != "true" {
 			return false, nil
 		}
 
@@ -177,13 +191,13 @@ func (cmd *ResumeCmd) scaleUpStatefulSet(kubeClient kubernetes.Interface, labelS
 		if item.Annotations[PausedReplicasAnnotation] != "" {
 			replicas, err = strconv.Atoi(item.Annotations[PausedReplicasAnnotation])
 			if err != nil {
-				cmd.Log.Warnf("error parsing old replicas: %v", err)
+				log.Warnf("error parsing old replicas: %v", err)
 				replicas = 1
 			}
 		}
 
 		replicas32 := int32(replicas)
-		delete(item.Annotations, PausedAnnotation)
+		delete(item.Annotations, constants.PausedAnnotation)
 		delete(item.Annotations, PausedReplicasAnnotation)
 		item.Spec.Replicas = &replicas32
 
@@ -194,7 +208,7 @@ func (cmd *ResumeCmd) scaleUpStatefulSet(kubeClient kubernetes.Interface, labelS
 		}
 
 		// patch deployment
-		_, err = kubeClient.AppsV1().StatefulSets(cmd.Namespace).Patch(context.TODO(), item.Name, patch.Type(), data, metav1.PatchOptions{})
+		_, err = kubeClient.AppsV1().StatefulSets(namespace).Patch(context.TODO(), item.Name, patch.Type(), data, metav1.PatchOptions{})
 		if err != nil {
 			return false, errors.Wrap(err, "patch statefulSet")
 		}

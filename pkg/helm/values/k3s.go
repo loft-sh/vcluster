@@ -112,6 +112,10 @@ rbac:
 		values += `
 service:
   type: LoadBalancer`
+	} else if chartOptions.NodePort {
+		values += `
+service:
+  type: NodePort`
 	}
 
 	if chartOptions.Isolate {

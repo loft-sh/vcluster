@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -14,11 +16,9 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
-	PausedAnnotation         = "loft.sh/paused"
 	PausedReplicasAnnotation = "loft.sh/paused-replicas"
 )
 
@@ -26,6 +26,8 @@ var (
 type PauseCmd struct {
 	*flags.GlobalFlags
 	Log log.Logger
+
+	kubeClient *kubernetes.Clientset
 }
 
 // NewPauseCmd creates a new command
@@ -64,13 +66,61 @@ vcluster pause test --namespace test
 
 // Run executes the functionality
 func (cmd *PauseCmd) Run(args []string) error {
-	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: cmd.Context,
-	})
+	err := cmd.prepare(args[0])
+	if err != nil {
+		return err
+	}
+
+	// scale down vcluster itself
+	labelSelector := "app=vcluster,release=" + args[0]
+	found, err := cmd.scaleDownStatefulSet(cmd.kubeClient, labelSelector)
+	if err != nil {
+		return err
+	} else if !found {
+		found, err = cmd.scaleDownDeployment(cmd.kubeClient, labelSelector)
+		if err != nil {
+			return err
+		} else if !found {
+			return errors.Errorf("couldn't find vcluster %s in namespace %s", args[0], cmd.Namespace)
+		}
+
+		// scale down kube api server
+		_, err = cmd.scaleDownDeployment(cmd.kubeClient, "app=vcluster-api,release="+args[0])
+		if err != nil {
+			return err
+		}
+
+		// scale down kube controller
+		_, err = cmd.scaleDownDeployment(cmd.kubeClient, "app=vcluster-controller,release="+args[0])
+		if err != nil {
+			return err
+		}
+
+		// scale down etcd
+		_, err = cmd.scaleDownStatefulSet(cmd.kubeClient, "app=vcluster-etcd,release="+args[0])
+		if err != nil {
+			return err
+		}
+	}
+
+	// delete vcluster workloads
+	err = cmd.deleteVClusterWorkloads(cmd.kubeClient, "vcluster.loft.sh/managed-by="+args[0])
+	if err != nil {
+		return errors.Wrap(err, "delete vcluster workloads")
+	}
+
+	cmd.Log.Donef("Successfully paused vcluster %s/%s", cmd.Namespace, args[0])
+	return nil
+}
+
+func (cmd *PauseCmd) prepare(vClusterName string) error {
+	vCluster, err := find.GetVCluster(cmd.Context, vClusterName, cmd.Namespace)
+	if err != nil {
+		return err
+	}
 
 	// load the rest config
-	kubeConfig, err := kubeClientConfig.ClientConfig()
+	kubeConfig, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
 		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
@@ -80,54 +130,8 @@ func (cmd *PauseCmd) Run(args []string) error {
 		return err
 	}
 
-	if cmd.Namespace == "" {
-		cmd.Namespace, _, err = kubeClientConfig.Namespace()
-		if err != nil {
-			return err
-		} else if cmd.Namespace == "" {
-			cmd.Namespace = "default"
-		}
-	}
-
-	// scale down vcluster itself
-	labelSelector := "app=vcluster,release=" + args[0]
-	found, err := cmd.scaleDownStatefulSet(kubeClient, labelSelector)
-	if err != nil {
-		return err
-	} else if !found {
-		found, err = cmd.scaleDownDeployment(kubeClient, labelSelector)
-		if err != nil {
-			return err
-		} else if !found {
-			return errors.Errorf("couldn't find vcluster %s in namespace %s", args[0], cmd.Namespace)
-		}
-
-		// scale down kube api server
-		_, err = cmd.scaleDownDeployment(kubeClient, "app=vcluster-api,release="+args[0])
-		if err != nil {
-			return err
-		}
-
-		// scale down kube controller
-		_, err = cmd.scaleDownDeployment(kubeClient, "app=vcluster-controller,release="+args[0])
-		if err != nil {
-			return err
-		}
-
-		// scale down etcd
-		_, err = cmd.scaleDownStatefulSet(kubeClient, "app=vcluster-etcd,release="+args[0])
-		if err != nil {
-			return err
-		}
-	}
-
-	// delete vcluster workloads
-	err = cmd.deleteVClusterWorkloads(kubeClient, "vcluster.loft.sh/managed-by="+args[0])
-	if err != nil {
-		return errors.Wrap(err, "delete vcluster workloads")
-	}
-
-	cmd.Log.Donef("Successfully paused vcluster %s/%s", cmd.Namespace, args[0])
+	cmd.Namespace = vCluster.Namespace
+	cmd.kubeClient = kubeClient
 	return nil
 }
 
@@ -160,7 +164,7 @@ func (cmd *PauseCmd) scaleDownDeployment(kubeClient kubernetes.Interface, labelS
 
 	zero := int32(0)
 	for _, item := range list.Items {
-		if item.Annotations != nil && item.Annotations[PausedAnnotation] == "true" {
+		if item.Annotations != nil && item.Annotations[constants.PausedAnnotation] == "true" {
 			cmd.Log.Infof("vcluster %s/%s is already paused", cmd.Namespace, item.Name)
 			return true, nil
 		} else if item.Spec.Replicas != nil && *item.Spec.Replicas == 0 {
@@ -177,7 +181,7 @@ func (cmd *PauseCmd) scaleDownDeployment(kubeClient kubernetes.Interface, labelS
 			replicas = int(*item.Spec.Replicas)
 		}
 
-		item.Annotations[PausedAnnotation] = "true"
+		item.Annotations[constants.PausedAnnotation] = "true"
 		item.Annotations[PausedReplicasAnnotation] = strconv.Itoa(replicas)
 		item.Spec.Replicas = &zero
 
@@ -221,7 +225,7 @@ func (cmd *PauseCmd) scaleDownStatefulSet(kubeClient kubernetes.Interface, label
 
 	zero := int32(0)
 	for _, item := range list.Items {
-		if item.Annotations != nil && item.Annotations[PausedAnnotation] == "true" {
+		if item.Annotations != nil && item.Annotations[constants.PausedAnnotation] == "true" {
 			cmd.Log.Infof("vcluster %s/%s is already paused", cmd.Namespace, item.Name)
 			return true, nil
 		} else if item.Spec.Replicas != nil && *item.Spec.Replicas == 0 {
@@ -238,7 +242,7 @@ func (cmd *PauseCmd) scaleDownStatefulSet(kubeClient kubernetes.Interface, label
 			replicas = int(*item.Spec.Replicas)
 		}
 
-		item.Annotations[PausedAnnotation] = "true"
+		item.Annotations[constants.PausedAnnotation] = "true"
 		item.Annotations[PausedReplicasAnnotation] = strconv.Itoa(replicas)
 		item.Spec.Replicas = &zero
 

@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"io"
 	"io/ioutil"
@@ -57,6 +59,15 @@ type ConnectCmd struct {
 	Insecure bool
 
 	Log log.Logger
+
+	kubeClientConfig clientcmd.ClientConfig
+	kubeClient       *kubernetes.Clientset
+	restConfig       *rest.Config
+	rawConfig        api.Config
+
+	portForwarding bool
+	interruptChan  chan struct{}
+	errorChan      chan error
 }
 
 // NewConnectCmd creates a new command
@@ -93,7 +104,7 @@ vcluster connect test -n test -- kubectl get ns
 
 	cobraCmd.Flags().StringVar(&cmd.KubeConfigContextName, "kube-config-context-name", "", "kube-config-context-name to be set")
 	cobraCmd.Flags().StringVar(&cmd.KubeConfig, "kube-config", "./kubeconfig.yaml", "Writes the created kube config to this file")
-	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", false, "If true updates the current kube config")
+	cobraCmd.Flags().BoolVarP(&cmd.UpdateCurrent, "update-current", "u", false, "If true updates the current kube config")
 	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	cobraCmd.Flags().StringVar(&cmd.PodName, "pod", "", "The pod to connect to")
 	cobraCmd.Flags().StringVar(&cmd.Server, "server", "", "The server to connect to")
@@ -116,41 +127,86 @@ func (cmd *ConnectCmd) Run(args []string) error {
 	return cmd.Connect(vclusterName, args[1:])
 }
 
-func randomPort() int {
-	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < 10; i++ {
-		port := 10000 + rand.Intn(3000)
-		s, err := checkPort(port)
-		if s && err == nil {
-			return port
-		}
-	}
-
-	// just try another port
-	return 10000 + rand.Intn(3000)
-}
-
-func checkPort(port int) (status bool, err error) {
-	// Concatenate a colon and the port
-	host := "localhost:" + strconv.Itoa(port)
-
-	// Try to create a server with the port
-	server, err := net.Listen("tcp", host)
-
-	// if it fails then the port is likely taken
-	if err != nil {
-		return false, err
-	}
-
-	// close the server
-	_ = server.Close()
-
-	// we successfully used and closed the port
-	// so it's now available to be used again
-	return true, nil
-}
-
 func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
+	if vclusterName == "" && cmd.PodName == "" {
+		return fmt.Errorf("please specify either --pod or a name for the vcluster")
+	}
+
+	// prepare clients and find vcluster
+	err := cmd.prepare(vclusterName)
+	if err != nil {
+		return err
+	}
+
+	// retrieve vcluster kube config
+	kubeConfig, err := cmd.getVClusterKubeConfig(vclusterName, command)
+	if err != nil {
+		return err
+	}
+
+	// check if we should execute command
+	if len(command) > 0 {
+		return cmd.executeCommand(*kubeConfig, command)
+	}
+
+	// write kube config to buffer
+	out, err := clientcmd.Write(*kubeConfig)
+	if err != nil {
+		return err
+	}
+
+	// write kube config to file
+	if cmd.UpdateCurrent {
+		var clusterConfig *api.Cluster
+		for _, c := range kubeConfig.Clusters {
+			clusterConfig = c
+		}
+
+		var authConfig *api.AuthInfo
+		for _, a := range kubeConfig.AuthInfos {
+			authConfig = a
+		}
+
+		err = updateKubeConfig(cmd.KubeConfigContextName, clusterConfig, authConfig, true)
+		if err != nil {
+			return err
+		}
+
+		cmd.Log.Donef("Successfully created kube context %s. You can access the vcluster with `kubectl get namespaces`", cmd.KubeConfigContextName)
+		cmd.Log.Info("Use `vcluster disconnect` to return to your previous context")
+	} else if cmd.Print {
+		_, err = os.Stdout.Write(out)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = ioutil.WriteFile(cmd.KubeConfig, out, 0666)
+		if err != nil {
+			return errors.Wrap(err, "write kube config")
+		}
+
+		if cmd.Server == "" {
+			cmd.Log.Infof("Use `vcluster connect %s -n %s -- kubectl get ns` to execute a command directly within this terminal", vclusterName, cmd.Namespace)
+		} else {
+			cmd.Log.Infof("Use `vcluster connect %s -n %s --update-current` to update the current context instead", vclusterName, cmd.Namespace)
+		}
+		cmd.Log.Donef("Virtual cluster kube config written to: %s. You can access the cluster via `kubectl --kubeconfig %s get namespaces`", cmd.KubeConfig, cmd.KubeConfig)
+	}
+
+	// wait for port-forwarding if necessary
+	if cmd.portForwarding {
+		if cmd.Server != "" {
+			// Stop port-forwarding here
+			close(cmd.interruptChan)
+		}
+
+		return <-cmd.errorChan
+	}
+
+	return nil
+}
+
+func (cmd *ConnectCmd) prepare(vclusterName string) error {
 	if cmd.LocalPort == 0 {
 		cmd.LocalPort = randomPort()
 	}
@@ -159,9 +215,26 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 		return fmt.Errorf("expected --service-account to be defined as well")
 	}
 
-	kubeConfigLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: cmd.Context,
-	})
+	var (
+		kubeConfigLoader clientcmd.ClientConfig
+		vCluster         *find.VCluster
+		err              error
+	)
+	if vclusterName != "" {
+		vCluster, err = find.GetVCluster(cmd.Context, vclusterName, cmd.Namespace)
+		if err != nil {
+			return err
+		}
+
+		kubeConfigLoader = vCluster.ClientFactory
+		cmd.Context = vCluster.Context
+		cmd.Namespace = vCluster.Namespace
+	} else {
+		kubeConfigLoader = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+			CurrentContext: cmd.Context,
+		})
+	}
+
 	restConfig, err := kubeConfigLoader.ClientConfig()
 	if err != nil {
 		return errors.Wrap(err, "load kube config")
@@ -170,6 +243,16 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 	if err != nil {
 		return errors.Wrap(err, "create kube client")
 	}
+	rawConfig, err := kubeConfigLoader.RawConfig()
+	if err != nil {
+		return errors.Wrap(err, "load raw config")
+	}
+	rawConfig.CurrentContext = cmd.Context
+
+	cmd.kubeClient = kubeClient
+	cmd.restConfig = restConfig
+	cmd.kubeClientConfig = kubeConfigLoader
+	cmd.rawConfig = rawConfig
 
 	// set the namespace correctly
 	if cmd.Namespace == "" {
@@ -179,16 +262,26 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 		}
 	}
 
-	if vclusterName == "" && cmd.PodName == "" {
-		return fmt.Errorf("please specify either --pod or a name for the vcluster")
+	// resume vcluster if necessary
+	if vCluster != nil && vCluster.Status == find.StatusPaused {
+		cmd.Log.Infof("vcluster %s is paused, resuming...", vCluster.Name)
+		err = resumeVCluster(cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
+		if err != nil {
+			return errors.Wrap(err, "resume vcluster")
+		}
 	}
 
+	return nil
+}
+
+func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []string) (*api.Config, error) {
+	var err error
 	podName := cmd.PodName
 	if podName == "" {
 		waitErr := wait.PollImmediate(time.Second, time.Second*6, func() (bool, error) {
 			// get vcluster pod name
 			var pods *corev1.PodList
-			pods, err = kubeClient.CoreV1().Pods(cmd.Namespace).List(context.Background(), metav1.ListOptions{
+			pods, err = cmd.kubeClient.CoreV1().Pods(cmd.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: "app=vcluster,release=" + vclusterName,
 			})
 			if err != nil {
@@ -211,104 +304,36 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 			return true, nil
 		})
 		if waitErr != nil {
-			return fmt.Errorf("finding vcluster pod: %v - %v", waitErr, err)
+			return nil, fmt.Errorf("finding vcluster pod: %v - %v", waitErr, err)
 		}
 	}
 
 	// get the kube config from the Secret
-	kubeConfig, err := GetKubeConfig(context.Background(), kubeClient, vclusterName, restConfig, podName, cmd.Namespace, cmd.Log)
+	kubeConfig, err := GetKubeConfig(context.Background(), cmd.kubeClient, vclusterName, cmd.restConfig, podName, cmd.Namespace, cmd.Log)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse kube config")
+		return nil, errors.Wrap(err, "failed to parse kube config")
 	}
 
 	// find out port we should listen to locally
 	if len(kubeConfig.Clusters) != 1 {
-		return fmt.Errorf("unexpected kube config")
+		return nil, fmt.Errorf("unexpected kube config")
 	}
 
-	if cmd.KubeConfigContextName != "" {
-		// update cluster
-		clusterKeys := make([]string, 0, len(kubeConfig.Clusters))
-		for k := range kubeConfig.Clusters {
-			clusterKeys = append(clusterKeys, k)
-		}
-		for _, clusterKey := range clusterKeys {
-			kubeConfig.Clusters[cmd.KubeConfigContextName] = kubeConfig.Clusters[clusterKey]
-			delete(kubeConfig.Clusters, clusterKey)
-		}
-
-		// update context
-		contextKeys := make([]string, 0, len(kubeConfig.Contexts))
-		for k := range kubeConfig.Contexts {
-			contextKeys = append(contextKeys, k)
-		}
-		for _, contextKey := range contextKeys {
-			ctx := kubeConfig.Contexts[contextKey]
-			ctx.Cluster = cmd.KubeConfigContextName
-			ctx.AuthInfo = cmd.KubeConfigContextName
-			kubeConfig.Contexts[cmd.KubeConfigContextName] = ctx
-			delete(kubeConfig.Contexts, contextKey)
-		}
-
-		// update authInfo
-		authInfos := make([]string, 0, len(kubeConfig.AuthInfos))
-		for k := range kubeConfig.AuthInfos {
-			authInfos = append(authInfos, k)
-		}
-		for _, authInfo := range authInfos {
-			kubeConfig.AuthInfos[cmd.KubeConfigContextName] = kubeConfig.AuthInfos[authInfo]
-			delete(kubeConfig.AuthInfos, authInfo)
-		}
-
-		// update current-context
-		kubeConfig.CurrentContext = cmd.KubeConfigContextName
+	// exchange context name in virtual kube config
+	err = cmd.exchangeContextName(kubeConfig, vclusterName)
+	if err != nil {
+		return nil, err
 	}
 
-	// check if the vcluster is exposed
+	// check if the vcluster is exposed and set server
 	if vclusterName != "" && cmd.Server == "" && len(command) == 0 {
-		printedWaiting := false
-		err = wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
-			service, err := kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), vclusterName, metav1.GetOptions{})
-			if err != nil {
-				if kerrors.IsNotFound(err) {
-					return true, nil
-				}
-
-				return false, err
-			}
-
-			// not a load balancer? Then don't wait
-			if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
-				return true, nil
-			}
-
-			if len(service.Status.LoadBalancer.Ingress) == 0 {
-				if !printedWaiting {
-					cmd.Log.Infof("Waiting for vcluster LoadBalancer ip...")
-					printedWaiting = true
-				}
-
-				return false, nil
-			}
-
-			if service.Status.LoadBalancer.Ingress[0].Hostname != "" {
-				cmd.Server = service.Status.LoadBalancer.Ingress[0].Hostname
-			} else if service.Status.LoadBalancer.Ingress[0].IP != "" {
-				cmd.Server = service.Status.LoadBalancer.Ingress[0].IP
-			}
-
-			if cmd.Server == "" {
-				return false, nil
-			}
-
-			cmd.Log.Infof("Using vcluster %s load balancer endpoint: %s", vclusterName, cmd.Server)
-			return true, nil
-		})
+		err = cmd.setServerIfExposed(vclusterName, kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "wait for vcluster")
+			return nil, err
 		}
 	}
 
+	// find out vcluster server port
 	port := "8443"
 	for k := range kubeConfig.Clusters {
 		if cmd.Insecure {
@@ -325,7 +350,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 		} else {
 			splitted := strings.Split(kubeConfig.Clusters[k].Server, ":")
 			if len(splitted) != 3 {
-				return fmt.Errorf("unexpected server in kubeconfig: %s", kubeConfig.Clusters[k].Server)
+				return nil, fmt.Errorf("unexpected server in kubeconfig: %s", kubeConfig.Clusters[k].Server)
 			}
 
 			port = splitted[2]
@@ -335,13 +360,10 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 	}
 
 	// start port forwarding
-	var (
-		interruptChan chan struct{}
-		errorChan     chan error
-	)
 	if cmd.ServiceAccount != "" || cmd.Server == "" || len(command) > 0 {
-		interruptChan = make(chan struct{})
-		errorChan = make(chan error)
+		cmd.portForwarding = true
+		cmd.interruptChan = make(chan struct{})
+		cmd.errorChan = make(chan error)
 
 		// silence port-forwarding if a command is used
 		stdout := io.Writer(os.Stdout)
@@ -352,7 +374,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 		}
 
 		go func() {
-			errorChan <- portforward.StartPortForwardingWithRestart(restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, interruptChan, stdout, stderr, cmd.Log)
+			cmd.errorChan <- portforward.StartPortForwardingWithRestart(cmd.restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.interruptChan, stdout, stderr, cmd.Log)
 		}()
 	}
 
@@ -360,7 +382,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 	if cmd.ServiceAccount != "" {
 		token, err := cmd.createServiceAccountToken(*kubeConfig)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// set service account token
@@ -373,78 +395,110 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 		}
 	}
 
-	// check if we should execute command
-	if len(command) > 0 {
-		return cmd.executeCommand(*kubeConfig, command, interruptChan, errorChan)
-	}
-
-	// write kube config to buffer
-	out, err := clientcmd.Write(*kubeConfig)
-	if err != nil {
-		return err
-	}
-
-	// write kube config to file
-	if cmd.UpdateCurrent {
-		var clusterConfig *api.Cluster
-		for _, c := range kubeConfig.Clusters {
-			clusterConfig = c
-		}
-
-		var authConfig *api.AuthInfo
-		for _, a := range kubeConfig.AuthInfos {
-			authConfig = a
-		}
-
-		contextName := ""
-		if cmd.KubeConfigContextName != "" {
-			contextName = cmd.KubeConfigContextName
-		} else {
-			if vclusterName != "" {
-				contextName = "vcluster_" + cmd.Namespace + "_" + vclusterName
-			} else {
-				contextName = "vcluster_" + cmd.Namespace + "_" + cmd.PodName
-			}
-		}
-		err = updateKubeConfig(contextName, clusterConfig, authConfig, false)
-		if err != nil {
-			return err
-		}
-
-		cmd.Log.Donef("Successfully created kube context %s. You can access the vcluster with `kubectl get namespaces --context %s`", contextName, contextName)
-	} else if cmd.Print {
-		_, err = os.Stdout.Write(out)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = ioutil.WriteFile(cmd.KubeConfig, out, 0666)
-		if err != nil {
-			return errors.Wrap(err, "write kube config")
-		}
-
-		cmd.Log.Infof("Use `vcluster connect %s -n %s -- kubectl get ns` to execute a command directly within this terminal", vclusterName, cmd.Namespace)
-		cmd.Log.Donef("Virtual cluster kube config written to: %s. You can access the cluster via `kubectl --kubeconfig %s get namespaces`", cmd.KubeConfig, cmd.KubeConfig)
-	}
-
-	if cmd.Server != "" {
-		if interruptChan == nil {
-			return nil
-		}
-
-		// Stop port-forwarding here
-		close(interruptChan)
-		return <-errorChan
-	}
-
-	return <-errorChan
+	return kubeConfig, nil
 }
 
-func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string, interruptChan chan struct{}, errorChan chan error) error {
-	defer close(interruptChan)
+func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *api.Config) error {
+	printedWaiting := false
+	err := wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
+		service, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), vClusterName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return true, nil
+			}
+
+			return false, err
+		}
+
+		// not a load balancer? Then don't wait
+		if service.Spec.Type == corev1.ServiceTypeNodePort {
+			server, err := localkubernetes.ExposeLocal(vClusterName, cmd.Namespace, &cmd.rawConfig, vClusterConfig, service, cmd.LocalPort, cmd.Log)
+			if err != nil {
+				cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
+			}
+
+			cmd.Server = server
+			return true, nil
+		} else if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+			return true, nil
+		}
+
+		if len(service.Status.LoadBalancer.Ingress) == 0 {
+			if !printedWaiting {
+				cmd.Log.Infof("Waiting for vcluster LoadBalancer ip...")
+				printedWaiting = true
+			}
+
+			return false, nil
+		}
+
+		if service.Status.LoadBalancer.Ingress[0].Hostname != "" {
+			cmd.Server = service.Status.LoadBalancer.Ingress[0].Hostname
+		} else if service.Status.LoadBalancer.Ingress[0].IP != "" {
+			cmd.Server = service.Status.LoadBalancer.Ingress[0].IP
+		}
+
+		if cmd.Server == "" {
+			return false, nil
+		}
+
+		cmd.Log.Infof("Using vcluster %s load balancer endpoint: %s", vClusterName, cmd.Server)
+		return true, nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "wait for vcluster")
+	}
+
+	return nil
+}
+
+func (cmd *ConnectCmd) exchangeContextName(kubeConfig *api.Config, vclusterName string) error {
+	if cmd.KubeConfigContextName == "" {
+		if vclusterName != "" {
+			cmd.KubeConfigContextName = find.VClusterContextName(vclusterName, cmd.Namespace, cmd.rawConfig.CurrentContext)
+		} else {
+			cmd.KubeConfigContextName = find.VClusterContextName(cmd.PodName, cmd.Namespace, cmd.rawConfig.CurrentContext)
+		}
+	}
+
+	// update cluster
+	for k := range kubeConfig.Clusters {
+		kubeConfig.Clusters[cmd.KubeConfigContextName] = kubeConfig.Clusters[k]
+		delete(kubeConfig.Clusters, k)
+		break
+	}
+
+	// update context
+	for k := range kubeConfig.Contexts {
+		ctx := kubeConfig.Contexts[k]
+		ctx.Cluster = cmd.KubeConfigContextName
+		ctx.AuthInfo = cmd.KubeConfigContextName
+		kubeConfig.Contexts[cmd.KubeConfigContextName] = ctx
+		delete(kubeConfig.Contexts, k)
+		break
+	}
+
+	// update authInfo
+	for k := range kubeConfig.AuthInfos {
+		kubeConfig.AuthInfos[cmd.KubeConfigContextName] = kubeConfig.AuthInfos[k]
+		delete(kubeConfig.AuthInfos, k)
+		break
+	}
+
+	// update current-context
+	kubeConfig.CurrentContext = cmd.KubeConfigContextName
+	return nil
+}
+
+func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string) error {
+	if !cmd.portForwarding {
+		return fmt.Errorf("command is specified, but port-forwarding isn't started")
+	}
+
+	defer close(cmd.interruptChan)
 
 	// wait for vcluster to be ready
-	err := cmd.waitForVCluster(vKubeConfig, errorChan)
+	err := cmd.waitForVCluster(vKubeConfig, cmd.errorChan)
 	if err != nil {
 		return err
 	}
@@ -489,7 +543,7 @@ func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string, 
 	}()
 
 	select {
-	case err := <-errorChan:
+	case err := <-cmd.errorChan:
 		if execCmd.Process != nil {
 			_ = execCmd.Process.Kill()
 		}
@@ -726,7 +780,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 	var kubeConfig *api.Config
 
 	printedWaiting := false
-	err := wait.PollImmediate(time.Second*2, time.Minute*10, func() (done bool, err error) {
+	err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
 		kubeConfig, err = kubeconfig.ReadKubeConfig(ctx, kubeClient, vclusterName, namespace)
 		if err != nil {
 			// try to obtain the kube config the old way
@@ -754,4 +808,38 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 	}
 
 	return kubeConfig, nil
+}
+
+func randomPort() int {
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < 10; i++ {
+		port := 10000 + rand.Intn(3000)
+		s, err := checkPort(port)
+		if s && err == nil {
+			return port
+		}
+	}
+
+	// just try another port
+	return 10000 + rand.Intn(3000)
+}
+
+func checkPort(port int) (status bool, err error) {
+	// Concatenate a colon and the port
+	host := "localhost:" + strconv.Itoa(port)
+
+	// Try to create a server with the port
+	server, err := net.Listen("tcp", host)
+
+	// if it fails then the port is likely taken
+	if err != nil {
+		return false, err
+	}
+
+	// close the server
+	_ = server.Close()
+
+	// we successfully used and closed the port
+	// so it's now available to be used again
+	return true, nil
 }
