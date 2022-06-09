@@ -130,6 +130,19 @@ func (cmd *PauseCmd) prepare(vClusterName string) error {
 		return err
 	}
 
+	currentContext, currentRawConfig, err := find.CurrentContext()
+	if err != nil {
+		return err
+	}
+
+	vClusterName, vClusterNamespace, vClusterContext := find.VClusterFromContext(currentContext)
+	if vClusterName == vCluster.Name && vClusterNamespace == vCluster.Namespace && vClusterContext == vCluster.Context {
+		err = switchContext(currentRawConfig, vCluster.Context)
+		if err != nil {
+			return err
+		}
+	}
+
 	cmd.Namespace = vCluster.Namespace
 	cmd.kubeClient = kubeClient
 	return nil

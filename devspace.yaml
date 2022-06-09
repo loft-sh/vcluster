@@ -18,6 +18,8 @@ deployments:
       chart:
         name: ./charts/k3s
       values:
+        service:
+          type: NodePort
         serviceCIDR: $([ $1 == "dev" ] && vcluster get service-cidr || echo "null")
         mapServices:
           fromVirtual:

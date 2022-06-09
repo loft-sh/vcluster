@@ -25,11 +25,13 @@ import (
 type DeleteCmd struct {
 	*flags.GlobalFlags
 
-	KeepPVC         bool
-	DeleteNamespace bool
+	KeepPVC             bool
+	DeleteNamespace     bool
+	AutoDeleteNamespace bool
 
 	rawConfig  *clientcmdapi.Config
 	restConfig *rest.Config
+	kubeClient *kubernetes.Clientset
 	log        log.Logger
 }
 
@@ -60,7 +62,8 @@ vcluster delete test --namespace test
 	}
 
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
-	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster")
+	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster")
+	cobraCmd.Flags().BoolVar(&cmd.AutoDeleteNamespace, "auto-delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl")
 	return cobraCmd
 }
 
@@ -83,7 +86,18 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// check if namespace
+	if cmd.AutoDeleteNamespace {
+		namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.TODO(), cmd.Namespace, metav1.GetOptions{})
+		if err != nil {
+			cmd.log.Debugf("Error retrieving vcluster namspace: %v", err)
+		} else if namespace != nil && namespace.Annotations != nil && namespace.Annotations[CreatedByVClusterAnnotation] == "true" {
+			cmd.DeleteNamespace = true
+		}
+	}
+
 	// we have to delete the chart
+	cmd.log.Infof("Delete vcluster %s...", args[0])
 	err = helm.NewClient(cmd.rawConfig, cmd.log).Delete(args[0], cmd.Namespace)
 	if err != nil {
 		return err
@@ -91,7 +105,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], cmd.Namespace)
 
 	// try to delete the pvc
-	if !cmd.KeepPVC {
+	if !cmd.KeepPVC && !cmd.DeleteNamespace {
 		pvcName := fmt.Sprintf("data-%s-0", args[0])
 		client, err := kubernetes.NewForConfig(cmd.restConfig)
 		if err != nil {
@@ -155,9 +169,15 @@ func (cmd *DeleteCmd) prepare(vClusterName string) error {
 		cmd.log.Warnf("error cleaning up: %v", err)
 	}
 
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
 	cmd.Namespace = vCluster.Namespace
 	cmd.rawConfig = &rawConfig
 	cmd.restConfig = restConfig
+	cmd.kubeClient = kubeClient
 	return nil
 }
 

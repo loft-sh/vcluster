@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
@@ -36,6 +37,15 @@ const (
 	StatusUnknown Status = "Unknown"
 )
 
+func CurrentContext() (string, *api.Config, error) {
+	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
+	if err != nil {
+		return "", nil, err
+	}
+
+	return rawConfig.CurrentContext, &rawConfig, nil
+}
+
 func GetVCluster(context, name, namespace string) (*VCluster, error) {
 	if name == "" {
 		return nil, fmt.Errorf("please specify a name")
@@ -55,12 +65,11 @@ func GetVCluster(context, name, namespace string) (*VCluster, error) {
 
 func ListVClusters(context, name, namespace string) ([]VCluster, error) {
 	if context == "" {
-		rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
+		var err error
+		context, _, err = CurrentContext()
 		if err != nil {
 			return nil, err
 		}
-
-		context = rawConfig.CurrentContext
 	}
 
 	vClusterName, _, vClusterContext := VClusterFromContext(context)
@@ -190,7 +199,7 @@ func getVCluster(object client.Object, context, release string, client *kubernet
 }
 
 func getPods(client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig, namespace, podSelector string) (*corev1.PodList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
 	podList, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
@@ -212,7 +221,7 @@ func getPods(client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConf
 }
 
 func getDeployments(client *kubernetes.Clientset, namespace string, kubeClientConfig clientcmd.ClientConfig) (*appsv1.DeploymentList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
 	deploymentList, err := client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{
@@ -234,7 +243,7 @@ func getDeployments(client *kubernetes.Clientset, namespace string, kubeClientCo
 }
 
 func getStatefulSets(client *kubernetes.Clientset, namespace string, kubeClientConfig clientcmd.ClientConfig) (*appsv1.StatefulSetList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
 	statefulSetList, err := client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{

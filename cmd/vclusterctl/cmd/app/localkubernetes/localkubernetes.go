@@ -26,14 +26,6 @@ const (
 	ClusterTypeColima         ClusterType = "colima"
 )
 
-func (c ClusterType) NodePortSupported() bool {
-	return c == ClusterTypeDockerDesktop ||
-		c == ClusterTypeRancherDesktop ||
-		c == ClusterTypeKIND ||
-		c == ClusterTypeMinikube ||
-		c == ClusterTypeK3D
-}
-
 // DetectClusterType detects the k8s distro locally.
 // Mostly taken from github.com/tilt-dev/clusterid, with some adjustments for vcluster
 func DetectClusterType(config *clientcmdapi.Config) ClusterType {

@@ -13,14 +13,13 @@ type CreateOptions struct {
 
 	KubernetesVersion string
 
-	CreateNamespace      bool
-	DisableIngressSync   bool
-	CreateClusterRole    bool
-	Expose               bool
-	ExposeLocal          bool
-	ConnectUpdateCurrent bool
-	Connect              bool
-	Upgrade              bool
-	Isolate              bool
-	ReleaseValues        string
+	CreateNamespace    bool
+	DisableIngressSync bool
+	CreateClusterRole  bool
+	Expose             bool
+	ExposeLocal        bool
+	Connect            bool
+	Upgrade            bool
+	Isolate            bool
+	ReleaseValues      string
 }

@@ -112,7 +112,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 		log.PrintTable(cmd.log, header, values)
 		if strings.HasPrefix(cmd.Context, "vcluster_") {
-			cmd.log.Infof("Run `vcluster disconnect` to switch the current context back")
+			cmd.log.Infof("Run `vcluster disconnect` to switch back to the parent context")
 		}
 	}
 

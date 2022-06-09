@@ -70,6 +70,9 @@ jobs:
     # Note: keep the devspace render and devspace run commands in sync!
     - name: Deploy vcluster
       run: |
+          docker ps
+          docker network ls
+        
           echo "Render what will get deployed"
           devspace render -p deploy -n vcluster -p ${{ matrix.distribution}} -p kind-load -p no-cpu-requests -p sync-networkpolicies --skip-push --skip-build
           echo "Deploy vcluster"
