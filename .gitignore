@@ -3,7 +3,6 @@
 /.devspace
 /kubeconfig.yaml
 .devspace/
-/test
 .DS_Store
 profile.out
 *.swp

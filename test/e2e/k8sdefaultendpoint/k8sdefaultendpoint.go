@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/loft-sh/vcluster/e2e/framework"
+	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
