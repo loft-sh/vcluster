@@ -168,7 +168,7 @@ func (c *client) run(name, namespace string, options UpgradeOptions, command str
 		args = append(args, "--atomic")
 	}
 
-	c.log.Info("execute command: helm " + strings.Join(args, " "))
+	c.log.Debug("execute command: helm " + strings.Join(args, " "))
 	output, err := exec.Command(c.helmPath, args...).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error executing helm %s: %s", strings.Join(args, " "), string(output))
@@ -186,7 +186,7 @@ func (c *client) Delete(name, namespace string) error {
 
 	args := []string{"delete", name, "--namespace", namespace, "--kubeconfig", kubeConfig, "--repository-config=''"}
 
-	c.log.Info("Delete helm chart with helm " + strings.Join(args, " "))
+	c.log.Debug("Delete helm chart with helm " + strings.Join(args, " "))
 	output, err := exec.Command(c.helmPath, args...).CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(output), "release: not found") {

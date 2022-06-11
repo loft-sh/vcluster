@@ -18,6 +18,7 @@ type ChartOptions struct {
 	CreateClusterRole  bool
 	DisableIngressSync bool
 	Expose             bool
+	NodePort           bool
 	K3SImage           string
 	Isolate            bool
 	KubernetesVersion  *version.Info

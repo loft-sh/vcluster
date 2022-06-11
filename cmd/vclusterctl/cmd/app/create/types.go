@@ -17,6 +17,7 @@ type CreateOptions struct {
 	DisableIngressSync bool
 	CreateClusterRole  bool
 	Expose             bool
+	ExposeLocal        bool
 	Connect            bool
 	Upgrade            bool
 	Isolate            bool

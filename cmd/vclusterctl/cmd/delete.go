@@ -3,6 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"os/exec"
 
 	"github.com/pkg/errors"
@@ -14,17 +19,20 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
-// DeleteCmd holds the login cmd flags
+// DeleteCmd holds the delete cmd flags
 type DeleteCmd struct {
 	*flags.GlobalFlags
 
-	KeepPVC         bool
-	DeleteNamespace bool
+	KeepPVC             bool
+	DeleteNamespace     bool
+	AutoDeleteNamespace bool
 
-	log log.Logger
+	rawConfig  *clientcmdapi.Config
+	restConfig *rest.Config
+	kubeClient *kubernetes.Clientset
+	log        log.Logger
 }
 
 // NewDeleteCmd creates a new command
@@ -55,6 +63,7 @@ vcluster delete test --namespace test
 
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
 	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster")
+	cobraCmd.Flags().BoolVar(&cmd.AutoDeleteNamespace, "auto-delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl")
 	return cobraCmd
 }
 
@@ -71,81 +80,155 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
 	}
 
-	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: cmd.Context,
-	})
-
-	// load the raw config
-	rawConfig, err := kubeClientConfig.RawConfig()
-	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-	}
-	if cmd.Context != "" {
-		rawConfig.CurrentContext = cmd.Context
-	}
-
-	namespace, _, err := kubeClientConfig.Namespace()
+	// prepare client
+	err = cmd.prepare(args[0])
 	if err != nil {
 		return err
-	} else if namespace == "" {
-		namespace = "default"
 	}
-	if cmd.Namespace != "" {
-		namespace = cmd.Namespace
+
+	// check if namespace
+	if cmd.AutoDeleteNamespace {
+		namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.TODO(), cmd.Namespace, metav1.GetOptions{})
+		if err != nil {
+			cmd.log.Debugf("Error retrieving vcluster namspace: %v", err)
+		} else if namespace != nil && namespace.Annotations != nil && namespace.Annotations[CreatedByVClusterAnnotation] == "true" {
+			cmd.DeleteNamespace = true
+		}
 	}
 
 	// we have to delete the chart
-	err = helm.NewClient(&rawConfig, cmd.log).Delete(args[0], namespace)
+	cmd.log.Infof("Delete vcluster %s...", args[0])
+	err = helm.NewClient(cmd.rawConfig, cmd.log).Delete(args[0], cmd.Namespace)
 	if err != nil {
 		return err
 	}
-	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], namespace)
+	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], cmd.Namespace)
 
 	// try to delete the pvc
-	if !cmd.KeepPVC {
+	if !cmd.KeepPVC && !cmd.DeleteNamespace {
 		pvcName := fmt.Sprintf("data-%s-0", args[0])
-		restConfig, err := kubeClientConfig.ClientConfig()
+		client, err := kubernetes.NewForConfig(cmd.restConfig)
 		if err != nil {
 			return err
 		}
 
-		client, err := kubernetes.NewForConfig(restConfig)
-		if err != nil {
-			return err
-		}
-
-		err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+		err = client.CoreV1().PersistentVolumeClaims(cmd.Namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				return errors.Wrap(err, "delete pvc")
 			}
 		} else {
-			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, namespace)
+			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, cmd.Namespace)
 		}
 	}
 
 	// try to delete the namespace
 	if cmd.DeleteNamespace {
-		restConfig, err := kubeClientConfig.ClientConfig()
+		client, err := kubernetes.NewForConfig(cmd.restConfig)
 		if err != nil {
 			return err
 		}
 
-		client, err := kubernetes.NewForConfig(restConfig)
-		if err != nil {
-			return err
-		}
-
-		err = client.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+		err = client.CoreV1().Namespaces().Delete(context.Background(), cmd.Namespace, metav1.DeleteOptions{})
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				return errors.Wrap(err, "delete namespace")
 			}
 		} else {
-			cmd.log.Donef("Successfully deleted virtual cluster namespace %s", namespace)
+			cmd.log.Donef("Successfully deleted virtual cluster namespace %s", cmd.Namespace)
 		}
 	}
 
 	return nil
+}
+
+func (cmd *DeleteCmd) prepare(vClusterName string) error {
+	vCluster, err := find.GetVCluster(cmd.Context, vClusterName, cmd.Namespace)
+	if err != nil {
+		return err
+	}
+
+	// load the raw config
+	rawConfig, err := vCluster.ClientFactory.RawConfig()
+	if err != nil {
+		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+	err = deleteContext(&rawConfig, find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context), vCluster.Context)
+	if err != nil {
+		return errors.Wrap(err, "delete kube context")
+	}
+
+	rawConfig.CurrentContext = vCluster.Context
+	restConfig, err := vCluster.ClientFactory.ClientConfig()
+	if err != nil {
+		return err
+	}
+
+	err = localkubernetes.CleanupLocal(vClusterName, vCluster.Namespace, &rawConfig, cmd.log)
+	if err != nil {
+		cmd.log.Warnf("error cleaning up: %v", err)
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
+	cmd.Namespace = vCluster.Namespace
+	cmd.rawConfig = &rawConfig
+	cmd.restConfig = restConfig
+	cmd.kubeClient = kubeClient
+	return nil
+}
+
+func deleteContext(kubeConfig *clientcmdapi.Config, kubeContext string, otherContext string) error {
+	// Get context
+	contextRaw, ok := kubeConfig.Contexts[kubeContext]
+	if !ok {
+		return nil
+	}
+
+	// Remove context
+	delete(kubeConfig.Contexts, kubeContext)
+
+	removeAuthInfo := true
+	removeCluster := true
+
+	// Check if AuthInfo or Cluster is used by any other context
+	for name, ctx := range kubeConfig.Contexts {
+		if name != kubeContext && ctx.AuthInfo == contextRaw.AuthInfo {
+			removeAuthInfo = false
+		}
+
+		if name != kubeContext && ctx.Cluster == contextRaw.Cluster {
+			removeCluster = false
+		}
+	}
+
+	// Remove AuthInfo if not used by any other context
+	if removeAuthInfo {
+		delete(kubeConfig.AuthInfos, contextRaw.AuthInfo)
+	}
+
+	// Remove Cluster if not used by any other context
+	if removeCluster {
+		delete(kubeConfig.Clusters, contextRaw.Cluster)
+	}
+
+	if kubeConfig.CurrentContext == kubeContext {
+		kubeConfig.CurrentContext = ""
+
+		if otherContext != "" {
+			kubeConfig.CurrentContext = otherContext
+		} else if len(kubeConfig.Contexts) > 0 {
+			for contextName, contextObj := range kubeConfig.Contexts {
+				if contextObj != nil {
+					kubeConfig.CurrentContext = contextName
+					break
+				}
+			}
+		}
+	}
+
+	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
 }

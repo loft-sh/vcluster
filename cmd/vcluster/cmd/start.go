@@ -184,7 +184,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	// Ensure that service CIDR range is written into the expected location
-	err = wait.Poll(5*time.Second, 2*time.Minute, func() (bool, error) {
+	err = wait.PollImmediate(5*time.Second, 2*time.Minute, func() (bool, error) {
 		err = ensureServiceCIDR(inClusterClient, currentNamespace, translate.Suffix)
 		if err != nil {
 			klog.Errorf("failed to ensure that service CIDR range is written into the expected location: %v", err)
@@ -198,7 +198,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
-	err = wait.Poll(time.Second, time.Hour, func() (bool, error) {
+	err = wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
 		out, err := ioutil.ReadFile(options.KubeConfig)
 		if err != nil {
 			if os.IsNotExist(err) {
