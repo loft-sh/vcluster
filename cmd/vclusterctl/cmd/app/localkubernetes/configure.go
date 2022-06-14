@@ -30,9 +30,9 @@ func ExposeLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi
 	clusterType := DetectClusterType(rawConfig)
 	switch clusterType {
 	case ClusterTypeDockerDesktop:
-		return directExposure(vRawConfig, service)
+		return directConnection(vRawConfig, service)
 	case ClusterTypeRancherDesktop:
-		return directExposure(vRawConfig, service)
+		return directConnection(vRawConfig, service)
 	case ClusterTypeKIND:
 		return kindProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, log)
 	case ClusterTypeMinikube:
@@ -136,15 +136,23 @@ func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.C
 	return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, controlPlane, "kind", log)
 }
 
-func directExposure(vRawConfig *clientcmdapi.Config, service *corev1.Service) (string, error) {
+func directConnection(vRawConfig *clientcmdapi.Config, service *corev1.Service) (string, error) {
 	if len(service.Spec.Ports) != 1 {
 		return "", nil
 	}
 
 	server := fmt.Sprintf("https://127.0.0.1:%v", service.Spec.Ports[0].NodePort)
-	err := testConnectionWithServer(vRawConfig, server)
-	if err != nil {
-		return "", err
+	var err error
+	waitErr := wait.PollImmediate(time.Second, time.Second*20, func() (bool, error) {
+		err = testConnectionWithServer(vRawConfig, server)
+		if err != nil {
+			return false, nil
+		}
+
+		return true, nil
+	})
+	if waitErr != nil {
+		return "", fmt.Errorf("test connection: %v %v", waitErr, err)
 	}
 
 	return server, nil
@@ -209,7 +217,7 @@ func testConnectionWithServer(vRawConfig *clientcmdapi.Config, server string) er
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
 	_, err = kubeClient.CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
