@@ -27,7 +27,7 @@ coredns:
 
 Then create the vcluster with the following command:
 ```
-vcluster create ... --distro k8s -f values.yaml
+vcluster create ... --connect=false --distro k8s -f values.yaml
 ```
 
 Check that vcluster including the control plane are running correctly:

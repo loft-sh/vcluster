@@ -5,12 +5,12 @@ sidebar_label: 2. Deploy vclusters
 
 import DeploySegment from '../fragments/deploy-vcluster.mdx'
 
-Let's create a virtual cluster `vcluster-1` in namespace `host-namespace-1`:
+Let's create a virtual cluster `my-vcluster` in namespace `vcluster-my-vcluster`:
 
 <DeploySegment/>
 
 :::info Host Namespace
-No matter if we are creating namespaces within the virtual cluster, everything will be encapsulated inside the host namespace that the virtual cluster runs inside.
+The host namespace will be generated if it does not yet exist. No matter which namespaces we create within the virtual cluster, everything will be encapsulated inside the created host namespace that the virtual cluster runs inside.
 :::
 
 :::caution Air-gapped Clusters

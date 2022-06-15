@@ -12,43 +12,34 @@ import TabItem from '@theme/TabItem'
 <TabItem value="vcluster">
 
 ```bash
-# Create a vcluster that can be accessed through port forwarding
-vcluster create vcluster-1 -n host-namespace-1
+# Create a new vcluster in namespace vcluster-my-vcluster
+vcluster create my-vcluster
 
-# OR: Use --expose to create a vcluster with an externally accessible LoadBalancer
-vcluster create vcluster-1 -n host-namespace-1 --expose 
+# OR: Use --expose to create a vcluster in a remote cluster with an externally accessible LoadBalancer
+vcluster create my-vcluster --expose
 
 # OR: Use -f to use an additional helm values.yaml with extra chart options to deploy vcluster
-vcluster create vcluster-1 -n host-namespace-1 -f values.yaml
+vcluster create my-vcluster -f values.yaml
     
 # OR: Use --distro to specify either k0s or vanilla k8s as backing virtual cluster
-vcluster create vcluster-1 -n host-namespace-1 --distro k8s
+vcluster create my-vcluster --distro k8s
 
 # OR: Use --isolate to create an isolated environment for the vcluster workloads
-vcluster create vcluster-1 -n host-namespace-1 --isolate
+vcluster create my-vcluster --isolate
 ```
 
 </TabItem>
 <TabItem value="helm">
 
-Make sure you know your host cluster's service CIDR, as vcluster requires you to specify it if you deploy it via helm. You can find out a cluster's service CIDR by deploying a service with an invalid ClusterIP (such as 1.1.1.1). The error message shows the cluster's service CIDR:
-```
-The Service "service-simple-service" is invalid: spec.clusterIPs: Invalid value: []string{"1.1.1.1"}.... The range of valid IPs is 10.96.0.0/12
-```
-
-In this case the service CIDR would be `10.96.0.0/12`.
-
 Create file `vcluster.yaml`:
 ```yaml
 vcluster:
-  image: rancher/k3s:v1.19.5-k3s2    # Choose k3s version
-  extraArgs:
-    - --service-cidr=10.96.0.0/12    # This has to be the service CIDR of your main cluster's service CIDR
+  image: rancher/k3s:v1.23.5-k3s1    # Choose k3s version
 ```
 
 Then, install helm chart using `vcluster.yaml` for chart values:
 ```bash
-helm upgrade --install vcluster-1 vcluster \
+helm upgrade --install my-vcluster vcluster \
   --values vcluster.yaml \
   --repo https://charts.loft.sh \
   --namespace host-namespace-1 \
@@ -57,17 +48,10 @@ helm upgrade --install vcluster-1 vcluster \
 
 </TabItem>
 <TabItem value="kubectl">
-
-Make sure you know your host cluster's service CIDR, as vcluster requires you to specify it if you deploy it via kubectl. You can find out a cluster's service CIDR by deploying a service with an invalid ClusterIP (such as 1.1.1.1). The error message shows the cluster's service CIDR:
-```
-The Service "service-simple-service" is invalid: spec.clusterIPs: Invalid value: []string{"1.1.1.1"}.... The range of valid IPs is 10.96.0.0/12
-```
-
-In this case the service CIDR would be `10.96.0.0/12`.
     
 ```bash
 kubectl create namespace host-namespace-1
-helm template my-vcluster vcluster --repo https://charts.loft.sh --set serviceCIDR=10.96.0.0/12 -n host-namespace-1 | kubectl apply -f -
+helm template my-vcluster vcluster --repo https://charts.loft.sh -n host-namespace-1 | kubectl apply -f -
 ```
 
 </TabItem>

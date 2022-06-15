@@ -40,7 +40,7 @@ sync:
 then create or upgrade the vcluster with:
 
 ```
-vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
+vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
 To disable a resource that is synced by default, for example if you don't want to sync ingresses, set the following in your `values.yaml`: 
@@ -52,7 +52,7 @@ sync:
 then create or upgrade the vcluster with:
 
 ```
-vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
+vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
 :::warning Correct Cluster Functionality

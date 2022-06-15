@@ -12,19 +12,19 @@ Create fully functional virtual Kubernetes clusters - Each vcluster runs inside 
 
 ### Why Virtual Kubernetes Clusters?
 
-- **Cost Efficient**: much cheaper than "real" clusters (single pod and shared resources just like for namespaces)
-- **Fast Provisioning**: can be created and cleaned up again in seconds (great for CI/CD or testing)
-- **Cluster Scoped Resources**: more powerful than simple namespaces (virtual clusters allow users to use CRDs etc.)
-- **Cluster Wide Permissions**: allow users to install apps which require cluster-wide permissions while being limited to actually just one namespace within the host cluster
+- **Cluster Scoped Resources**: much more powerful than simple namespaces (virtual clusters allow users to use CRDs, namespaces, cluster roles etc.)
+- **Ease of Use**: usable in any Kubernetes cluster and created in seconds either via a single command or a [cluster-api CRD](https://github.com/loft-sh/cluster-api-provider-vcluster)
+- **Cost Efficient**: much cheaper and efficient than "real" clusters (single pod and shared resources just like for namespaces)
+- **Lightweight**: built upon the ultra-fast k3s distribution with minimal overhead per virtual cluster (other distributions work as well)
 - **Strict isolation**: complete separate Kubernetes control plane and access point for each vcluster while still being able to share certain services of the underlying host cluster
+- **Cluster Wide Permissions**: allow users to install apps which require cluster-wide permissions while being limited to actually just one namespace within the host cluster
 - **Great for Testing**: allow you to test different Kubernetes versions inside a single host cluster which may have a different version than the virtual clusters
 
 Learn more on [www.vcluster.com](https://vcluster.com).
 
 <br>
 
-## Architecture 
-[![vcluster Intro](docs/static/media/diagrams/vcluster-architecture.svg)](https://www.vcluster.com)
+![vcluster Intro](docs/static/media/vcluster-comparison.png)
 
 ![vcluster Compatibility](docs/static/media/cluster-compatibility.png)
 
@@ -44,16 +44,16 @@ Learn more in the [documentation](https://vcluster.com/docs/what-are-virtual-clu
 - **Certified Kubernetes Distribution** - vcluster itself is a [certified Kubernetes distribution](https://www.cncf.io/certification/software-conformance/) and is 100% Kubernetes API conform. Everything that works in a regular Kubernetes cluster works in vcluster
 - **Lightweight & Low-Overhead** - Based on k3s, bundled in a single pod and with super-low resource consumption. Other distributions such as k0s or vanilla k8s are also supported
 - **No Performance Degradation** - Pods are scheduled in the underlying host cluster, so they get no performance hit at all while running
-- **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vcluster to reduce complexity and increase scalability. Since most vcluster api requests and objects will not reach the host cluster at all, vcluster can greatly decrease pressure on the underlying Kubernetes cluster
-- **Easy Provisioning** - Create via vcluster CLI, helm, kubectl, Argo or any of your favorite tools (it is basically just a StatefulSet)
+- **Reduced Overhead On Host Cluster** - Split up large multi-tenant clusters into smaller vclusters to reduce complexity and increase scalability. Since most vcluster api requests and objects will not reach the host cluster at all, vcluster can greatly decrease pressure on the underlying Kubernetes cluster
+- **Easy Provisioning** - Create via vcluster CLI, helm, kubectl, [cluster api](https://github.com/loft-sh/cluster-api-provider-vcluster), Argo CD or any of your favorite tools (it is basically just a StatefulSet)
 - **No Admin Privileges Required** - If you can deploy a web app to a Kubernetes namespace, you will be able to deploy a vcluster as well
 - **Single Namespace Encapsulation** - Every vcluster and all of its workloads are inside a single namespace of the underlying host cluster
 - **Easy Cleanup** - Delete the host namespace and the vcluster plus all of its workloads will be gone immediately
-- **Flexible & Versatile** - vcluster supports different storage backends (such as sqlite, mysql, postgresql & etcd), customizable sync behaviour, vcluster within vcluster setups, rewriting of kubelet metrics and has many more additional configuration options to fit a multitude of use cases
+- **Flexible & Versatile** - vcluster supports different storage backends (such as sqlite, mysql, postgresql & etcd), plugins, customizable sync behaviour, vcluster within vcluster setups and has many more additional configuration options to fit a multitude of different use cases
 
 <br>
 
-## Quick Start
+## Quick Start (~ 1 minute)
 To learn more about vcluster, [**open the full getting started guide**](https://www.vcluster.com/docs/getting-started/setup).
 
 ### 1. Download vcluster CLI
@@ -122,24 +122,21 @@ Alternatively, you can download the binary for your platform from the [GitHub Re
 
 ### 2. Create a vcluster
 ```vash
-# By default vcluster will connect via port-forwarding
-vcluster create vcluster-1 -n host-namespace-1 --connect
+vcluster create my-vcluster
 
 # OR: Use --expose to create a vcluster with an externally accessible LoadBalancer
-vcluster create vcluster-1 -n host-namespace-1 --connect --expose 
+vcluster create my-vcluster --expose 
 
 # OR: Use --isolate to create an isolated environment for the vcluster workloads
-vcluster create vcluster-1 -n host-namespace-1 --connect --isolate
+vcluster create my-vcluster --isolate
 ```
 
 Take a look at the [vcluster docs](https://www.vcluster.com/docs/getting-started/deployment) to see how to deploy a vcluster using Helm or Kubectl instead.
 
 ### 3. Use the vcluster
 
-Run in a separate terminal:
+Run in a terminal:
 ```bash
-export KUBECONFIG=./kubeconfig.yaml
-
 # Run any kubectl, helm, etc. command in your vcluster
 kubectl get namespace
 kubectl get pods -n kube-system
@@ -150,10 +147,13 @@ kubectl get pods -n demo-nginx
 
 ### 4. Cleanup
 ```bash
-vcluster delete vcluster-1 -n host-namespace-1
+vcluster delete my-vcluster
 ```
 
 Alternatively, you could also delete the host-namespace using kubectl.
+
+## Architecture
+[![vcluster Intro](docs/static/media/diagrams/vcluster-architecture.svg)](https://www.vcluster.com)
 
 ## Contributing
 

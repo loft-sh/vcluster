@@ -37,7 +37,7 @@ sync:
 
 Then create or upgrade a vcluster with:
 ```
-vcluster create my-vcluster -n my-vcluster-namespace -f values.yaml
+vcluster create my-vcluster -f values.yaml
 ```
 
 Now you can taint and label nodes inside the virtual cluster without actually modifying the host cluster nodes.
@@ -57,7 +57,7 @@ sync:
 then create or upgrade the vcluster with:
 
 ```
-vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
+vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
 This will pass the necessary flags to the "syncer" container and create or update the ClusterRole used by vcluster to include necessary permissions. 
@@ -79,7 +79,7 @@ syncer:
 then create or upgrade the vcluster with:
 
 ```
-vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
+vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
 This second option is recommended if you are enabling synchronization of [the real nodes](./nodes) via helm values. This is how you would then set the selector in your `values.yaml`:
@@ -92,7 +92,7 @@ sync:
 then create or upgrade the vcluster with:
 
 ```
-vcluster create my-vcluster -n my-vcluster-namespace --upgrade -f values.yaml
+vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
 :::info
@@ -127,5 +127,5 @@ syncer:
 ```
 
 :::info
-Vcluster does not support setting the `tolerationSeconds` field of a toleration through the syntax that the `--enforce-toleration` flag uses. If your use case requires this, please raise an issue in [the vcluster repo on GitHub](https://github.com/loft-sh/vcluster/issues).
+vcluster does not support setting the `tolerationSeconds` field of a toleration through the syntax that the `--enforce-toleration` flag uses. If your use case requires this, please raise an issue in [the vcluster repo on GitHub](https://github.com/loft-sh/vcluster/issues).
 ::: 
