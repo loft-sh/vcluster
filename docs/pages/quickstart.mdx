@@ -16,12 +16,7 @@ Use one of the following commands to download the vcluster CLI binary from GitHu
 <DeployFragment/>
 
 ## 3. Use the vcluster
-`vcluster connect` creates a local kubeconfig file that references the vcluster.
 ```bash
-# Create a kube config for the vcluster and optionally start port-forwarding to it (if --expose was not used)
-vcluster connect vcluster-1 -n host-namespace-1
-export KUBECONFIG=./kubeconfig.yaml
-
 # Run any kubectl, helm, etc. command in your vcluster
 kubectl get namespace
 kubectl get pods -n kube-system

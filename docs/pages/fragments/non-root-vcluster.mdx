@@ -21,7 +21,7 @@ securityContext:
 
 Then create the vcluster with the following command:
 ```
-vcluster create -f values.yaml
+vcluster create my-vcluster -f values.yaml
 ```
 
 </TabItem>
@@ -46,7 +46,7 @@ You will need to add the `securityContext` blocks to the containers as shown bel
 
 ```
 kubectl create namespace host-namespace-1
-helm template my-vcluster vcluster --repo https://charts.loft.sh --set serviceCIDR=10.96.0.0/12 --set securityContext.runAsUser=12345 --set securityContext.runAsNonRoot=true -n host-namespace-1 | kubectl apply -f -
+helm template my-vcluster vcluster --repo https://charts.loft.sh --set securityContext.runAsUser=12345 --set securityContext.runAsNonRoot=true -n host-namespace-1 | kubectl apply -f -
 ```
 </TabItem>
 </Tabs>

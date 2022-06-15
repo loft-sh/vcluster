@@ -33,6 +33,9 @@ To resume a vcluster, make sure you have the CLI installed and run the following
 
 ```
 vcluster resume my-vcluster -n my-vcluster-namespace
+
+# OR: connect to the vcluster to automatically resume it as well
+vcluster connect my-vcluster
 ```
 
 As soon as the vcluster is resumed, vcluster will scale up the paused statefulset or deployment and the vcluster syncer will recreate the vcluster pods. 
