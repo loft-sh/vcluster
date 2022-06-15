@@ -21,13 +21,12 @@ type PodInfoPrinter struct {
 	printedInitContainers []string
 }
 
-func (u *PodInfoPrinter) PrintPodInfo(ctx context.Context, client *kubernetes.Clientset, pod *corev1.Pod, log log.Logger) {
+func (u *PodInfoPrinter) PrintPodInfo(pod *corev1.Pod, log log.Logger) {
 	u.lastMutex.Lock()
 	defer u.lastMutex.Unlock()
 
 	if time.Since(u.LastWarning) > time.Second*10 {
 		status := find.GetPodStatus(pod)
-		u.shownEvents = displayWarnings(ctx, relevantObjectsFromPod(pod), pod.Namespace, client, u.shownEvents, log)
 		if status != "Running" {
 			log.Warnf("vcluster is waiting, because vcluster pod %s has status: %s", pod.Name, status)
 		}
@@ -35,12 +34,13 @@ func (u *PodInfoPrinter) PrintPodInfo(ctx context.Context, client *kubernetes.Cl
 	}
 }
 
-func (u *PodInfoPrinter) PrintPodWarning(pod *corev1.Pod, log log.Logger) {
+func (u *PodInfoPrinter) PrintPodWarning(ctx context.Context, client *kubernetes.Clientset, pod *corev1.Pod, log log.Logger) {
 	u.lastMutex.Lock()
 	defer u.lastMutex.Unlock()
 
 	if time.Since(u.LastWarning) > time.Second*10 {
 		status := find.GetPodStatus(pod)
+		u.shownEvents = displayWarnings(ctx, relevantObjectsFromPod(pod), pod.Namespace, client, u.shownEvents, log)
 		log.Warnf("Pod %s has critical status: %s. vcluster will continue waiting, but this operation might timeout", pod.Name, status)
 		u.LastWarning = time.Now()
 	}

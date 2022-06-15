@@ -64,7 +64,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 					printedWaiting = true
 				}
 
-				podInfoPrinter.PrintPodWarning(&podList.Items[0], log)
+				podInfoPrinter.PrintPodWarning(ctx, kubeClient, &podList.Items[0], log)
 				return false, nil
 			} else if !allContainersReady(&podList.Items[0]) {
 				if !printedWaiting {
@@ -73,7 +73,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 				}
 
 				if find.GetPodStatus(&podList.Items[0]) != "Running" {
-					podInfoPrinter.PrintPodInfo(ctx, kubeClient, &podList.Items[0], log)
+					podInfoPrinter.PrintPodInfo(&podList.Items[0], log)
 				}
 				return false, nil
 			}
