@@ -29,7 +29,7 @@ Depending on if the vcluster was created within a local Kubernetes cluster or wi
 If you have manually [exposed the vcluster](./external-access.mdx), you can specify the domain where the vcluster is reachable via the `--server` flag:
 
 ```
-# Will create a kube config that uses https://my-domain.org as endpoint
+# Will create a kube context that uses https://my-domain.org as endpoint
 vcluster connect my-vcluster -n my-vcluster --server my-domain.org
 ```
 
@@ -44,14 +44,14 @@ With vcluster version `v0.6.0` and higher you can automatically do this via the 
 ```
 vcluster connect my-vcluster -n my-vcluster --service-account kube-system/my-user --cluster-role view
 
-# OR: create a kube config for a cluster admin
+# OR: create a kube context for a cluster admin
 vcluster connect my-vcluster -n my-vcluster --service-account kube-system/my-user --cluster-role cluster-admin
 
-# OR: create a kube config that expires after an hour
+# OR: create a kube context that expires after an hour
 vcluster connect my-vcluster -n my-vcluster --service-account kube-system/my-user --cluster-role view --token-expiration 3600
 ```
 
-This will create a kube config similar to this as well as create the needed service account and cluster role binding:
+This will create a kube context similar to this as well as create the needed service account and cluster role binding:
 ```yaml
 apiVersion: v1
 clusters:
@@ -150,7 +150,7 @@ syncer:
 Then you can create or upgrade the vcluster with:
 
 ```
-vcluster create my-vcluster -n my-vcluster -f values.yaml
+vcluster create my-vcluster -n my-vcluster --upgrade --connect=false -f values.yaml
 ```
 
 Wait until the vcluster has started and you can retrieve the kube config via:
