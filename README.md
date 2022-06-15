@@ -13,7 +13,7 @@ Create fully functional virtual Kubernetes clusters - Each vcluster runs inside 
 ### Why Virtual Kubernetes Clusters?
 
 - **Cluster Scoped Resources**: much more powerful than simple namespaces (virtual clusters allow users to use CRDs, namespaces, cluster roles etc.)
-- **Ease of Use**: usable in any Kubernetes cluster and created in seconds either via a single command or a [cluster-api CRD](https://github.com/loft-sh/cluster-api-provider-vcluster)
+- **Ease of Use**: usable in any Kubernetes cluster and created in seconds either via a single command or [cluster-api](https://github.com/loft-sh/cluster-api-provider-vcluster)
 - **Cost Efficient**: much cheaper and efficient than "real" clusters (single pod and shared resources just like for namespaces)
 - **Lightweight**: built upon the ultra-fast k3s distribution with minimal overhead per virtual cluster (other distributions work as well)
 - **Strict isolation**: complete separate Kubernetes control plane and access point for each vcluster while still being able to share certain services of the underlying host cluster
