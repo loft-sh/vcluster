@@ -3,6 +3,12 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/pkg/errors"
@@ -12,10 +18,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"os/exec"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func (c ClusterType) NodePortSupported() bool {
@@ -97,10 +99,41 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 
 		// create proxy container if missing
 		return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, minikubeName, minikubeName, log)
-	}
+	} else {
+		// in case other type of driver (e.g. VM on linux) is used
+		// check if the service is reacheable directly via the minikube IP
+		c := rawConfig.Contexts[rawConfig.CurrentContext]
+		if c != nil {
+			s := rawConfig.Clusters[c.Cluster]
+			if s != nil {
+				u, err := url.Parse(s.Server)
+				if err == nil {
+					splitted := strings.Split(u.Host, ":")
+					server := fmt.Sprintf("https://%s:%v", splitted[0], service.Spec.Ports[0].NodePort)
 
-	// TODO: find out how to connect to the minikube vm directly
-	return "", nil
+					// workaround for the fact that vcluster certificate is not made valid for the node IPs
+					// but avoid modifying the passed config before the connection is tested
+					testvConfig := vRawConfig.DeepCopy()
+					for k := range testvConfig.Clusters {
+						testvConfig.Clusters[k].CertificateAuthorityData = nil
+						testvConfig.Clusters[k].InsecureSkipTLSVerify = true
+					}
+
+					err := testConnectionWithServer(testvConfig, server)
+					if err == nil {
+						// now it's safe to modify the vRawConfig struct that was passed in as a pointer
+						for k := range vRawConfig.Clusters {
+							vRawConfig.Clusters[k].CertificateAuthorityData = nil
+							vRawConfig.Clusters[k].InsecureSkipTLSVerify = true
+						}
+						return server, nil
+					}
+				}
+			}
+		}
+
+		return "", nil
+	}
 }
 
 func cleanupProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, log log.Logger) error {
