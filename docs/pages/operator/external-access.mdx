@@ -3,25 +3,23 @@ title: Exposing vcluster (ingress etc.)
 sidebar_label: Exposing vcluster (ingress etc.)
 ---
 
-By default, vcluster is only reachable via port-forwarding. However, this means that you need access to the host cluster, where the vcluster is running, in order to access it. To directly access vcluster without port-forwarding, you can use one of the following methods:
+By default, vcluster is only reachable via port-forwarding in remote clusters. However, this means that you need access to the host cluster, where the vcluster is running, in order to access it. To directly access vcluster without port-forwarding, you can use one of the following methods:
 - [LoadBalancer service](#loadbalancer-service)
 - [NodePort service](#nodeport-service)
 - [Ingress](#ingress)
 - [In-Cluster](#in-cluster)
+
+:::info Local Kubernetes Clusters
+If you are using a local Kubernetes cluster, such as docker-desktop, rancher-desktop, KinD or minikube, vcluster will automatically connect to it without the need of port-forwarding.
+:::
 
 ## LoadBalancer service
 
 The easiest way is to use the flag `--expose` in `vcluster create` to tell vcluster to use a LoadBalancer service:
 
 ```bash
-# Create a new vcluster or patch existing one
-vcluster create vcluster-1 -n host-namespace-1 --expose 
-
-# Connect as usual to the vcluster to create a kube config
-vcluster connect vcluster-1 -n host-namespace-1
-
-# Set default kubeconfig
-export KUBECONFIG=./kubeconfig.yaml
+# Create a new vcluster with a LoadBalancer
+vcluster create my-vcluster --expose
 
 # Run any kube command in the vcluster
 kubectl get ns
@@ -71,18 +69,17 @@ syncer:
 
 Create the virtual cluster with:
 ```
-vcluster create my-vcluster -n my-vcluster -f values.yaml
+vcluster create my-vcluster -n my-vcluster --connect=false -f values.yaml
 ```
 
-Retrieve the kube config via:
+Update the current kube config via:
 ```
+# Update the current kube config (or use --update-current=false to create a separate one)
 vcluster connect my-vcluster -n my-vcluster --server=https://x.x.x.x
 ```
 
 Access the vcluster:
 ```
-export KUBECONFIG=./kubeconfig.yaml
-
 # Run any kube context command
 kubectl get ns
 ```
@@ -138,12 +135,12 @@ syncer:
 
 Create the virtual cluster with:
 ```
-vcluster create my-vcluster -n my-vcluster -f values.yaml
+vcluster create my-vcluster -n my-vcluster --connect=false -f values.yaml
 ```
 
 Retrieve the kube config via:
 ```
-vcluster connect my-vcluster -n my-vcluster --server=https://x.x.x.x
+vcluster connect my-vcluster -n my-vcluster --update-current=false --server=https://x.x.x.x
 ```
 
 Access the vcluster:
@@ -208,12 +205,12 @@ syncer:
 
 Create the virtual cluster with:
 ```
-vcluster create my-vcluster -n my-vcluster -f values.yaml
+vcluster create my-vcluster -n my-vcluster --connect=false -f values.yaml
 ```
 
 Retrieve the kube config via:
 ```
-vcluster connect my-vcluster -n my-vcluster --server=https://my-vcluster.example.com
+vcluster connect my-vcluster -n my-vcluster --update-current=false --server=https://my-vcluster.example.com
 ```
 
 Access the vcluster:
@@ -261,8 +258,6 @@ vcluster connect my-vcluster -n my-vcluster --server=https://my-vcluster.example
 
 Then access the vcluster:
 ```
-export KUBECONFIG=./kubeconfig.yaml
-
 # Run any kubectl command
 kubectl get ns
 ```
@@ -271,7 +266,7 @@ kubectl get ns
 
 In order to access the virtual cluster from within the host cluster, you can directly connect to the vcluster service. Make sure you can access that service and then create a kube config in the following form:
 ```
-vcluster connect my-vcluster -n my-vcluster --server=my-vcluster.my-vcluster --insecure
+vcluster connect my-vcluster -n my-vcluster --server=my-vcluster.my-vcluster --insecure --update-current=false
 ```
 
 Now access the virtual cluster with:

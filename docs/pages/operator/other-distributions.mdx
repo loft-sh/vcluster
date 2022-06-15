@@ -16,15 +16,11 @@ However, vcluster is not tied to a specific distribution and should work with al
 In order to use k0s as backing cluster, create a vcluster with the following command:
 
 ```
-vcluster create vcluster-1 -n host-namespace-1 --distro k0s
+vcluster create my-vcluster --distro k0s
 ```
 
-Connect to the vcluster and start using it:
+Start using it:
 ```
-vcluster connect vcluster-1 -n host-namespace-1
-
-# Then execute in a new terminal
-export KUBECONFIG=kubeconfig.yaml
 kubectl get ns
 ...
 ```
@@ -38,15 +34,11 @@ When choosing this option, vcluster will deploy a separate etcd cluster, kuberne
 In order to use vanilla k8s as backing cluster, create a vcluster with the following command:
 
 ```
-vcluster create vcluster-1 -n host-namespace-1 --distro k8s
+vcluster create my-vcluster --distro k8s
 ```
 
 Connect to the vcluster and start using it:
 ```
-vcluster connect vcluster-1 -n host-namespace-1
-
-# Then execute in a new terminal
-export KUBECONFIG=kubeconfig.yaml
 kubectl get ns
 ...
 ```

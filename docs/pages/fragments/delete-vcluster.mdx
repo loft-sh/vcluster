@@ -12,17 +12,18 @@ import TabItem from '@theme/TabItem'
 <TabItem value="vcluster">
 
 ```bash
-vcluster delete vcluster-1 -n host-namespace-1
-    
-# OR: delete the namespace as well
-vcluster delete vcluster-1 -n host-namespace-1 --delete-namespace
+# switch the kube context back
+vcluster disconnect
+
+# OR: switch context back and delete vcluster
+vcluster delete my-vcluster
 ```
 
 </TabItem>
 <TabItem value="helm">
 
 ```bash
-helm delete vcluster-1 -n host-namespace-1 --repository-config=''
+helm delete my-vcluster -n vcluster-my-vcluster --repository-config=''
 ```
 
 </TabItem>
@@ -30,17 +31,17 @@ helm delete vcluster-1 -n host-namespace-1 --repository-config=''
 
 The easiest option to delete a virtual cluster using `kubectl` is to delete the host namespace:
 ```bash
-kubectl delete namespace host-namespace-1
+kubectl delete namespace vcluster-my-vcluster
 ```
 
 In case you have multiple vclusters or any other resources in this namespace, you can also just delete the vcluster-related resources:
 ```bash
-kubectl delete -n host-namespace-1 serviceaccount vcluster-1
-kubectl delete -n host-namespace-1 role vcluster-1
-kubectl delete -n host-namespace-1 rolebinding vcluster-1
-kubectl delete -n host-namespace-1 service vcluster-1
-kubectl delete -n host-namespace-1 service vcluster-1-headless
-kubectl delete -n host-namespace-1 statefulset vcluster-1
+kubectl delete -n vcluster-my-vcluster serviceaccount vcluster-1
+kubectl delete -n vcluster-my-vcluster role vcluster-1
+kubectl delete -n vcluster-my-vcluster rolebinding vcluster-1
+kubectl delete -n vcluster-my-vcluster service vcluster-1
+kubectl delete -n vcluster-my-vcluster service vcluster-1-headless
+kubectl delete -n vcluster-my-vcluster statefulset vcluster-1
 ```
 
 </TabItem>
