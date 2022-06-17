@@ -12,7 +12,7 @@ Before starting to develop, make sure you have installed the following tools on 
 - [docker](https://docs.docker.com/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) with a valid kube context configured
 - [helm](https://helm.sh/docs/intro/install/), which is used to deploy vcluster and the plugin
-- [vcluster CLI](https://www.vcluster.com/docs/getting-started/setup) v0.6.0 or higher
+- [vcluster CLI](https://www.vcluster.com/docs/getting-started/setup) v0.9.1 or higher
 - [Go](https://go.dev/dl/) programming language build tools
 
 ## Implementation
@@ -141,6 +141,110 @@ As you might have noticed, the changes to the Immutable field of the ConfigMap a
 Also, notice that this example lacks the updates to the ConfigMap resource in vcluster. Here we propagate the changes only down to the ConfigMap in the host cluster, but there are resources or use cases where a syncer would update the synced resource in vcluster. For example, this might be an update of the status subresource or synchronization of any other field that some controller sets on the host side, e.g., finalizers. Implementation of such updates needs to be considered on case-by-case basis.
 For some use cases, you may need to sync the resources in the opposite direction, from the host cluster up into the vcluster, or even in both directions. If that is what your plugin needs to do, you will implement the [`UpSyncer`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer#UpSyncer) interface defined by the SDK.
 
+### Adding a hook for changing a resource on the fly
+
+Hooks are a great feature to adjust current syncing behaviour of vcluster without the need to override an already existing syncer in vcluster completely. They allow you to change outgoing objects of vcluster similar to an mutating admission controller in Kubernetes. Requirement for an hook to work correctly is that vcluster itself would sync the resource, so hooks only work for the core resources that are synced by vcluster such as pods, services, secrets etc.
+
+To add a hook to your plugin, you simply need to create a new struct that implements the `ClientHook` interface:
+
+```
+package myhook
+
+import (
+	"context"
+	"fmt"
+	"github.com/loft-sh/vcluster-sdk/hook"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+func NewPodHook() hook.ClientHook {
+	return &podHook{}
+}
+
+type podHook struct{}
+
+func (p *podHook) Name() string {
+	return "pod-hook"
+}
+
+func (p *podHook) Resource() client.Object {
+	return &corev1.Pod{}
+}
+```
+
+The `Name()` function defines the name of the hook which is used for logging purposes. The `Resource()` function returns the object you want to mutate. Besides those functions you can now define what actions you want to hook into inside vcluster's syncer:
+```
+type MutateCreateVirtual interface {
+	MutateCreateVirtual(ctx context.Context, obj client.Object) (client.Object, error)
+}
+
+type MutateUpdateVirtual interface {
+	MutateUpdateVirtual(ctx context.Context, obj client.Object) (client.Object, error)
+}
+
+type MutateDeleteVirtual interface {
+	MutateDeleteVirtual(ctx context.Context, obj client.Object) (client.Object, error)
+}
+
+type MutateGetVirtual interface {
+	MutateGetVirtual(ctx context.Context, obj client.Object) (client.Object, error)
+}
+
+type MutateCreatePhysical interface {
+	MutateCreatePhysical(ctx context.Context, obj client.Object) (client.Object, error)
+}
+
+type MutateUpdatePhysical interface {
+	MutateUpdatePhysical(ctx context.Context, obj client.Object) (client.Object, error)
+}
+
+type MutateDeletePhysical interface {
+	MutateDeletePhysical(ctx context.Context, obj client.Object) (client.Object, error)
+}
+
+type MutateGetPhysical interface {
+	MutateGetPhysical(ctx context.Context, obj client.Object) (client.Object, error)
+}
+```
+
+By implementing one or more of the above interfaces you will receive events from vcluster that allows you to mutate an outgoing or incoming object to vcluster.
+For example, to add an hook that adds a custom label to a pod, you can add the following code:
+```
+var _ hook.MutateCreatePhysical = &podHook{}
+
+func (p *podHook) MutateCreatePhysical(ctx context.Context, obj client.Object) (client.Object, error) {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return nil, fmt.Errorf("object %v is not a pod", obj)
+	}
+
+	if pod.Labels == nil {
+		pod.Labels = map[string]string{}
+	}
+	pod.Labels["created-by-plugin"] = "pod-hook"
+	return pod, nil
+}
+
+var _ hook.MutateUpdatePhysical = &podHook{}
+
+func (p *podHook) MutateUpdatePhysical(ctx context.Context, obj client.Object) (client.Object, error) {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return nil, fmt.Errorf("object %v is not a pod", obj)
+	}
+
+	if pod.Labels == nil {
+		pod.Labels = map[string]string{}
+	}
+	pod.Labels["created-by-plugin"] = "pod-hook"
+	return pod, nil
+}
+```
+
+Incoming objects into vcluster can be modified through the `MutateGetPhysical` or `MutateGetVirtual` which allows you to change how vcluster is retrieving objects from either the virtual or physical cluster.
+This can be useful if you don't want vcluster to change something you have mutated back for example.
+
 ### Build and push your plugin
 
 Now you can run docker commands to build your container image and push it to the registry.
@@ -152,7 +256,7 @@ The last step before installing your plugin is creating a yaml file with your pl
 
 ```
 plugin:
-  sync-all-configmaps:
+  sync-all-configmaps-plugin:
     image: your_org/vcluster-sync-all-configmaps
 syncer:
   extraArgs:
