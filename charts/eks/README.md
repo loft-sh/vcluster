@@ -19,12 +19,12 @@ See [helm repo](https://helm.sh/docs/helm/helm_repo/) for command documentation.
 ## Install Helm Chart
 
 ```
-helm install [RELEASE_NAME] loft-sh/vcluster-eks
+helm upgrade [RELEASE_NAME] loft-sh/vcluster-eks -n [RELEASE_NAMESPACE] --create-namespace --install
 ```
 
 See [vcluster docs](https://vcluster.com/docs) for configuration options.
 
-See [helm install](https://helm.sh/docs/helm/helm_install/) for command documentation.
+See [helm upgrade](https://helm.sh/docs/helm/helm_upgrade/) for command documentation.
 
 ## Connect to the vcluster
 
@@ -42,14 +42,6 @@ helm uninstall [RELEASE_NAME]
 This removes all the Kubernetes components associated with the chart and deletes the release.
 
 See [helm uninstall](https://helm.sh/docs/helm/helm_uninstall/) for command documentation.
-
-## Upgrading Chart
-
-```
-helm upgrade [RELEASE_NAME] loft-sh/vcluster-eks
-```
-
-See [helm upgrade](https://helm.sh/docs/helm/helm_upgrade/) for command documentation.
 
 ### Why Virtual Kubernetes Clusters?
 
