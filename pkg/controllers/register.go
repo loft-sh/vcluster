@@ -2,20 +2,24 @@ package controllers
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
+	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
@@ -215,13 +219,25 @@ func registerInitManifestsController(ctx *context.ControllerContext) error {
 		currentNamespaceManager.GetCache().WaitForCacheSync(ctx.Context)
 	}
 
+	vconfig, err := plugin.ConvertRestConfigToClientConfig(ctx.VirtualManager.GetConfig())
+	if err != nil {
+		return err
+	}
+
+	vConfigRaw, err := vconfig.RawConfig()
+	if err != nil {
+		return err
+	}
+
 	controller := &manifests.InitManifestsConfigMapReconciler{
 		LocalClient:    currentNamespaceManager.GetClient(),
 		Log:            loghelper.New("initmanifests-controller"),
 		VirtualManager: ctx.VirtualManager,
+
+		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance()),
 	}
 
-	err := controller.SetupWithManager(currentNamespaceManager)
+	err = controller.SetupWithManager(currentNamespaceManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup init manifests configmap controller: %v", err)
 	}

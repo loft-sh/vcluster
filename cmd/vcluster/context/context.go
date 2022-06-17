@@ -20,7 +20,7 @@ type VirtualClusterOptions struct {
 	TLSSANs             []string `json:"tlsSans,omitempty"`
 	RequestHeaderCaCert string   `json:"requestHeaderCaCert,omitempty"`
 	ClientCaCert        string   `json:"clientCaCert,omitempty"`
-	KubeConfig          string   `json:"kubeConfig,omitempty"`
+	KubeConfigPath      string   `json:"kubeConfig,omitempty"`
 
 	KubeConfigContextName     string   `json:"kubeConfigContextName,omitempty"`
 	KubeConfigSecret          string   `json:"kubeConfigSecret,omitempty"`

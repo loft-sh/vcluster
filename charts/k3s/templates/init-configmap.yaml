@@ -13,3 +13,49 @@ data:
   initmanifests.yaml: |-
     {{ .Values.init.manifests | nindent 4 | trim }}
 {{- end }}
+
+---
+
+{{- if .Values.init.helm }}
+{{- range .Values.init.helm }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-{{ $.Release.Name }}-chart-{{ .chart.name }}{{ if .release }}-{{ .release.name }}{{ end }}
+  labels:
+    app: vcluster
+    chart: {{ .chart.name }}-{{ .chart.version }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+    context: vcluster-helm-chart
+data:
+  {{- if .bundle }}
+  bundle: {{ .bundle }}
+  {{- end }}
+  {{- if .chart }}
+  name: {{ .chart.name }}
+  {{- end }}
+  {{- if .chart }}
+  repo: {{ .chart.repo }}
+  {{- end }}
+  {{- if .chart }}
+  version: {{ .chart.version }}
+  {{- end }}
+  timeout: {{ .timeout | default "120s" | quote }}
+  {{- if .chart.username }}
+  username: {{ .chart.username }}
+  {{- end }}
+  {{- if .chart.password }}
+  password: {{ .chart.password }}
+  {{- end }}
+  {{- if .values }}
+  values: |-
+    {{ .values | nindent 4 | trim }}
+  {{- end}}
+  {{- if .release }}
+  releaseName: {{ .release.name }}
+  releaseNamespace: {{ .release.namespace }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}

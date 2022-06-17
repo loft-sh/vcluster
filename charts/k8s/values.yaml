@@ -357,3 +357,4 @@ isolation:
 init:
   manifests: |-
     ---
+  helm: []

@@ -107,6 +107,19 @@ profiles:
       - op: replace
         path: images.vcluster.build.buildKit
         value: {}
+      - op: add
+        path: deployments.name=vcluster.helm.values.init
+        value: 
+          helm:
+            - chart:
+                name: ingress-nginx
+                namespace: ingress-nginx
+                repo: https://kubernetes.github.io/ingress-nginx
+                version: 4.1.1
+              release:
+                name: ingress-nginx
+                namespace: ingress-nginx
+              timeout: '50s'
   - name: k3s
     # This profile is empty for now because the default config is for k3s
     # Keep the empty profile because it's used in the distribution matrix of the GH workflow for e2e.

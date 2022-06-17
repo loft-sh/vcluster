@@ -8,6 +8,9 @@ ARG TARGETARCH
 # Install kubectl for development
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
 
+# Install helm binary
+RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && chmod 700 get_helm.sh && ./get_helm.sh
+
 # Install Delve for debugging
 RUN if [ "${TARGETARCH}" = "amd64" ]; then go install github.com/go-delve/delve/cmd/dlv@latest; fi
 
@@ -39,6 +42,9 @@ ENV HOME /
 # Build cmd
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -o /vcluster cmd/vcluster/main.go
 
+# RUN useradd -u 12345 nonroot
+# USER nonroot
+
 ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go"]
 
 # we use alpine for easier debugging
@@ -48,6 +54,10 @@ FROM alpine:3.15.4
 WORKDIR /
 
 COPY --from=builder /vcluster .
+COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 COPY manifests/ /manifests/
+
+# RUN useradd -u 12345 nonroot
+# USER nonroot
 
 ENTRYPOINT ["/vcluster", "start"]

@@ -3,6 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
@@ -10,12 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/helm/values"
@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 var (
@@ -225,7 +226,10 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues string) error {
 	} else {
 		cmd.log.Infof("Create vcluster %s...", vClusterName)
 	}
-	err = helm.NewClient(&cmd.rawConfig, cmd.log).Upgrade(vClusterName, cmd.Namespace, helm.UpgradeOptions{
+
+	// we have to upgrade / install the chart
+	ctx := context.Background()
+	err = helm.NewClient(&cmd.rawConfig, cmd.log).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
 		Path:        cmd.LocalChartDir,
 		Repo:        cmd.ChartRepo,

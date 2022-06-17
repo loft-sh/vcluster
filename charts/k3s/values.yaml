@@ -322,3 +322,4 @@ isolation:
 init:
   manifests: |-
     ---
+  helm: []
