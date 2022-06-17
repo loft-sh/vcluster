@@ -40,7 +40,9 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 			klog.Infof("Failed writing /root/.kube/config file: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
 		}
 	} else {
-		klog.Infof("Failed to create /root/.kube folder for writing kube config: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
+		if !os.IsPermission(err) {
+			klog.Infof("Failed to create /root/.kube folder for writing kube config: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
+		}
 	}
 
 	if secretName != "" {
