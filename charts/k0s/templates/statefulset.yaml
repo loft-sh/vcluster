@@ -242,6 +242,8 @@ spec:
         env:
           - name: VCLUSTER_PLUGIN_ADDRESS
             value: "localhost:{{ add 14000 $counter }}"
+          - name: VCLUSTER_PLUGIN_NAME
+            value: "{{ $key }}"
         {{- if $container.env }}
 {{ toYaml $container.env | indent 10 }}
         {{- end }}
