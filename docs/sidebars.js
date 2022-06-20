@@ -62,6 +62,7 @@ module.exports = {
         'operator/pausing-vcluster',
         'operator/backup',
         'operator/security',
+        'operator/cluster-api-provider',
       ],
     },
     {
