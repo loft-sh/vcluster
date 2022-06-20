@@ -1,6 +1,6 @@
 ## vcluster (k8s)
 
-### **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/getting-started/setup)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
+### **[GitHub](https://github.com/loft-sh/vcluster)** • **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/getting-started/setup)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
 
 Create fully functional virtual Kubernetes clusters - Each vcluster runs inside a namespace of the underlying k8s cluster. It's cheaper than creating separate full-blown clusters and it offers better multi-tenancy and isolation than regular namespaces.
 
@@ -56,7 +56,5 @@ See [helm uninstall](https://helm.sh/docs/helm/helm_uninstall/) for command docu
 Learn more on [www.vcluster.com](https://vcluster.com).
 
 ![vcluster Intro](https://github.com/loft-sh/vcluster/raw/main/docs/static/media/vcluster-comparison.png)
-
-![vcluster Compatibility](https://github.com/loft-sh/vcluster/raw/main/docs/static/media/cluster-compatibility.png)
 
 Learn more in the [documentation](https://vcluster.com/docs/what-are-virtual-clusters).
