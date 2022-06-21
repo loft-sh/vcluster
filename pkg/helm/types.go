@@ -19,6 +19,7 @@ type ChartOptions struct {
 	DisableIngressSync bool
 	Expose             bool
 	NodePort           bool
+	SyncNodes          bool
 	K3SImage           string
 	Isolate            bool
 	KubernetesVersion  *version.Info
