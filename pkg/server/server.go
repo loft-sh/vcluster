@@ -180,6 +180,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		h = filters.WithNodeChanges(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
 	h = filters.WithFakeKubelet(h, localConfig, cachedVirtualClient, ctx.Options.TargetNamespace)
+	h = filters.WithK3sConnect(h)
 
 	if os.Getenv("DEBUG") == "true" {
 		h = filters.WithPprof(h)
@@ -211,7 +212,12 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 		},
 	}
 	redirectAuthResources = append(redirectAuthResources, s.redirectResources...)
-	serverConfig.Authorization.Authorizer = union.New(kubeletauthorizer.New(s.uncachedVirtualClient), delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, nil), impersonationauthorizer.New(s.uncachedVirtualClient), allowall.New())
+	serverConfig.Authorization.Authorizer = union.New(
+		kubeletauthorizer.New(s.uncachedVirtualClient),
+		delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, nil),
+		impersonationauthorizer.New(s.uncachedVirtualClient),
+		allowall.New(),
+	)
 
 	sso := options.NewSecureServingOptions()
 	sso.HTTP2MaxStreamsPerConnection = 1000

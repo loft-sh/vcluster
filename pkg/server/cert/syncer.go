@@ -3,6 +3,7 @@ package cert
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"sync"
@@ -105,6 +106,12 @@ func (s *syncer) getSANs() ([]string, error) {
 	}
 
 	retSANs = append(retSANs, svc.Spec.ClusterIP)
+
+	// add pod IP
+	podIP := os.Getenv("POD_IP")
+	if podIP != "" {
+		retSANs = append(retSANs, podIP)
+	}
 
 	// get cluster ips of node services
 	svcs := &corev1.ServiceList{}
