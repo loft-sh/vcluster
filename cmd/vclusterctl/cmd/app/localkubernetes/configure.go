@@ -20,7 +20,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-func (c ClusterType) NodePortSupported() bool {
+func (c ClusterType) LocalKubernetes() bool {
 	return c == ClusterTypeDockerDesktop ||
 		c == ClusterTypeRancherDesktop ||
 		c == ClusterTypeKIND ||

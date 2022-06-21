@@ -16,10 +16,12 @@ type CreateOptions struct {
 	CreateNamespace    bool
 	DisableIngressSync bool
 	CreateClusterRole  bool
-	Expose             bool
-	ExposeLocal        bool
-	Connect            bool
-	Upgrade            bool
-	Isolate            bool
-	ReleaseValues      string
+
+	Expose      bool
+	ExposeLocal bool
+
+	Connect       bool
+	Upgrade       bool
+	Isolate       bool
+	ReleaseValues string
 }

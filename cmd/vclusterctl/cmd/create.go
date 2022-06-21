@@ -247,8 +247,8 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helm.Cha
 
 	// check if we should create with node port
 	clusterType := localkubernetes.DetectClusterType(&cmd.rawConfig)
-	if cmd.ExposeLocal && clusterType.NodePortSupported() {
-		cmd.log.Infof("Detected local kubernetes cluster %s. Will deploy vcluster with a NodePort", clusterType)
+	if cmd.ExposeLocal && clusterType.LocalKubernetes() {
+		cmd.log.Infof("Detected local kubernetes cluster %s. Will deploy vcluster with a NodePort & sync real nodes", clusterType)
 		cmd.localCluster = true
 	}
 
@@ -260,7 +260,8 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helm.Cha
 		CreateClusterRole:  cmd.CreateClusterRole,
 		DisableIngressSync: cmd.DisableIngressSync,
 		Expose:             cmd.Expose,
-		NodePort:           cmd.ExposeLocal && clusterType.NodePortSupported(),
+		SyncNodes:          cmd.localCluster,
+		NodePort:           cmd.localCluster,
 		K3SImage:           cmd.K3SImage,
 		Isolate:            cmd.Isolate,
 		KubernetesVersion:  kubernetesVersion,

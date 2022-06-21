@@ -12,7 +12,7 @@ import (
 )
 
 var K3SVersionMap = map[string]string{
-	"1.24": "rancher/k3s:v1.24.1-rc1-k3s1",
+	"1.24": "rancher/k3s:v1.24.1-k3s1",
 	"1.23": "rancher/k3s:v1.23.6-k3s1",
 	"1.22": "rancher/k3s:v1.22.9-k3s1",
 	"1.21": "rancher/k3s:v1.21.12-k3s1",
@@ -116,6 +116,13 @@ service:
 		values += `
 service:
   type: NodePort`
+	}
+
+	if chartOptions.SyncNodes {
+		values += `
+sync:
+  nodes:
+    enabled: true`
 	}
 
 	if chartOptions.Isolate {
