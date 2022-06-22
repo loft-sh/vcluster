@@ -204,8 +204,14 @@ spec:
         {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
-        env:
+        env:          
+          {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
+          {{- end }}
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         volumeMounts:
         {{- if .Values.coredns.enabled }}
           - name: coredns
