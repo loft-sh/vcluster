@@ -54,55 +54,28 @@ vcluster disconnect
 
 // Run executes the functionality
 func (cmd *DisconnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
+	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+		CurrentContext: cmd.Context,
+	}).RawConfig()
+	if err != nil {
+		return err
+	}
 	if cmd.Context == "" {
-		rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
-		if err != nil {
-			return err
-		}
-
 		cmd.Context = rawConfig.CurrentContext
 	}
 
 	// get vcluster info from context
-	vClusterName, vClusterNamespace, _ := find.VClusterFromContext(cmd.Context)
+	vClusterName, _, otherContext := find.VClusterFromContext(cmd.Context)
 	if vClusterName == "" {
 		return fmt.Errorf("current selected context is not a vcluster context")
 	}
 
 	// disconnect
-	err := cmd.disconnect(vClusterName, vClusterNamespace)
+	err = switchContext(&rawConfig, otherContext)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "switch kube context")
 	}
 
-	return nil
-}
-
-func (cmd *DisconnectCmd) disconnect(vClusterName, vClusterNamespace string) error {
-	vCluster, err := find.GetVCluster(cmd.Context, vClusterName, vClusterNamespace)
-	if err != nil {
-		return err
-	}
-
-	// load the raw config
-	rawConfig, err := vCluster.ClientFactory.RawConfig()
-	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-	}
-	err = switchContext(&rawConfig, vCluster.Context)
-	if err != nil {
-		return errors.Wrap(err, "delete kube context")
-	}
-
-	rawConfig.CurrentContext = vCluster.Context
-	restConfig, err := vCluster.ClientFactory.ClientConfig()
-	if err != nil {
-		return err
-	}
-
-	cmd.Namespace = vCluster.Namespace
-	cmd.rawConfig = &rawConfig
-	cmd.restConfig = restConfig
 	return nil
 }
 
