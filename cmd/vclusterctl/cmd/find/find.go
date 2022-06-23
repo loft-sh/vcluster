@@ -199,7 +199,7 @@ func getVCluster(object client.Object, context, release string, client *kubernet
 }
 
 func getPods(client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig, namespace, podSelector string) (*corev1.PodList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*6)
 	defer cancel()
 
 	podList, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
@@ -221,7 +221,7 @@ func getPods(client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConf
 }
 
 func getDeployments(client *kubernetes.Clientset, namespace string, kubeClientConfig clientcmd.ClientConfig) (*appsv1.DeploymentList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*6)
 	defer cancel()
 
 	deploymentList, err := client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{
@@ -243,7 +243,7 @@ func getDeployments(client *kubernetes.Clientset, namespace string, kubeClientCo
 }
 
 func getStatefulSets(client *kubernetes.Clientset, namespace string, kubeClientConfig clientcmd.ClientConfig) (*appsv1.StatefulSetList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*6)
 	defer cancel()
 
 	statefulSetList, err := client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{
