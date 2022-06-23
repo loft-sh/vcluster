@@ -1,6 +1,6 @@
 apiVersion: v2
 name: vcluster-eks
-description: vcluster - Virtual Kubernetes Clusters (k8s)
+description: vcluster - Virtual Kubernetes Clusters (eks)
 home: https://vcluster.com
 icon: https://static.loft.sh/branding/logos/vcluster/vertical/vcluster_vertical.svg
 keywords:
