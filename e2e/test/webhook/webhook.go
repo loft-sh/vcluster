@@ -786,9 +786,10 @@ func testAttachingPodWebhook(f *framework.Framework, ns string) {
 	framework.ExpectNoError(err, "error while waiting for pod %s to go to Running phase in namespace: %s", pod.Name, ns)
 
 	ginkgo.By("'kubectl attach' the pod, should be denied by the webhook")
-	timer := time.NewTimer(30 * time.Second)
+	timer := time.NewTimer(45 * time.Second)
 	defer timer.Stop()
-	_, err = framework.NewKubectlCommand(f.VclusterKubeconfigFile.Name(), ns, "attach", fmt.Sprintf("--namespace=%v", ns), pod.Name, "-i", "-c=container1").WithTimeout(timer.C).Exec()
+	f.Log.Infof("date before kubectl attach: %v", time.Now()) //dev
+	_, err = framework.NewKubectlCommand(f.VclusterKubeconfigFile.Name(), ns, "attach", fmt.Sprintf("--namespace=%v", ns), pod.Name, "-i", "-c=container1", "-v=8").WithTimeout(timer.C).Exec()
 	framework.ExpectError(err, "'kubectl attach' the pod, should be denied by the webhook")
 	if e, a := "attaching to pod 'to-be-attached-pod' is not allowed", err.Error(); !strings.Contains(a, e) {
 		framework.Failf("unexpected 'kubectl attach' error message. expected to contain %q, got %q", e, a)

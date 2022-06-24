@@ -21,7 +21,7 @@ import (
 	"sort"
 	"sync/atomic"
 
-	"k8s.io/api/admissionregistration/v1"
+	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/informers"
 	admissionregistrationlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
 )
 
 // validatingWebhookConfigurationManager collects the validating webhook objects so that they can be called.
@@ -98,6 +99,7 @@ func (v *validatingWebhookConfigurationManager) HasSynced() bool {
 }
 
 func (v *validatingWebhookConfigurationManager) updateConfiguration() {
+	klog.Info("updateConfiguration()") //dev
 	configurations, err := v.lister.List(labels.Everything())
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("error updating configuration: %v", err))

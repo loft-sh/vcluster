@@ -133,6 +133,7 @@ func (d *validatingDispatcher) Dispatch(ctx context.Context, attr admission.Attr
 					admissionmetrics.Metrics.ObserveWebhook(ctx, hook.Name, time.Since(t), rejected, versionedAttr.Attributes, "validating", 0)
 				}
 			} else {
+				klog.Infof("%s hook OK ! <<-----", hook.Name) //dev
 				admissionmetrics.Metrics.ObserveWebhook(ctx, hook.Name, time.Since(t), rejected, versionedAttr.Attributes, "validating", 200)
 				return
 			}
