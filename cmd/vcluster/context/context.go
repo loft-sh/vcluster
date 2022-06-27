@@ -22,6 +22,7 @@ type VirtualClusterOptions struct {
 	ClientCaCert        string   `json:"clientCaCert,omitempty"`
 	KubeConfig          string   `json:"kubeConfig,omitempty"`
 
+	KubeConfigContextName     string   `json:"kubeConfigContextName,omitempty"`
 	KubeConfigSecret          string   `json:"kubeConfigSecret,omitempty"`
 	KubeConfigSecretNamespace string   `json:"kubeConfigSecretNamespace,omitempty"`
 	KubeConfigServer          string   `json:"kubeConfigServer,omitempty"`

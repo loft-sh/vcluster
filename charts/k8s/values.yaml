@@ -130,6 +130,7 @@ syncer:
   # Extra Annotations for the syncer deployment
   annotations: {}
   priorityClassName: ""
+  kubeConfigContextName: "my-vcluster"
 
 # Etcd settings
 etcd:
