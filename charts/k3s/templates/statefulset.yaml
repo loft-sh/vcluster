@@ -157,6 +157,9 @@ spec:
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}
+          {{- if .Values.syncer.kubeConfigContextName }}
+          - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
+          {{- end }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}
