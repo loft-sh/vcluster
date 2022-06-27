@@ -98,6 +98,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringSliceVarP(&cmd.ExtraValues, "extra-values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cobraCmd.Flags().BoolVar(&cmd.DisableIngressSync, "disable-ingress-sync", false, "If true the virtual cluster will not sync any ingresses")
+	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", false, "If true updates the current kube config")
 	cobraCmd.Flags().BoolVar(&cmd.CreateClusterRole, "create-cluster-role", false, "DEPRECATED: cluster role is now automatically created if it is required by one of the resource syncers that are enabled by the .sync.RESOURCE.enabled=true helm value, which is set in a file that is passed via --extra-values argument.")
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cobraCmd.Flags().BoolVar(&cmd.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service")
@@ -155,7 +156,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 			if cmd.Connect {
 				connectCmd := &ConnectCmd{
 					GlobalFlags:   cmd.GlobalFlags,
-					UpdateCurrent: true,
+					UpdateCurrent: cmd.UpdateCurrent,
 					KubeConfig:    "./kubeconfig.yaml",
 					Log:           cmd.log,
 				}
@@ -178,7 +179,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s", args[0], cmd.Namespace)
 		connectCmd := &ConnectCmd{
 			GlobalFlags:   cmd.GlobalFlags,
-			UpdateCurrent: true,
+			UpdateCurrent: cmd.UpdateCurrent,
 			KubeConfig:    "./kubeconfig.yaml",
 			Log:           cmd.log,
 		}
