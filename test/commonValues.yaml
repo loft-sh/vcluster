@@ -1,0 +1,25 @@
+syncer:
+  image: REPLACE_IMAGE_NAME
+  resources:
+    requests:
+      cpu: "0"
+
+vcluster:
+  resources:
+    requests:
+      cpu: "0"
+
+etcd:
+  resources:
+    requests:
+      cpu: "0"
+
+controller:
+  resources:
+    requests:
+      cpu: "0"
+
+api:
+  resources:
+    requests:
+      cpu: "0"

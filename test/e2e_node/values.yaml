@@ -1,0 +1,4 @@
+sync:
+  nodes:
+    enabled: true
+    syncAllNodes: true

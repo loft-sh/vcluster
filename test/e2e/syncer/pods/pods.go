@@ -2,15 +2,16 @@ package pods
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/e2e/framework"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"

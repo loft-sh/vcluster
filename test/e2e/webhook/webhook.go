@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/e2e/framework"
 	"github.com/loft-sh/vcluster/pkg/util/random"
+	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"

@@ -2,15 +2,16 @@ package servicesync
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/e2e/framework"
+	"time"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"time"
 )
 
 var _ = ginkgo.Describe("map services from host to virtual cluster and vice versa", func() {

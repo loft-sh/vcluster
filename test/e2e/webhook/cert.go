@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/loft-sh/vcluster/e2e/framework"
+	"github.com/loft-sh/vcluster/test/framework"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 )

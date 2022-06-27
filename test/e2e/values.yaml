@@ -1,0 +1,7 @@
+mapServices:
+  fromVirtual:
+  - from: test/test
+    to: test
+  fromHost:
+  - from: test/test
+    to: default/test

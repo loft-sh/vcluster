@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/loft-sh/vcluster/e2e/framework"
+	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -21,15 +21,15 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	// Register tests
-	_ "github.com/loft-sh/vcluster/e2e/test/coredns"
-	_ "github.com/loft-sh/vcluster/e2e/test/k8sdefaultendpoint"
-	_ "github.com/loft-sh/vcluster/e2e/test/servicesync"
-	_ "github.com/loft-sh/vcluster/e2e/test/manifests"
-	_ "github.com/loft-sh/vcluster/e2e/test/syncer/networkpolicies"
-	_ "github.com/loft-sh/vcluster/e2e/test/syncer/pods"
-	_ "github.com/loft-sh/vcluster/e2e/test/syncer/pvc"
-	_ "github.com/loft-sh/vcluster/e2e/test/syncer/services"
-	_ "github.com/loft-sh/vcluster/e2e/test/webhook"
+	_ "github.com/loft-sh/vcluster/test/e2e/coredns"
+	_ "github.com/loft-sh/vcluster/test/e2e/k8sdefaultendpoint"
+	_ "github.com/loft-sh/vcluster/test/e2e/manifests"
+	_ "github.com/loft-sh/vcluster/test/e2e/servicesync"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/networkpolicies"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pods"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pvc"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/services"
+	_ "github.com/loft-sh/vcluster/test/e2e/webhook"
 )
 
 var (

@@ -6,10 +6,9 @@ on:
   pull_request:
     branches:
       - main
-      - v0.5
     paths:
       - "**.go"
-      - "!e2e/**" # exclude changes in e2e tests
+      - "!test/**" # exclude changes in e2e tests
       - ".github/workflows/unit-tests.yaml"
       - "hack/test.sh"
 
