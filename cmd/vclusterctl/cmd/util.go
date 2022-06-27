@@ -122,11 +122,11 @@ func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.Au
 	config.AuthInfos[contextName] = authInfo
 
 	// Update kube context
-	context := api.NewContext()
-	context.Cluster = contextName
-	context.AuthInfo = contextName
+	newContext := api.NewContext()
+	newContext.Cluster = contextName
+	newContext.AuthInfo = contextName
 
-	config.Contexts[contextName] = context
+	config.Contexts[contextName] = newContext
 	if setActive {
 		config.CurrentContext = contextName
 	}

@@ -87,6 +87,7 @@ vcluster create test --namespace test
 		},
 	}
 
+	cobraCmd.Flags().StringVar(&cmd.KubeConfigContextName, "kube-config-context-name", "", "kube-config-context-name to be set")
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.9.1)")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", LoftChartRepo, "The virtual cluster chart repo to use")
@@ -155,10 +156,11 @@ func (cmd *CreateCmd) Run(args []string) error {
 		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") {
 			if cmd.Connect {
 				connectCmd := &ConnectCmd{
-					GlobalFlags:   cmd.GlobalFlags,
-					UpdateCurrent: cmd.UpdateCurrent,
-					KubeConfig:    "./kubeconfig.yaml",
-					Log:           cmd.log,
+					GlobalFlags:           cmd.GlobalFlags,
+					UpdateCurrent:         cmd.UpdateCurrent,
+					KubeConfigContextName: cmd.KubeConfigContextName,
+					KubeConfig:            "./kubeconfig.yaml",
+					Log:                   cmd.log,
 				}
 
 				return connectCmd.Connect(args[0], nil)
@@ -178,10 +180,11 @@ func (cmd *CreateCmd) Run(args []string) error {
 	if cmd.Connect {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s", args[0], cmd.Namespace)
 		connectCmd := &ConnectCmd{
-			GlobalFlags:   cmd.GlobalFlags,
-			UpdateCurrent: cmd.UpdateCurrent,
-			KubeConfig:    "./kubeconfig.yaml",
-			Log:           cmd.log,
+			GlobalFlags:           cmd.GlobalFlags,
+			UpdateCurrent:         cmd.UpdateCurrent,
+			KubeConfigContextName: cmd.KubeConfigContextName,
+			KubeConfig:            "./kubeconfig.yaml",
+			Log:                   cmd.log,
 		}
 
 		return connectCmd.Connect(args[0], nil)
