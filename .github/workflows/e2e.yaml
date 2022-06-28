@@ -16,6 +16,10 @@ on:
       - "charts/**"
       - "manifests/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/${{ github.repository }}-ci:PR${{ github.event.number }}
