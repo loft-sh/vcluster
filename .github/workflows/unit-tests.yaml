@@ -12,6 +12,10 @@ on:
       - ".github/workflows/unit-tests.yaml"
       - "hack/test.sh"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit-test:
     name: Execute all tests
