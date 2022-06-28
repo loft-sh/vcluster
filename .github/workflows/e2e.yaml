@@ -91,7 +91,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
     
-    - name: Set up kind with K8s version v1.21.1
+    - name: Set up kind k8s cluster
       uses: engineerd/setup-kind@v0.5.0
       with:
         version: "v0.14.0"
@@ -155,6 +155,8 @@ jobs:
         kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
         echo "======================================================================================================================"
         kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=500
+        echo "======================================================================================================================"
+        kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
         exit 1
 
     - name: Set up Go
@@ -171,12 +173,16 @@ jobs:
         VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
       continue-on-error: true
 
-    - name: Print vcluster logs if e2e tests fail
+    - name: Print logs if e2e tests fail
       if: steps.execute-e2e-tests.outcome == 'failure'
       run: |
         set -x 
+        kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
+        echo "======================================================================================================================"
         kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
         echo "======================================================================================================================"
-        kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=5000
+        kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=500
+        echo "======================================================================================================================"
+        kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
         exit 1
 
