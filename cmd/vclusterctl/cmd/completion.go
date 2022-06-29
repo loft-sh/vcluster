@@ -16,6 +16,7 @@ Generates completion scripts for various shells
 Example:
 vcluster completion bash
 vcluster completion zsh 
+vcluster completion fish
 #######################################################
 `
 
@@ -45,6 +46,17 @@ vcluster completion zsh > "${fpath[1]}/_vcluster"
 #######################################################
 `
 
+const fishCompDesc = `
+#######################################################
+################### vcluster completion fish ###########
+#######################################################
+Generate the autocompletion script for fish
+
+Example:
+vcluster completion fish > "${fpath[1]}/_vcluster"
+#######################################################
+`
+
 func NewCompletionCmd() *cobra.Command {
 	completionCmd := &cobra.Command{
 		Use:                   "completion",
@@ -60,7 +72,7 @@ func NewCompletionCmd() *cobra.Command {
 			return errors.New("subcommand is required")
 		},
 	}
-	completionCmd.AddCommand(NewBashCommand(), NewZshCommand())
+	completionCmd.AddCommand(NewBashCommand(), NewZshCommand(), NewFishCommand())
 	return completionCmd
 }
 
@@ -90,4 +102,18 @@ func NewZshCommand() *cobra.Command {
 		},
 	}
 	return zshCmd
+}
+
+func NewFishCommand() *cobra.Command {
+	fishCmd := &cobra.Command{
+		Use:                   "fish",
+		Short:                 "generate autocompletion script for fish",
+		Long:                  fishCompDesc,
+		Args:                  cobra.NoArgs,
+		DisableFlagsInUseLine: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Root().GenFishCompletion(os.Stdout, false)
+		},
+	}
+	return fishCmd
 }
