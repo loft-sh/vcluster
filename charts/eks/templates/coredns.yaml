@@ -79,7 +79,13 @@ data:
               fallthrough
             }
             prometheus :9153
+  {{- if and .Values.isolation.enabled  .Values.isolation.networkPolicy.enabled }}
+            forward . /etc/resolv.conf 8.8.8.8 {
+              policy sequential
+            }
+  {{- else }}
             forward . /etc/resolv.conf
+  {{- end }}
             cache 30
             loop
             reload
@@ -130,6 +136,11 @@ data:
               labelSelector:
                 matchLabels:
                   k8s-app: kube-dns
+          {{- if .Values.isolation.enabled }}
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          {{- end }}
           containers:
           - name: coredns
             image: "{{ .Values.defaultImageRegistry }}{{ .Values.coredns.image }}"

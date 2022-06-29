@@ -119,6 +119,9 @@ spec:
           {{- if .Values.sync.nodes.syncAllNodes }}
           - --sync-all-nodes
           {{- end }}
+          {{- if .Values.isolation.enabled }}
+          - --enforce-pod-security-standard={{ .Values.isolation.podSecurityStandard }}
+          {{- end}}
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
           {{- end }}
