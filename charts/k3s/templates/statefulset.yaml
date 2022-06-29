@@ -72,6 +72,10 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
+      {{- if .Values.fsGroup }}
+      securityContext:
+        fsGroup: {{ .Values.fsGroup }}
+      {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
