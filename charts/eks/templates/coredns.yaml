@@ -139,8 +139,8 @@ data:
                 cpu: 1000m
                 memory: 170Mi
               requests:
-                cpu: 100m
-                memory: 70Mi
+                cpu: 3m
+                memory: 16Mi
             args: [ "-conf", "/etc/coredns/Corefile" ]
             volumeMounts:
             - name: config-volume
