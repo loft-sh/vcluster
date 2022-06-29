@@ -1,9 +1,11 @@
 package ingresses
 
 import (
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (s *ingressSyncer) translate(vIngress *networkingv1.Ingress) *networkingv1.Ingress {
@@ -11,6 +13,14 @@ func (s *ingressSyncer) translate(vIngress *networkingv1.Ingress) *networkingv1.
 	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
 	newIngress.Annotations, _ = translateIngressAnnotations(newIngress.Annotations, vIngress.Namespace)
 	return newIngress
+}
+
+func (s *ingressSyncer) TranslateMetadata(vObj client.Object) client.Object {
+	return s.NamespacedTranslator.TranslateMetadata(util.UpdateAnnotations(vObj))
+}
+
+func (s *ingressSyncer) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+	return s.NamespacedTranslator.TranslateMetadataUpdate(util.UpdateAnnotations(vObj), pObj)
 }
 
 func (s *ingressSyncer) translateUpdate(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
