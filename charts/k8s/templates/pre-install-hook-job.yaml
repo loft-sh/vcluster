@@ -25,6 +25,11 @@ spec:
       {{- if .Values.job.priorityClassName }}
       priorityClassName: {{ .Values.job.priorityClassName }}
       {{- end }}
+      {{- if .Values.isolation.enabled }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
       containers:
         - name: certs
           {{- if .Values.syncer.image }}
