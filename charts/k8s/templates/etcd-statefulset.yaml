@@ -81,6 +81,10 @@ spec:
       {{- if .Values.etcd.priorityClassName }}
       priorityClassName: {{ .Values.etcd.priorityClassName }}
       {{- end }}
+      {{- if .Values.etcd.fsGroup }}
+      securityContext:
+        fsGroup: {{ .Values.etcd.fsGroup }}
+      {{- end }}
       containers:
       - name: etcd
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.etcd.image }}"
