@@ -111,8 +111,8 @@ syncer:
     limits:
       memory: 1Gi
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 10m
+      memory: 64Mi
   # Extra volumes 
   volumes: []
   # The amount of replicas to run the deployment with
@@ -147,8 +147,8 @@ etcd:
   annotations: {}
   resources:
     requests:
-      cpu: 100m
-      memory: 100Mi
+      cpu: 20m
+      memory: 150Mi
   # Storage settings for the etcd
   storage:
     # If this is disabled, vcluster will use an emptyDir instead
@@ -178,7 +178,7 @@ controller:
   annotations: {}
   resources:
     requests:
-      cpu: 200m
+      cpu: 15m
   priorityClassName: ""
 
 # Kubernetes API Server settings
@@ -199,7 +199,8 @@ api:
   annotations: {}
   resources:
     requests:
-      cpu: 200m
+      cpu: 40m
+      memory: 300Mi
   priorityClassName: ""
 
 # Core DNS settings

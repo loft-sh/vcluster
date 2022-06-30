@@ -109,8 +109,8 @@ syncer:
     limits:
       memory: 1Gi
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 10m
+      memory: 64Mi
   kubeConfigContextName: "my-vcluster"
 
 # Virtual Cluster (k0s) configuration
