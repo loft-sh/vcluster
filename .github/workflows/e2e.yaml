@@ -133,7 +133,8 @@ jobs:
         --debug \
         --connect=false \
         --distro=${{ matrix.distribution }} \
-        -f ${{ matrix.test-suite-path }}/../commonValues.yaml \
+        --local-chart-dir ./charts/${{ matrix.distribution }} \
+        -f ./test/commonValues.yaml \
         -f ${{ matrix.test-suite-path }}/values.yaml
       continue-on-error: true
 
