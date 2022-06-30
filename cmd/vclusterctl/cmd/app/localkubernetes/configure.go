@@ -313,6 +313,7 @@ func containerExists(containerName string) bool {
 	cmd := exec.Command(
 		"docker",
 		"inspect",
+		"--type=container",
 		containerName,
 	)
 	_, err := cmd.Output()
