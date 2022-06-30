@@ -18,44 +18,46 @@ data:
 
 {{- if .Values.init.helm }}
 {{- range .Values.init.helm }}
+{{- /* only render this chart entry if either of chart or bundle is defined */}}
+{{- if or .chart .bundle }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: cm-{{ $.Release.Name }}-chart-{{ .chart.name }}{{ if .release }}-{{ .release.name }}{{ end }}
+  name: cm-{{ $.Release.Name }}-chart{{ if .chart }}-{{ .chart.name }}{{ end }}{{ if .release }}-{{ .release.name }}{{ end }}
   labels:
     app: vcluster
+    {{- if .chart }}
     chart: {{ .chart.name }}-{{ .chart.version }}
+    {{- else }}
+    chart: {{ .release.name }}
+    {{- end }}
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
     context: vcluster-helm-chart
 data:
-  {{- if .bundle }}
-  bundle: {{ .bundle }}
-  {{- end }}
   {{- if .chart }}
   name: {{ .chart.name }}
-  {{- end }}
-  {{- if .chart }}
   repo: {{ .chart.repo }}
-  {{- end }}
-  {{- if .chart }}
   version: {{ .chart.version }}
-  {{- end }}
-  timeout: {{ .timeout | default "120s" | quote }}
   {{- if .chart.username }}
   username: {{ .chart.username }}
   {{- end }}
   {{- if .chart.password }}
   password: {{ .chart.password }}
   {{- end }}
+  {{- else if .bundle }}
+  bundle: {{ .bundle }}
+  {{- end }}
   {{- if .values }}
   values: |-
     {{ .values | nindent 4 | trim }}
   {{- end}}
   {{- if .release }}
+  timeout: {{ .timeout | default "120s" | quote }}
   releaseName: {{ .release.name }}
   releaseNamespace: {{ .release.namespace }}
   {{- end }}
+{{- end }}
 ---
 {{- end }}
 {{- end }}
