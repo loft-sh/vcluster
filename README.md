@@ -1,5 +1,5 @@
 <br>
-<a href="https://www.vcluster.com"><img src="docs/static/media/vcluster-logo-dark.svg"></a>
+<a href="https://www.vcluster.com"><img src="docs/static/media/vcluster_horizontal_black.svg" width="500"></a>
 
 ### **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/getting-started/setup)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
 
