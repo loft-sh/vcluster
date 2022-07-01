@@ -44,7 +44,7 @@ func buildEnvironmentVariables(services []*v1.Service) []v1.EnvVar {
 }
 
 func serviceNameToEnv(str string) string {
-	return strings.ToUpper(strings.Replace(str, "-", "_", -1))
+	return strings.ToUpper(strings.ReplaceAll(str, "-", "_"))
 }
 
 func makeLinkVariables(service *v1.Service) []v1.EnvVar {

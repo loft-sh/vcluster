@@ -123,7 +123,7 @@ func (n *nodeServiceProvider) Unlock() {
 }
 
 func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
-	serviceName := translate.SafeConcatName(translate.Suffix, "node", strings.Replace(name.Name, ".", "-", -1))
+	serviceName := translate.SafeConcatName(translate.Suffix, "node", strings.ReplaceAll(name.Name, ".", "-"))
 
 	service := &corev1.Service{}
 	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: n.currentNamespace}, service)
