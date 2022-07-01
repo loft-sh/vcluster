@@ -8,6 +8,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+
+	corev1 "k8s.io/api/core/v1"
+
+	"github.com/loft-sh/vcluster/pkg/plugin"
+
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers"
@@ -17,23 +27,17 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
-	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/server"
-	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
-	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -90,7 +94,7 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.ClientCaCert, "client-ca-cert", "/data/server/tls/client-ca.crt", "The path to the client ca certificate")
 	cmd.Flags().StringVar(&options.ServerCaCert, "server-ca-cert", "/data/server/tls/server-ca.crt", "The path to the server ca certificate")
 	cmd.Flags().StringVar(&options.ServerCaKey, "server-ca-key", "/data/server/tls/server-ca.key", "The path to the server ca key")
-	cmd.Flags().StringVar(&options.KubeConfig, "kube-config", "/data/server/cred/admin.kubeconfig", "The path to the virtual cluster admin kube config")
+	cmd.Flags().StringVar(&options.KubeConfigPath, "kube-config", "/data/server/cred/admin.kubeconfig", "The path to the virtual cluster admin kube config")
 	cmd.Flags().StringSliceVar(&options.TLSSANs, "tls-san", []string{}, "Add additional hostname or IP as a Subject Alternative Name in the TLS cert")
 
 	cmd.Flags().StringVar(&options.KubeConfigSecret, "out-kube-config-secret", "", "If specified, the virtual cluster will write the generated kube config to the given secret")
@@ -199,7 +203,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
 	err = wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
-		out, err := ioutil.ReadFile(options.KubeConfig)
+		out, err := ioutil.ReadFile(options.KubeConfigPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				klog.Info("couldn't find virtual cluster kube-config, will retry in 1 seconds")
