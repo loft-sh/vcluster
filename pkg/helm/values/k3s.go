@@ -92,8 +92,11 @@ securityContext:
 }
 
 func addCommonReleaseValues(values string, chartOptions *helm.ChartOptions) (string, error) {
-	values += `
+	if chartOptions.CIDR != "" {
+		values += `
 serviceCIDR: ##CIDR##`
+		values = strings.ReplaceAll(values, "##CIDR##", chartOptions.CIDR)
+	}
 
 	if chartOptions.DisableIngressSync {
 		values += `
@@ -131,7 +134,6 @@ isolation:
   enabled: true`
 	}
 
-	values = strings.ReplaceAll(values, "##CIDR##", chartOptions.CIDR)
 	values = strings.TrimSpace(values)
 	return values, nil
 }
