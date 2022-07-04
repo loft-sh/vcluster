@@ -24,11 +24,11 @@ func getActionOrConditionValue(annotation, actionOrCondition string) string {
 func ProcessAlbAnnotations(namespace string, k string, v string) (string, string) {
 	if strings.HasPrefix(k, AlbActionsAnnotation) {
 		type actionPayload struct {
-			Type          string `json:"type"`
+			Type          string `json:"type,omitempty"`
 			ForwardConfig struct {
-				TargetGroups                []map[string]interface{} `json:"targetGroups"`
-				TargetGroupStickinessConfig map[string]interface{}   `json:"targetGroupStickinessConfig"`
-			} `json:"forwardConfig"`
+				TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
+				TargetGroupStickinessConfig map[string]interface{}   `json:"targetGroupStickinessConfig,omitempty"`
+			} `json:"forwardConfig,omitempty"`
 		}
 		// change k
 		action := getActionOrConditionValue(k, ActionsSuffix)
