@@ -1,10 +1,20 @@
 package legacy
 
 import (
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func (s *ingressSyncer) TranslateMetadata(vObj client.Object) client.Object {
+	return s.NamespacedTranslator.TranslateMetadata(util.UpdateAnnotations(vObj))
+}
+
+func (s *ingressSyncer) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+	return s.NamespacedTranslator.TranslateMetadataUpdate(util.UpdateAnnotations(vObj), pObj)
+}
 
 func (s *ingressSyncer) translate(vIngress *networkingv1beta1.Ingress) *networkingv1beta1.Ingress {
 	newIngress := s.TranslateMetadata(vIngress).(*networkingv1beta1.Ingress)

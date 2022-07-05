@@ -80,17 +80,17 @@ var certMap = map[string]string{
 	certs.ServiceAccountPrivateKeyName: certs.ServiceAccountPrivateKeyName,
 	certs.ServiceAccountPublicKeyName:  certs.ServiceAccountPublicKeyName,
 
-	certs.EtcdCACertName: strings.Replace(certs.EtcdCACertName, "/", "-", -1),
-	certs.EtcdCAKeyName:  strings.Replace(certs.EtcdCAKeyName, "/", "-", -1),
+	certs.EtcdCACertName: strings.ReplaceAll(certs.EtcdCACertName, "/", "-"),
+	certs.EtcdCAKeyName:  strings.ReplaceAll(certs.EtcdCAKeyName, "/", "-"),
 
-	certs.EtcdHealthcheckClientCertName: strings.Replace(certs.EtcdHealthcheckClientCertName, "/", "-", -1),
-	certs.EtcdHealthcheckClientKeyName:  strings.Replace(certs.EtcdHealthcheckClientKeyName, "/", "-", -1),
+	certs.EtcdHealthcheckClientCertName: strings.ReplaceAll(certs.EtcdHealthcheckClientCertName, "/", "-"),
+	certs.EtcdHealthcheckClientKeyName:  strings.ReplaceAll(certs.EtcdHealthcheckClientKeyName, "/", "-"),
 
-	certs.EtcdPeerCertName: strings.Replace(certs.EtcdPeerCertName, "/", "-", -1),
-	certs.EtcdPeerKeyName:  strings.Replace(certs.EtcdPeerKeyName, "/", "-", -1),
+	certs.EtcdPeerCertName: strings.ReplaceAll(certs.EtcdPeerCertName, "/", "-"),
+	certs.EtcdPeerKeyName:  strings.ReplaceAll(certs.EtcdPeerKeyName, "/", "-"),
 
-	certs.EtcdServerCertName: strings.Replace(certs.EtcdServerCertName, "/", "-", -1),
-	certs.EtcdServerKeyName:  strings.Replace(certs.EtcdServerKeyName, "/", "-", -1),
+	certs.EtcdServerCertName: strings.ReplaceAll(certs.EtcdServerCertName, "/", "-"),
+	certs.EtcdServerKeyName:  strings.ReplaceAll(certs.EtcdServerKeyName, "/", "-"),
 }
 
 func ExecuteCerts(options *CertsCmd) error {

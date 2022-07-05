@@ -276,6 +276,78 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name: "Translate annotation with alb annotations",
+			InitialVirtualState: []runtime.Object{
+				&networkingv1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      baseIngress.Name,
+						Namespace: baseIngress.Namespace,
+						Labels:    baseIngress.Labels,
+						Annotations: map[string]string{
+							"nginx.ingress.kubernetes.io/auth-secret":       "my-secret",
+							"alb.ingress.kubernetes.io/actions.testservice": "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service\",\"servicePort\":\"80\",\"weight\":100}]}}",
+						},
+					},
+				},
+			},
+			InitialPhysicalState: []runtime.Object{
+				&networkingv1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      createdIngress.Name,
+						Namespace: createdIngress.Namespace,
+						Labels:    createdIngress.Labels,
+					},
+				},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {
+					&networkingv1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      baseIngress.Name,
+							Namespace: baseIngress.Namespace,
+							Labels:    baseIngress.Labels,
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/actions.testservice": "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service\",\"servicePort\":\"80\",\"weight\":100}]}}",
+								"nginx.ingress.kubernetes.io/auth-secret":       "my-secret",
+							},
+						},
+					},
+				},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				networkingv1beta1.SchemeGroupVersion.WithKind("Ingress"): {
+					&networkingv1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      createdIngress.Name,
+							Namespace: createdIngress.Namespace,
+							Labels:    createdIngress.Labels,
+							Annotations: map[string]string{
+								"vcluster.loft.sh/managed-annotations":                          "alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix\nnginx.ingress.kubernetes.io/auth-secret",
+								"nginx.ingress.kubernetes.io/auth-secret":                       "my-secret",
+								"vcluster.loft.sh/object-name":                                  baseIngress.Name,
+								"vcluster.loft.sh/object-namespace":                             baseIngress.Namespace,
+								"alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix": "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service-x-test-x-suffix\",\"servicePort\":\"80\",\"weight\":100}]}}",
+							},
+						},
+					},
+				},
+			},
+			Sync: func(registerContext *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+
+				vIngress := &networkingv1beta1.Ingress{}
+				err := syncCtx.VirtualClient.Get(syncCtx.Context, types.NamespacedName{Name: baseIngress.Name, Namespace: baseIngress.Namespace}, vIngress)
+				assert.NilError(t, err)
+
+				pIngress := &networkingv1beta1.Ingress{}
+				err = syncCtx.PhysicalClient.Get(syncCtx.Context, types.NamespacedName{Name: createdIngress.Name, Namespace: createdIngress.Namespace}, pIngress)
+				assert.NilError(t, err)
+
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, pIngress, vIngress)
+				assert.NilError(t, err)
+			},
+		},
 	})
 }
 
