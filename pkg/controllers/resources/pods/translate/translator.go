@@ -208,7 +208,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		// includes a '.', therefore we need to rewrite the hostname. This is really bad
 		// and wrong, but unfortunately there is currently no other solution as there is
 		// no other way to change the container's hostname.
-		pPod.Spec.Hostname = strings.Replace(pPod.Spec.Hostname, ".", "-", -1)
+		pPod.Spec.Hostname = strings.TrimSuffix(strings.Replace(pPod.Spec.Hostname, ".", "-", -1), "-")
 	}
 
 	// if spec.subdomain is set we have to translate the /etc/hosts
