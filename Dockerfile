@@ -48,7 +48,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build 
 ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go"]
 
 # we use alpine for easier debugging
-FROM alpine:3.15.4
+FROM alpine:3.16
 
 # Set root path as working directory
 WORKDIR /
