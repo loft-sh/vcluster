@@ -16,6 +16,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
@@ -23,14 +25,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type InitObjectStatus string
+
 const (
 	InitManifestSuffix     = "-init-manifests"
 	LastAppliedManifestKey = "vcluster.loft.sh/last-applied-init-manifests"
 	LastAppliedChartConfig = "vcluster.loft.sh/last-applied-chart-config"
 
+	InitChartStatusKey = "vcluster.loft.sh/init-chart-status"
+
 	DefaultTimeOut = 120 * time.Second
 
 	HelmWorkDir = "/tmp"
+
+	StatusFailed  InitObjectStatus = "Failed"
+	StatusSuccess InitObjectStatus = "Success"
+
+	ChartInstallError  = "Error during installation"
+	ChartUpgradeError  = "Error during chart upgrade"
+	ChartRollBackError = "Error during rollback"
 )
 
 type InitManifestsConfigMapReconciler struct {
@@ -254,7 +267,7 @@ func (r *InitManifestsConfigMapReconciler) checkIfUpgradeNeeded(ctx context.Cont
 }
 
 func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, cm *corev1.ConfigMap) error {
-	name, _ := r.getChartOrReleaseDetails(ctx, cm)
+	name, namespace := r.getChartOrReleaseDetails(ctx, cm)
 
 	lastAppliedConfig := cm.ObjectMeta.Annotations[LastAppliedChartConfig]
 	// first check if its the chart version that has changed
@@ -290,8 +303,6 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 	}
 	defer os.Remove(path)
 
-	//path := filepath.Join(chartTarball, chartName)
-	namespace := cm.Data["namespace"]
 	values, ok := cm.Data["values"]
 	if !ok {
 		r.Log.Infof("no value overrides set for chart %s", name)
@@ -312,15 +323,31 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 
 	if err != nil {
 		r.Log.Errorf("unable to upgrade chart %s: %v", name, err)
+		_ = r.SetChartStatus(ctx, types.NamespacedName{
+			Name:      cm.Name,
+			Namespace: cm.Namespace,
+		}, StatusFailed, ChartUpgradeError, err)
+
 		rollbackErr := r.rollbackOrUninstall(ctx, name, namespace)
 		if rollbackErr != nil {
 			r.Log.Errorf("error while rollingback or uninstall chart %s: %v", name, err)
+
+			_ = r.SetChartStatus(ctx, types.NamespacedName{
+				Name:      cm.Name,
+				Namespace: cm.Namespace,
+			}, StatusFailed, ChartRollBackError, rollbackErr)
+
 			return rollbackErr
 		}
 		return err
 	}
 
 	r.Log.Infof("successfully upgraded chart %s", name)
+	_ = r.SetChartStatus(ctx, types.NamespacedName{
+		Name:      cm.Name,
+		Namespace: cm.Namespace,
+	}, StatusSuccess, "", nil)
+
 	return nil
 }
 
@@ -375,15 +402,29 @@ func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, 
 
 	if err != nil {
 		r.Log.Errorf("unable to install chart %s: %v", name, err)
+		_ = r.SetChartStatus(ctx, types.NamespacedName{
+			Name:      cm.Name,
+			Namespace: cm.Namespace,
+		}, StatusFailed, ChartInstallError, err)
+
 		rollbackErr := r.rollbackOrUninstall(ctx, name, namespace)
 		if rollbackErr != nil {
-			r.Log.Errorf("error while rollingback or uninstall chart %s: %v", name, err)
+			r.Log.Errorf("error while rollingback or uninstall chart %s: %v", name, rollbackErr)
+
+			_ = r.SetChartStatus(ctx, types.NamespacedName{
+				Name:      cm.Name,
+				Namespace: cm.Namespace,
+			}, StatusFailed, ChartRollBackError, rollbackErr)
 			return rollbackErr
 		}
 		return err
 	}
 
 	r.Log.Infof("successfully installed chart %s", name)
+	_ = r.SetChartStatus(ctx, types.NamespacedName{
+		Name:      cm.Name,
+		Namespace: cm.Namespace,
+	}, StatusSuccess, "", nil)
 
 	return nil
 }
@@ -563,4 +604,52 @@ func (r *InitManifestsConfigMapReconciler) getChartOrReleaseDetails(ctx context.
 	}
 
 	return name, namespace
+}
+
+func (r *InitManifestsConfigMapReconciler) SetChartStatus(ctx context.Context, obj types.NamespacedName, objStatus InitObjectStatus, errMsg string, reason error) error {
+	cm := &corev1.ConfigMap{}
+
+	klog.Infof("Setting chart status")
+	err := r.LocalClient.Get(ctx, obj, cm)
+	if err != nil {
+		klog.Errorf("error setting chart status %v", err)
+		return err
+	}
+
+	if cm.Annotations == nil {
+		cm.Annotations = map[string]string{}
+	}
+
+	var status map[string]string
+
+	if objStatus == StatusSuccess {
+		status = map[string]string{
+			"phase": string(objStatus),
+		}
+	} else {
+		status = map[string]string{
+			"phase":   string(objStatus),
+			"message": errMsg,
+			"reason":  reason.Error(),
+		}
+	}
+
+	v, err := json.Marshal(status)
+	if err != nil {
+		klog.Errorf("error marshalling chart status data")
+		return err
+	}
+
+	cm.Annotations[InitChartStatusKey] = string(v)
+
+	// update configmap
+	err = r.LocalClient.Update(ctx, cm)
+	if err != nil {
+		klog.Errorf("error updating chart status")
+		return err
+	}
+
+	klog.Infof("Successfully updated chart status")
+
+	return nil
 }
