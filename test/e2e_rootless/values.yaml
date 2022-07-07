@@ -1,0 +1,14 @@
+securityContext:
+  runAsUser: 12345
+  runAsNonRoot: true
+
+fsGroup: 12345
+
+## this values are for k8s distro
+syncer:
+  securityContext:
+    runAsUser: 12345
+    runAsNonRoot: true
+
+etcd:
+  fsGroup: 12345
