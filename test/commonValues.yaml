@@ -1,5 +1,8 @@
 syncer:
   image: REPLACE_IMAGE_NAME
+  env:
+  - name: DEBUG
+    value: "true"
   resources:
     requests:
       cpu: "0"
