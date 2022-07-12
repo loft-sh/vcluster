@@ -16,3 +16,8 @@ init:
         name: ingress-nginx
         namespace: ingress-nginx
       timeout: '50s'
+
+sync:
+   nodes:
+     enabled: true
+     nodeSelector: "kubernetes.io/hostname=kind-control-plane"
