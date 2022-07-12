@@ -137,6 +137,15 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 				continue
 			}
 
+			if p.Spec.Replicas != nil && *p.Spec.Replicas == 0 {
+				// if the stateful set has been scaled down we'll ignore it -- this happens when
+				// using devspace to do vcluster plugin dev for example, devspace scales down the
+				// vcluster stateful set and re-creates a deployment for "dev mode" so we end up
+				// with a duplicate vcluster in the list, one for the statefulset and one for the
+				// deployment
+				continue
+			}
+
 			vCluster, err := getVCluster(&p, context, release, client, kubeClientConfig)
 			if err != nil {
 				return nil, err
