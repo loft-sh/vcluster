@@ -139,8 +139,9 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 
 			var paused string
 
-			paused, _ = p.Annotations[constants.PausedAnnotation]
-
+			if p.Annotations != nil {
+				paused, _ = p.Annotations[constants.PausedAnnotation]
+			}
 			if p.Spec.Replicas != nil && *p.Spec.Replicas == 0 && paused != "true" {
 				// if the stateful set has been scaled down we'll ignore it -- this happens when
 				// using devspace to do vcluster plugin dev for example, devspace scales down the
