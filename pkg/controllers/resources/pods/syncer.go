@@ -2,8 +2,11 @@ package pods
 
 import (
 	"context"
+	ephemeralContainers "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/ephemeral_containers"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -38,6 +41,10 @@ var (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	virtualClusterClient, err := kubernetes.NewForConfig(ctx.VirtualManager.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+	physicalClusterClient, err := kubernetes.NewForConfig(ctx.PhysicalManager.GetConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +88,11 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		serviceName:     ctx.Options.ServiceName,
 		enableScheduler: ctx.Options.EnableScheduler,
 
-		virtualClusterClient: virtualClusterClient,
-
-		podTranslator: podTranslator,
-		nodeSelector:  nodeSelector,
-		tolerations:   tolerations,
+		virtualClusterClient:  virtualClusterClient,
+		physicalClusterClient: physicalClusterClient,
+		podTranslator:         podTranslator,
+		nodeSelector:          nodeSelector,
+		tolerations:           tolerations,
 
 		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
 	}, nil
@@ -97,11 +104,11 @@ type podSyncer struct {
 	serviceName     string
 	enableScheduler bool
 
-	podTranslator        translatepods.Translator
-	virtualClusterClient kubernetes.Interface
-
-	nodeSelector *metav1.LabelSelector
-	tolerations  []*corev1.Toleration
+	podTranslator         translatepods.Translator
+	virtualClusterClient  kubernetes.Interface
+	physicalClusterClient kubernetes.Interface
+	nodeSelector          *metav1.LabelSelector
+	tolerations           []*corev1.Toleration
 
 	podSecurityStandard string
 }
@@ -288,6 +295,42 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		}
 		return ctrl.Result{}, nil
 	}
+	if syncEphemeralContainers(vPod, strippedPod) {
+		profile := ""
+		version, err := s.physicalClusterClient.Discovery().ServerVersion()
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		// version 1.22 and lesser than that needs legacy flag enabled
+		if version != nil {
+			i, err := strconv.Atoi(strings.Replace(version.Minor, "+", "", -1))
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if i < 23 {
+				profile = ephemeralContainers.ProfileLegacy
+			}
+		}
+
+		kubeIP, _, ptrServiceList, err := s.getK8sIpDnsIpServiceList(ctx, vPod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// translate services to environment variables
+		serviceEnv := translatepods.TranslateServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
+
+		for i := range vPod.Spec.EphemeralContainers {
+			envVar, envFrom := translatepods.TranslateContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+			vPod.Spec.EphemeralContainers[i].Env = envVar
+			vPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
+		}
+		// add ephemeralContainers subresource to physical pod
+		_, _, err = ephemeralContainers.AddEphemeralContainer(ctx, s.physicalClusterClient, pPod, vPod, profile)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	// validate virtual pod before syncing it to the host cluster
 	if s.podSecurityStandard != "" {
@@ -308,6 +351,27 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	}
 
 	return s.SyncDownUpdate(ctx, vPod, updatedPod)
+}
+
+func syncEphemeralContainers(vPod *corev1.Pod, pPod *corev1.Pod) bool {
+	if vPod.Spec.EphemeralContainers == nil {
+		return false
+	}
+	if pPod.Spec.EphemeralContainers == nil {
+		return true
+	}
+	if len(vPod.Spec.EphemeralContainers) != len(pPod.Spec.EphemeralContainers) {
+		return true
+	}
+	for i := range vPod.Spec.EphemeralContainers {
+		if vPod.Spec.EphemeralContainers[i].Image != pPod.Spec.EphemeralContainers[i].Image {
+			return true
+		}
+		if vPod.Spec.EphemeralContainers[i].Name != pPod.Spec.EphemeralContainers[i].Name {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, vObj *corev1.Pod) (bool, error) {

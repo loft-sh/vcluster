@@ -15,7 +15,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.18.1
+	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.32.1
@@ -49,7 +49,10 @@ require (
 require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
+	github.com/onsi/ginkgo/v2 v2.1.3 // indirect
+	golang.org/x/tools v0.1.10-0.20220218145154-897bd77cd717 // indirect
 )
 
 require (
@@ -152,7 +155,7 @@ require (
 	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect

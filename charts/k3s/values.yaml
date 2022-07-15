@@ -42,10 +42,10 @@ sync:
   nodes:
     enabled: false
     # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
-    # will sync all nodes instead of only the ones where some pods are running. 
+    # will sync all nodes instead of only the ones where some pods are running.
     syncAllNodes: false
     # nodeSelector is used to limit which nodes get synced to the vcluster,
-    # and which nodes are used to run vcluster pods. 
+    # and which nodes are used to run vcluster pods.
     # A valid string representation of a label selector must be used. 
     nodeSelector: ""
     # if true, vcluster will run with a scheduler and node changes are possible
