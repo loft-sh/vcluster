@@ -48,7 +48,7 @@ helm upgrade --install my-vcluster vcluster \
 
 </TabItem>
 <TabItem value="kubectl">
-    
+
 ```bash
 kubectl create namespace host-namespace-1
 helm template my-vcluster vcluster --repo https://charts.loft.sh -n host-namespace-1 | kubectl apply -f -
