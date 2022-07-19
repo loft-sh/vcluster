@@ -210,7 +210,6 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 	}
 	newService.Annotations[services.ServiceBlockDeletion] = "true"
 	services.RewriteSelector(newService, vService)
-	services.StripNodePorts(newService)
 	err = localClient.Create(req.Context(), newService)
 	if err != nil {
 		klog.Infof("Error creating service in physical cluster: %v", err)
