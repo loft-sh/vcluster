@@ -19,6 +19,12 @@ spec:
   {{- if .Values.service.externalTrafficPolicy }}
   externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
   {{- end }}
+  {{- if .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- range $f := .Values.service.loadBalancerSourceRanges }}
+    - "{{ $f }}"
+    {{- end }}
+  {{- end }}
   {{- if .Values.service.externalIPs }}
   externalIPs:
     {{- range $f := .Values.service.externalIPs }}

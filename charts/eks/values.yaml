@@ -234,7 +234,9 @@ rbac:
 # Service configurations
 service:
   type: ClusterIP
-  
+  # CIDR block(s) for the service allowlist; only used when the Service type is LoadBalancer
+  loadBalancerSourceRanges: []
+
 # job configuration
 job:
   enabled: true

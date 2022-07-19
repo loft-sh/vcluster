@@ -253,6 +253,8 @@ service:
   # Configuration for LoadBalancer service type
   externalIPs: []
   externalTrafficPolicy: ""
+  # CIDR block(s) for the service allowlist; only used when the Service type is LoadBalancer
+  loadBalancerSourceRanges: []
 
 # job configuration
 job:

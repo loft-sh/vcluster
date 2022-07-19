@@ -18,3 +18,11 @@ spec:
   selector:
     app: vcluster
     release: {{ .Release.Name }}
+  {{- if (eq (.Values.service.type) "LoadBalancer") }}
+  {{- if .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- range $f := .Values.service.loadBalancerSourceRanges }}
+    - "{{ $f }}"
+    {{- end }}
+  {{- end }}
+  {{- end }}
