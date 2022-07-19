@@ -137,6 +137,22 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 				continue
 			}
 
+			var paused string
+
+			if p.Annotations != nil {
+				paused, _ = p.Annotations[constants.PausedAnnotation]
+			}
+			if p.Spec.Replicas != nil && *p.Spec.Replicas == 0 && paused != "true" {
+				// if the stateful set has been scaled down we'll ignore it -- this happens when
+				// using devspace to do vcluster plugin dev for example, devspace scales down the
+				// vcluster stateful set and re-creates a deployment for "dev mode" so we end up
+				// with a duplicate vcluster in the list, one for the statefulset and one for the
+				// deployment. Of course if the vcluster is paused (via `vcluster pause`), we *do*
+				// still need to care about it even if replicas == 0.
+
+				continue
+			}
+
 			vCluster, err := getVCluster(&p, context, release, client, kubeClientConfig)
 			if err != nil {
 				return nil, err
