@@ -368,12 +368,24 @@ func (r *InitManifestsConfigMapReconciler) registerLastAppliedChartConfig(ctx co
 		return err
 	}
 
-	if cm.ObjectMeta.Annotations == nil {
-		cm.ObjectMeta.Annotations = map[string]string{}
+	// get the latest configmap in case it might be updated
+	latestCm, err := r.getConfigMap(ctx, ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      cm.Name,
+			Namespace: cm.Namespace,
+		},
+	})
+	if err != nil {
+		r.Log.Errorf("unable to get latest configmap object before update: %v", err)
+		return err
 	}
 
-	cm.ObjectMeta.Annotations[LastAppliedChartConfig] = compressedConfig
-	err = r.LocalClient.Update(ctx, cm)
+	if latestCm.ObjectMeta.Annotations == nil {
+		latestCm.ObjectMeta.Annotations = map[string]string{}
+	}
+
+	latestCm.ObjectMeta.Annotations[LastAppliedChartConfig] = compressedConfig
+	err = r.LocalClient.Update(ctx, latestCm)
 	if err != nil {
 		r.Log.Errorf("error updating config map with last applied chart annotation: %v", err)
 		return err
