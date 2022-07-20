@@ -220,11 +220,6 @@ func translateLabels(vObj client.Object, pObj client.Object, syncedLabels []stri
 	newLabels := map[string]string{}
 	vObjLabels := vObj.GetLabels()
 	for k, v := range vObjLabels {
-		if k == translate.NamespaceLabel {
-			newLabels[k] = v
-			continue
-		}
-
 		newLabels[ConvertLabelKey(k)] = v
 	}
 	if vObjLabels != nil {
