@@ -1,0 +1,5 @@
+isolation:
+  enabled: true
+  resourceQuota:
+    quota:
+      services.nodeports: 2
