@@ -33,7 +33,7 @@ func RewriteSelector(pObj, vObj *corev1.Service) {
 	if vObj.Spec.Selector != nil {
 		pObj.Spec.Selector = map[string]string{}
 		for k, v := range vObj.Spec.Selector {
-			pObj.Spec.Selector[translator.ConvertLabelKeyWithPrefix(translator.LabelPrefix, k)] = v
+			pObj.Spec.Selector[translator.ConvertLabelKey(k)] = v
 		}
 		pObj.Spec.Selector[translate.NamespaceLabel] = vObj.Namespace
 		pObj.Spec.Selector[translate.MarkerLabel] = translate.Suffix
