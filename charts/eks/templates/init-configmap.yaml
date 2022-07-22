@@ -12,6 +12,7 @@ metadata:
 data:
   initmanifests.yaml: |-
     {{ .Values.init.manifests | nindent 4 | trim }}
+    {{ tpl .Values.init.manifestsTemplate $ | nindent 4 | trim }}
 {{- end }}
 
 ---
