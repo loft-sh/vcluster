@@ -185,7 +185,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	pPod.SetLabels(updatedLabels)
 
 	// translate services to environment variables
-	serviceEnv := translateServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, services, kubeIP)
+	serviceEnv := TranslateServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, services, kubeIP)
 
 	// add the required kubernetes hosts entry
 	pPod.Spec.HostAliases = append(pPod.Spec.HostAliases, corev1.HostAlias{
@@ -224,19 +224,25 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 
 	// translate containers
 	for i := range pPod.Spec.Containers {
-		translateContainerEnv(&pPod.Spec.Containers[i], vPod, serviceEnv)
+		envVar, envFrom := TranslateContainerEnv(pPod.Spec.Containers[i].Env, pPod.Spec.Containers[i].EnvFrom, vPod, serviceEnv)
+		pPod.Spec.Containers[i].Env = envVar
+		pPod.Spec.Containers[i].EnvFrom = envFrom
 		pPod.Spec.Containers[i].Image = t.imageTranslator.Translate(pPod.Spec.Containers[i].Image)
 	}
 
 	// translate init containers
 	for i := range pPod.Spec.InitContainers {
-		translateContainerEnv(&pPod.Spec.InitContainers[i], vPod, serviceEnv)
+		envVar, envFrom := TranslateContainerEnv(pPod.Spec.InitContainers[i].Env, pPod.Spec.InitContainers[i].EnvFrom, vPod, serviceEnv)
+		pPod.Spec.InitContainers[i].Env = envVar
+		pPod.Spec.InitContainers[i].EnvFrom = envFrom
 		pPod.Spec.InitContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.InitContainers[i].Image)
 	}
 
-	// translate ephemereal containers
+	// translate ephemeral containers
 	for i := range pPod.Spec.EphemeralContainers {
-		translateEphemerealContainerEnv(&pPod.Spec.EphemeralContainers[i], vPod, serviceEnv)
+		envVar, envFrom := TranslateContainerEnv(pPod.Spec.EphemeralContainers[i].Env, pPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+		pPod.Spec.EphemeralContainers[i].Env = envVar
+		pPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		pPod.Spec.EphemeralContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.EphemeralContainers[i].Image)
 	}
 
@@ -474,26 +480,25 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	}
 }
 
-// TODO: refactor this to not duplicate code from translateContainerEnv
-func translateEphemerealContainerEnv(c *corev1.EphemeralContainer, vPod *corev1.Pod, serviceEnvMap map[string]string) {
+func TranslateContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource) {
 	envNameMap := make(map[string]struct{})
-	for j, env := range c.Env {
-		translateDownwardAPI(&c.Env[j])
+	for j, env := range envVar {
+		translateDownwardAPI(&envVar[j])
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
-			c.Env[j].ValueFrom.ConfigMapKeyRef.Name = translate.PhysicalName(c.Env[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace)
+			envVar[j].ValueFrom.ConfigMapKeyRef.Name = translate.PhysicalName(envVar[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace)
 		}
 		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
-			c.Env[j].ValueFrom.SecretKeyRef.Name = translate.PhysicalName(c.Env[j].ValueFrom.SecretKeyRef.Name, vPod.Namespace)
+			envVar[j].ValueFrom.SecretKeyRef.Name = translate.PhysicalName(envVar[j].ValueFrom.SecretKeyRef.Name, vPod.Namespace)
 		}
 
 		envNameMap[env.Name] = struct{}{}
 	}
-	for j, from := range c.EnvFrom {
+	for j, from := range envFrom {
 		if from.ConfigMapRef != nil && from.ConfigMapRef.Name != "" {
-			c.EnvFrom[j].ConfigMapRef.Name = translate.PhysicalName(from.ConfigMapRef.Name, vPod.Namespace)
+			envFrom[j].ConfigMapRef.Name = translate.PhysicalName(from.ConfigMapRef.Name, vPod.Namespace)
 		}
 		if from.SecretRef != nil && from.SecretRef.Name != "" {
-			c.EnvFrom[j].SecretRef.Name = translate.PhysicalName(from.SecretRef.Name, vPod.Namespace)
+			envFrom[j].SecretRef.Name = translate.PhysicalName(from.SecretRef.Name, vPod.Namespace)
 		}
 	}
 
@@ -511,54 +516,12 @@ func translateEphemerealContainerEnv(c *corev1.EphemeralContainer, vPod *corev1.
 		})
 	}
 
-	if c.Env == nil {
-		c.Env = []corev1.EnvVar{}
+	if envVar == nil {
+		envVar = []corev1.EnvVar{}
 	}
 	// additional env vars should come first to allow for dependent environment variables
-	c.Env = append(additionalEnvVars, c.Env...)
-}
-
-func translateContainerEnv(c *corev1.Container, vPod *corev1.Pod, serviceEnvMap map[string]string) {
-	envNameMap := make(map[string]struct{})
-	for j, env := range c.Env {
-		translateDownwardAPI(&c.Env[j])
-		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
-			c.Env[j].ValueFrom.ConfigMapKeyRef.Name = translate.PhysicalName(c.Env[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace)
-		}
-		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
-			c.Env[j].ValueFrom.SecretKeyRef.Name = translate.PhysicalName(c.Env[j].ValueFrom.SecretKeyRef.Name, vPod.Namespace)
-		}
-
-		envNameMap[env.Name] = struct{}{}
-	}
-	for j, from := range c.EnvFrom {
-		if from.ConfigMapRef != nil && from.ConfigMapRef.Name != "" {
-			c.EnvFrom[j].ConfigMapRef.Name = translate.PhysicalName(from.ConfigMapRef.Name, vPod.Namespace)
-		}
-		if from.SecretRef != nil && from.SecretRef.Name != "" {
-			c.EnvFrom[j].SecretRef.Name = translate.PhysicalName(from.SecretRef.Name, vPod.Namespace)
-		}
-	}
-
-	additionalEnvVars := []corev1.EnvVar{}
-	for k, v := range serviceEnvMap {
-		if _, exists := envNameMap[k]; !exists {
-			additionalEnvVars = append(additionalEnvVars, corev1.EnvVar{Name: k, Value: v})
-		}
-	}
-
-	// sort the additional env vars to avoid random ordering
-	if len(additionalEnvVars) > 0 {
-		sort.Slice(additionalEnvVars, func(i, j int) bool {
-			return additionalEnvVars[i].Name < additionalEnvVars[j].Name
-		})
-	}
-
-	if c.Env == nil {
-		c.Env = []corev1.EnvVar{}
-	}
-	// additional env vars should come first to allow for dependent environment variables
-	c.Env = append(additionalEnvVars, c.Env...)
+	envVar = append(additionalEnvVars, envVar...)
+	return envVar, envFrom
 }
 
 func translateDownwardAPI(env *corev1.EnvVar) {
@@ -734,7 +697,7 @@ func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 	}
 }
 
-func translateServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1.Service, kubeIP string) map[string]string {
+func TranslateServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1.Service, kubeIP string) map[string]string {
 	var (
 		serviceMap = make(map[string]*corev1.Service)
 		retMap     = make(map[string]string)

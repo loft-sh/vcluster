@@ -12,27 +12,9 @@ import (
 )
 
 func (s *podSyncer) translate(ctx *synccontext.SyncContext, vPod *corev1.Pod) (*corev1.Pod, error) {
-	kubeIP, err := s.findKubernetesIP(ctx)
+	kubeIP, dnsIP, ptrServiceList, err := s.getK8sIpDnsIpServiceList(ctx, vPod)
 	if err != nil {
 		return nil, err
-	}
-
-	dnsIP, err := s.findKubernetesDNSIP(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// get services for pod
-	serviceList := &corev1.ServiceList{}
-	err = ctx.VirtualClient.List(context.Background(), serviceList, client.InNamespace(vPod.Namespace))
-	if err != nil {
-		return nil, err
-	}
-
-	ptrServiceList := make([]*corev1.Service, 0, len(serviceList.Items))
-	for _, svc := range serviceList.Items {
-		s := svc
-		ptrServiceList = append(ptrServiceList, &s)
 	}
 
 	pPod, err := s.podTranslator.Translate(vPod, ptrServiceList, dnsIP, kubeIP)
@@ -41,6 +23,32 @@ func (s *podSyncer) translate(ctx *synccontext.SyncContext, vPod *corev1.Pod) (*
 	}
 
 	return pPod, err
+}
+
+func (s *podSyncer) getK8sIpDnsIpServiceList(ctx *synccontext.SyncContext, vPod *corev1.Pod) (string, string, []*corev1.Service, error) {
+	kubeIP, err := s.findKubernetesIP(ctx)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	dnsIP, err := s.findKubernetesDNSIP(ctx)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	// get services for pod
+	serviceList := &corev1.ServiceList{}
+	err = ctx.VirtualClient.List(context.Background(), serviceList, client.InNamespace(vPod.Namespace))
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	ptrServiceList := make([]*corev1.Service, 0, len(serviceList.Items))
+	for _, svc := range serviceList.Items {
+		s := svc
+		ptrServiceList = append(ptrServiceList, &s)
+	}
+	return kubeIP, dnsIP, ptrServiceList, nil
 }
 
 func (s *podSyncer) translateUpdate(pObj, vObj *corev1.Pod) (*corev1.Pod, error) {

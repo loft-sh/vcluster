@@ -2,6 +2,7 @@ package pods
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -81,6 +82,32 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err)
 
 		framework.ExpectEqual(vpod.Status, pod.Status)
+
+		// check for ephemeralContainers subResource
+		version, err := f.VclusterClient.Discovery().ServerVersion()
+		framework.ExpectNoError(err)
+
+		// version 1.22 and lesser than that needs legacy flag enabled
+		if version != nil {
+			i, err := strconv.Atoi(strings.Replace(version.Minor, "+", "", -1))
+			framework.ExpectNoError(err)
+			if i > 22 {
+				vpod.Spec.EphemeralContainers = []corev1.EphemeralContainer{{
+					EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+						Name:  "busybox",
+						Image: "busybox:1.28",
+					},
+				}}
+				// update ephemeralContainer
+				vpod, err = f.VclusterClient.CoreV1().Pods(ns).UpdateEphemeralContainers(f.Context, vpod.Name, vpod, metav1.UpdateOptions{})
+				framework.ExpectNoError(err)
+				err = f.WaitForPodRunning(vpod.Name, vpod.Namespace)
+				framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+				err = f.WaitForPodToComeUpWithEphemeralContainers(vpod.Name, vpod.Namespace)
+				framework.ExpectNoError(err, "Count of ephemeralContainer is expected to be greater than 0")
+			}
+		}
 	})
 
 	ginkgo.It("Test pod starts successfully with a non-default service account", func() {
