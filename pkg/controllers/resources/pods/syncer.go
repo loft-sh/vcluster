@@ -2,11 +2,8 @@ package pods
 
 import (
 	"context"
-	ephemeralContainers "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/ephemeral_containers"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"reflect"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -295,23 +292,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		}
 		return ctrl.Result{}, nil
 	}
-	if syncEphemeralContainers(vPod, strippedPod) {
-		profile := ""
-		version, err := s.physicalClusterClient.Discovery().ServerVersion()
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		// version 1.22 and lesser than that needs legacy flag enabled
-		if version != nil {
-			i, err := strconv.Atoi(strings.Replace(version.Minor, "+", "", -1))
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			if i < 23 {
-				profile = ephemeralContainers.ProfileLegacy
-			}
-		}
 
+	// sync ephemeral containers
+	if syncEphemeralContainers(vPod, strippedPod) {
 		kubeIP, _, ptrServiceList, err := s.getK8sIpDnsIpServiceList(ctx, vPod)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -319,14 +302,14 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 
 		// translate services to environment variables
 		serviceEnv := translatepods.TranslateServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
-
 		for i := range vPod.Spec.EphemeralContainers {
 			envVar, envFrom := translatepods.TranslateContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
 			vPod.Spec.EphemeralContainers[i].Env = envVar
 			vPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		}
+
 		// add ephemeralContainers subresource to physical pod
-		_, _, err = ephemeralContainers.AddEphemeralContainer(ctx, s.physicalClusterClient, pPod, vPod, profile)
+		err = AddEphemeralContainer(ctx, s.physicalClusterClient, pPod, vPod, ctx.Log)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -356,9 +339,6 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 func syncEphemeralContainers(vPod *corev1.Pod, pPod *corev1.Pod) bool {
 	if vPod.Spec.EphemeralContainers == nil {
 		return false
-	}
-	if pPod.Spec.EphemeralContainers == nil {
-		return true
 	}
 	if len(vPod.Spec.EphemeralContainers) != len(pPod.Spec.EphemeralContainers) {
 		return true
