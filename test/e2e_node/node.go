@@ -24,7 +24,7 @@ var _ = ginkgo.Describe("Node sync", func() {
 		}
 
 		virtualNodeLabels := make(map[string]map[string]string)
-		for _, node := range hostNodes.Items {
+		for _, node := range virtualNodes.Items {
 			virtualNodeLabels[node.Name] = node.Labels
 		}
 
