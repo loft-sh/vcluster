@@ -2,8 +2,6 @@ package manifests
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/util/compress"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -28,11 +27,13 @@ import (
 type InitObjectStatus string
 
 const (
+	InitChartsKey          = "charts"
 	InitManifestSuffix     = "-init-manifests"
 	LastAppliedManifestKey = "vcluster.loft.sh/last-applied-init-manifests"
 	LastAppliedChartConfig = "vcluster.loft.sh/last-applied-chart-config"
 
-	InitStatusKey = "vcluster.loft.sh/init-status"
+	InitManifestsStatusKey = "vcluster.loft.sh/init-status"
+	InitChartStatusKey     = "vcluster.loft.sh/init-chart-status"
 
 	DefaultTimeOut = 120 * time.Second
 
@@ -41,9 +42,10 @@ const (
 	StatusFailed  InitObjectStatus = "Failed"
 	StatusSuccess InitObjectStatus = "Success"
 
-	InstallError  = "InstallFailed"
-	UpgradeError  = "UpgradeFailed"
-	RollBackError = "RollbackFailed"
+	ChartPullError = "ChartPullFailed"
+	InstallError   = "InstallFailed"
+	UpgradeError   = "UpgradeFailed"
+	RollBackError  = "RollbackFailed"
 )
 
 type InitManifestsConfigMapReconciler struct {
@@ -68,18 +70,31 @@ func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ct
 			return ctrl.Result{}, nil
 		}
 
-		return r.ProcessInitManifests(ctx, cm)
-	} else if strings.HasPrefix(req.Name, "cm-"+translate.Suffix+"-chart") {
-		cm, err := r.getConfigMap(ctx, req)
+		result, err := r.ProcessInitManifests(ctx, cm)
 		if err != nil {
-			return ctrl.Result{}, err
+			return result, err
 		}
 
-		if cm == nil {
-			return ctrl.Result{}, nil
+		if !result.IsZero() {
+			// might be a requeue by ProcessInitManifests
+			// - we dont explicitly do any requeue this way
+			// but keeping this for possible use in future
+			return result, nil
 		}
 
-		return r.ProcessHelmChart(ctx, cm)
+		var charts []Chart
+		if rawCharts, ok := cm.Data[InitChartsKey]; ok {
+			err := yaml.Unmarshal([]byte(rawCharts), &charts)
+			if err != nil {
+				r.Log.Errorf("error unmarshalling charts: %v", err)
+				return ctrl.Result{}, err
+			}
+
+			r.Log.Infof("Successfully unmarshalled charts")
+
+			return r.ProcessHelmChart(ctx, charts, req)
+		}
+
 	}
 
 	return ctrl.Result{}, nil
@@ -109,8 +124,10 @@ func (r *InitManifestsConfigMapReconciler) getConfigMap(ctx context.Context, req
 
 func (r *InitManifestsConfigMapReconciler) ProcessInitManifests(ctx context.Context, cm *corev1.ConfigMap) (ctrl.Result, error) {
 	var cmData []string
-	for _, v := range cm.Data {
-		cmData = append(cmData, v)
+	for k, v := range cm.Data {
+		if k != InitChartsKey {
+			cmData = append(cmData, v)
+		}
 	}
 
 	// make array stable or otherwise order is random
@@ -137,7 +154,7 @@ func (r *InitManifestsConfigMapReconciler) ProcessInitManifests(ctx context.Cont
 	err := ApplyGivenInitManifests(ctx, r.VirtualManager.GetClient(), r.VirtualManager.GetConfig(), manifests, lastAppliedManifests)
 	if err != nil {
 		r.Log.Errorf("error applying init manifests: %v", err)
-		_ = r.SetStatus(ctx, types.NamespacedName{
+		_ = r.SetStatus(ctx, nil, types.NamespacedName{
 			Name:      cm.Name,
 			Namespace: cm.Namespace,
 		}, StatusFailed, InstallError, err)
@@ -156,7 +173,7 @@ func (r *InitManifestsConfigMapReconciler) ProcessInitManifests(ctx context.Cont
 		cm.ObjectMeta.Annotations = map[string]string{}
 	}
 	cm.ObjectMeta.Annotations[LastAppliedManifestKey] = compressedManifests
-	_ = r.SetStatus(ctx, types.NamespacedName{
+	_ = r.SetStatus(ctx, nil, types.NamespacedName{
 		Name:      cm.Name,
 		Namespace: cm.Namespace,
 	}, StatusSuccess, "", nil)
@@ -170,87 +187,90 @@ func (r *InitManifestsConfigMapReconciler) ProcessInitManifests(ctx context.Cont
 	return ctrl.Result{}, nil
 }
 
-func (r *InitManifestsConfigMapReconciler) ProcessHelmChart(ctx context.Context, cm *corev1.ConfigMap) (ctrl.Result, error) {
-	r.Log.Infof("processing helm chart for %s", cm.Name)
+func (r *InitManifestsConfigMapReconciler) ProcessHelmChart(ctx context.Context, charts []Chart, req ctrl.Request) (ctrl.Result, error) {
+	for _, chart := range charts {
+		r.Log.Infof("processing helm chart for %s", chart.Name)
 
-	_, ok := cm.Data["bundle"]
-	if !ok {
-		r.Log.Infof("chart bundle does not exist")
-		// get chart bundle?
+		err := r.pullChartArchive(ctx, chart)
+		if err != nil {
+			r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, ChartPullError, err)
+			return ctrl.Result{}, err
+		}
 
-		err := r.pullChartArchive(ctx, cm)
+		name, _ := r.getChartOrReleaseDetails(ctx, chart)
+
+		exists, err := r.releaseExists(ctx, chart)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 
-		// chart pulled and cached in cm successfully
-		// continue processing in next reconcile
-		return ctrl.Result{}, nil
-	}
+		if exists {
+			r.Log.Infof("release for chart %s already exists", name)
+			// check if upgrade is needed
+			upgradedNeeded, err := r.checkIfUpgradeNeeded(ctx, chart, req)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 
-	name, _ := r.getChartOrReleaseDetails(ctx, cm)
+			if upgradedNeeded {
+				// initiate upgrade
+				err = r.initiateUpgrade(ctx, chart, req)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
 
-	exists, err := r.releaseExists(ctx, cm)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+				// register this configuration
+				err = r.registerLastAppliedChartConfig(ctx, chart, req)
+				if err != nil {
+					r.Log.Errorf("error updating config map with last applied chart annotation: %v", err)
+					return ctrl.Result{}, err
+				}
 
-	if exists {
-		r.Log.Infof("release for chart %s already exists", name)
-		// check if upgrade is needed
-		upgradedNeeded, err := r.checkIfUpgradeNeeded(ctx, cm)
+				return ctrl.Result{}, nil
+			}
+
+			// continue to process next chart
+			continue
+		}
+
+		r.Log.Infof("initaiting installation for chart %s", name)
+		// initiate install
+		err = r.initiateInstall(ctx, chart, req)
 		if err != nil {
+			r.Log.Errorf("error installing chart %s", name)
 			return ctrl.Result{}, err
 		}
 
-		if upgradedNeeded {
-			// initiate upgrade
-			err = r.initiateUpgrade(ctx, cm)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-
-			// register this configuration
-			err = r.registerLastAppliedChartConfig(ctx, cm)
-			if err != nil {
-				r.Log.Errorf("error updating config map with last applied chart annotation: %v", err)
-				return ctrl.Result{}, err
-			}
-
-			return ctrl.Result{}, nil
+		// register this configuration
+		err = r.registerLastAppliedChartConfig(ctx, chart, req)
+		if err != nil {
+			r.Log.Errorf("error updating config map with last applied chart annotation: %v", err)
+			return ctrl.Result{}, err
 		}
 
+		// install only one chart successfully in each reconcile
+		// hence reconcile here without error
 		return ctrl.Result{}, nil
-	}
-
-	r.Log.Infof("initaiting installation for chart %s", name)
-	// initiate install
-	err = r.initiateInstall(ctx, cm)
-	if err != nil {
-		r.Log.Errorf("error installing chart %s", name)
-		return ctrl.Result{}, err
-	}
-
-	// register this configuration
-	err = r.registerLastAppliedChartConfig(ctx, cm)
-	if err != nil {
-		r.Log.Errorf("error updating config map with last applied chart annotation: %v", err)
-		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *InitManifestsConfigMapReconciler) checkIfUpgradeNeeded(ctx context.Context, cm *corev1.ConfigMap) (bool, error) {
-	name, _ := r.getChartOrReleaseDetails(ctx, cm)
+func (r *InitManifestsConfigMapReconciler) checkIfUpgradeNeeded(ctx context.Context, chart Chart, req ctrl.Request) (bool, error) {
+	name, _ := r.getChartOrReleaseDetails(ctx, chart)
 
 	// compare with last applied config
-	lastAppliedConfig, ok := cm.ObjectMeta.Annotations[LastAppliedChartConfig]
-	if !ok {
+	lastAppliedConfig, err := r.getLastAppliedChartConfig(ctx, chart, req)
+	if err != nil {
+		r.Log.Infof("error getting last applied chart config: %v", err)
+		return false, err
+	}
+
+	if lastAppliedConfig == "" {
 		// should register current config as the last applied config?
 		r.Log.Infof("release for chart %s exists but no last applied config exists", name)
 
-		err := r.registerLastAppliedChartConfig(ctx, cm)
+		err := r.registerLastAppliedChartConfig(ctx, chart, req)
 		if err != nil {
 			r.Log.Errorf("error updating config map with last applied chart annotation: %v", err)
 			return false, err
@@ -260,7 +280,7 @@ func (r *InitManifestsConfigMapReconciler) checkIfUpgradeNeeded(ctx context.Cont
 		return false, nil
 	}
 
-	currentConfig, err := r.getCompressedConfig(ctx, cm)
+	currentConfig, err := r.getCompressedConfig(ctx, chart)
 	if err != nil {
 		r.Log.Errorf("cannot get current config")
 		return false, err
@@ -275,10 +295,33 @@ func (r *InitManifestsConfigMapReconciler) checkIfUpgradeNeeded(ctx context.Cont
 	return false, nil
 }
 
-func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, cm *corev1.ConfigMap) error {
-	name, namespace := r.getChartOrReleaseDetails(ctx, cm)
+func (r *InitManifestsConfigMapReconciler) getLastAppliedChartConfig(ctx context.Context, chart Chart, req ctrl.Request) (string, error) {
+	cm := corev1.ConfigMap{}
 
-	lastAppliedConfig := cm.ObjectMeta.Annotations[LastAppliedChartConfig]
+	err := r.LocalClient.Get(ctx, req.NamespacedName, &cm)
+	if err != nil {
+		return "", err
+	}
+
+	lastAppliedConfig := cm.ObjectMeta.Annotations[r.getLastAppliedChartConfigKey(ctx, chart)]
+
+	return lastAppliedConfig, nil
+}
+
+func (r *InitManifestsConfigMapReconciler) getLastAppliedChartConfigKey(ctx context.Context, chart Chart) string {
+	name, namespace := r.getChartOrReleaseDetails(ctx, chart)
+	return fmt.Sprintf("%s-%s-%s", LastAppliedChartConfig, name, namespace)
+}
+
+func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, chart Chart, req ctrl.Request) error {
+	name, namespace := r.getChartOrReleaseDetails(ctx, chart)
+
+	lastAppliedConfig, err := r.getLastAppliedChartConfig(ctx, chart, req)
+	if err != nil {
+		r.Log.Errorf("unable to get last applied config: %v", err)
+		return err
+	}
+
 	// first check if its the chart version that has changed
 	// as that would mean we first need to trigger a new archive to be pulled
 	lastConfigRaw, err := compress.Uncompress(lastAppliedConfig)
@@ -292,34 +335,29 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 		r.Log.Errorf("unable to unmarshal last config: %v", err)
 	}
 
-	currentChartVersion := cm.Data["version"]
+	currentChartVersion := chart.Version
 	lastVersion := lastConfig["version"]
 
 	if currentChartVersion != lastVersion {
-		err := r.pullChartArchive(ctx, cm)
+		err := r.pullChartArchive(ctx, chart)
 		if err != nil {
 			r.Log.Errorf("unable to pull chart archive for chart %s: %v", name, err)
+			r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, ChartPullError, err)
 			return err
 		}
 
 		r.Log.Infof("successfully updated the chart bundle for chart %s", name)
 	}
 
-	// start chart upgrade
-	path, err := r.bundleToChart(ctx, cm)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(path)
-
-	values, ok := cm.Data["values"]
-	if !ok {
+	path := fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, name, chart.Version)
+	values := chart.Values
+	if values == "" {
 		r.Log.Infof("no value overrides set for chart %s", name)
 	}
 
 	r.Log.Infof("upgrading chart %s from path %s", name, path)
 
-	timedOutContext, cancel := context.WithTimeout(ctx, r.parseTimeout(ctx, cm))
+	timedOutContext, cancel := context.WithTimeout(ctx, r.parseTimeout(ctx, chart))
 	defer cancel()
 
 	err = r.HelmClient.Upgrade(timedOutContext, name, namespace, helm.UpgradeOptions{
@@ -332,19 +370,13 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 
 	if err != nil {
 		r.Log.Errorf("unable to upgrade chart %s: %v", name, err)
-		_ = r.SetStatus(ctx, types.NamespacedName{
-			Name:      cm.Name,
-			Namespace: cm.Namespace,
-		}, StatusFailed, UpgradeError, err)
+		_ = r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, UpgradeError, err)
 
 		rollbackErr := r.rollbackOrUninstall(ctx, name, namespace)
 		if rollbackErr != nil {
 			r.Log.Errorf("error while rollingback or uninstall chart %s: %v", name, err)
 
-			_ = r.SetStatus(ctx, types.NamespacedName{
-				Name:      cm.Name,
-				Namespace: cm.Namespace,
-			}, StatusFailed, RollBackError, rollbackErr)
+			_ = r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, RollBackError, rollbackErr)
 
 			return rollbackErr
 		}
@@ -352,29 +384,21 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 	}
 
 	r.Log.Infof("successfully upgraded chart %s", name)
-	_ = r.SetStatus(ctx, types.NamespacedName{
-		Name:      cm.Name,
-		Namespace: cm.Namespace,
-	}, StatusSuccess, "", nil)
+	_ = r.SetStatus(ctx, &chart, req.NamespacedName, StatusSuccess, "", nil)
 
 	return nil
 }
 
-func (r *InitManifestsConfigMapReconciler) registerLastAppliedChartConfig(ctx context.Context, cm *corev1.ConfigMap) error {
-	compressedConfig, err := r.getCompressedConfig(ctx, cm)
+func (r *InitManifestsConfigMapReconciler) registerLastAppliedChartConfig(ctx context.Context, chart Chart, req ctrl.Request) error {
+	compressedConfig, err := r.getCompressedConfig(ctx, chart)
+	name, _ := r.getChartOrReleaseDetails(ctx, chart)
 	if err != nil {
-		name, _ := r.getChartOrReleaseDetails(ctx, cm)
 		r.Log.Errorf("unable to get compressed config for chart %s: %v", name, err)
 		return err
 	}
 
 	// get the latest configmap in case it might be updated
-	latestCm, err := r.getConfigMap(ctx, ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      cm.Name,
-			Namespace: cm.Namespace,
-		},
-	})
+	latestCm, err := r.getConfigMap(ctx, req)
 	if err != nil {
 		r.Log.Errorf("unable to get latest configmap object before update: %v", err)
 		return err
@@ -384,7 +408,7 @@ func (r *InitManifestsConfigMapReconciler) registerLastAppliedChartConfig(ctx co
 		latestCm.ObjectMeta.Annotations = map[string]string{}
 	}
 
-	latestCm.ObjectMeta.Annotations[LastAppliedChartConfig] = compressedConfig
+	latestCm.ObjectMeta.Annotations[r.getLastAppliedChartConfigKey(ctx, chart)] = compressedConfig
 	err = r.LocalClient.Update(ctx, latestCm)
 	if err != nil {
 		r.Log.Errorf("error updating config map with last applied chart annotation: %v", err)
@@ -394,26 +418,23 @@ func (r *InitManifestsConfigMapReconciler) registerLastAppliedChartConfig(ctx co
 	return nil
 }
 
-func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, cm *corev1.ConfigMap) error {
+func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, chart Chart, req ctrl.Request) error {
 	// initiate install
-	name, namespace := r.getChartOrReleaseDetails(ctx, cm)
-	path, err := r.bundleToChart(ctx, cm)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(path)
+	name, namespace := r.getChartOrReleaseDetails(ctx, chart)
 
-	values, ok := cm.Data["values"]
-	if !ok {
+	path := fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, name, chart.Version)
+
+	values := chart.Values
+	if values == "" {
 		r.Log.Infof("no value overrides set for chart %s", name)
 	}
 
 	r.Log.Infof("installing chart %s from path %s", name, path)
 
-	timedOutContext, cancel := context.WithTimeout(ctx, r.parseTimeout(ctx, cm))
+	timedOutContext, cancel := context.WithTimeout(ctx, r.parseTimeout(ctx, chart))
 	defer cancel()
 
-	err = r.HelmClient.Install(timedOutContext, name, namespace, helm.UpgradeOptions{
+	err := r.HelmClient.Install(timedOutContext, name, namespace, helm.UpgradeOptions{
 		Chart:           name,
 		Path:            path,
 		CreateNamespace: true,
@@ -423,42 +444,26 @@ func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, 
 
 	if err != nil {
 		r.Log.Errorf("unable to install chart %s: %v", name, err)
-		_ = r.SetStatus(ctx, types.NamespacedName{
-			Name:      cm.Name,
-			Namespace: cm.Namespace,
-		}, StatusFailed, InstallError, err)
+		_ = r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, InstallError, err)
 
 		rollbackErr := r.rollbackOrUninstall(ctx, name, namespace)
 		if rollbackErr != nil {
 			r.Log.Errorf("error while rollingback or uninstall chart %s: %v", name, rollbackErr)
 
-			_ = r.SetStatus(ctx, types.NamespacedName{
-				Name:      cm.Name,
-				Namespace: cm.Namespace,
-			}, StatusFailed, RollBackError, rollbackErr)
+			_ = r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, RollBackError, rollbackErr)
 			return rollbackErr
 		}
 		return err
 	}
 
 	r.Log.Infof("successfully installed chart %s", name)
-	_ = r.SetStatus(ctx, types.NamespacedName{
-		Name:      cm.Name,
-		Namespace: cm.Namespace,
-	}, StatusSuccess, "", nil)
+	_ = r.SetStatus(ctx, &chart, req.NamespacedName, StatusSuccess, "", nil)
 
 	return nil
 }
 
-func (r *InitManifestsConfigMapReconciler) getCompressedConfig(ctx context.Context, cm *corev1.ConfigMap) (string, error) {
-	data := cm.DeepCopy().Data
-
-	bundleHash := md5.Sum([]byte(data["bundle"]))
-	data["bundleHash"] = string(bundleHash[:])
-
-	delete(data, "bundle")
-
-	rawData, err := json.Marshal(data)
+func (r *InitManifestsConfigMapReconciler) getCompressedConfig(ctx context.Context, chart Chart) (string, error) {
+	rawData, err := json.Marshal(chart)
 	if err != nil {
 		return "", err
 	}
@@ -466,8 +471,8 @@ func (r *InitManifestsConfigMapReconciler) getCompressedConfig(ctx context.Conte
 	return compress.Compress(string(rawData))
 }
 
-func (r *InitManifestsConfigMapReconciler) releaseExists(ctx context.Context, cm *corev1.ConfigMap) (bool, error) {
-	name, namespace := r.getChartOrReleaseDetails(ctx, cm)
+func (r *InitManifestsConfigMapReconciler) releaseExists(ctx context.Context, chart Chart) (bool, error) {
+	name, namespace := r.getChartOrReleaseDetails(ctx, chart)
 
 	ok, err := r.HelmClient.Exists(name, namespace)
 	if err != nil {
@@ -482,95 +487,39 @@ func (r *InitManifestsConfigMapReconciler) releaseExists(ctx context.Context, cm
 	return false, nil
 }
 
-func (r *InitManifestsConfigMapReconciler) pullChartArchive(ctx context.Context, cm *corev1.ConfigMap) error {
-	// here we always take name from chart name and not release name
-	// as this is used to refer to the upstream repo
-	name, ok := cm.Data["name"]
-	if !ok {
-		err := fmt.Errorf("chart name not found")
-		r.Log.Errorf(err.Error())
-		return err
-	}
+func (r *InitManifestsConfigMapReconciler) pullChartArchive(ctx context.Context, chart Chart) error {
+	name := chart.Name
+	repo := chart.Repo
+	version := chart.Version
 
-	repo, ok := cm.Data["repo"]
-	if !ok {
-		err := fmt.Errorf("repo not found in config map")
-		r.Log.Errorf(err.Error())
-		return err
-	}
-
-	version, ok := cm.Data["version"]
-	if !ok {
-		err := fmt.Errorf("chart version not found in config map")
-		r.Log.Errorf(err.Error())
-		return err
-	}
-
-	err := r.HelmClient.Pull(ctx, name, helm.UpgradeOptions{
-		Chart:   name,
-		Repo:    repo,
-		Version: version,
-		WorkDir: HelmWorkDir,
-	})
-
-	if err != nil {
-		r.Log.Errorf("unable to pull chart %s: %v", name, err)
-		return err
-	}
-
-	r.Log.Infof("successfully pulled chart %s", name)
-
-	// update cm with chart bundle to be processed
-	// during the next reconcile
 	tarball := fmt.Sprintf("/%s/%s-%s.tgz", HelmWorkDir, name, version)
-	rawTarBall, err := os.ReadFile(tarball)
+	// check if tarball exists
+	_, err := os.Stat(tarball)
 	if err != nil {
-		r.Log.Errorf("error reading in pulled archive: %v", err)
-		return err
-	}
+		if os.IsNotExist(err) {
+			helmErr := r.HelmClient.Pull(ctx, name, helm.UpgradeOptions{
+				Chart:   name,
+				Repo:    repo,
+				Version: version,
+				WorkDir: HelmWorkDir,
+			})
 
-	cm.Data["bundle"] = base64.StdEncoding.EncodeToString(rawTarBall)
-	err = r.LocalClient.Update(ctx, cm)
-	if err != nil {
-		r.Log.Errorf("error updating config map with pulled bundle: %v", err)
+			if helmErr != nil {
+				r.Log.Errorf("unable to pull chart %s: %v", name, helmErr)
+				return helmErr
+			}
+
+			r.Log.Infof("successfully pulled chart %s", name)
+		}
+
 		return err
 	}
 
 	return nil
 }
 
-func (r *InitManifestsConfigMapReconciler) bundleToChart(ctx context.Context, cm *corev1.ConfigMap) (string, error) {
-	bundle := cm.Data["bundle"]
-
-	// decode chart bundle
-	tarball, err := base64.StdEncoding.DecodeString(bundle)
-	if err != nil {
-		r.Log.Errorf("unable to decode bundle: %v", err)
-		return "", err
-	}
-
-	name, _ := r.getChartOrReleaseDetails(ctx, cm)
-
-	filePath := fmt.Sprintf("%s/%s.tar.gz", HelmWorkDir, name)
-	f, err := os.Create(filePath)
-	if err != nil {
-		r.Log.Errorf("unable to create tar file for helm: %v", err)
-		return "", err
-	}
-	defer f.Close()
-
-	_, err = f.Write(tarball)
-	if err != nil {
-		r.Log.Errorf("unable to write to tar file on disk: %v", err)
-		return "", err
-	}
-	r.Log.Infof("extracted to path: %s", filePath)
-
-	return filePath, err
-}
-
-func (r *InitManifestsConfigMapReconciler) parseTimeout(ctx context.Context, cm *corev1.ConfigMap) time.Duration {
-	t := cm.Data["timeout"]
+func (r *InitManifestsConfigMapReconciler) parseTimeout(ctx context.Context, chart Chart) time.Duration {
+	t := chart.Timeout
 
 	timeout, err := time.ParseDuration(t)
 	if err != nil {
@@ -610,25 +559,30 @@ func (r *InitManifestsConfigMapReconciler) rollbackOrUninstall(ctx context.Conte
 	return nil
 }
 
-func (r *InitManifestsConfigMapReconciler) getChartOrReleaseDetails(ctx context.Context, cm *corev1.ConfigMap) (string, string) {
-	var name, namespace string
-	var ok bool
+func (r *InitManifestsConfigMapReconciler) getChartOrReleaseDetails(ctx context.Context, chart Chart) (string, string) {
+	name := chart.Name
+	namespace := corev1.NamespaceDefault
 
-	name, ok = cm.Data["releaseName"]
-	if !ok {
-		name = cm.Data["name"]
+	if chart.ReleaseName != "" {
+		name = chart.ReleaseName
 	}
 
-	namespace, ok = cm.Data["releaseNamespace"]
-	if !ok {
-		namespace = cm.Data["namespace"]
+	if chart.ReleaseNamespace != "" {
+		namespace = chart.ReleaseNamespace
 	}
 
 	return name, namespace
 }
 
-func (r *InitManifestsConfigMapReconciler) SetStatus(ctx context.Context, obj types.NamespacedName, objStatus InitObjectStatus, reason string, errMsg error) error {
+func (r *InitManifestsConfigMapReconciler) SetStatus(ctx context.Context, chart *Chart, obj types.NamespacedName, objStatus InitObjectStatus, reason string, errMsg error) error {
 	cm := &corev1.ConfigMap{}
+	statusKey := InitManifestsStatusKey
+
+	var c Chart
+	if chart != nil {
+		statusKey = InitChartStatusKey
+		c = *chart
+	}
 
 	klog.Infof("Setting init resource status")
 	err := r.LocalClient.Get(ctx, obj, cm)
@@ -641,27 +595,52 @@ func (r *InitManifestsConfigMapReconciler) SetStatus(ctx context.Context, obj ty
 		cm.Annotations = map[string]string{}
 	}
 
-	var status map[string]string
+	rawStatus := cm.Annotations[statusKey]
 
+	var statuses []ChartStatus
+	err = yaml.Unmarshal([]byte(rawStatus), &statuses)
+	if err != nil {
+		r.Log.Errorf("error unmarshalling rawStatus: %v", err)
+	}
+
+	name, ns := r.getChartOrReleaseDetails(ctx, c)
+	chartStatusNamespacedName := fmt.Sprintf("%s-%s", name, ns)
+
+	var newStatus ChartStatus
 	if objStatus == StatusSuccess {
-		status = map[string]string{
-			"phase": string(objStatus),
+		newStatus = ChartStatus{
+			Name:  chartStatusNamespacedName,
+			Phase: string(objStatus),
 		}
 	} else {
-		status = map[string]string{
-			"phase":   string(objStatus),
-			"message": errMsg.Error(),
-			"reason":  reason,
+		newStatus = ChartStatus{
+			Name:    chartStatusNamespacedName,
+			Message: errMsg.Error(),
+			Reason:  reason,
 		}
 	}
 
-	v, err := json.Marshal(status)
+	found := false
+	// find the correct chart in the array and update it
+	for i, status := range statuses {
+		if status.Name == chartStatusNamespacedName {
+			statuses[i] = newStatus
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		statuses = append(statuses, newStatus)
+	}
+
+	v, err := json.Marshal(statuses)
 	if err != nil {
 		klog.Errorf("error marshalling init resource status data")
 		return err
 	}
 
-	cm.Annotations[InitStatusKey] = string(v)
+	cm.Annotations[statusKey] = string(v)
 
 	// update configmap
 	err = r.LocalClient.Update(ctx, cm)
