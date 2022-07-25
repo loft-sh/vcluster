@@ -46,6 +46,7 @@ const (
 	InstallError   = "InstallFailed"
 	UpgradeError   = "UpgradeFailed"
 	RollBackError  = "RollbackFailed"
+	UninstallError = "UninstallFailed"
 )
 
 type InitManifestsConfigMapReconciler struct {
@@ -147,7 +148,11 @@ func (r *InitManifestsConfigMapReconciler) ProcessInitManifests(ctx context.Cont
 
 	// should skip?
 	if manifests == lastAppliedManifests {
-		return ctrl.Result{}, nil
+		err := r.SetStatus(ctx, nil, types.NamespacedName{
+			Name:      cm.Name,
+			Namespace: cm.Namespace,
+		}, StatusSuccess, "", nil)
+		return ctrl.Result{}, err
 	}
 
 	// apply manifests
@@ -188,12 +193,19 @@ func (r *InitManifestsConfigMapReconciler) ProcessInitManifests(ctx context.Cont
 }
 
 func (r *InitManifestsConfigMapReconciler) ProcessHelmChart(ctx context.Context, charts []Chart, req ctrl.Request) (ctrl.Result, error) {
+	statusMap, err := r.GetStatusMap(ctx, req)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	for _, chart := range charts {
 		r.Log.Infof("processing helm chart for %s", chart.Name)
 
+		delete(statusMap, chart.Name)
+
 		err := r.pullChartArchive(ctx, chart)
 		if err != nil {
-			r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, ChartPullError, err)
+			err = r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, ChartPullError, err)
 			return ctrl.Result{}, err
 		}
 
@@ -257,6 +269,16 @@ func (r *InitManifestsConfigMapReconciler) ProcessHelmChart(ctx context.Context,
 		// install only one chart successfully in each reconcile
 		// hence reconcile here without error
 		return ctrl.Result{}, nil
+	}
+
+	if len(statusMap) > 0 {
+		r.Log.Infof("following charts left in status map, should be deleted: %v", statusMap)
+		for _, chartStatus := range statusMap {
+			err := r.deleteHelmRelease(ctx, chartStatus, req)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	}
 
 	return ctrl.Result{}, nil
@@ -348,7 +370,7 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 		err := r.pullChartArchive(ctx, chart)
 		if err != nil {
 			r.Log.Errorf("unable to pull chart archive for chart %s: %v", name, err)
-			r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, ChartPullError, err)
+			err = r.SetStatus(ctx, &chart, req.NamespacedName, StatusFailed, ChartPullError, err)
 			return err
 		}
 
@@ -390,9 +412,7 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 	}
 
 	r.Log.Infof("successfully upgraded chart %s", name)
-	_ = r.SetStatus(ctx, &chart, req.NamespacedName, StatusSuccess, "", nil)
-
-	return nil
+	return r.SetStatus(ctx, &chart, req.NamespacedName, StatusSuccess, "", nil)
 }
 
 func (r *InitManifestsConfigMapReconciler) registerLastAppliedChartConfig(ctx context.Context, chart Chart, req ctrl.Request) error {
@@ -468,9 +488,7 @@ func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, 
 	}
 
 	r.Log.Infof("successfully installed chart %s", name)
-	_ = r.SetStatus(ctx, &chart, req.NamespacedName, StatusSuccess, "", nil)
-
-	return nil
+	return r.SetStatus(ctx, &chart, req.NamespacedName, StatusSuccess, "", nil)
 }
 
 func (r *InitManifestsConfigMapReconciler) getCompressedConfig(ctx context.Context, chart Chart) (string, error) {
@@ -583,14 +601,44 @@ func (r *InitManifestsConfigMapReconciler) getChartOrReleaseDetails(ctx context.
 	return name, namespace
 }
 
+func (r *InitManifestsConfigMapReconciler) GetStatusMap(ctx context.Context, req ctrl.Request) (map[string]ChartStatus, error) {
+	cm := &corev1.ConfigMap{}
+	statusMap := make(map[string]ChartStatus)
+
+	err := r.LocalClient.Get(ctx, req.NamespacedName, cm)
+	if err != nil {
+		r.Log.Errorf("unbale to get statuses: %v", err)
+		return statusMap, err
+	}
+
+	if cm.Annotations == nil {
+		r.Log.Infof("no statuses set for charts")
+		return statusMap, err
+	}
+
+	rawStatuses := cm.Annotations[InitChartStatusKey]
+	var statuses []ChartStatus
+	err = yaml.Unmarshal([]byte(rawStatuses), &statuses)
+	if err != nil {
+		r.Log.Errorf("error unmarshalling statuses: %v", err)
+		return statusMap, err
+	}
+
+	for _, status := range statuses {
+		statusMap[status.Name] = status
+	}
+
+	return statusMap, nil
+}
+
 func (r *InitManifestsConfigMapReconciler) SetStatus(ctx context.Context, chart *Chart, obj types.NamespacedName, objStatus InitObjectStatus, reason string, errMsg error) error {
 	cm := &corev1.ConfigMap{}
 	statusKey := InitManifestsStatusKey
+	var name, ns string
 
-	var c Chart
 	if chart != nil {
 		statusKey = InitChartStatusKey
-		c = *chart
+		name, ns = r.getChartOrReleaseDetails(ctx, *chart)
 	}
 
 	klog.Infof("Setting init resource status")
@@ -612,27 +660,26 @@ func (r *InitManifestsConfigMapReconciler) SetStatus(ctx context.Context, chart 
 		r.Log.Errorf("error unmarshalling rawStatus: %v", err)
 	}
 
-	name, ns := r.getChartOrReleaseDetails(ctx, c)
-	chartStatusNamespacedName := fmt.Sprintf("%s-%s", name, ns)
-
 	var newStatus ChartStatus
 	if objStatus == StatusSuccess {
 		newStatus = ChartStatus{
-			Name:  chartStatusNamespacedName,
-			Phase: string(objStatus),
+			Name:      name,
+			Namespace: ns,
+			Phase:     string(objStatus),
 		}
 	} else {
 		newStatus = ChartStatus{
-			Name:    chartStatusNamespacedName,
-			Message: errMsg.Error(),
-			Reason:  reason,
+			Name:      name,
+			Namespace: ns,
+			Message:   errMsg.Error(),
+			Reason:    reason,
 		}
 	}
 
 	found := false
 	// find the correct chart in the array and update it
 	for i, status := range statuses {
-		if status.Name == chartStatusNamespacedName {
+		if status.Name == name && status.Namespace == ns {
 			statuses[i] = newStatus
 			found = true
 			break
@@ -661,4 +708,60 @@ func (r *InitManifestsConfigMapReconciler) SetStatus(ctx context.Context, chart 
 	klog.Infof("Successfully updated init resource status")
 
 	return nil
+}
+
+func (r *InitManifestsConfigMapReconciler) popFromStatus(ctx context.Context, chartStatus ChartStatus, req ctrl.Request) error {
+	cm, err := r.getConfigMap(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	rawStatus := cm.Annotations[InitChartStatusKey]
+	var statuses []ChartStatus
+	err = yaml.Unmarshal([]byte(rawStatus), &statuses)
+	if err != nil {
+		r.Log.Errorf("error unmarshalling rawStatus: %v", err)
+	}
+
+	found := -1
+	for i, status := range statuses {
+		if status.Name == chartStatus.Name && status.Namespace == chartStatus.Namespace {
+			found = i
+			break
+		}
+	}
+
+	statuses = append(statuses[:found], statuses[found+1:]...)
+	v, err := json.Marshal(statuses)
+	if err != nil {
+		klog.Errorf("error marshalling init resource status data")
+		return err
+	}
+
+	cm.Annotations[InitChartStatusKey] = string(v)
+
+	err = r.LocalClient.Update(ctx, cm)
+	if err != nil {
+		klog.Errorf("error deleting init resource status %s: %v", chartStatus.Name, err)
+		return err
+	}
+
+	klog.Infof("Successfully deleted init resource status %s", chartStatus.Name)
+
+	return nil
+}
+
+func (r *InitManifestsConfigMapReconciler) deleteHelmRelease(ctx context.Context, chartStatus ChartStatus, req ctrl.Request) error {
+	// name, ns := r.getChartOrReleaseDetails(ctx, chart)
+	name, ns := chartStatus.Name, chartStatus.Namespace
+	err := r.HelmClient.Delete(name, ns)
+	if err != nil {
+		r.Log.Infof("error deleting helm release %s: %v", name, err)
+		return r.SetStatus(ctx, &Chart{
+			Name:             chartStatus.Name,
+			ReleaseNamespace: chartStatus.Namespace,
+		}, req.NamespacedName, StatusFailed, UninstallError, err)
+	}
+
+	return r.popFromStatus(ctx, chartStatus, req)
 }

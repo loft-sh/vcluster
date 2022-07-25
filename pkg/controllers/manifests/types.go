@@ -14,8 +14,9 @@ type Chart struct {
 }
 
 type ChartStatus struct {
-	Name    string `json:"name,omitempty"`
-	Phase   string `json:"phase,omitempty"`
-	Message string `json:"message,omitempty"`
-	Reason  string `json:"reason,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Phase     string `json:"phase,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Reason    string `json:"reason,omitempty"`
 }
