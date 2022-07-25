@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("Chart ingress-nginx is synced and applied as expected",
 
 	ginkgo.JustBeforeEach(func() {
 		f = framework.DefaultFramework
-		hostConfigMapName = fmt.Sprintf("cm-%s-chart-%s-%s", f.VclusterNamespace, ChartName, ChartRelease)
+		hostConfigMapName = fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix)
 	})
 
 	ginkgo.It("Test if configmap for the chart is created as expected", func() {
@@ -54,7 +54,7 @@ var _ = ginkgo.Describe("Chart ingress-nginx is synced and applied as expected",
 				return false, err
 			}
 
-			_, ok := cm.ObjectMeta.Annotations[LastAppliedChartConfigAnnotationName]
+			_, ok := cm.ObjectMeta.Annotations[LastAppliedChartConfigAnnotationName+"-"+ChartName+"-"+ChartNamespace]
 			if !ok {
 				return false, nil
 			}

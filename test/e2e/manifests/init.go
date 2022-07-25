@@ -14,7 +14,7 @@ const (
 	TestManifestName      = "test-configmap"
 	TestManifestNamespace = "default"
 
-	InitManifestConfigmapSuffix = "init-manifests"
+	InitConfigmapSuffix = "init-manifests"
 )
 
 var _ = ginkgo.Describe("Init manifests are synced and applied as expected", func() {
@@ -44,7 +44,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		initmanifests.Data["initmanifests.yaml"] = "---"
@@ -56,7 +56,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		framework.ExpectEqual(initmanifests.Data["initmanifests.yaml"], "---")
@@ -66,7 +66,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		testManifest := fmt.Sprintf(`apiVersion: v1

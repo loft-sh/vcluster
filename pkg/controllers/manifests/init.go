@@ -229,6 +229,12 @@ func (r *InitManifestsConfigMapReconciler) ProcessHelmChart(ctx context.Context,
 				return ctrl.Result{}, nil
 			}
 
+			err = r.SetStatus(ctx, &chart, req.NamespacedName, StatusSuccess, "", nil)
+			if err != nil {
+				r.Log.Errorf("error setting success status for release %s that already exists: %v", name, err)
+				return ctrl.Result{}, err
+			}
+
 			// continue to process next chart
 			continue
 		}
@@ -349,7 +355,7 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 		r.Log.Infof("successfully updated the chart bundle for chart %s", name)
 	}
 
-	path := fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, name, chart.Version)
+	path := r.getTarballPath(ctx, chart)
 	values := chart.Values
 	if values == "" {
 		r.Log.Infof("no value overrides set for chart %s", name)
@@ -418,11 +424,16 @@ func (r *InitManifestsConfigMapReconciler) registerLastAppliedChartConfig(ctx co
 	return nil
 }
 
+func (r *InitManifestsConfigMapReconciler) getTarballPath(ctx context.Context, chart Chart) string {
+	name, _ := r.getChartOrReleaseDetails(ctx, chart)
+	return fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, name, chart.Version)
+}
+
 func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, chart Chart, req ctrl.Request) error {
 	// initiate install
 	name, namespace := r.getChartOrReleaseDetails(ctx, chart)
 
-	path := fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, name, chart.Version)
+	path := r.getTarballPath(ctx, chart)
 
 	values := chart.Values
 	if values == "" {
@@ -488,19 +499,17 @@ func (r *InitManifestsConfigMapReconciler) releaseExists(ctx context.Context, ch
 }
 
 func (r *InitManifestsConfigMapReconciler) pullChartArchive(ctx context.Context, chart Chart) error {
-	name := chart.Name
-	repo := chart.Repo
-	version := chart.Version
+	name, _ := r.getChartOrReleaseDetails(ctx, chart)
 
-	tarball := fmt.Sprintf("/%s/%s-%s.tgz", HelmWorkDir, name, version)
+	tarball := r.getTarballPath(ctx, chart)
 	// check if tarball exists
 	_, err := os.Stat(tarball)
 	if err != nil {
 		if os.IsNotExist(err) {
 			helmErr := r.HelmClient.Pull(ctx, name, helm.UpgradeOptions{
 				Chart:   name,
-				Repo:    repo,
-				Version: version,
+				Repo:    chart.Repo,
+				Version: chart.Version,
 				WorkDir: HelmWorkDir,
 			})
 
