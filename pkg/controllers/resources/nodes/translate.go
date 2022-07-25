@@ -3,10 +3,9 @@ package nodes
 import (
 	"context"
 	"encoding/json"
-	"github.com/loft-sh/vcluster/pkg/util/stringutil"
-
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -147,7 +146,9 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		cpu := translatedStatus.Allocatable.Cpu().MilliValue()
 		memory := translatedStatus.Allocatable.Memory().Value()
 		storageEphemeral := translatedStatus.Allocatable.StorageEphemeral().Value()
+		pods := translatedStatus.Allocatable.Pods().Value()
 
+		var nonVClusterPods int64
 		podList := &corev1.PodList{}
 		err := s.podCache.List(context.TODO(), podList)
 		if err != nil {
@@ -161,7 +162,11 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 				} else if pod.Spec.NodeName != pNode.Name {
 					continue
 				}
-
+				if s.enableScheduler {
+					if pod.Namespace != ctx.TargetNamespace {
+						nonVClusterPods++
+					}
+				}
 				for _, container := range pod.Spec.InitContainers {
 					cpu -= container.Resources.Requests.Cpu().MilliValue()
 					memory -= container.Resources.Requests.Memory().Value()
@@ -172,6 +177,13 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 					memory -= container.Resources.Requests.Memory().Value()
 					storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
 				}
+			}
+		}
+
+		if s.enableScheduler {
+			pods -= nonVClusterPods
+			if pods > 0 {
+				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(pods, resource.DecimalSI)
 			}
 		}
 
