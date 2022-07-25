@@ -57,6 +57,8 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
+        - name: config
+          emptyDir: {}
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
@@ -126,6 +128,8 @@ spec:
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
+          - name: config
+            mountPath: /etc
 {{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
