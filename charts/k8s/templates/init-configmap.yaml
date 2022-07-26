@@ -3,6 +3,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-init-manifests
+  annotations:
+    vcluster.loft.sh/init-ready: |
+      ready: false
+      phase: pending
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster

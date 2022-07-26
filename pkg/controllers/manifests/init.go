@@ -31,6 +31,7 @@ const (
 	InitManifestSuffix     = "-init-manifests"
 	LastAppliedManifestKey = "vcluster.loft.sh/last-applied-init-manifests"
 	LastAppliedChartConfig = "vcluster.loft.sh/last-applied-chart-config"
+	ReadyConditionKey      = "vcluster.loft.sh/init-ready"
 
 	InitManifestsStatusKey = "vcluster.loft.sh/init-status"
 	InitChartStatusKey     = "vcluster.loft.sh/init-chart-status"
@@ -41,6 +42,7 @@ const (
 
 	StatusFailed  InitObjectStatus = "Failed"
 	StatusSuccess InitObjectStatus = "Success"
+	StatusPending InitObjectStatus = "Pending"
 
 	ChartPullError = "ChartPullFailed"
 	InstallError   = "InstallFailed"
@@ -58,9 +60,107 @@ type InitManifestsConfigMapReconciler struct {
 	HelmClient helm.Client
 }
 
+func (r *InitManifestsConfigMapReconciler) ScanAndMarkReadyStatus(ctx context.Context, req ctrl.Request) {
+	cm, err := r.getConfigMap(ctx, req)
+	if err != nil {
+		r.Log.Errorf("error getting configmap for readystatus: %v", err)
+		return
+	}
+
+	ready := Ready{
+		Ready: false,
+		Phase: string(StatusPending),
+	}
+
+	if cm.Annotations == nil {
+		cm.Annotations = make(map[string]string)
+	}
+
+	rawManifestStatus := cm.Annotations[InitManifestsStatusKey]
+	manifestStatus := []ChartStatus{}
+
+	err = yaml.Unmarshal([]byte(rawManifestStatus), &manifestStatus)
+	if err != nil {
+		r.Log.Errorf("error unmarshalling raw manifest status: %v", err)
+		return
+	}
+
+	if len(manifestStatus) > 0 {
+		if manifestStatus[0].Phase != string(StatusSuccess) {
+			ready.Phase = string(StatusFailed)
+			ready.Reason = manifestStatus[0].Reason
+
+			readyStatus, err := yaml.Marshal(ready)
+			if err != nil {
+				r.Log.Errorf("error marshalling ready status: %v", err)
+				return
+			}
+
+			cm.Annotations[ReadyConditionKey] = string(readyStatus)
+			err = r.LocalClient.Update(ctx, cm)
+			if err != nil {
+				r.Log.Errorf("error updating ready status: %v", err)
+				return
+			}
+		}
+	}
+
+	// iterate and check chart conditions
+	rawChartStatus := cm.Annotations[InitChartStatusKey]
+	chartStatuses := []ChartStatus{}
+
+	err = yaml.Unmarshal([]byte(rawChartStatus), &chartStatuses)
+	if err != nil {
+		r.Log.Errorf("error unmarshalling chart statuses: %v", err)
+		return
+	}
+
+	for _, chartStatus := range chartStatuses {
+		if chartStatus.Phase != string(StatusSuccess) {
+			ready.Phase = string(StatusFailed)
+			ready.Reason = chartStatus.Reason
+
+			readyStatus, err := yaml.Marshal(ready)
+			if err != nil {
+				r.Log.Errorf("error marshalling ready status: %v", err)
+				return
+			}
+
+			cm.Annotations[ReadyConditionKey] = string(readyStatus)
+			err = r.LocalClient.Update(ctx, cm)
+			if err != nil {
+				r.Log.Errorf("error updating ready condition for chart statuses: %v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// set ready as positive
+	ready.Ready = true
+	ready.Phase = string(StatusSuccess)
+	ready.Reason = ""
+
+	readyStatus, err := yaml.Marshal(ready)
+	if err != nil {
+		r.Log.Errorf("error marshalling ready status: %v", err)
+		return
+	}
+	cm.Annotations[ReadyConditionKey] = string(readyStatus)
+
+	err = r.LocalClient.Update(ctx, cm)
+	if err != nil {
+		r.Log.Errorf("error updating ready condition for chart statuses: %v", err)
+		return
+	}
+
+	r.Log.Infof("successfully set ready condition to true")
+}
+
 func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// TODO: implement better filteration through predicates
 	if req.Name == translate.Suffix+InitManifestSuffix {
+		defer r.ScanAndMarkReadyStatus(ctx, req)
 		r.Log.Infof("process init manifests")
 		cm, err := r.getConfigMap(ctx, req)
 		if err != nil {
@@ -671,6 +771,7 @@ func (r *InitManifestsConfigMapReconciler) SetStatus(ctx context.Context, chart 
 		newStatus = ChartStatus{
 			Name:      name,
 			Namespace: ns,
+			Phase:     string(objStatus),
 			Message:   errMsg.Error(),
 			Reason:    reason,
 		}

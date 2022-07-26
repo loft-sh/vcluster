@@ -20,3 +20,9 @@ type ChartStatus struct {
 	Message   string `json:"message,omitempty"`
 	Reason    string `json:"reason,omitempty"`
 }
+
+type Ready struct {
+	Ready  bool   `json:"ready,omitempty"`
+	Phase  string `json:"phase,omitempty"`
+	Reason string `json:"reason,omitempty"`
+}
