@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"io/ioutil"
+	"k8s.io/klog"
 	"os"
 	"strings"
 	"time"
@@ -98,10 +99,7 @@ func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ct
 }
 
 func (r *InitManifestsConfigMapReconciler) UpdateConfigMap(ctx context.Context, lastError error, requeue bool, oldConfigMap *corev1.ConfigMap, newConfigMap *corev1.ConfigMap) error {
-	currentStatus, err := r.parseStatus(newConfigMap)
-	if err != nil {
-		return err
-	}
+	currentStatus := ParseStatus(newConfigMap)
 
 	// set phase initially to pending
 	currentStatus.Phase = string(StatusPending)
@@ -139,7 +137,7 @@ func (r *InitManifestsConfigMapReconciler) UpdateConfigMap(ctx context.Context, 
 	}
 
 	// marshal status
-	err = r.encodeStatus(newConfigMap, currentStatus)
+	err := r.encodeStatus(newConfigMap, currentStatus)
 	if err != nil {
 		return err
 	}
@@ -156,13 +154,11 @@ func (r *InitManifestsConfigMapReconciler) UpdateConfigMap(ctx context.Context, 
 }
 
 func (r *InitManifestsConfigMapReconciler) ProcessInitManifests(ctx context.Context, cm *corev1.ConfigMap) (bool, error) {
+	var err error
 	manifests := cm.Data[InitManifestsKey]
 
 	// make array stable or otherwise order is random
-	status, err := r.parseStatus(cm)
-	if err != nil {
-		return false, err
-	}
+	status := ParseStatus(cm)
 
 	// get last applied manifests
 	lastAppliedManifests := ""
@@ -263,7 +259,7 @@ func (r *InitManifestsConfigMapReconciler) ProcessHelmChart(ctx context.Context,
 
 		// initiate install
 		r.Log.Debugf("initiating installation for release %s/%s", releaseNamespace, releaseName)
-		err = r.initiateInstall(ctx, cm, chart)
+		err = r.initiateInstall(ctx, chart)
 		if err != nil {
 			r.Log.Errorf("error installing release %s/%s", releaseNamespace, releaseName)
 			_ = r.setChartStatus(cm, &chart, StatusFailed, InstallError, err.Error())
@@ -299,10 +295,7 @@ func (r *InitManifestsConfigMapReconciler) checkIfUpgradeNeeded(cm *corev1.Confi
 	name, namespace := r.getTargetRelease(chart)
 
 	// find chart status
-	status, err := r.parseStatus(cm)
-	if err != nil {
-		return false, err
-	}
+	status := ParseStatus(cm)
 
 	// check if hashed config has changed
 	for _, chartStatus := range status.Charts {
@@ -357,7 +350,7 @@ func (r *InitManifestsConfigMapReconciler) getTarballPath(chart Chart) string {
 	return fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, chart.Name, chart.Version)
 }
 
-func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, cm *corev1.ConfigMap, chart Chart) error {
+func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, chart Chart) error {
 	// initiate install
 	name, namespace := r.getTargetRelease(chart)
 	path := r.getTarballPath(chart)
@@ -512,11 +505,7 @@ func (r *InitManifestsConfigMapReconciler) getTargetRelease(chart Chart) (string
 
 func (r *InitManifestsConfigMapReconciler) getStatusMap(cm *corev1.ConfigMap) (map[string]ChartStatus, error) {
 	statusMap := make(map[string]ChartStatus)
-	status, err := r.parseStatus(cm)
-	if err != nil {
-		return nil, err
-	}
-
+	status := ParseStatus(cm)
 	for _, status := range status.Charts {
 		statusMap[status.Namespace+"/"+status.Name] = status
 	}
@@ -538,25 +527,21 @@ func (r *InitManifestsConfigMapReconciler) encodeStatus(cm *corev1.ConfigMap, st
 	return nil
 }
 
-func (r *InitManifestsConfigMapReconciler) parseStatus(cm *corev1.ConfigMap) (*Status, error) {
+func ParseStatus(cm *corev1.ConfigMap) *Status {
 	status := &Status{}
 	if cm.Annotations[StatusKey] != "" {
 		err := yaml.Unmarshal([]byte(cm.Annotations[StatusKey]), &status)
 		if err != nil {
-			r.Log.Errorf("error unmarshalling rawStatus: %v", err)
-			return nil, err
+			klog.Errorf("error unmarshalling rawStatus: %v", err)
+			return &Status{}
 		}
 	}
 
-	return status, nil
+	return status
 }
 
 func (r *InitManifestsConfigMapReconciler) setManifestsStatus(cm *corev1.ConfigMap, phase InitObjectStatus, reason string, message string) error {
-	status, err := r.parseStatus(cm)
-	if err != nil {
-		return err
-	}
-
+	status := ParseStatus(cm)
 	status.Manifests.Phase = string(phase)
 	status.Manifests.Reason = reason
 	status.Manifests.Message = message
@@ -564,10 +549,7 @@ func (r *InitManifestsConfigMapReconciler) setManifestsStatus(cm *corev1.ConfigM
 }
 
 func (r *InitManifestsConfigMapReconciler) setChartStatusLastApplied(cm *corev1.ConfigMap, chart *Chart) error {
-	status, err := r.parseStatus(cm)
-	if err != nil {
-		return err
-	}
+	status := ParseStatus(cm)
 
 	// get release name & namespace
 	releaseName, releaseNamespace := r.getTargetRelease(*chart)
@@ -600,10 +582,7 @@ func (r *InitManifestsConfigMapReconciler) setChartStatusLastApplied(cm *corev1.
 }
 
 func (r *InitManifestsConfigMapReconciler) setChartStatus(cm *corev1.ConfigMap, chart *Chart, phase InitObjectStatus, reason string, message string) error {
-	status, err := r.parseStatus(cm)
-	if err != nil {
-		return err
-	}
+	status := ParseStatus(cm)
 
 	// get release name & namespace
 	releaseName, releaseNamespace := r.getTargetRelease(*chart)
@@ -633,10 +612,7 @@ func (r *InitManifestsConfigMapReconciler) setChartStatus(cm *corev1.ConfigMap, 
 }
 
 func (r *InitManifestsConfigMapReconciler) popFromStatus(cm *corev1.ConfigMap, chartStatus ChartStatus) error {
-	status, err := r.parseStatus(cm)
-	if err != nil {
-		return err
-	}
+	status := ParseStatus(cm)
 
 	found := -1
 	for i, status := range status.Charts {
