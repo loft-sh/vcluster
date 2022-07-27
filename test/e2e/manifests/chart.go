@@ -2,6 +2,7 @@ package manifests
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -16,8 +17,6 @@ const (
 	ChartName      = "ingress-nginx"
 	ChartRelease   = "ingress-nginx"
 	ChartNamespace = "ingress-nginx"
-
-	LastAppliedChartConfigAnnotationName = "vcluster.loft.sh/last-applied-chart-config"
 )
 
 var _ = ginkgo.Describe("Chart ingress-nginx is synced and applied as expected", func() {
@@ -32,7 +31,7 @@ var _ = ginkgo.Describe("Chart ingress-nginx is synced and applied as expected",
 
 	ginkgo.JustBeforeEach(func() {
 		f = framework.DefaultFramework
-		hostConfigMapName = fmt.Sprintf("cm-%s-chart-%s-%s", f.VclusterNamespace, ChartName, ChartRelease)
+		hostConfigMapName = fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix)
 	})
 
 	ginkgo.It("Test if configmap for the chart is created as expected", func() {
@@ -54,12 +53,8 @@ var _ = ginkgo.Describe("Chart ingress-nginx is synced and applied as expected",
 				return false, err
 			}
 
-			_, ok := cm.ObjectMeta.Annotations[LastAppliedChartConfigAnnotationName]
-			if !ok {
-				return false, nil
-			}
-
-			return true, nil
+			status := manifests.ParseStatus(cm)
+			return status.Phase == string(manifests.StatusSuccess) && len(status.Charts) == 1 && status.Charts[0].Phase == string(manifests.StatusSuccess), nil
 		})
 
 		framework.ExpectNoError(err)

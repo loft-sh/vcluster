@@ -14,7 +14,7 @@ const (
 	TestManifestName      = "test-configmap"
 	TestManifestNamespace = "default"
 
-	InitManifestConfigmapSuffix = "init-manifests"
+	InitConfigmapSuffix = "init-manifests"
 )
 
 var _ = ginkgo.Describe("Init manifests are synced and applied as expected", func() {
@@ -44,10 +44,10 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		initmanifests.Data["initmanifests.yaml"] = "---"
+		initmanifests.Data["manifests"] = "---"
 		_, err = f.HostClient.CoreV1().ConfigMaps(f.VclusterNamespace).Update(f.Context, initmanifests, metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 	})
@@ -56,17 +56,17 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		framework.ExpectEqual(initmanifests.Data["initmanifests.yaml"], "---")
+		framework.ExpectEqual(initmanifests.Data["manifests"], "---")
 	})
 
 	ginkgo.It("Test if manifest is synced with the vcluster", func() {
 		initmanifests, err := f.HostClient.
 			CoreV1().
 			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitManifestConfigmapSuffix), metav1.GetOptions{})
+			Get(f.Context, fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		testManifest := fmt.Sprintf(`apiVersion: v1
@@ -77,7 +77,7 @@ data:
   foo: bar
 `, TestManifestName)
 
-		initmanifests.Data["initmanifests.yaml"] = testManifest
+		initmanifests.Data["manifests"] = testManifest
 		_, err = f.HostClient.CoreV1().ConfigMaps(f.VclusterNamespace).Update(f.Context, initmanifests, metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 

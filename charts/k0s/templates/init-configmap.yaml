@@ -10,55 +10,38 @@ metadata:
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
 data:
-  initmanifests.yaml: |-
+  manifests: |-
     {{ .Values.init.manifests | nindent 4 | trim }}
-    {{ tpl .Values.init.manifestsTemplate $ | nindent 4 | trim }}
-{{- end }}
-
----
-
-{{- if .Values.init.helm }}
-{{- range .Values.init.helm }}
-{{- /* only render this chart entry if either of chart or bundle is defined */}}
-{{- if or .chart .bundle }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cm-{{ $.Release.Name }}-chart{{ if .chart }}-{{ .chart.name }}{{ end }}{{ if .release }}-{{ .release.name }}{{ end }}
-  labels:
-    app: vcluster
-    {{- if .chart }}
-    chart: {{ .chart.name }}-{{ .chart.version }}
-    {{- else }}
-    chart: {{ .release.name }}
-    {{- end }}
-    release: {{ $.Release.Name }}
-    heritage: {{ $.Release.Service }}
-    context: vcluster-helm-chart
-data:
-  {{- if .chart }}
-  name: {{ .chart.name }}
-  repo: {{ .chart.repo }}
-  version: {{ .chart.version }}
-  {{- if .chart.username }}
-  username: {{ .chart.username }}
+    {{- tpl .Values.init.manifestsTemplate $ | nindent 4 | trim }}
+  {{- if .Values.init.helm }}
+  charts: |-
+  {{- range .Values.init.helm }}
+  {{- /* only render this chart entry if either of chart or bundle is defined */}}
+  {{- if or .chart .bundle }}
+    - name: {{ .chart.name }}
+      repo: {{ .chart.repo }}
+      version: {{ .chart.version }}
+      {{- if .chart.username }}
+      username: {{ .chart.username }}
+      {{- end }}
+      {{- if .chart.password }}
+      password: {{ .chart.password }}
+      {{- end }}
+      {{- else if .bundle }}
+      bundle: {{ .bundle }}
+      {{- end }}
+      {{- if .insecure }}
+      insecure: true
+      {{- end}}
+      {{- if .values }}
+      values: |-
+        {{ .values | nindent 4 | trim }}
+      {{- end}}
+      {{- if .release }}
+      timeout: {{ .timeout | default "120s" | quote }}
+      releaseName: {{ .release.name }}
+      releaseNamespace: {{ .release.namespace }}
+      {{- end }}
   {{- end }}
-  {{- if .chart.password }}
-  password: {{ .chart.password }}
   {{- end }}
-  {{- else if .bundle }}
-  bundle: {{ .bundle }}
-  {{- end }}
-  {{- if .values }}
-  values: |-
-    {{ .values | nindent 4 | trim }}
-  {{- end}}
-  {{- if .release }}
-  timeout: {{ .timeout | default "120s" | quote }}
-  releaseName: {{ .release.name }}
-  releaseNamespace: {{ .release.namespace }}
-  {{- end }}
-{{- end }}
----
-{{- end }}
 {{- end }}
