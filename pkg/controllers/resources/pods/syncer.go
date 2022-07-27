@@ -354,7 +354,7 @@ func syncConditions(vPod *corev1.Pod) bool {
 
 	// check for if there is any custom condition in the vPod status
 	for _, condition := range vPod.Status.Conditions {
-		if isCustomCondition(condition) {
+		if isCustomCondition(vPod, condition) {
 			return true
 		}
 	}

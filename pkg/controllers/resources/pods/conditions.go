@@ -3,7 +3,7 @@ package pods
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -15,18 +15,16 @@ func UpdateConditions(ctx *synccontext.SyncContext, physicalClusterClient kubern
 		// check if newConditions need to be added.
 		if len(newCustomConditions) > 0 {
 			physicalPod.Status.Conditions = append(physicalPod.Status.Conditions, newCustomConditions...)
-			_, err := physicalClusterClient.CoreV1().Pods(physicalPod.Namespace).UpdateStatus(ctx.Context, physicalPod, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
 		}
-
 		// check if existingConditions need to be updated.
 		if len(existingCustomConditions) > 0 {
 			for index, condition := range existingCustomConditions {
 				physicalPod.Status.Conditions[index] = condition
 			}
-			_, err := physicalClusterClient.CoreV1().Pods(physicalPod.Namespace).UpdateStatus(ctx.Context, physicalPod, metav1.UpdateOptions{})
+		}
+		// update physical pod
+		if len(newCustomConditions) > 0 || len(existingCustomConditions) > 0 {
+			err := ctx.PhysicalClient.Status().Update(ctx.Context, physicalPod)
 			if err != nil {
 				return err
 			}
@@ -45,10 +43,10 @@ func getCustomConditions(physicalPod *corev1.Pod, virtualPod *corev1.Pod) ([]cor
 	var foundCondition *corev1.PodCondition
 	var index int
 	for _, vCondition := range virtualPod.Status.Conditions {
-		if isCustomCondition(vCondition) {
+		if isCustomCondition(virtualPod, vCondition) {
 			for i, pCondition := range physicalPod.Status.Conditions {
 				// found condition in pPod with same type, updating foundCondition and index
-				if isCustomCondition(pCondition) && vCondition.Type == pCondition.Type {
+				if isCustomCondition(physicalPod, pCondition) && vCondition.Type == pCondition.Type {
 					foundCondition = &pCondition
 					index = i
 					break
@@ -56,7 +54,7 @@ func getCustomConditions(physicalPod *corev1.Pod, virtualPod *corev1.Pod) ([]cor
 			}
 			if foundCondition != nil {
 				// To avoid same status updates, checking status again.
-				if foundCondition.Status != vCondition.Status {
+				if !equality.Semantic.DeepEqual(*foundCondition, vCondition) {
 					existingCustomConditions[index] = vCondition
 				}
 			} else {
@@ -73,9 +71,17 @@ func getCustomConditions(physicalPod *corev1.Pod, virtualPod *corev1.Pod) ([]cor
 }
 
 // Check for customCondition
-func isCustomCondition(condition corev1.PodCondition) bool {
-	return condition.Type != corev1.ContainersReady &&
+func isCustomCondition(pod *corev1.Pod, condition corev1.PodCondition) bool {
+	customCondition := condition.Type != corev1.ContainersReady &&
 		condition.Type != corev1.PodInitialized &&
 		condition.Type != corev1.PodReady &&
 		condition.Type != corev1.PodScheduled
+	if customCondition {
+		for _, readinessGate := range pod.Spec.ReadinessGates {
+			if readinessGate.ConditionType == condition.Type {
+				return true
+			}
+		}
+	}
+	return false
 }
