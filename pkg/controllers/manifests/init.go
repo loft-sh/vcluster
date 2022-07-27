@@ -103,6 +103,8 @@ func (r *InitManifestsConfigMapReconciler) UpdateConfigMap(ctx context.Context, 
 
 	// set phase initially to pending
 	currentStatus.Phase = string(StatusPending)
+	currentStatus.Reason = ""
+	currentStatus.Message = ""
 
 	// check manifests status
 	if currentStatus.Manifests.Phase != string(StatusSuccess) {
@@ -142,14 +144,23 @@ func (r *InitManifestsConfigMapReconciler) UpdateConfigMap(ctx context.Context, 
 		return err
 	}
 
+	// create a patch
+	patch := client.MergeFrom(oldConfigMap)
+	rawPatch, err := patch.Data(newConfigMap)
+	if err != nil {
+		return err
+	} else if string(rawPatch) == "{}" {
+		return nil
+	}
+
 	// try patching the configmap
-	err = r.LocalClient.Patch(ctx, newConfigMap, client.MergeFrom(oldConfigMap))
+	r.Log.Debugf("Patch init config map with: %s", string(rawPatch))
+	err = r.LocalClient.Patch(ctx, newConfigMap, client.RawPatch(patch.Type(), rawPatch))
 	if err != nil {
 		r.Log.Errorf("error updating configmap status: %v", err)
 		return err
 	}
 
-	r.Log.Debugf("successfully set ready condition to true")
 	return nil
 }
 
@@ -163,7 +174,7 @@ func (r *InitManifestsConfigMapReconciler) ProcessInitManifests(ctx context.Cont
 	// get last applied manifests
 	lastAppliedManifests := ""
 	if status.Manifests.LastAppliedManifests != "" {
-		lastAppliedManifests, err = compress.Uncompress(lastAppliedManifests)
+		lastAppliedManifests, err = compress.Uncompress(status.Manifests.LastAppliedManifests)
 		if err != nil {
 			r.Log.Errorf("error decompressing manifests: %v", err)
 			// fallthrough here as we just apply them again
@@ -288,7 +299,7 @@ func (r *InitManifestsConfigMapReconciler) ProcessHelmChart(ctx context.Context,
 		}
 	}
 
-	return true, nil
+	return false, nil
 }
 
 func (r *InitManifestsConfigMapReconciler) checkIfUpgradeNeeded(cm *corev1.ConfigMap, chart Chart) (bool, error) {
@@ -312,19 +323,24 @@ func (r *InitManifestsConfigMapReconciler) checkIfUpgradeNeeded(cm *corev1.Confi
 
 func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, chart Chart) error {
 	name, namespace := r.getTargetRelease(chart)
-	path := r.getTarballPath(chart)
+	path, err := r.findChart(chart)
+	if err != nil {
+		return err
+	} else if path == "" {
+		return fmt.Errorf("couldn't find chart")
+	}
 
 	values := chart.Values
 	if values == "" {
 		r.Log.Debugf("no value overrides set for chart %s", name)
 	}
 
-	r.Log.Infof("upgrading release %s", namespace, name)
+	r.Log.Infof("Upgrading release %s/%s", namespace, name)
 
-	timedOutContext, cancel := context.WithTimeout(ctx, r.parseTimeout(ctx, chart))
+	timedOutContext, cancel := context.WithTimeout(ctx, r.parseTimeout(chart))
 	defer cancel()
 
-	err := r.HelmClient.Upgrade(timedOutContext, name, namespace, helm.UpgradeOptions{
+	err = r.HelmClient.Upgrade(timedOutContext, name, namespace, helm.UpgradeOptions{
 		Chart:           name,
 		Path:            path,
 		CreateNamespace: true,
@@ -346,26 +362,64 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 	return nil
 }
 
-func (r *InitManifestsConfigMapReconciler) getTarballPath(chart Chart) string {
-	return fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, chart.Name, chart.Version)
+func (r *InitManifestsConfigMapReconciler) findChart(chart Chart) (string, error) {
+	if chart.Version == "" {
+		files, err := ioutil.ReadDir(HelmWorkDir)
+		if err != nil {
+			return "", err
+		}
+
+		for _, f := range files {
+			if strings.HasPrefix(f.Name(), chart.Name+"-") {
+				return f.Name(), nil
+			}
+		}
+	} else {
+		tarball := fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, chart.Name, chart.Version)
+		_, err := os.Stat(tarball)
+		if err != nil {
+			if os.IsNotExist(err) {
+				if chart.Version[0] != 'v' {
+					tarball = fmt.Sprintf("%s/%s-v%s.tgz", HelmWorkDir, chart.Name, chart.Version)
+					_, err = os.Stat(tarball)
+					if err == nil {
+						return tarball, nil
+					}
+				}
+
+				return "", nil
+			}
+
+			return "", err
+		}
+
+		return tarball, nil
+	}
+
+	return "", nil
 }
 
 func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, chart Chart) error {
 	// initiate install
 	name, namespace := r.getTargetRelease(chart)
-	path := r.getTarballPath(chart)
+	path, err := r.findChart(chart)
+	if err != nil {
+		return err
+	} else if path == "" {
+		return fmt.Errorf("couldn't find chart")
+	}
 
 	values := chart.Values
 	if values == "" {
 		r.Log.Debugf("no value overrides set for chart %s", name)
 	}
 
-	r.Log.Infof("Installing release %s/%s from path %s", namespace, name)
+	r.Log.Infof("Installing release %s/%s", namespace, name)
 
-	timedOutContext, cancel := context.WithTimeout(ctx, r.parseTimeout(ctx, chart))
+	timedOutContext, cancel := context.WithTimeout(ctx, r.parseTimeout(chart))
 	defer cancel()
 
-	err := r.HelmClient.Install(timedOutContext, name, namespace, helm.UpgradeOptions{
+	err = r.HelmClient.Install(timedOutContext, name, namespace, helm.UpgradeOptions{
 		Chart:           name,
 		Path:            path,
 		CreateNamespace: true,
@@ -411,51 +465,52 @@ func (r *InitManifestsConfigMapReconciler) releaseExists(chart Chart) (bool, err
 }
 
 func (r *InitManifestsConfigMapReconciler) pullChartArchive(ctx context.Context, chart Chart) error {
-	tarball := r.getTarballPath(chart)
+	tarball, err := r.findChart(chart)
+	if err != nil {
+		return err
+	}
 
 	// check if tarball exists
-	_, err := os.Stat(tarball)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if chart.Bundle != "" {
-				bytes, err := base64.StdEncoding.DecodeString(chart.Bundle)
-				if err != nil {
-					return err
-				}
-
-				err = ioutil.WriteFile(tarball, bytes, 0666)
-				if err != nil {
-					return errors.Wrap(err, "write bundle to file")
-				}
-			} else {
-				helmErr := r.HelmClient.Pull(ctx, chart.Name, helm.UpgradeOptions{
-					Chart:    chart.Name,
-					Repo:     chart.Repo,
-					Version:  chart.Version,
-					Username: chart.Username,
-					Password: chart.Password,
-					WorkDir:  HelmWorkDir,
-				})
-				if helmErr != nil {
-					r.Log.Errorf("unable to pull chart %s: %v", chart.Name, helmErr)
-					return helmErr
-				}
-
-				r.Log.Debugf("successfully pulled chart %s", chart.Name)
+	if tarball == "" {
+		if chart.Bundle != "" {
+			bytes, err := base64.StdEncoding.DecodeString(chart.Bundle)
+			if err != nil {
+				return err
 			}
+
+			err = ioutil.WriteFile(tarball, bytes, 0666)
+			if err != nil {
+				return errors.Wrap(err, "write bundle to file")
+			}
+		} else {
+			helmErr := r.HelmClient.Pull(ctx, chart.Name, helm.UpgradeOptions{
+				Chart:    chart.Name,
+				Repo:     chart.Repo,
+				Insecure: chart.Insecure,
+				Version:  chart.Version,
+				Username: chart.Username,
+				Password: chart.Password,
+
+				WorkDir: HelmWorkDir,
+			})
+			if helmErr != nil {
+				r.Log.Errorf("unable to pull chart %s: %v", chart.Name, helmErr)
+				return helmErr
+			}
+
+			r.Log.Debugf("successfully pulled chart %s", chart.Name)
 		}
 	}
 
 	return nil
 }
 
-func (r *InitManifestsConfigMapReconciler) parseTimeout(ctx context.Context, chart Chart) time.Duration {
+func (r *InitManifestsConfigMapReconciler) parseTimeout(chart Chart) time.Duration {
 	t := chart.Timeout
-
 	timeout, err := time.ParseDuration(t)
 	if err != nil {
-		r.Log.Errorf("unable to parse timeout: %v", err)
-		r.Log.Errorf("falling back to default timeout")
+		r.Log.Debugf("unable to parse timeout: %v", err)
+		r.Log.Debugf("falling back to default timeout")
 		timeout = DefaultTimeOut
 	}
 

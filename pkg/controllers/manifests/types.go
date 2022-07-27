@@ -25,16 +25,10 @@ type ChartStatus struct {
 	LastAppliedChartConfigHash string `json:"lastAppliedChartConfigHash,omitempty"`
 }
 
-type Ready struct {
-	Ready   bool   `json:"ready,omitempty"`
-	Phase   string `json:"phase,omitempty"`
-	Reason  string `json:"reason,omitempty"`
-	Message string `json:"message,omitempty"`
-}
-
 type Chart struct {
 	Name             string `json:"name,omitempty"`
 	Repo             string `json:"repo,omitempty"`
+	Insecure         bool   `json:"insecure,omitempty"`
 	Version          string `json:"version,omitempty"`
 	Username         string `json:"username,omitempty"`
 	Password         string `json:"password,omitempty"`

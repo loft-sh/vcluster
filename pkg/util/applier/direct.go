@@ -48,7 +48,7 @@ func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 	}
 
 	f := cmdutil.NewFactory(restClientGetter)
-	res := resource.NewBuilder(restClientGetter).Unstructured().Stream(ioReader, "manifestString").Do()
+	res := resource.NewBuilder(restClientGetter).Unstructured().Stream(ioReader, "manifests").Do()
 	infos, resErr := res.Infos()
 
 	// Populate the namespace on any namespace-scoped objects

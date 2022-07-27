@@ -30,6 +30,9 @@ data:
       {{- else if .bundle }}
       bundle: {{ .bundle }}
       {{- end }}
+      {{- if .insecure }}
+      insecure: true
+      {{- end}}
       {{- if .values }}
       values: |-
         {{ .values | nindent 4 | trim }}
@@ -42,5 +45,3 @@ data:
   {{- end }}
   {{- end }}
 {{- end }}
-
----
