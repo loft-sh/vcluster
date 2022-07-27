@@ -278,15 +278,15 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
 
-	// sync conditions
-	if syncConditions(vPod) {
-		// add conditions subresource to physical pod
-		err := UpdateConditions(ctx, s.physicalClusterClient, strippedPod, vPod)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	// update readiness gates & sync status virtual -> physical
+	updated, err := UpdateConditions(ctx, strippedPod, vPod)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if updated {
+		return ctrl.Result{}, nil
 	}
 
+	// update status physical -> virtual
 	if !equality.Semantic.DeepEqual(vPod.Status, strippedPod.Status) {
 		newPod := vPod.DeepCopy()
 		newPod.Status = strippedPod.Status
@@ -344,21 +344,6 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	}
 
 	return s.SyncDownUpdate(ctx, vPod, updatedPod)
-}
-
-func syncConditions(vPod *corev1.Pod) bool {
-	// readinessGates are nil means that there are no customConditions
-	if vPod.Spec.ReadinessGates == nil {
-		return false
-	}
-
-	// check for if there is any custom condition in the vPod status
-	for _, condition := range vPod.Status.Conditions {
-		if isCustomCondition(vPod, condition) {
-			return true
-		}
-	}
-	return false
 }
 
 func syncEphemeralContainers(vPod *corev1.Pod, pPod *corev1.Pod) bool {
