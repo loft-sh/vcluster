@@ -131,6 +131,8 @@ syncer:
   annotations: {}
   priorityClassName: ""
   kubeConfigContextName: "my-vcluster"
+  # Security context configuration
+  securityContext: {}
 
 # Etcd settings
 etcd:

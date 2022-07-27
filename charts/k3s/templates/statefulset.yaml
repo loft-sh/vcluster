@@ -57,6 +57,12 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
+      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
+        - name: helm-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      {{- end }}
         - name: config
           emptyDir: {}
       {{- if .Values.volumes }}
@@ -230,6 +236,12 @@ spec:
                 fieldPath: spec.nodeName
           {{- end }}
         volumeMounts:
+        {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
+          - name: helm-cache
+            mountPath: /.cache/helm
+          - name: tmp
+            mountPath: /tmp
+        {{- end }}
         {{- if .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns
