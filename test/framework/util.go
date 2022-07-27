@@ -42,6 +42,25 @@ func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 	})
 }
 
+func (f *Framework) WaitForPodToComeUpWithReadinessConditions(podName string, ns string) error {
+	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
+		pod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, podName+"-x-"+ns+"-x-"+f.Suffix, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		if pod.Status.Phase != corev1.PodRunning {
+			return false, nil
+		}
+		if len(pod.Status.Conditions) < 5 {
+			return false, nil
+		}
+		return true, nil
+	})
+}
+
 func (f *Framework) WaitForPodToComeUpWithEphemeralContainers(podName string, ns string) error {
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		pod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, podName+"-x-"+ns+"-x-"+f.Suffix, metav1.GetOptions{})

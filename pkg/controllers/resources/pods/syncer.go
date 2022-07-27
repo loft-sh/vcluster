@@ -2,6 +2,7 @@ package pods
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"reflect"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -277,6 +277,16 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
+
+	// update readiness gates & sync status virtual -> physical
+	updated, err := UpdateConditions(ctx, strippedPod, vPod)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if updated {
+		return ctrl.Result{}, nil
+	}
+
+	// update status physical -> virtual
 	if !equality.Semantic.DeepEqual(vPod.Status, strippedPod.Status) {
 		newPod := vPod.DeepCopy()
 		newPod.Status = strippedPod.Status
@@ -309,7 +319,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		}
 
 		// add ephemeralContainers subresource to physical pod
-		err = AddEphemeralContainer(ctx, s.physicalClusterClient, pPod, vPod, ctx.Log)
+		err = AddEphemeralContainer(ctx, s.physicalClusterClient, pPod, vPod)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

@@ -110,6 +110,47 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		}
 	})
 
+	ginkgo.It("Test pod starts successfully and readiness conditions are synced back to vcluster pod resource", func() {
+		podName := "test"
+		_, err := f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName},
+			Spec: corev1.PodSpec{
+				ReadinessGates: []corev1.PodReadinessGate{
+					{ConditionType: "www.example.com/gate-1"},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPodRunning(podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		// get current status
+		vpod, err := f.VclusterClient.CoreV1().Pods(ns).Get(f.Context, podName, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		pod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, podName+"-x-"+ns+"-x-"+f.Suffix, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		framework.ExpectEqual(vpod.Status, pod.Status)
+
+		// check for conditions
+		vpod.Status.Conditions = append(vpod.Status.Conditions, corev1.PodCondition{Status: corev1.ConditionFalse, Type: "www.example.com/gate-1"})
+		// update conditions
+		vpod, err = f.VclusterClient.CoreV1().Pods(ns).UpdateStatus(f.Context, vpod, metav1.UpdateOptions{})
+		framework.ExpectNoError(err)
+		err = f.WaitForPodRunning(vpod.Name, vpod.Namespace)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+		err = f.WaitForPodToComeUpWithReadinessConditions(vpod.Name, vpod.Namespace)
+		framework.ExpectNoError(err, "Readiness Checks are expected to sync to physical pod")
+	})
+
 	ginkgo.It("Test pod starts successfully with a non-default service account", func() {
 		podName := "test"
 		saName := "test-account"
