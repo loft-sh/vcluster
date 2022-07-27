@@ -11,7 +11,7 @@ metadata:
     heritage: "{{ .Release.Service }}"
 rules:
   - apiGroups: [""]
-    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/ephemeralcontainers", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
+    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/status", "pods/ephemeralcontainers", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- if .Values.sync.endpoints.enabled }}
   - apiGroups: [""]

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +14,7 @@ import (
 )
 
 // AddEphemeralContainer runs an EphemeralContainer in the target Pod for use as a debug container
-func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient kubernetes.Interface, physicalPod *corev1.Pod, virtualPod *corev1.Pod, log loghelper.Logger) error {
+func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient kubernetes.Interface, physicalPod *corev1.Pod, virtualPod *corev1.Pod) error {
 	if len(virtualPod.Spec.EphemeralContainers) > 0 {
 		podJS, err := json.Marshal(physicalPod)
 		if err != nil {
@@ -25,7 +24,7 @@ func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient k
 		if err != nil {
 			return err
 		}
-		log.Debugf("new ephemeral container: %#v", debugContainer)
+		ctx.Log.Debugf("new ephemeral container: %#v", debugContainer)
 
 		debugJS, err := json.Marshal(debugPod)
 		if err != nil {
@@ -36,7 +35,7 @@ func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient k
 		if err != nil {
 			return fmt.Errorf("error creating patch to add debug container: %v", err)
 		}
-		log.Debugf("generated strategic merge patch for debug container: %s", patch)
+		ctx.Log.Debugf("generated strategic merge patch for debug container: %s", patch)
 
 		pods := physicalClusterClient.CoreV1().Pods(physicalPod.Namespace)
 		_, err = pods.Patch(ctx.Context, physicalPod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}, "ephemeralcontainers")
@@ -50,7 +49,7 @@ func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient k
 			// Kind the api server will respond with a not-registered error. When this happens we can optimistically try
 			// using the old API.
 			if runtime.IsNotRegisteredError(err) {
-				log.Infof("Falling back to legacy API because server returned error: %v", err)
+				ctx.Log.Infof("Falling back to legacy API because server returned error: %v", err)
 				return addEphemeralContainerLegacy(ctx, physicalClusterClient, physicalPod, debugContainer)
 			}
 			return err
