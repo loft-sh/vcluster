@@ -199,7 +199,6 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 
 	c.log.Info("execute command: helm " + strings.Join(args, " "))
 	output, err := cmd.CombinedOutput()
-	c.log.Info("DONE COMMAND")
 
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("error executing helm %s: %s operation timedout", string(output), command)
