@@ -66,7 +66,7 @@ export SONOBUOY_IMAGE_VERSION=v0.55.1
 export SONOBUOY_LOGS_IMAGE_VERSION=v0.4
 sonobuoy run \
   --mode=certified-conformance \
-  --kubernetes-version=v1.23.6 
+  --kubernetes-version=v1.23.6 \
   --sonobuoy-image=sonobuoy/sonobuoy:$SONOBUOY_IMAGE_VERSION \
   --systemd-logs-image=sonobuoy/systemd-logs:$SONOBUOY_LOGS_IMAGE_VERSION \
   --wait
