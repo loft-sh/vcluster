@@ -118,7 +118,7 @@ The Exists operator is written as - `key1:Effect`.
 And if you need to write a toleration with empty effect, here is an example for that - `key1=value1`, or just `key` if value is also empty.
 There is also a special case of a toleration that contains only operator Exists without effect or key, which would match every taint, and we express this as `*`.
 
-You can set the `--enforce-toleration` falgs as arguments for syncer in your `values.yaml`:
+You can set the `--enforce-toleration` flags as arguments for syncer in your `values.yaml`:
 ```
 syncer:
   extraArgs:
