@@ -89,7 +89,7 @@ We offer this feature to the community as a tech-preview to gather feedback and 
 #### Host prerequisites
 Vcluster relies fully on the volume snapshot capabilities of the host cluster, which has to fullfil certain criteria.
 
-Host cluster must have all relevant [snapshot CRDs](https://github.com/kubernetes-csi/external-snapshotter/tree/master/client/config/crd) installed, whitout which the vcluster will fail to start when volume snapshots sync is enabled.
+Host cluster must have all relevant [snapshot CRDs](https://github.com/kubernetes-csi/external-snapshotter/tree/master/client/config/crd) installed, without which the vcluster will fail to start when volume snapshots sync is enabled.
 
 Host cluster should have a common snapshot controller installed, as well as a compatible CSI driver. Without these the volume snapshots will not be created in the storage backend.
 
