@@ -87,7 +87,7 @@ Connect to a virtual cluster
 Example:
 vcluster connect test --namespace test
 # Open a new bash with the vcluster KUBECONFIG defined
-vcluster connect test -n test -- bash 
+vcluster connect test -n test -- bash
 vcluster connect test -n test -- kubectl get ns
 #######################################################
 	`,
@@ -573,10 +573,9 @@ func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string) 
 
 		return errors.Wrap(err, "error port-forwarding")
 	case err := <-commandErrChan:
-		if _, ok := err.(*exec.ExitError); ok {
-			// we ignore exit errors as the stderr was printed to the console already
-			// anyways
-			return nil
+		if exitError, ok := err.(*exec.ExitError); ok {
+			cmd.Log.Errorf("Error executing command: %v", err)
+			os.Exit(exitError.ExitCode())
 		}
 
 		return err
