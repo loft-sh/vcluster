@@ -573,8 +573,9 @@ func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string) 
 
 		return errors.Wrap(err, "error port-forwarding")
 	case err := <-commandErrChan:
-		if _, ok := err.(*exec.ExitError); ok {
-			return errors.Wrap(err, "error execute command")
+		if exitError, ok := err.(*exec.ExitError); ok {
+			cmd.Log.Errorf("Error executing command: %v", err)
+			os.Exit(exitError.ExitCode())
 		}
 
 		return err
