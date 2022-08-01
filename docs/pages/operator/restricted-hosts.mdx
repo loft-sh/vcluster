@@ -28,7 +28,7 @@ vcluster doesn't currently provide a migration path from an instance that was ru
 :::
 
 ## Running on OpenShift
-By default, OpenShift doesn't allow running containers with the root user, but it assings a random UID from the allowed range automatically, which means that you can skip the steps described in the [Running as non-root user](#running-as-non-root-user) section of this document and your vcluster should run as non-root user by default.
+By default, OpenShift doesn't allow running containers with the root user, but it assigns a random UID from the allowed range automatically, which means that you can skip the steps described in the [Running as non-root user](#running-as-non-root-user) section of this document and your vcluster should run as non-root user by default.
 
 OpenShift also imposes some restrictions that are not common to other Kubernetes distributions.  
 When deploying vcluster to OpenShift you will need to follow these additional steps:
