@@ -129,7 +129,7 @@ spec:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
           - name: config
-            mountPath: /etc
+            mountPath: /etc/rancher
 {{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
