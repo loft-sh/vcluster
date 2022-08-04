@@ -159,6 +159,9 @@ serviceAccount:
   create: true
   # Optional name of the service account to use
   # name: default
+  # Optional pull secrets
+  # imagePullSecrets:
+  #   - name: my-pull-secret
 
 # Roles & ClusterRoles for the vcluster
 rbac:
