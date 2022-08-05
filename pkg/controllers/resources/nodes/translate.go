@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
@@ -163,7 +164,8 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 					continue
 				}
 				if s.enableScheduler {
-					if pod.Namespace != ctx.TargetNamespace {
+					if !translate.IsManaged(&pod) {
+						// count pods that are not synced by this vcluster
 						nonVClusterPods++
 					}
 				}
