@@ -57,8 +57,10 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
+        {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
         - name: run-k0s
           emptyDir: {}
+        {{- end }}
         - name: k0s-config
           secret:
             secretName: vc-{{ .Release.Name }}-config
@@ -113,8 +115,10 @@ spec:
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
+          {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
           - name: run-k0s
             mountPath: /run/k0s
+          {{- end }}
 {{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
