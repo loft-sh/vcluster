@@ -11,8 +11,13 @@ metadata:
     heritage: "{{ .Release.Service }}"
 rules:
   - apiGroups: [""]
-    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/status", "pods/ephemeralcontainers", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
+    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/status", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- if ge (.Capabilities.KubeVersion.Minor | int) 23 }}
+  - apiGroups: [""]
+    resources: ["pods/ephemeralcontainers"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   {{- if .Values.sync.endpoints.enabled }}
   - apiGroups: [""]
     resources: ["endpoints"]
