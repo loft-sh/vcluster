@@ -172,28 +172,49 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 
 		cmd.Log.Donef("Switched active kube context to %s", cmd.KubeConfigContextName)
 		if cmd.portForwarding {
-			cmd.Log.Warnf("Since you are using port-forwarding to connect, you will need to leave this terminal open")
-			c := make(chan os.Signal, 1)
-			signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGTERM)
-			go func() {
-				<-c
-				kubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
-				if err == nil && kubeConfig.CurrentContext == cmd.KubeConfigContextName {
-					err = deleteContext(&kubeConfig, cmd.KubeConfigContextName, cmd.Context)
-					if err != nil {
-						cmd.Log.Errorf("Error deleting context: %v", err)
-					} else {
-						cmd.Log.Infof("Switched back to context %v", cmd.Context)
-					}
+			// check for token, clientKey and clientCertificate based clusters
+			var isClusterApplicable bool
+			for _, a := range kubeConfig.AuthInfos {
+				if !isClusterApplicable && (a.Token != "" ||
+					(a.ClientKey != "" && a.ClientCertificate != "") ||
+					(len(a.ClientKeyData) > 0 && len(a.ClientCertificateData) > 0)) {
+					isClusterApplicable = true
 				}
-				os.Exit(1)
-			}()
-
-			defer func() {
-				signal.Stop(c)
-			}()
-			cmd.Log.WriteString("- Use CTRL+C to return to your previous kube context\n")
-			cmd.Log.WriteString("- Use `kubectl get namespaces` in another terminal to access the vcluster\n")
+			}
+			// isClusterApplicable true means give one more try to create a proxy container in another k8s cluster
+			if isClusterApplicable && localkubernetes.IsDockerInstalledAndUpAndRunning() {
+				server, err := localkubernetes.CreatePortForwardingContainer(vclusterName, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
+				if err != nil {
+					cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
+				}
+				cmd.Server = server
+			}
+			if cmd.Server == "" {
+				cmd.Log.Warnf("Since you are using port-forwarding to connect, you will need to leave this terminal open")
+				c := make(chan os.Signal, 1)
+				signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGTERM)
+				go func() {
+					<-c
+					kubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
+					if err == nil && kubeConfig.CurrentContext == cmd.KubeConfigContextName {
+						err = deleteContext(&kubeConfig, cmd.KubeConfigContextName, cmd.Context)
+						if err != nil {
+							cmd.Log.Errorf("Error deleting context: %v", err)
+						} else {
+							cmd.Log.Infof("Switched back to context %v", cmd.Context)
+						}
+					}
+					os.Exit(1)
+				}()
+				defer func() {
+					signal.Stop(c)
+				}()
+				cmd.Log.WriteString("- Use CTRL+C to return to your previous kube context\n")
+				cmd.Log.WriteString("- Use `kubectl get namespaces` in another terminal to access the vcluster\n")
+			} else {
+				cmd.Log.WriteString("- Use `vcluster disconnect` to return to your previous kube context\n")
+				cmd.Log.WriteString("- Use `kubectl get namespaces` to access the vcluster\n")
+			}
 		} else {
 			cmd.Log.WriteString("- Use `vcluster disconnect` to return to your previous kube context\n")
 			cmd.Log.WriteString("- Use `kubectl get namespaces` to access the vcluster\n")

@@ -3,7 +3,9 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -245,6 +247,100 @@ func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *cli
 	}
 
 	return server, nil
+}
+
+func CreatePortForwardingContainer(vClusterName, vClusterNamespace string, rawConfig, vRawConfig *clientcmdapi.Config, localPort int, log log.Logger) (string, error) {
+	// write kube config to buffer
+	physicalCluster, err := clientcmd.Write(*rawConfig)
+	if err != nil {
+		return "", nil
+	}
+	// write a temporary kube file
+	tempFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return "", errors.Wrap(err, "create temp file")
+	}
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile.Name())
+	_, err = tempFile.Write(physicalCluster)
+	if err != nil {
+		return "", errors.Wrap(err, "write kube config to temp file")
+	}
+	err = tempFile.Close()
+	if err != nil {
+		return "", errors.Wrap(err, "close temp file")
+	}
+	kubeConfigPath := tempFile.Name()
+
+	remotePort := 8443
+	// construct proxy name
+	proxyName := find.VClusterConnectProxyName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
+
+	// check if the PortForward proxy container for this vcluster is running.
+	if containerExists(proxyName) {
+		_ = removePortForwardProxyContainer(proxyName, log)
+	}
+
+	// in general, we need to run this statement to expose the correct port for this
+	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config tukobadnyanoba/alpine-kubectl kubectl port-forward --kubeconfig=/root/.kube/config vcluster-0 -n vcluster 13300:8443
+	cmd := exec.Command(
+		"docker",
+		"run",
+		"-d",
+		"-v",
+		fmt.Sprintf("%v:%v", kubeConfigPath, kubeConfigPath),
+		fmt.Sprintf("--name=%s", proxyName),
+		fmt.Sprintf("--network=%s", "host"),
+		"tukobadnyanoba/alpine-kubectl:latest",
+		"kubectl",
+		"port-forward",
+		"--kubeconfig",
+		kubeConfigPath,
+		"pods/"+vClusterName+"-0",
+		"-n",
+		vClusterNamespace,
+		fmt.Sprintf("%v:%v", localPort, remotePort),
+	)
+	log.Infof("Starting PortForward proxy container...")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", errors.Errorf("error starting PortForward proxy : %s %v", string(out), err)
+	}
+	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
+	waitErr := wait.PollImmediate(time.Second, time.Second*60, func() (bool, error) {
+		err = testConnectionWithServer(vRawConfig, server)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+	if waitErr != nil {
+		return "", fmt.Errorf("test connection: %v %v", waitErr, err)
+	}
+	return server, nil
+}
+
+func IsDockerInstalledAndUpAndRunning() bool {
+	cmd := exec.Command(
+		"docker",
+		"ps",
+	)
+	_, err := cmd.Output()
+	return err == nil
+}
+
+func removePortForwardProxyContainer(proxyName string, log log.Logger) error {
+	cmd := exec.Command(
+		"docker",
+		"container",
+		"rm",
+		proxyName,
+		"-f",
+	)
+	log.Infof("removing existing PortForward proxy...")
+	_, _ = cmd.Output()
+	return nil
 }
 
 func testConnectionWithServer(vRawConfig *clientcmdapi.Config, server string) error {
