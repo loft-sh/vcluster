@@ -106,7 +106,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				string(vcluster.Status),
 				connected,
 				vcluster.Created.String(),
-				time.Since(vcluster.Created).Round(1 * time.Second).String(),
+				time.Since(vcluster.Created.Time).Round(1 * time.Second).String(),
 			})
 		}
 

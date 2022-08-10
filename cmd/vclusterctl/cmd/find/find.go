@@ -24,7 +24,7 @@ type VCluster struct {
 	Namespace string
 
 	Status        Status
-	Created       time.Time
+	Created       metav1.Time
 	Context       string
 	ClientFactory clientcmd.ClientConfig `json:"-"`
 }
@@ -187,7 +187,7 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 
 func getVCluster(object client.Object, context, release string, client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig) (VCluster, error) {
 	namespace := object.GetNamespace()
-	created := object.GetCreationTimestamp().Time
+	created := object.GetCreationTimestamp()
 	releaseName := ""
 	status := ""
 	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation] == "true" {

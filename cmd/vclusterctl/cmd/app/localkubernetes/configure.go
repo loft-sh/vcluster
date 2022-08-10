@@ -66,7 +66,7 @@ func CleanupLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 
 func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) != 1 {
-		return "", nil
+		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
 	// see if we already have a proxy container running
@@ -83,7 +83,7 @@ func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Co
 
 func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) != 1 {
-		return "", nil
+		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
 	// check if docker driver or vm
@@ -99,41 +99,42 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 
 		// create proxy container if missing
 		return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, minikubeName, minikubeName, log)
-	} else {
-		// in case other type of driver (e.g. VM on linux) is used
-		// check if the service is reacheable directly via the minikube IP
-		c := rawConfig.Contexts[rawConfig.CurrentContext]
-		if c != nil {
-			s := rawConfig.Clusters[c.Cluster]
-			if s != nil {
-				u, err := url.Parse(s.Server)
+	}
+
+	// in case other type of driver (e.g. VM on linux) is used
+	// check if the service is reacheable directly via the minikube IP
+	c := rawConfig.Contexts[rawConfig.CurrentContext]
+	if c != nil {
+		s := rawConfig.Clusters[c.Cluster]
+		if s != nil {
+			u, err := url.Parse(s.Server)
+			if err == nil {
+				splitted := strings.Split(u.Host, ":")
+				server := fmt.Sprintf("https://%s:%v", splitted[0], service.Spec.Ports[0].NodePort)
+
+				// workaround for the fact that vcluster certificate is not made valid for the node IPs
+				// but avoid modifying the passed config before the connection is tested
+				testvConfig := vRawConfig.DeepCopy()
+				for k := range testvConfig.Clusters {
+					testvConfig.Clusters[k].CertificateAuthorityData = nil
+					testvConfig.Clusters[k].InsecureSkipTLSVerify = true
+				}
+
+				err := testConnectionWithServer(testvConfig, server)
 				if err == nil {
-					splitted := strings.Split(u.Host, ":")
-					server := fmt.Sprintf("https://%s:%v", splitted[0], service.Spec.Ports[0].NodePort)
-
-					// workaround for the fact that vcluster certificate is not made valid for the node IPs
-					// but avoid modifying the passed config before the connection is tested
-					testvConfig := vRawConfig.DeepCopy()
-					for k := range testvConfig.Clusters {
-						testvConfig.Clusters[k].CertificateAuthorityData = nil
-						testvConfig.Clusters[k].InsecureSkipTLSVerify = true
+					// now it's safe to modify the vRawConfig struct that was passed in as a pointer
+					for k := range vRawConfig.Clusters {
+						vRawConfig.Clusters[k].CertificateAuthorityData = nil
+						vRawConfig.Clusters[k].InsecureSkipTLSVerify = true
 					}
 
-					err := testConnectionWithServer(testvConfig, server)
-					if err == nil {
-						// now it's safe to modify the vRawConfig struct that was passed in as a pointer
-						for k := range vRawConfig.Clusters {
-							vRawConfig.Clusters[k].CertificateAuthorityData = nil
-							vRawConfig.Clusters[k].InsecureSkipTLSVerify = true
-						}
-						return server, nil
-					}
+					return server, nil
 				}
 			}
 		}
-
-		return "", nil
 	}
+
+	return "", nil
 }
 
 func cleanupProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, log log.Logger) error {
@@ -153,7 +154,7 @@ func cleanupProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 
 func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) != 1 {
-		return "", nil
+		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
 	// see if we already have a proxy container running
@@ -171,7 +172,7 @@ func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.C
 
 func directConnection(vRawConfig *clientcmdapi.Config, service *corev1.Service) (string, error) {
 	if len(service.Spec.Ports) != 1 {
-		return "", nil
+		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
 	server := fmt.Sprintf("https://127.0.0.1:%v", service.Spec.Ports[0].NodePort)
