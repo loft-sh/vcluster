@@ -33,6 +33,8 @@ sync:
     enabled: true
   pods:
     enabled: true
+    ephemeralContainers: false
+    status: false
   events:
     enabled: true
   persistentvolumeclaims:
