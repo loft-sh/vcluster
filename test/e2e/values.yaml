@@ -18,6 +18,9 @@ init:
       timeout: '50s'
 
 sync:
-   nodes:
-     enabled: true
-     nodeSelector: "kubernetes.io/hostname=kind-control-plane"
+  pods:
+    ephemeralContainers: true
+    status: true
+  nodes:
+    enabled: true
+    nodeSelector: "kubernetes.io/hostname=kind-control-plane"

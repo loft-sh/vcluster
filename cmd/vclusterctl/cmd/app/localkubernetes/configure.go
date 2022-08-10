@@ -29,18 +29,20 @@ func (c ClusterType) LocalKubernetes() bool {
 }
 
 func ExposeLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
+	// Timeout to wait for connection before falling back to port-forwarding
+	timeout := time.Second * 30
 	clusterType := DetectClusterType(rawConfig)
 	switch clusterType {
 	case ClusterTypeDockerDesktop:
-		return directConnection(vRawConfig, service)
+		return directConnection(vRawConfig, service, timeout)
 	case ClusterTypeRancherDesktop:
-		return directConnection(vRawConfig, service)
+		return directConnection(vRawConfig, service, timeout)
 	case ClusterTypeKIND:
-		return kindProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, log)
+		return kindProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
 	case ClusterTypeMinikube:
-		return minikubeProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, log)
+		return minikubeProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
 	case ClusterTypeK3D:
-		return k3dProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, log)
+		return k3dProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
 	}
 
 	return "", nil
@@ -64,7 +66,7 @@ func CleanupLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 	return nil
 }
 
-func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
+func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) != 1 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
@@ -78,10 +80,10 @@ func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Co
 	}
 
 	k3dName := strings.TrimPrefix(rawConfig.CurrentContext, "k3d-")
-	return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, "k3d-"+k3dName+"-server-0", "k3d-"+k3dName, log)
+	return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, "k3d-"+k3dName+"-server-0", "k3d-"+k3dName, log)
 }
 
-func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
+func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) != 1 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
@@ -98,7 +100,7 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 		}
 
 		// create proxy container if missing
-		return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, minikubeName, minikubeName, log)
+		return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, minikubeName, minikubeName, log)
 	}
 
 	// in case other type of driver (e.g. VM on linux) is used
@@ -120,16 +122,26 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 					testvConfig.Clusters[k].InsecureSkipTLSVerify = true
 				}
 
-				err := testConnectionWithServer(testvConfig, server)
-				if err == nil {
-					// now it's safe to modify the vRawConfig struct that was passed in as a pointer
-					for k := range vRawConfig.Clusters {
-						vRawConfig.Clusters[k].CertificateAuthorityData = nil
-						vRawConfig.Clusters[k].InsecureSkipTLSVerify = true
+				// test local connection
+				waitErr := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+					err = testConnectionWithServer(testvConfig, server)
+					if err != nil {
+						return false, nil
 					}
 
-					return server, nil
+					return true, nil
+				})
+				if waitErr != nil {
+					return "", fmt.Errorf("test connection: %v %v", waitErr, err)
 				}
+
+				// now it's safe to modify the vRawConfig struct that was passed in as a pointer
+				for k := range vRawConfig.Clusters {
+					vRawConfig.Clusters[k].CertificateAuthorityData = nil
+					vRawConfig.Clusters[k].InsecureSkipTLSVerify = true
+				}
+
+				return server, nil
 			}
 		}
 	}
@@ -152,7 +164,7 @@ func cleanupProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 	return nil
 }
 
-func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
+func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) != 1 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
@@ -167,17 +179,17 @@ func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.C
 
 	// name is prefixed with kind- and suffixed with -control-plane
 	controlPlane := strings.TrimPrefix(rawConfig.CurrentContext, "kind-") + "-control-plane"
-	return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, controlPlane, "kind", log)
+	return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, controlPlane, "kind", log)
 }
 
-func directConnection(vRawConfig *clientcmdapi.Config, service *corev1.Service) (string, error) {
+func directConnection(vRawConfig *clientcmdapi.Config, service *corev1.Service, timeout time.Duration) (string, error) {
 	if len(service.Spec.Ports) != 1 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
 	server := fmt.Sprintf("https://127.0.0.1:%v", service.Spec.Ports[0].NodePort)
 	var err error
-	waitErr := wait.PollImmediate(time.Second, time.Second*20, func() (bool, error) {
+	waitErr := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 		err = testConnectionWithServer(vRawConfig, server)
 		if err != nil {
 			return false, nil
@@ -192,7 +204,7 @@ func directConnection(vRawConfig *clientcmdapi.Config, service *corev1.Service) 
 	return server, nil
 }
 
-func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, backendHost, network string, log log.Logger) (string, error) {
+func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, backendHost, network string, log log.Logger) (string, error) {
 	// construct proxy name
 	proxyName := find.VClusterContextName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
 
@@ -220,7 +232,7 @@ func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *cli
 	}
 
 	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
-	waitErr := wait.PollImmediate(time.Second, time.Second*30, func() (bool, error) {
+	waitErr := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 		err = testConnectionWithServer(vRawConfig, server)
 		if err != nil {
 			return false, nil
