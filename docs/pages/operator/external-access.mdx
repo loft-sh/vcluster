@@ -169,6 +169,7 @@ metadata:
   name: vcluster-ingress
   namespace: my-vcluster
 spec:
+  ingressClassName: nginx # use your ingress class name
   rules:
   - host: my-vcluster.example.com
     http:
@@ -233,6 +234,7 @@ metadata:
   name: vcluster-ingress
   namespace: my-vcluster
 spec:
+  ingressClassName: nginx # use your ingress class name
   rules:
   - host: my-vcluster.example.com
     http:
