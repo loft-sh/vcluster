@@ -3,7 +3,9 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -245,6 +247,98 @@ func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *cli
 	}
 
 	return server, nil
+}
+
+func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawConfig, vRawConfig *clientcmdapi.Config, localPort int, log log.Logger) (string, error) {
+	// write kube config to buffer
+	physicalCluster, err := clientcmd.Write(*rawConfig)
+	if err != nil {
+		return "", nil
+	}
+	// write a temporary kube file
+	tempFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return "", errors.Wrap(err, "create temp file")
+	}
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile.Name())
+	_, err = tempFile.Write(physicalCluster)
+	if err != nil {
+		return "", errors.Wrap(err, "write kube config to temp file")
+	}
+	err = tempFile.Close()
+	if err != nil {
+		return "", errors.Wrap(err, "close temp file")
+	}
+	kubeConfigPath := tempFile.Name()
+
+	// construct proxy name
+	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
+
+	// check if the background proxy container for this vcluster is running.
+	if containerExists(proxyName) {
+		_ = removeBackgroundProxyContainer(proxyName, log)
+	}
+
+	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config loftsh/vclusterctl-background-proxy vcluster connect vcluster -n vcluster --local-port 13300
+	cmd := exec.Command(
+		"docker",
+		"run",
+		"-d",
+		"-v",
+		fmt.Sprintf("%v:%v", kubeConfigPath, "/root/.kube/config"),
+		fmt.Sprintf("--name=%s", proxyName),
+		fmt.Sprintf("--network=%s", "host"),
+		// TODO
+		"tukobadnyanoba/vclusterctl-background-proxy:latest",
+		"vcluster",
+		"connect",
+		vClusterName,
+		"--local-port",
+		strconv.Itoa(localPort),
+		"-n",
+		vClusterNamespace,
+	)
+	log.Infof("Starting background proxy container...")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", errors.Errorf("error starting background proxy : %s %v", string(out), err)
+	}
+	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
+	waitErr := wait.PollImmediate(time.Second, time.Second*60, func() (bool, error) {
+		err = testConnectionWithServer(vRawConfig, server)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+	if waitErr != nil {
+		return "", fmt.Errorf("test connection: %v %v", waitErr, err)
+	}
+	return server, nil
+}
+
+func IsDockerInstalledAndUpAndRunning() bool {
+	cmd := exec.Command(
+		"docker",
+		"ps",
+	)
+	_, err := cmd.Output()
+	return err == nil
+}
+
+func removeBackgroundProxyContainer(proxyName string, log log.Logger) error {
+	cmd := exec.Command(
+		"docker",
+		"container",
+		"rm",
+		proxyName,
+		"-f",
+	)
+	log.Infof("removing existing background proxy...")
+	_, _ = cmd.Output()
+	return nil
 }
 
 func testConnectionWithServer(vRawConfig *clientcmdapi.Config, server string) error {

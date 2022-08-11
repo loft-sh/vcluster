@@ -46,6 +46,7 @@ type ConnectCmd struct {
 	PodName               string
 	UpdateCurrent         bool
 	Print                 bool
+	BackgroundProxy       bool
 	LocalPort             int
 	Address               string
 
@@ -112,6 +113,7 @@ vcluster connect test -n test -- kubectl get ns
 	cobraCmd.Flags().StringVar(&cmd.ServiceAccountClusterRole, "cluster-role", "", "If specified, vcluster will create the service account if it does not exist and also add a cluster role binding for the given cluster role to it. Requires --service-account to be set")
 	cobraCmd.Flags().IntVar(&cmd.ServiceAccountExpiration, "token-expiration", 0, "If specified, vcluster will create the service account token for the given duration in seconds. Defaults to eternal")
 	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If specified, vcluster will create the kube config with insecure-skip-tls-verify")
+	cobraCmd.Flags().BoolVar(&cmd.BackgroundProxy, "background-proxy", false, "If specified, vcluster will create the background proxy in docker [its mainly used for vclusters with no nodeport service.]")
 	return cobraCmd
 }
 
@@ -140,6 +142,16 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 	kubeConfig, err := cmd.getVClusterKubeConfig(vclusterName, command)
 	if err != nil {
 		return err
+	}
+
+	if cmd.BackgroundProxy && localkubernetes.IsDockerInstalledAndUpAndRunning() {
+		// start background container
+		server, err := localkubernetes.CreateBackgroundProxyContainer(vclusterName, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
+		if err != nil {
+			cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
+			cmd.BackgroundProxy = false
+		}
+		cmd.Server = server
 	}
 
 	// check if we should execute command
@@ -171,7 +183,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 		}
 
 		cmd.Log.Donef("Switched active kube context to %s", cmd.KubeConfigContextName)
-		if cmd.portForwarding {
+		if !cmd.BackgroundProxy && cmd.portForwarding {
 			cmd.Log.Warnf("Since you are using port-forwarding to connect, you will need to leave this terminal open")
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGTERM)
@@ -384,21 +396,23 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 
 	// start port forwarding
 	if cmd.ServiceAccount != "" || cmd.Server == "" || len(command) > 0 {
-		cmd.portForwarding = true
-		cmd.interruptChan = make(chan struct{})
-		cmd.errorChan = make(chan error)
+		if !cmd.BackgroundProxy {
+			cmd.portForwarding = true
+			cmd.interruptChan = make(chan struct{})
+			cmd.errorChan = make(chan error)
 
-		// silence port-forwarding if a command is used
-		stdout := io.Writer(os.Stdout)
-		stderr := io.Writer(os.Stderr)
-		if len(command) > 0 {
-			stdout = ioutil.Discard
-			stderr = ioutil.Discard
+			// silence port-forwarding if a command is used
+			stdout := io.Writer(os.Stdout)
+			stderr := io.Writer(os.Stderr)
+			if len(command) > 0 {
+				stdout = ioutil.Discard
+				stderr = ioutil.Discard
+			}
+
+			go func() {
+				cmd.errorChan <- portforward.StartPortForwardingWithRestart(cmd.restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.interruptChan, stdout, stderr, cmd.Log)
+			}()
 		}
-
-		go func() {
-			cmd.errorChan <- portforward.StartPortForwardingWithRestart(cmd.restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.interruptChan, stdout, stderr, cmd.Log)
-		}()
 	}
 
 	// we want to use a service account token in the kube config
