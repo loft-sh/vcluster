@@ -158,8 +158,10 @@ func CleanupBackgroundProxy(vClusterName, vClusterNamespace string, rawConfig *c
 	// check if background proxy container already exists
 	cmd := exec.Command(
 		"docker",
-		"stop",
+		"container",
+		"rm",
 		proxyName,
+		"-f",
 	)
 	log.Infof("Stopping background proxy...")
 	_, _ = cmd.Output()
