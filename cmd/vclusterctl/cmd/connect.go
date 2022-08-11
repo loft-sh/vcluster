@@ -183,7 +183,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 			}
 			// isClusterApplicable true means give one more try to create a proxy container in another k8s cluster
 			if isClusterApplicable && localkubernetes.IsDockerInstalledAndUpAndRunning() {
-				server, err := localkubernetes.CreatePortForwardingContainer(vclusterName, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
+				server, err := localkubernetes.CreateBackgroundProxyContainer(vclusterName, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
 				if err != nil {
 					cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
 				}

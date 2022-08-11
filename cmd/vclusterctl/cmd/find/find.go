@@ -99,8 +99,8 @@ func VClusterContextName(vClusterName string, vClusterNamespace string, currentC
 	return "vcluster_" + vClusterName + "_" + vClusterNamespace + "_" + currentContext
 }
 
-func VClusterConnectProxyName(vClusterName string, vClusterNamespace string, currentContext string) string {
-	return "vcluster_" + vClusterName + "_" + vClusterNamespace + "_" + currentContext + "_proxy"
+func VClusterConnectBackgroundProxyName(vClusterName string, vClusterNamespace string, currentContext string) string {
+	return VClusterContextName(vClusterName, vClusterNamespace, currentContext) + "_background_proxy"
 }
 
 func VClusterFromContext(originalContext string) (name string, namespace string, context string) {

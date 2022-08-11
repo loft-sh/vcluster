@@ -249,7 +249,7 @@ func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *cli
 	return server, nil
 }
 
-func CreatePortForwardingContainer(vClusterName, vClusterNamespace string, rawConfig, vRawConfig *clientcmdapi.Config, localPort int, log log.Logger) (string, error) {
+func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawConfig, vRawConfig *clientcmdapi.Config, localPort int, log log.Logger) (string, error) {
 	// write kube config to buffer
 	physicalCluster, err := clientcmd.Write(*rawConfig)
 	if err != nil {
@@ -275,11 +275,11 @@ func CreatePortForwardingContainer(vClusterName, vClusterNamespace string, rawCo
 
 	remotePort := 8443
 	// construct proxy name
-	proxyName := find.VClusterConnectProxyName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
+	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
 
-	// check if the PortForward proxy container for this vcluster is running.
+	// check if the background proxy container for this vcluster is running.
 	if containerExists(proxyName) {
-		_ = removePortForwardProxyContainer(proxyName, log)
+		_ = removeBackgroundProxyContainer(proxyName, log)
 	}
 
 	// in general, we need to run this statement to expose the correct port for this
@@ -302,10 +302,10 @@ func CreatePortForwardingContainer(vClusterName, vClusterNamespace string, rawCo
 		vClusterNamespace,
 		fmt.Sprintf("%v:%v", localPort, remotePort),
 	)
-	log.Infof("Starting PortForward proxy container...")
+	log.Infof("Starting background proxy container...")
 	out, err := cmd.Output()
 	if err != nil {
-		return "", errors.Errorf("error starting PortForward proxy : %s %v", string(out), err)
+		return "", errors.Errorf("error starting background proxy : %s %v", string(out), err)
 	}
 	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
 	waitErr := wait.PollImmediate(time.Second, time.Second*60, func() (bool, error) {
@@ -330,7 +330,7 @@ func IsDockerInstalledAndUpAndRunning() bool {
 	return err == nil
 }
 
-func removePortForwardProxyContainer(proxyName string, log log.Logger) error {
+func removeBackgroundProxyContainer(proxyName string, log log.Logger) error {
 	cmd := exec.Command(
 		"docker",
 		"container",
@@ -338,7 +338,7 @@ func removePortForwardProxyContainer(proxyName string, log log.Logger) error {
 		proxyName,
 		"-f",
 	)
-	log.Infof("removing existing PortForward proxy...")
+	log.Infof("removing existing background proxy...")
 	_, _ = cmd.Output()
 	return nil
 }
