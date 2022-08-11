@@ -151,6 +151,21 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 	return "", nil
 }
 
+func CleanupBackgroundProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, log log.Logger) error {
+	// construct proxy name
+	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
+
+	// check if background proxy container already exists
+	cmd := exec.Command(
+		"docker",
+		"stop",
+		proxyName,
+	)
+	log.Infof("Stopping background proxy...")
+	_, _ = cmd.Output()
+	return nil
+}
+
 func cleanupProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, log log.Logger) error {
 	// construct proxy name
 	proxyName := find.VClusterContextName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)

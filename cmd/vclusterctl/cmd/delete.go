@@ -90,7 +90,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if cmd.AutoDeleteNamespace {
 		namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.TODO(), cmd.Namespace, metav1.GetOptions{})
 		if err != nil {
-			cmd.log.Debugf("Error retrieving vcluster namspace: %v", err)
+			cmd.log.Debugf("error retrieving vcluster namespace: %v", err)
 		} else if namespace != nil && namespace.Annotations != nil && namespace.Annotations[CreatedByVClusterAnnotation] == "true" {
 			cmd.DeleteNamespace = true
 		}
@@ -120,6 +120,16 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		} else {
 			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, cmd.Namespace)
 		}
+	}
+
+	// check if there are any other vclusters in the namespace you are deleting vcluster in.
+	vClusters, err := find.ListVClusters(cmd.Context, "", cmd.Namespace)
+	if err != nil {
+		return err
+	}
+	if len(vClusters) > 1 {
+		// set to false if there are more than 1 virtual clusters in the same namespace
+		cmd.DeleteNamespace = false
 	}
 
 	// try to delete the namespace
@@ -167,6 +177,11 @@ func (cmd *DeleteCmd) prepare(vClusterName string) error {
 	err = localkubernetes.CleanupLocal(vClusterName, vCluster.Namespace, &rawConfig, cmd.log)
 	if err != nil {
 		cmd.log.Warnf("error cleaning up: %v", err)
+	}
+
+	err = localkubernetes.CleanupBackgroundProxy(vClusterName, vCluster.Namespace, &rawConfig, cmd.log)
+	if err != nil {
+		cmd.log.Warnf("error cleaning up background-proxy: %v", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
