@@ -223,6 +223,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+          {{- if eq (.Values.replicas | toString | atoi) 1 }}
+          - name: VCLUSTER_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          {{- end }}
         volumeMounts:
         {{- if .Values.coredns.enabled }}
           - name: coredns

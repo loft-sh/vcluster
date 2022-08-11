@@ -163,7 +163,15 @@ spec:
         securityContext:
 {{ toYaml .Values.syncer.securityContext | indent 10 }}
         env:
+        {{- if eq (.Values.syncer.replicas | toString | atoi) 1 }}
+          - name: VCLUSTER_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+        {{- end }}
+        {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
+        {{- end }}
         volumeMounts:
         {{- if .Values.coredns.enabled }}
           - name: coredns

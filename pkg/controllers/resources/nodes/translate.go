@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"os"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -93,6 +94,12 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	if !equality.Semantic.DeepEqual(vNode.Spec, *translatedSpec) {
 		updated = newIfNil(updated, vNode)
 		updated.Spec = *translatedSpec
+	}
+
+	// add annotation to prevent scale down of node by cluster-autoscaler
+	// the env var VCLUSTER_NODE_NAME is set when only one replica of vcluster is running
+	if nodeName, set := os.LookupEnv("VCLUSTER_NODE_NAME"); set && nodeName == pNode.Name {
+		annotations["cluster-autoscaler.kubernetes.io/scale-down-disabled"] = "true"
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Annotations, annotations) {
