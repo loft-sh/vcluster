@@ -90,7 +90,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if cmd.AutoDeleteNamespace {
 		namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.TODO(), cmd.Namespace, metav1.GetOptions{})
 		if err != nil {
-			cmd.log.Debugf("error retrieving vcluster namespace: %v", err)
+			cmd.log.Debugf("Error retrieving vcluster namspace: %v", err)
 		} else if namespace != nil && namespace.Annotations != nil && namespace.Annotations[CreatedByVClusterAnnotation] == "true" {
 			cmd.DeleteNamespace = true
 		}
@@ -179,10 +179,9 @@ func (cmd *DeleteCmd) prepare(vClusterName string) error {
 		cmd.log.Warnf("error cleaning up: %v", err)
 	}
 
-	err = localkubernetes.CleanupBackgroundProxy(vClusterName, vCluster.Namespace, &rawConfig, cmd.log)
-	if err != nil {
-		cmd.log.Warnf("error cleaning up background-proxy: %v", err)
-	}
+	// construct proxy name
+	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vCluster.Namespace, rawConfig.CurrentContext)
+	_ = localkubernetes.CleanupBackgroundProxy(proxyName, cmd.log)
 
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {

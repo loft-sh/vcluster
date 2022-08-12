@@ -3,6 +3,7 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -151,20 +152,20 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 	return "", nil
 }
 
-func CleanupBackgroundProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, log log.Logger) error {
-	// construct proxy name
-	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
-
+func CleanupBackgroundProxy(proxyName string, log log.Logger) error {
 	// check if background proxy container already exists
-	cmd := exec.Command(
-		"docker",
-		"container",
-		"rm",
-		proxyName,
-		"-f",
-	)
-	log.Infof("Stopping background proxy...")
-	_, _ = cmd.Output()
+	if containerExists(proxyName) {
+		// remove background proxy container
+		cmd := exec.Command(
+			"docker",
+			"container",
+			"rm",
+			proxyName,
+			"-f",
+		)
+		log.Infof("Stopping background proxy...")
+		_, _ = cmd.Output()
+	}
 	return nil
 }
 
@@ -293,12 +294,10 @@ func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawC
 	// construct proxy name
 	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
 
-	// check if the background proxy container for this vcluster is running.
-	if containerExists(proxyName) {
-		_ = removeBackgroundProxyContainer(proxyName, log)
-	}
+	// check if the background proxy container for this vcluster is running and then remove it.
+	_ = CleanupBackgroundProxy(proxyName, log)
 
-	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config loftsh/vclusterctl-background-proxy vcluster connect vcluster -n vcluster --local-port 13300
+	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config loftsh/vcluster-cli vcluster connect vcluster -n vcluster --local-port 13300
 	cmd := exec.Command(
 		"docker",
 		"run",
@@ -307,8 +306,7 @@ func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawC
 		fmt.Sprintf("%v:%v", kubeConfigPath, "/root/.kube/config"),
 		fmt.Sprintf("--name=%s", proxyName),
 		fmt.Sprintf("--network=%s", "host"),
-		// TODO
-		"tukobadnyanoba/vclusterctl-background-proxy:latest",
+		"loftsh/vcluster-cli"+upgrade.GetVersion(),
 		"vcluster",
 		"connect",
 		vClusterName,
@@ -343,19 +341,6 @@ func IsDockerInstalledAndUpAndRunning() bool {
 	)
 	_, err := cmd.Output()
 	return err == nil
-}
-
-func removeBackgroundProxyContainer(proxyName string, log log.Logger) error {
-	cmd := exec.Command(
-		"docker",
-		"container",
-		"rm",
-		proxyName,
-		"-f",
-	)
-	log.Infof("removing existing background proxy...")
-	_, _ = cmd.Output()
-	return nil
 }
 
 func testConnectionWithServer(vRawConfig *clientcmdapi.Config, server string) error {
