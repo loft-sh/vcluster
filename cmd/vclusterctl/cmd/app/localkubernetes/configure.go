@@ -406,9 +406,7 @@ func getServerFromExistingProxyContainer(vClusterName, vClusterNamespace string,
 		log.Debugf("Error running docker inspect with go template: %v", err)
 	}
 
-	// check if container exists
-	found := containerExists(proxyName)
-	if found {
+	if containerExists(proxyName) {
 		err := cleanupProxy(vClusterName, vClusterNamespace, rawConfig, log)
 		if err != nil {
 			return "", err

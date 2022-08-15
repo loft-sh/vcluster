@@ -144,7 +144,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 		return err
 	}
 
-	if cmd.BackgroundProxy && localkubernetes.IsDockerInstalledAndUpAndRunning() {
+	if len(command) == 0 && cmd.ServiceAccount == "" && cmd.Server == "" && cmd.BackgroundProxy && localkubernetes.IsDockerInstalledAndUpAndRunning() {
 		// start background container
 		server, err := localkubernetes.CreateBackgroundProxyContainer(vclusterName, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
 		if err != nil {
@@ -396,23 +396,21 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 
 	// start port forwarding
 	if cmd.ServiceAccount != "" || cmd.Server == "" || len(command) > 0 {
-		if !cmd.BackgroundProxy {
-			cmd.portForwarding = true
-			cmd.interruptChan = make(chan struct{})
-			cmd.errorChan = make(chan error)
+		cmd.portForwarding = true
+		cmd.interruptChan = make(chan struct{})
+		cmd.errorChan = make(chan error)
 
-			// silence port-forwarding if a command is used
-			stdout := io.Writer(os.Stdout)
-			stderr := io.Writer(os.Stderr)
-			if len(command) > 0 {
-				stdout = ioutil.Discard
-				stderr = ioutil.Discard
-			}
-
-			go func() {
-				cmd.errorChan <- portforward.StartPortForwardingWithRestart(cmd.restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.interruptChan, stdout, stderr, cmd.Log)
-			}()
+		// silence port-forwarding if a command is used
+		stdout := io.Writer(os.Stdout)
+		stderr := io.Writer(os.Stderr)
+		if len(command) > 0 || cmd.BackgroundProxy {
+			stdout = ioutil.Discard
+			stderr = ioutil.Discard
 		}
+
+		go func() {
+			cmd.errorChan <- portforward.StartPortForwardingWithRestart(cmd.restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.interruptChan, stdout, stderr, cmd.Log)
+		}()
 	}
 
 	// we want to use a service account token in the kube config

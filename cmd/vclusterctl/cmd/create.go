@@ -184,11 +184,6 @@ func (cmd *CreateCmd) Run(args []string) error {
 	// we have to upgrade / install the chart
 	err = cmd.deployChart(args[0], chartValues)
 	if err != nil {
-		//// this will prevent the user from letting him know about what went wrong.
-		//helmErr := helm.NewClient(&cmd.rawConfig, cmd.log).Delete(args[0], cmd.Namespace)
-		//if helmErr != nil {
-		//	return helmErr
-		//}
 		return err
 	}
 
