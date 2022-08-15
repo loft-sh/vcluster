@@ -122,6 +122,16 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// check if there are any other vclusters in the namespace you are deleting vcluster in.
+	vClusters, err := find.ListVClusters(cmd.Context, "", cmd.Namespace)
+	if err != nil {
+		return err
+	}
+	if len(vClusters) > 1 {
+		// set to false if there are more than 1 virtual clusters in the same namespace
+		cmd.DeleteNamespace = false
+	}
+
 	// try to delete the namespace
 	if cmd.DeleteNamespace {
 		client, err := kubernetes.NewForConfig(cmd.restConfig)
@@ -168,6 +178,10 @@ func (cmd *DeleteCmd) prepare(vClusterName string) error {
 	if err != nil {
 		cmd.log.Warnf("error cleaning up: %v", err)
 	}
+
+	// construct proxy name
+	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vCluster.Namespace, rawConfig.CurrentContext)
+	_ = localkubernetes.CleanupBackgroundProxy(proxyName, cmd.log)
 
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {

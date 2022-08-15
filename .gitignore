@@ -8,3 +8,4 @@ profile.out
 *.swp
 /vcluster
 /zzz
+/cmd/vclusterctl/__debug_bin

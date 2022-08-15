@@ -1,0 +1,31 @@
+FROM golang:1.18 as builder
+
+WORKDIR /vcluster-dev
+ARG TARGETOS
+ARG TARGETARCH
+
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+COPY vendor/ vendor/
+
+# Copy the go source
+COPY cmd/vclusterctl cmd/vclusterctl
+COPY pkg/ pkg/
+
+ENV GO111MODULE on
+ENV DEBUG true
+
+# create and set GOCACHE now, this should slightly speed up the first build inside of the container
+RUN mkdir -p /.cache
+ENV GOCACHE=/.cache
+
+# Build cmd
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -o /vcluster cmd/vclusterctl/main.go
+
+# we use alpine for easier debugging
+FROM alpine:3.16
+# Set home to "/" in order to for kubectl to automatically pick up vcluster kube config
+ENV KUBECONFIG=/root/.kube/config
+COPY --from=builder /vcluster /usr/local/bin/vcluster
+CMD /usr/local/bin/vcluster

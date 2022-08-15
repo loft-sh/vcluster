@@ -136,6 +136,16 @@ func (cmd *CreateCmd) Run(args []string) error {
 		return err
 	}
 
+	vclusterExistsInNamespace, err := cmd.vclusterExistsInNamespace()
+	if err != nil {
+		cmd.log.Errorf("error while listing clusters to check if the vcluster is already present in the namespace : %s", err)
+		return err
+	}
+	if vclusterExistsInNamespace {
+		cmd.log.Errorf("another vcluster is already present in %s namespace, please try another namespace.", cmd.Namespace)
+		return nil
+	}
+
 	// load the default values
 	chartOptions, err := cmd.ToChartOptions(kubernetesVersion)
 	if err != nil {
@@ -154,7 +164,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 		release, err := helm.NewSecrets(cmd.kubeClient).Get(context.Background(), args[0], cmd.Namespace)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get helm releases")
-		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") {
+		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") && release.Secret != nil && release.Secret.Labels != nil && release.Secret.Labels["status"] == "deployed" {
 			if cmd.Connect {
 				connectCmd := &ConnectCmd{
 					GlobalFlags:           cmd.GlobalFlags,
@@ -460,4 +470,17 @@ func (cmd *CreateCmd) getKubernetesVersion() (*version.Info, error) {
 	}
 
 	return kubernetesVersion, nil
+}
+
+func (cmd *CreateCmd) vclusterExistsInNamespace() (bool, error) {
+	vClusters, err := find.ListVClusters(cmd.Context, "", cmd.Namespace)
+	if err != nil {
+		return false, err
+	}
+	for _, cluster := range vClusters {
+		if cluster.Namespace == cmd.Namespace {
+			return true, nil
+		}
+	}
+	return false, nil
 }
