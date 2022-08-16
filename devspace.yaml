@@ -3,6 +3,8 @@ name: vcluster
 
 # Variables used
 vars:
+  # Make sure vcluster is the default namespace
+  DEVSPACE_FLAGS: "-n vcluster"
   SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
 
 # Images DevSpace will build for vcluster
@@ -151,6 +153,3 @@ pipelines:
       
       # Make sure the pvcs are deleted as well
       kubectl delete pvc --all -n ${DEVSPACE_NAMESPACE}
-
-commands:
-  dev: devspace dev -n vcluster "$@"
