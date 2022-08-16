@@ -26,19 +26,10 @@ Fork and clone the repo:
 - Click Fork button (top right) to establish a cloud-based fork.
 - git clone your-fork-url
 
-After cloning make sure the variable `SERVICE_CIDR` in the `devspace.yaml` fits your local clusters service cidr. You can find out the service cidr with:
-
-```
-kubectl create -f ./hack/wrong-cluster-ip-service.yaml 
-The Service "service-simple-service" is invalid: spec.clusterIPs: Invalid value: []string{"1.1.1.1"}: failed to allocated ip:1.1.1.1 with error:provided IP is not in the valid range. The range of valid IPs is 10.96.0.0/12
-```
-
-In this case the service cidr would be `10.96.0.0/12`. Please make also sure you use an adequate `K3S_IMAGE` version that matches your local cluster version.
-
 After adjusting the variables and you can run:
 
 ```
-devspace run dev
+devspace dev -n vcluster
 ```
 
 Which should produce an output similar to:
@@ -99,10 +90,10 @@ kube-node-lease   Active   2m18s
 root@vcluster-0:/vcluster#
 ```
 
-`kubectl` within the syncer container will point to the virtual cluster and you can access it from there. If you need to recreate the vcluster, delete the `vcluster` namespace and rerun `devspace run dev` again. 
+To access the virtual cluster, you can use the `vcluster connect` command locally as with any other virtual cluster.
 
 #### Debug vcluster with Delve
-If you wish to run vcluster in the debug mode with delve, run `devspace run dev` and wait until you see the command prompt (`root@vcluster-0:/vcluster#`).  
+If you wish to run vcluster in the debug mode with delve, run `devspace dev -n vcluster` and wait until you see the command prompt (`root@vcluster-0:/vcluster#`).  
 Run `dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags="-mod=vendor" -- --lease-duration=99999`  
 Wait until the `API server listening at: [::]:2345` message appears.  
 Start the `Debug vcluster (localhost:2346)` configuration in VSCode to connect your debugger session.  
