@@ -29,7 +29,7 @@ Fork and clone the repo:
 After adjusting the variables and you can run:
 
 ```
-devspace dev -n vcluster
+devspace dev
 ```
 
 Which should produce an output similar to:
