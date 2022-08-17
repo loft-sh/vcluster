@@ -257,9 +257,9 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		return nil, err
 	}
 
-	// we add an annotation if the pod has a replica set or statefulset owner
+	// add an owner-set-kind annotation to each pod with an owner
 	for _, ownerReference := range vPod.OwnerReferences {
-		if ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && (ownerReference.Kind == "StatefulSet" || ownerReference.Kind == "ReplicaSet" || ownerReference.Kind == "DaemonSet") {
+		if ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && canAnnotateOwnerSetKind(ownerReference.Kind) {
 			if pPod.Annotations == nil {
 				pPod.Annotations = map[string]string{}
 			}
@@ -294,6 +294,10 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 
 	return pPod, nil
+}
+
+func canAnnotateOwnerSetKind(kind string) bool {
+	return kind == "DaemonSet" || kind == "Job" || kind == "ReplicaSet" || kind == "StatefulSet"
 }
 
 func translateLabelsAnnotation(obj client.Object) string {
