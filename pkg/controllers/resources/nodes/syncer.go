@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +37,17 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 		}
 	}
 
+	// parse tolerations
+	var tolerations []*corev1.Toleration
+	if len(ctx.Options.Tolerations) > 0 {
+		for _, t := range ctx.Options.Tolerations {
+			tol, err := toleration.ParseToleration(t)
+			if err == nil {
+				tolerations = append(tolerations, &tol)
+			}
+		}
+	}
+
 	return &nodeSyncer{
 		enableScheduler: ctx.Options.EnableScheduler,
 
@@ -43,8 +55,9 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 		nodeSelector:        nodeSelector,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 
-		physicalClient: ctx.PhysicalManager.GetClient(),
-		virtualClient:  ctx.VirtualManager.GetClient(),
+		physicalClient:      ctx.PhysicalManager.GetClient(),
+		virtualClient:       ctx.VirtualManager.GetClient(),
+		enforcedTolerations: tolerations,
 	}, nil
 }
 
@@ -59,6 +72,7 @@ type nodeSyncer struct {
 
 	podCache            client.Reader
 	nodeServiceProvider nodeservice.NodeServiceProvider
+	enforcedTolerations []*corev1.Toleration
 }
 
 func (s *nodeSyncer) Resource() client.Object {

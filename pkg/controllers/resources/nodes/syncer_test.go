@@ -1,13 +1,14 @@
 package nodes
 
 import (
+	"testing"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -171,6 +172,110 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+	})
+
+	baseNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Spec: corev1.NodeSpec{
+			Taints: []corev1.Taint{
+				{
+					Key:    "key1",
+					Value:  "value1",
+					Effect: "NoSchedule",
+				},
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: nodeservice.KubeletPort,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+		},
+	}
+
+	editedNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Spec: corev1.NodeSpec{
+			Taints: nil,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: nodeservice.KubeletPort,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Taint matching Enforced Toleration",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{basePod, baseNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.Tolerations = []string{"key1=value1:NoSchedule"}
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Taint not matching Enforced Toleration",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{basePod, baseNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.Tolerations = []string{"key2=value2:NoSchedule"}
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Taint matching Enforced Toleration - special case of empty key with Exists operator",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{basePod, baseNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.Tolerations = []string{":NoSchedule op=Exists"}
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)

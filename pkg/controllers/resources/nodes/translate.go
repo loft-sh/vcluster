@@ -91,6 +91,11 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		labels, annotations = translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels)
 	}
 
+	// Omit those taints for which the vcluster has enforced tolerations defined
+	if len(s.enforcedTolerations) > 0 && len(translatedSpec.Taints) > 0 {
+		translatedSpec.Taints = s.filterOutTaintsMatchingTolerations(translatedSpec.Taints)
+	}
+
 	if !equality.Semantic.DeepEqual(vNode.Spec, *translatedSpec) {
 		updated = newIfNil(updated, vNode)
 		updated.Spec = *translatedSpec
@@ -287,4 +292,33 @@ func mergeResources(a corev1.ResourceList, b corev1.ResourceList) corev1.Resourc
 		return nil
 	}
 	return merged
+}
+
+func (s *nodeSyncer) filterOutTaintsMatchingTolerations(taints []corev1.Taint) []corev1.Taint {
+	var filtered []corev1.Taint
+
+nextTaint:
+	for _, taint := range taints {
+		for _, tol := range s.enforcedTolerations {
+			// Special case
+			// An empty key with operator Exists matches all keys,
+			// values and effects which means this will tolerate everything.
+			if tol.Key == "" && tol.Operator == corev1.TolerationOpExists {
+				return nil
+			}
+
+			if taint.Key == tol.Key && (taint.Effect == tol.Effect || tol.Effect == corev1.TaintEffect("")) {
+				if tol.Operator == corev1.TolerationOpExists ||
+					(tol.Operator == corev1.TolerationOpEqual && taint.Value == tol.Value) {
+					// taint matched the current toleration, skip to next taint
+					continue nextTaint
+				}
+			}
+		}
+
+		// taint did not match any enforced toleration, keep it
+		filtered = append(filtered, taint)
+	}
+
+	return filtered
 }
