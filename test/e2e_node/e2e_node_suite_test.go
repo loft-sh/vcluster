@@ -19,7 +19,17 @@ import (
 
 	// Enable cloud provider auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
 	// Register tests
+	_ "github.com/loft-sh/vcluster/test/e2e/coredns"
+	_ "github.com/loft-sh/vcluster/test/e2e/k8sdefaultendpoint"
+	_ "github.com/loft-sh/vcluster/test/e2e/manifests"
+	_ "github.com/loft-sh/vcluster/test/e2e/servicesync"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/networkpolicies"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pods"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pvc"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/services"
+	_ "github.com/loft-sh/vcluster/test/e2e/webhook"
 )
 
 var (
