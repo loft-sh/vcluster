@@ -134,7 +134,7 @@ syncer:
 
 # Etcd settings
 etcd:
-  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.4.16-eks-1-21-8
+  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.4-eks-1-23-4
   # The amount of replicas to run 
   replicas: 1
   # NodeSelector used
@@ -165,7 +165,7 @@ etcd:
 
 # Kubernetes Controller Manager settings
 controller:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.21.5-eks-1-21-8
+  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.23.7-eks-1-23-4
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used 
@@ -185,7 +185,7 @@ controller:
 
 # Kubernetes API Server settings
 api:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.21.5-eks-1-21-8
+  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.23.7-eks-1-23-4
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -207,7 +207,7 @@ api:
 
 # Core DNS settings
 coredns:
-  image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.4-eks-1-21-8
+  image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-23-4
   replicas: 1
   resources: ""
 # Service account that should be used by the vcluster
