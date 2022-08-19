@@ -110,7 +110,7 @@ var ExistingControllers = map[string]bool{
 	"fake-persistentvolumes": true,
 	"persistentvolumeclaims": true,
 	"ingresses":              true,
-	"ingressclasses":         true,
+	"ingressclasses":         false,
 	"nodes":                  true,
 	"persistentvolumes":      true,
 	"storageclasses":         true,
@@ -223,6 +223,14 @@ func parseControllers(options *VirtualClusterOptions) (map[string]bool, error) {
 	for k := range enabledControllers {
 		if disabledControllers[k] {
 			delete(enabledControllers, k)
+		}
+	}
+
+	// enable ingressclasses if ingress syncing is enabled
+	// and ingressclasses is not explicitly disabled
+	if _, ok := enabledControllers["ingresses"]; ok {
+		if _, ok = disabledControllers["ingressclasses"]; !ok {
+			enabledControllers["ingressclasses"] = true
 		}
 	}
 
