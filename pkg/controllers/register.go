@@ -16,6 +16,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -55,6 +56,7 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 	"events":                 newControllers(events.New),
 	"persistentvolumeclaims": newControllers(persistentvolumeclaims.New),
 	"ingresses":              newControllers(ingresses.New),
+	"ingressclasses":         newControllers(ingressclasses.New),
 	"storageclasses":         newControllers(storageclasses.New),
 	"legacy-storageclasses":  newControllers(storageclasses.NewLegacy),
 	"priorityclasses":        newControllers(priorityclasses.New),
