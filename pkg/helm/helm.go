@@ -87,7 +87,9 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	if err != nil {
 		return err
 	}
-	defer os.Remove(kubeConfig)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(kubeConfig)
 
 	args := []string{command, name}
 	if options.Path != "" {
@@ -131,13 +133,15 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 		// Write to temp file
 		_, err = tempFile.Write([]byte(options.Values))
 		if err != nil {
-			os.Remove(tempFile.Name())
+			_ = os.Remove(tempFile.Name())
 			return errors.Wrap(err, "write temp file")
 		}
 
 		// Close temp file
-		tempFile.Close()
-		defer os.Remove(tempFile.Name())
+		_ = tempFile.Close()
+		defer func(name string) {
+			_ = os.Remove(name)
+		}(tempFile.Name())
 
 		// Wait quickly so helm will find the file
 		time.Sleep(time.Millisecond)
@@ -215,7 +219,9 @@ func (c *client) Delete(name, namespace string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(kubeConfig)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(kubeConfig)
 
 	args := []string{"delete", name, "--namespace", namespace, "--kubeconfig", kubeConfig, "--repository-config=''"}
 
@@ -257,7 +263,9 @@ func (c *client) Status(ctx context.Context, name, namespace string) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	defer os.Remove(kubeConfig)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(kubeConfig)
 
 	args := []string{"status", name, "--namespace", namespace, "--kubeconfig", kubeConfig}
 	return exec.CommandContext(ctx, c.helmPath, args...).CombinedOutput()
@@ -279,12 +287,12 @@ func WriteKubeConfig(configRaw *clientcmdapi.Config) (string, error) {
 	// Write to temp file
 	_, err = tempFile.Write(data)
 	if err != nil {
-		os.Remove(tempFile.Name())
+		_ = os.Remove(tempFile.Name())
 		return "", errors.Wrap(err, "write temp file")
 	}
 
 	// Close temp file
-	tempFile.Close()
+	_ = tempFile.Close()
 
 	// Okay sometimes the file is written so quickly that helm somehow
 	// cannot read it immediately which causes errors
@@ -298,7 +306,7 @@ func WriteKubeConfig(configRaw *clientcmdapi.Config) (string, error) {
 				continue
 			}
 
-			os.Remove(tempFile.Name())
+			_ = os.Remove(tempFile.Name())
 			return "", err
 		}
 
