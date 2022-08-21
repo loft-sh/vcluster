@@ -9,6 +9,7 @@
           "type": "go",
           "request": "attach",
           "mode": "remote",
+          "debugAdapter": "dlv-dap", // already a default for local debug, it improves e.g. inspection of the maps of interfaces
           "port": 2346,
           "host": "localhost",
           "substitutePath": [
