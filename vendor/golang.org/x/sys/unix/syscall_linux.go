@@ -250,6 +250,13 @@ func Getwd() (wd string, err error) {
 	if n < 1 || n > len(buf) || buf[n-1] != 0 {
 		return "", EINVAL
 	}
+	// In some cases, Linux can return a path that starts with the
+	// "(unreachable)" prefix, which can potentially be a valid relative
+	// path. To work around that, return ENOENT if path is not absolute.
+	if buf[0] != '/' {
+		return "", ENOENT
+	}
+
 	return string(buf[0 : n-1]), nil
 }
 
@@ -358,6 +365,8 @@ func Wait4(pid int, wstatus *WaitStatus, options int, rusage *Rusage) (wpid int,
 	}
 	return
 }
+
+//sys	Waitid(idType int, id int, info *Siginfo, options int, rusage *Rusage) (err error)
 
 func Mkfifo(path string, mode uint32) error {
 	return Mknod(path, mode|S_IFIFO, 0)
@@ -1490,10 +1499,9 @@ func KeyctlRestrictKeyring(ringid int, keyType string, restriction string) error
 //sys	keyctlRestrictKeyringByType(cmd int, arg2 int, keyType string, restriction string) (err error) = SYS_KEYCTL
 //sys	keyctlRestrictKeyring(cmd int, arg2 int) (err error) = SYS_KEYCTL
 
-func Recvmsg(fd int, p, oob []byte, flags int) (n, oobn int, recvflags int, from Sockaddr, err error) {
+func recvmsgRaw(fd int, p, oob []byte, flags int, rsa *RawSockaddrAny) (n, oobn int, recvflags int, err error) {
 	var msg Msghdr
-	var rsa RawSockaddrAny
-	msg.Name = (*byte)(unsafe.Pointer(&rsa))
+	msg.Name = (*byte)(unsafe.Pointer(rsa))
 	msg.Namelen = uint32(SizeofSockaddrAny)
 	var iov Iovec
 	if len(p) > 0 {
@@ -1524,28 +1532,10 @@ func Recvmsg(fd int, p, oob []byte, flags int) (n, oobn int, recvflags int, from
 	}
 	oobn = int(msg.Controllen)
 	recvflags = int(msg.Flags)
-	// source address is only specified if the socket is unconnected
-	if rsa.Addr.Family != AF_UNSPEC {
-		from, err = anyToSockaddr(fd, &rsa)
-	}
 	return
 }
 
-func Sendmsg(fd int, p, oob []byte, to Sockaddr, flags int) (err error) {
-	_, err = SendmsgN(fd, p, oob, to, flags)
-	return
-}
-
-func SendmsgN(fd int, p, oob []byte, to Sockaddr, flags int) (n int, err error) {
-	var ptr unsafe.Pointer
-	var salen _Socklen
-	if to != nil {
-		var err error
-		ptr, salen, err = to.sockaddr()
-		if err != nil {
-			return 0, err
-		}
-	}
+func sendmsgN(fd int, p, oob []byte, ptr unsafe.Pointer, salen _Socklen, flags int) (n int, err error) {
 	var msg Msghdr
 	msg.Name = (*byte)(ptr)
 	msg.Namelen = uint32(salen)
@@ -1839,6 +1829,9 @@ func Dup2(oldfd, newfd int) error {
 //sys	Fremovexattr(fd int, attr string) (err error)
 //sys	Fsetxattr(fd int, attr string, dest []byte, flags int) (err error)
 //sys	Fsync(fd int) (err error)
+//sys	Fsmount(fd int, flags int, mountAttrs int) (fsfd int, err error)
+//sys	Fsopen(fsName string, flags int) (fd int, err error)
+//sys	Fspick(dirfd int, pathName string, flags int) (fd int, err error)
 //sys	Getdents(fd int, buf []byte) (n int, err error) = SYS_GETDENTS64
 //sysnb	Getpgid(pid int) (pgid int, err error)
 
@@ -1869,7 +1862,9 @@ func Getpgrp() (pid int) {
 //sys	MemfdCreate(name string, flags int) (fd int, err error)
 //sys	Mkdirat(dirfd int, path string, mode uint32) (err error)
 //sys	Mknodat(dirfd int, path string, mode uint32, dev int) (err error)
+//sys	MoveMount(fromDirfd int, fromPathName string, toDirfd int, toPathName string, flags int) (err error)
 //sys	Nanosleep(time *Timespec, leftover *Timespec) (err error)
+//sys	OpenTree(dfd int, fileName string, flags uint) (r int, err error)
 //sys	PerfEventOpen(attr *PerfEventAttr, pid int, cpu int, groupFd int, flags int) (fd int, err error)
 //sys	PivotRoot(newroot string, putold string) (err error) = SYS_PIVOT_ROOT
 //sysnb	Prlimit(pid int, resource int, newlimit *Rlimit, old *Rlimit) (err error) = SYS_PRLIMIT64
@@ -2194,7 +2189,7 @@ func Faccessat(dirfd int, path string, mode uint32, flags int) (err error) {
 			gid = Getgid()
 		}
 
-		if uint32(gid) == st.Gid || isGroupMember(gid) {
+		if uint32(gid) == st.Gid || isGroupMember(int(st.Gid)) {
 			fmode = (st.Mode >> 3) & 7
 		} else {
 			fmode = st.Mode & 7
@@ -2309,6 +2304,7 @@ type RemoteIovec struct {
 
 //sys	PidfdOpen(pid int, flags int) (fd int, err error) = SYS_PIDFD_OPEN
 //sys	PidfdGetfd(pidfd int, targetfd int, flags int) (fd int, err error) = SYS_PIDFD_GETFD
+//sys	PidfdSendSignal(pidfd int, sig Signal, info *Siginfo, flags int) (err error) = SYS_PIDFD_SEND_SIGNAL
 
 //sys	shmat(id int, addr uintptr, flag int) (ret uintptr, err error)
 //sys	shmctl(id int, cmd int, buf *SysvShmDesc) (result int, err error)
@@ -2457,5 +2453,4 @@ func Setitimer(which ItimerWhich, it Itimerval) (Itimerval, error) {
 // Vfork
 // Vhangup
 // Vserver
-// Waitid
 // _Sysctl

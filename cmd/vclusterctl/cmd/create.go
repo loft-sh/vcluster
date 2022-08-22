@@ -4,6 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
@@ -335,15 +340,15 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helm.Cha
 
 func (cmd *CreateCmd) prepare(vClusterName string) error {
 	// test for helm
-	helmExecutablePath, err := exec.LookPath("helm")
-	if err != nil {
-		return fmt.Errorf("seems like helm is not installed. Helm is required for the creation of a virtual cluster. Please visit https://helm.sh/docs/intro/install/ for install instructions")
-	}
-
-	output, err := exec.Command(helmExecutablePath, "version").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
-	}
+	//helmExecutablePath, err := exec.LookPath("helm")
+	//if err != nil {
+	//	return fmt.Errorf("seems like helm is not installed. Helm is required for the creation of a virtual cluster. Please visit https://helm.sh/docs/intro/install/ for install instructions")
+	//}
+	//
+	//output, err := exec.Command(helmExecutablePath, "version").CombinedOutput()
+	//if err != nil {
+	//	return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
+	//}
 
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{

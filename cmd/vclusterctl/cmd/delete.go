@@ -5,15 +5,13 @@ import (
 	"fmt"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"os/exec"
-
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -70,18 +68,18 @@ vcluster delete test --namespace test
 // Run executes the functionality
 func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// test for helm
-	_, err := exec.LookPath("helm")
-	if err != nil {
-		return fmt.Errorf("seems like helm is not installed. Helm is required for the deletion of a virtual cluster. Please visit https://helm.sh/docs/intro/install/ for install instructions")
-	}
-
-	output, err := exec.Command("helm", "version").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
-	}
+	//_, err := exec.LookPath("helm")
+	//if err != nil {
+	//	return fmt.Errorf("seems like helm is not installed. Helm is required for the deletion of a virtual cluster. Please visit https://helm.sh/docs/intro/install/ for install instructions")
+	//}
+	//
+	//output, err := exec.Command("helm", "version").CombinedOutput()
+	//if err != nil {
+	//	return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
+	//}
 
 	// prepare client
-	err = cmd.prepare(args[0])
+	err := cmd.prepare(args[0])
 	if err != nil {
 		return err
 	}

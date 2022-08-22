@@ -3,9 +3,7 @@ package helm
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -14,8 +12,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
-
-var CommandPath = "helm"
 
 // UpgradeOptions holds all the options for upgrading / installing a chart
 type UpgradeOptions struct {
@@ -52,17 +48,15 @@ type Client interface {
 }
 
 type client struct {
-	config   *clientcmdapi.Config
-	log      log.Logger
-	helmPath string
+	config *clientcmdapi.Config
+	log    log.Logger
 }
 
 // NewClient creates a new helm client from the given config
 func NewClient(config *clientcmdapi.Config, log log.Logger) Client {
 	return &client{
-		config:   config,
-		log:      log,
-		helmPath: CommandPath,
+		config: config,
+		log:    log,
 	}
 }
 
@@ -125,7 +119,7 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	// Values
 	if options.Values != "" {
 		// Create temp file
-		tempFile, err := ioutil.TempFile("", "")
+		tempFile, err := os.CreateTemp("", "")
 		if err != nil {
 			return errors.Wrap(err, "create temp file")
 		}
@@ -195,21 +189,21 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 		args = append(args, "--atomic")
 	}
 
-	cmd := exec.CommandContext(ctx, c.helmPath, args...)
-
-	if options.WorkDir != "" {
-		cmd.Dir = options.WorkDir
-	}
-
-	c.log.Info("execute command: helm " + strings.Join(args, " "))
-	output, err := cmd.CombinedOutput()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("error executing helm %s: %s operation timedout", string(output), command)
-	}
-	if err != nil {
-		return fmt.Errorf("error executing helm %s: %s", strings.Join(args, " "), string(output))
-	}
+	//cmd := exec.CommandContext(ctx, c.helmPath, args...)
+	//
+	//if options.WorkDir != "" {
+	//	cmd.Dir = options.WorkDir
+	//}
+	//
+	//c.log.Info("execute command: helm " + strings.Join(args, " "))
+	//output, err := cmd.CombinedOutput()
+	//
+	//if ctx.Err() == context.DeadlineExceeded {
+	//	return fmt.Errorf("error executing helm %s: %s operation timedout", string(output), command)
+	//}
+	//if err != nil {
+	//	return fmt.Errorf("error executing helm %s: %s", strings.Join(args, " "), string(output))
+	//}
 
 	return nil
 }
@@ -226,14 +220,14 @@ func (c *client) Delete(name, namespace string) error {
 	args := []string{"delete", name, "--namespace", namespace, "--kubeconfig", kubeConfig, "--repository-config=''"}
 
 	c.log.Debug("Delete helm chart with helm " + strings.Join(args, " "))
-	output, err := exec.Command(c.helmPath, args...).CombinedOutput()
-	if err != nil {
-		if strings.Contains(string(output), "release: not found") {
-			return fmt.Errorf("release '%s' was not found in namespace '%s'", name, namespace)
-		}
-
-		return fmt.Errorf("error executing helm delete: %s", string(output))
-	}
+	//output, err := exec.Command(c.helmPath, args...).CombinedOutput()
+	//if err != nil {
+	//	if strings.Contains(string(output), "release: not found") {
+	//		return fmt.Errorf("release '%s' was not found in namespace '%s'", name, namespace)
+	//	}
+	//
+	//	return fmt.Errorf("error executing helm delete: %s", string(output))
+	//}
 
 	return nil
 }
@@ -243,17 +237,20 @@ func (c *client) Exists(name, namespace string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer os.Remove(kubeConfig)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(kubeConfig)
 
 	args := []string{"status", name, "--namespace", namespace, "--kubeconfig", kubeConfig}
-	output, err := exec.Command(c.helmPath, args...).CombinedOutput()
-	if err != nil {
-		if strings.Contains(string(output), "release: not found") {
-			return false, nil
-		}
-
-		return false, fmt.Errorf("error executing helm status: %s", string(output))
-	}
+	fmt.Println(args)
+	//output, err := exec.Command(c.helmPath, args...).CombinedOutput()
+	//if err != nil {
+	//	if strings.Contains(string(output), "release: not found") {
+	//		return false, nil
+	//	}
+	//
+	//	return false, fmt.Errorf("error executing helm status: %s", string(output))
+	//}
 
 	return true, nil
 }
@@ -268,7 +265,9 @@ func (c *client) Status(ctx context.Context, name, namespace string) ([]byte, er
 	}(kubeConfig)
 
 	args := []string{"status", name, "--namespace", namespace, "--kubeconfig", kubeConfig}
-	return exec.CommandContext(ctx, c.helmPath, args...).CombinedOutput()
+	fmt.Println(args)
+	//return exec.CommandContext(ctx, c.helmPath, args...).CombinedOutput()
+	return nil, err
 }
 
 // WriteKubeConfig writes the kubeconfig to a file and returns the filename
@@ -279,7 +278,7 @@ func WriteKubeConfig(configRaw *clientcmdapi.Config) (string, error) {
 	}
 
 	// Create temp file
-	tempFile, err := ioutil.TempFile("", "")
+	tempFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return "", errors.Wrap(err, "create temp file")
 	}
