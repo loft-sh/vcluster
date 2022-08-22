@@ -78,9 +78,43 @@ jobs:
     outputs:
       matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
 
+  helm-chart-validation:
+    needs: [get-testsuites-dir]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        distribution: ["k3s", "k8s", "k0s", "eks"]
+        test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up kind k8s cluster
+        uses: engineerd/setup-kind@v0.5.0
+        with:
+          version: "v0.14.0"
+          image: kindest/node:v1.24.2
+      
+      - name: Testing kind cluster set-up
+        run: |
+            set -x
+            kubectl cluster-info
+            kubectl get pods -n kube-system
+            echo "kubectl config current-context:" $(kubectl config current-context)
+            echo "KUBECONFIG env var:" ${KUBECONFIG}
+      
+      - name: Dry run helm charts
+        run: |
+            set -x
+            helm install --dry-run --generate-name ./charts/${{ matrix.distribution }} \
+            -n ${{ env.VCLUSTER_NAMESPACE }} \
+            -f ./test/commonValues.yaml \
+            -f ${{ matrix.test-suite-path }}/values.yaml
+  
   e2e-tests:
     name: Execute test suites
-    needs: [build-and-push-syncer-image, build-vcluster-cli, get-testsuites-dir]
+    needs: [build-and-push-syncer-image, build-vcluster-cli, get-testsuites-dir, helm-chart-validation]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -122,7 +156,7 @@ jobs:
         
         sudo apt-get install -y sed
         
-        sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
+        sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" ./test/commonValues.yaml
         
         kind load image-archive vcluster_syncer
 
