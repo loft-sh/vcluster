@@ -75,7 +75,7 @@ func (cmd *DisconnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "switch kube context")
 	}
-
+	cmd.log.Infof("Successfully disconnected from vcluster %s", vClusterName)
 	return nil
 }
 
