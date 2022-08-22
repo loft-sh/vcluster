@@ -251,8 +251,7 @@ func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.Pe
 		} else if translate.IsManagedCluster(s.targetNamespace, pObj) {
 			return true, nil, nil
 		}
-
-		return false, nil, nil
+		return pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil
 	}
 
 	return true, vPvc, nil

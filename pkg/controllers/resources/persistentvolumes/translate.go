@@ -51,6 +51,7 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 
 	// build virtual persistent volume
 	translatedSpec := *pPv.Spec.DeepCopy()
+	isStorageClassCreatedOnVirtual, isClaimRefCreatedOnVirtual := false, false
 	if vPvc != nil {
 		translatedSpec.ClaimRef.ResourceVersion = vPvc.ResourceVersion
 		translatedSpec.ClaimRef.UID = vPvc.UID
@@ -59,18 +60,27 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 		if vPvc.Spec.StorageClassName != nil {
 			translatedSpec.StorageClassName = *vPvc.Spec.StorageClassName
 		}
+		// when the PVC gets deleted
+	} else {
+		// check if SC was created on virtual
+		storageClassPhysicalName := translateStorageClass(ctx.TargetNamespace, vPv.Spec.StorageClassName)
+		isStorageClassCreatedOnVirtual = equality.Semantic.DeepEqual(storageClassPhysicalName, translatedSpec.StorageClassName)
+
+		// check if claim was created on virtual
+		claimRefPhysicalName := translate.PhysicalName(vPv.Spec.ClaimRef.Name, vPv.Spec.ClaimRef.Namespace)
+		isClaimRefCreatedOnVirtual = equality.Semantic.DeepEqual(claimRefPhysicalName, translatedSpec.ClaimRef.Name)
 	}
 
-	// check storage class
+	// check storage class. Do not copy the name, if it was created on virtual.
 	if !translate.IsManagedCluster(ctx.TargetNamespace, pPv) {
-		if !equality.Semantic.DeepEqual(vPv.Spec.StorageClassName, translatedSpec.StorageClassName) {
+		if !equality.Semantic.DeepEqual(vPv.Spec.StorageClassName, translatedSpec.StorageClassName) && !isStorageClassCreatedOnVirtual {
 			updated = newIfNil(updated, vPv)
 			updated.Spec.StorageClassName = translatedSpec.StorageClassName
 		}
 	}
 
-	// check claim ref
-	if !equality.Semantic.DeepEqual(vPv.Spec.ClaimRef, translatedSpec.ClaimRef) {
+	// check claim ref. Do not copy, if it was created on virtual.
+	if !equality.Semantic.DeepEqual(vPv.Spec.ClaimRef, translatedSpec.ClaimRef) && !isClaimRefCreatedOnVirtual {
 		updated = newIfNil(updated, vPv)
 		updated.Spec.ClaimRef = translatedSpec.ClaimRef
 	}
