@@ -125,7 +125,6 @@ vcluster:
     - controller
     - --config=/etc/k0s/config.yaml
     - --data-dir=/data/k0s
-    - --status-socket=/data/k0s/status.sock
   # Extra arguments for k0s.
   extraArgs: []
   volumeMounts:
