@@ -1,8 +1,11 @@
 package log
 
 import (
+	"github.com/go-logr/logr"
+
 	"github.com/loft-sh/utils/pkg/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 )
 
 // Level type
@@ -38,4 +41,8 @@ type Logger interface {
 
 	Write(message []byte) (int, error)
 	WriteString(message string)
+
+	// Fulfill pkg/util/loghelper interface... :/
+	Base() logr.Logger
+	WithName(name string) loghelper.Logger
 }

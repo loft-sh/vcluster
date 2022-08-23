@@ -6,12 +6,14 @@ import (
 	"os"
 	"sync"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
-
+	"github.com/go-logr/logr"
 	goansi "github.com/k0kubun/go-ansi"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 )
 
 var stdout = goansi.NewAnsiStdout()
@@ -441,4 +443,15 @@ func (s *stdoutLogger) Question(params *survey.QuestionOptions) (string, error) 
 
 	s.WriteString("\n")
 	return s.survey.Question(params)
+}
+
+// Ensure vclusterctl logger fulfills pkg/util/loghelper interface for interchangeability
+// FIXME: centralize on a global logging module with customizability where needed
+
+func (s *stdoutLogger) Base() logr.Logger {
+	return logr.Logger{}
+}
+
+func (s *stdoutLogger) WithName(name string) loghelper.Logger {
+	return loghelper.New(name)
 }
