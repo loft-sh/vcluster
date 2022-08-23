@@ -97,6 +97,12 @@ spec:
           configMap:
             name: {{ .Release.Name }}-coredns
       {{- end }}
+      {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
+        - name: helm-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      {{- end }}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
       {{- end }}
@@ -205,6 +211,12 @@ spec:
 {{ toYaml .Values.syncer.env | indent 10 }}
         {{- end }}
         volumeMounts:
+        {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
+          - name: helm-cache
+            mountPath: /.cache/helm
+          - name: tmp
+            mountPath: /tmp
+        {{- end }}
         {{- if .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns

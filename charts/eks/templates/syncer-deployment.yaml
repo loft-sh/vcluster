@@ -57,6 +57,12 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
+      {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
+        - name: helm-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      {{- end }}
         - name: coredns
           configMap:
             name: custom-deployments
@@ -168,6 +174,12 @@ spec:
 {{ toYaml .Values.syncer.env | indent 10 }}
         {{- end }}
         volumeMounts:
+        {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
+          - name: helm-cache
+            mountPath: /.cache/helm
+          - name: tmp
+            mountPath: /tmp
+        {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}

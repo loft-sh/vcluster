@@ -57,10 +57,14 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
-        {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
+      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
+        - name: helm-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
         - name: run-k0s
           emptyDir: {}
-        {{- end }}
+      {{- end }}
         - name: k0s-config
           secret:
             secretName: vc-{{ .Release.Name }}-config
@@ -223,6 +227,12 @@ spec:
 {{ toYaml .Values.syncer.env | indent 10 }}
         {{- end }}
         volumeMounts:
+        {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
+          - name: helm-cache
+            mountPath: /.cache/helm
+          - name: tmp
+            mountPath: /tmp
+        {{- end }}
         {{- if .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns
