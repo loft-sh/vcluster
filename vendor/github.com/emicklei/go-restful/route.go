@@ -49,11 +49,15 @@ type Route struct {
 
 	//Overrides the container.contentEncodingEnabled
 	contentEncodingEnabled *bool
+
+	// indicate route path has custom verb
+	hasCustomVerb bool
 }
 
 // Initialize for Route
 func (r *Route) postBuild() {
 	r.pathParts = tokenizePath(r.Path)
+	r.hasCustomVerb = hasCustomVerb(r.Path)
 }
 
 // Create Request and Response from their http versions
@@ -65,17 +69,6 @@ func (r *Route) wrapRequestResponse(httpWriter http.ResponseWriter, httpRequest 
 	wrappedResponse.requestAccept = httpRequest.Header.Get(HEADER_Accept)
 	wrappedResponse.routeProduces = r.Produces
 	return wrappedRequest, wrappedResponse
-}
-
-// dispatchWithFilters call the function after passing through its own filters
-func (r *Route) dispatchWithFilters(wrappedRequest *Request, wrappedResponse *Response) {
-	if len(r.Filters) > 0 {
-		chain := FilterChain{Filters: r.Filters, Target: r.Function}
-		chain.ProcessFilter(wrappedRequest, wrappedResponse)
-	} else {
-		// unfiltered
-		r.Function(wrappedRequest, wrappedResponse)
-	}
 }
 
 func stringTrimSpaceCutset(r rune) bool {

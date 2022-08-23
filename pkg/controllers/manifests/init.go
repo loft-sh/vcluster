@@ -519,11 +519,10 @@ func (r *InitManifestsConfigMapReconciler) parseTimeout(chart Chart) time.Durati
 func (r *InitManifestsConfigMapReconciler) rollbackOrUninstall(ctx context.Context, chartName, namespace string) error {
 	output, err := r.HelmClient.Status(ctx, chartName, namespace)
 	if err != nil {
-		r.Log.Errorf("error getting helm status: %v", err)
+		r.Log.Errorf("error getting helm release status: %v", err)
 		return err
 	}
-
-	if strings.Contains(string(output), "pending-install") {
+	if strings.Contains(output.Info.Status.String(), "pending-install") {
 		r.Log.Errorf("release stuck in pending state, proceeding to uninstall")
 		err := r.HelmClient.Delete(chartName, namespace)
 		if err != nil {
