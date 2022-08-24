@@ -103,6 +103,74 @@ func TestSync(t *testing.T) {
 			Message: "someMessage",
 		},
 	}
+	backwardRetainPPv := &corev1.PersistentVolume{
+		ObjectMeta: basePvObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Name:      "retainPVC-x-test-x-suffix",
+				Namespace: "test",
+			},
+			StorageClassName: "vcluster-retainSC-x-test-x-suffix",
+		},
+		Status: corev1.PersistentVolumeStatus{
+			Phase: corev1.VolumeReleased,
+		},
+	}
+	backwardRetainInitialVPv := &corev1.PersistentVolume{
+		ObjectMeta: basePvObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Name:      "retainPVC",
+				Namespace: "test",
+			},
+			StorageClassName: "retainSC",
+		},
+		Status: corev1.PersistentVolumeStatus{
+			Phase: corev1.VolumeBound,
+		},
+	}
+	backwardRetainedVPv := &corev1.PersistentVolume{
+		ObjectMeta: basePvObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Name:      "retainPVC",
+				Namespace: "test",
+			},
+			StorageClassName: "retainSC",
+		},
+		Status: corev1.PersistentVolumeStatus{
+			Phase: corev1.VolumeReleased,
+		},
+	}
+	backwardDeletePPv := &corev1.PersistentVolume{
+		ObjectMeta: basePvObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			ClaimRef: &corev1.ObjectReference{
+				Name:      "deletedPVC",
+				Namespace: "test",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{
+			Phase: corev1.VolumeBound,
+		},
+	}
+	backwardDeleteVPv := &corev1.PersistentVolume{
+		ObjectMeta: basePvObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			ClaimRef: &corev1.ObjectReference{
+				Name:      "deletedPVC",
+				Namespace: "test",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{
+			Phase: corev1.VolumeBound,
+		},
+	}
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
@@ -288,6 +356,42 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 
 				_, err = syncer.Sync(syncContext, pPv, vPv)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Retain PV and update PV Status",
+			InitialVirtualState:  []runtime.Object{backwardRetainInitialVPv},
+			InitialPhysicalState: []runtime.Object{backwardRetainPPv},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {backwardRetainedVPv},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {backwardRetainPPv},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+				backwardRetainPPv := backwardRetainPPv.DeepCopy()
+				backwardRetainInitialVPv := backwardRetainInitialVPv.DeepCopy()
+				_, err := syncer.Sync(syncContext, backwardRetainPPv, backwardRetainInitialVPv)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Delete PV",
+			InitialVirtualState:  []runtime.Object{backwardDeleteVPv},
+			InitialPhysicalState: []runtime.Object{backwardDeletePPv},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {backwardDeletePPv},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+				backwardDeletePPv := backwardDeletePPv.DeepCopy()
+				backwardDeleteVPv := backwardDeleteVPv.DeepCopy()
+				_, err := syncer.Sync(syncContext, backwardDeletePPv, backwardDeleteVPv)
 				assert.NilError(t, err)
 			},
 		},
