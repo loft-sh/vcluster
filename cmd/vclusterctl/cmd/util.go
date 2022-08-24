@@ -2,23 +2,26 @@ package cmd
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/podprinter"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"math/rand"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/podprinter"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 // CriticalStatus container status
@@ -167,4 +170,13 @@ func checkPort(port int) (status bool, err error) {
 	// we successfully used and closed the port
 	// so it's now available to be used again
 	return true, nil
+}
+
+func getValidateArgsFunc(globalFlags *flags.GlobalFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) != 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		return listVClusterForCompletion(globalFlags)
+	}
 }

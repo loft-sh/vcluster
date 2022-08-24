@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -12,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 )
 
 // ResumeCmd holds the cmd flags
@@ -45,7 +46,8 @@ Example:
 vcluster resume test --namespace test
 #######################################################
 	`,
-		Args: cobra.ExactArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: getValidateArgsFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(args)
 		},

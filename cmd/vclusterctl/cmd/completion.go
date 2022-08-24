@@ -1,10 +1,17 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"os"
+	"time"
 
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const compDesc = `
@@ -116,4 +123,63 @@ func NewFishCommand() *cobra.Command {
 		},
 	}
 	return fishCmd
+}
+
+// listVClusterForCompletion fetches the list of all the available vclusters
+// for command autocompletion
+func listVClusterForCompletion(cmd *flags.GlobalFlags) ([]string, cobra.ShellCompDirective) {
+	if cmd.Context == "" {
+		rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		cmd.Context = rawConfig.CurrentContext
+	}
+
+	namespace := metav1.NamespaceAll
+	if cmd.Namespace != "" {
+		namespace = cmd.Namespace
+	}
+
+	vClusters, err := find.ListVClusters(cmd.Context, "", namespace)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	listClusters := []string{}
+	for _, v := range vClusters {
+		listClusters = append(listClusters, v.Name)
+	}
+	return listClusters, cobra.ShellCompDirectiveNoFileComp
+}
+
+// registerNamespaceCompletionFunc registers namespace autocompletion function.
+// which fetches and display all the namespaces based on current context.
+func registerNamespaceCompletionFunc(rootCmd *cobra.Command) {
+	_ = rootCmd.RegisterFlagCompletionFunc("namespace", listNamespacesForCompletion)
+}
+
+// listNamespacesForCompletion fetches all namespaces based on current context.
+// this function will be called automatically when user press <tab><tab>
+func listNamespacesForCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+	restConfig, err := kubeClientConfig.ClientConfig()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	namespacesStr := []string{}
+	for _, n := range namespaces.Items {
+		namespacesStr = append(namespacesStr, n.Name)
+	}
+	return namespacesStr, cobra.ShellCompDirectiveNoFileComp
 }

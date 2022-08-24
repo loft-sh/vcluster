@@ -53,7 +53,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags)
-
+	registerNamespaceCompletionFunc(rootCmd)
 	// Set version for --version flag
 	rootCmd.Version = upgrade.GetVersion()
 

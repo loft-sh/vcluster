@@ -29,8 +29,9 @@ func NewUpgradeCmd() *cobra.Command {
 #######################################################
 Upgrades the vcluster CLI to the newest version
 #######################################################`,
-		Args: cobra.NoArgs,
-		RunE: cmd.Run,
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: getValidateArgsFunc(globalFlags),
+		RunE:              cmd.Run,
 	}
 
 	upgradeCmd.Flags().StringVar(&cmd.Version, "version", "", "The version to update vcluster to. Defaults to the latest stable version available")
