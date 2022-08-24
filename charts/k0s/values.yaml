@@ -36,7 +36,7 @@ sync:
   persistentvolumeclaims:
     enabled: true
   ingresses:
-    enabled: true
+    enabled: false
   ingressclasses:
     enabled: false
   fake-nodes:

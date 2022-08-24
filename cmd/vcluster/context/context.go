@@ -110,7 +110,7 @@ var ExistingControllers = map[string]bool{
 	"fake-persistentvolumes": true,
 	"persistentvolumeclaims": true,
 	"ingresses":              true,
-	"ingressclasses":         false,
+	"ingressclasses":         true,
 	"nodes":                  true,
 	"persistentvolumes":      true,
 	"storageclasses":         true,
@@ -132,7 +132,6 @@ var DefaultEnabledControllers = []string{
 	"pods",
 	"events",
 	"persistentvolumeclaims",
-	"ingresses",
 	"fake-nodes",
 	"fake-persistentvolumes",
 }
