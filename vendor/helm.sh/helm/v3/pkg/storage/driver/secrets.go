@@ -17,6 +17,7 @@ limitations under the License.
 package driver // import "helm.sh/helm/v3/pkg/storage/driver"
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -44,7 +45,7 @@ type Secrets struct {
 	Log  func(string, ...interface{})
 }
 
-// NewSecrets initializes a new Secrets wrapping an implmenetation of
+// NewSecrets initializes a new Secrets wrapping an implementation of
 // the kubernetes SecretsInterface.
 func NewSecrets(impl corev1.SecretInterface) *Secrets {
 	return &Secrets{
@@ -62,7 +63,7 @@ func (secrets *Secrets) Name() string {
 // or error if not found.
 func (secrets *Secrets) Get(key string) (*rspb.Release, error) {
 	// fetch the secret holding the release named by key
-	obj, err := secrets.impl.Get(key, metav1.GetOptions{})
+	obj, err := secrets.impl.Get(context.Background(), key, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, ErrReleaseNotFound
@@ -81,7 +82,7 @@ func (secrets *Secrets) List(filter func(*rspb.Release) bool) ([]*rspb.Release, 
 	lsel := kblabels.Set{"owner": "helm"}.AsSelector()
 	opts := metav1.ListOptions{LabelSelector: lsel.String()}
 
-	list, err := secrets.impl.List(opts)
+	list, err := secrets.impl.List(context.Background(), opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "list: failed to list")
 	}
@@ -96,6 +97,9 @@ func (secrets *Secrets) List(filter func(*rspb.Release) bool) ([]*rspb.Release, 
 			secrets.Log("list: failed to decode release: %v: %s", item, err)
 			continue
 		}
+
+		rls.Labels = item.ObjectMeta.Labels
+
 		if filter(rls) {
 			results = append(results, rls)
 		}
@@ -116,7 +120,7 @@ func (secrets *Secrets) Query(labels map[string]string) ([]*rspb.Release, error)
 
 	opts := metav1.ListOptions{LabelSelector: ls.AsSelector().String()}
 
-	list, err := secrets.impl.List(opts)
+	list, err := secrets.impl.List(context.Background(), opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "query: failed to query with labels")
 	}
@@ -152,7 +156,7 @@ func (secrets *Secrets) Create(key string, rls *rspb.Release) error {
 		return errors.Wrapf(err, "create: failed to encode release %q", rls.Name)
 	}
 	// push the secret object out into the kubiverse
-	if _, err := secrets.impl.Create(obj); err != nil {
+	if _, err := secrets.impl.Create(context.Background(), obj, metav1.CreateOptions{}); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return ErrReleaseExists
 		}
@@ -177,7 +181,7 @@ func (secrets *Secrets) Update(key string, rls *rspb.Release) error {
 		return errors.Wrapf(err, "update: failed to encode release %q", rls.Name)
 	}
 	// push the secret object out into the kubiverse
-	_, err = secrets.impl.Update(obj)
+	_, err = secrets.impl.Update(context.Background(), obj, metav1.UpdateOptions{})
 	return errors.Wrap(err, "update: failed to update")
 }
 
@@ -185,27 +189,23 @@ func (secrets *Secrets) Update(key string, rls *rspb.Release) error {
 func (secrets *Secrets) Delete(key string) (rls *rspb.Release, err error) {
 	// fetch the release to check existence
 	if rls, err = secrets.Get(key); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, ErrReleaseExists
-		}
-
-		return nil, errors.Wrapf(err, "delete: failed to get release %q", key)
+		return nil, err
 	}
 	// delete the release
-	err = secrets.impl.Delete(key, &metav1.DeleteOptions{})
+	err = secrets.impl.Delete(context.Background(), key, metav1.DeleteOptions{})
 	return rls, err
 }
 
 // newSecretsObject constructs a kubernetes Secret object
 // to store a release. Each secret data entry is the base64
-// encoded string of a release's binary protobuf encoding.
+// encoded gzipped string of a release.
 //
 // The following labels are used within each secret:
 //
 //    "modifiedAt"    - timestamp indicating when this secret was last modified. (set in Update)
 //    "createdAt"     - timestamp indicating when this secret was created. (set in Create)
 //    "version"        - version of the release.
-//    "status"         - status of the release (see proto/hapi/release.status.pb.go for variants)
+//    "status"         - status of the release (see pkg/release/status.go for variants)
 //    "owner"          - owner of the secret, currently "helm".
 //    "name"           - name of the release.
 //

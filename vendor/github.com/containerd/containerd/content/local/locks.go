@@ -17,17 +17,22 @@
 package local
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/containerd/containerd/errdefs"
-	"github.com/pkg/errors"
 )
 
 // Handles locking references
 
+type lock struct {
+	since time.Time
+}
+
 var (
 	// locks lets us lock in process
-	locks   = map[string]struct{}{}
+	locks   = make(map[string]*lock)
 	locksMu sync.Mutex
 )
 
@@ -35,11 +40,17 @@ func tryLock(ref string) error {
 	locksMu.Lock()
 	defer locksMu.Unlock()
 
-	if _, ok := locks[ref]; ok {
-		return errors.Wrapf(errdefs.ErrUnavailable, "ref %s locked", ref)
+	if v, ok := locks[ref]; ok {
+		// Returning the duration may help developers distinguish dead locks (long duration) from
+		// lock contentions (short duration).
+		now := time.Now()
+		return fmt.Errorf(
+			"ref %s locked for %s (since %s): %w", ref, now.Sub(v.since), v.since,
+			errdefs.ErrUnavailable,
+		)
 	}
 
-	locks[ref] = struct{}{}
+	locks[ref] = &lock{time.Now()}
 	return nil
 }
 

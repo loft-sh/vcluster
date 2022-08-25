@@ -33,10 +33,13 @@ import (
 //
 // It provides the implementation of 'helm lint'.
 type Lint struct {
-	Strict    bool
-	Namespace string
+	Strict        bool
+	Namespace     string
+	WithSubcharts bool
+	Quiet         bool
 }
 
+// LintResult is the result of Lint
 type LintResult struct {
 	TotalChartsLinted int
 	Messages          []support.Message
@@ -73,11 +76,21 @@ func (l *Lint) Run(paths []string, vals map[string]interface{}) *LintResult {
 	return result
 }
 
+// HasWaringsOrErrors checks is LintResult has any warnings or errors
+func HasWarningsOrErrors(result *LintResult) bool {
+	for _, msg := range result.Messages {
+		if msg.Severity > support.InfoSev {
+			return true
+		}
+	}
+	return false
+}
+
 func lintChart(path string, vals map[string]interface{}, namespace string, strict bool) (support.Linter, error) {
 	var chartPath string
 	linter := support.Linter{}
 
-	if strings.HasSuffix(path, ".tgz") {
+	if strings.HasSuffix(path, ".tgz") || strings.HasSuffix(path, ".tar.gz") {
 		tempDir, err := ioutil.TempDir("", "helm-lint")
 		if err != nil {
 			return linter, errors.Wrap(err, "unable to create temp dir to extract tarball")
@@ -94,7 +107,7 @@ func lintChart(path string, vals map[string]interface{}, namespace string, stric
 			return linter, errors.Wrap(err, "unable to extract tarball")
 		}
 
-		files, err := ioutil.ReadDir(tempDir)
+		files, err := os.ReadDir(tempDir)
 		if err != nil {
 			return linter, errors.Wrapf(err, "unable to read temporary output directory %s", tempDir)
 		}

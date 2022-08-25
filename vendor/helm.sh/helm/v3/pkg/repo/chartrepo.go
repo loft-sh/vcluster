@@ -19,8 +19,10 @@ package repo // import "helm.sh/helm/v3/pkg/repo"
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/url"
 	"os"
 	"path"
@@ -38,13 +40,15 @@ import (
 
 // Entry represents a collection of parameters for chart repository
 type Entry struct {
-	Name     string `json:"name"`
-	URL      string `json:"url"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	CertFile string `json:"certFile"`
-	KeyFile  string `json:"keyFile"`
-	CAFile   string `json:"caFile"`
+	Name                  string `json:"name"`
+	URL                   string `json:"url"`
+	Username              string `json:"username"`
+	Password              string `json:"password"`
+	CertFile              string `json:"certFile"`
+	KeyFile               string `json:"keyFile"`
+	CAFile                string `json:"caFile"`
+	InsecureSkipTLSverify bool   `json:"insecure_skip_tls_verify"`
+	PassCredentialsAll    bool   `json:"pass_credentials_all"`
 }
 
 // ChartRepository represents a chart repository
@@ -79,6 +83,8 @@ func NewChartRepository(cfg *Entry, getters getter.Providers) (*ChartRepository,
 // Load loads a directory of charts as if it were a repository.
 //
 // It requires the presence of an index.yaml file in the directory.
+//
+// Deprecated: remove in Helm 4.
 func (r *ChartRepository) Load() error {
 	dirInfo, err := os.Stat(r.Config.Name)
 	if err != nil {
@@ -96,7 +102,7 @@ func (r *ChartRepository) Load() error {
 			if strings.Contains(f.Name(), "-index.yaml") {
 				i, err := LoadIndexFile(path)
 				if err != nil {
-					return nil
+					return err
 				}
 				r.IndexFile = i
 			} else if strings.HasSuffix(f.Name(), ".tgz") {
@@ -121,8 +127,10 @@ func (r *ChartRepository) DownloadIndexFile() (string, error) {
 	// TODO add user-agent
 	resp, err := r.Client.Get(indexURL,
 		getter.WithURL(r.Config.URL),
+		getter.WithInsecureSkipVerifyTLS(r.Config.InsecureSkipTLSverify),
 		getter.WithTLSClientConfig(r.Config.CertFile, r.Config.KeyFile, r.Config.CAFile),
 		getter.WithBasicAuth(r.Config.Username, r.Config.Password),
+		getter.WithPassCredentialsAll(r.Config.PassCredentialsAll),
 	)
 	if err != nil {
 		return "", err
@@ -133,10 +141,21 @@ func (r *ChartRepository) DownloadIndexFile() (string, error) {
 		return "", err
 	}
 
-	if _, err := loadIndex(index); err != nil {
+	indexFile, err := loadIndex(index, r.Config.URL)
+	if err != nil {
 		return "", err
 	}
 
+	// Create the chart list file in the cache directory
+	var charts strings.Builder
+	for name := range indexFile.Entries {
+		fmt.Fprintln(&charts, name)
+	}
+	chartsFile := filepath.Join(r.CachePath, helmpath.CacheChartsFile(r.Config.Name))
+	os.MkdirAll(filepath.Dir(chartsFile), 0755)
+	ioutil.WriteFile(chartsFile, []byte(charts.String()), 0644)
+
+	// Create the index file in the cache directory
 	fname := filepath.Join(r.CachePath, helmpath.CacheIndexFile(r.Config.Name))
 	os.MkdirAll(filepath.Dir(fname), 0755)
 	return fname, ioutil.WriteFile(fname, index, 0644)
@@ -172,7 +191,9 @@ func (r *ChartRepository) generateIndex() error {
 		}
 
 		if !r.IndexFile.Has(ch.Name(), ch.Metadata.Version) {
-			r.IndexFile.Add(ch.Metadata, path, r.Config.URL, digest)
+			if err := r.IndexFile.MustAdd(ch.Metadata, path, r.Config.URL, digest); err != nil {
+				return errors.Wrapf(err, "failed adding to %s to index", path)
+			}
 		}
 		// TODO: If a chart exists, but has a different Digest, should we error?
 	}
@@ -190,6 +211,23 @@ func FindChartInRepoURL(repoURL, chartName, chartVersion, certFile, keyFile, caF
 // without adding repo to repositories, like FindChartInRepoURL,
 // but it also receives credentials for the chart repository.
 func FindChartInAuthRepoURL(repoURL, username, password, chartName, chartVersion, certFile, keyFile, caFile string, getters getter.Providers) (string, error) {
+	return FindChartInAuthAndTLSRepoURL(repoURL, username, password, chartName, chartVersion, certFile, keyFile, caFile, false, getters)
+}
+
+// FindChartInAuthAndTLSRepoURL finds chart in chart repository pointed by repoURL
+// without adding repo to repositories, like FindChartInRepoURL,
+// but it also receives credentials and TLS verify flag for the chart repository.
+// TODO Helm 4, FindChartInAuthAndTLSRepoURL should be integrated into FindChartInAuthRepoURL.
+func FindChartInAuthAndTLSRepoURL(repoURL, username, password, chartName, chartVersion, certFile, keyFile, caFile string, insecureSkipTLSverify bool, getters getter.Providers) (string, error) {
+	return FindChartInAuthAndTLSAndPassRepoURL(repoURL, username, password, chartName, chartVersion, certFile, keyFile, caFile, false, false, getters)
+}
+
+// FindChartInAuthAndTLSAndPassRepoURL finds chart in chart repository pointed by repoURL
+// without adding repo to repositories, like FindChartInRepoURL,
+// but it also receives credentials, TLS verify flag, and if credentials should
+// be passed on to other domains.
+// TODO Helm 4, FindChartInAuthAndTLSAndPassRepoURL should be integrated into FindChartInAuthRepoURL.
+func FindChartInAuthAndTLSAndPassRepoURL(repoURL, username, password, chartName, chartVersion, certFile, keyFile, caFile string, insecureSkipTLSverify, passCredentialsAll bool, getters getter.Providers) (string, error) {
 
 	// Download and write the index file to a temporary location
 	buf := make([]byte, 20)
@@ -197,13 +235,15 @@ func FindChartInAuthRepoURL(repoURL, username, password, chartName, chartVersion
 	name := strings.ReplaceAll(base64.StdEncoding.EncodeToString(buf), "/", "-")
 
 	c := Entry{
-		URL:      repoURL,
-		Username: username,
-		Password: password,
-		CertFile: certFile,
-		KeyFile:  keyFile,
-		CAFile:   caFile,
-		Name:     name,
+		URL:                   repoURL,
+		Username:              username,
+		Password:              password,
+		PassCredentialsAll:    passCredentialsAll,
+		CertFile:              certFile,
+		KeyFile:               keyFile,
+		CAFile:                caFile,
+		Name:                  name,
+		InsecureSkipTLSverify: insecureSkipTLSverify,
 	}
 	r, err := NewChartRepository(&c, getters)
 	if err != nil {
@@ -246,7 +286,8 @@ func FindChartInAuthRepoURL(repoURL, username, password, chartName, chartVersion
 // ResolveReferenceURL resolves refURL relative to baseURL.
 // If refURL is absolute, it simply returns refURL.
 func ResolveReferenceURL(baseURL, refURL string) (string, error) {
-	parsedBaseURL, err := url.Parse(baseURL)
+	// We need a trailing slash for ResolveReference to work, but make sure there isn't already one
+	parsedBaseURL, err := url.Parse(strings.TrimSuffix(baseURL, "/") + "/")
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse %s as URL", baseURL)
 	}
@@ -256,7 +297,13 @@ func ResolveReferenceURL(baseURL, refURL string) (string, error) {
 		return "", errors.Wrapf(err, "failed to parse %s as URL", refURL)
 	}
 
-	// We need a trailing slash for ResolveReference to work, but make sure there isn't already one
-	parsedBaseURL.Path = strings.TrimSuffix(parsedBaseURL.Path, "/") + "/"
 	return parsedBaseURL.ResolveReference(parsedRefURL).String(), nil
+}
+
+func (e *Entry) String() string {
+	buf, err := json.Marshal(e)
+	if err != nil {
+		log.Panic(err)
+	}
+	return string(buf)
 }

@@ -18,13 +18,14 @@ package images
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
@@ -32,13 +33,17 @@ import (
 var (
 	// ErrSkipDesc is used to skip processing of a descriptor and
 	// its descendants.
-	ErrSkipDesc = fmt.Errorf("skip descriptor")
+	ErrSkipDesc = errors.New("skip descriptor")
 
 	// ErrStopHandler is used to signify that the descriptor
 	// has been handled and should not be handled further.
 	// This applies only to a single descriptor in a handler
 	// chain and does not apply to descendant descriptors.
-	ErrStopHandler = fmt.Errorf("stop handler")
+	ErrStopHandler = errors.New("stop handler")
+
+	// ErrEmptyWalk is used when the WalkNotEmpty handlers return no
+	// children (e.g.: they were filtered out).
+	ErrEmptyWalk = errors.New("image might be filtered out")
 )
 
 // Handler handles image manifests
@@ -63,7 +68,7 @@ func Handlers(handlers ...Handler) HandlerFunc {
 		for _, handler := range handlers {
 			ch, err := handler.Handle(ctx, desc)
 			if err != nil {
-				if errors.Cause(err) == ErrStopHandler {
+				if errors.Is(err, ErrStopHandler) {
 					break
 				}
 				return nil, err
@@ -86,7 +91,7 @@ func Walk(ctx context.Context, handler Handler, descs ...ocispec.Descriptor) err
 
 		children, err := handler.Handle(ctx, desc)
 		if err != nil {
-			if errors.Cause(err) == ErrSkipDesc {
+			if errors.Is(err, ErrSkipDesc) {
 				continue // don't traverse the children.
 			}
 			return err
@@ -97,6 +102,36 @@ func Walk(ctx context.Context, handler Handler, descs ...ocispec.Descriptor) err
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+// WalkNotEmpty works the same way Walk does, with the exception that it ensures that
+// some children are still found by Walking the descriptors (for example, not all of
+// them have been filtered out by one of the handlers). If there are no children,
+// then an ErrEmptyWalk error is returned.
+func WalkNotEmpty(ctx context.Context, handler Handler, descs ...ocispec.Descriptor) error {
+	isEmpty := true
+	var notEmptyHandler HandlerFunc = func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+		children, err := handler.Handle(ctx, desc)
+		if err != nil {
+			return children, err
+		}
+
+		if len(children) > 0 {
+			isEmpty = false
+		}
+
+		return children, nil
+	}
+
+	err := Walk(ctx, notEmptyHandler, descs...)
+	if err != nil {
+		return err
+	}
+
+	if isEmpty {
+		return ErrEmptyWalk
 	}
 
 	return nil
@@ -135,7 +170,7 @@ func Dispatch(ctx context.Context, handler Handler, limiter *semaphore.Weighted,
 				limiter.Release(1)
 			}
 			if err != nil {
-				if errors.Cause(err) == ErrSkipDesc {
+				if errors.Is(err, ErrSkipDesc) {
 					return nil // don't traverse the children.
 				}
 				return err
@@ -169,6 +204,19 @@ func ChildrenHandler(provider content.Provider) HandlerFunc {
 // the children returned by the handler and passes through the children.
 // Must follow a handler that returns the children to be labeled.
 func SetChildrenLabels(manager content.Manager, f HandlerFunc) HandlerFunc {
+	return SetChildrenMappedLabels(manager, f, nil)
+}
+
+// SetChildrenMappedLabels is a handler wrapper which sets labels for the content on
+// the children returned by the handler and passes through the children.
+// Must follow a handler that returns the children to be labeled.
+// The label map allows the caller to control the labels per child descriptor.
+// For returned labels, the index of the child will be appended to the end
+// except for the first index when the returned label does not end with '.'.
+func SetChildrenMappedLabels(manager content.Manager, f HandlerFunc, labelMap func(ocispec.Descriptor) []string) HandlerFunc {
+	if labelMap == nil {
+		labelMap = ChildGCLabels
+	}
 	return func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 		children, err := f(ctx, desc)
 		if err != nil {
@@ -176,14 +224,26 @@ func SetChildrenLabels(manager content.Manager, f HandlerFunc) HandlerFunc {
 		}
 
 		if len(children) > 0 {
-			info := content.Info{
-				Digest: desc.Digest,
-				Labels: map[string]string{},
-			}
-			fields := []string{}
-			for i, ch := range children {
-				info.Labels[fmt.Sprintf("containerd.io/gc.ref.content.%d", i)] = ch.Digest.String()
-				fields = append(fields, fmt.Sprintf("labels.containerd.io/gc.ref.content.%d", i))
+			var (
+				info = content.Info{
+					Digest: desc.Digest,
+					Labels: map[string]string{},
+				}
+				fields = []string{}
+				keys   = map[string]uint{}
+			)
+			for _, ch := range children {
+				labelKeys := labelMap(ch)
+				for _, key := range labelKeys {
+					idx := keys[key]
+					keys[key] = idx + 1
+					if idx > 0 || key[len(key)-1] == '.' {
+						key = fmt.Sprintf("%s%d", key, idx)
+					}
+
+					info.Labels[key] = ch.Digest.String()
+					fields = append(fields, "labels."+key)
+				}
 			}
 
 			_, err := manager.Update(ctx, info, fields...)
@@ -226,6 +286,7 @@ func FilterPlatforms(f HandlerFunc, m platforms.Matcher) HandlerFunc {
 // The results will be ordered according to the comparison operator and
 // use the ordering in the manifests for equal matches.
 // A limit of 0 or less is considered no limit.
+// A not found error is returned if no manifest is matched.
 func LimitManifests(f HandlerFunc, m platforms.MatchComparer, n int) HandlerFunc {
 	return func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 		children, err := f(ctx, desc)
@@ -245,8 +306,13 @@ func LimitManifests(f HandlerFunc, m platforms.MatchComparer, n int) HandlerFunc
 				return m.Less(*children[i].Platform, *children[j].Platform)
 			})
 
-			if n > 0 && len(children) > n {
-				children = children[:n]
+			if n > 0 {
+				if len(children) == 0 {
+					return children, fmt.Errorf("no match for platform in manifest: %w", errdefs.ErrNotFound)
+				}
+				if len(children) > n {
+					children = children[:n]
+				}
 			}
 		default:
 			// only limit manifests from an index

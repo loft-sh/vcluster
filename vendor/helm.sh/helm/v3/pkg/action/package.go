@@ -17,6 +17,7 @@ limitations under the License.
 package action
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,9 +25,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
-	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/provenance"
@@ -39,6 +39,7 @@ type Package struct {
 	Sign             bool
 	Key              string
 	Keyring          string
+	PassphraseFile   string
 	Version          string
 	AppVersion       string
 	Destination      string
@@ -60,17 +61,13 @@ func (p *Package) Run(path string, vals map[string]interface{}) (string, error) 
 		return "", err
 	}
 
-	combinedVals, err := chartutil.CoalesceValues(ch, vals)
-	if err != nil {
-		return "", err
-	}
-	ch.Values = combinedVals
-
 	// If version is set, modify the version.
 	if p.Version != "" {
-		if err := setVersion(ch, p.Version); err != nil {
-			return "", err
-		}
+		ch.Metadata.Version = p.Version
+	}
+
+	if err := validateVersion(ch.Metadata.Version); err != nil {
+		return "", err
 	}
 
 	if p.AppVersion != "" {
@@ -107,17 +104,15 @@ func (p *Package) Run(path string, vals map[string]interface{}) (string, error) 
 	return name, err
 }
 
-func setVersion(ch *chart.Chart, ver string) error {
-	// Verify that version is a Version, and error out if it is not.
+// validateVersion Verify that version is a Version, and error out if it is not.
+func validateVersion(ver string) error {
 	if _, err := semver.NewVersion(ver); err != nil {
 		return err
 	}
-
-	// Set the version field on the chart.
-	ch.Metadata.Version = ver
 	return nil
 }
 
+// Clearsign signs a chart
 func (p *Package) Clearsign(filename string) error {
 	// Load keyring
 	signer, err := provenance.NewFromKeyring(p.Keyring, p.Key)
@@ -125,7 +120,15 @@ func (p *Package) Clearsign(filename string) error {
 		return err
 	}
 
-	if err := signer.DecryptKey(promptUser); err != nil {
+	passphraseFetcher := promptUser
+	if p.PassphraseFile != "" {
+		passphraseFetcher, err = passphraseFileFetcher(p.PassphraseFile, os.Stdin)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := signer.DecryptKey(passphraseFetcher); err != nil {
 		return err
 	}
 
@@ -140,7 +143,40 @@ func (p *Package) Clearsign(filename string) error {
 // promptUser implements provenance.PassphraseFetcher
 func promptUser(name string) ([]byte, error) {
 	fmt.Printf("Password for key %q >  ", name)
-	pw, err := terminal.ReadPassword(int(syscall.Stdin))
+	// syscall.Stdin is not an int in all environments and needs to be coerced
+	// into one there (e.g., Windows)
+	pw, err := term.ReadPassword(int(syscall.Stdin))
 	fmt.Println()
 	return pw, err
+}
+
+func passphraseFileFetcher(passphraseFile string, stdin *os.File) (provenance.PassphraseFetcher, error) {
+	file, err := openPassphraseFile(passphraseFile, stdin)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+	passphrase, _, err := reader.ReadLine()
+	if err != nil {
+		return nil, err
+	}
+	return func(name string) ([]byte, error) {
+		return passphrase, nil
+	}, nil
+}
+
+func openPassphraseFile(passphraseFile string, stdin *os.File) (*os.File, error) {
+	if passphraseFile == "-" {
+		stat, err := stdin.Stat()
+		if err != nil {
+			return nil, err
+		}
+		if (stat.Mode() & os.ModeNamedPipe) == 0 {
+			return nil, errors.New("specified reading passphrase from stdin, without input on stdin")
+		}
+		return stdin, nil
+	}
+	return os.Open(passphraseFile)
 }

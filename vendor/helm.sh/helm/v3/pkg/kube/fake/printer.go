@@ -33,7 +33,7 @@ type PrintingKubeClient struct {
 	Out io.Writer
 }
 
-// isReachable checks if the cluster is reachable
+// IsReachable checks if the cluster is reachable
 func (p *PrintingKubeClient) IsReachable() error {
 	return nil
 }
@@ -48,6 +48,16 @@ func (p *PrintingKubeClient) Create(resources kube.ResourceList) (*kube.Result, 
 }
 
 func (p *PrintingKubeClient) Wait(resources kube.ResourceList, _ time.Duration) error {
+	_, err := io.Copy(p.Out, bufferize(resources))
+	return err
+}
+
+func (p *PrintingKubeClient) WaitWithJobs(resources kube.ResourceList, _ time.Duration) error {
+	_, err := io.Copy(p.Out, bufferize(resources))
+	return err
+}
+
+func (p *PrintingKubeClient) WaitForDelete(resources kube.ResourceList, _ time.Duration) error {
 	_, err := io.Copy(p.Out, bufferize(resources))
 	return err
 }

@@ -17,9 +17,12 @@ limitations under the License.
 package action
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
+	"k8s.io/cli-runtime/pkg/printers"
 	"sigs.k8s.io/yaml"
 
 	"helm.sh/helm/v3/pkg/chart"
@@ -27,13 +30,20 @@ import (
 	"helm.sh/helm/v3/pkg/chartutil"
 )
 
+// ShowOutputFormat is the format of the output of `helm show`
 type ShowOutputFormat string
 
 const (
-	ShowAll    ShowOutputFormat = "all"
-	ShowChart  ShowOutputFormat = "chart"
+	// ShowAll is the format which shows all the information of a chart
+	ShowAll ShowOutputFormat = "all"
+	// ShowChart is the format which only shows the chart's definition
+	ShowChart ShowOutputFormat = "chart"
+	// ShowValues is the format which only shows the chart's values
 	ShowValues ShowOutputFormat = "values"
+	// ShowReadme is the format which only shows the chart's README
 	ShowReadme ShowOutputFormat = "readme"
+	// ShowCRDs is the format which only shows the chart's CRDs
+	ShowCRDs ShowOutputFormat = "crds"
 )
 
 var readmeFileNames = []string{"readme.md", "readme.txt", "readme"}
@@ -46,53 +56,90 @@ func (o ShowOutputFormat) String() string {
 //
 // It provides the implementation of 'helm show' and its respective subcommands.
 type Show struct {
-	OutputFormat ShowOutputFormat
 	ChartPathOptions
+	Devel            bool
+	OutputFormat     ShowOutputFormat
+	JSONPathTemplate string
+	chart            *chart.Chart // for testing
 }
 
 // NewShow creates a new Show object with the given configuration.
+// Deprecated: Use NewShowWithConfig
+// TODO Helm 4: Fold NewShowWithConfig back into NewShow
 func NewShow(output ShowOutputFormat) *Show {
 	return &Show{
 		OutputFormat: output,
 	}
 }
 
+// NewShowWithConfig creates a new Show object with the given configuration.
+func NewShowWithConfig(output ShowOutputFormat, cfg *Configuration) *Show {
+	sh := &Show{
+		OutputFormat: output,
+	}
+	sh.ChartPathOptions.registryClient = cfg.RegistryClient
+
+	return sh
+}
+
 // Run executes 'helm show' against the given release.
 func (s *Show) Run(chartpath string) (string, error) {
-	var out strings.Builder
-	chrt, err := loader.Load(chartpath)
-	if err != nil {
-		return "", err
+	if s.chart == nil {
+		chrt, err := loader.Load(chartpath)
+		if err != nil {
+			return "", err
+		}
+		s.chart = chrt
 	}
-	cf, err := yaml.Marshal(chrt.Metadata)
+	cf, err := yaml.Marshal(s.chart.Metadata)
 	if err != nil {
 		return "", err
 	}
 
+	var out strings.Builder
 	if s.OutputFormat == ShowChart || s.OutputFormat == ShowAll {
 		fmt.Fprintf(&out, "%s\n", cf)
 	}
 
-	if (s.OutputFormat == ShowValues || s.OutputFormat == ShowAll) && chrt.Values != nil {
+	if (s.OutputFormat == ShowValues || s.OutputFormat == ShowAll) && s.chart.Values != nil {
 		if s.OutputFormat == ShowAll {
 			fmt.Fprintln(&out, "---")
 		}
-		for _, f := range chrt.Raw {
-			if f.Name == chartutil.ValuesfileName {
-				fmt.Fprintln(&out, string(f.Data))
+		if s.JSONPathTemplate != "" {
+			printer, err := printers.NewJSONPathPrinter(s.JSONPathTemplate)
+			if err != nil {
+				return "", errors.Wrapf(err, "error parsing jsonpath %s", s.JSONPathTemplate)
+			}
+			printer.Execute(&out, s.chart.Values)
+		} else {
+			for _, f := range s.chart.Raw {
+				if f.Name == chartutil.ValuesfileName {
+					fmt.Fprintln(&out, string(f.Data))
+				}
 			}
 		}
 	}
 
 	if s.OutputFormat == ShowReadme || s.OutputFormat == ShowAll {
-		if s.OutputFormat == ShowAll {
-			fmt.Fprintln(&out, "---")
+		readme := findReadme(s.chart.Files)
+		if readme != nil {
+			if s.OutputFormat == ShowAll {
+				fmt.Fprintln(&out, "---")
+			}
+			fmt.Fprintf(&out, "%s\n", readme.Data)
 		}
-		readme := findReadme(chrt.Files)
-		if readme == nil {
-			return out.String(), nil
+	}
+
+	if s.OutputFormat == ShowCRDs || s.OutputFormat == ShowAll {
+		crds := s.chart.CRDObjects()
+		if len(crds) > 0 {
+			if s.OutputFormat == ShowAll && !bytes.HasPrefix(crds[0].File.Data, []byte("---")) {
+				fmt.Fprintln(&out, "---")
+			}
+			for _, crd := range crds {
+				fmt.Fprintf(&out, "%s\n", string(crd.File.Data))
+			}
 		}
-		fmt.Fprintf(&out, "%s\n", readme.Data)
 	}
 	return out.String(), nil
 }

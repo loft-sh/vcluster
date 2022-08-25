@@ -18,6 +18,7 @@ package ignore
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"log"
 	"os"
@@ -65,15 +66,25 @@ func Parse(file io.Reader) (*Rules, error) {
 	r := &Rules{patterns: []*pattern{}}
 
 	s := bufio.NewScanner(file)
+	currentLine := 0
+	utf8bom := []byte{0xEF, 0xBB, 0xBF}
 	for s.Scan() {
-		if err := r.parseRule(s.Text()); err != nil {
+		scannedBytes := s.Bytes()
+		// We trim UTF8 BOM
+		if currentLine == 0 {
+			scannedBytes = bytes.TrimPrefix(scannedBytes, utf8bom)
+		}
+		line := string(scannedBytes)
+		currentLine++
+
+		if err := r.parseRule(line); err != nil {
 			return r, err
 		}
 	}
 	return r, s.Err()
 }
 
-// Ignore evalutes the file at the given path, and returns true if it should be ignored.
+// Ignore evaluates the file at the given path, and returns true if it should be ignored.
 //
 // Ignore evaluates path against the rules in order. Evaluation stops when a match
 // is found. Matching a negative rule will stop evaluation.

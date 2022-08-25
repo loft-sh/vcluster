@@ -16,7 +16,11 @@ limitations under the License.
 
 package releaseutil
 
-import "sort"
+import (
+	"sort"
+
+	"helm.sh/helm/v3/pkg/release"
+)
 
 // KindSortOrder is an ordering of Kinds.
 type KindSortOrder []string
@@ -31,12 +35,13 @@ var InstallOrder KindSortOrder = []string{
 	"LimitRange",
 	"PodSecurityPolicy",
 	"PodDisruptionBudget",
+	"ServiceAccount",
 	"Secret",
+	"SecretList",
 	"ConfigMap",
 	"StorageClass",
 	"PersistentVolume",
 	"PersistentVolumeClaim",
-	"ServiceAccount",
 	"CustomResourceDefinition",
 	"ClusterRole",
 	"ClusterRoleList",
@@ -56,6 +61,7 @@ var InstallOrder KindSortOrder = []string{
 	"StatefulSet",
 	"Job",
 	"CronJob",
+	"IngressClass",
 	"Ingress",
 	"APIService",
 }
@@ -66,6 +72,7 @@ var InstallOrder KindSortOrder = []string{
 var UninstallOrder KindSortOrder = []string{
 	"APIService",
 	"Ingress",
+	"IngressClass",
 	"Service",
 	"CronJob",
 	"Job",
@@ -85,12 +92,13 @@ var UninstallOrder KindSortOrder = []string{
 	"ClusterRoleList",
 	"ClusterRole",
 	"CustomResourceDefinition",
-	"ServiceAccount",
 	"PersistentVolumeClaim",
 	"PersistentVolume",
 	"StorageClass",
 	"ConfigMap",
+	"SecretList",
 	"Secret",
+	"ServiceAccount",
 	"PodDisruptionBudget",
 	"PodSecurityPolicy",
 	"LimitRange",
@@ -99,48 +107,44 @@ var UninstallOrder KindSortOrder = []string{
 	"Namespace",
 }
 
-// sortByKind does an in-place sort of manifests by Kind.
+// sort manifests by kind.
 //
-// Results are sorted by 'ordering'
-func sortByKind(manifests []Manifest, ordering KindSortOrder) []Manifest {
-	ks := newKindSorter(manifests, ordering)
-	sort.Sort(ks)
-	return ks.manifests
+// Results are sorted by 'ordering', keeping order of items with equal kind/priority
+func sortManifestsByKind(manifests []Manifest, ordering KindSortOrder) []Manifest {
+	sort.SliceStable(manifests, func(i, j int) bool {
+		return lessByKind(manifests[i], manifests[j], manifests[i].Head.Kind, manifests[j].Head.Kind, ordering)
+	})
+
+	return manifests
 }
 
-type kindSorter struct {
-	ordering  map[string]int
-	manifests []Manifest
+// sort hooks by kind, using an out-of-place sort to preserve the input parameters.
+//
+// Results are sorted by 'ordering', keeping order of items with equal kind/priority
+func sortHooksByKind(hooks []*release.Hook, ordering KindSortOrder) []*release.Hook {
+	h := hooks
+	sort.SliceStable(h, func(i, j int) bool {
+		return lessByKind(h[i], h[j], h[i].Kind, h[j].Kind, ordering)
+	})
+
+	return h
 }
 
-func newKindSorter(m []Manifest, s KindSortOrder) *kindSorter {
-	o := make(map[string]int, len(s))
-	for v, k := range s {
-		o[k] = v
+func lessByKind(a interface{}, b interface{}, kindA string, kindB string, o KindSortOrder) bool {
+	ordering := make(map[string]int, len(o))
+	for v, k := range o {
+		ordering[k] = v
 	}
 
-	return &kindSorter{
-		manifests: m,
-		ordering:  o,
-	}
-}
+	first, aok := ordering[kindA]
+	second, bok := ordering[kindB]
 
-func (k *kindSorter) Len() int { return len(k.manifests) }
-
-func (k *kindSorter) Swap(i, j int) { k.manifests[i], k.manifests[j] = k.manifests[j], k.manifests[i] }
-
-func (k *kindSorter) Less(i, j int) bool {
-	a := k.manifests[i]
-	b := k.manifests[j]
-	first, aok := k.ordering[a.Head.Kind]
-	second, bok := k.ordering[b.Head.Kind]
-	// if same kind (including unknown) sub sort alphanumeric
-	if first == second {
-		// if both are unknown and of different kind sort by kind alphabetically
-		if !aok && !bok && a.Head.Kind != b.Head.Kind {
-			return a.Head.Kind < b.Head.Kind
+	if !aok && !bok {
+		// if both are unknown then sort alphabetically by kind, keep original order if same kind
+		if kindA != kindB {
+			return kindA < kindB
 		}
-		return a.Name < b.Name
+		return first < second
 	}
 	// unknown kind is last
 	if !aok {
@@ -149,6 +153,6 @@ func (k *kindSorter) Less(i, j int) bool {
 	if !bok {
 		return true
 	}
-	// sort different kinds
+	// sort different kinds, keep original order if same priority
 	return first < second
 }

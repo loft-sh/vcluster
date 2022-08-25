@@ -72,5 +72,5 @@ coredns:
 	values = strings.ReplaceAll(values, "##CONTROLLER_IMAGE##", controllerImage)
 	values = strings.ReplaceAll(values, "##ETCD_IMAGE##", etcdImage)
 	values = strings.ReplaceAll(values, "##COREDNS_IMAGE##", corednsImage)
-	return addCommonReleaseValues(values, chartOptions)
+	return addCommonReleaseValues(values, "", chartOptions)
 }

@@ -3,6 +3,12 @@ package helm
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gofrs/flock"
 	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/chart"
@@ -12,11 +18,6 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
-	"time"
 
 	vclusterlog "github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/pkg/errors"
@@ -72,14 +73,6 @@ func NewClient(config *clientcmdapi.Config, log vclusterlog.Logger) Client {
 		config: config,
 		log:    log,
 	}
-}
-
-func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) error {
-	return c.run(ctx, name, "", options, "pull", []string{})
-}
-
-func (c *client) Rollback(ctx context.Context, name, namespace string) error {
-	return c.run(ctx, name, namespace, UpgradeOptions{}, "rollback", []string{})
 }
 
 func isChartInstallable(ch *chart.Chart) (bool, error) {
@@ -188,18 +181,27 @@ func (c *client) RepoUpdate() error {
 	return nil
 }
 
-func (c *client) Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error {
+func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) error {
+	newPullClient := action.NewPull()
+	if newPullClient.Version == "" && newPullClient.Devel {
+		newPullClient.Version = options.Version
+	}
+
+	if options.Repo == "" {
+		return fmt.Errorf("cannot deploy chart without repo")
+	}
+
+	installedRelease, err := newPullClient.Run(name)
+	if err != nil {
+		return err
+	}
+	c.log.Info(installedRelease)
+
+	return nil
+}
+
+func (c *client) Rollback(ctx context.Context, name, namespace string) error {
 	err := c.addSettings(namespace)
-	if err != nil {
-		return err
-	}
-
-	err = c.RepoAdd(name, options.Path)
-	if err != nil {
-		return err
-	}
-
-	err = c.RepoUpdate()
 	if err != nil {
 		return err
 	}
@@ -209,53 +211,65 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 		return err
 	}
 
-	newUpgradeClient := action.NewUpgrade(actionConfig)
-	if newUpgradeClient.Version == "" && newUpgradeClient.Devel {
-		newUpgradeClient.Version = options.Version
+	newRollbackClient := action.NewRollback(actionConfig)
+
+	err = newRollbackClient.Run(name)
+	if err != nil {
+		return err
 	}
 
-	var cp string
-	if options.Repo == "" {
-		return fmt.Errorf("cannot deploy chart without repo")
+	return nil
+}
+
+func (c *client) Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error {
+	err := c.addSettings(namespace)
+	if err != nil {
+		return err
 	}
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(c.settings.KubeConfig)
+
+	const chartPrefix = "loft-sh"
+	if options.Path == "" {
+		if options.Repo == "" {
+			return fmt.Errorf("cannot deploy chart without repo")
+		}
+
+		err = c.RepoAdd(chartPrefix, options.Repo)
+		if err != nil {
+			return err
+		}
+
+		err = c.RepoUpdate()
+		if err != nil {
+			return err
+		}
+	}
+
+	actionConfig, err := c.getActionConfig()
+	if err != nil {
+		return err
+	}
+
+	newUpgradeClient := action.NewUpgrade(actionConfig)
+
 	if options.Version != "" {
 		newUpgradeClient.Version = options.Version
 	}
 
-	cp, err = newUpgradeClient.ChartPathOptions.LocateChart(fmt.Sprintf("%s/%s", options.Repo, options.Chart), c.settings)
+	var chartName string
+	if options.Path != "" {
+		chartName = options.Path
+	} else {
+		chartName = fmt.Sprintf("%s/%s", chartPrefix, options.Chart)
+	}
+
+	cp, err := newUpgradeClient.ChartPathOptions.LocateChart(chartName, c.settings)
 	if err != nil {
 		return err
 	}
 	c.debug("CHART PATH: %s\n", cp)
-
-	p := getter.All(c.settings)
-
-	setStringValues := ""
-	for key, value := range options.SetStringValues {
-		if setStringValues != "" {
-			setStringValues += ","
-		}
-		setStringValues += key + "=" + value
-	}
-
-	setValues := ""
-	for key, value := range options.SetValues {
-		if setValues != "" {
-			setValues += ","
-		}
-		setValues += key + "=" + value
-	}
-
-	valueOpts := &values.Options{
-		ValueFiles:   options.ValuesFiles,
-		StringValues: []string{setStringValues},
-		Values:       []string{options.Values, setValues},
-	}
-
-	vals, err := valueOpts.MergeValues(p)
-	if err != nil {
-		return err
-	}
 
 	// Check chart dependencies to make sure all are present in /charts
 	chartRequested, err := loader.Load(cp)
@@ -269,6 +283,50 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 	}
 
 	newUpgradeClient.Namespace = c.settings.Namespace()
+
+	valueOpts := &values.Options{
+		ValueFiles:   []string{},
+		StringValues: []string{},
+		Values:       []string{},
+	}
+
+	if len(options.ValuesFiles) > 0 {
+		valueOpts.ValueFiles = append(valueOpts.ValueFiles, options.ValuesFiles...)
+	}
+
+	if options.Values != "" {
+		valueOpts.Values = append(valueOpts.Values, options.Values)
+	}
+
+	setStringValues := ""
+	for key, value := range options.SetStringValues {
+		if setStringValues != "" {
+			setStringValues += ","
+		}
+		setStringValues += key + "=" + value
+	}
+	if setStringValues != "" {
+		valueOpts.StringValues = append(valueOpts.StringValues, setStringValues)
+	}
+
+	setValues := ""
+	for key, value := range options.SetValues {
+		if setValues != "" {
+			setValues += ","
+		}
+		setValues += key + "=" + value
+	}
+	if setStringValues != "" {
+		valueOpts.Values = append(valueOpts.Values, setValues)
+	}
+
+	p := getter.All(c.settings)
+
+	vals, err := valueOpts.MergeValues(p)
+	if err != nil {
+		return err
+	}
+	newUpgradeClient.Install = true
 	updatedRelease, err := newUpgradeClient.Run(name, chartRequested, vals)
 	if err != nil {
 		return err
@@ -283,15 +341,26 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 	if err != nil {
 		return err
 	}
+	// File gets deleted when the below code is added in addSettings method
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(c.settings.KubeConfig)
 
-	err = c.RepoAdd(name, options.Path)
-	if err != nil {
-		return err
-	}
+	const chartPrefix = "loft-sh"
+	if options.Path == "" {
+		if options.Repo == "" {
+			return fmt.Errorf("cannot deploy chart without repo")
+		}
 
-	err = c.RepoUpdate()
-	if err != nil {
-		return err
+		err = c.RepoAdd(chartPrefix, options.Repo)
+		if err != nil {
+			return err
+		}
+
+		err = c.RepoUpdate()
+		if err != nil {
+			return err
+		}
 	}
 
 	actionConfig, err := c.getActionConfig()
@@ -300,64 +369,35 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 	}
 
 	newInstallClient := action.NewInstall(actionConfig)
-	if newInstallClient.Version == "" && newInstallClient.Devel {
-		newInstallClient.Version = options.Version
-	}
-
-	newInstallClient.ReleaseName = name
-	var cp string
-	if options.Repo == "" {
-		return fmt.Errorf("cannot deploy chart without repo")
-	}
 	if options.Version != "" {
 		newInstallClient.Version = options.Version
 	}
 
-	cp, err = newInstallClient.ChartPathOptions.LocateChart(fmt.Sprintf("%s/%s", options.Repo, options.Chart), c.settings)
+	newInstallClient.ReleaseName = name
+	var chartName string
+	if options.Path != "" {
+		chartName = options.Path
+	} else {
+		chartName = fmt.Sprintf("%s/%s", chartPrefix, options.Chart)
+	}
+
+	cp, err := newInstallClient.ChartPathOptions.LocateChart(chartName, c.settings)
 	if err != nil {
 		return err
 	}
 	c.debug("CHART PATH: %s\n", cp)
-
-	p := getter.All(c.settings)
-
-	setStringValues := ""
-	for key, value := range options.SetStringValues {
-		if setStringValues != "" {
-			setStringValues += ","
-		}
-		setStringValues += key + "=" + value
-	}
-
-	setValues := ""
-	for key, value := range options.SetValues {
-		if setValues != "" {
-			setValues += ","
-		}
-		setValues += key + "=" + value
-	}
-
-	valueOpts := &values.Options{
-		ValueFiles:   options.ValuesFiles,
-		StringValues: []string{setStringValues},
-		Values:       []string{options.Values, setValues},
-	}
-
-	vals, err := valueOpts.MergeValues(p)
-	if err != nil {
-		return err
-	}
 
 	// Check chart dependencies to make sure all are present in /charts
 	chartRequested, err := loader.Load(cp)
 	if err != nil {
 		return err
 	}
-
 	validInstallableChart, err := isChartInstallable(chartRequested)
 	if !validInstallableChart {
 		return err
 	}
+
+	p := getter.All(c.settings)
 
 	if req := chartRequested.Metadata.Dependencies; req != nil {
 		// If CheckDependencies returns an error, we have unfulfilled dependencies.
@@ -383,6 +423,47 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 		}
 	}
 
+	valueOpts := &values.Options{
+		ValueFiles:   []string{},
+		StringValues: []string{},
+		Values:       []string{},
+	}
+
+	if len(options.ValuesFiles) > 0 {
+		valueOpts.ValueFiles = append(valueOpts.ValueFiles, options.ValuesFiles...)
+	}
+
+	if options.Values != "" {
+		valueOpts.Values = append(valueOpts.Values, options.Values)
+	}
+
+	setStringValues := ""
+	for key, value := range options.SetStringValues {
+		if setStringValues != "" {
+			setStringValues += ","
+		}
+		setStringValues += key + "=" + value
+	}
+	if setStringValues != "" {
+		valueOpts.StringValues = append(valueOpts.StringValues, setStringValues)
+	}
+
+	setValues := ""
+	for key, value := range options.SetValues {
+		if setValues != "" {
+			setValues += ","
+		}
+		setValues += key + "=" + value
+	}
+	if setStringValues != "" {
+		valueOpts.Values = append(valueOpts.Values, setValues)
+	}
+
+	vals, err := valueOpts.MergeValues(p)
+	if err != nil {
+		return err
+	}
+
 	newInstallClient.Namespace = c.settings.Namespace()
 	installedRelease, err := newInstallClient.Run(chartRequested, vals)
 	if err != nil {
@@ -390,10 +471,6 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 	}
 	c.log.Info(installedRelease.Manifest)
 
-	return nil
-}
-
-func (c *client) run(ctx context.Context, name, namespace string, options UpgradeOptions, command string, extraArgs []string) error {
 	return nil
 }
 
@@ -422,41 +499,20 @@ func (c *client) Delete(name, namespace string) error {
 	return nil
 }
 
-func (c *client) addSettings(namespace string) error {
-	_ = os.Setenv("HELM_NAMESPACE", namespace)
-	settings := cli.New()
-
-	kubeConfig, err := WriteKubeConfig(c.config)
-	if err != nil {
-		return err
-	}
-	defer func(name string) {
-		_ = os.Remove(name)
-	}(kubeConfig)
-
-	settings.KubeConfig = kubeConfig
-	c.settings = settings
-	return nil
-}
-
-func (c *client) debug(format string, v ...interface{}) {
-	c.log.Debug(2, fmt.Sprintf(format, v...))
-}
-
-func (c *client) getActionConfig() (*action.Configuration, error) {
-	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(c.settings.RESTClientGetter(), c.settings.Namespace(), os.Getenv("HELM_DRIVER"), c.debug); err != nil {
-		return nil, err
-	}
-	return actionConfig, nil
-}
-
 func (c *client) Exists(name, namespace string) (bool, error) {
 	_, err := c.retrieveRelease(name, namespace)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func (c *client) Status(ctx context.Context, name, namespace string) (*release.Release, error) {
+	err := c.addSettings(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return c.retrieveRelease(name, namespace)
 }
 
 func (c *client) retrieveRelease(name string, namespace string) (*release.Release, error) {
@@ -481,12 +537,30 @@ func (c *client) retrieveRelease(name string, namespace string) (*release.Releas
 	return releaseDetails, nil
 }
 
-func (c *client) Status(ctx context.Context, name, namespace string) (*release.Release, error) {
-	err := c.addSettings(namespace)
+func (c *client) addSettings(namespace string) error {
+	_ = os.Setenv("HELM_NAMESPACE", namespace)
+	settings := cli.New()
+
+	kubeConfig, err := WriteKubeConfig(c.config)
 	if err != nil {
+		return err
+	}
+
+	settings.KubeConfig = kubeConfig
+	c.settings = settings
+	return nil
+}
+
+func (c *client) debug(format string, v ...interface{}) {
+	c.log.Debug(2, fmt.Sprintf(format, v...))
+}
+
+func (c *client) getActionConfig() (*action.Configuration, error) {
+	actionConfig := new(action.Configuration)
+	if err := actionConfig.Init(c.settings.RESTClientGetter(), c.settings.Namespace(), os.Getenv("HELM_DRIVER"), c.debug); err != nil {
 		return nil, err
 	}
-	return c.retrieveRelease(name, namespace)
+	return actionConfig, nil
 }
 
 // WriteKubeConfig writes the kubeconfig to a file and returns the filename

@@ -36,5 +36,5 @@ func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
   image: ##IMAGE##
 `
 	values = strings.ReplaceAll(values, "##IMAGE##", image)
-	return addCommonReleaseValues(values, chartOptions)
+	return addCommonReleaseValues(values, "", chartOptions)
 }

@@ -16,13 +16,17 @@ limitations under the License.
 package downloader
 
 import (
+	"crypto"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -38,8 +42,20 @@ import (
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/helmpath"
+	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
 )
+
+// ErrRepoNotFound indicates that chart repositories can't be found in local repo cache.
+// The value of Repos is missing repos.
+type ErrRepoNotFound struct {
+	Repos []string
+}
+
+// Error implements the error interface.
+func (e ErrRepoNotFound) Error() string {
+	return fmt.Sprintf("no repository definition for %s", strings.Join(e.Repos, ", "))
+}
 
 // Manager handles the lifecycle of fetching, resolving, and storing dependencies.
 type Manager struct {
@@ -57,6 +73,7 @@ type Manager struct {
 	SkipUpdate bool
 	// Getter collection for the operation
 	Getters          []getter.Provider
+	RegistryClient   *registry.Client
 	RepositoryConfig string
 	RepositoryCache  string
 }
@@ -81,12 +98,35 @@ func (m *Manager) Build() error {
 
 	// Check that all of the repos we're dependent on actually exist.
 	req := c.Metadata.Dependencies
+
+	// If using apiVersion v1, calculate the hash before resolve repo names
+	// because resolveRepoNames will change req if req uses repo alias
+	// and Helm 2 calculate the digest from the original req
+	// Fix for: https://github.com/helm/helm/issues/7619
+	var v2Sum string
+	if c.Metadata.APIVersion == chart.APIVersionV1 {
+		v2Sum, err = resolver.HashV2Req(req)
+		if err != nil {
+			return errors.New("the lock file (requirements.lock) is out of sync with the dependencies file (requirements.yaml). Please update the dependencies")
+		}
+	}
+
 	if _, err := m.resolveRepoNames(req); err != nil {
 		return err
 	}
 
 	if sum, err := resolver.HashReq(req, lock.Dependencies); err != nil || sum != lock.Digest {
-		return errors.New("Chart.lock is out of sync with Chart.yaml")
+		// If lock digest differs and chart is apiVersion v1, it maybe because the lock was built
+		// with Helm 2 and therefore should be checked with Helm v2 hash
+		// Fix for: https://github.com/helm/helm/issues/7233
+		if c.Metadata.APIVersion == chart.APIVersionV1 {
+			log.Println("warning: a valid Helm v3 hash was not found. Checking against Helm v2 hash...")
+			if v2Sum != lock.Digest {
+				return errors.New("the lock file (requirements.lock) is out of sync with the dependencies file (requirements.yaml). Please update the dependencies")
+			}
+		} else {
+			return errors.New("the lock file (Chart.lock) is out of sync with the dependencies file (Chart.yaml). Please update the dependencies")
+		}
 	}
 
 	// Check that all of the repos we're dependent on actually exist.
@@ -123,14 +163,27 @@ func (m *Manager) Update() error {
 		return nil
 	}
 
-	// Check that all of the repos we're dependent on actually exist and
-	// the repo index names.
+	// Get the names of the repositories the dependencies need that Helm is
+	// configured to know about.
 	repoNames, err := m.resolveRepoNames(req)
 	if err != nil {
 		return err
 	}
 
-	// For each repo in the file, update the cached copy of that repo
+	// For the repositories Helm is not configured to know about, ensure Helm
+	// has some information about them and, when possible, the index files
+	// locally.
+	// TODO(mattfarina): Repositories should be explicitly added by end users
+	// rather than automattic. In Helm v4 require users to add repositories. They
+	// should have to add them in order to make sure they are aware of the
+	// repositories and opt-in to any locations, for security.
+	repoNames, err = m.ensureMissingRepos(repoNames, req)
+	if err != nil {
+		return err
+	}
+
+	// For each of the repositories Helm is configured to know about, update
+	// the index information locally.
 	if !m.SkipUpdate {
 		if err := m.UpdateRepositories(); err != nil {
 			return err
@@ -149,6 +202,13 @@ func (m *Manager) Update() error {
 		return err
 	}
 
+	// downloadAll might overwrite dependency version, recalculate lock digest
+	newDigest, err := resolver.HashReq(req, lock.Dependencies)
+	if err != nil {
+		return err
+	}
+	lock.Digest = newDigest
+
 	// If the lock file hasn't changed, don't write a new one.
 	oldLock := c.Lock
 	if oldLock != nil && oldLock.Digest == lock.Digest {
@@ -156,7 +216,7 @@ func (m *Manager) Update() error {
 	}
 
 	// Finally, we need to write the lockfile.
-	return writeLock(m.ChartPath, lock)
+	return writeLock(m.ChartPath, lock, c.Metadata.APIVersion == chart.APIVersionV1)
 }
 
 func (m *Manager) loadChartDir() (*chart.Chart, error) {
@@ -172,7 +232,7 @@ func (m *Manager) loadChartDir() (*chart.Chart, error) {
 //
 // This returns a lock file, which has all of the dependencies normalized to a specific version.
 func (m *Manager) resolve(req []*chart.Dependency, repoNames map[string]string) (*chart.Lock, error) {
-	res := resolver.New(m.ChartPath, m.RepositoryCache)
+	res := resolver.New(m.ChartPath, m.RepositoryCache, m.RegistryClient)
 	return res.Resolve(req, repoNames)
 }
 
@@ -189,47 +249,51 @@ func (m *Manager) downloadAll(deps []*chart.Dependency) error {
 	destPath := filepath.Join(m.ChartPath, "charts")
 	tmpPath := filepath.Join(m.ChartPath, "tmpcharts")
 
-	// Create 'charts' directory if it doesn't already exist.
-	if fi, err := os.Stat(destPath); err != nil {
+	// Check if 'charts' directory is not actally a directory. If it does not exist, create it.
+	if fi, err := os.Stat(destPath); err == nil {
+		if !fi.IsDir() {
+			return errors.Errorf("%q is not a directory", destPath)
+		}
+	} else if os.IsNotExist(err) {
 		if err := os.MkdirAll(destPath, 0755); err != nil {
 			return err
 		}
-	} else if !fi.IsDir() {
-		return errors.Errorf("%q is not a directory", destPath)
+	} else {
+		return fmt.Errorf("unable to retrieve file info for '%s': %v", destPath, err)
 	}
 
-	if err := fs.RenameWithFallback(destPath, tmpPath); err != nil {
-		return errors.Wrap(err, "unable to move current charts to tmp dir")
-	}
-
-	if err := os.MkdirAll(destPath, 0755); err != nil {
+	// Prepare tmpPath
+	if err := os.MkdirAll(tmpPath, 0755); err != nil {
 		return err
 	}
+	defer os.RemoveAll(tmpPath)
 
 	fmt.Fprintf(m.Out, "Saving %d charts\n", len(deps))
 	var saveError error
+	churls := make(map[string]struct{})
 	for _, dep := range deps {
 		// No repository means the chart is in charts directory
 		if dep.Repository == "" {
 			fmt.Fprintf(m.Out, "Dependency %s did not declare a repository. Assuming it exists in the charts directory\n", dep.Name)
-			chartPath := filepath.Join(tmpPath, dep.Name)
+			// NOTE: we are only validating the local dependency conforms to the constraints. No copying to tmpPath is necessary.
+			chartPath := filepath.Join(destPath, dep.Name)
 			ch, err := loader.LoadDir(chartPath)
 			if err != nil {
-				return fmt.Errorf("Unable to load chart: %v", err)
+				return fmt.Errorf("unable to load chart '%s': %v", chartPath, err)
 			}
 
 			constraint, err := semver.NewConstraint(dep.Version)
 			if err != nil {
-				return fmt.Errorf("Dependency %s has an invalid version/constraint format: %s", dep.Name, err)
+				return fmt.Errorf("dependency %s has an invalid version/constraint format: %s", dep.Name, err)
 			}
 
 			v, err := semver.NewVersion(ch.Metadata.Version)
 			if err != nil {
-				return fmt.Errorf("Invalid version %s for dependency %s: %s", dep.Version, dep.Name, err)
+				return fmt.Errorf("invalid version %s for dependency %s: %s", dep.Version, dep.Name, err)
 			}
 
 			if !constraint.Check(v) {
-				saveError = fmt.Errorf("Dependency %s at version %s does not satisfy the constraint %s", dep.Name, ch.Metadata.Version, dep.Version)
+				saveError = fmt.Errorf("dependency %s at version %s does not satisfy the constraint %s", dep.Name, ch.Metadata.Version, dep.Version)
 				break
 			}
 			continue
@@ -238,7 +302,7 @@ func (m *Manager) downloadAll(deps []*chart.Dependency) error {
 			if m.Debug {
 				fmt.Fprintf(m.Out, "Archiving %s from repo %s\n", dep.Name, dep.Repository)
 			}
-			ver, err := tarFromLocalDir(m.ChartPath, dep.Name, dep.Repository, dep.Version)
+			ver, err := tarFromLocalDir(m.ChartPath, dep.Name, dep.Repository, dep.Version, tmpPath)
 			if err != nil {
 				saveError = err
 				break
@@ -247,15 +311,20 @@ func (m *Manager) downloadAll(deps []*chart.Dependency) error {
 			continue
 		}
 
-		fmt.Fprintf(m.Out, "Downloading %s from repo %s\n", dep.Name, dep.Repository)
-
 		// Any failure to resolve/download a chart should fail:
 		// https://github.com/helm/helm/issues/1439
-		churl, username, password, err := m.findChartURL(dep.Name, dep.Version, dep.Repository, repos)
+		churl, username, password, insecureskiptlsverify, passcredentialsall, caFile, certFile, keyFile, err := m.findChartURL(dep.Name, dep.Version, dep.Repository, repos)
 		if err != nil {
 			saveError = errors.Wrapf(err, "could not find %s", churl)
 			break
 		}
+
+		if _, ok := churls[churl]; ok {
+			fmt.Fprintf(m.Out, "Already downloaded %s from repo %s\n", dep.Name, dep.Repository)
+			continue
+		}
+
+		fmt.Fprintf(m.Out, "Downloading %s from repo %s\n", dep.Name, dep.Repository)
 
 		dl := ChartDownloader{
 			Out:              m.Out,
@@ -263,83 +332,130 @@ func (m *Manager) downloadAll(deps []*chart.Dependency) error {
 			Keyring:          m.Keyring,
 			RepositoryConfig: m.RepositoryConfig,
 			RepositoryCache:  m.RepositoryCache,
+			RegistryClient:   m.RegistryClient,
 			Getters:          m.Getters,
 			Options: []getter.Option{
 				getter.WithBasicAuth(username, password),
+				getter.WithPassCredentialsAll(passcredentialsall),
+				getter.WithInsecureSkipVerifyTLS(insecureskiptlsverify),
+				getter.WithTLSClientConfig(certFile, keyFile, caFile),
 			},
 		}
 
-		if _, _, err := dl.DownloadTo(churl, "", destPath); err != nil {
+		version := ""
+		if registry.IsOCI(churl) {
+			churl, version, err = parseOCIRef(churl)
+			if err != nil {
+				return errors.Wrapf(err, "could not parse OCI reference")
+			}
+			dl.Options = append(dl.Options,
+				getter.WithRegistryClient(m.RegistryClient),
+				getter.WithTagName(version))
+		}
+
+		if _, _, err = dl.DownloadTo(churl, version, tmpPath); err != nil {
 			saveError = errors.Wrapf(err, "could not download %s", churl)
 			break
 		}
+
+		churls[churl] = struct{}{}
 	}
 
+	// TODO: this should probably be refactored to be a []error, so we can capture and provide more information rather than "last error wins".
 	if saveError == nil {
-		fmt.Fprintln(m.Out, "Deleting outdated charts")
-		for _, dep := range deps {
-			// Chart from local charts directory stays in place
-			if dep.Repository != "" {
-				if err := m.safeDeleteDep(dep.Name, tmpPath); err != nil {
-					return err
-				}
-			}
-		}
-		if err := move(tmpPath, destPath); err != nil {
+		// now we can move all downloaded charts to destPath and delete outdated dependencies
+		if err := m.safeMoveDeps(deps, tmpPath, destPath); err != nil {
 			return err
-		}
-		if err := os.RemoveAll(tmpPath); err != nil {
-			return errors.Wrapf(err, "failed to remove %v", tmpPath)
 		}
 	} else {
 		fmt.Fprintln(m.Out, "Save error occurred: ", saveError)
-		fmt.Fprintln(m.Out, "Deleting newly downloaded charts, restoring pre-update state")
-		for _, dep := range deps {
-			if err := m.safeDeleteDep(dep.Name, destPath); err != nil {
-				return err
-			}
-		}
-		if err := os.RemoveAll(destPath); err != nil {
-			return errors.Wrapf(err, "failed to remove %v", destPath)
-		}
-		if err := fs.RenameWithFallback(tmpPath, destPath); err != nil {
-			return errors.Wrap(err, "unable to move current charts to tmp dir")
-		}
 		return saveError
 	}
 	return nil
 }
 
-// safeDeleteDep deletes any versions of the given dependency in the given directory.
+func parseOCIRef(chartRef string) (string, string, error) {
+	refTagRegexp := regexp.MustCompile(`^(oci://[^:]+(:[0-9]{1,5})?[^:]+):(.*)$`)
+	caps := refTagRegexp.FindStringSubmatch(chartRef)
+	if len(caps) != 4 {
+		return "", "", errors.Errorf("improperly formatted oci chart reference: %s", chartRef)
+	}
+	chartRef = caps[1]
+	tag := caps[3]
+
+	return chartRef, tag, nil
+}
+
+// safeMoveDep moves all dependencies in the source and moves them into dest.
 //
 // It does this by first matching the file name to an expected pattern, then loading
-// the file to verify that it is a chart with the same name as the given name.
+// the file to verify that it is a chart.
 //
-// Because it requires tar file introspection, it is more intensive than a basic delete.
+// Any charts in dest that do not exist in source are removed (barring local dependencies)
+//
+// Because it requires tar file introspection, it is more intensive than a basic move.
 //
 // This will only return errors that should stop processing entirely. Other errors
 // will emit log messages or be ignored.
-func (m *Manager) safeDeleteDep(name, dir string) error {
-	files, err := filepath.Glob(filepath.Join(dir, name+"-*.tgz"))
+func (m *Manager) safeMoveDeps(deps []*chart.Dependency, source, dest string) error {
+	existsInSourceDirectory := map[string]bool{}
+	isLocalDependency := map[string]bool{}
+	sourceFiles, err := os.ReadDir(source)
 	if err != nil {
-		// Only for ErrBadPattern
 		return err
 	}
-	for _, fname := range files {
-		ch, err := loader.LoadFile(fname)
-		if err != nil {
-			fmt.Fprintf(m.Out, "Could not verify %s for deletion: %s (Skipping)", fname, err)
+	// attempt to read destFiles; fail fast if we can't
+	destFiles, err := os.ReadDir(dest)
+	if err != nil {
+		return err
+	}
+
+	for _, dep := range deps {
+		if dep.Repository == "" {
+			isLocalDependency[dep.Name] = true
+		}
+	}
+
+	for _, file := range sourceFiles {
+		if file.IsDir() {
 			continue
 		}
-		if ch.Name() != name {
-			// This is not the file you are looking for.
+		filename := file.Name()
+		sourcefile := filepath.Join(source, filename)
+		destfile := filepath.Join(dest, filename)
+		existsInSourceDirectory[filename] = true
+		if _, err := loader.LoadFile(sourcefile); err != nil {
+			fmt.Fprintf(m.Out, "Could not verify %s for moving: %s (Skipping)", sourcefile, err)
 			continue
 		}
-		if err := os.Remove(fname); err != nil {
-			fmt.Fprintf(m.Out, "Could not delete %s: %s (Skipping)", fname, err)
+		// NOTE: no need to delete the dest; os.Rename replaces it.
+		if err := fs.RenameWithFallback(sourcefile, destfile); err != nil {
+			fmt.Fprintf(m.Out, "Unable to move %s to charts dir %s (Skipping)", sourcefile, err)
 			continue
 		}
 	}
+
+	fmt.Fprintln(m.Out, "Deleting outdated charts")
+	// find all files that exist in dest that do not exist in source; delete them (outdated dependencies)
+	for _, file := range destFiles {
+		if !file.IsDir() && !existsInSourceDirectory[file.Name()] {
+			fname := filepath.Join(dest, file.Name())
+			ch, err := loader.LoadFile(fname)
+			if err != nil {
+				fmt.Fprintf(m.Out, "Could not verify %s for deletion: %s (Skipping)\n", fname, err)
+				continue
+			}
+			// local dependency - skip
+			if isLocalDependency[ch.Name()] {
+				continue
+			}
+			if err := os.Remove(fname); err != nil {
+				fmt.Fprintf(m.Out, "Could not delete %s: %s (Skipping)", fname, err)
+				continue
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -356,8 +472,8 @@ func (m *Manager) hasAllRepos(deps []*chart.Dependency) error {
 	missing := []string{}
 Loop:
 	for _, dd := range deps {
-		// If repo is from local path, continue
-		if strings.HasPrefix(dd.Repository, "file://") {
+		// If repo is from local path or OCI, continue
+		if strings.HasPrefix(dd.Repository, "file://") || registry.IsOCI(dd.Repository) {
 			continue
 		}
 
@@ -372,9 +488,71 @@ Loop:
 		missing = append(missing, dd.Repository)
 	}
 	if len(missing) > 0 {
-		return errors.Errorf("no repository definition for %s. Please add the missing repos via 'helm repo add'", strings.Join(missing, ", "))
+		return ErrRepoNotFound{missing}
 	}
 	return nil
+}
+
+// ensureMissingRepos attempts to ensure the repository information for repos
+// not managed by Helm is present. This takes in the repoNames Helm is configured
+// to work with along with the chart dependencies. It will find the deps not
+// in a known repo and attempt to ensure the data is present for steps like
+// version resolution.
+func (m *Manager) ensureMissingRepos(repoNames map[string]string, deps []*chart.Dependency) (map[string]string, error) {
+
+	var ru []*repo.Entry
+
+	for _, dd := range deps {
+
+		// If the chart is in the local charts directory no repository needs
+		// to be specified.
+		if dd.Repository == "" {
+			continue
+		}
+
+		// When the repoName for a dependency is known we can skip ensuring
+		if _, ok := repoNames[dd.Name]; ok {
+			continue
+		}
+
+		// The generated repository name, which will result in an index being
+		// locally cached, has a name pattern of "helm-manager-" followed by a
+		// sha256 of the repo name. This assumes end users will never create
+		// repositories with these names pointing to other repositories. Using
+		// this method of naming allows the existing repository pulling and
+		// resolution code to do most of the work.
+		rn, err := key(dd.Repository)
+		if err != nil {
+			return repoNames, err
+		}
+		rn = managerKeyPrefix + rn
+
+		repoNames[dd.Name] = rn
+
+		// Assuming the repository is generally available. For Helm managed
+		// access controls the repository needs to be added through the user
+		// managed system. This path will work for public charts, like those
+		// supplied by Bitnami, but not for protected charts, like corp ones
+		// behind a username and pass.
+		ri := &repo.Entry{
+			Name: rn,
+			URL:  dd.Repository,
+		}
+		ru = append(ru, ri)
+	}
+
+	// Calls to UpdateRepositories (a public function) will only update
+	// repositories configured by the user. Here we update repos found in
+	// the dependencies that are not known to the user if update skipping
+	// is not configured.
+	if !m.SkipUpdate && len(ru) > 0 {
+		fmt.Fprintln(m.Out, "Getting updates for unmanaged Helm repositories...")
+		if err := m.parallelRepoUpdate(ru); err != nil {
+			return repoNames, err
+		}
+	}
+
+	return repoNames, nil
 }
 
 // resolveRepoNames returns the repo names of the referenced deps which can be used to fetch the cached index file
@@ -408,6 +586,11 @@ func (m *Manager) resolveRepoNames(deps []*chart.Dependency) (map[string]string,
 			if m.Debug {
 				fmt.Fprintf(m.Out, "Repository from local path: %s\n", dd.Repository)
 			}
+			reposMap[dd.Name] = dd.Repository
+			continue
+		}
+
+		if registry.IsOCI(dd.Repository) {
 			reposMap[dd.Name] = dd.Repository
 			continue
 		}
@@ -467,16 +650,18 @@ func (m *Manager) UpdateRepositories() error {
 	}
 	repos := rf.Repositories
 	if len(repos) > 0 {
+		fmt.Fprintln(m.Out, "Hang tight while we grab the latest from your chart repositories...")
 		// This prints warnings straight to out.
 		if err := m.parallelRepoUpdate(repos); err != nil {
 			return err
 		}
+		fmt.Fprintln(m.Out, "Update Complete. ⎈Happy Helming!⎈")
 	}
 	return nil
 }
 
 func (m *Manager) parallelRepoUpdate(repos []*repo.Entry) error {
-	fmt.Fprintln(m.Out, "Hang tight while we grab the latest from your chart repositories...")
+
 	var wg sync.WaitGroup
 	for _, c := range repos {
 		r, err := repo.NewChartRepository(c, m.Getters)
@@ -486,15 +671,27 @@ func (m *Manager) parallelRepoUpdate(repos []*repo.Entry) error {
 		wg.Add(1)
 		go func(r *repo.ChartRepository) {
 			if _, err := r.DownloadIndexFile(); err != nil {
-				fmt.Fprintf(m.Out, "...Unable to get an update from the %q chart repository (%s):\n\t%s\n", r.Config.Name, r.Config.URL, err)
+				// For those dependencies that are not known to helm and using a
+				// generated key name we display the repo url.
+				if strings.HasPrefix(r.Config.Name, managerKeyPrefix) {
+					fmt.Fprintf(m.Out, "...Unable to get an update from the %q chart repository:\n\t%s\n", r.Config.URL, err)
+				} else {
+					fmt.Fprintf(m.Out, "...Unable to get an update from the %q chart repository (%s):\n\t%s\n", r.Config.Name, r.Config.URL, err)
+				}
 			} else {
-				fmt.Fprintf(m.Out, "...Successfully got an update from the %q chart repository\n", r.Config.Name)
+				// For those dependencies that are not known to helm and using a
+				// generated key name we display the repo url.
+				if strings.HasPrefix(r.Config.Name, managerKeyPrefix) {
+					fmt.Fprintf(m.Out, "...Successfully got an update from the %q chart repository\n", r.Config.URL)
+				} else {
+					fmt.Fprintf(m.Out, "...Successfully got an update from the %q chart repository\n", r.Config.Name)
+				}
 			}
 			wg.Done()
 		}(r)
 	}
 	wg.Wait()
-	fmt.Fprintln(m.Out, "Update Complete. ⎈Happy Helming!⎈")
+
 	return nil
 }
 
@@ -506,8 +703,13 @@ func (m *Manager) parallelRepoUpdate(repos []*repo.Entry) error {
 // repoURL is the repository to search
 //
 // If it finds a URL that is "relative", it will prepend the repoURL.
-func (m *Manager) findChartURL(name, version, repoURL string, repos map[string]*repo.ChartRepository) (url, username, password string, err error) {
+func (m *Manager) findChartURL(name, version, repoURL string, repos map[string]*repo.ChartRepository) (url, username, password string, insecureskiptlsverify, passcredentialsall bool, caFile, certFile, keyFile string, err error) {
+	if registry.IsOCI(repoURL) {
+		return fmt.Sprintf("%s/%s:%s", repoURL, name, version), "", "", false, false, "", "", "", nil
+	}
+
 	for _, cr := range repos {
+
 		if urlutil.Equal(repoURL, cr.Config.URL) {
 			var entry repo.ChartVersions
 			entry, err = findEntryByName(name, cr)
@@ -525,15 +727,20 @@ func (m *Manager) findChartURL(name, version, repoURL string, repos map[string]*
 			}
 			username = cr.Config.Username
 			password = cr.Config.Password
+			passcredentialsall = cr.Config.PassCredentialsAll
+			insecureskiptlsverify = cr.Config.InsecureSkipTLSverify
+			caFile = cr.Config.CAFile
+			certFile = cr.Config.CertFile
+			keyFile = cr.Config.KeyFile
 			return
 		}
 	}
-	url, err = repo.FindChartInRepoURL(repoURL, name, version, "", "", "", m.Getters)
+	url, err = repo.FindChartInRepoURL(repoURL, name, version, certFile, keyFile, caFile, m.Getters)
 	if err == nil {
-		return
+		return url, username, password, false, false, "", "", "", err
 	}
-	err = errors.Errorf("chart %s not found in %s", name, repoURL)
-	return
+	err = errors.Errorf("chart %s not found in %s: %s", name, repoURL, err)
+	return url, username, password, false, false, "", "", "", err
 }
 
 // findEntryByName finds an entry in the chart repository whose name matches the given name.
@@ -591,6 +798,7 @@ func normalizeURL(baseURL, urlOrPath string) (string, error) {
 		return urlOrPath, errors.Wrap(err, "base URL failed to parse")
 	}
 
+	u2.RawPath = path.Join(u2.RawPath, urlOrPath)
 	u2.Path = path.Join(u2.Path, urlOrPath)
 	return u2.String(), nil
 }
@@ -627,19 +835,21 @@ func (m *Manager) loadChartRepositories() (map[string]*repo.ChartRepository, err
 }
 
 // writeLock writes a lockfile to disk
-func writeLock(chartpath string, lock *chart.Lock) error {
+func writeLock(chartpath string, lock *chart.Lock, legacyLockfile bool) error {
 	data, err := yaml.Marshal(lock)
 	if err != nil {
 		return err
 	}
-	dest := filepath.Join(chartpath, "Chart.lock")
+	lockfileName := "Chart.lock"
+	if legacyLockfile {
+		lockfileName = "requirements.lock"
+	}
+	dest := filepath.Join(chartpath, lockfileName)
 	return ioutil.WriteFile(dest, data, 0644)
 }
 
-// archive a dep chart from local directory and save it into charts/
-func tarFromLocalDir(chartpath, name, repo, version string) (string, error) {
-	destPath := filepath.Join(chartpath, "charts")
-
+// archive a dep chart from local directory and save it into destPath
+func tarFromLocalDir(chartpath, name, repo, version, destPath string) (string, error) {
 	if !strings.HasPrefix(repo, "file://") {
 		return "", errors.Errorf("wrong format: chart %s repository %s", name, repo)
 	}
@@ -672,16 +882,17 @@ func tarFromLocalDir(chartpath, name, repo, version string) (string, error) {
 	return "", errors.Errorf("can't get a valid version for dependency %s", name)
 }
 
-// move files from tmppath to destpath
-func move(tmpPath, destPath string) error {
-	files, _ := ioutil.ReadDir(tmpPath)
-	for _, file := range files {
-		filename := file.Name()
-		tmpfile := filepath.Join(tmpPath, filename)
-		destfile := filepath.Join(destPath, filename)
-		if err := fs.RenameWithFallback(tmpfile, destfile); err != nil {
-			return errors.Wrap(err, "unable to move local charts to charts dir")
-		}
+// The prefix to use for cache keys created by the manager for repo names
+const managerKeyPrefix = "helm-manager-"
+
+// key is used to turn a name, such as a repository url, into a filesystem
+// safe name that is unique for querying. To accomplish this a unique hash of
+// the string is used.
+func key(name string) (string, error) {
+	in := strings.NewReader(name)
+	hash := crypto.SHA256.New()
+	if _, err := io.Copy(hash, in); err != nil {
+		return "", nil
 	}
-	return nil
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }

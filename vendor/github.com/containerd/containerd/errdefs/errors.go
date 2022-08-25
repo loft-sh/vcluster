@@ -17,7 +17,7 @@
 // Package errdefs defines the common errors used throughout containerd
 // packages.
 //
-// Use with errors.Wrap and error.Wrapf to add context to an error.
+// Use with fmt.Errorf to add context to an error.
 //
 // To detect an error class, use the IsXXX functions to tell whether an error
 // is of a certain type.
@@ -28,8 +28,7 @@ package errdefs
 
 import (
 	"context"
-
-	"github.com/pkg/errors"
+	"errors"
 )
 
 // Definitions of common error types used throughout containerd. All containerd
@@ -51,43 +50,43 @@ var (
 
 // IsInvalidArgument returns true if the error is due to an invalid argument
 func IsInvalidArgument(err error) bool {
-	return errors.Cause(err) == ErrInvalidArgument
+	return errors.Is(err, ErrInvalidArgument)
 }
 
 // IsNotFound returns true if the error is due to a missing object
 func IsNotFound(err error) bool {
-	return errors.Cause(err) == ErrNotFound
+	return errors.Is(err, ErrNotFound)
 }
 
 // IsAlreadyExists returns true if the error is due to an already existing
 // metadata item
 func IsAlreadyExists(err error) bool {
-	return errors.Cause(err) == ErrAlreadyExists
+	return errors.Is(err, ErrAlreadyExists)
 }
 
 // IsFailedPrecondition returns true if an operation could not proceed to the
 // lack of a particular condition
 func IsFailedPrecondition(err error) bool {
-	return errors.Cause(err) == ErrFailedPrecondition
+	return errors.Is(err, ErrFailedPrecondition)
 }
 
 // IsUnavailable returns true if the error is due to a resource being unavailable
 func IsUnavailable(err error) bool {
-	return errors.Cause(err) == ErrUnavailable
+	return errors.Is(err, ErrUnavailable)
 }
 
 // IsNotImplemented returns true if the error is due to not being implemented
 func IsNotImplemented(err error) bool {
-	return errors.Cause(err) == ErrNotImplemented
+	return errors.Is(err, ErrNotImplemented)
 }
 
 // IsCanceled returns true if the error is due to `context.Canceled`.
 func IsCanceled(err error) bool {
-	return errors.Cause(err) == context.Canceled
+	return errors.Is(err, context.Canceled)
 }
 
 // IsDeadlineExceeded returns true if the error is due to
 // `context.DeadlineExceeded`.
 func IsDeadlineExceeded(err error) bool {
-	return errors.Cause(err) == context.DeadlineExceeded
+	return errors.Is(err, context.DeadlineExceeded)
 }

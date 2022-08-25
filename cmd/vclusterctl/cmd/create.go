@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -263,13 +262,13 @@ func getBase64DecodedString(values string) (string, error) {
 
 func (cmd *CreateCmd) deployChart(vClusterName, chartValues string) error {
 	// check if there is a vcluster directory already
-	workDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("unable to get current work directory: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(workDir, cmd.ChartName)); err == nil {
-		return fmt.Errorf("aborting vcluster creation. Current working directory contains a file or a directory with the name equal to the vcluster chart name - \"%s\". Please execute vcluster create command from a directory that doesn't contain a file or directory named \"%s\"", cmd.ChartName, cmd.ChartName)
-	}
+	//workDir, err := os.Getwd()
+	//if err != nil {
+	//	return fmt.Errorf("unable to get current work directory: %v", err)
+	//}
+	//if _, err := os.Stat(filepath.Join(workDir, cmd.ChartName)); err == nil {
+	//	return fmt.Errorf("aborting vcluster creation. Current working directory contains a file or a directory with the name equal to the vcluster chart name - \"%s\". Please execute vcluster create command from a directory that doesn't contain a file or directory named \"%s\"", cmd.ChartName, cmd.ChartName)
+	//}
 
 	// rewrite chart location, this is an optimization to avoid
 	// downloading the whole index.yaml and parsing it
@@ -283,24 +282,34 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues string) error {
 		cmd.ChartRepo = ""
 	}
 
-	if cmd.Upgrade {
-		cmd.log.Infof("Upgrade vcluster %s...", vClusterName)
-	} else {
-		cmd.log.Infof("Create vcluster %s...", vClusterName)
-	}
-
 	// we have to upgrade / install the chart
 	ctx := context.Background()
-	err = helm.NewClient(&cmd.rawConfig, cmd.log).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
-		Chart:       cmd.ChartName,
-		Path:        cmd.LocalChartDir,
-		Repo:        cmd.ChartRepo,
-		Version:     cmd.ChartVersion,
-		Values:      chartValues,
-		ValuesFiles: cmd.ExtraValues,
-	})
-	if err != nil {
-		return err
+	if cmd.Upgrade {
+		cmd.log.Infof("Upgrade vcluster %s...", vClusterName)
+		err := helm.NewClient(&cmd.rawConfig, cmd.log).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
+			Chart:       cmd.ChartName,
+			Path:        cmd.LocalChartDir,
+			Repo:        cmd.ChartRepo,
+			Version:     cmd.ChartVersion,
+			Values:      chartValues,
+			ValuesFiles: cmd.ExtraValues,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		cmd.log.Infof("Create vcluster %s...", vClusterName)
+		err := helm.NewClient(&cmd.rawConfig, cmd.log).Install(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
+			Chart:       cmd.ChartName,
+			Path:        cmd.LocalChartDir,
+			Repo:        cmd.ChartRepo,
+			Version:     cmd.ChartVersion,
+			Values:      chartValues,
+			ValuesFiles: cmd.ExtraValues,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
