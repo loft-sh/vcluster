@@ -74,10 +74,6 @@ func NewClient(config *clientcmdapi.Config, log vclusterlog.Logger) Client {
 	}
 }
 
-func (c *client) Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error {
-	return c.run(ctx, name, namespace, options, "upgrade", []string{"--install", "--repository-config=''"})
-}
-
 func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) error {
 	return c.run(ctx, name, "", options, "pull", []string{})
 }
@@ -189,6 +185,96 @@ func (c *client) RepoUpdate() error {
 	}
 	wg.Wait()
 	c.log.Debugf("Update Complete. ⎈ Happy Helming!⎈\n")
+	return nil
+}
+
+func (c *client) Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error {
+	err := c.addSettings(namespace)
+	if err != nil {
+		return err
+	}
+
+	err = c.RepoAdd(name, options.Path)
+	if err != nil {
+		return err
+	}
+
+	err = c.RepoUpdate()
+	if err != nil {
+		return err
+	}
+
+	actionConfig, err := c.getActionConfig()
+	if err != nil {
+		return err
+	}
+
+	newUpgradeClient := action.NewUpgrade(actionConfig)
+	if newUpgradeClient.Version == "" && newUpgradeClient.Devel {
+		newUpgradeClient.Version = options.Version
+	}
+
+	var cp string
+	if options.Repo == "" {
+		return fmt.Errorf("cannot deploy chart without repo")
+	}
+	if options.Version != "" {
+		newUpgradeClient.Version = options.Version
+	}
+
+	cp, err = newUpgradeClient.ChartPathOptions.LocateChart(fmt.Sprintf("%s/%s", options.Repo, options.Chart), c.settings)
+	if err != nil {
+		return err
+	}
+	c.debug("CHART PATH: %s\n", cp)
+
+	p := getter.All(c.settings)
+
+	setStringValues := ""
+	for key, value := range options.SetStringValues {
+		if setStringValues != "" {
+			setStringValues += ","
+		}
+		setStringValues += key + "=" + value
+	}
+
+	setValues := ""
+	for key, value := range options.SetValues {
+		if setValues != "" {
+			setValues += ","
+		}
+		setValues += key + "=" + value
+	}
+
+	valueOpts := &values.Options{
+		ValueFiles:   options.ValuesFiles,
+		StringValues: []string{setStringValues},
+		Values:       []string{options.Values, setValues},
+	}
+
+	vals, err := valueOpts.MergeValues(p)
+	if err != nil {
+		return err
+	}
+
+	// Check chart dependencies to make sure all are present in /charts
+	chartRequested, err := loader.Load(cp)
+	if err != nil {
+		return err
+	}
+
+	validInstallableChart, err := isChartInstallable(chartRequested)
+	if !validInstallableChart {
+		return err
+	}
+
+	newUpgradeClient.Namespace = c.settings.Namespace()
+	updatedRelease, err := newUpgradeClient.Run(name, chartRequested, vals)
+	if err != nil {
+		return err
+	}
+	c.log.Info(updatedRelease.Manifest)
+
 	return nil
 }
 
