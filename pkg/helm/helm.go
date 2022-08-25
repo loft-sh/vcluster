@@ -3,14 +3,19 @@ package helm
 import (
 	"context"
 	"fmt"
+	"github.com/gofrs/flock"
+	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/repo"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	vclusterlog "github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -89,11 +94,120 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 	return false, errors.Errorf("%s charts are not installable", ch.Metadata.Type)
 }
 
+// RepoAdd adds repo to local
+func (c *client) RepoAdd(name, url string) error {
+	repoFile := c.settings.RepositoryConfig
+
+	//Ensure the file directory exists as it is required for file locking
+	err := os.MkdirAll(filepath.Dir(repoFile), os.ModePerm)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	// Acquire a file lock for process synchronization
+	fileLock := flock.New(strings.Replace(repoFile, filepath.Ext(repoFile), ".lock", 1))
+	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
+	if err == nil && locked {
+		defer func(fileLock *flock.Flock) {
+			_ = fileLock.Unlock()
+		}(fileLock)
+	}
+	if err != nil {
+		return err
+	}
+
+	b, err := os.ReadFile(repoFile)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	var f repo.File
+	if err := yaml.Unmarshal(b, &f); err != nil {
+		return err
+	}
+
+	if f.Has(name) {
+		c.log.Infof("repository name (%s) already exists\n", name)
+		return nil
+	}
+
+	repoEntry := repo.Entry{
+		Name: name,
+		URL:  url,
+	}
+
+	r, err := repo.NewChartRepository(&repoEntry, getter.All(c.settings))
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.DownloadIndexFile(); err != nil {
+		return errors.Wrapf(err, "looks like %q is not a valid chart repository or cannot be reached", url)
+	}
+
+	f.Update(&repoEntry)
+
+	if err := f.WriteFile(repoFile, 0644); err != nil {
+		return err
+	}
+	c.log.Infof("%q has been added to your repositories\n", name)
+	return nil
+}
+
+// RepoUpdate updates charts for all helm repos
+func (c *client) RepoUpdate() error {
+	repoFile := c.settings.RepositoryConfig
+
+	f, err := repo.LoadFile(repoFile)
+	if os.IsNotExist(errors.Cause(err)) || len(f.Repositories) == 0 {
+		c.log.Error("no repositories found. You must add one before updating")
+		return err
+	}
+	var repos []*repo.ChartRepository
+	for _, cfg := range f.Repositories {
+		r, err := repo.NewChartRepository(cfg, getter.All(c.settings))
+		if err != nil {
+			return err
+		}
+		repos = append(repos, r)
+	}
+
+	c.log.Debugf("Hang tight while we grab the latest from your chart repositories...\n")
+	var wg sync.WaitGroup
+	for _, re := range repos {
+		wg.Add(1)
+		go func(re *repo.ChartRepository) {
+			defer wg.Done()
+			if _, err := re.DownloadIndexFile(); err != nil {
+				c.log.Infof("...Unable to get an update from the %q chart repository (%s):\n\t%s\n", re.Config.Name, re.Config.URL, err)
+			} else {
+				c.log.Infof("...Successfully got an update from the %q chart repository\n", re.Config.Name)
+			}
+		}(re)
+	}
+	wg.Wait()
+	c.log.Debugf("Update Complete. ⎈ Happy Helming!⎈\n")
+	return nil
+}
+
 func (c *client) Install(ctx context.Context, name, namespace string, options UpgradeOptions) error {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return err
 	}
+
+	err = c.RepoAdd(name, options.Path)
+	if err != nil {
+		return err
+	}
+
+	err = c.RepoUpdate()
+	if err != nil {
+		return err
+	}
+
 	actionConfig, err := c.getActionConfig()
 	if err != nil {
 		return err
@@ -101,38 +215,22 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 
 	newInstallClient := action.NewInstall(actionConfig)
 	if newInstallClient.Version == "" && newInstallClient.Devel {
-		newInstallClient.Version = ">0.0.0-0"
+		newInstallClient.Version = options.Version
 	}
 
 	newInstallClient.ReleaseName = name
 	var cp string
-	if options.Path != "" {
-		newInstallClient.RepoURL = options.Path
-	} else if options.Chart != "" {
-		if options.Repo == "" {
-			return fmt.Errorf("cannot deploy chart without repo")
-		}
-		if options.Version != "" {
-			newInstallClient.Version = options.Version
-		}
-		if options.Username != "" {
-			newInstallClient.Username = options.Username
-		}
-		if options.Password != "" {
-			newInstallClient.Password = options.Password
-		}
-		cp, err := newInstallClient.ChartPathOptions.LocateChart(fmt.Sprintf("%s/%s", options.Repo, options.Chart), c.settings)
-		if err != nil {
-			return err
-		}
-		c.debug("CHART PATH: %s\n", cp)
+	if options.Repo == "" {
+		return fmt.Errorf("cannot deploy chart without repo")
+	}
+	if options.Version != "" {
+		newInstallClient.Version = options.Version
 	}
 
 	cp, err = newInstallClient.ChartPathOptions.LocateChart(fmt.Sprintf("%s/%s", options.Repo, options.Chart), c.settings)
 	if err != nil {
 		return err
 	}
-
 	c.debug("CHART PATH: %s\n", cp)
 
 	p := getter.All(c.settings)
@@ -142,7 +240,6 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 		if setStringValues != "" {
 			setStringValues += ","
 		}
-
 		setStringValues += key + "=" + value
 	}
 
@@ -151,7 +248,6 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 		if setValues != "" {
 			setValues += ","
 		}
-
 		setValues += key + "=" + value
 	}
 
@@ -202,11 +298,11 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 	}
 
 	newInstallClient.Namespace = c.settings.Namespace()
-	release, err := newInstallClient.Run(chartRequested, vals)
+	installedRelease, err := newInstallClient.Run(chartRequested, vals)
 	if err != nil {
 		return err
 	}
-	fmt.Println(release.Manifest)
+	c.log.Info(installedRelease.Manifest)
 
 	return nil
 }
