@@ -61,6 +61,8 @@ type Client interface {
 	Status(ctx context.Context, name, namespace string) (*release.Release, error)
 }
 
+const chartPrefix = "loft-sh"
+
 type client struct {
 	config   *clientcmdapi.Config
 	log      vclusterlog.Logger
@@ -118,7 +120,7 @@ func (c *client) RepoAdd(name, url string) error {
 	}
 
 	if f.Has(name) {
-		c.log.Infof("repository name (%s) already exists\n", name)
+		c.log.Debugf("repository name (%s) already exists\n", name)
 		return nil
 	}
 
@@ -141,7 +143,7 @@ func (c *client) RepoAdd(name, url string) error {
 	if err := f.WriteFile(repoFile, 0644); err != nil {
 		return err
 	}
-	c.log.Infof("%q has been added to your repositories\n", name)
+	c.log.Debugf("%q has been added to your repositories\n", name)
 	return nil
 }
 
@@ -170,7 +172,7 @@ func (c *client) RepoUpdate() error {
 		go func(re *repo.ChartRepository) {
 			defer wg.Done()
 			if _, err := re.DownloadIndexFile(); err != nil {
-				c.log.Infof("...Unable to get an update from the %q chart repository (%s):\n\t%s\n", re.Config.Name, re.Config.URL, err)
+				c.log.Errorf("...Unable to get an update from the %q chart repository (%s):\n\t%s\n", re.Config.Name, re.Config.URL, err)
 			} else {
 				c.log.Infof("...Successfully got an update from the %q chart repository\n", re.Config.Name)
 			}
@@ -235,12 +237,10 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 		if options.Repo == "" {
 			return fmt.Errorf("cannot deploy chart without repo")
 		}
-
 		err = c.RepoAdd(chartPrefix, options.Repo)
 		if err != nil {
 			return err
 		}
-
 		err = c.RepoUpdate()
 		if err != nil {
 			return err
@@ -326,10 +326,15 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 	if err != nil {
 		return err
 	}
-	newUpgradeClient.Install = true
+	newUpgradeClient.Force = options.Force
+	newUpgradeClient.Atomic = options.Atomic
+	newUpgradeClient.InsecureSkipTLSverify = options.Insecure
 	updatedRelease, err := newUpgradeClient.Run(name, chartRequested, vals)
 	if err != nil {
-		return err
+		if !strings.Contains(err.Error(), "has no deployed releases") {
+			return err
+		}
+		return c.Install(ctx, name, namespace, options)
 	}
 	c.log.Info(updatedRelease.Manifest)
 
@@ -346,7 +351,6 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 		_ = os.Remove(name)
 	}(c.settings.KubeConfig)
 
-	const chartPrefix = "loft-sh"
 	if options.Path == "" {
 		if options.Repo == "" {
 			return fmt.Errorf("cannot deploy chart without repo")
@@ -374,6 +378,9 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 	}
 
 	newInstallClient.ReleaseName = name
+	newInstallClient.Atomic = options.Atomic
+	newInstallClient.InsecureSkipTLSverify = options.Insecure
+
 	var chartName string
 	if options.Path != "" {
 		chartName = options.Path

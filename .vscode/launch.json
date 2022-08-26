@@ -11,7 +11,7 @@
         "mode": "debug",
         "program": "${workspaceRoot}/cmd/vclusterctl/main.go",
         "cwd": "${workspaceRoot}",
-        "args": ["create", "vcluster-1", "-nvcluster-1"]
+        "args": ["create", "vcluster-1", "-nvcluster-1", "--upgrade"]
       },
         {
           "name": "Debug vcluster (localhost:2346)",
