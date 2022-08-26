@@ -67,17 +67,6 @@ vcluster delete test --namespace test
 
 // Run executes the functionality
 func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	// test for helm
-	//_, err := exec.LookPath("helm")
-	//if err != nil {
-	//	return fmt.Errorf("seems like helm is not installed. Helm is required for the deletion of a virtual cluster. Please visit https://helm.sh/docs/intro/install/ for install instructions")
-	//}
-	//
-	//output, err := exec.Command("helm", "version").CombinedOutput()
-	//if err != nil {
-	//	return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
-	//}
-
 	// prepare client
 	err := cmd.prepare(args[0])
 	if err != nil {

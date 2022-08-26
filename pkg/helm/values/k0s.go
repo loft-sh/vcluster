@@ -1,8 +1,6 @@
 package values
 
 import (
-	"strings"
-
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/log"
 )
@@ -32,9 +30,7 @@ func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	}
 
 	// build values
-	values := `vcluster:
-  image: ##IMAGE##
-`
-	values = strings.ReplaceAll(values, "##IMAGE##", image)
-	return addCommonReleaseValues(values, "", chartOptions)
+	values := ""
+	values += "vcluster.image=" + image
+	return addCommonReleaseValues(values, chartOptions)
 }

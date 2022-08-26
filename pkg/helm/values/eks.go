@@ -1,8 +1,6 @@
 package values
 
 import (
-	"strings"
-
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/log"
 )
@@ -59,18 +57,10 @@ func getDefaultEKSReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	}
 
 	// build values
-	values := `api:
-  image: ##API_IMAGE##
-controller:
-  image: ##CONTROLLER_IMAGE##
-etcd:
-  image: ##ETCD_IMAGE##
-coredns:
-  image: ##COREDNS_IMAGE##
-`
-	values = strings.ReplaceAll(values, "##API_IMAGE##", apiImage)
-	values = strings.ReplaceAll(values, "##CONTROLLER_IMAGE##", controllerImage)
-	values = strings.ReplaceAll(values, "##ETCD_IMAGE##", etcdImage)
-	values = strings.ReplaceAll(values, "##COREDNS_IMAGE##", corednsImage)
-	return addCommonReleaseValues(values, "", chartOptions)
+	values := ""
+	values += "api.image=" + apiImage
+	values += ",coredns.image=" + corednsImage
+	values += ",controller.image=" + controllerImage
+	values += ",etcd.image=" + etcdImage
+	return addCommonReleaseValues(values, chartOptions)
 }

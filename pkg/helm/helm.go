@@ -158,9 +158,9 @@ func (c *client) RepoUpdate() error {
 	}
 	var repos []*repo.ChartRepository
 	for _, cfg := range f.Repositories {
-		r, err := repo.NewChartRepository(cfg, getter.All(c.settings))
-		if err != nil {
-			return err
+		r, err2 := repo.NewChartRepository(cfg, getter.All(c.settings))
+		if err2 != nil {
+			return err2
 		}
 		repos = append(repos, r)
 	}
@@ -207,6 +207,10 @@ func (c *client) Rollback(ctx context.Context, name, namespace string) error {
 	if err != nil {
 		return err
 	}
+
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(c.settings.KubeConfig)
 
 	actionConfig, err := c.getActionConfig()
 	if err != nil {
@@ -290,6 +294,7 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 		Values:       []string{},
 	}
 
+	// Values files
 	if len(options.ValuesFiles) > 0 {
 		valueOpts.ValueFiles = append(valueOpts.ValueFiles, options.ValuesFiles...)
 	}
@@ -298,6 +303,7 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 		valueOpts.Values = append(valueOpts.Values, options.Values)
 	}
 
+	// Set string values
 	setStringValues := ""
 	for key, value := range options.SetStringValues {
 		if setStringValues != "" {
@@ -309,6 +315,7 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 		valueOpts.StringValues = append(valueOpts.StringValues, setStringValues)
 	}
 
+	// Set values
 	setValues := ""
 	for key, value := range options.SetValues {
 		if setValues != "" {
@@ -316,7 +323,7 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 		}
 		setValues += key + "=" + value
 	}
-	if setStringValues != "" {
+	if setValues != "" {
 		valueOpts.Values = append(valueOpts.Values, setValues)
 	}
 
@@ -329,14 +336,13 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 	newUpgradeClient.Force = options.Force
 	newUpgradeClient.Atomic = options.Atomic
 	newUpgradeClient.InsecureSkipTLSverify = options.Insecure
-	updatedRelease, err := newUpgradeClient.Run(name, chartRequested, vals)
+	_, err = newUpgradeClient.Run(name, chartRequested, vals)
 	if err != nil {
 		if !strings.Contains(err.Error(), "has no deployed releases") {
 			return err
 		}
 		return c.Install(ctx, name, namespace, options)
 	}
-	c.log.Info(updatedRelease.Manifest)
 
 	return nil
 }
@@ -472,11 +478,10 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 	}
 
 	newInstallClient.Namespace = c.settings.Namespace()
-	installedRelease, err := newInstallClient.Run(chartRequested, vals)
+	_, err = newInstallClient.Run(chartRequested, vals)
 	if err != nil {
 		return err
 	}
-	c.log.Info(installedRelease.Manifest)
 
 	return nil
 }
@@ -488,6 +493,10 @@ func (c *client) Delete(name, namespace string) error {
 	if err != nil {
 		return err
 	}
+
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(c.settings.KubeConfig)
 
 	actionConfig, err := c.getActionConfig()
 	if err != nil {
@@ -519,14 +528,22 @@ func (c *client) Status(ctx context.Context, name, namespace string) (*release.R
 	if err != nil {
 		return nil, err
 	}
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(c.settings.KubeConfig)
+
 	return c.retrieveRelease(name, namespace)
 }
 
-func (c *client) retrieveRelease(name string, namespace string) (*release.Release, error) {
+func (c *client) retrieveRelease(name, namespace string) (*release.Release, error) {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return nil, err
 	}
+
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(c.settings.KubeConfig)
 
 	actionConfig, err := c.getActionConfig()
 	if err != nil {

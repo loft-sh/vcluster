@@ -77,74 +77,45 @@ func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 ##BASEARGS##
 `
 	if chartOptions.Isolate {
-		values += `
-securityContext:
-  runAsUser: 12345
-  runAsNonRoot: true`
 		valuesString += ",securityContext.runAsUser=12345,securityContext.runAsNonRoot=true"
 	}
 
-	values = strings.ReplaceAll(values, "##IMAGE##", image)
 	valuesString += "vcluster.image=" + image
 	if chartOptions.K3SImage == "" {
 		baseArgs := baseArgsMap[serverVersionString]
 		values = strings.ReplaceAll(values, "##BASEARGS##", baseArgs)
 	}
 
-	return addCommonReleaseValues(values, valuesString, chartOptions)
+	return addCommonReleaseValues(valuesString, chartOptions)
 }
 
-func addCommonReleaseValues(values string, valuesString string, chartOptions *helm.ChartOptions) (string, error) {
+func addCommonReleaseValues(valuesString string, chartOptions *helm.ChartOptions) (string, error) {
 	if chartOptions.CIDR != "" {
-		values += `
-serviceCIDR: ##CIDR##`
-		values = strings.ReplaceAll(values, "##CIDR##", chartOptions.CIDR)
 		valuesString += ",serviceCIDR=" + chartOptions.CIDR
 	}
 
 	if chartOptions.DisableIngressSync {
-		values += `
-syncer:
-  extraArgs: ["--disable-sync-resources=ingresses"]`
 		valuesString += ",syncer.extraArgs=[\"--disable-sync-resources=ingresses\"]"
 	}
 
 	if chartOptions.CreateClusterRole {
-		values += `
-rbac:
-  clusterRole:
-    create: true`
 		valuesString += ",rbac.clusterRole.create=true"
 	}
 
 	if chartOptions.Expose {
-		values += `
-service:
-  type: LoadBalancer`
 		valuesString += ",service.type=LoadBalancer"
 	} else if chartOptions.NodePort {
-		values += `
-service:
-  type: NodePort`
 		valuesString += ",service.type=NodePort"
 	}
 
 	if chartOptions.SyncNodes {
-		values += `
-sync:
-  nodes:
-    enabled: true`
 		valuesString += ",sync.nodes.enabled=true"
 	}
 
 	if chartOptions.Isolate {
-		values += `
-isolation:
-  enabled: true`
 		valuesString += ",isolation.enabled=true"
 	}
 
-	values = strings.TrimSpace(values)
 	return valuesString, nil
 }
 

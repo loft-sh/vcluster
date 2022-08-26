@@ -1,8 +1,6 @@
 package values
 
 import (
-	"strings"
-
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/log"
 )
@@ -71,18 +69,10 @@ func getDefaultK8SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	}
 
 	// build values
-	values := `api:
-  image: ##API_IMAGE##
-scheduler:
-  image: ##SCHEDULER_IMAGE##
-controller:
-  image: ##CONTROLLER_IMAGE##
-etcd:
-  image: ##ETCD_IMAGE##
-`
-	values = strings.ReplaceAll(values, "##API_IMAGE##", apiImage)
-	values = strings.ReplaceAll(values, "##CONTROLLER_IMAGE##", controllerImage)
-	values = strings.ReplaceAll(values, "##SCHEDULER_IMAGE##", schedulerImage)
-	values = strings.ReplaceAll(values, "##ETCD_IMAGE##", etcdImage)
-	return addCommonReleaseValues(values, "", chartOptions)
+	values := ""
+	values += "api.image=" + apiImage
+	values += ",scheduler.image=" + schedulerImage
+	values += ",controller.image=" + controllerImage
+	values += ",etcd.image=" + etcdImage
+	return addCommonReleaseValues(values, chartOptions)
 }
