@@ -52,13 +52,13 @@ type UpgradeOptions struct {
 
 // Client defines the interface how to interact with helm
 type Client interface {
-	Install(ctx context.Context, name, namespace string, options UpgradeOptions) error
-	Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error
-	Pull(ctx context.Context, name string, options UpgradeOptions) error
+	Install(name, namespace string, options UpgradeOptions) error
+	Upgrade(name, namespace string, options UpgradeOptions) error
+	Pull(name string, options UpgradeOptions) error
 	Delete(name, namespace string) error
 	Exists(name, namespace string) (bool, error)
-	Rollback(ctx context.Context, name, namespace string) error
-	Status(ctx context.Context, name, namespace string) (*release.Release, error)
+	Rollback(name, namespace string) error
+	Status(name, namespace string) (*release.Release, error)
 }
 
 const chartPrefix = "loft-sh"
@@ -77,113 +77,7 @@ func NewClient(config *clientcmdapi.Config, log vclusterlog.Logger) Client {
 	}
 }
 
-func isChartInstallable(ch *chart.Chart) (bool, error) {
-	switch ch.Metadata.Type {
-	case "", "application":
-		return true, nil
-	}
-	return false, errors.Errorf("%s charts are not installable", ch.Metadata.Type)
-}
-
-// RepoAdd adds repo to local
-func (c *client) RepoAdd(name, url string) error {
-	repoFile := c.settings.RepositoryConfig
-
-	//Ensure the file directory exists as it is required for file locking
-	err := os.MkdirAll(filepath.Dir(repoFile), os.ModePerm)
-	if err != nil && !os.IsExist(err) {
-		return err
-	}
-
-	// Acquire a file lock for process synchronization
-	fileLock := flock.New(strings.Replace(repoFile, filepath.Ext(repoFile), ".lock", 1))
-	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
-	if err == nil && locked {
-		defer func(fileLock *flock.Flock) {
-			_ = fileLock.Unlock()
-		}(fileLock)
-	}
-	if err != nil {
-		return err
-	}
-
-	b, err := os.ReadFile(repoFile)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-
-	var f repo.File
-	if err := yaml.Unmarshal(b, &f); err != nil {
-		return err
-	}
-
-	if f.Has(name) {
-		c.log.Debugf("repository name (%s) already exists\n", name)
-		return nil
-	}
-
-	repoEntry := repo.Entry{
-		Name: name,
-		URL:  url,
-	}
-
-	r, err := repo.NewChartRepository(&repoEntry, getter.All(c.settings))
-	if err != nil {
-		return err
-	}
-
-	if _, err := r.DownloadIndexFile(); err != nil {
-		return errors.Wrapf(err, "looks like %q is not a valid chart repository or cannot be reached", url)
-	}
-
-	f.Update(&repoEntry)
-
-	if err := f.WriteFile(repoFile, 0644); err != nil {
-		return err
-	}
-	c.log.Debugf("%q has been added to your repositories\n", name)
-	return nil
-}
-
-// RepoUpdate updates charts for all helm repos
-func (c *client) RepoUpdate() error {
-	repoFile := c.settings.RepositoryConfig
-
-	f, err := repo.LoadFile(repoFile)
-	if os.IsNotExist(errors.Cause(err)) || len(f.Repositories) == 0 {
-		c.log.Error("no repositories found. You must add one before updating")
-		return err
-	}
-	var repos []*repo.ChartRepository
-	for _, cfg := range f.Repositories {
-		r, err2 := repo.NewChartRepository(cfg, getter.All(c.settings))
-		if err2 != nil {
-			return err2
-		}
-		repos = append(repos, r)
-	}
-
-	c.log.Debugf("Hang tight while we grab the latest from your chart repositories...\n")
-	var wg sync.WaitGroup
-	for _, re := range repos {
-		wg.Add(1)
-		go func(re *repo.ChartRepository) {
-			defer wg.Done()
-			if _, err := re.DownloadIndexFile(); err != nil {
-				c.log.Errorf("...Unable to get an update from the %q chart repository (%s):\n\t%s\n", re.Config.Name, re.Config.URL, err)
-			} else {
-				c.log.Infof("...Successfully got an update from the %q chart repository\n", re.Config.Name)
-			}
-		}(re)
-	}
-	wg.Wait()
-	c.log.Debugf("Update Complete. ⎈ Happy Helming!⎈\n")
-	return nil
-}
-
-func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) error {
+func (c *client) Pull(name string, options UpgradeOptions) error {
 	newPullClient := action.NewPull()
 	if newPullClient.Version == "" && newPullClient.Devel {
 		newPullClient.Version = options.Version
@@ -202,7 +96,7 @@ func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) 
 	return nil
 }
 
-func (c *client) Rollback(ctx context.Context, name, namespace string) error {
+func (c *client) Rollback(name, namespace string) error {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return err
@@ -227,7 +121,7 @@ func (c *client) Rollback(ctx context.Context, name, namespace string) error {
 	return nil
 }
 
-func (c *client) Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error {
+func (c *client) Upgrade(name, namespace string, options UpgradeOptions) error {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return err
@@ -241,11 +135,11 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 		if options.Repo == "" {
 			return fmt.Errorf("cannot deploy chart without repo")
 		}
-		err = c.RepoAdd(chartPrefix, options.Repo)
+		err = c.repoAdd(chartPrefix, options.Repo)
 		if err != nil {
 			return err
 		}
-		err = c.RepoUpdate()
+		err = c.repoUpdate()
 		if err != nil {
 			return err
 		}
@@ -341,13 +235,13 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 		if !strings.Contains(err.Error(), "has no deployed releases") {
 			return err
 		}
-		return c.Install(ctx, name, namespace, options)
+		return c.Install(name, namespace, options)
 	}
 
 	return nil
 }
 
-func (c *client) Install(ctx context.Context, name, namespace string, options UpgradeOptions) error {
+func (c *client) Install(name, namespace string, options UpgradeOptions) error {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return err
@@ -362,12 +256,12 @@ func (c *client) Install(ctx context.Context, name, namespace string, options Up
 			return fmt.Errorf("cannot deploy chart without repo")
 		}
 
-		err = c.RepoAdd(chartPrefix, options.Repo)
+		err = c.repoAdd(chartPrefix, options.Repo)
 		if err != nil {
 			return err
 		}
 
-		err = c.RepoUpdate()
+		err = c.repoUpdate()
 		if err != nil {
 			return err
 		}
@@ -523,7 +417,7 @@ func (c *client) Exists(name, namespace string) (bool, error) {
 	return true, nil
 }
 
-func (c *client) Status(ctx context.Context, name, namespace string) (*release.Release, error) {
+func (c *client) Status(name, namespace string) (*release.Release, error) {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return nil, err
@@ -565,7 +459,7 @@ func (c *client) addSettings(namespace string) error {
 	_ = os.Setenv("HELM_NAMESPACE", namespace)
 	settings := cli.New()
 
-	kubeConfig, err := WriteKubeConfig(c.config)
+	kubeConfig, err := writeKubeConfig(c.config)
 	if err != nil {
 		return err
 	}
@@ -587,8 +481,114 @@ func (c *client) getActionConfig() (*action.Configuration, error) {
 	return actionConfig, nil
 }
 
-// WriteKubeConfig writes the kubeconfig to a file and returns the filename
-func WriteKubeConfig(configRaw *clientcmdapi.Config) (string, error) {
+func isChartInstallable(ch *chart.Chart) (bool, error) {
+	switch ch.Metadata.Type {
+	case "", "application":
+		return true, nil
+	}
+	return false, errors.Errorf("%s charts are not installable", ch.Metadata.Type)
+}
+
+// repoAdd adds repo to local
+func (c *client) repoAdd(name, url string) error {
+	repoFile := c.settings.RepositoryConfig
+
+	//Ensure the file directory exists as it is required for file locking
+	err := os.MkdirAll(filepath.Dir(repoFile), os.ModePerm)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	// Acquire a file lock for process synchronization
+	fileLock := flock.New(strings.Replace(repoFile, filepath.Ext(repoFile), ".lock", 1))
+	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
+	if err == nil && locked {
+		defer func(fileLock *flock.Flock) {
+			_ = fileLock.Unlock()
+		}(fileLock)
+	}
+	if err != nil {
+		return err
+	}
+
+	b, err := os.ReadFile(repoFile)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	var f repo.File
+	if err := yaml.Unmarshal(b, &f); err != nil {
+		return err
+	}
+
+	if f.Has(name) {
+		c.log.Debugf("repository name (%s) already exists\n", name)
+		return nil
+	}
+
+	repoEntry := repo.Entry{
+		Name: name,
+		URL:  url,
+	}
+
+	r, err := repo.NewChartRepository(&repoEntry, getter.All(c.settings))
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.DownloadIndexFile(); err != nil {
+		return errors.Wrapf(err, "looks like %q is not a valid chart repository or cannot be reached", url)
+	}
+
+	f.Update(&repoEntry)
+
+	if err := f.WriteFile(repoFile, 0644); err != nil {
+		return err
+	}
+	c.log.Debugf("%q has been added to your repositories\n", name)
+	return nil
+}
+
+// repoUpdate updates charts for all helm repos
+func (c *client) repoUpdate() error {
+	repoFile := c.settings.RepositoryConfig
+
+	f, err := repo.LoadFile(repoFile)
+	if os.IsNotExist(errors.Cause(err)) || len(f.Repositories) == 0 {
+		c.log.Error("no repositories found. You must add one before updating")
+		return err
+	}
+	var repos []*repo.ChartRepository
+	for _, cfg := range f.Repositories {
+		r, err2 := repo.NewChartRepository(cfg, getter.All(c.settings))
+		if err2 != nil {
+			return err2
+		}
+		repos = append(repos, r)
+	}
+
+	c.log.Debugf("Hang tight while we grab the latest from your chart repositories...\n")
+	var wg sync.WaitGroup
+	for _, re := range repos {
+		wg.Add(1)
+		go func(re *repo.ChartRepository) {
+			defer wg.Done()
+			if _, err := re.DownloadIndexFile(); err != nil {
+				c.log.Errorf("...Unable to get an update from the %q chart repository (%s):\n\t%s\n", re.Config.Name, re.Config.URL, err)
+			} else {
+				c.log.Infof("...Successfully got an update from the %q chart repository\n", re.Config.Name)
+			}
+		}(re)
+	}
+	wg.Wait()
+	c.log.Debugf("Update Complete. ⎈ Happy Helming!⎈\n")
+	return nil
+}
+
+// writeKubeConfig writes the kubeconfig to a file and returns the filename
+func writeKubeConfig(configRaw *clientcmdapi.Config) (string, error) {
 	data, err := clientcmd.Write(*configRaw)
 	if err != nil {
 		return "", err

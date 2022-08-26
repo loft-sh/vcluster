@@ -23,19 +23,9 @@ var K3SVersionMap = map[string]string{
 	"1.16": "rancher/k3s:v1.16.15-k3s1",
 }
 
-const noDeployValues = `  baseArgs:
-    - server
-    - --write-kubeconfig=/k3s-config/kube-config.yaml
-    - --data-dir=/data
-    - --no-deploy=traefik,servicelb,metrics-server,local-storage
-    - --disable-network-policy
-    - --disable-agent
-    - --disable-cloud-controller
-    - --flannel-backend=none`
-
-var baseArgsMap = map[string]string{
-	"1.17": noDeployValues,
-	"1.16": noDeployValues,
+var baseArgsSlice = []string{
+	"1.17",
+	"1.16",
 }
 
 var replaceRegEx = regexp.MustCompile("[^0-9]+")
@@ -70,53 +60,54 @@ func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 		}
 	}
 
-	valuesString := ""
 	// build values
-	values := `vcluster:
-  image: ##IMAGE##
-##BASEARGS##
-`
+	values := ""
+
 	if chartOptions.Isolate {
-		valuesString += ",securityContext.runAsUser=12345,securityContext.runAsNonRoot=true"
+		values += ",securityContext.runAsUser=12345,securityContext.runAsNonRoot=true"
 	}
 
-	valuesString += "vcluster.image=" + image
+	values += "vcluster.image=" + image
 	if chartOptions.K3SImage == "" {
-		baseArgs := baseArgsMap[serverVersionString]
-		values = strings.ReplaceAll(values, "##BASEARGS##", baseArgs)
+		for _, a := range baseArgsSlice {
+			if a == serverVersionString {
+				values += "vcluster.baseArgs=server --write-kubeconfig=/k3s-config/kube-config.yaml --data-dir=/data --no-deploy=traefik,servicelb,metrics-server,local-storage --disable-network-policy --disable-agent --disable-cloud-controller --flannel-backend=none"
+				break
+			}
+		}
 	}
 
-	return addCommonReleaseValues(valuesString, chartOptions)
+	return addCommonReleaseValues(values, chartOptions)
 }
 
-func addCommonReleaseValues(valuesString string, chartOptions *helm.ChartOptions) (string, error) {
+func addCommonReleaseValues(values string, chartOptions *helm.ChartOptions) (string, error) {
 	if chartOptions.CIDR != "" {
-		valuesString += ",serviceCIDR=" + chartOptions.CIDR
+		values += ",serviceCIDR=" + chartOptions.CIDR
 	}
 
 	if chartOptions.DisableIngressSync {
-		valuesString += ",syncer.extraArgs=[\"--disable-sync-resources=ingresses\"]"
+		values += ",syncer.extraArgs=[\"--disable-sync-resources=ingresses\"]"
 	}
 
 	if chartOptions.CreateClusterRole {
-		valuesString += ",rbac.clusterRole.create=true"
+		values += ",rbac.clusterRole.create=true"
 	}
 
 	if chartOptions.Expose {
-		valuesString += ",service.type=LoadBalancer"
+		values += ",service.type=LoadBalancer"
 	} else if chartOptions.NodePort {
-		valuesString += ",service.type=NodePort"
+		values += ",service.type=NodePort"
 	}
 
 	if chartOptions.SyncNodes {
-		valuesString += ",sync.nodes.enabled=true"
+		values += ",sync.nodes.enabled=true"
 	}
 
 	if chartOptions.Isolate {
-		valuesString += ",isolation.enabled=true"
+		values += ",isolation.enabled=true"
 	}
 
-	return valuesString, nil
+	return values, nil
 }
 
 func ParseKubernetesVersionInfo(versionStr string) (*version.Info, error) {

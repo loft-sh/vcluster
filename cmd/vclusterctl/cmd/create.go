@@ -290,8 +290,7 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues string) error {
 	}
 
 	// we have to upgrade / install the chart
-	ctx := context.Background()
-	err = helm.NewClient(&cmd.rawConfig, cmd.log).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
+	err = helm.NewClient(&cmd.rawConfig, cmd.log).Upgrade(vClusterName, cmd.Namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
 		Path:        cmd.LocalChartDir,
 		Repo:        cmd.ChartRepo,
