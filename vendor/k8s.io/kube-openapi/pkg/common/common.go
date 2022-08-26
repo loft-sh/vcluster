@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/emicklei/go-restful/v3"
+	"github.com/emicklei/go-restful"
 
 	"k8s.io/kube-openapi/pkg/openapiconv"
 	"k8s.io/kube-openapi/pkg/spec3"

@@ -35,8 +35,8 @@ const (
 	StatusPending InitObjectStatus = "Pending"
 	StatusKey                      = "vcluster.loft.sh/status"
 
-	DefaultTimeOut = 180 * time.Second
-	HelmWorkDir    = "/tmp"
+	DefaultTimeOut        = 180 * time.Second
+	HelmCacheRepoLocation = "/.cache/helm/repository/"
 
 	ChartPullError = "ChartPullFailed"
 	InstallError   = "InstallFailed"
@@ -344,7 +344,7 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 		Path:            path,
 		CreateNamespace: true,
 		Values:          values,
-		WorkDir:         HelmWorkDir,
+		WorkDir:         HelmCacheRepoLocation,
 	})
 	if err != nil {
 		r.Log.Errorf("unable to upgrade chart %s: %v", name, err)
@@ -363,7 +363,7 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 
 func (r *InitManifestsConfigMapReconciler) findChart(chart Chart) (string, error) {
 	if chart.Version == "" {
-		files, err := os.ReadDir(HelmWorkDir)
+		files, err := os.ReadDir(HelmCacheRepoLocation)
 		if err != nil {
 			return "", err
 		}
@@ -374,12 +374,12 @@ func (r *InitManifestsConfigMapReconciler) findChart(chart Chart) (string, error
 			}
 		}
 	} else {
-		tarball := fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, chart.Name, chart.Version)
+		tarball := fmt.Sprintf("%s/%s-%s.tgz", HelmCacheRepoLocation, chart.Name, chart.Version)
 		_, err := os.Stat(tarball)
 		if err != nil {
 			if os.IsNotExist(err) {
 				if chart.Version[0] != 'v' {
-					tarball = fmt.Sprintf("%s/%s-v%s.tgz", HelmWorkDir, chart.Name, chart.Version)
+					tarball = fmt.Sprintf("%s/%s-v%s.tgz", HelmCacheRepoLocation, chart.Name, chart.Version)
 					_, err = os.Stat(tarball)
 					if err == nil {
 						return tarball, nil
@@ -423,7 +423,7 @@ func (r *InitManifestsConfigMapReconciler) initiateInstall(ctx context.Context, 
 		Path:            path,
 		CreateNamespace: true,
 		Values:          values,
-		WorkDir:         HelmWorkDir,
+		WorkDir:         HelmCacheRepoLocation,
 	})
 	if err != nil {
 		r.Log.Errorf("unable to install chart %s: %v", name, err)
@@ -490,7 +490,7 @@ func (r *InitManifestsConfigMapReconciler) pullChartArchive(ctx context.Context,
 				Username: chart.Username,
 				Password: chart.Password,
 
-				WorkDir: HelmWorkDir,
+				WorkDir: HelmCacheRepoLocation,
 			})
 			if helmErr != nil {
 				r.Log.Errorf("unable to pull chart %s: %v", chart.Name, helmErr)

@@ -3,6 +3,9 @@ package helm
 import (
 	"context"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,13 +55,13 @@ type UpgradeOptions struct {
 
 // Client defines the interface how to interact with helm
 type Client interface {
-	Install(name, namespace string, options UpgradeOptions) error
-	Upgrade(name, namespace string, options UpgradeOptions) error
-	Pull(name string, options UpgradeOptions) error
+	Install(ctx context.Context, name, namespace string, options UpgradeOptions) error
+	Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error
+	Pull(ctx context.Context, name string, options UpgradeOptions) error
 	Delete(name, namespace string) error
 	Exists(name, namespace string) (bool, error)
-	Rollback(name, namespace string) error
-	Status(name, namespace string) (*release.Release, error)
+	Rollback(ctx context.Context, name, namespace string) error
+	Status(ctx context.Context, name, namespace string) (*release.Release, error)
 }
 
 const chartPrefix = "loft-sh"
@@ -77,26 +80,50 @@ func NewClient(config *clientcmdapi.Config, log vclusterlog.Logger) Client {
 	}
 }
 
-func (c *client) Pull(name string, options UpgradeOptions) error {
-	newPullClient := action.NewPull()
-	if newPullClient.Version == "" && newPullClient.Devel {
+func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) error {
+	err := c.addSettings("")
+	if err != nil {
+		return err
+	}
+
+	// File gets deleted when the below code is added in addSettings method
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(c.settings.KubeConfig)
+
+	actionConfig, err := c.getActionConfig()
+	if err != nil {
+		return err
+	}
+
+	newPullClient := action.NewPullWithOpts(action.WithConfig(actionConfig))
+	newPullClient.Settings = c.settings
+
+	newPullClient.Username = options.Username
+	newPullClient.Password = options.Password
+	newPullClient.InsecureSkipTLSverify = options.Insecure
+	newPullClient.DestDir = options.WorkDir
+
+	if options.Version != "" {
 		newPullClient.Version = options.Version
 	}
 
 	if options.Repo == "" {
 		return fmt.Errorf("cannot deploy chart without repo")
+	} else {
+		newPullClient.RepoURL = options.Repo
 	}
 
-	installedRelease, err := newPullClient.Run(name)
+	cp, err := newPullClient.ChartPathOptions.LocateChart(name, c.settings)
 	if err != nil {
 		return err
 	}
-	c.log.Info(installedRelease)
+	c.log.Debugf("CHART PATH: %s\n", cp)
 
 	return nil
 }
 
-func (c *client) Rollback(name, namespace string) error {
+func (c *client) Rollback(ctx context.Context, name, namespace string) error {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return err
@@ -121,7 +148,7 @@ func (c *client) Rollback(name, namespace string) error {
 	return nil
 }
 
-func (c *client) Upgrade(name, namespace string, options UpgradeOptions) error {
+func (c *client) Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return err
@@ -130,7 +157,6 @@ func (c *client) Upgrade(name, namespace string, options UpgradeOptions) error {
 		_ = os.Remove(name)
 	}(c.settings.KubeConfig)
 
-	const chartPrefix = "loft-sh"
 	if options.Path == "" {
 		if options.Repo == "" {
 			return fmt.Errorf("cannot deploy chart without repo")
@@ -167,7 +193,7 @@ func (c *client) Upgrade(name, namespace string, options UpgradeOptions) error {
 	if err != nil {
 		return err
 	}
-	c.debug("CHART PATH: %s\n", cp)
+	c.log.Debugf("CHART PATH: %s\n", cp)
 
 	// Check chart dependencies to make sure all are present in /charts
 	chartRequested, err := loader.Load(cp)
@@ -230,18 +256,18 @@ func (c *client) Upgrade(name, namespace string, options UpgradeOptions) error {
 	newUpgradeClient.Force = options.Force
 	newUpgradeClient.Atomic = options.Atomic
 	newUpgradeClient.InsecureSkipTLSverify = options.Insecure
-	_, err = newUpgradeClient.Run(name, chartRequested, vals)
+	_, err = newUpgradeClient.RunWithContext(ctx, name, chartRequested, vals)
 	if err != nil {
 		if !strings.Contains(err.Error(), "has no deployed releases") {
 			return err
 		}
-		return c.Install(name, namespace, options)
+		return c.Install(ctx, name, namespace, options)
 	}
 
 	return nil
 }
 
-func (c *client) Install(name, namespace string, options UpgradeOptions) error {
+func (c *client) Install(ctx context.Context, name, namespace string, options UpgradeOptions) error {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return err
@@ -250,6 +276,28 @@ func (c *client) Install(name, namespace string, options UpgradeOptions) error {
 	defer func(name string) {
 		_ = os.Remove(name)
 	}(c.settings.KubeConfig)
+
+	if options.CreateNamespace {
+		clientConfig := clientcmd.NewDefaultClientConfig(*c.config, &clientcmd.ConfigOverrides{})
+		restConfig, err := clientConfig.ClientConfig()
+		if err != nil {
+			return errors.Wrap(err, "read kube client config")
+		}
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return errors.Wrap(err, "create kube client")
+		}
+		c.log.Infof("Creating namespace %s", namespace)
+		_, err = kubeClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return errors.Wrap(err, "create namespace")
+		}
+		c.log.Infof("Created namespace %s", namespace)
+	}
 
 	if options.Path == "" {
 		if options.Repo == "" {
@@ -277,6 +325,8 @@ func (c *client) Install(name, namespace string, options UpgradeOptions) error {
 		newInstallClient.Version = options.Version
 	}
 
+	newInstallClient.Username = options.Username
+	newInstallClient.Password = options.Password
 	newInstallClient.ReleaseName = name
 	newInstallClient.Atomic = options.Atomic
 	newInstallClient.InsecureSkipTLSverify = options.Insecure
@@ -292,7 +342,7 @@ func (c *client) Install(name, namespace string, options UpgradeOptions) error {
 	if err != nil {
 		return err
 	}
-	c.debug("CHART PATH: %s\n", cp)
+	c.log.Debugf("CHART PATH: %s\n", cp)
 
 	// Check chart dependencies to make sure all are present in /charts
 	chartRequested, err := loader.Load(cp)
@@ -372,7 +422,7 @@ func (c *client) Install(name, namespace string, options UpgradeOptions) error {
 	}
 
 	newInstallClient.Namespace = c.settings.Namespace()
-	_, err = newInstallClient.Run(chartRequested, vals)
+	_, err = newInstallClient.RunWithContext(ctx, chartRequested, vals)
 	if err != nil {
 		return err
 	}
@@ -417,7 +467,7 @@ func (c *client) Exists(name, namespace string) (bool, error) {
 	return true, nil
 }
 
-func (c *client) Status(name, namespace string) (*release.Release, error) {
+func (c *client) Status(ctx context.Context, name, namespace string) (*release.Release, error) {
 	err := c.addSettings(namespace)
 	if err != nil {
 		return nil, err
@@ -447,7 +497,7 @@ func (c *client) retrieveRelease(name, namespace string) (*release.Release, erro
 	releaseDetails, err := action.NewStatus(actionConfig).Run(name)
 	if err != nil {
 		if strings.Contains(err.Error(), "release: not found") {
-			return nil, err
+			return nil, nil
 		}
 		return nil, fmt.Errorf("error executing release status: %s", err.Error())
 	}

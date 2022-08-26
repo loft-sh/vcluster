@@ -174,16 +174,15 @@ func (r *Response) WriteHeaderAndJson(status int, value interface{}, contentType
 	return writeJSON(r, status, contentType, value)
 }
 
-// WriteError writes the http status and the error string on the response. err can be nil.
-// Return an error if writing was not succesful.
-func (r *Response) WriteError(httpStatus int, err error) (writeErr error) {
+// WriteError write the http status and the error string on the response. err can be nil.
+func (r *Response) WriteError(httpStatus int, err error) error {
 	r.err = err
 	if err == nil {
-		writeErr = r.WriteErrorString(httpStatus, "")
+		r.WriteErrorString(httpStatus, "")
 	} else {
-		writeErr = r.WriteErrorString(httpStatus, err.Error())
+		r.WriteErrorString(httpStatus, err.Error())
 	}
-	return writeErr
+	return err
 }
 
 // WriteServiceError is a convenience method for a responding with a status and a ServiceError

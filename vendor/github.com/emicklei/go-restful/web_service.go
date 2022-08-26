@@ -188,7 +188,7 @@ func (w *WebService) RemoveRoute(path, method string) error {
 			continue
 		}
 		newRoutes[current] = w.routes[ix]
-		current++
+		current = current + 1
 	}
 	w.routes = newRoutes
 	return nil
