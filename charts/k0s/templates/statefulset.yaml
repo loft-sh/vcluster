@@ -100,7 +100,7 @@ spec:
           - {{ $f | quote }}
           {{- end }}
           {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
-          - --status-socket=/data/k0s/status.sock
+          - --status-socket=/run/k0s/status.sock
           {{- end }}
           {{- if not .Values.sync.nodes.enableScheduler }}
           - --disable-components=konnectivity-server,kube-scheduler,csr-approver,default-psp,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
