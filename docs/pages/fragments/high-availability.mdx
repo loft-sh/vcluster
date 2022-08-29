@@ -57,8 +57,94 @@ vcluster connect vcluster-1 -n host-namespace-1
 
 # Then execute in a new terminal
 export KUBECONFIG=kubeconfig.yaml
-kubectl get ns
+kubectl get ns  
 ...
+```
+
+## Enable HA in rootless mode
+Rootless mode means running vcluster without root user privileges in container, making host k8s cluster more secure.
+You can find more about rootless mode [here](../operator/restricted-hosts).
+
+Below is HA configuration for running rootless vcluster with vanilla Kubernetes distribution.
+```
+# Enable HA mode
+enableHA: true
+
+# Scale up syncer replicas
+syncer:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up etcd
+etcd:
+  replicas: 3
+  fsGroup: 12345
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up controller manager
+controller:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up api server
+api:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up DNS server
+coredns:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
 ```
 
 Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.
