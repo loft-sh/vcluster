@@ -81,7 +81,7 @@ func (s *syncer) AddListener(listener dynamiccertificates.Listener) {
 }
 
 func (s *syncer) getSANs() ([]string, error) {
-	retSANs := []string{}
+	retSANs := []string{s.serviceName, s.serviceName + "." + s.currentNamespace}
 
 	// get cluster ip of target service
 	svc := &corev1.Service{}
