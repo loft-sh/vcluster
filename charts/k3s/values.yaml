@@ -37,8 +37,6 @@ sync:
     enabled: true
   ingresses:
     enabled: false
-  ingressclasses:
-    enabled: false
   fake-nodes:
     enabled: true # will be ignored if nodes.enabled = true
   fake-persistentvolumes:
