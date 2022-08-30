@@ -114,6 +114,8 @@ spec:
           {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
           {{- end }}
+          - name: ETCD_UNSUPPORTED_ARCH
+            value: arm64
           - name: CONFIG_READY
             valueFrom:
               secretKeyRef:
