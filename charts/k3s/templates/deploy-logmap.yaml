@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    component: logmapper
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 4 }}
+{{- end }}
+  {{- if .Values.annotations }}
+  annotations:
+{{ toYaml .Values.annotations | indent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vcluster
+      release: {{ .Release.Name }}
+      component: logmapper
+  template:
+    metadata:
+      labels:
+        app: vcluster
+        release: {{ .Release.Name }}
+        component: logmapper
+    spec:
+      {{- if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- else }}
+      serviceAccountName: vc-{{ .Release.Name }}
+      {{- end }}
+      containers:
+      - name: logmapper
+        {{- if .Values.logmapper.image }}
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.logmapper.image }}"
+        {{- else }}
+        image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
+        {{- if .Values.syncer.workingDir }}
+        workingDir: {{ .Values.syncer.workingDir }}
+        {{- end }}
+        args:
+          - --name={{ .Release.Name }}
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log/pods
+          - name: kubeconfig
+            mountPath: /data/server/tls
+      volumes:
+        - name: logs
+          hostPath:
+            path: /var/log/pods
+        - name: kubeconfig
+          secret:
+            secretName: vc-{{ .Release.Name }}

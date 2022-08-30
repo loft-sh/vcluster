@@ -83,14 +83,19 @@ deployments:
             create: true
           role:
             extended: true
-        syncer:
+        logmapper:
           image: ${SYNCER_IMAGE}
+        syncer:
+          image: loftsh/vcluster:0.11.1
+          extraArgs:
+            - --tls-san=vcluster
 
 # Dev Configuration for vcluster
 dev:
   vcluster:
-    imageSelector: ${SYNCER_IMAGE}
-    container: syncer
+    # imageSelector: ${SYNCER_IMAGE}
+    labelSelector:
+      component: logmapper
     workingDir: /vcluster-dev
     terminal:
       command: "./devspace_start.sh"
