@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/random"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -106,7 +107,7 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeSer
 				"beta.kubernetes.io/arch":    "amd64",
 				"beta.kubernetes.io/os":      "linux",
 				"kubernetes.io/arch":         "amd64",
-				"kubernetes.io/hostname":     "fake-" + name.Name,
+				"kubernetes.io/hostname":     translate.SafeConcatName("fake", name.Name),
 				"kubernetes.io/os":           "linux",
 			},
 			Annotations: map[string]string{
@@ -248,7 +249,7 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 	var podsNoDaemonSets []corev1.Pod
 
 	for _, item := range pl.Items {
-		if item.Annotations == nil || item.Annotations[translate.OwnerSetKind] != "DaemonSet" {
+		if item.Annotations == nil || item.Annotations[podtranslate.OwnerSetKind] != "DaemonSet" {
 			podsNoDaemonSets = append(podsNoDaemonSets, item)
 		}
 	}
