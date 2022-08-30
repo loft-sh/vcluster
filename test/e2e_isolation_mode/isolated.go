@@ -93,7 +93,7 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 			} else {
 				e, _ := f.VclusterClient.CoreV1().Events("default").List(f.Context, metav1.ListOptions{TypeMeta: p.TypeMeta})
 				if strings.Contains(e.Items[0].Message, `Invalid value: "2": must be less than or equal to cpu limit`) {
-					return true, fmt.Errorf(`Invalid value: "2": must be less than or equal to cpu limit`)
+					return true, fmt.Errorf(`invalid value: "2": must be less than or equal to cpu limit`)
 				}
 			}
 			return false, nil

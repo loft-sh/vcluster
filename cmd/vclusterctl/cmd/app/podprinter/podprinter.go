@@ -18,7 +18,7 @@ type PodInfoPrinter struct {
 	LastWarning time.Time
 
 	shownEvents           []string
-	printedInitContainers []string
+	printedInitContainers []string // nolint:unused
 }
 
 func (u *PodInfoPrinter) PrintPodInfo(pod *corev1.Pod, log log.Logger) {

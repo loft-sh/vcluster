@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -168,7 +168,7 @@ func ExecuteCerts(options *CertsCmd) error {
 	}
 
 	for fromName, toName := range certMap {
-		data, err := ioutil.ReadFile(filepath.Join(options.CertificateDir, fromName))
+		data, err := os.ReadFile(filepath.Join(options.CertificateDir, fromName))
 		if err != nil {
 			return errors.Wrap(err, "read "+fromName)
 		}

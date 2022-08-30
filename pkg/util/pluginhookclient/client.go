@@ -96,7 +96,7 @@ func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...clien
 	}
 	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
 	clientHooks := plugin.DefaultManager.ClientHooksFor(plugin.VersionKindType{
-		ApiVersion: gvk.GroupVersion().String(),
+		APIVersion: gvk.GroupVersion().String(),
 		Kind:       gvk.Kind,
 		Type:       "Get" + c.suffix,
 	})
@@ -229,7 +229,7 @@ func executeClientHooksFor(ctx context.Context, obj client.Object, hookType stri
 
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
 	versionKindType := plugin.VersionKindType{
-		ApiVersion: apiVersion,
+		APIVersion: apiVersion,
 		Kind:       kind,
 		Type:       hookType,
 	}
@@ -261,14 +261,16 @@ func mutateObject(ctx context.Context, versionKindType plugin.VersionKindType, o
 	if err != nil {
 		return nil, fmt.Errorf("error dialing plugin %s: %v", plugin.Name, err)
 	}
-	defer conn.Close()
+	defer func(conn *grpc.ClientConn) {
+		_ = conn.Close()
+	}(conn)
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	loghelper.New("mutate").Debugf("calling plugin %s to mutate object %s %s", plugin.Name, versionKindType.ApiVersion, versionKindType.Kind)
+	loghelper.New("mutate").Debugf("calling plugin %s to mutate object %s %s", plugin.Name, versionKindType.APIVersion, versionKindType.Kind)
 	mutateResult, err := remote.NewPluginClient(conn).Mutate(ctx, &remote.MutateRequest{
-		ApiVersion: versionKindType.ApiVersion,
+		ApiVersion: versionKindType.APIVersion,
 		Kind:       versionKindType.Kind,
 		Object:     string(obj),
 		Type:       versionKindType.Type,

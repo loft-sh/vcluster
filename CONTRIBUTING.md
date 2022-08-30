@@ -94,7 +94,7 @@ To access the virtual cluster, you can use the `vcluster connect` command locall
 
 #### Debug vcluster with Delve
 If you wish to run vcluster in the debug mode with delve, run `devspace dev -n vcluster` and wait until you see the command prompt (`root@vcluster-0:/vcluster#`).  
-Run `dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags="-mod=vendor" -- --lease-duration=99999`  
+Run `dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags="-mod=vendor" -- start`  
 Wait until the `API server listening at: [::]:2345` message appears.  
 Start the `Debug vcluster (localhost:2346)` configuration in VSCode to connect your debugger session.  
 If you are not using VSCode, configure your IDE to connect to `localhost:2346` for the "remote" delve debugging.  

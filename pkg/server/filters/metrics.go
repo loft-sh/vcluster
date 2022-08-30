@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -185,9 +185,6 @@ func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vCli
 				if err != nil {
 					return nil, err
 				}
-				if vPVC == nil {
-					continue
-				}
 				volume.PVCRef.Name = vPVC.Name
 				volume.PVCRef.Namespace = vPVC.Namespace
 			}
@@ -222,7 +219,7 @@ func executeRequest(req *http.Request, h http.Handler) (int, http.Header, []byte
 			return 0, nil, nil, err
 		}
 
-		responseBytes, err = ioutil.ReadAll(reader)
+		responseBytes, err = io.ReadAll(reader)
 		if err != nil {
 			return 0, nil, nil, err
 		}

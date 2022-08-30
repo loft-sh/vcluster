@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 )
 
 // Compress gzips a string and base64 encodes it
@@ -43,7 +43,7 @@ func Uncompress(s string) (string, error) {
 		return "", err
 	}
 
-	decompressed, err := ioutil.ReadAll(r)
+	decompressed, err := io.ReadAll(r)
 	if err != nil {
 		return "", err
 	}

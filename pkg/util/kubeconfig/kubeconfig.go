@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -35,7 +34,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 	// intentionally ignore errors as this may fail for non root user, or if securityContext.readOnlyRootFilesystem = true
 	err = os.MkdirAll("/root/.kube", 0755)
 	if err == nil {
-		err = ioutil.WriteFile("/root/.kube/config", out, 0666)
+		err = os.WriteFile("/root/.kube/config", out, 0666)
 		if err != nil {
 			klog.Infof("Failed writing /root/.kube/config file: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
 		}

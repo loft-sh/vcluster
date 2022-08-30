@@ -3,7 +3,7 @@ package filters
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
@@ -109,7 +109,7 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 
 func updateService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, oldVService *corev1.Service, targetNamespace string) (runtime.Object, error) {
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
-	rawObj, err := ioutil.ReadAll(req.Body)
+	rawObj, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 func createService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, fromNamespace, targetNamespace string, syncedLabels []string) (runtime.Object, error) {
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
-	rawObj, err := ioutil.ReadAll(req.Body)
+	rawObj, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, err
 	}

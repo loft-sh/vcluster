@@ -90,7 +90,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if cmd.AutoDeleteNamespace {
 		namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.TODO(), cmd.Namespace, metav1.GetOptions{})
 		if err != nil {
-			cmd.log.Debugf("Error retrieving vcluster namspace: %v", err)
+			cmd.log.Debugf("Error retrieving vcluster namespace: %v", err)
 		} else if namespace != nil && namespace.Annotations != nil && namespace.Annotations[CreatedByVClusterAnnotation] == "true" {
 			cmd.DeleteNamespace = true
 		}

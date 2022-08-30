@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"time"
@@ -203,7 +202,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
 	err = wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
-		out, err := ioutil.ReadFile(options.KubeConfigPath)
+		out, err := os.ReadFile(options.KubeConfigPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				klog.Info("couldn't find virtual cluster kube-config, will retry in 1 seconds")
@@ -524,7 +523,7 @@ func createVClusterKubeConfig(config *api.Config, options *context2.VirtualClust
 	for i := range config.Clusters {
 		// fill in data
 		if config.Clusters[i].CertificateAuthorityData == nil && config.Clusters[i].CertificateAuthority != "" {
-			o, err := ioutil.ReadFile(config.Clusters[i].CertificateAuthority)
+			o, err := os.ReadFile(config.Clusters[i].CertificateAuthority)
 			if err != nil {
 				return nil, err
 			}
@@ -544,7 +543,7 @@ func createVClusterKubeConfig(config *api.Config, options *context2.VirtualClust
 	for i := range config.AuthInfos {
 		// fill in data
 		if config.AuthInfos[i].ClientCertificateData == nil && config.AuthInfos[i].ClientCertificate != "" {
-			o, err := ioutil.ReadFile(config.AuthInfos[i].ClientCertificate)
+			o, err := os.ReadFile(config.AuthInfos[i].ClientCertificate)
 			if err != nil {
 				return nil, err
 			}
@@ -553,7 +552,7 @@ func createVClusterKubeConfig(config *api.Config, options *context2.VirtualClust
 			config.AuthInfos[i].ClientCertificateData = o
 		}
 		if config.AuthInfos[i].ClientKeyData == nil && config.AuthInfos[i].ClientKey != "" {
-			o, err := ioutil.ReadFile(config.AuthInfos[i].ClientKey)
+			o, err := os.ReadFile(config.AuthInfos[i].ClientKey)
 			if err != nil {
 				return nil, err
 			}

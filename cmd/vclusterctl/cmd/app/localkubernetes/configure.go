@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -274,7 +273,7 @@ func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawC
 		return "", nil
 	}
 	// write a temporary kube file
-	tempFile, err := ioutil.TempFile("", "")
+	tempFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return "", errors.Wrap(err, "create temp file")
 	}

@@ -141,7 +141,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 		cmd.log.Errorf("error while listing clusters to check if the vcluster is already present in the namespace : %s", err)
 		return err
 	}
-	if vclusterExistsInNamespace {
+	if !cmd.Upgrade && vclusterExistsInNamespace {
 		cmd.log.Errorf("another vcluster is already present in %s namespace, please try another namespace.", cmd.Namespace)
 		return nil
 	}

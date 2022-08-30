@@ -3,7 +3,6 @@ package clienthelper
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
 	"os"
@@ -40,7 +39,7 @@ func CurrentNamespace() (string, error) {
 		return namespaceEnv, nil
 	}
 
-	namespace, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		return "", err
 	}

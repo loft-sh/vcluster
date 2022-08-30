@@ -13,11 +13,11 @@ import (
 )
 
 const (
-	K3S_CONNECT_PATH = "/v1-k3s/connect"
+	K3sConnectPath = "/v1-k3s/connect"
 )
 
 func WithK3sConnect(h http.Handler) http.Handler {
-	serverUrl := &url.URL{
+	serverURL := &url.URL{
 		Scheme: "wss",
 		Host:   "127.0.0.1:6443",
 	}
@@ -35,20 +35,20 @@ func WithK3sConnect(h http.Handler) http.Handler {
 		return h
 	}
 
-	proxy := websocketproxy.NewProxy(serverUrl)
+	proxy := websocketproxy.NewProxy(serverURL)
 	proxy.Dialer = &websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
 		HandshakeTimeout: 45 * time.Second,
 		TLSClientConfig:  tlsCfg,
 	}
 	proxy.Backend = func(r *http.Request) *url.URL {
-		u := *serverUrl
-		u.Path = K3S_CONNECT_PATH
+		u := *serverURL
+		u.Path = K3sConnectPath
 		return &u
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if strings.HasSuffix(req.URL.Path, K3S_CONNECT_PATH) {
+		if strings.HasSuffix(req.URL.Path, K3sConnectPath) {
 			// check implementation is based on
 			// https://github.com/k3s-io/k3s/blob/a5414bb1fc904e3d44a6a66ccffa819340e712a8/pkg/daemons/control/tunnel.go#L47-L58
 			user, ok := request.UserFrom(req.Context())
