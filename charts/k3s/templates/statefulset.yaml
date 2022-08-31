@@ -11,9 +11,10 @@ metadata:
 {{- if .Values.labels }}
 {{ toYaml .Values.labels | indent 4 }}
 {{- end }}
-  {{- if .Values.annotations }}
+{{- $annotations := merge .Values.annotations .Values.global.annotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   serviceName: {{ .Release.Name }}-headless
@@ -221,7 +222,7 @@ spec:
         {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
-        env:          
+        env:
           {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
           {{- end }}
