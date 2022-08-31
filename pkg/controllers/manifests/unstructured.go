@@ -10,14 +10,14 @@ import (
 )
 
 type KObject struct {
-	ApiVersion string
+	APIVersion string
 	Kind       string
 	Namespace  string
 	Name       string
 }
 
 func (k *KObject) Equals(obj unstructured.Unstructured) bool {
-	if k.ApiVersion == obj.GetAPIVersion() &&
+	if k.APIVersion == obj.GetAPIVersion() &&
 		k.Kind == obj.GetKind() &&
 		k.Namespace == obj.GetNamespace() &&
 		k.Name == obj.GetName() {
@@ -69,7 +69,7 @@ func ManifestStringToUnstructuredArray(out, defaultNamespace string) ([]*unstruc
 
 func UnstructuredToKObject(obj unstructured.Unstructured) KObject {
 	return KObject{
-		ApiVersion: obj.GetAPIVersion(),
+		APIVersion: obj.GetAPIVersion(),
 		Kind:       obj.GetKind(),
 		Namespace:  obj.GetNamespace(),
 		Name:       obj.GetName(),

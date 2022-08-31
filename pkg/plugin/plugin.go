@@ -8,10 +8,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"go.uber.org/atomic"
-	"io/ioutil"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -70,7 +70,7 @@ type manager struct {
 }
 
 type VersionKindType struct {
-	ApiVersion string
+	APIVersion string
 	Kind       string
 	Type       string
 }
@@ -291,7 +291,7 @@ func regenerateClientHooks(plugins map[string]*remote.RegisterPluginRequest) (ma
 				}
 
 				versionKindType := VersionKindType{
-					ApiVersion: clientHookInfo.ApiVersion,
+					APIVersion: clientHookInfo.ApiVersion,
 					Kind:       clientHookInfo.Kind,
 					Type:       t,
 				}
@@ -343,7 +343,7 @@ func ConvertRestConfigToClientConfig(config *rest.Config) (clientcmd.ClientConfi
 
 	// resolve certificate
 	if kubeConfig.Clusters[contextName].CertificateAuthorityData == nil && kubeConfig.Clusters[contextName].CertificateAuthority != "" {
-		o, err := ioutil.ReadFile(kubeConfig.Clusters[contextName].CertificateAuthority)
+		o, err := os.ReadFile(kubeConfig.Clusters[contextName].CertificateAuthority)
 		if err != nil {
 			return nil, err
 		}
@@ -354,7 +354,7 @@ func ConvertRestConfigToClientConfig(config *rest.Config) (clientcmd.ClientConfi
 
 	// fill in data
 	if kubeConfig.AuthInfos[contextName].ClientCertificateData == nil && kubeConfig.AuthInfos[contextName].ClientCertificate != "" {
-		o, err := ioutil.ReadFile(kubeConfig.AuthInfos[contextName].ClientCertificate)
+		o, err := os.ReadFile(kubeConfig.AuthInfos[contextName].ClientCertificate)
 		if err != nil {
 			return nil, err
 		}
@@ -363,7 +363,7 @@ func ConvertRestConfigToClientConfig(config *rest.Config) (clientcmd.ClientConfi
 		kubeConfig.AuthInfos[contextName].ClientCertificateData = o
 	}
 	if kubeConfig.AuthInfos[contextName].ClientKeyData == nil && kubeConfig.AuthInfos[contextName].ClientKey != "" {
-		o, err := ioutil.ReadFile(kubeConfig.AuthInfos[contextName].ClientKey)
+		o, err := os.ReadFile(kubeConfig.AuthInfos[contextName].ClientKey)
 		if err != nil {
 			return nil, err
 		}

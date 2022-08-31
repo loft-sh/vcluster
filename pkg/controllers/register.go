@@ -231,7 +231,7 @@ func registerInitManifestsController(ctx *context.ControllerContext) error {
 
 	controller := &manifests.InitManifestsConfigMapReconciler{
 		LocalClient:    currentNamespaceManager.GetClient(),
-		Log:            loghelper.New("initmanifests-controller"),
+		Log:            loghelper.New("init-manifests-controller"),
 		VirtualManager: ctx.VirtualManager,
 
 		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance()),

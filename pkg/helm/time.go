@@ -9,7 +9,7 @@ import (
 var emptyString = `""`
 
 // Time is a convenience wrapper around stdlib time, but with different
-// marshalling and unmarshaling for zero values
+// marshalling and unmarshalling for zero values
 type Time struct {
 	time.Time
 }

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	"io/ioutil"
 	"k8s.io/klog"
 	"os"
 	"strings"
@@ -55,7 +54,7 @@ type InitManifestsConfigMapReconciler struct {
 }
 
 func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
-	// TODO: implement better filteration through predicates
+	// TODO: implement better filtration through predicates
 	if req.Name != translate.Suffix+InitManifestSuffix {
 		return ctrl.Result{}, nil
 	}
@@ -364,7 +363,7 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 
 func (r *InitManifestsConfigMapReconciler) findChart(chart Chart) (string, error) {
 	if chart.Version == "" {
-		files, err := ioutil.ReadDir(HelmWorkDir)
+		files, err := os.ReadDir(HelmWorkDir)
 		if err != nil {
 			return "", err
 		}
@@ -478,7 +477,7 @@ func (r *InitManifestsConfigMapReconciler) pullChartArchive(ctx context.Context,
 				return err
 			}
 
-			err = ioutil.WriteFile(tarball, bytes, 0666)
+			err = os.WriteFile(tarball, bytes, 0666)
 			if err != nil {
 				return errors.Wrap(err, "write bundle to file")
 			}

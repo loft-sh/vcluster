@@ -16,8 +16,8 @@ import (
 type DisconnectCmd struct {
 	*flags.GlobalFlags
 
-	rawConfig  *clientcmdapi.Config
-	restConfig *rest.Config
+	rawConfig  *clientcmdapi.Config // nolint:unused
+	restConfig *rest.Config         // nolint:unused
 	log        log.Logger
 }
 

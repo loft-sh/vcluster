@@ -3,7 +3,7 @@ package filters
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -44,7 +44,7 @@ func WithNodeChanges(h http.Handler, uncachedLocalClient, uncachedVirtualClient 
 
 				if len(options.DryRun) == 0 {
 					// authorization will be done at this point already, so we can redirect the request to the physical cluster
-					rawObj, err := ioutil.ReadAll(req.Body)
+					rawObj, err := io.ReadAll(req.Body)
 					if err != nil {
 						responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 						return

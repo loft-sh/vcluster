@@ -104,7 +104,7 @@ func VClusterConnectBackgroundProxyName(vClusterName string, vClusterNamespace s
 }
 
 func VClusterFromContext(originalContext string) (name string, namespace string, context string) {
-	if strings.HasPrefix(originalContext, "vcluster_") == false {
+	if !strings.HasPrefix(originalContext, "vcluster_") {
 		return "", "", ""
 	}
 
@@ -124,14 +124,14 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 	if err != nil {
 		return nil, errors.Wrap(err, "load kube config")
 	}
-	client, err := kubernetes.NewForConfig(restConfig)
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "create kube client")
 	}
 
 	// statefulset based vclusters
 	vclusters := []VCluster{}
-	statefulSets, err := getStatefulSets(client, namespace, kubeClientConfig, timeout)
+	statefulSets, err := getStatefulSets(kubeClient, namespace, kubeClientConfig, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 			var paused string
 
 			if p.Annotations != nil {
-				paused, _ = p.Annotations[constants.PausedAnnotation]
+				paused = p.Annotations[constants.PausedAnnotation]
 			}
 			if p.Spec.Replicas != nil && *p.Spec.Replicas == 0 && paused != "true" {
 				// if the stateful set has been scaled down we'll ignore it -- this happens when
@@ -157,7 +157,7 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 				continue
 			}
 
-			vCluster, err := getVCluster(&p, context, release, client, kubeClientConfig)
+			vCluster, err := getVCluster(&p, context, release, kubeClient, kubeClientConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -167,7 +167,7 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 	}
 
 	// deployment based vclusters
-	deployments, err := getDeployments(client, namespace, kubeClientConfig, timeout)
+	deployments, err := getDeployments(kubeClient, namespace, kubeClientConfig, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -177,9 +177,9 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 				continue
 			}
 
-			vCluster, err := getVCluster(&p, context, release, client, kubeClientConfig)
-			if err != nil {
-				return nil, err
+			vCluster, err2 := getVCluster(&p, context, release, kubeClient, kubeClientConfig)
+			if err2 != nil {
+				return nil, err2
 			}
 
 			vclusters = append(vclusters, vCluster)

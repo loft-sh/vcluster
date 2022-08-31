@@ -2,7 +2,6 @@ package upgrade
 
 import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -31,7 +30,7 @@ func TestEraseVersionPrefix(t *testing.T) {
 func TestUpgrade(t *testing.T) {
 	t.Skip("Skip because of some API-limit")
 	//Create TmpFolder
-	dir, err := ioutil.TempDir("", "test")
+	dir, err := os.MkdirTemp("", "test")
 	if err != nil {
 		t.Fatalf("Error creating temporary directory: %v", err)
 	}
@@ -57,7 +56,7 @@ func TestUpgrade(t *testing.T) {
 		}
 	}()
 
-	logFile, err := ioutil.TempFile(dir, "log")
+	logFile, err := os.CreateTemp(dir, "log")
 	if err != nil {
 		t.Fatalf("Error creating temporary log file: %v", err)
 	}
@@ -81,7 +80,7 @@ func TestUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error closing temporary log file: %v", err)
 	}
-	logs, err := ioutil.ReadFile(logFile.Name())
+	logs, err := os.ReadFile(logFile.Name())
 	if err != nil {
 		t.Fatalf("Error reading temporary log file: %v", err)
 	}

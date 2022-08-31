@@ -94,8 +94,7 @@ func addEphemeralContainerLegacy(ctx *synccontext.SyncContext, physicalClusterCl
 // getEphemeralContainer returns a debugging pod and an EphemeralContainer suitable for use as a debug container
 // in the given pod.
 func getEphemeralContainer(physicalPod *corev1.Pod, virtualPod *corev1.Pod) (*corev1.Pod, *corev1.EphemeralContainer, error) {
-	var ephemeralContainer corev1.EphemeralContainer
-	ephemeralContainer = virtualPod.Spec.EphemeralContainers[len(virtualPod.Spec.EphemeralContainers)-1]
+	ephemeralContainer := virtualPod.Spec.EphemeralContainers[len(virtualPod.Spec.EphemeralContainers)-1]
 	copied := physicalPod.DeepCopy()
 	ephemeralContainer.TargetContainerName = ""
 	copied.Spec.EphemeralContainers = append(copied.Spec.EphemeralContainers, ephemeralContainer)

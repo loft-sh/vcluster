@@ -3,7 +3,6 @@ package framework
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"time"
@@ -118,7 +117,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	}
 
 	// run port forwarder and retrieve kubeconfig for the vcluster
-	vKubeconfigFile, err := ioutil.TempFile(os.TempDir(), "vcluster_e2e_kubeconfig_")
+	vKubeconfigFile, err := os.CreateTemp(os.TempDir(), "vcluster_e2e_kubeconfig_")
 	if err != nil {
 		return fmt.Errorf("could not create a temporary file: %v", err)
 	}
@@ -142,7 +141,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	var vclusterClient *kubernetes.Clientset
 
 	err = wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
-		output, err := ioutil.ReadFile(vKubeconfigFile.Name())
+		output, err := os.ReadFile(vKubeconfigFile.Name())
 		if err != nil {
 			return false, err
 		}

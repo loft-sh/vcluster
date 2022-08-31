@@ -1,10 +1,10 @@
+//go:build ignore
 // +build ignore
 
 package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -70,14 +70,14 @@ func main() {
 			return nil
 		}
 
-		content, err := ioutil.ReadFile(path)
+		content, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
 
 		newContents := fixSynopsisRegexp.ReplaceAllString(string(content), "$2$3$7$8```\n$4\n```\n\n\n## Flags$10\n## Global & Inherited Flags$13")
 
-		err = ioutil.WriteFile(path, []byte(newContents), 0)
+		err = os.WriteFile(path, []byte(newContents), 0)
 		if err != nil {
 			return err
 		}

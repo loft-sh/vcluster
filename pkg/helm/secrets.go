@@ -1,14 +1,16 @@
 /*
-	Copyright The Helm Authors.
-	Licensed under the Apache License, Version 2.0 (the "License");
-	you may not use this file except in compliance with the License.
-	You may obtain a copy of the License at
-		http://www.apache.org/licenses/LICENSE-2.0
-	Unless required by applicable law or agreed to in writing, software
-	distributed under the License is distributed on an "AS IS" BASIS,
-	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	See the License for the specific language governing permissions and
-	limitations under the License.
+Copyright The Helm Authors.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 package helm
 
@@ -19,7 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -202,7 +204,7 @@ func (secrets *Secrets) List(ctx context.Context, labels kblabels.Selector, name
 			continue
 		}
 
-		// check if this release superseeds an already existing release
+		// check if this release supersedes an already existing release
 		found := false
 		for i, r := range results {
 			if r.Name == rls.Name && r.Namespace == rls.Namespace && r.Version < rls.Version {
@@ -218,7 +220,7 @@ func (secrets *Secrets) List(ctx context.Context, labels kblabels.Selector, name
 	return results, nil
 }
 
-// Query fetches all releases that match the provided map of labels.
+// Get Query fetches all releases that match the provided map of labels.
 // An error is returned if the secret fails to retrieve the releases.
 func (secrets *Secrets) Get(ctx context.Context, name string, namespace string) (*Release, error) {
 	ls := kblabels.Set{}
@@ -260,7 +262,7 @@ func decodeRelease(secret *v1.Secret, data string) (*Release, error) {
 		if err != nil {
 			return nil, err
 		}
-		b2, err := ioutil.ReadAll(r)
+		b2, err := io.ReadAll(r)
 		if err != nil {
 			return nil, err
 		}

@@ -4,8 +4,8 @@ import (
 	"crypto"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 
 	"github.com/loft-sh/vcluster/pkg/util/certhelper"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -21,7 +21,7 @@ func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byt
 	}
 
 	addSANs(altNames, SANs)
-	caBytes, err := ioutil.ReadFile(caCertFile)
+	caBytes, err := os.ReadFile(caCertFile)
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -44,7 +44,7 @@ func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byt
 		}
 	}
 
-	caKeyBytes, err := ioutil.ReadFile(caKeyFile)
+	caKeyBytes, err := os.ReadFile(caKeyFile)
 	if err != nil {
 		return nil, nil, false, err
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 func (s *podSyncer) translate(ctx *synccontext.SyncContext, vPod *corev1.Pod) (*corev1.Pod, error) {
-	kubeIP, dnsIP, ptrServiceList, err := s.getK8sIpDnsIpServiceList(ctx, vPod)
+	kubeIP, dnsIP, ptrServiceList, err := s.getK8sIPDNSIPServiceList(ctx, vPod)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func (s *podSyncer) translate(ctx *synccontext.SyncContext, vPod *corev1.Pod) (*
 	return pPod, err
 }
 
-func (s *podSyncer) getK8sIpDnsIpServiceList(ctx *synccontext.SyncContext, vPod *corev1.Pod) (string, string, []*corev1.Service, error) {
+func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod *corev1.Pod) (string, string, []*corev1.Service, error) {
 	kubeIP, err := s.findKubernetesIP(ctx)
 	if err != nil {
 		return "", "", nil, err
