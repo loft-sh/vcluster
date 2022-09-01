@@ -36,10 +36,10 @@
             "request": "launch",
             "mode": "test",
             "remotePath": "",
-            "program": "${workspaceRoot}/e2e/e2e_suite_test.go",
+            "program": "${workspaceRoot}/test/e2e/e2e_suite_test.go",
             "env": {
-                "VCLUSTER_CLIENT_TIMEOUT": 32, // 32 is the default; increase to high number when debugging vcluster backend server
-                //"VCLUSTER_SUFFIX": "vcluster", // suffix is set to "vcluster" when deployed with `devspace run deploy`
+                "VCLUSTER_CLIENT_TIMEOUT": "32", // 32 is the default; increase to high number when debugging vcluster backend server
+                "VCLUSTER_SUFFIX": "vcluster", // suffix is set to "vcluster" when deployed with `devspace run deploy`
             },
             "args": ["-ginkgo.v"], // add "-ginkgo.focus=.*part of test name.*" to run just the test containing said regexp
             "showLog": true,

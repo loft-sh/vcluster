@@ -3,6 +3,7 @@ package helm
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -120,26 +121,41 @@ func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) 
 	}
 	c.log.Debugf("CHART PATH: %s\n", cp)
 	// have to move the chart file to workdir
-	return renameChart(c.settings, options)
+	return copyChartFile(c.settings, options)
 }
 
-func renameChart(settings *cli.EnvSettings, options UpgradeOptions) error {
-	chartPath := fmt.Sprintf("%s/%s-%s.tgz", settings.RepositoryCache, options.Chart, options.Version)
-	_, err := os.Stat(chartPath)
+func copyChartFile(settings *cli.EnvSettings, options UpgradeOptions) error {
+	sourcePath := fmt.Sprintf("%s/%s-%s.tgz", settings.RepositoryCache, options.Chart, options.Version)
+	destinationPath := fmt.Sprintf("%s/%s-%s.tgz", options.WorkDir, options.Chart, options.Version)
+
+	sourcePathWithV := fmt.Sprintf("%s/%s-v%s.tgz", settings.RepositoryCache, options.Chart, options.Version)
+	destinationPathWithV := fmt.Sprintf("%s/%s-v%s.tgz", options.WorkDir, options.Chart, options.Version)
+	_, err := os.Stat(sourcePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if options.Version[0] != 'v' {
-				chartPath = fmt.Sprintf("%s/%s-v%s.tgz", settings.RepositoryCache, options.Chart, options.Version)
-				_, err = os.Stat(chartPath)
+				_, err = os.Stat(sourcePathWithV)
 				if err == nil {
-					return os.Rename(chartPath, fmt.Sprintf("%s/%s-v%s.tgz", options.WorkDir, options.Chart, options.Version))
+					return moveFile(sourcePathWithV, destinationPathWithV)
 				}
 				return err
 			}
 		}
 		return err
 	}
-	return os.Rename(chartPath, fmt.Sprintf("%s/%s-%s.tgz", options.WorkDir, options.Chart, options.Version))
+	return moveFile(sourcePath, destinationPath)
+}
+
+func moveFile(sourcePathWithV string, destinationPathWithV string) error {
+	bytesRead, err := ioutil.ReadFile(sourcePathWithV)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(destinationPathWithV, bytesRead, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *client) Rollback(ctx context.Context, name, namespace string) error {
