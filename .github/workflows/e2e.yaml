@@ -24,6 +24,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/${{ github.repository }}-ci:PR${{ github.event.number }}
   VCLUSTER_SUFFIX: vcluster
+  VCLUSTER_NAME: vcluster
   VCLUSTER_NAMESPACE: vcluster
 
 jobs:
@@ -87,6 +88,9 @@ jobs:
       matrix:
         distribution: ["k3s", "k8s", "k0s", "eks"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
+        exclude:
+        - distribution: eks
+          test-suite-path: ./test/e2e_scheduler
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -115,6 +119,9 @@ jobs:
       with:
         name: vcluster_syncer
 
+    # - name: Setup upterm session for debugging
+    #   uses: lhotari/action-upterm@v1
+    
     - name: Create vcluster
       id: create-vcluster
       run: |
@@ -170,7 +177,7 @@ jobs:
       working-directory: ${{ matrix.test-suite-path }}
       run: |
         set -x
-        VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
+        VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
       continue-on-error: true
 
     - name: Print logs if e2e tests fail
@@ -185,4 +192,3 @@ jobs:
         echo "======================================================================================================================"
         kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
         exit 1
-

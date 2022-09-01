@@ -114,7 +114,6 @@ spec:
           {{- else }}
           - '--leader-elect=false'
           {{- end }}
-          - '--port=0'
           {{- range $f := .Values.scheduler.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
