@@ -103,10 +103,10 @@ spec:
           {{- end }}
           {{- if not .Values.sync.nodes.enableScheduler }}
             --disable-scheduler
-            --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
+            --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl
             --kube-apiserver-arg=endpoint-reconciler-type=none
           {{- else }}
-            --kube-controller-manager-arg=controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
+            --kube-controller-manager-arg=controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl
             --kube-apiserver-arg=endpoint-reconciler-type=none
             --kube-controller-manager-arg=node-monitor-grace-period=1h
             --kube-controller-manager-arg=node-monitor-period=1h
