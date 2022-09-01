@@ -65,7 +65,7 @@ Prints only the flags that modify the defaults:
 - when non-default controller has enabled: true => `- "--sync=controller`
 */}}
 {{- define "vcluster.syncer.syncArgs" -}}
-{{- $defaultEnabled := list "services" "configmaps" "secrets" "endpoints" "pods" "events" "persistentvolumeclaims" "ingresses" "fake-nodes" "fake-persistentvolumes" -}}
+{{- $defaultEnabled := list "services" "configmaps" "secrets" "endpoints" "pods" "events" "persistentvolumeclaims" "fake-nodes" "fake-persistentvolumes" -}}
 {{- range $key, $val := .Values.sync }}
 {{- if and (has $key $defaultEnabled) (not $val.enabled) }}
 - --sync=-{{ $key }}
