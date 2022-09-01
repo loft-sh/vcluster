@@ -3,9 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
-	"regexp"
+	"path/filepath"
 	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -21,25 +21,20 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
 	LogsMountPath = "/var/log/pods"
-
-	HostLogFolderPattern = `(?P<namespace>[\w][^_]+)_(?P<podname>[\w][^_]+)_(?P<UID>[\w|\d|-]+)`
 )
 
 var (
 	podMappings PhysicalPodToVirtualPodDetail
-
-	hostLogFolderRegex *regexp.Regexp
 )
 
 func init() {
 	podMappings = make(PhysicalPodToVirtualPodDetail)
-
-	hostLogFolderRegex = regexp.MustCompile(HostLogFolderPattern)
 }
 
 func NewLogMapperCommand() *cobra.Command {
@@ -145,9 +140,11 @@ func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
 		return err
 	}
 
-	startManagers(context.TODO(), localManager, virtualClusterManager)
+	ctx := context.Background()
 
-	mapLogs(context.TODO(), localManager, virtualClusterManager, options)
+	startManagers(ctx, localManager, virtualClusterManager)
+
+	mapLogs(ctx, localManager, virtualClusterManager, options)
 
 	return nil
 }
@@ -155,62 +152,73 @@ func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
 func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *context2.VirtualClusterOptions) {
 	wait.Forever(func() {
 		podList := &v1.PodList{}
-		err := vManager.GetClient().List(ctx, podList)
+		err := pManager.GetClient().List(ctx, podList, &client.ListOptions{Namespace: options.TargetNamespace})
 		if err != nil {
 			klog.Errorf("unable to list pods: %v", err)
 			return
 		}
 
 		fillUpPodMapping(ctx, podList)
-		klog.Info("podMapping length: ", len(podMappings))
+		klog.Infof("podMapping length: %d", len(podMappings))
 
-		podsOnNode, err := ioutil.ReadDir(LogsMountPath)
+		vPodList := &v1.PodList{}
+		err = vManager.GetClient().List(ctx, vPodList)
 		if err != nil {
-			klog.Errorf("error encountered during file walk: %v", err)
+			klog.Errorf("unable to list pods: %v", err)
+			return
 		}
 
-		for _, podOnNode := range podsOnNode {
-			// klog.Infoln("found dir", item.Name())
-			matches := hostLogFolderRegex.FindAllStringSubmatch(podOnNode.Name(), -1)
-			namespace, podName, UID := hostLogFolderRegex.SubexpIndex("namespace"), hostLogFolderRegex.SubexpIndex("podname"), hostLogFolderRegex.SubexpIndex("UID")
-			for _, match := range matches {
-				// klog.Infof("found\n\tnamespace: %s\n\tpodName: %s\n\tUID: %s\n", match[namespace], match[podName], match[UID])
-				if pod, ok := podMappings[match[podName]]; ok {
-					klog.Infof("found a matching pod: %s/%s", match[namespace], match[podName])
-					klog.Infof("physical pod UID: %s", match[UID])
-					klog.Infof("virtualPodUID: %s", pod.PodObj.UID)
-					klog.Infoln()
+		for _, pod := range vPodList.Items {
+			pName := translate.PhysicalName(pod.Name, pod.Namespace)
 
-					// check if symlink exists
-					if pod.SymLinkName == nil {
-						// create symlink
-						symlinkName, err := createSymlinkToPhysical(ctx,
-							pod.PodObj.Namespace,
-							pod.PodObj.Name,
-							string(pod.PodObj.UID),
-							podOnNode.Name())
-						if err != nil {
-							klog.Errorf("error creating symlink: %v", err)
-						}
-
-						pod.SymLinkName = symlinkName
-					}
+			if v, ok := podMappings[pName]; ok {
+				// if v.SymLinkName == nil {
+				// create symlink
+				symlinkName, err := createSymlinkToPhysical(ctx, pod.Namespace, pod.Name, string(pod.UID), v.Target)
+				if err != nil {
+					klog.Errorf("unable to create symlink for %s: %v", v.Target, err)
 				}
+
+				v.SymLinkName = symlinkName
+				// }
 			}
 		}
+
 	}, time.Second*5)
 }
 
 func fillUpPodMapping(ctx context.Context, podList *v1.PodList) {
 	for _, pod := range podList.Items {
-		// klog.Infof("pod: %s:%s", pod.Namespace, pod.Name)
-		pname := translate.PhysicalName(pod.Name, pod.Namespace)
+		lookupName := fmt.Sprintf("%s_%s_%s", pod.Namespace, pod.Name, pod.UID)
 
-		// add to pod mappings
-		podMappings[pname] = &PodDetail{
-			PodObj: pod,
+		ok, err := checkIfPathExists(lookupName)
+		if err != nil {
+			klog.Errorf("error checking existence for path %s: %v", lookupName, err)
+		}
+
+		if ok {
+			// check entry in podMapping
+			if _, ok := podMappings[pod.Name]; !ok {
+				podMappings[pod.Name] = &PodDetail{
+					Target: lookupName,
+				}
+			}
 		}
 	}
+}
+
+// check if folder exists
+func checkIfPathExists(path string) (bool, error) {
+	fullPath := filepath.Join(LogsMountPath, path)
+	if _, err := os.Stat(fullPath); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return true, nil
 }
 
 func startManagers(ctx context.Context, pManager, vManager manager.Manager) {
@@ -230,12 +238,14 @@ func startManagers(ctx context.Context, pManager, vManager manager.Manager) {
 }
 
 func createSymlinkToPhysical(ctx context.Context, namespace, podName, UID, target string) (*string, error) {
-	vPodDirName := fmt.Sprintf("%s_%s_%s", namespace, podName, UID)
+	vPodDirName := filepath.Join(LogsMountPath, fmt.Sprintf("%s_%s_%s", namespace, podName, UID))
 
+	target = filepath.Join(LogsMountPath, target)
+	klog.Infof("creating symlink from %s -> %s", vPodDirName, target)
 	err := os.Symlink(target, vPodDirName)
 	if err != nil {
 		if os.IsExist(err) {
-			return nil, nil
+			return nil, err
 		}
 
 		return nil, err
@@ -248,6 +258,6 @@ func createSymlinkToPhysical(ctx context.Context, namespace, podName, UID, targe
 type PhysicalPodToVirtualPodDetail map[string]*PodDetail
 
 type PodDetail struct {
-	PodObj      v1.Pod
+	Target      string
 	SymLinkName *string
 }

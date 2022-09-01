@@ -5,7 +5,7 @@ name: vcluster
 vars:
   # Make sure vcluster is the default namespace
   DEVSPACE_FLAGS: "-n vcluster"
-  SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+  SYNCER_IMAGE: ishankhare07/vcluster-logmapper
 
 # Images DevSpace will build for vcluster
 images:
@@ -13,8 +13,11 @@ images:
     dockerfile: ./Dockerfile
     image: ${SYNCER_IMAGE}
     rebuildStrategy: ignoreContextChanges
+    buildArgs:
+      TARGETARCH: amd64
     target: builder
-    buildKit: {}
+    buildKit:
+      inCluster: {}
 
 # Deployment used for vcluster
 deployments:
