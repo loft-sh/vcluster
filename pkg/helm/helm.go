@@ -119,8 +119,27 @@ func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) 
 		return err
 	}
 	c.log.Debugf("CHART PATH: %s\n", cp)
+	// have to move the chart file to workdir
+	return renameChart(c.settings, options)
+}
 
-	return nil
+func renameChart(settings *cli.EnvSettings, options UpgradeOptions) error {
+	chartPath := fmt.Sprintf("%s/%s-%s.tgz", settings.RepositoryCache, options.Chart, options.Version)
+	_, err := os.Stat(chartPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if options.Version[0] != 'v' {
+				chartPath = fmt.Sprintf("%s/%s-v%s.tgz", settings.RepositoryCache, options.Chart, options.Version)
+				_, err = os.Stat(chartPath)
+				if err == nil {
+					return os.Rename(chartPath, fmt.Sprintf("%s/%s-v%s.tgz", options.WorkDir, options.Chart, options.Version))
+				}
+				return err
+			}
+		}
+		return err
+	}
+	return os.Rename(chartPath, fmt.Sprintf("%s/%s-%s.tgz", options.WorkDir, options.Chart, options.Version))
 }
 
 func (c *client) Rollback(ctx context.Context, name, namespace string) error {
