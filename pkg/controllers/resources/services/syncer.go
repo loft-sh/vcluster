@@ -22,7 +22,10 @@ var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &serviceSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}),
+		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher,
+		// because if it is also installed in the host cluster, it will be
+		// overriding it, which would cause endless updates back and forth.
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}, "field.cattle.io/publicEndpoints"),
 
 		serviceName: ctx.Options.ServiceName,
 	}, nil
