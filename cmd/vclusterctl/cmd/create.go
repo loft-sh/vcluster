@@ -2,13 +2,8 @@ package cmd
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"time"
-
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
@@ -16,6 +11,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/helm/values"
@@ -155,6 +155,44 @@ func (cmd *CreateCmd) Run(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	var newExtraValues []string
+	for _, value := range cmd.ExtraValues {
+		decodedString, err := getBase64DecodedString(value)
+		if err != nil {
+			if strings.Contains(err.Error(), "illegal base64 data at input byte 0") {
+				newExtraValues = append(newExtraValues, value)
+				continue
+			}
+			return err
+		}
+
+		// write a temporary values file
+		tempFile, err := os.CreateTemp("", "")
+		tempValuesFile := tempFile.Name()
+		if err != nil {
+			return errors.Wrap(err, "create temp values file")
+		}
+		defer func(name string) {
+			_ = os.Remove(name)
+		}(tempValuesFile)
+
+		_, err = tempFile.Write([]byte(decodedString))
+		if err != nil {
+			return errors.Wrap(err, "write values to temp values file")
+		}
+
+		err = tempFile.Close()
+		if err != nil {
+			return errors.Wrap(err, "close temp values file")
+		}
+		// setting new file to extraValues slice to process it further.
+		newExtraValues = append(newExtraValues, tempValuesFile)
+	}
+
+	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
+	cmd.ExtraValues = newExtraValues
+
 	if cmd.ReleaseValues != "" {
 		cmd.ExtraValues = append(cmd.ExtraValues, cmd.ReleaseValues)
 	}
@@ -206,7 +244,16 @@ func (cmd *CreateCmd) Run(args []string) error {
 			cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
 		}
 	}
+
 	return nil
+}
+
+func getBase64DecodedString(values string) (string, error) {
+	strDecoded, err := base64.StdEncoding.DecodeString(values)
+	if err != nil {
+		return "", err
+	}
+	return string(strDecoded), nil
 }
 
 func (cmd *CreateCmd) deployChart(vClusterName, chartValues string) error {
