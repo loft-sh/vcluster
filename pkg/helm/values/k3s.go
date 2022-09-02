@@ -61,17 +61,16 @@ func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	}
 
 	// build values
-	values := ""
-
+	var values []string
+	values = append(values, "vcluster.image="+image)
 	if chartOptions.Isolate {
-		values += ",securityContext.runAsUser=12345,securityContext.runAsNonRoot=true"
+		values = append(values, "securityContext.runAsUser=12345,securityContext.runAsNonRoot=true")
 	}
 
-	values += "vcluster.image=" + image
 	if chartOptions.K3SImage == "" {
 		for _, a := range baseArgsSlice {
 			if a == serverVersionString {
-				values += "vcluster.baseArgs=server --write-kubeconfig=/k3s-config/kube-config.yaml --data-dir=/data --no-deploy=traefik,servicelb,metrics-server,local-storage --disable-network-policy --disable-agent --disable-cloud-controller --flannel-backend=none"
+				values = append(values, "vcluster.baseArgs=server --write-kubeconfig=/k3s-config/kube-config.yaml --data-dir=/data --no-deploy=traefik,servicelb,metrics-server,local-storage --disable-network-policy --disable-agent --disable-cloud-controller --flannel-backend=none")
 				break
 			}
 		}
@@ -80,34 +79,34 @@ func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	return addCommonReleaseValues(values, chartOptions)
 }
 
-func addCommonReleaseValues(values string, chartOptions *helm.ChartOptions) (string, error) {
+func addCommonReleaseValues(values []string, chartOptions *helm.ChartOptions) (string, error) {
 	if chartOptions.CIDR != "" {
-		values += ",serviceCIDR=" + chartOptions.CIDR
+		values = append(values, "serviceCIDR="+chartOptions.CIDR)
 	}
 
 	if chartOptions.DisableIngressSync {
-		values += ",syncer.extraArgs=[\"--disable-sync-resources=ingresses\"]"
+		values = append(values, "syncer.extraArgs=[\"--disable-sync-resources=ingresses\"]")
 	}
 
 	if chartOptions.CreateClusterRole {
-		values += ",rbac.clusterRole.create=true"
+		values = append(values, "rbac.clusterRole.create=true")
 	}
 
 	if chartOptions.Expose {
-		values += ",service.type=LoadBalancer"
+		values = append(values, "service.type=LoadBalancer")
 	} else if chartOptions.NodePort {
-		values += ",service.type=NodePort"
+		values = append(values, "service.type=NodePort")
 	}
 
 	if chartOptions.SyncNodes {
-		values += ",sync.nodes.enabled=true"
+		values = append(values, "sync.nodes.enabled=true")
 	}
 
 	if chartOptions.Isolate {
-		values += ",isolation.enabled=true"
+		values = append(values, "isolation.enabled=true")
 	}
 
-	return values, nil
+	return strings.Join(values, ","), nil
 }
 
 func ParseKubernetesVersionInfo(versionStr string) (*version.Info, error) {

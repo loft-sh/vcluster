@@ -30,7 +30,7 @@ func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	}
 
 	// build values
-	values := ""
-	values += "vcluster.image=" + image
+	var values []string
+	values = append(values, "vcluster.image="+image)
 	return addCommonReleaseValues(values, chartOptions)
 }

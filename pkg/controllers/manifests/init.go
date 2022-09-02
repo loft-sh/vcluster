@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/release"
 	"k8s.io/klog"
 	"os"
 	"strings"
@@ -522,7 +523,7 @@ func (r *InitManifestsConfigMapReconciler) rollbackOrUninstall(ctx context.Conte
 		r.Log.Errorf("error getting helm release status: %v", err)
 		return err
 	}
-	if strings.Contains(output.Info.Status.String(), "pending-install") {
+	if strings.Contains(output.Info.Status.String(), string(release.StatusPendingInstall)) {
 		r.Log.Errorf("release stuck in pending state, proceeding to uninstall")
 		err := r.HelmClient.Delete(chartName, namespace)
 		if err != nil {

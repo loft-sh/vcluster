@@ -69,10 +69,7 @@ func getDefaultK8SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	}
 
 	// build values
-	values := ""
-	values += "api.image=" + apiImage
-	values += ",scheduler.image=" + schedulerImage
-	values += ",controller.image=" + controllerImage
-	values += ",etcd.image=" + etcdImage
+	var values []string
+	values = append(values, "api.image="+apiImage, "scheduler.image="+schedulerImage, "controller.image="+controllerImage, "etcd.image="+etcdImage)
 	return addCommonReleaseValues(values, chartOptions)
 }

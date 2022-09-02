@@ -693,7 +693,9 @@ func writeKubeConfig(configRaw *clientcmdapi.Config) (string, error) {
 	}
 
 	// Close temp file
-	_ = tempFile.Close()
+	defer func(tempFile *os.File) {
+		_ = tempFile.Close()
+	}(tempFile)
 
 	// Okay sometimes the file is written so quickly that helm somehow
 	// cannot read it immediately which causes errors

@@ -57,10 +57,12 @@ func getDefaultEKSReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	}
 
 	// build values
-	values := ""
-	values += "api.image=" + apiImage
-	values += ",coredns.image=" + corednsImage
-	values += ",controller.image=" + controllerImage
-	values += ",etcd.image=" + etcdImage
+	var values []string
+	values = append(values,
+		"api.image="+apiImage,
+		"coredns.image="+corednsImage,
+		"controller.image="+controllerImage,
+		"etcd.image="+etcdImage)
+
 	return addCommonReleaseValues(values, chartOptions)
 }
