@@ -2,6 +2,8 @@ package nodes
 
 import (
 	"context"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
@@ -15,14 +17,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+var (
+	indexPodByRunningNonVClusterNode = "indexpodbyrunningnonvclusternode"
 )
 
 func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
@@ -55,6 +59,7 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 		nodeSelector:        nodeSelector,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 
+		targetNamespace:     ctx.Options.TargetNamespace,
 		physicalClient:      ctx.PhysicalManager.GetClient(),
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		enforcedTolerations: tolerations,
@@ -70,6 +75,7 @@ type nodeSyncer struct {
 	physicalClient client.Client
 	virtualClient  client.Client
 
+	targetNamespace     string
 	podCache            client.Reader
 	nodeServiceProvider nodeservice.NodeServiceProvider
 	enforcedTolerations []*corev1.Toleration
@@ -86,22 +92,42 @@ func (s *nodeSyncer) Name() string {
 var _ syncer.ControllerModifier = &nodeSyncer{}
 
 func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	// create a global pod cache for calculating the correct node resources
-	podCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{
-		Scheme: ctx.PhysicalManager.GetScheme(),
-		Mapper: ctx.PhysicalManager.GetRESTMapper(),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "create cache")
-	}
-	go func() {
-		err := podCache.Start(ctx.Context)
+	if s.enableScheduler {
+		// create a global pod cache for calculating the correct node resources
+		podCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{
+			Scheme: ctx.PhysicalManager.GetScheme(),
+			Mapper: ctx.PhysicalManager.GetRESTMapper(),
+		})
 		if err != nil {
-			klog.Fatalf("error starting pod cache: %v", err)
+			return nil, errors.Wrap(err, "create cache")
 		}
-	}()
-	podCache.WaitForCacheSync(ctx.Context)
-	s.podCache = podCache
+		// add index for pod by node
+		err = podCache.IndexField(ctx.Context, &corev1.Pod{}, indexPodByRunningNonVClusterNode, func(object client.Object) []string {
+			pPod := object.(*corev1.Pod)
+			// we ignore all non-running pods and the ones that are part of the current vcluster
+			// to later calculate the status.allocatable part of the nodes correctly
+			if pPod.Status.Phase == corev1.PodSucceeded || pPod.Status.Phase == corev1.PodFailed {
+				return []string{}
+			} else if pPod.Labels != nil && pPod.Labels[translate.MarkerLabel] == translate.Suffix && pPod.Namespace == s.targetNamespace {
+				return []string{}
+			} else if pPod.Spec.NodeName == "" {
+				return []string{}
+			}
+
+			return []string{pPod.Spec.NodeName}
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "index pod by node")
+		}
+		go func() {
+			err := podCache.Start(ctx.Context)
+			if err != nil {
+				klog.Fatalf("error starting pod cache: %v", err)
+			}
+		}()
+		podCache.WaitForCacheSync(ctx.Context)
+		s.podCache = podCache
+	}
 	return modifyController(ctx, s.nodeServiceProvider, builder)
 }
 

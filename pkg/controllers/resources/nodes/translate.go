@@ -3,7 +3,9 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -12,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 )
@@ -154,66 +155,55 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		translatedStatus.Addresses = newAddresses
 	}
 
-	// calculate what's really allocatable
-	if translatedStatus.Allocatable != nil {
-		cpu := translatedStatus.Allocatable.Cpu().MilliValue()
-		memory := translatedStatus.Allocatable.Memory().Value()
-		storageEphemeral := translatedStatus.Allocatable.StorageEphemeral().Value()
-		pods := translatedStatus.Allocatable.Pods().Value()
+	// if scheduler is enabled we allow custom capacity and allocatable
+	if s.enableScheduler {
 
-		var nonVClusterPods int64
-		podList := &corev1.PodList{}
-		err := s.podCache.List(context.TODO(), podList)
-		if err != nil {
-			klog.Errorf("Error listing pods: %v", err)
-		} else {
-			for _, pod := range podList.Items {
-				if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
-					continue
-				} else if pod.Labels != nil && pod.Labels[translate.MarkerLabel] == translate.Suffix {
-					continue
-				} else if pod.Spec.NodeName != pNode.Name {
-					continue
-				}
-				if s.enableScheduler {
+		// calculate what's really allocatable
+		if translatedStatus.Allocatable != nil {
+			cpu := translatedStatus.Allocatable.Cpu().MilliValue()
+			memory := translatedStatus.Allocatable.Memory().Value()
+			storageEphemeral := translatedStatus.Allocatable.StorageEphemeral().Value()
+			pods := translatedStatus.Allocatable.Pods().Value()
+
+			var nonVClusterPods int64
+			podList := &corev1.PodList{}
+			err := s.podCache.List(context.TODO(), podList, client.MatchingFields{indexPodByRunningNonVClusterNode: pNode.Name})
+			if err != nil {
+				klog.Errorf("Error listing pods: %v", err)
+			} else {
+				for _, pod := range podList.Items {
 					if !translate.IsManaged(&pod) {
 						// count pods that are not synced by this vcluster
 						nonVClusterPods++
 					}
-				}
-				for _, container := range pod.Spec.InitContainers {
-					cpu -= container.Resources.Requests.Cpu().MilliValue()
-					memory -= container.Resources.Requests.Memory().Value()
-					storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
-				}
-				for _, container := range pod.Spec.Containers {
-					cpu -= container.Resources.Requests.Cpu().MilliValue()
-					memory -= container.Resources.Requests.Memory().Value()
-					storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
+					for _, container := range pod.Spec.InitContainers {
+						cpu -= container.Resources.Requests.Cpu().MilliValue()
+						memory -= container.Resources.Requests.Memory().Value()
+						storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
+					}
+					for _, container := range pod.Spec.Containers {
+						cpu -= container.Resources.Requests.Cpu().MilliValue()
+						memory -= container.Resources.Requests.Memory().Value()
+						storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
+					}
 				}
 			}
-		}
 
-		if s.enableScheduler {
 			pods -= nonVClusterPods
 			if pods > 0 {
 				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(pods, resource.DecimalSI)
 			}
+			if cpu > 0 {
+				translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(cpu, resource.DecimalSI)
+			}
+			if memory > 0 {
+				translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(memory, resource.BinarySI)
+			}
+			if storageEphemeral > 0 {
+				translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageEphemeral, resource.BinarySI)
+			}
 		}
 
-		if cpu > 0 {
-			translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(cpu, resource.DecimalSI)
-		}
-		if memory > 0 {
-			translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(memory, resource.BinarySI)
-		}
-		if storageEphemeral > 0 {
-			translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageEphemeral, resource.BinarySI)
-		}
-	}
-
-	// if scheduler is enabled we allow custom capacity and allocatable
-	if s.enableScheduler {
 		// calculate what's in capacity & allocatable
 		capacity := mergeResources(vNode.Status.Capacity, translatedStatus.Capacity)
 		if len(capacity) > 0 {
