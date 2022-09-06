@@ -301,6 +301,14 @@ I0124 11:20:15.957331    4185 logr.go:249] plugin: Successfully started plugin.
 
 You can now change a file locally in your IDE and then restart the command in the terminal to apply the changes to the plugin.
 
+DevSpace will create a development vcluster which will execute your plugin. Any changes made within the vcluster created by DevSpace will execute against your plugin.
+```
+vcluster list                
+
+ NAME       NAMESPACE       STATUS    CONNECTED   CREATED                          AGE
+ vcluster   vcluster        Running   True        2022-09-06 20:33:20 +1000 AEST   2h26m8s
+```
+
 After you are done developing or you want to recreate the environment, delete the development environment with:
 ```
 devspace purge -n vcluster
