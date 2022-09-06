@@ -127,17 +127,12 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 		}
 	}
 
-	// check if objects are getting deleted
-	if vObj.GetDeletionTimestamp() != nil {
-		if pObj.GetDeletionTimestamp() == nil {
-			ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is terminating", pObj.GetName())
-			err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		return ctrl.Result{RequeueAfter: time.Second}, nil
+	// check if virtual persistent volume is deleted
+	if vPersistentVolume.GetDeletionTimestamp() != nil && len(vPersistentVolume.GetFinalizers()) > 0 {
+		//delete the finalizer, so that the object can be deleted
+		vPersistentVolume.SetFinalizers(nil)
+		ctx.Log.Infof("remove virtual persistent volume %s finalizers, because virtual persistent volume is terminating", vPersistentVolume.GetName())
+		return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vPersistentVolume)
 	}
 
 	// check if the persistent volume should get synced
