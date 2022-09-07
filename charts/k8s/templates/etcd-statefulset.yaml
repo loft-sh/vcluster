@@ -42,6 +42,10 @@ spec:
   {{- end }}
   template:
     metadata:
+  {{- if .Values.etcd.podAnnotations }}
+      annotations:
+{{ toYaml .Values.etcd.podAnnotations | indent 8 }}
+  {{- end }}
       labels:
         app: vcluster-etcd
         release: {{ .Release.Name }}

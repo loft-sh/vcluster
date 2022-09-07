@@ -33,6 +33,10 @@ spec:
       release: {{ .Release.Name }}
   template:
     metadata:
+  {{- if .Values.scheduler.podAnnotations }}
+      annotations:
+{{ toYaml .Values.scheduler.podAnnotations | indent 8 }}
+  {{- end }}
       labels:
         app: vcluster-scheduler
         release: {{ .Release.Name }}
