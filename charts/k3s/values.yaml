@@ -1,6 +1,5 @@
-global:
-  # These annotations will be applied to all objects created in this chart
-  annotations: {}
+# These annotations will be applied to all objects created in this chart
+globalAnnotations: {}
 
 # DefaultImageRegistry will be prepended to all deployed vcluster images, such as the vcluster pod, coredns etc.. Deployed
 # images within the vcluster will not be rewritten.
