@@ -211,7 +211,18 @@ api:
 coredns:
   image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-23-4
   replicas: 1
-  resources: ""
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 170Mi
+    requests:
+      cpu: 3m
+      memory: 16Mi
+# if below option is configured, it will override the coredns manifests with the following string
+#  manifests: |-
+#    apiVersion: ...
+#    ...
+
 # Service account that should be used by the vcluster
 serviceAccount:
   create: true

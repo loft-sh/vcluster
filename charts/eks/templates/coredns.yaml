@@ -4,9 +4,9 @@ metadata:
   name: custom-deployments
   namespace: {{ .Release.Namespace }}
 data:
-{{- if .Values.coredns.resources }}
+{{- if .Values.coredns.manifests }}
   coredns.yaml: |-
-{{ .Values.coredns.resources | indent 4 }}
+{{ .Values.coredns.manifests | indent 4 }}
 {{- else }}
   coredns.yaml: |-
     apiVersion: v1
@@ -146,12 +146,7 @@ data:
             image: "{{ .Values.defaultImageRegistry }}{{ .Values.coredns.image }}"
             imagePullPolicy: IfNotPresent
             resources:
-              limits:
-                cpu: 1000m
-                memory: 170Mi
-              requests:
-                cpu: 3m
-                memory: 16Mi
+{{ toYaml .Values.coredns.resources | indent 14}}
             args: [ "-conf", "/etc/coredns/Corefile" ]
             volumeMounts:
             - name: config-volume
