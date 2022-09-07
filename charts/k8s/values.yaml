@@ -131,6 +131,7 @@ syncer:
   labels: {}
   # Extra Annotations for the syncer deployment
   annotations: {}
+  podAnnotations: {}
   priorityClassName: ""
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
@@ -151,6 +152,7 @@ etcd:
   labels: {}
   # Extra Annotations
   annotations: {}
+  podAnnotations: {}
   resources:
     requests:
       cpu: 20m
@@ -182,6 +184,7 @@ controller:
   labels: {}
   # Extra Annotations
   annotations: {}
+  podAnnotations: {}
   resources:
     requests:
       cpu: 15m
@@ -202,6 +205,7 @@ scheduler:
   labels: {}
   # Extra Annotations
   annotations: {}
+  podAnnotations: {}
   resources:
     requests:
       cpu: 10m
@@ -223,6 +227,7 @@ api:
   labels: {}
   # Extra Annotations for the syncer deployment
   annotations: {}
+  podAnnotations: {}
   resources:
     requests:
       cpu: 40m

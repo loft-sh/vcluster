@@ -201,6 +201,7 @@ labels: {}
 
 # Extra Annotations for the stateful set
 annotations: {}
+podAnnotations: {}
 
 # Service configurations
 service:

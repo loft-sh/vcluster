@@ -32,6 +32,10 @@ spec:
       release: {{ .Release.Name }}
   template:
     metadata:
+  {{- if .Values.syncer.podAnnotations }}
+      annotations:
+{{ toYaml .Values.syncer.podAnnotations | indent 8 }}
+  {{- end }}
       labels:
         app: vcluster
         release: {{ .Release.Name }}
