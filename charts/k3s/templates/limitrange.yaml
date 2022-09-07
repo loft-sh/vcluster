@@ -4,9 +4,9 @@ kind: LimitRange
 metadata:
   name: {{ .Release.Name }}-limit-range
   namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
-  {{- if .Values.global.annotations }}
+  {{- if .Values.globalAnnotations }}
   annotations:
-{{ toYaml .Values.global.annotations | indent 4 }}
+{{ toYaml .Values.globalAnnotations | indent 4 }}
   {{- end }}
 spec:
   limits:

@@ -11,7 +11,7 @@ metadata:
 {{- if .Values.labels }}
 {{ toYaml .Values.labels | indent 4 }}
 {{- end }}
-{{- $annotations := merge .Values.annotations .Values.global.annotations }}
+{{- $annotations := merge .Values.annotations .Values.globalAnnotations }}
   {{- if $annotations }}
   annotations:
 {{ toYaml $annotations | indent 4 }}

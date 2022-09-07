@@ -2,7 +2,7 @@
 apiVersion: {{ .Values.ingress.apiVersion }}
 kind: Ingress
 metadata:
-{{- $annotations := merge .Values.ingress.annotations .Values.global.annotations }}
+{{- $annotations := merge .Values.ingress.annotations .Values.globalAnnotations }}
   {{- if $annotations }}
   annotations:
   {{- toYaml $annotations | nindent 4 }}
