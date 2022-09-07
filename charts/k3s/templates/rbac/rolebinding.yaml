@@ -9,6 +9,10 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
 subjects:
   - kind: ServiceAccount
     {{- if .Values.serviceAccount.name }}

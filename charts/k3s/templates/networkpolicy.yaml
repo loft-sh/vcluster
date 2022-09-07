@@ -4,6 +4,10 @@ kind: NetworkPolicy
 metadata:
   name: {{ .Release.Name }}-workloads
   namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
 spec:
   podSelector:
     matchLabels:
