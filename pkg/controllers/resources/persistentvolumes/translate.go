@@ -67,8 +67,10 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 		isStorageClassCreatedOnVirtual = equality.Semantic.DeepEqual(storageClassPhysicalName, translatedSpec.StorageClassName)
 
 		// check if claim was created on virtual
-		claimRefPhysicalName := translate.PhysicalName(vPv.Spec.ClaimRef.Name, vPv.Spec.ClaimRef.Namespace)
-		isClaimRefCreatedOnVirtual = equality.Semantic.DeepEqual(claimRefPhysicalName, translatedSpec.ClaimRef.Name)
+		if vPv.Spec.ClaimRef != nil && translatedSpec.ClaimRef != nil {
+			claimRefPhysicalName := translate.PhysicalName(vPv.Spec.ClaimRef.Name, vPv.Spec.ClaimRef.Namespace)
+			isClaimRefCreatedOnVirtual = equality.Semantic.DeepEqual(claimRefPhysicalName, translatedSpec.ClaimRef.Name)
+		}
 	}
 
 	// check storage class. Do not copy the name, if it was created on virtual.
