@@ -1,0 +1,180 @@
+---
+title: Upgrade existing vclusters
+sidebar_label: Upgrade existing vclusters
+---
+
+In this section, you will find steps and guidelines to upgrade/downgrade existing vclusters. For all kinds of kubernetes distros
+supported by vcluster (k0s, k3s, k8s and eks), the latest image information can be found on the links below.
+
+If you want to contribute to vcluster by upgrading kubernetes distros images directly, PR - https://github.com/loft-sh/vcluster/pull/666 can be referred to know what files need to be changed.
+
+It's very easy to update the existing vclusters running on your host clusters. You just need to update the statefulset or deployment depending on your vcluster distro.
+
+Let’s see how it can be done step by step distro wise.
+
+#### k0s
+You can find the latest image information for k0s here - https://hub.docker.com/r/k0sproject/k0s/tags
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down statefulsets using below command, identify
+your vcluster sts. Generally, sts matches your vcluster name.
+
+```
+kubectl get sts -n k0s-vcluster
+```
+
+- Fire below command to update your vcluster to the image/tag you have selected. For instance, I am upgrading my
+k0s-vcluster with - *k0sproject/k0s:v1.24.4-k0s.0*
+
+```
+kubectl patch statefulset k0s-vcluster --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"k0sproject/k0s:v1.24.4-k0s.0"}]'
+```
+
+- Your k0s vcluster should be updated to the image/tag selected now if there are no errors for above the command.
+
+#### k3s
+You can find the latest image information for k3s here - https://hub.docker.com/r/rancher/k3s/tags
+
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down statefulsets using below command, identify your vcluster sts. Generally your vcluster name matches sts name.
+
+```
+kubectl get sts -n k3s-vcluster
+```
+
+Fire below command to update your vcluster to the image/tag you have selected. For instance, I am upgrading my k3s-vcluster with -
+*rancher/k3s:v1.24.4-k3s1*.
+
+```
+kubectl patch statefulset k3s-vcluster --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"rancher/k3s:v1.24.4-k3s1"}]'
+```
+
+- Your k3s vcluster should be updated to the image/tag selected now if there are no errors for the above command.
+
+#### k8s
+You can find the latest image information for k8s here - https://kubernetes.io/releases/patch-releases
+
+You can update below images of vcluster for k8s distro (api[deployment], controller [deployment], etcd[sts] and scheduler [deployment]) depending on the latest images availability and version matrix compatibility.
+
+##### etcd [sts]
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down statefulsets using below command, identify your vcluster-etcd sts. Generally, the name is of *vcluster-name-etcd* format.
+
+```
+kubectl get sts -n k8s-vcluster
+```
+
+Once you identify etcd sts, fire below command to update your vcluster’s etcd to the image/tag you have selected. I am upgrading my k8s-vcluster’s etcd to image/tag - *k8s.gcr.io/etcd:3.5.4-0*
+
+```
+kubectl patch statefulset k8s-vcluster-etcd --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"k8s.gcr.io/etcd:3.5.4-0"}]'
+```
+
+- Your k8s-vcluster’s etcd should be updated to the image/tag now if there are no errors for the above command.
+
+##### controller [deployment]
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down deployments using below command, identify your vcluster's controller deployment. Generally, the name is of *vcluster-name-controller* format.
+
+```
+kubectl get deployments -n k8s-vcluster
+```
+
+Once you identify controller deployment, fire below command to update your vcluster’s controller to the image/tag you have selected. I am upgrading my k8s-vcluster’s controller to image/tag - *k8s.gcr.io/kube-controller-manager:v1.24.4*
+
+```
+kubectl set image deployment/k8s-vcluster-controller kube-controller-manager=k8s.gcr.io/kube-controller-manager:v1.24.4
+```
+
+- Your k8s-vcluster’s controller should be updated to the image/tag now if there are no errors for the above command.
+
+##### api [deployment]
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down deployments using below command, identify your vcluster's api deployment. Generally, the name is of *vcluster-name-api* format.
+
+```
+kubectl get deployments -n k8s-vcluster
+```
+
+Once you identify api deployment, fire below command to update your vcluster’s api to the image/tag you have selected. I am upgrading my k8s-vcluster’s api to image/tag - *k8s.gcr.io/kube-apiserver:v1.24.4*
+
+```
+kubectl set image deployment/k8s-vcluster-api kube-apiserver=k8s.gcr.io/kube-apiserver:v1.24.4
+```
+
+- Your k8s-vcluster’s api should be updated to the image/tag now if there are no errors for the above command.
+
+
+##### scheduler [deployment]
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down deployments using below command, identify your vcluster's scheduler deployment. Generally, the name is of *vcluster-name-scheduler* format.
+
+```
+kubectl get deployments -n k8s-vcluster
+```
+
+Once you identify scheduler deployment, fire below command to update your vcluster’s scheduler to the image/tag you have selected. I am upgrading my k8s-vcluster’s scheduler to image/tag - *k8s.gcr.io/kube-scheduler:v1.24.4*
+
+```
+kubectl set image deployment/k8s-vcluster-scheduler kube-scheduler=k8s.gcr.io/kube-scheduler:v1.24.4
+```
+
+- Your k8s-vcluster’s scheduler should be updated to the image/tag now if there are no errors for the above command.
+
+
+
+#### eks
+You can find the latest image information for eks here.
+- https://gallery.ecr.aws/eks-distro/etcd-io/etcd
+- https://gallery.ecr.aws/eks-distro/kubernetes/kube-controller-manager
+- https://gallery.ecr.aws/eks-distro/kubernetes/kube-apiserver
+
+You can update below images of vcluster for eks distro (api[deployment], controller [deployment] and etcd[sts]) depending on the latest images availability and version matrix compatibility.
+
+##### etcd [sts]
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down statefulsets using below command, identify your vcluster-etcd sts. Generally, the name is of *vcluster-name-etcd* format.
+
+```
+kubectl get sts -n eks-vcluster
+```
+
+Once you identify etcd sts, fire below command to update  your vcluster’s etcd to the image/tag you have selected. I am upgrading my eks-vcluster’s etcd to tag - public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.4-eks-1-23-4
+
+```
+kubectl patch statefulset eks-vcluster-etcd --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.4-eks-1-23-4"}]'
+```
+
+- Your eks-vcluster’s etcd should be updated to the image/tag now if there are no errors for the above command.
+
+##### controller [deployment]
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down deployments using below command, identify your vcluster's controller deployment. Generally, the name is of *vcluster-name-controller* format.
+
+```
+kubectl get deployments -n eks-vcluster
+```
+
+Once you identify controller deployment, fire below command to update your vcluster’s controller to the image/tag you have selected. I am upgrading my eks-vcluster’s controller to image/tag - *public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.23.7-eks-1-23-4*
+
+```
+kubectl set image deployment/eks-vcluster-controller kube-controller-manager=public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.23.7-eks-1-23-4
+```
+
+- Your eks-vcluster’s controller should be updated to the image/tag now if there are no errors for the above command.
+
+##### api [deployment]
+- Get the desired image/tag to be applied to your vcluster.
+- Connect to your host cluster and list down deployments using below command, identify your vcluster's api deployment. Generally, the name is of *vcluster-name-api* format.
+
+```
+kubectl get deployments -n eks-vcluster
+```
+
+Once you identify api deployment, fire below command to update your vcluster’s api to the image/tag you have selected. I am upgrading my eks-vcluster’s api to image/tag - *public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.23.7-eks-1-23-4*
+
+```
+kubectl set image deployment/eks-vcluster-api kube-apiserver=public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.23.7-eks-1-23-4
+```
+
+- Your eks-vcluster’s api should be updated to the image/tag now if there are no errors for the above command.
+

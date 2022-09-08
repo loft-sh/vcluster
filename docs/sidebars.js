@@ -81,6 +81,10 @@ module.exports = {
     },
     {
       type: 'doc',
+      id: 'upgrade-existing-vclusters',
+    },
+    {
+      type: 'doc',
       id: 'config-reference',
     },
     {
