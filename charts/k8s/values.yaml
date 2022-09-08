@@ -312,7 +312,17 @@ coredns:
     externalTrafficPolicy: ""
     # Extra Annotations
     annotations: {}
-  resources: ""
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 170Mi
+    requests:
+      cpu: 3m
+      memory: 16Mi
+# if below option is configured, it will override the coredns manifests with the following string
+#  manifests: |-
+#    apiVersion: ...
+#    ...
 
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas

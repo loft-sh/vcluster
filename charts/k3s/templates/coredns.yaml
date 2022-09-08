@@ -9,9 +9,9 @@ metadata:
 {{ toYaml .Values.globalAnnotations | indent 4 }}
   {{- end }}
 data:
-{{- if .Values.coredns.resources }}
+{{- if .Values.coredns.manifests }}
   coredns.yaml: |-
-{{ .Values.coredns.resources | indent 4 }}
+{{ .Values.coredns.manifests | indent 4 }}
 {{- else }}
   coredns.yaml: |-
     apiVersion: v1
@@ -151,12 +151,7 @@ data:
               {{- end }}
               imagePullPolicy: IfNotPresent
               resources:
-                limits:
-                  cpu: 1000m
-                  memory: 170Mi
-                requests:
-                  cpu: 3m
-                  memory: 16Mi
+{{ toYaml .Values.coredns.resources | indent 16}}
               args: [ "-conf", "/etc/coredns/Corefile" ]
               volumeMounts:
                 - name: config-volume
