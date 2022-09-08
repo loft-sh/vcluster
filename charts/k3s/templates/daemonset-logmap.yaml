@@ -1,5 +1,6 @@
+{{- if .Values.logmapper }}
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -17,7 +18,6 @@ metadata:
 {{ toYaml .Values.annotations | indent 4 }}
   {{- end }}
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: vcluster
@@ -45,17 +45,27 @@ spec:
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
         {{- end }}
+        command:
+          - /vcluster
         args:
+          - maplogs
           - --name={{ .Release.Name }}
+          - --target-namespace={{ .Release.Namespace }}
         volumeMounts:
           - name: logs
             mountPath: /var/log/pods
+          - name: virtual-logs
+            mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log/pods
           - name: kubeconfig
             mountPath: /data/server/tls
       volumes:
         - name: logs
           hostPath:
             path: /var/log/pods
+        - name: virtual-logs
+          hostPath:
+            path: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log/pods
         - name: kubeconfig
           secret:
             secretName: vc-{{ .Release.Name }}
+{{ end }}

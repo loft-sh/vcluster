@@ -93,6 +93,9 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
+logmapper:
+  enabled: true
+  
 # Syncer configuration
 syncer:
   # Image to use for the syncer
