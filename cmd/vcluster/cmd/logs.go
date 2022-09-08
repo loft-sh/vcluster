@@ -9,6 +9,7 @@ import (
 	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -29,8 +30,17 @@ const (
 	LogsMountPath = "/var/log/pods"
 )
 
+// map of physical pod names to the corresponding virtual pod
+type PhysicalPodToVirtualPodDetail map[string]*PodDetail
+
+type PodDetail struct {
+	Target      string
+	SymLinkName *string
+}
+
 var (
-	podMappings PhysicalPodToVirtualPodDetail
+	podMappings     PhysicalPodToVirtualPodDetail
+	virtualLogsPath string
 )
 
 func init() {
@@ -61,7 +71,7 @@ func NewLogMapperCommand() *cobra.Command {
 	cmd.Flags().StringVar(&options.KubeConfigSecretNamespace, "out-kube-config-secret-namespace", "", "If specified, the virtual cluster will write the generated kube config in the given namespace")
 	cmd.Flags().StringVar(&options.KubeConfigServer, "out-kube-config-server", "", "If specified, the virtual cluster will use this server for the generated kube config (e.g. https://my-vcluster.domain.com)")
 
-	cmd.Flags().StringVar(&options.TargetNamespace, "target-namespace", "", "The namespace to run the virtual cluster in (defaults to current namespace)")
+	cmd.Flags().StringVar(&options.TargetNamespace, "target-namespace", "vcluster", "The namespace to run the virtual cluster in (defaults to current namespace)")
 	cmd.Flags().StringVar(&options.ServiceName, "service-name", "", "The service name where the vcluster proxy will be available")
 	cmd.Flags().BoolVar(&options.SetOwner, "set-owner", true, "If true, will set the same owner the currently running syncer pod has on the synced resources")
 
@@ -77,6 +87,8 @@ func NewLogMapperCommand() *cobra.Command {
 }
 
 func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
+	virtualLogsPath = fmt.Sprintf(pods.VIRTUAL_LOGS_PATH_TEMPLATE, options.TargetNamespace, options.Name)
+
 	inClusterConfig := ctrl.GetConfigOrDie()
 
 	inClusterConfig.QPS = 40
@@ -161,6 +173,9 @@ func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *c
 		fillUpPodMapping(ctx, podList)
 		klog.Infof("podMapping length: %d", len(podMappings))
 
+		// TODO: handle deletion for old pods that are no longer
+		// valid symlinks. Scan and delete such symlinks
+
 		vPodList := &v1.PodList{}
 		err = vManager.GetClient().List(ctx, vPodList)
 		if err != nil {
@@ -172,15 +187,15 @@ func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *c
 			pName := translate.PhysicalName(pod.Name, pod.Namespace)
 
 			if v, ok := podMappings[pName]; ok {
-				// if v.SymLinkName == nil {
-				// create symlink
-				symlinkName, err := createSymlinkToPhysical(ctx, pod.Namespace, pod.Name, string(pod.UID), v.Target)
-				if err != nil {
-					klog.Errorf("unable to create symlink for %s: %v", v.Target, err)
-				}
+				if v.SymLinkName == nil {
+					// create symlink
+					symlinkName, err := createSymlinkToPhysical(ctx, pod.Namespace, pod.Name, string(pod.UID), v.Target)
+					if err != nil {
+						klog.Errorf("unable to create symlink for %s: %v", v.Target, err)
+					}
 
-				v.SymLinkName = symlinkName
-				// }
+					v.SymLinkName = symlinkName
+				}
 			}
 		}
 
@@ -238,26 +253,18 @@ func startManagers(ctx context.Context, pManager, vManager manager.Manager) {
 }
 
 func createSymlinkToPhysical(ctx context.Context, namespace, podName, UID, target string) (*string, error) {
-	vPodDirName := filepath.Join(LogsMountPath, fmt.Sprintf("%s_%s_%s", namespace, podName, UID))
+	vPodDirName := filepath.Join(virtualLogsPath, fmt.Sprintf("%s_%s_%s", namespace, podName, UID))
 
-	target = filepath.Join(LogsMountPath, target)
+	target = filepath.Join(pods.PHYSICAL_LOG_VOLUME_MOUNT_PATH, target)
 	klog.Infof("creating symlink from %s -> %s", vPodDirName, target)
 	err := os.Symlink(target, vPodDirName)
 	if err != nil {
 		if os.IsExist(err) {
-			return nil, err
+			return &vPodDirName, nil
 		}
 
 		return nil, err
 	}
 
 	return &vPodDirName, nil
-}
-
-// map of physical pod names to the corresponding virtual pod
-type PhysicalPodToVirtualPodDetail map[string]*PodDetail
-
-type PodDetail struct {
-	Target      string
-	SymLinkName *string
 }

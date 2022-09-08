@@ -2,10 +2,13 @@ package pods
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"strings"
+	"time"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"reflect"
-	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -79,6 +82,11 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		return nil, errors.Wrap(err, "create pod translator")
 	}
 
+	name := ctx.Options.Name
+	if name == "" {
+		name = ctx.Options.ServiceName
+	}
+
 	return &podSyncer{
 		NamespacedTranslator: namespacedTranslator,
 
@@ -92,6 +100,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		tolerations:           tolerations,
 
 		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
+		virtualLogsPath:     fmt.Sprintf(VIRTUAL_LOGS_PATH_TEMPLATE, ctx.TargetNamespace, name),
 	}, nil
 }
 
@@ -108,6 +117,7 @@ type podSyncer struct {
 	tolerations           []*corev1.Toleration
 
 	podSecurityStandard string
+	virtualLogsPath     string
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -212,12 +222,80 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 		}
 	}
 
+	ctx.Log.Infof("checking if pod mounts any volume")
+	pPod = s.checkAndRewriteHostPath(ctx, pPod)
+
 	// if scheduler is enabled we only sync if the pod has a node name
 	if s.enableScheduler && pPod.Spec.NodeName == "" {
 		return ctrl.Result{}, nil
 	}
 
 	return s.SyncDownCreate(ctx, vPod, pPod)
+}
+
+func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *corev1.Pod) *corev1.Pod {
+	if len(pPod.Spec.Volumes) > 0 {
+		ctx.Log.Infof("checking for hostpath volumes")
+
+		for i, volume := range pPod.Spec.Volumes {
+			if volume.HostPath != nil {
+				if volume.HostPath.Path == LOGGING_HOSTPATH_PATH &&
+					// avoid recursive rewriting of HostPaths across reconciles
+					!strings.HasSuffix(volume.Name, PHYSICAL_LOG_VOLUME_NAME_SUFFIX) {
+					// we can't just mount the new hostpath to the virtual log path
+					// we also need the actual 'physical' hostpath to be mounted
+					// at a separate location and added to the correct containers as
+					// only then the symlink targets created by logmapper would be
+					// able to point to the actual log files to be traced.
+					// Also we need to make sure this physical log path is not a
+					// path used by the scraping agent - which should only see the
+					// virtual log path
+					ctx.Log.Infof("rewriting hostPath for pPod %s", pPod.Name)
+					pPod.Spec.Volumes[i].HostPath.Path = s.virtualLogsPath
+
+					ctx.Log.Infof("adding original hostPath to relevant containers")
+					pPod = s.addPhysicalLogPathToVolumesAndCorrectContainers(ctx, volume.Name, volume.HostPath.Type, pPod)
+				}
+			}
+		}
+	}
+
+	return pPod
+}
+
+func (s *podSyncer) addPhysicalLogPathToVolumesAndCorrectContainers(ctx *synccontext.SyncContext, volName string, hostPathType *corev1.HostPathType, pPod *corev1.Pod) *corev1.Pod {
+	// add another volume with the correct suffix
+	pPod.Spec.Volumes = append(pPod.Spec.Volumes, corev1.Volume{
+		Name: fmt.Sprintf("%s-%s", volName, PHYSICAL_LOG_VOLUME_NAME_SUFFIX),
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: LOGGING_HOSTPATH_PATH,
+				Type: hostPathType,
+			},
+		},
+	})
+
+	// find containers using the original volume and mount this new volume
+	// under /var/physical/log/pods - this will be used by the logmapper
+	// as the target directory for the symlinks
+	for i, container := range pPod.Spec.Containers {
+		if len(container.VolumeMounts) > 0 {
+			for _, volumeMount := range container.VolumeMounts {
+				if volumeMount.Name == volName {
+					// this container uses the original volume
+					// keeping it as it is, we mount the physical volume
+					// at the above specified mount point
+					pVolMount := volumeMount.DeepCopy()
+					pVolMount.Name = fmt.Sprintf("%s-%s", volName, PHYSICAL_LOG_VOLUME_NAME_SUFFIX)
+					pVolMount.MountPath = PHYSICAL_LOG_VOLUME_MOUNT_PATH
+
+					pPod.Spec.Containers[i].VolumeMounts = append(pPod.Spec.Containers[i].VolumeMounts, *pVolMount)
+				}
+			}
+		}
+	}
+
+	return pPod
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
