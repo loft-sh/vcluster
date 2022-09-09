@@ -100,7 +100,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		tolerations:           tolerations,
 
 		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
-		virtualLogsPath:     fmt.Sprintf(VIRTUAL_LOGS_PATH_TEMPLATE, ctx.TargetNamespace, name),
+		virtualLogsPath:     fmt.Sprintf(VirtualLogsPathTemplate, ctx.TargetNamespace, name),
 	}, nil
 }
 
@@ -239,9 +239,9 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 
 		for i, volume := range pPod.Spec.Volumes {
 			if volume.HostPath != nil {
-				if volume.HostPath.Path == LOGGING_HOSTPATH_PATH &&
+				if volume.HostPath.Path == LoggingHostpathPath &&
 					// avoid recursive rewriting of HostPaths across reconciles
-					!strings.HasSuffix(volume.Name, PHYSICAL_LOG_VOLUME_NAME_SUFFIX) {
+					!strings.HasSuffix(volume.Name, PhysicalLogVolumeNameSuffix) {
 					// we can't just mount the new hostpath to the virtual log path
 					// we also need the actual 'physical' hostpath to be mounted
 					// at a separate location and added to the correct containers as
@@ -266,10 +266,10 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 func (s *podSyncer) addPhysicalLogPathToVolumesAndCorrectContainers(ctx *synccontext.SyncContext, volName string, hostPathType *corev1.HostPathType, pPod *corev1.Pod) *corev1.Pod {
 	// add another volume with the correct suffix
 	pPod.Spec.Volumes = append(pPod.Spec.Volumes, corev1.Volume{
-		Name: fmt.Sprintf("%s-%s", volName, PHYSICAL_LOG_VOLUME_NAME_SUFFIX),
+		Name: fmt.Sprintf("%s-%s", volName, PhysicalLogVolumeNameSuffix),
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
-				Path: LOGGING_HOSTPATH_PATH,
+				Path: LoggingHostpathPath,
 				Type: hostPathType,
 			},
 		},
@@ -286,8 +286,8 @@ func (s *podSyncer) addPhysicalLogPathToVolumesAndCorrectContainers(ctx *synccon
 					// keeping it as it is, we mount the physical volume
 					// at the above specified mount point
 					pVolMount := volumeMount.DeepCopy()
-					pVolMount.Name = fmt.Sprintf("%s-%s", volName, PHYSICAL_LOG_VOLUME_NAME_SUFFIX)
-					pVolMount.MountPath = PHYSICAL_LOG_VOLUME_MOUNT_PATH
+					pVolMount.Name = fmt.Sprintf("%s-%s", volName, PhysicalLogVolumeNameSuffix)
+					pVolMount.MountPath = PhysicalLogVolumeMountPath
 
 					pPod.Spec.Containers[i].VolumeMounts = append(pPod.Spec.Containers[i].VolumeMounts, *pVolMount)
 				}

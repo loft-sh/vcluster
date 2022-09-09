@@ -87,7 +87,7 @@ func NewLogMapperCommand() *cobra.Command {
 }
 
 func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
-	virtualLogsPath = fmt.Sprintf(pods.VIRTUAL_LOGS_PATH_TEMPLATE, options.TargetNamespace, options.Name)
+	virtualLogsPath = fmt.Sprintf(pods.VirtualLogsPathTemplate, options.TargetNamespace, options.Name)
 
 	inClusterConfig := ctrl.GetConfigOrDie()
 
@@ -255,7 +255,7 @@ func startManagers(ctx context.Context, pManager, vManager manager.Manager) {
 func createSymlinkToPhysical(ctx context.Context, namespace, podName, UID, target string) (*string, error) {
 	vPodDirName := filepath.Join(virtualLogsPath, fmt.Sprintf("%s_%s_%s", namespace, podName, UID))
 
-	target = filepath.Join(pods.PHYSICAL_LOG_VOLUME_MOUNT_PATH, target)
+	target = filepath.Join(pods.PhysicalLogVolumeMountPath, target)
 	klog.Infof("creating symlink from %s -> %s", vPodDirName, target)
 	err := os.Symlink(target, vPodDirName)
 	if err != nil {
