@@ -168,7 +168,7 @@ etcd:
     # if empty default StorageClass defined in your host cluster will be used
     #className:
   priorityClassName: ""
-
+  securityContext: {}
 # Kubernetes Controller Manager settings
 controller:
   image: k8s.gcr.io/kube-controller-manager:v1.25.0
@@ -189,7 +189,7 @@ controller:
     requests:
       cpu: 15m
   priorityClassName: ""
-
+  securityContext: {}
 # Kubernetes Scheduler settings. Only enabled if sync.nodes.enableScheduler is true
 scheduler:
   image: k8s.gcr.io/kube-scheduler:v1.25.0
@@ -233,7 +233,7 @@ api:
       cpu: 40m
       memory: 300Mi
   priorityClassName: ""
-
+  securityContext: {}
 # Service account that should be used by the vcluster
 serviceAccount:
   create: true
@@ -275,6 +275,7 @@ job:
   nodeSelector: {}
   affinity: {}
   tolerations: []
+  resources: {}
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
@@ -323,6 +324,7 @@ coredns:
 #  manifests: |-
 #    apiVersion: ...
 #    ...
+  podAnnotations: {}
 
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas

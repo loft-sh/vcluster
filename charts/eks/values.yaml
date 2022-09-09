@@ -166,6 +166,7 @@ etcd:
     # if empty default StorageClass defined in your host cluster will be used
     #className:
   priorityClassName: ""
+  securityContext: {}
 
 # Kubernetes Controller Manager settings
 controller:
@@ -187,6 +188,7 @@ controller:
     requests:
       cpu: 15m
   priorityClassName: ""
+  securityContext: {}
 
 # Kubernetes API Server settings
 api:
@@ -210,6 +212,7 @@ api:
       cpu: 40m
       memory: 300Mi
   priorityClassName: ""
+  securityContext: {}
 
 # Core DNS settings
 coredns:
@@ -226,6 +229,7 @@ coredns:
 #  manifests: |-
 #    apiVersion: ...
 #    ...
+  podAnnotations: {}
 
 # Service account that should be used by the vcluster
 serviceAccount:
@@ -266,6 +270,7 @@ job:
   nodeSelector: {}
   affinity: {}
   tolerations: []
+  resources: {}
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
