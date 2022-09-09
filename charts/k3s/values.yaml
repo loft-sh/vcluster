@@ -94,8 +94,9 @@ mapServices:
   fromHost: []
 
 logmapper:
-  enabled: true
-  
+  enabled: false
+  dev: false
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer

@@ -5,7 +5,7 @@ name: vcluster
 vars:
   # Make sure vcluster is the default namespace
   DEVSPACE_FLAGS: "-n vcluster"
-  SYNCER_IMAGE: ishankhare07/vcluster-logmapper
+  SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
 
 # Images DevSpace will build for vcluster
 images:
@@ -16,8 +16,7 @@ images:
     buildArgs:
       TARGETARCH: amd64
     target: builder
-    buildKit:
-      inCluster: {}
+    buildKit: {}
 
 # Deployment used for vcluster
 deployments:
@@ -86,19 +85,14 @@ deployments:
             create: true
           role:
             extended: true
-        logmapper:
-          image: ${SYNCER_IMAGE}
         syncer:
-          image: loftsh/vcluster:0.11.1
-          extraArgs:
-            - --tls-san=vcluster
+          image: ${SYNCER_IMAGE}
 
 # Dev Configuration for vcluster
 dev:
   vcluster:
-    # imageSelector: ${SYNCER_IMAGE}
-    labelSelector:
-      component: logmapper
+    imageSelector: ${SYNCER_IMAGE}
+    container: syncer
     workingDir: /vcluster-dev
     terminal:
       command: "./devspace_start.sh"
@@ -115,6 +109,35 @@ dev:
         - '!/go.sum'
         - '!/devspace_start.sh'
         - '!/manifests'
+
+profiles:
+  - name: dev-logmapper
+    patches:
+      - op: remove
+        path: dev.vcluster.imageSelector
+      - op: remove
+        path: dev.vcluster.container
+      - op: add
+        path: dev.vcluster.labelSelector
+        value:
+          component: logmapper
+    merge:
+      deployments:
+        vcluster-k3s:
+          helm:
+            values:
+              logmapper:
+                image: ${SYNCER_IMAGE}
+                enabled: true
+                dev: true
+              syncer:
+                livenessProbe:
+                  enabled: false
+                readinessProbe:
+                  enabled: false
+                extraArgs:
+                  - start
+                  - --tls-san=vcluster
 
 # Pipelines used for vcluster
 pipelines:

@@ -1,6 +1,10 @@
-{{- if .Values.logmapper }}
+{{- if .Values.logmapper.enabled }}
 apiVersion: apps/v1
+{{- if not .Values.logmapper.dev }}
 kind: DaemonSet
+{{- else  }}
+kind: Deployment
+{{- end }}
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -18,6 +22,9 @@ metadata:
 {{ toYaml .Values.annotations | indent 4 }}
   {{- end }}
 spec:
+  {{- if .Values.logmapper.dev }}
+  replicas: 1
+  {{- end }}
   selector:
     matchLabels:
       app: vcluster
@@ -69,3 +76,4 @@ spec:
           secret:
             secretName: vc-{{ .Release.Name }}
 {{ end }}
+
