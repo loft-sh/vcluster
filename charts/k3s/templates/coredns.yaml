@@ -123,6 +123,10 @@ data:
           k8s-app: kube-dns
       template:
         metadata:
+  {{- if .Values.coredns.podAnnotations }}
+          annotations:
+{{ toYaml .Values.coredns.podAnnotations | indent 12 }}
+  {{- end }}
           labels:
             k8s-app: kube-dns
         spec:

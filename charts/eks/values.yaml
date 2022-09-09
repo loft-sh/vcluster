@@ -226,6 +226,7 @@ coredns:
 #  manifests: |-
 #    apiVersion: ...
 #    ...
+  podAnnotations: {}
 
 # Service account that should be used by the vcluster
 serviceAccount:

@@ -280,6 +280,8 @@ coredns:
 #  manifests: |-
 #    apiVersion: ...
 #    ...
+  podAnnotations: {}
+
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas
 isolation:
