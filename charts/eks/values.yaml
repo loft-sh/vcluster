@@ -132,9 +132,9 @@ syncer:
   podAnnotations: {}
   priorityClassName: ""
   kubeConfigContextName: "my-vcluster"
-  # controls override-hosts flag on syncer's start command and adds initContainer if set to true
+  # controls override-hosts flag on syncer's start command and disables initContainer if set to true
   initContainer:
-    enabled: "true"
+    disabled: false
   # Security context configuration
   securityContext: {}
 
@@ -169,6 +169,7 @@ etcd:
     # if empty default StorageClass defined in your host cluster will be used
     #className:
   priorityClassName: ""
+  securityContext: {}
 
 # Kubernetes Controller Manager settings
 controller:
@@ -190,6 +191,7 @@ controller:
     requests:
       cpu: 15m
   priorityClassName: ""
+  securityContext: {}
 
 # Kubernetes API Server settings
 api:
@@ -213,6 +215,7 @@ api:
       cpu: 40m
       memory: 300Mi
   priorityClassName: ""
+  securityContext: {}
 
 # Core DNS settings
 coredns:
@@ -269,6 +272,7 @@ job:
   nodeSelector: {}
   affinity: {}
   tolerations: []
+  resources: {}
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
