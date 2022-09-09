@@ -132,6 +132,9 @@ syncer:
   podAnnotations: {}
   priorityClassName: ""
   kubeConfigContextName: "my-vcluster"
+  # controls override-hosts flag on syncer's start command and adds initContainer if set to true
+  initContainer:
+    enabled: "true"
   # Security context configuration
   securityContext: {}
 

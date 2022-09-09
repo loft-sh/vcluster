@@ -114,6 +114,9 @@ spec:
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}
+          {{- if .Values.syncer.initContainer.enabled }}
+          - --={{ .Values.syncer.initContainer.enabled }}
+          {{- end }}
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
