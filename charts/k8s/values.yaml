@@ -254,13 +254,24 @@ rbac:
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
-# Service configurations
+
+# Syncer service configurations
 service:
   type: ClusterIP
-  # Configuration for LoadBalancer service type
+
+  # Optional configuration
+  # A list of IP addresses for which nodes in the cluster will also accept traffic for this service.
+  # These IPs are not managed by Kubernetes; e.g., an external load balancer.
   externalIPs: []
+
+  # Optional configuration for LoadBalancer & NodePort service types
+  # Route external traffic to node-local or cluster-wide endpoints [ Local | Cluster ]
   externalTrafficPolicy: ""
-  # CIDR block(s) for the service allowlist; only used when the Service type is LoadBalancer
+
+  # Optional configuration for LoadBalancer service type
+  # Specify IP of load balancer to be created
+  loadBalancerIP: ""
+  # CIDR block(s) for the service allowlist
   loadBalancerSourceRanges: []
 
 # job configuration
