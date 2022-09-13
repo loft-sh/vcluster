@@ -119,6 +119,9 @@ data:
   {{- end }}
           labels:
             k8s-app: kube-dns
+          {{- range $k, $v := .Values.coredns.podLabels }}
+            {{ $k }}: {{ $v | quote }}
+          {{- end }}
         spec:
           priorityClassName: "system-cluster-critical"
           serviceAccountName: coredns

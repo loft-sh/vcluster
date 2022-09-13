@@ -40,6 +40,9 @@ spec:
       labels:
         app: vcluster-scheduler
         release: {{ .Release.Name }}
+      {{- range $k, $v := .Values.scheduler.podLabels }}
+        {{ $k }}: {{ $v | quote }}
+      {{- end }}
     spec:
       terminationGracePeriodSeconds: 10
       {{- if .Values.scheduler.affinity }}

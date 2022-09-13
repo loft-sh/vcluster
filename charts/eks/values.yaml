@@ -130,6 +130,7 @@ syncer:
   # Extra Annotations for the syncer deployment
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   priorityClassName: ""
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
@@ -151,6 +152,7 @@ etcd:
   # Extra Annotations
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   resources:
     requests:
       cpu: 20m
@@ -184,6 +186,7 @@ controller:
   # Extra Annotations
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   resources:
     requests:
       cpu: 15m
@@ -207,6 +210,7 @@ api:
   # Extra Annotations for the syncer deployment
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   resources:
     requests:
       cpu: 40m
@@ -232,6 +236,7 @@ coredns:
 #    apiVersion: ...
 #    ...
   podAnnotations: {}
+  podLabels: {}
 
 # Service account that should be used by the vcluster
 serviceAccount:
@@ -286,6 +291,8 @@ job:
   affinity: {}
   tolerations: []
   resources: {}
+  podAnnotations: {}
+  podLabels: {}
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:

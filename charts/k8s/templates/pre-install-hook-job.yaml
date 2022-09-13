@@ -13,6 +13,14 @@ spec:
   template:
     metadata:
       name: {{ .Release.Name }}-job
+      {{- if .Values.job.podAnnotations }}
+      annotations:
+{{ toYaml .Values.job.podAnnotations | indent 8 }}
+      {{- end }}
+      {{- if .Values.job.podLabels }}
+      labels:
+{{ toYaml .Values.job.podLabels | indent 8 }}
+      {{- end }}
     spec:
       serviceAccountName: {{ .Release.Name }}-job
       restartPolicy: OnFailure

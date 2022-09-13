@@ -135,6 +135,7 @@ syncer:
   # Extra Annotations for the syncer deployment
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   priorityClassName: ""
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
@@ -156,6 +157,7 @@ etcd:
   # Extra Annotations
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   resources:
     requests:
       cpu: 20m
@@ -188,6 +190,7 @@ controller:
   # Extra Annotations
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   resources:
     requests:
       cpu: 15m
@@ -209,6 +212,7 @@ scheduler:
   # Extra Annotations
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   resources:
     requests:
       cpu: 10m
@@ -231,6 +235,7 @@ api:
   # Extra Annotations for the syncer deployment
   annotations: {}
   podAnnotations: {}
+  podLabels: {}
   resources:
     requests:
       cpu: 40m
@@ -290,6 +295,8 @@ job:
   affinity: {}
   tolerations: []
   resources: {}
+  podAnnotations: {}
+  podLabels: {}
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
@@ -339,6 +346,7 @@ coredns:
 #    apiVersion: ...
 #    ...
   podAnnotations: {}
+  podLabels: {}
 
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas
