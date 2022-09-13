@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -257,7 +258,7 @@ func executeClientHooksFor(ctx context.Context, obj client.Object, hookType stri
 }
 
 func mutateObject(ctx context.Context, versionKindType plugin.VersionKindType, obj []byte, plugin *plugin.Plugin) ([]byte, error) {
-	conn, err := grpc.Dial(plugin.Address, grpc.WithInsecure())
+	conn, err := grpc.Dial(plugin.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("error dialing plugin %s: %v", plugin.Name, err)
 	}
