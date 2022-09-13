@@ -3,7 +3,6 @@ package helm
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -123,7 +122,7 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	// Values
 	if options.Values != "" {
 		// Create temp file
-		tempFile, err := ioutil.TempFile("", "")
+		tempFile, err := os.CreateTemp("", "")
 		if err != nil {
 			return errors.Wrap(err, "create temp file")
 		}
@@ -271,7 +270,7 @@ func WriteKubeConfig(configRaw *clientcmdapi.Config) (string, error) {
 	}
 
 	// Create temp file
-	tempFile, err := ioutil.TempFile("", "")
+	tempFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return "", errors.Wrap(err, "create temp file")
 	}
