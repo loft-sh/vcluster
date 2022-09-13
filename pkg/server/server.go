@@ -324,7 +324,7 @@ func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interfa
 		&emptyConfigProvider{},
 		admission.PluginInitializers{
 			webhookinit.NewPluginInitializer(authInfoResolverWrapper, serviceResolver),
-			initializer.New(vClient, kubeInformerFactory, nil, nil),
+			initializer.New(vClient, kubeInformerFactory, nil, nil, nil),
 		},
 		nil,
 	)
