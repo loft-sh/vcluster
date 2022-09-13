@@ -48,6 +48,9 @@ spec:
       labels:
         app: vcluster
         release: {{ .Release.Name }}
+      {{- range $k, $v := .Values.podLabels }}
+        {{ $k }}: {{ $v | quote }}
+      {{- end }}
     spec:
       terminationGracePeriodSeconds: 10
       nodeSelector:

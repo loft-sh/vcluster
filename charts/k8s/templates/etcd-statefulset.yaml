@@ -49,6 +49,9 @@ spec:
       labels:
         app: vcluster-etcd
         release: {{ .Release.Name }}
+      {{- range $k, $v := .Values.etcd.podLabels }}
+        {{ $k }}: {{ $v | quote }}
+      {{- end }}
     spec:
       terminationGracePeriodSeconds: 10
       {{- if .Values.etcd.affinity }}

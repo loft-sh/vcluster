@@ -198,6 +198,7 @@ tolerations: []
 
 # Extra Labels for the stateful set
 labels: {}
+podLabels: {}
 
 # Extra Annotations for the stateful set
 annotations: {}
@@ -291,6 +292,7 @@ coredns:
 #    apiVersion: ...
 #    ...
   podAnnotations: {}
+  podLabels: {}
 
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas

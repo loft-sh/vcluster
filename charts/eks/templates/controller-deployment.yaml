@@ -40,6 +40,9 @@ spec:
       labels:
         app: vcluster-controller
         release: {{ .Release.Name }}
+      {{- range $k, $v := .Values.controller.podLabels }}
+        {{ $k }}: {{ $v | quote }}
+      {{- end }}
     spec:
       terminationGracePeriodSeconds: 10
       {{- if .Values.controller.affinity }}
