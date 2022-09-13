@@ -14,8 +14,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-var CommandPath = "helm"
-
 // UpgradeOptions holds all the options for upgrading / installing a chart
 type UpgradeOptions struct {
 	Chart string
@@ -57,11 +55,11 @@ type client struct {
 }
 
 // NewClient creates a new helm client from the given config
-func NewClient(config *clientcmdapi.Config, log log.Logger) Client {
+func NewClient(config *clientcmdapi.Config, log log.Logger, commandPath string) Client {
 	return &client{
 		config:   config,
 		log:      log,
-		helmPath: CommandPath,
+		helmPath: commandPath,
 	}
 }
 

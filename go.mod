@@ -52,6 +52,9 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
+	github.com/loft-sh/loft-util v0.0.0-20220914033337-6d27d055058d // indirect
+	github.com/otiai10/copy v1.7.0 // indirect
+	mvdan.cc/sh/v3 v3.5.1 // indirect
 )
 
 require (
@@ -92,7 +95,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
+	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect

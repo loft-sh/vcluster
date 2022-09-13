@@ -70,12 +70,12 @@ vcluster delete test --namespace test
 // Run executes the functionality
 func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// test for helm
-	_, err := exec.LookPath("helm")
+	helmBinaryPath, err := GetHelmBinaryPath()
 	if err != nil {
-		return fmt.Errorf("seems like helm is not installed. Helm is required for the deletion of a virtual cluster. Please visit https://helm.sh/docs/intro/install/ for install instructions")
+		return err
 	}
 
-	output, err := exec.Command("helm", "version").CombinedOutput()
+	output, err := exec.Command(helmBinaryPath, "version").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
 	}
@@ -98,7 +98,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	// we have to delete the chart
 	cmd.log.Infof("Delete vcluster %s...", args[0])
-	err = helm.NewClient(cmd.rawConfig, cmd.log).Delete(args[0], cmd.Namespace)
+	err = helm.NewClient(cmd.rawConfig, cmd.log, helmBinaryPath).Delete(args[0], cmd.Namespace)
 	if err != nil {
 		return err
 	}
