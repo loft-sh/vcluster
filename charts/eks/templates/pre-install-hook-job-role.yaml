@@ -10,6 +10,6 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded    
 rules:
   - apiGroups: [""]
-    resources: ["secrets", "configmaps"]
+    resources: ["secrets", "configmaps","services"]
     verbs: ["create", "get", "list"]
 {{- end }}
