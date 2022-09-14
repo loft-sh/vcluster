@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"github.com/loft-sh/loft-util/pkg/downloader"
-	"github.com/loft-sh/loft-util/pkg/downloader/commands"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/podprinter"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -18,14 +15,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"math/rand"
 	"net"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
-
-const DefaultHomeVClusterFolder = ".vcluster"
 
 // CriticalStatus container status
 var CriticalStatus = map[string]bool{
@@ -173,19 +167,4 @@ func checkPort(port int) (status bool, err error) {
 	// we successfully used and closed the port
 	// so it's now available to be used again
 	return true, nil
-}
-
-// GetHelmBinaryPath checks for helm binary and downloads if it's not present.
-func GetHelmBinaryPath(log log.Logger) (string, error) {
-	// test for helm
-	helmExecutablePath, err := exec.LookPath("helm")
-	if err != nil {
-		_ = fmt.Errorf("seems like helm is not installed. Helm is required for the creation of a virtual cluster")
-		helmExecutablePath, err = downloader.NewDownloader(commands.NewHelmV3Command(), log, DefaultHomeVClusterFolder).EnsureCommand(context.Background())
-		if err != nil {
-			_ = fmt.Errorf("error while installing helm")
-			return "", err
-		}
-	}
-	return helmExecutablePath, nil
 }
