@@ -8,7 +8,7 @@ type Command interface {
 
 	// InstallPath is the path where this command should get installed, if
 	// it is not found in the PATH environment variable
-	InstallPath() (string, error)
+	InstallPath(toolHomeFolder string) (string, error)
 
 	// DownloadURL is the url where the command binary or archive can be downloaded
 	// from.
@@ -17,6 +17,6 @@ type Command interface {
 	// IsValid checks if the command at the given path exists.
 	IsValid(ctx context.Context, path string) (bool, error)
 
-	// Install installs the command after it was downloaded from the DownloadURL()
-	Install(archiveFile string) error
+	// Install installs the command after it was downloaded from the DownloadURL() in toolHomeFolder
+	Install(toolHomeFolder string, archiveFile string) error
 }

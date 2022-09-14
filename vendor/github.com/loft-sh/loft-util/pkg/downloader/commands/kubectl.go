@@ -25,13 +25,13 @@ func (k *kubectlCommand) Name() string {
 	return "kubectl"
 }
 
-func (k *kubectlCommand) InstallPath() (string, error) {
+func (k *kubectlCommand) InstallPath(toolHomeFolder string) (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		return "", err
 	}
 
-	installPath := filepath.Join(home, DefaultHomeLoftFolder, "bin", "kubectl")
+	installPath := filepath.Join(home, toolHomeFolder, "bin", "kubectl")
 	if runtime.GOOS == "windows" {
 		installPath += ".exe"
 	}
@@ -76,8 +76,8 @@ func (k *kubectlCommand) IsValid(ctx context.Context, path string) (bool, error)
 	return strings.Contains(string(out), `Client Version`), nil
 }
 
-func (k *kubectlCommand) Install(archiveFile string) error {
-	installPath, err := k.InstallPath()
+func (k *kubectlCommand) Install(toolHomeFolder, archiveFile string) error {
+	installPath, err := k.InstallPath(toolHomeFolder)
 	if err != nil {
 		return err
 	}

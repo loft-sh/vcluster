@@ -14,8 +14,6 @@ import (
 	"strings"
 )
 
-const DefaultHomeLoftFolder = ".loft"
-
 var (
 	helmVersion  = "v3.9.4"
 	helmDownload = "https://get.helm.sh/helm-" + helmVersion + "-" + runtime.GOOS + "-" + runtime.GOARCH
@@ -31,13 +29,13 @@ func (h *helmv3) Name() string {
 	return "helm"
 }
 
-func (h *helmv3) InstallPath() (string, error) {
+func (h *helmv3) InstallPath(toolHomeFolder string) (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		return "", err
 	}
 
-	installPath := filepath.Join(home, DefaultHomeLoftFolder, "bin", h.Name())
+	installPath := filepath.Join(home, toolHomeFolder, "bin", h.Name())
 	if runtime.GOOS == "windows" {
 		installPath += ".exe"
 	}
@@ -63,8 +61,8 @@ func (h *helmv3) IsValid(ctx context.Context, path string) (bool, error) {
 	return strings.Contains(string(out), `:"v3.`), nil
 }
 
-func (h *helmv3) Install(archiveFile string) error {
-	installPath, err := h.InstallPath()
+func (h *helmv3) Install(toolHomeFolder, archiveFile string) error {
+	installPath, err := h.InstallPath(toolHomeFolder)
 	if err != nil {
 		return err
 	}

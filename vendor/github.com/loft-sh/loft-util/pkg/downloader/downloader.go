@@ -17,16 +17,18 @@ type Downloader interface {
 }
 
 type downloader struct {
-	httpGet getRequest
-	command commands.Command
-	log     log.Logger
+	httpGet        getRequest
+	command        commands.Command
+	log            log.Logger
+	toolHomeFolder string
 }
 
-func NewDownloader(command commands.Command, log log.Logger) Downloader {
+func NewDownloader(command commands.Command, log log.Logger, toolHomeFolder string) Downloader {
 	return &downloader{
-		httpGet: http.Get,
-		command: command,
-		log:     log,
+		httpGet:        http.Get,
+		command:        command,
+		log:            log,
+		toolHomeFolder: toolHomeFolder,
 	}
 }
 
@@ -39,7 +41,7 @@ func (d *downloader) EnsureCommand(ctx context.Context) (string, error) {
 		return command, nil
 	}
 
-	installPath, err := d.command.InstallPath()
+	installPath, err := d.command.InstallPath(d.toolHomeFolder)
 	if err != nil {
 		return "", err
 	}
@@ -114,6 +116,6 @@ func (d *downloader) downloadFile(command, installPath, installFromURL string) e
 		return err
 	}
 
-	// install the file
-	return d.command.Install(archiveFile)
+	// install the file in toolHomeFolder
+	return d.command.Install(d.toolHomeFolder, archiveFile)
 }

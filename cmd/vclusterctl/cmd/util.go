@@ -25,6 +25,8 @@ import (
 	"time"
 )
 
+const DefaultHomeVClusterFolder = ".vcluster"
+
 // CriticalStatus container status
 var CriticalStatus = map[string]bool{
 	"Error":                      true,
@@ -179,7 +181,7 @@ func GetHelmBinaryPath(log log.Logger) (string, error) {
 	helmExecutablePath, err := exec.LookPath("helm")
 	if err != nil {
 		_ = fmt.Errorf("seems like helm is not installed. Helm is required for the creation of a virtual cluster")
-		helmExecutablePath, err = downloader.NewDownloader(commands.NewHelmV3Command(), log).EnsureCommand(context.Background())
+		helmExecutablePath, err = downloader.NewDownloader(commands.NewHelmV3Command(), log, DefaultHomeVClusterFolder).EnsureCommand(context.Background())
 		if err != nil {
 			_ = fmt.Errorf("error while installing helm")
 			return "", err
