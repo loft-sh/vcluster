@@ -1,8 +1,8 @@
 package log
 
 import (
+	log "github.com/loft-sh/loft-util/pkg/logger"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
-	"github.com/sirupsen/logrus"
 )
 
 // Level type
@@ -21,20 +21,7 @@ const (
 
 // Logger defines the common logging interface
 type Logger interface {
-	Debug(args ...interface{})
-	Debugf(format string, args ...interface{})
-
-	Info(args ...interface{})
-	Infof(format string, args ...interface{})
-
-	Warn(args ...interface{})
-	Warnf(format string, args ...interface{})
-
-	Error(args ...interface{})
-	Errorf(format string, args ...interface{})
-
-	Fatal(args ...interface{})
-	Fatalf(format string, args ...interface{})
+	log.Logger
 
 	Panic(args ...interface{})
 	Panicf(format string, args ...interface{})
@@ -47,15 +34,8 @@ type Logger interface {
 
 	StartWait(message string)
 	StopWait()
-
-	Print(level logrus.Level, args ...interface{})
-	Printf(level logrus.Level, format string, args ...interface{})
+	Question(params *survey.QuestionOptions) (string, error)
 
 	Write(message []byte) (int, error)
 	WriteString(message string)
-
-	Question(params *survey.QuestionOptions) (string, error)
-
-	SetLevel(level logrus.Level)
-	GetLevel() logrus.Level
 }

@@ -168,8 +168,8 @@ github.com/google/gnostic/extensions
 github.com/google/gnostic/jsonschema
 github.com/google/gnostic/openapiv2
 github.com/google/gnostic/openapiv3
-# github.com/google/go-cmp v0.5.6
-## explicit; go 1.8
+# github.com/google/go-cmp v0.5.8
+## explicit; go 1.13
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
@@ -240,6 +240,13 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
+# github.com/loft-sh/loft-util v0.0.9-alpha
+## explicit; go 1.19
+github.com/loft-sh/loft-util/pkg/command
+github.com/loft-sh/loft-util/pkg/downloader
+github.com/loft-sh/loft-util/pkg/downloader/commands
+github.com/loft-sh/loft-util/pkg/extract
+github.com/loft-sh/loft-util/pkg/logger
 # github.com/mailru/easyjson v0.7.6
 ## explicit; go 1.12
 github.com/mailru/easyjson/buffer
@@ -330,6 +337,9 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
+# github.com/otiai10/copy v1.7.0
+## explicit; go 1.14
+github.com/otiai10/copy
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 ## explicit
 github.com/peterbourgon/diskv
@@ -363,7 +373,7 @@ github.com/rhysd/go-github-selfupdate/selfupdate
 # github.com/russross/blackfriday v1.5.2
 ## explicit
 github.com/russross/blackfriday
-# github.com/sirupsen/logrus v1.8.1
+# github.com/sirupsen/logrus v1.9.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v1.4.0
@@ -1432,6 +1442,12 @@ k8s.io/utils/path
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
+# mvdan.cc/sh/v3 v3.5.1
+## explicit; go 1.17
+mvdan.cc/sh/v3/expand
+mvdan.cc/sh/v3/fileutil
+mvdan.cc/sh/v3/pattern
+mvdan.cc/sh/v3/syntax
 # sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.32
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client

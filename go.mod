@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
+	github.com/loft-sh/loft-util v0.0.9-alpha
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo v1.16.5
@@ -21,7 +22,7 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.32.1
 	github.com/rhysd/go-github-selfupdate v1.2.3
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.7.0
@@ -52,6 +53,8 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
+	github.com/otiai10/copy v1.7.0 // indirect
+	mvdan.cc/sh/v3 v3.5.1 // indirect
 )
 
 require (
@@ -92,7 +95,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
+	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect

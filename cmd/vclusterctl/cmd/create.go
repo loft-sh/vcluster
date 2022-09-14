@@ -125,7 +125,17 @@ func validateDeprecated(createOptions *create.CreateOptions, log log.Logger) {
 
 // Run executes the functionality
 func (cmd *CreateCmd) Run(args []string) error {
-	err := cmd.prepare(args[0])
+	helmBinaryPath, err := GetHelmBinaryPath(cmd.log)
+	if err != nil {
+		return err
+	}
+
+	_, err = exec.Command(helmBinaryPath, "version").CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	err = cmd.prepare(args[0])
 	if err != nil {
 		return err
 	}
@@ -220,7 +230,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 	}
 
 	// we have to upgrade / install the chart
-	err = cmd.deployChart(args[0], chartValues)
+	err = cmd.deployChart(args[0], chartValues, helmBinaryPath)
 	if err != nil {
 		return err
 	}
@@ -256,7 +266,7 @@ func getBase64DecodedString(values string) (string, error) {
 	return string(strDecoded), nil
 }
 
-func (cmd *CreateCmd) deployChart(vClusterName, chartValues string) error {
+func (cmd *CreateCmd) deployChart(vClusterName, chartValues, helmExecutablePath string) error {
 	// check if there is a vcluster directory already
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -286,7 +296,7 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues string) error {
 
 	// we have to upgrade / install the chart
 	ctx := context.Background()
-	err = helm.NewClient(&cmd.rawConfig, cmd.log).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
+	err = helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
 		Path:        cmd.LocalChartDir,
 		Repo:        cmd.ChartRepo,
@@ -334,17 +344,6 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helm.Cha
 }
 
 func (cmd *CreateCmd) prepare(vClusterName string) error {
-	// test for helm
-	helmExecutablePath, err := exec.LookPath("helm")
-	if err != nil {
-		return fmt.Errorf("seems like helm is not installed. Helm is required for the creation of a virtual cluster. Please visit https://helm.sh/docs/intro/install/ for install instructions")
-	}
-
-	output, err := exec.Command(helmExecutablePath, "version").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
-	}
-
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: cmd.Context,

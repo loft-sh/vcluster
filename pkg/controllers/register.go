@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
@@ -230,12 +231,17 @@ func registerInitManifestsController(ctx *context.ControllerContext) error {
 		return err
 	}
 
+	helmBinaryPath, err := cmd.GetHelmBinaryPath(log.GetInstance())
+	if err != nil {
+		return err
+	}
+
 	controller := &manifests.InitManifestsConfigMapReconciler{
 		LocalClient:    currentNamespaceManager.GetClient(),
 		Log:            loghelper.New("init-manifests-controller"),
 		VirtualManager: ctx.VirtualManager,
 
-		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance()),
+		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance(), helmBinaryPath),
 	}
 
 	err = controller.SetupWithManager(currentNamespaceManager)
