@@ -29,7 +29,9 @@ func (e *extractor) UntarGz(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer gzipStream.Close()
+	defer func(gzipStream *os.File) {
+		_ = gzipStream.Close()
+	}(gzipStream)
 
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
@@ -60,7 +62,7 @@ func (e *extractor) UntarGz(src, dest string) error {
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return fmt.Errorf("ExtractTarGz: Copy() failed: %s", err.Error())
 			}
-			outFile.Close()
+			_ = outFile.Close()
 		default:
 			return fmt.Errorf(
 				"ExtractTarGz: uknown type: %s in %s",
@@ -92,7 +94,9 @@ func (e *extractor) Unzip(src, dest string) error {
 		if err != nil {
 			return err
 		}
-		defer rc.Close()
+		defer func(rc io.ReadCloser) {
+			_ = rc.Close()
+		}(rc)
 
 		path := filepath.Join(dest, f.Name)
 		if f.FileInfo().IsDir() {
@@ -103,7 +107,9 @@ func (e *extractor) Unzip(src, dest string) error {
 			if err != nil {
 				return err
 			}
-			defer f.Close()
+			defer func(f *os.File) {
+				_ = f.Close()
+			}(f)
 
 			_, err = io.Copy(f, rc)
 			if err != nil {

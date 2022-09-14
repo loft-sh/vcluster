@@ -240,12 +240,13 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
-# github.com/loft-sh/loft-util v0.0.0-20220914033337-6d27d055058d
+# github.com/loft-sh/loft-util v0.0.8-alpha
 ## explicit; go 1.19
 github.com/loft-sh/loft-util/pkg/command
 github.com/loft-sh/loft-util/pkg/downloader
 github.com/loft-sh/loft-util/pkg/downloader/commands
 github.com/loft-sh/loft-util/pkg/extract
+github.com/loft-sh/loft-util/pkg/logger
 # github.com/mailru/easyjson v0.7.6
 ## explicit; go 1.12
 github.com/mailru/easyjson/buffer
@@ -372,7 +373,7 @@ github.com/rhysd/go-github-selfupdate/selfupdate
 # github.com/russross/blackfriday v1.5.2
 ## explicit
 github.com/russross/blackfriday
-# github.com/sirupsen/logrus v1.8.1
+# github.com/sirupsen/logrus v1.9.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v1.4.0

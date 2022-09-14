@@ -125,7 +125,7 @@ func validateDeprecated(createOptions *create.CreateOptions, log log.Logger) {
 
 // Run executes the functionality
 func (cmd *CreateCmd) Run(args []string) error {
-	helmBinaryPath, err := GetHelmBinaryPath()
+	helmBinaryPath, err := GetHelmBinaryPath(cmd.log)
 	if err != nil {
 		return err
 	}

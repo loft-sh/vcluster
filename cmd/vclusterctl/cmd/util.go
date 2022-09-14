@@ -174,12 +174,12 @@ func checkPort(port int) (status bool, err error) {
 }
 
 // GetHelmBinaryPath checks for helm binary and downloads if it's not present.
-func GetHelmBinaryPath() (string, error) {
+func GetHelmBinaryPath(log log.Logger) (string, error) {
 	// test for helm
 	helmExecutablePath, err := exec.LookPath("helm")
 	if err != nil {
 		_ = fmt.Errorf("seems like helm is not installed. Helm is required for the creation of a virtual cluster")
-		helmExecutablePath, err = downloader.NewDownloader(commands.NewHelmV3Command()).EnsureCommand(context.Background())
+		helmExecutablePath, err = downloader.NewDownloader(commands.NewHelmV3Command(), log).EnsureCommand(context.Background())
 		if err != nil {
 			_ = fmt.Errorf("error while installing helm")
 			return "", err

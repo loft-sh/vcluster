@@ -231,7 +231,7 @@ func registerInitManifestsController(ctx *context.ControllerContext) error {
 		return err
 	}
 
-	helmBinaryPath, err := cmd.GetHelmBinaryPath()
+	helmBinaryPath, err := cmd.GetHelmBinaryPath(log.GetInstance())
 	if err != nil {
 		return err
 	}

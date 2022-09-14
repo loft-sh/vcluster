@@ -2,8 +2,8 @@ package downloader
 
 import (
 	"context"
-	"github.com/go-logr/logr"
 	"github.com/loft-sh/loft-util/pkg/downloader/commands"
+	"github.com/loft-sh/loft-util/pkg/logger"
 	"io"
 	"net/http"
 	"os"
@@ -19,10 +19,10 @@ type Downloader interface {
 type downloader struct {
 	httpGet getRequest
 	command commands.Command
-	log     logr.Logger
+	log     log.Logger
 }
 
-func NewDownloader(command commands.Command, log logr.Logger) Downloader {
+func NewDownloader(command commands.Command, log log.Logger) Downloader {
 	return &downloader{
 		httpGet: http.Get,
 		command: command,

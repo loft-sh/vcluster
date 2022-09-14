@@ -70,7 +70,7 @@ vcluster delete test --namespace test
 // Run executes the functionality
 func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// test for helm
-	helmBinaryPath, err := GetHelmBinaryPath()
+	helmBinaryPath, err := GetHelmBinaryPath(cmd.log)
 	if err != nil {
 		return err
 	}
