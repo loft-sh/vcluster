@@ -3,6 +3,7 @@ module github.com/loft-sh/vcluster
 go 1.19
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/ghodss/yaml v1.0.0
@@ -27,7 +28,6 @@ require (
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
-	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/square/go-jose.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.25.0

@@ -7,9 +7,8 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/AlecAivazis/survey/v2/terminal"
 	shellquote "github.com/kballard/go-shellquote"
-	"gopkg.in/AlecAivazis/survey.v1/core"
-	"gopkg.in/AlecAivazis/survey.v1/terminal"
 )
 
 /*
@@ -23,16 +22,17 @@ Response type is a string.
 
 	message := ""
 	prompt := &survey.Editor{ Message: "What is your commit message?" }
-	survey.AskOne(prompt, &message, nil)
+	survey.AskOne(prompt, &message)
 */
 type Editor struct {
-	core.Renderer
+	Renderer
 	Message       string
 	Default       string
 	Help          string
 	Editor        string
 	HideDefault   bool
 	AppendDefault bool
+	FileName      string
 }
 
 // data available to the templates when processing
@@ -41,17 +41,18 @@ type EditorTemplateData struct {
 	Answer     string
 	ShowAnswer bool
 	ShowHelp   bool
+	Config     *PromptConfig
 }
 
 // Templates with Color formatting. See Documentation: https://github.com/mgutz/ansi#style-format
 var EditorQuestionTemplate = `
-{{- if .ShowHelp }}{{- color "cyan"}}{{ HelpIcon }} {{ .Help }}{{color "reset"}}{{"\n"}}{{end}}
-{{- color "green+hb"}}{{ QuestionIcon }} {{color "reset"}}
+{{- if .ShowHelp }}{{- color .Config.Icons.Help.Format }}{{ .Config.Icons.Help.Text }} {{ .Help }}{{color "reset"}}{{"\n"}}{{end}}
+{{- color .Config.Icons.Question.Format }}{{ .Config.Icons.Question.Text }} {{color "reset"}}
 {{- color "default+hb"}}{{ .Message }} {{color "reset"}}
 {{- if .ShowAnswer}}
   {{- color "cyan"}}{{.Answer}}{{color "reset"}}{{"\n"}}
 {{- else }}
-  {{- if and .Help (not .ShowHelp)}}{{color "cyan"}}[{{ HelpInputRune }} for help]{{color "reset"}} {{end}}
+  {{- if and .Help (not .ShowHelp)}}{{color "cyan"}}[{{ .Config.HelpInput }} for help]{{color "reset"}} {{end}}
   {{- if and .Default (not .HideDefault)}}{{color "white"}}({{.Default}}) {{color "reset"}}{{end}}
   {{- color "cyan"}}[Enter to launch editor] {{color "reset"}}
 {{- end}}`
@@ -72,24 +73,27 @@ func init() {
 	}
 }
 
-func (e *Editor) PromptAgain(invalid interface{}, err error) (interface{}, error) {
+func (e *Editor) PromptAgain(config *PromptConfig, invalid interface{}, err error) (interface{}, error) {
 	initialValue := invalid.(string)
-	return e.prompt(initialValue)
+	return e.prompt(initialValue, config)
 }
 
-func (e *Editor) Prompt() (interface{}, error) {
+func (e *Editor) Prompt(config *PromptConfig) (interface{}, error) {
 	initialValue := ""
 	if e.Default != "" && e.AppendDefault {
 		initialValue = e.Default
 	}
-	return e.prompt(initialValue)
+	return e.prompt(initialValue, config)
 }
 
-func (e *Editor) prompt(initialValue string) (interface{}, error) {
+func (e *Editor) prompt(initialValue string, config *PromptConfig) (interface{}, error) {
 	// render the template
 	err := e.Render(
 		EditorQuestionTemplate,
-		EditorTemplateData{Editor: *e},
+		EditorTemplateData{
+			Editor: *e,
+			Config: config,
+		},
 	)
 	if err != nil {
 		return "", err
@@ -97,8 +101,10 @@ func (e *Editor) prompt(initialValue string) (interface{}, error) {
 
 	// start reading runes from the standard in
 	rr := e.NewRuneReader()
-	rr.SetTermMode()
-	defer rr.RestoreTermMode()
+	_ = rr.SetTermMode()
+	defer func() {
+		_ = rr.RestoreTermMode()
+	}()
 
 	cursor := e.NewCursor()
 	cursor.Hide()
@@ -118,10 +124,14 @@ func (e *Editor) prompt(initialValue string) (interface{}, error) {
 		if r == terminal.KeyEndTransmission {
 			break
 		}
-		if r == core.HelpInputRune && e.Help != "" {
+		if string(r) == config.HelpInput && e.Help != "" {
 			err = e.Render(
 				EditorQuestionTemplate,
-				EditorTemplateData{Editor: *e, ShowHelp: true},
+				EditorTemplateData{
+					Editor:   *e,
+					ShowHelp: true,
+					Config:   config,
+				},
 			)
 			if err != nil {
 				return "", err
@@ -131,11 +141,17 @@ func (e *Editor) prompt(initialValue string) (interface{}, error) {
 	}
 
 	// prepare the temp file
-	f, err := ioutil.TempFile("", "survey")
+	pattern := e.FileName
+	if pattern == "" {
+		pattern = "survey*.txt"
+	}
+	f, err := ioutil.TempFile("", pattern)
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
 
 	// write utf8 BOM header
 	// The reason why we do this is because notepad.exe on Windows determines the
@@ -197,9 +213,14 @@ func (e *Editor) prompt(initialValue string) (interface{}, error) {
 	return text, nil
 }
 
-func (e *Editor) Cleanup(val interface{}) error {
+func (e *Editor) Cleanup(config *PromptConfig, val interface{}) error {
 	return e.Render(
 		EditorQuestionTemplate,
-		EditorTemplateData{Editor: *e, Answer: "<Received>", ShowAnswer: true},
+		EditorTemplateData{
+			Editor:     *e,
+			Answer:     "<Received>",
+			ShowAnswer: true,
+			Config:     config,
+		},
 	)
 }
