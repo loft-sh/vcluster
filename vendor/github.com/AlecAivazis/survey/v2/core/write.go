@@ -6,19 +6,40 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // the tag used to denote the name of the question
 const tagName = "survey"
 
-// add a few interfaces so users can configure how the prompt values are set
-type settable interface {
+// Settable allow for configuration when assigning answers
+type Settable interface {
 	WriteAnswer(field string, value interface{}) error
+}
+
+// OptionAnswer is the return type of Selects/MultiSelects that lets the appropriate information
+// get copied to the user's struct
+type OptionAnswer struct {
+	Value string
+	Index int
+}
+
+type reflectField struct {
+	value     reflect.Value
+	fieldType reflect.StructField
+}
+
+func OptionAnswerList(incoming []string) []OptionAnswer {
+	list := []OptionAnswer{}
+	for i, opt := range incoming {
+		list = append(list, OptionAnswer{Value: opt, Index: i})
+	}
+	return list
 }
 
 func WriteAnswer(t interface{}, name string, v interface{}) (err error) {
 	// if the field is a custom type
-	if s, ok := t.(settable); ok {
+	if s, ok := t.(Settable); ok {
 		// use the interface method
 		return s.WriteAnswer(name, v)
 	}
@@ -39,21 +60,27 @@ func WriteAnswer(t interface{}, name string, v interface{}) (err error) {
 	switch elem.Kind() {
 	// if we are writing to a struct
 	case reflect.Struct:
+		// if we are writing to an option answer than we want to treat
+		// it like a single thing and not a place to deposit answers
+		if elem.Type().Name() == "OptionAnswer" {
+			// copy the value over to the normal struct
+			return copy(elem, value)
+		}
+
 		// get the name of the field that matches the string we  were given
-		fieldIndex, err := findFieldIndex(elem, name)
+		field, _, err := findField(elem, name)
 		// if something went wrong
 		if err != nil {
 			// bubble up
 			return err
 		}
-		field := elem.Field(fieldIndex)
-		// handle references to the settable interface aswell
-		if s, ok := field.Interface().(settable); ok {
+		// handle references to the Settable interface aswell
+		if s, ok := field.Interface().(Settable); ok {
 			// use the interface method
 			return s.WriteAnswer(name, v)
 		}
 		if field.CanAddr() {
-			if s, ok := field.Addr().Interface().(settable); ok {
+			if s, ok := field.Addr().Interface().(Settable); ok {
 				// use the interface method
 				return s.WriteAnswer(name, v)
 			}
@@ -63,7 +90,25 @@ func WriteAnswer(t interface{}, name string, v interface{}) (err error) {
 		return copy(field, value)
 	case reflect.Map:
 		mapType := reflect.TypeOf(t).Elem()
-		if mapType.Key().Kind() != reflect.String || mapType.Elem().Kind() != reflect.Interface {
+		if mapType.Key().Kind() != reflect.String {
+			return errors.New("answer maps key must be of type string")
+		}
+
+		// copy only string value/index value to map if,
+		// map is not of type interface and is 'OptionAnswer'
+		if value.Type().Name() == "OptionAnswer" {
+			if kval := mapType.Elem().Kind(); kval == reflect.String {
+				mt := *t.(*map[string]string)
+				mt[name] = value.FieldByName("Value").String()
+				return nil
+			} else if kval == reflect.Int {
+				mt := *t.(*map[string]int)
+				mt[name] = int(value.FieldByName("Index").Int())
+				return nil
+			}
+		}
+
+		if mapType.Elem().Kind() != reflect.Interface {
 			return errors.New("answer maps must be of type map[string]interface")
 		}
 		mt := *t.(*map[string]interface{})
@@ -74,39 +119,90 @@ func WriteAnswer(t interface{}, name string, v interface{}) (err error) {
 	return copy(elem, value)
 }
 
+type errFieldNotMatch struct {
+	questionName string
+}
+
+func (err errFieldNotMatch) Error() string {
+	return fmt.Sprintf("could not find field matching %v", err.questionName)
+}
+
+func (err errFieldNotMatch) Is(target error) bool { // implements the dynamic errors.Is interface.
+	if target != nil {
+		if name, ok := IsFieldNotMatch(target); ok {
+			// if have a filled questionName then perform "deeper" comparison.
+			return name == "" || err.questionName == "" || name == err.questionName
+		}
+	}
+
+	return false
+}
+
+// IsFieldNotMatch reports whether an "err" is caused by a non matching field.
+// It returns the Question.Name that couldn't be matched with a destination field.
+//
+// Usage:
+// err := survey.Ask(qs, &v);
+// if err != nil {
+// 	if name, ok := core.IsFieldNotMatch(err); ok {
+//		[...name is the not matched question name]
+// 	}
+// }
+func IsFieldNotMatch(err error) (string, bool) {
+	if err != nil {
+		if v, ok := err.(errFieldNotMatch); ok {
+			return v.questionName, true
+		}
+	}
+
+	return "", false
+}
+
 // BUG(AlecAivazis): the current implementation might cause weird conflicts if there are
 // two fields with same name that only differ by casing.
-func findFieldIndex(s reflect.Value, name string) (int, error) {
-	// the type of the value
-	sType := s.Type()
+func findField(s reflect.Value, name string) (reflect.Value, reflect.StructField, error) {
+
+	fields := flattenFields(s)
 
 	// first look for matching tags so we can overwrite matching field names
-	for i := 0; i < sType.NumField(); i++ {
-		// the field we are current scanning
-		field := sType.Field(i)
-
+	for _, f := range fields {
 		// the value of the survey tag
-		tag := field.Tag.Get(tagName)
+		tag := f.fieldType.Tag.Get(tagName)
 		// if the tag matches the name we are looking for
 		if tag != "" && tag == name {
 			// then we found our index
-			return i, nil
+			return f.value, f.fieldType, nil
 		}
 	}
 
 	// then look for matching names
-	for i := 0; i < sType.NumField(); i++ {
-		// the field we are current scanning
-		field := sType.Field(i)
-
+	for _, f := range fields {
 		// if the name of the field matches what we're looking for
-		if strings.ToLower(field.Name) == strings.ToLower(name) {
-			return i, nil
+		if strings.EqualFold(f.fieldType.Name, name) {
+			return f.value, f.fieldType, nil
 		}
 	}
 
 	// we didn't find the field
-	return -1, fmt.Errorf("could not find field matching %v", name)
+	return reflect.Value{}, reflect.StructField{}, errFieldNotMatch{name}
+}
+
+func flattenFields(s reflect.Value) []reflectField {
+	sType := s.Type()
+	numField := sType.NumField()
+	fields := make([]reflectField, 0, numField)
+	for i := 0; i < numField; i++ {
+		fieldType := sType.Field(i)
+		field := s.Field(i)
+
+		if field.Kind() == reflect.Struct && fieldType.Anonymous {
+			// field is a promoted structure
+			fields = append(fields, flattenFields(field)...)
+			continue
+		}
+		fields = append(fields, reflectField{field, fieldType})
+	}
+	return fields
 }
 
 // isList returns true if the element is something we can Len()
@@ -165,7 +261,11 @@ func copy(t reflect.Value, v reflect.Value) (err error) {
 				castVal = int32(val64)
 			}
 		case reflect.Int64:
-			castVal, casterr = strconv.ParseInt(vString, 10, 64)
+			if t.Type() == reflect.TypeOf(time.Duration(0)) {
+				castVal, casterr = time.ParseDuration(vString)
+			} else {
+				castVal, casterr = strconv.ParseInt(vString, 10, 64)
+			}
 		case reflect.Uint:
 			var val64 uint64
 			val64, casterr = strconv.ParseUint(vString, 10, 8)
@@ -212,6 +312,32 @@ func copy(t reflect.Value, v reflect.Value) (err error) {
 		return
 	}
 
+	// if we are copying from an OptionAnswer to something
+	if v.Type().Name() == "OptionAnswer" {
+		// copying an option answer to a string
+		if t.Kind() == reflect.String {
+			// copies the Value field of the struct
+			t.Set(reflect.ValueOf(v.FieldByName("Value").Interface()))
+			return
+		}
+
+		// copying an option answer to an int
+		if t.Kind() == reflect.Int {
+			// copies the Index field of the struct
+			t.Set(reflect.ValueOf(v.FieldByName("Index").Interface()))
+			return
+		}
+
+		// copying an OptionAnswer to an OptionAnswer
+		if t.Type().Name() == "OptionAnswer" {
+			t.Set(v)
+			return
+		}
+
+		// we're copying an option answer to an incorrect type
+		return fmt.Errorf("Unable to convert from OptionAnswer to type %s", t.Kind())
+	}
+
 	// if we are copying from one slice or array to another
 	if isList(v) && isList(t) {
 		// loop over every item in the desired value
@@ -233,7 +359,9 @@ func copy(t reflect.Value, v reflect.Value) (err error) {
 			// otherwise it could be an array
 			case reflect.Array:
 				// set the index to the appropriate value
-				copy(t.Slice(i, i+1).Index(0), v.Index(i))
+				if err := copy(t.Slice(i, i+1).Index(0), v.Index(i)); err != nil {
+					return err
+				}
 			}
 		}
 	} else {
