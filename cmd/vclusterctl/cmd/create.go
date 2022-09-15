@@ -4,6 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
@@ -11,11 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/helm/values"
@@ -169,12 +170,10 @@ func (cmd *CreateCmd) Run(args []string) error {
 	var newExtraValues []string
 	for _, value := range cmd.ExtraValues {
 		decodedString, err := getBase64DecodedString(value)
+		// ignore decoding errors and treat it as non-base64 string
 		if err != nil {
-			if strings.Contains(err.Error(), "illegal base64 data at input byte 0") {
-				newExtraValues = append(newExtraValues, value)
-				continue
-			}
-			return err
+			newExtraValues = append(newExtraValues, value)
+			continue
 		}
 
 		// write a temporary values file
