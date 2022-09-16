@@ -9,7 +9,7 @@ metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: vcluster
+    app: vcluster-logmapper
     component: logmapper
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
@@ -27,13 +27,13 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      app: vcluster
+      app: vcluster-logmapper
       release: {{ .Release.Name }}
       component: logmapper
   template:
     metadata:
       labels:
-        app: vcluster
+        app: vcluster-logmapper
         release: {{ .Release.Name }}
         component: logmapper
     spec:
