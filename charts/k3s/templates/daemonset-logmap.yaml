@@ -60,6 +60,8 @@ spec:
           - --target-namespace={{ .Release.Namespace }}
         volumeMounts:
           - name: logs
+            mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log
+          - name: pod-logs
             mountPath: /var/log/pods
           - name: virtual-logs
             mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log/pods
@@ -67,6 +69,9 @@ spec:
             mountPath: /data/server/tls
       volumes:
         - name: logs
+          hostPath:
+            path: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log
+        - name: pod-logs
           hostPath:
             path: /var/log/pods
         - name: virtual-logs
