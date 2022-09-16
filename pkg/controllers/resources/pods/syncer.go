@@ -239,7 +239,7 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 
 		for i, volume := range pPod.Spec.Volumes {
 			if volume.HostPath != nil {
-				if volume.HostPath.Path == LoggingHostpathPath &&
+				if volume.HostPath.Path == PodLoggingHostpathPath &&
 					// avoid recursive rewriting of HostPaths across reconciles
 					!strings.HasSuffix(volume.Name, PhysicalLogVolumeNameSuffix) {
 					// we can't just mount the new hostpath to the virtual log path
@@ -251,10 +251,14 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 					// path used by the scraping agent - which should only see the
 					// virtual log path
 					ctx.Log.Infof("rewriting hostPath for pPod %s", pPod.Name)
-					pPod.Spec.Volumes[i].HostPath.Path = s.virtualLogsPath
+					pPod.Spec.Volumes[i].HostPath.Path = s.virtualLogsPath + "/pods"
 
 					ctx.Log.Infof("adding original hostPath to relevant containers")
 					pPod = s.addPhysicalLogPathToVolumesAndCorrectContainers(ctx, volume.Name, volume.HostPath.Type, pPod)
+				}
+
+				if volume.HostPath.Path == LogHostpathPath {
+					pPod.Spec.Volumes[i].HostPath.Path = s.virtualLogsPath
 				}
 			}
 		}
@@ -269,7 +273,7 @@ func (s *podSyncer) addPhysicalLogPathToVolumesAndCorrectContainers(ctx *synccon
 		Name: fmt.Sprintf("%s-%s", volName, PhysicalLogVolumeNameSuffix),
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
-				Path: LoggingHostpathPath,
+				Path: PodLoggingHostpathPath,
 				Type: hostPathType,
 			},
 		},
