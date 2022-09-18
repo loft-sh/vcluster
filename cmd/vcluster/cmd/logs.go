@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -15,7 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -27,7 +28,11 @@ import (
 )
 
 const (
-	LogsMountPath = "/var/log/pods"
+	LogsMountPath    = "/var/log"
+	PodLogsMountPath = "/var/log/pods"
+
+	// naming format <pod_name>_<namespace>_<container_name>-<containerdID(hash, with <docker/cri>:// prefix removed)>.log
+	ContainerSymlinkSourceTemplate = "%s_%s_%s-%s.log"
 )
 
 // map of physical pod names to the corresponding virtual pod
@@ -36,11 +41,13 @@ type PhysicalPodToVirtualPodDetail map[string]*PodDetail
 type PodDetail struct {
 	Target      string
 	SymLinkName *string
+	PhysicalPod corev1.Pod
 }
 
 var (
-	virtualLogsPath    string
-	virtualPodLogsPath string
+	virtualLogsPath          string
+	virtualPodLogsPath       string
+	virtualContainerLogsPath string
 )
 
 func NewLogMapperCommand() *cobra.Command {
@@ -86,6 +93,16 @@ func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
 	virtualLogsPath = fmt.Sprintf(pods.VirtualLogsPathTemplate, options.TargetNamespace, options.Name)
 	virtualPodLogsPath = fmt.Sprintf(pods.VirtualLogsPathTemplate+"/pods", options.TargetNamespace, options.Name)
 
+	virtualContainerLogsPath = filepath.Join(virtualLogsPath, "containers")
+
+	err := os.Mkdir(virtualContainerLogsPath, os.ModeDir)
+	if err != nil {
+		if !os.IsExist(err) {
+			klog.Errorf("error creating container dir in log path: %v", err)
+			return err
+		}
+	}
+
 	inClusterConfig := ctrl.GetConfigOrDie()
 
 	inClusterConfig.QPS = 40
@@ -95,7 +112,7 @@ func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
 	translate.Suffix = options.Name
 
 	var virtualClusterConfig *rest.Config
-	err := wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
+	err = wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
 		virtualClusterConfig = &rest.Config{
 			Host: options.Name,
 			TLSClientConfig: rest.TLSClientConfig{
@@ -160,7 +177,7 @@ func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
 
 func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *context2.VirtualClusterOptions) {
 	wait.Forever(func() {
-		podList := &v1.PodList{}
+		podList := &corev1.PodList{}
 		err := pManager.GetClient().List(ctx, podList, &client.ListOptions{Namespace: options.TargetNamespace})
 		if err != nil {
 			klog.Errorf("unable to list pods: %v", err)
@@ -175,7 +192,7 @@ func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *c
 		klog.Infof("podMapping length: %d", len(podMappings))
 		klog.Infof("podList length: %d", len(podList.Items))
 
-		vPodList := &v1.PodList{}
+		vPodList := &corev1.PodList{}
 		err = vManager.GetClient().List(ctx, vPodList)
 		if err != nil {
 			klog.Errorf("unable to list pods: %v", err)
@@ -184,24 +201,32 @@ func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *c
 
 		existingPodsPath := make(map[string]bool)
 
-		for _, pod := range vPodList.Items {
-			pName := translate.PhysicalName(pod.Name, pod.Namespace)
+		for _, vPod := range vPodList.Items {
+			pName := translate.PhysicalName(vPod.Name, vPod.Namespace)
 
-			if v, ok := podMappings[pName]; ok {
-				if v.SymLinkName == nil {
+			if podDetail, ok := podMappings[pName]; ok {
+				source := filepath.Join(virtualPodLogsPath, fmt.Sprintf("%s_%s_%s", vPod.Namespace, vPod.Name, string(vPod.UID)))
+				if podDetail.SymLinkName == nil {
 					// create symlink
-					source := filepath.Join(virtualPodLogsPath, fmt.Sprintf("%s_%s_%s", pod.Namespace, pod.Name, string(pod.UID)))
-					target := filepath.Join(pods.PhysicalLogVolumeMountPath, v.Target)
+					target := filepath.Join(pods.PhysicalLogVolumeMountPath, podDetail.Target)
 
 					existingPodsPath[source] = true
 
 					symlinkName, err := createSymlinkToPhysical(ctx, source, target)
 					if err != nil {
-						klog.Errorf("unable to create symlink for %s: %v", v.Target, err)
+						klog.Errorf("unable to create symlink for %s: %v", podDetail.Target, err)
 					}
 
-					v.SymLinkName = symlinkName
+					podDetail.SymLinkName = symlinkName
 				}
+
+				// create container to vPod symlinks
+				containerSymlinkTargetDir := filepath.Join(PodLogsMountPath,
+					fmt.Sprintf("%s_%s_%s", vPod.Namespace, vPod.Name, string(vPod.UID)))
+				// TODO: cleanup old container symlinks
+				// should be probably done with info from
+				// existingPodsPath: L234
+				createContainerToPodSymlink(ctx, vPod, podDetail, containerSymlinkTargetDir)
 			}
 		}
 
@@ -237,9 +262,66 @@ func cleanupOldPodPath(ctx context.Context, existingPodPathsFromAPIServer map[st
 	return nil
 }
 
-func fillUpPodMapping(ctx context.Context, podList *v1.PodList, podMappings PhysicalPodToVirtualPodDetail) {
-	for _, pod := range podList.Items {
-		lookupName := fmt.Sprintf("%s_%s_%s", pod.Namespace, pod.Name, pod.UID)
+func createContainerToPodSymlink(ctx context.Context, vPod corev1.Pod, pPodDetail *PodDetail, targetDir string) {
+	for _, containerStatus := range vPod.Status.ContainerStatuses {
+		_, containerID, _ := strings.Cut(containerStatus.ContainerID, "://")
+		containerName := containerStatus.Name
+
+		source := fmt.Sprintf(ContainerSymlinkSourceTemplate,
+			vPod.Name,
+			vPod.Namespace,
+			containerName,
+			containerID)
+
+		pPod := pPodDetail.PhysicalPod
+		physicalContainerFileName := fmt.Sprintf(ContainerSymlinkSourceTemplate,
+			pPod.Name,
+			pPod.Namespace,
+			containerName,
+			containerID)
+
+		physicalLogFileName, err := getPhysicalLogFilename(ctx, physicalContainerFileName)
+		if err != nil {
+			klog.Errorf("error reading destination filename from physical container symlink: %v", err)
+			continue
+		}
+
+		target := filepath.Join(targetDir, containerName, physicalLogFileName)
+		source = filepath.Join(virtualContainerLogsPath, source)
+
+		err = os.Symlink(target, source)
+		if err != nil {
+			if !os.IsExist(err) {
+				klog.Errorf("error creating container:%s to pod:%s symlink: %v", source, target, err)
+			}
+
+			continue
+		}
+
+		klog.Infof("created container:%s -> pod:%s symlink", source, target)
+	}
+}
+
+// we need to get the info that which log file in the physical pod dir
+// should this virtual container symlink point to. for eg.
+// <physical_container> -> /var/log/pods/<pod>/<container>/xxx.log
+// <virtual_container> -> <virtual_pod_path>/<container>/xxx.log
+func getPhysicalLogFilename(ctx context.Context, physicalContainerFileName string) (string, error) {
+	pContainerFilePath := filepath.Join(LogsMountPath, "containers", physicalContainerFileName)
+	pDestination, err := os.Readlink(pContainerFilePath)
+	if err != nil {
+		return "", err
+	}
+
+	splits := strings.Split(pDestination, "/")
+	fileName := splits[len(splits)-1]
+
+	return fileName, nil
+}
+
+func fillUpPodMapping(ctx context.Context, pPodList *corev1.PodList, podMappings PhysicalPodToVirtualPodDetail) {
+	for _, pPod := range pPodList.Items {
+		lookupName := fmt.Sprintf("%s_%s_%s", pPod.Namespace, pPod.Name, pPod.UID)
 
 		ok, err := checkIfPathExists(lookupName)
 		if err != nil {
@@ -248,9 +330,10 @@ func fillUpPodMapping(ctx context.Context, podList *v1.PodList, podMappings Phys
 
 		if ok {
 			// check entry in podMapping
-			if _, ok := podMappings[pod.Name]; !ok {
-				podMappings[pod.Name] = &PodDetail{
-					Target: lookupName,
+			if _, ok := podMappings[pPod.Name]; !ok {
+				podMappings[pPod.Name] = &PodDetail{
+					Target:      lookupName,
+					PhysicalPod: pPod,
 				}
 			}
 		}
@@ -259,7 +342,7 @@ func fillUpPodMapping(ctx context.Context, podList *v1.PodList, podMappings Phys
 
 // check if folder exists
 func checkIfPathExists(path string) (bool, error) {
-	fullPath := filepath.Join(LogsMountPath, path)
+	fullPath := filepath.Join(PodLogsMountPath, path)
 
 	if _, err := os.Stat(fullPath); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
