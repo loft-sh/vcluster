@@ -23,8 +23,10 @@ spec:
     matchLabels:
       app: vcluster
       release: {{ .Release.Name }}
-  {{- if .Values.storage.persistence }}
-  {{- if not .Values.storage.volumeClaimTemplates }}
+  {{- if (hasKey .Values "volumeClaimTemplates") }}
+  volumeClaimTemplates:
+{{ toYaml .Values.volumeClaimTemplates | indent 4 }}
+  {{- else if .Values.storage.persistence }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -34,10 +36,6 @@ spec:
         resources:
           requests:
             storage: {{ .Values.storage.size }}
-  {{- else }}
-  volumeClaimTemplates:
-{{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-  {{- end }}
   {{- end }}
   template:
     metadata:
