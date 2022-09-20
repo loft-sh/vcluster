@@ -64,7 +64,7 @@ Use one of the following commands to download the vcluster CLI binary from GitHu
 <summary>Mac (Intel/AMD)</summary>
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-amd64" && install -c -m 0755 vcluster /usr/local/bin
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-amd64" && sudo install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </details>
@@ -73,7 +73,7 @@ curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/downloa
 <summary>Mac (Silicon/ARM)</summary>
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-arm64" && install -c -m 0755 vcluster /usr/local/bin
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-arm64" && sudo install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </details>
@@ -82,7 +82,7 @@ curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/downloa
 <summary>Linux (AMD)</summary>
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64" && install -c -m 0755 vcluster /usr/local/bin
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64" && sudo install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </details>
@@ -91,7 +91,7 @@ curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/downloa
 <summary>Linux (ARM)</summary>
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-arm64" && install -c -m 0755 vcluster /usr/local/bin
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-arm64" && sudo install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </details>
