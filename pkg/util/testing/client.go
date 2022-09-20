@@ -186,11 +186,11 @@ func (fc *FakeIndexClient) DeleteAllOf(ctx context.Context, obj client.Object, o
 	return fc.updateIndices(ctx, obj)
 }
 
-func (fc *FakeIndexClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+func (fc *FakeIndexClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	fc.clientLock.Lock()
 	defer fc.clientLock.Unlock()
 
-	return fc.Client.Get(ctx, key, obj)
+	return fc.Client.Get(ctx, key, obj, opts...)
 }
 
 func (fc *FakeIndexClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {

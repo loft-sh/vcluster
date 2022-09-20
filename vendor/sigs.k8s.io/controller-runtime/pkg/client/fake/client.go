@@ -329,7 +329,7 @@ func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Ob
 	return t.ObjectTracker.Update(gvr, obj, ns)
 }
 
-func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	gvr, err := getGVRFromObject(obj, c.scheme)
 	if err != nil {
 		return err
