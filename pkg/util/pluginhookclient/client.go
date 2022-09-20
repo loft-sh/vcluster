@@ -72,12 +72,12 @@ type Client struct {
 	scheme *runtime.Scheme
 }
 
-func (c *Client) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+func (c *Client) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	if !plugin.DefaultManager.HasClientHooks() {
-		return c.Client.Get(ctx, key, obj)
+		return c.Client.Get(ctx, key, obj, opts...)
 	}
 
-	err := c.Client.Get(ctx, key, obj)
+	err := c.Client.Get(ctx, key, obj, opts...)
 	if err != nil {
 		return err
 	}
