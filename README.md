@@ -28,7 +28,6 @@ Learn more on [www.vcluster.com](https://vcluster.com).
 
 ![vcluster Compatibility](docs/static/media/cluster-compatibility.png)
 
-
 Learn more in the [documentation](https://vcluster.com/docs/what-are-virtual-clusters).
 
 <br>
@@ -54,17 +53,18 @@ Learn more in the [documentation](https://vcluster.com/docs/what-are-virtual-clu
 <br>
 
 ## Quick Start (~ 1 minute)
+
 To learn more about vcluster, [**open the full getting started guide**](https://www.vcluster.com/docs/getting-started/setup).
 
 ### 1. Download vcluster CLI
+
 Use one of the following commands to download the vcluster CLI binary from GitHub:
 
 <details>
 <summary>Mac (Intel/AMD)</summary>
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-amd64" && chmod +x vcluster;
-sudo mv vcluster /usr/local/bin;
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-amd64" && install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </details>
@@ -73,8 +73,7 @@ sudo mv vcluster /usr/local/bin;
 <summary>Mac (Silicon/ARM)</summary>
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-arm64" && chmod +x vcluster;
-sudo mv vcluster /usr/local/bin;
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-arm64" && install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </details>
@@ -83,8 +82,7 @@ sudo mv vcluster /usr/local/bin;
 <summary>Linux (AMD)</summary>
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64" && chmod +x vcluster;
-sudo mv vcluster /usr/local/bin;
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64" && install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </details>
@@ -93,8 +91,7 @@ sudo mv vcluster /usr/local/bin;
 <summary>Linux (ARM)</summary>
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-arm64" && chmod +x vcluster;
-sudo mv vcluster /usr/local/bin;
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-arm64" && install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </details>
@@ -119,13 +116,13 @@ Alternatively, you can download the binary for your platform from the [GitHub Re
 
 <br>
 
-
 ### 2. Create a vcluster
+
 ```vash
 vcluster create my-vcluster
 
 # OR: Use --expose to create a vcluster with an externally accessible LoadBalancer
-vcluster create my-vcluster --expose 
+vcluster create my-vcluster --expose
 
 # OR: Use --isolate to create an isolated environment for the vcluster workloads
 vcluster create my-vcluster --isolate
@@ -136,6 +133,7 @@ Take a look at the [vcluster docs](https://www.vcluster.com/docs/getting-started
 ### 3. Use the vcluster
 
 Run in a terminal:
+
 ```bash
 # Run any kubectl, helm, etc. command in your vcluster
 kubectl get namespace
@@ -146,6 +144,7 @@ kubectl get pods -n demo-nginx
 ```
 
 ### 4. Cleanup
+
 ```bash
 vcluster delete my-vcluster
 ```
@@ -153,6 +152,7 @@ vcluster delete my-vcluster
 Alternatively, you could also delete the host-namespace using kubectl.
 
 ## Architecture
+
 [![vcluster Intro](docs/static/media/diagrams/vcluster-architecture.svg)](https://www.vcluster.com)
 
 ## Contributing
