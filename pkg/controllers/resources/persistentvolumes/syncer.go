@@ -127,19 +127,20 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 		}
 	}
 
-	// check if virtual persistent volume is deleted
-	if vPersistentVolume.GetDeletionTimestamp() != nil && len(vPersistentVolume.GetFinalizers()) > 0 {
-		if vPersistentVolume.Spec.ClaimRef != nil && vPersistentVolume.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimDelete {
-			// executes when dynamically provisioned PV with a delete reclaim policy gets deleted
-			// it also releases the cloud provider volume.
-			vPersistentVolume.SetFinalizers(nil)
-			ctx.Log.Infof("remove virtual persistent volume %s finalizers, because virtual persistent volume is terminating", vPersistentVolume.GetName())
-			return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vPersistentVolume)
-		} else {
-			// executes when a Retained PV in Released status is manually deleted and when statically provisioned PVs are deleted
-			ctx.Log.Infof("remove physical persistent volume %s, because virtual persistent volume is deleted", pPersistentVolume.GetName())
-			return ctrl.Result{}, ctx.PhysicalClient.Delete(ctx.Context, pPersistentVolume)
+	// check if objects are getting deleted
+	if vObj.GetDeletionTimestamp() != nil {
+		if pObj.GetDeletionTimestamp() == nil {
+			// check if the PV is dynamically provisioned and the reclaim policy is Delete
+			if !(vPersistentVolume.Spec.ClaimRef != nil && vPersistentVolume.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimDelete) {
+				ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is deleted", pObj.GetName())
+				err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+			}
 		}
+		ctx.Log.Infof("requeue because persistent volume %s, has to be deleted", vObj.GetName())
+		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
 	// check if the persistent volume should get synced
@@ -222,10 +223,6 @@ func (s *persistentVolumeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj clien
 	} else if translate.IsManagedCluster(ctx.TargetNamespace, pObj) {
 		ctx.Log.Infof("delete physical persistent volume %s, because it is not needed anymore", pPersistentVolume.Name)
 		return syncer.DeleteObject(ctx, pObj)
-	} else if pPersistentVolume.GetDeletionTimestamp() != nil {
-		// executes after the sync when a Retained PV in Released status is manually deleted
-		ctx.Log.Infof("deleting physical persistent volume %s", pPersistentVolume.Name)
-		return ctrl.Result{}, nil
 	} else if sync {
 		// create the persistent volume
 		vObj := s.translateBackwards(pPersistentVolume, vPvc)
