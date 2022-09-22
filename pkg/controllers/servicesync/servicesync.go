@@ -2,6 +2,8 @@ package servicesync
 
 import (
 	"context"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -15,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 )
 
 type ServiceSyncer struct {
@@ -195,6 +196,12 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 		return ctrl.Result{}, nil
 	}
 
+	// sync the loadbalancer status
+	if fromService.Spec.Type == corev1.ServiceTypeLoadBalancer && !apiequality.Semantic.DeepEqual(fromService.Status.LoadBalancer, corev1.LoadBalancerStatus{}) && !apiequality.Semantic.DeepEqual(fromService.Status.LoadBalancer, toService.Status.LoadBalancer) {
+		e.Log.Infof("Update target service %s/%s because the loadbalancer status changed", to.Namespace, to.Name)
+		toService.Status.LoadBalancer = fromService.Status.LoadBalancer
+		return ctrl.Result{}, e.To.GetClient().Status().Update(ctx, toService)
+	}
 	// compare service ports
 	if !apiequality.Semantic.DeepEqual(toService.Spec.Ports, fromService.Spec.Ports) {
 		e.Log.Infof("Update target service %s/%s because ports are different", to.Namespace, to.Name)
