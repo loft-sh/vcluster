@@ -8,7 +8,7 @@ import (
 func NewGetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	getCmd := &cobra.Command{
 		Use:   "get",
-		Short: "gets cluster related information",
+		Short: "Gets cluster related information",
 		Long: `
 #######################################################
 #################### vcluster get #####################

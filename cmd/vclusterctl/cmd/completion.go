@@ -1,119 +1,93 @@
 package cmd
 
 import (
-	"errors"
-	"os"
+	"context"
+	"time"
 
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-const compDesc = `
-#######################################################
-################### vcluster completion ###############	
-#######################################################
-Generates completion scripts for various shells
+const completionTimeout = time.Second * 3
 
-Example:
-vcluster completion bash
-vcluster completion zsh 
-vcluster completion fish
-#######################################################
-`
+// defining as a type purely for readability purposes.
+// this is the type accepted by cobra.Command.ValidArgsFunc and cobra.Command.RegisterFlagCompletionFunc
+type completionFunc func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)
 
-const bashCompDesc = `
-#######################################################
-################### vcluster completion bash ##########
-#######################################################
-Generate the autocompletion script for bash
+type completionResult struct {
+	completions []string
+	directive   cobra.ShellCompDirective
+}
 
-Example:
-- Linux:
-vcluster completion bash > /etc/bash_completion.d/vcluster
-- MacOS:
-vcluster completion bash > \
-/usr/local/etc/bash_completion.d/vcluster
-#######################################################
-`
+// wrapper to add a timeout to completionFuncs
+func wrapCompletionFuncWithTimeout(defaultDirective cobra.ShellCompDirective, compFunc completionFunc) completionFunc {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		// initialize a buffered channel to receive results
+		resultChan := make(chan completionResult, 1)
 
-const zshCompDesc = `
-#######################################################
-################### vcluster completion zsh ###########
-#######################################################
-Generate the autocompletion script for zsh
+		// run completion function in the background and send result to resultChan
+		go func(c chan completionResult) {
+			completions, directive := compFunc(cmd, args, toComplete)
+			r := completionResult{completions: completions, directive: directive}
+			c <- r
+		}(resultChan)
 
-Example:
-vcluster completion zsh > "${fpath[1]}/_vcluster"
-#######################################################
-`
+		// wait for results or timeout
+		select {
+		case result := <-resultChan:
+			return result.completions, result.directive
+		case <-time.After(completionTimeout):
+			return []string{}, defaultDirective | cobra.ShellCompDirectiveError
+		}
+	}
 
-const fishCompDesc = `
-#######################################################
-################### vcluster completion fish ###########
-#######################################################
-Generate the autocompletion script for fish
+}
 
-Example:
-vcluster completion fish > "${fpath[1]}/_vcluster"
-#######################################################
-`
+// newValidVClusterNameFunc returns a function that handles shell completion when the argument is vcluster_name
+// It takes into account the namespace if specified by the --namespace flag.
+func newValidVClusterNameFunc(globalFlags *flags.GlobalFlags) completionFunc {
+	fn := func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		vclusters, err := find.ListVClusters(globalFlags.Context, "", globalFlags.Namespace)
+		if err != nil {
+			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+		}
+		names := make([]string, len(vclusters))
+		for i := range vclusters {
+			names[i] = vclusters[i].Name
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
+	}
+	return wrapCompletionFuncWithTimeout(cobra.ShellCompDirectiveNoFileComp, fn)
+}
 
-func NewCompletionCmd() *cobra.Command {
-	completionCmd := &cobra.Command{
-		Use:                   "completion",
-		Short:                 "Generates completion scripts for various shells",
-		Long:                  compDesc,
-		Args:                  cobra.NoArgs,
-		DisableFlagsInUseLine: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			err := cmd.Help()
-			if err != nil {
-				return err
+// newNamespaceCompletionFunc handles shell completions for the namespace flag
+func newNamespaceCompletionFunc() completionFunc {
+	fn := func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		restConfig, err := config.GetConfig()
+		if err != nil {
+			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+		}
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+		}
+
+		namespaces, err := kubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+		}
+		names := make([]string, len(namespaces.Items))
+		for i := range namespaces.Items {
+			ns := namespaces.Items[i].Name
+			if ns != metav1.NamespaceSystem {
+				names[i] = ns
 			}
-			return errors.New("subcommand is required")
-		},
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
 	}
-	completionCmd.AddCommand(NewBashCommand(), NewZshCommand(), NewFishCommand())
-	return completionCmd
-}
-
-func NewBashCommand() *cobra.Command {
-	bashCmd := &cobra.Command{
-		Use:                   "bash",
-		Short:                 "generate autocompletion script for bash",
-		Long:                  bashCompDesc,
-		Args:                  cobra.NoArgs,
-		DisableFlagsInUseLine: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Root().GenBashCompletion(os.Stdout)
-		},
-	}
-	return bashCmd
-}
-
-func NewZshCommand() *cobra.Command {
-	zshCmd := &cobra.Command{
-		Use:                   "zsh",
-		Short:                 "generate autocompletion script for zsh",
-		Long:                  zshCompDesc,
-		Args:                  cobra.NoArgs,
-		DisableFlagsInUseLine: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Root().GenZshCompletion(os.Stdout)
-		},
-	}
-	return zshCmd
-}
-
-func NewFishCommand() *cobra.Command {
-	fishCmd := &cobra.Command{
-		Use:                   "fish",
-		Short:                 "generate autocompletion script for fish",
-		Long:                  fishCompDesc,
-		Args:                  cobra.NoArgs,
-		DisableFlagsInUseLine: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Root().GenFishCompletion(os.Stdout, false)
-		},
-	}
-	return fishCmd
+	return wrapCompletionFuncWithTimeout(cobra.ShellCompDirectiveNoFileComp, fn)
 }

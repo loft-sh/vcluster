@@ -3,12 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"io"
-	authenticationv1 "k8s.io/api/authentication/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -17,6 +12,12 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
@@ -76,7 +77,7 @@ func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "connect",
+		Use:   "connect [flags] vcluster_name",
 		Short: "Connect to a virtual cluster",
 		Long: `
 #######################################################
@@ -91,7 +92,8 @@ vcluster connect test -n test -- bash
 vcluster connect test -n test -- kubectl get ns
 #######################################################
 	`,
-		Args: cobra.MinimumNArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

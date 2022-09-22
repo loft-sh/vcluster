@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -35,10 +37,13 @@ var globalFlags *flags.GlobalFlags
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	log := log.GetInstance()
-	rootCmd := BuildRoot(log)
+	rootCmd, err := BuildRoot(log)
+	if err != nil {
+		log.Fatalf("error building root: %+v\n", err)
+	}
 
 	// Execute command
-	err := rootCmd.Execute()
+	err = rootCmd.Execute()
 	if err != nil {
 		if globalFlags.Debug {
 			log.Fatalf("%+v", err)
@@ -49,7 +54,7 @@ func Execute() {
 }
 
 // BuildRoot creates a new root command from the
-func BuildRoot(log log.Logger) *cobra.Command {
+func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags)
@@ -66,8 +71,13 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(NewResumeCmd(globalFlags))
 	rootCmd.AddCommand(NewDisconnectCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
-	rootCmd.AddCommand(NewCompletionCmd())
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
 	rootCmd.AddCommand(versionCmd)
-	return rootCmd
+
+	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc())
+	if err != nil {
+		return rootCmd, fmt.Errorf("failed to register completion for namespace: %w", err)
+	}
+
+	return rootCmd, nil
 }
