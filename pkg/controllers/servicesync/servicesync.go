@@ -197,7 +197,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 	}
 
 	// sync the loadbalancer status
-	if fromService.Spec.Type == corev1.ServiceTypeLoadBalancer && !apiequality.Semantic.DeepEqual(fromService.Status.LoadBalancer, corev1.LoadBalancerStatus{}) && !apiequality.Semantic.DeepEqual(fromService.Status.LoadBalancer, toService.Status.LoadBalancer) {
+	if fromService.Spec.Type == corev1.ServiceTypeLoadBalancer &&  !apiequality.Semantic.DeepEqual(fromService.Status.LoadBalancer, toService.Status.LoadBalancer) {
 		e.Log.Infof("Update target service %s/%s because the loadbalancer status changed", to.Namespace, to.Name)
 		toService.Status.LoadBalancer = fromService.Status.LoadBalancer
 		return ctrl.Result{}, e.To.GetClient().Status().Update(ctx, toService)
