@@ -3,7 +3,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ .Release.Name }}-workloads
-  namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
+  namespace: {{ .Values.syncer.targetNamespace | default .Release.Namespace }}
   {{- if .Values.globalAnnotations }}
   annotations:
 {{ toYaml .Values.globalAnnotations | indent 4 }}

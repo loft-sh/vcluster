@@ -140,6 +140,7 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
+  targetNamespace: null
 
 # Etcd settings
 etcd:
@@ -352,7 +353,6 @@ coredns:
 # standards, limit ranges and resource quotas
 isolation:
   enabled: false
-  namespace: null
 
   podSecurityStandard: baseline
 

@@ -134,6 +134,8 @@ jobs:
         kind load image-archive vcluster_syncer
 
         chmod +x vcluster && sudo mv vcluster /usr/bin
+
+        kubectl create namespace vcluster-workload
         
         vcluster create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
         --create-namespace \

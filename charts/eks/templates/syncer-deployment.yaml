@@ -138,6 +138,9 @@ spec:
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
           {{- end }}
+          {{- if .Values.syncer.targetNamespace }}
+          - --target-namespace={{ .Values.syncer.targetNamespace }}
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}

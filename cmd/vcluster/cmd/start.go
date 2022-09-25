@@ -50,6 +50,7 @@ import (
 	"k8s.io/klog"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -482,9 +483,23 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 
 func findOwner(ctx *context2.ControllerContext) error {
 	if ctx.CurrentNamespace != ctx.Options.TargetNamespace {
-		if ctx.Options.SetOwner {
-			klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", ctx.CurrentNamespace, ctx.Options.TargetNamespace)
+		targetNamespaceClient, err := client.New(ctx.LocalManager.GetConfig(), client.Options{
+			Scheme: ctx.LocalManager.GetScheme(),
+			Mapper: ctx.LocalManager.GetRESTMapper(),
+		})
+		if err != nil {
+			return err
 		}
+
+		service := &corev1.Service{}
+		err = targetNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.Options.TargetNamespace, Name: ctx.Options.ServiceName}, service)
+		if err != nil {
+			return errors.Wrap(err, "get vcluster service")
+		}
+		service.Kind = "Service"
+		service.APIVersion = "v1"
+
+		translate.Owner = service
 		return nil
 	}
 

@@ -114,6 +114,7 @@ syncer:
       cpu: 10m
       memory: 64Mi
   kubeConfigContextName: "my-vcluster"
+  targetNamespace: null
 
 # Virtual Cluster (k0s) configuration
 vcluster:
@@ -300,7 +301,6 @@ coredns:
 # standards, limit ranges and resource quotas
 isolation:
   enabled: false
-  namespace: null
 
   podSecurityStandard: baseline
 

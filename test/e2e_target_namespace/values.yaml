@@ -1,3 +1,4 @@
 syncer:
-  extraArgs:
-  - --target-namespace=vcluster-workload
+  targetNamespace: vcluster-workload
+isolation:
+  enabled: true
