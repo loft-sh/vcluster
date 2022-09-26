@@ -2,14 +2,15 @@ package commands
 
 import (
 	"context"
-	"github.com/loft-sh/loft-util/pkg/command"
 	"io/ioutil"
-	"mvdan.cc/sh/v3/expand"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/loft-sh/utils/pkg/command"
+	"mvdan.cc/sh/v3/expand"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/otiai10/copy"

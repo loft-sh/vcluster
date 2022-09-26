@@ -13,11 +13,11 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/loft-util v0.0.9-alpha
+	github.com/loft-sh/utils v0.0.10-alpha
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.19.0
+	github.com/onsi/gomega v1.20.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.32.1
@@ -33,7 +33,7 @@ require (
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.25.0
 	k8s.io/apiextensions-apiserver v0.25.0
-	k8s.io/apimachinery v0.25.0
+	k8s.io/apimachinery v0.25.2
 	k8s.io/apiserver v0.25.0
 	k8s.io/cli-runtime v0.25.0
 	k8s.io/client-go v0.25.0

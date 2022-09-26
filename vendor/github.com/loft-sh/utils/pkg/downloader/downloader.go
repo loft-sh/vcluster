@@ -2,12 +2,13 @@ package downloader
 
 import (
 	"context"
-	"github.com/loft-sh/loft-util/pkg/downloader/commands"
-	"github.com/loft-sh/loft-util/pkg/logger"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/loft-sh/utils/pkg/downloader/commands"
+	"github.com/loft-sh/utils/pkg/log"
 
 	"github.com/pkg/errors"
 )

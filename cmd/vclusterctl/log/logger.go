@@ -1,7 +1,7 @@
 package log
 
 import (
-	log "github.com/loft-sh/loft-util/pkg/logger"
+	"github.com/loft-sh/utils/pkg/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 )
 

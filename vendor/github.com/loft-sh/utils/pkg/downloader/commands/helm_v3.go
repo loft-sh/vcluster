@@ -2,16 +2,17 @@ package commands
 
 import (
 	"context"
-	"github.com/loft-sh/loft-util/pkg/command"
-	"github.com/loft-sh/loft-util/pkg/extract"
-	"github.com/mitchellh/go-homedir"
-	"github.com/otiai10/copy"
-	"github.com/pkg/errors"
-	"mvdan.cc/sh/v3/expand"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/loft-sh/utils/pkg/command"
+	"github.com/loft-sh/utils/pkg/extract"
+	"github.com/mitchellh/go-homedir"
+	"github.com/otiai10/copy"
+	"github.com/pkg/errors"
+	"mvdan.cc/sh/v3/expand"
 )
 
 var (

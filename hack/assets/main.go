@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"os"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+
+	"github.com/loft-sh/utils/pkg/helm/values"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/helm/values"
 )
 
 func main() {
