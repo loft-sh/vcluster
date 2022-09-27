@@ -3,10 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/loft-util/pkg/downloader"
-	"github.com/loft-sh/loft-util/pkg/downloader/commands"
-	log "github.com/loft-sh/loft-util/pkg/logger"
 	"os/exec"
+
+	"github.com/loft-sh/utils/pkg/downloader"
+	"github.com/loft-sh/utils/pkg/downloader/commands"
+	"github.com/loft-sh/utils/pkg/log"
 )
 
 const DefaultHomeVClusterFolder = ".vcluster"

@@ -5,12 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"mvdan.cc/sh/v3/expand"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
+
+	"mvdan.cc/sh/v3/expand"
 )
 
 // streamCommand is the command whose output is streamed to a log

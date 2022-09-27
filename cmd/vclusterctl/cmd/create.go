@@ -18,13 +18,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/loft-sh/utils/pkg/helm/values"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
-	"github.com/loft-sh/vcluster/pkg/helm/values"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"golang.org/x/mod/semver"
 
+	helmUtils "github.com/loft-sh/utils/pkg/helm"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/helm"
@@ -310,7 +311,7 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues, helmExecutablePath 
 	return nil
 }
 
-func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helm.ChartOptions, error) {
+func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtils.ChartOptions, error) {
 	if !util.Contains(cmd.Distro, AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(AllowedDistros, ", "))
 	}
@@ -326,7 +327,7 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helm.Cha
 		cmd.localCluster = true
 	}
 
-	return &helm.ChartOptions{
+	return &helmUtils.ChartOptions{
 		ChartName:          cmd.ChartName,
 		ChartRepo:          cmd.ChartRepo,
 		ChartVersion:       cmd.ChartVersion,
