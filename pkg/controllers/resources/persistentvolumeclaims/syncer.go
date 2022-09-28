@@ -2,6 +2,7 @@ package persistentvolumeclaims
 
 import (
 	"context"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -35,10 +36,15 @@ const (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	storageClassesEnabled := ctx.Controllers["storageclasses"]
+	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
+	if !storageClassesEnabled && ctx.Options.EnableScheduler {
+		excludedAnnotations = append(excludedAnnotations, selectedNodeAnnotation)
+	}
 	return &persistentVolumeClaimSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation, selectedNodeAnnotation),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, excludedAnnotations...),
 
-		storageClassesEnabled:    ctx.Controllers["storageclasses"],
+		storageClassesEnabled:    storageClassesEnabled,
 		schedulerEnabled:         ctx.Options.EnableScheduler,
 		useFakePersistentVolumes: !ctx.Controllers["persistentvolumes"],
 	}, nil

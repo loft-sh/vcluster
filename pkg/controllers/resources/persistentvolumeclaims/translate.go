@@ -3,6 +3,7 @@ package persistentvolumeclaims
 import (
 	"context"
 	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -113,7 +114,12 @@ func (s *persistentVolumeClaimSyncer) translateUpdate(ctx *synccontext.SyncConte
 	// for a pod to bind the pvc. Since we only sync pods that have a node assigned, the
 	// host cluster will never see a pod, therefore never bind the PVC and they both will
 	// be stuck pending.
-	if s.schedulerEnabled && pObj.Status.Phase == corev1.ClaimPending && pObj.Spec.StorageClassName != nil && (pObj.Annotations == nil || pObj.Annotations[selectedNodeAnnotation] == "") {
+	if !s.storageClassesEnabled && /* the scheduler can make the right decision and set selectedNodeAnnotation if the storageClass is synced */
+		s.schedulerEnabled && /* pods are scheduled by the host cluster if the scheduler is enabled */
+		pObj.Status.Phase == corev1.ClaimPending && /* only assign unbound PVs */
+		pObj.Spec.StorageClassName != nil &&
+		(pObj.Annotations == nil || pObj.Annotations[selectedNodeAnnotation] == "") { /* only set the annotation once */
+
 		// check if owning storage class is WaitForFirstConsumer
 		storageClass := &storagev1.StorageClass{}
 		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *pObj.Spec.StorageClassName}, storageClass)
