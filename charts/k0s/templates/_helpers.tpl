@@ -24,6 +24,15 @@ If release name contains chart name it will be used as a full name.
 {{- end -}}
 {{- end -}}
 
+{{/*
+Whether to create a cluster role or not
+*/}}
+{{- define "vcluster.createClusterRole" -}}
+{{- if or (not (empty (include "vcluster.serviceMapping.fromHost" . ))) (not (empty (include "vcluster.plugin.clusterRoleExtraRules" . ))) .Values.rbac.clusterRole.create (index .Values.sync "legacy-storageclasses" "enabled") .Values.sync.ingresses.enabled .Values.sync.nodes.enabled .Values.sync.persistentvolumes.enabled .Values.sync.storageclasses.enabled .Values.sync.priorityclasses.enabled .Values.sync.volumesnapshots.enabled -}}
+    {{- true -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "vcluster.clusterRoleName" -}}
 {{- printf "vc-%s-v-%s" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

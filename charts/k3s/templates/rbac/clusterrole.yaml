@@ -1,4 +1,4 @@
-{{- if or (not (empty (include "vcluster.serviceMapping.fromHost" . ))) (not (empty (include "vcluster.plugin.clusterRoleExtraRules" . ))) .Values.rbac.clusterRole.create (index .Values.sync "legacy-storageclasses" "enabled") .Values.sync.ingresses.enabled .Values.sync.nodes.enabled .Values.sync.persistentvolumes.enabled .Values.sync.storageclasses.enabled .Values.sync.priorityclasses.enabled .Values.sync.volumesnapshots.enabled -}}
+{{- if (include "vcluster.createClusterRole" . ) -}}
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
