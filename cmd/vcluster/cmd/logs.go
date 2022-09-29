@@ -52,14 +52,14 @@ var (
 	virtualKubeletPodPath    string
 )
 
-func NewLogMapperCommand() *cobra.Command {
+func NewHostpathMapperCommand() *cobra.Command {
 	options := &context2.VirtualClusterOptions{}
 	cmd := &cobra.Command{
-		Use:   "maplogs",
+		Use:   "maphostpaths",
 		Short: "Map host to virtual pod logs",
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return MapHostPathLogs(options)
+			return MapHostPaths(options)
 		},
 	}
 
@@ -91,7 +91,7 @@ func NewLogMapperCommand() *cobra.Command {
 	return cmd
 }
 
-func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
+func MapHostPaths(options *context2.VirtualClusterOptions) error {
 	virtualPath = fmt.Sprintf(pods.VirtualPathTemplate, options.TargetNamespace, options.Name)
 
 	virtualKubeletPodPath = filepath.Join(virtualPath, "kubelet", "pods")
@@ -175,12 +175,12 @@ func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
 
 	startManagers(ctx, localManager, virtualClusterManager)
 
-	mapLogs(ctx, localManager, virtualClusterManager, options)
+	mapHostPaths(ctx, localManager, virtualClusterManager, options)
 
 	return nil
 }
 
-func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *context2.VirtualClusterOptions) {
+func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, options *context2.VirtualClusterOptions) {
 	wait.Forever(func() {
 		podList := &corev1.PodList{}
 		err := pManager.GetClient().List(ctx, podList, &client.ListOptions{Namespace: options.TargetNamespace})
