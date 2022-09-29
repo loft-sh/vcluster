@@ -67,6 +67,10 @@ spec:
             mountPath: /var/log/pods
           - name: virtual-pod-logs
             mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log/pods
+          - name: kubelet-pods
+            mountPath: /var/vcluster/physical/kubelet/pods
+          - name: virtual-kubelet-pods
+            mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/kubelet/pods
           - name: kubeconfig
             mountPath: /data/server/tls
       volumes:
@@ -79,9 +83,15 @@ spec:
         - name: pod-logs
           hostPath:
             path: /var/log/pods
+        - name: kubelet-pods
+          hostPath:
+            path: /var/lib/kubelet
         - name: virtual-pod-logs
           hostPath:
             path: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log/pods
+        - name: virtual-kubelet-pods
+          hostPath:
+            path: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/kubelet/pods
         - name: kubeconfig
           secret:
             secretName: vc-{{ .Release.Name }}

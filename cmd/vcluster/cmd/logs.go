@@ -45,6 +45,7 @@ type PodDetail struct {
 }
 
 var (
+	virtualPath              string
 	virtualLogsPath          string
 	virtualPodLogsPath       string
 	virtualContainerLogsPath string
@@ -90,8 +91,9 @@ func NewLogMapperCommand() *cobra.Command {
 }
 
 func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
-	virtualLogsPath = fmt.Sprintf(pods.VirtualLogsPathTemplate, options.TargetNamespace, options.Name)
-	virtualPodLogsPath = fmt.Sprintf(pods.VirtualLogsPathTemplate+"/pods", options.TargetNamespace, options.Name)
+	virtualPath = fmt.Sprintf(pods.VirtualPathTemplate, options.TargetNamespace, options.Name)
+	virtualLogsPath = filepath.Join(virtualPath, "log")
+	virtualPodLogsPath = filepath.Join(virtualLogsPath, "pods")
 
 	virtualContainerLogsPath = filepath.Join(virtualLogsPath, "containers")
 

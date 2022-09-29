@@ -3,6 +3,7 @@ package pods
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -87,6 +88,9 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		name = ctx.Options.ServiceName
 	}
 
+	virtualLogsPath := filepath.Join(
+		fmt.Sprintf(VirtualPathTemplate, ctx.TargetNamespace, name), "log")
+
 	return &podSyncer{
 		NamespacedTranslator: namespacedTranslator,
 
@@ -100,7 +104,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		tolerations:           tolerations,
 
 		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
-		virtualLogsPath:     fmt.Sprintf(VirtualLogsPathTemplate, ctx.TargetNamespace, name),
+		virtualLogsPath:     virtualLogsPath,
+		virtualPodLogsPath:  filepath.Join(virtualLogsPath, "pods"),
 	}, nil
 }
 
@@ -118,6 +123,7 @@ type podSyncer struct {
 
 	podSecurityStandard string
 	virtualLogsPath     string
+	virtualPodLogsPath  string
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -251,7 +257,7 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 					// path used by the scraping agent - which should only see the
 					// virtual log path
 					ctx.Log.Infof("rewriting hostPath for pPod %s", pPod.Name)
-					pPod.Spec.Volumes[i].HostPath.Path = s.virtualLogsPath + "/pods"
+					pPod.Spec.Volumes[i].HostPath.Path = s.virtualPodLogsPath
 
 					ctx.Log.Infof("adding original hostPath to relevant containers")
 					pPod = s.addPhysicalLogPathToVolumesAndCorrectContainers(ctx, volume.Name, volume.HostPath.Type, pPod)
