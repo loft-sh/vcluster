@@ -85,7 +85,7 @@ spec:
             path: /var/log/pods
         - name: kubelet-pods
           hostPath:
-            path: /var/lib/kubelet
+            path: /var/lib/kubelet/pods
         - name: virtual-pod-logs
           hostPath:
             path: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log/pods

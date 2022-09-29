@@ -36,7 +36,7 @@ const (
 )
 
 // map of physical pod names to the corresponding virtual pod
-type PhysicalPodToVirtualPodDetail map[string]*PodDetail
+type PhysicalPodMap map[string]*PodDetail
 
 type PodDetail struct {
 	Target      string
@@ -49,6 +49,7 @@ var (
 	virtualLogsPath          string
 	virtualPodLogsPath       string
 	virtualContainerLogsPath string
+	virtualKubeletPodPath    string
 )
 
 func NewLogMapperCommand() *cobra.Command {
@@ -92,6 +93,8 @@ func NewLogMapperCommand() *cobra.Command {
 
 func MapHostPathLogs(options *context2.VirtualClusterOptions) error {
 	virtualPath = fmt.Sprintf(pods.VirtualPathTemplate, options.TargetNamespace, options.Name)
+
+	virtualKubeletPodPath = filepath.Join(virtualPath, "kubelet", "pods")
 	virtualLogsPath = filepath.Join(virtualPath, "log")
 	virtualPodLogsPath = filepath.Join(virtualLogsPath, "pods")
 
@@ -186,13 +189,13 @@ func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *c
 			return
 		}
 
-		podMappings := make(PhysicalPodToVirtualPodDetail)
+		podMappings := make(PhysicalPodMap)
 
 		fillUpPodMapping(ctx, podList, podMappings)
 
 		// TODO: remove these log lines
-		klog.Infof("podMapping length: %d", len(podMappings))
-		klog.Infof("podList length: %d", len(podList.Items))
+		// klog.Infof("podMapping length: %d", len(podMappings))
+		// klog.Infof("podList length: %d", len(podList.Items))
 
 		vPodList := &corev1.PodList{}
 		err = vManager.GetClient().List(ctx, vPodList)
@@ -202,25 +205,30 @@ func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *c
 		}
 
 		existingPodsPath := make(map[string]bool)
+		existingKubeletPodsPath := make(map[string]bool)
 
 		for _, vPod := range vPodList.Items {
 			pName := translate.PhysicalName(vPod.Name, vPod.Namespace)
 
 			if podDetail, ok := podMappings[pName]; ok {
+				// create pod log symlink
 				source := filepath.Join(virtualPodLogsPath, fmt.Sprintf("%s_%s_%s", vPod.Namespace, vPod.Name, string(vPod.UID)))
-				if podDetail.SymLinkName == nil {
-					// create symlink
-					target := filepath.Join(pods.PhysicalLogVolumeMountPath, podDetail.Target)
+				target := filepath.Join(pods.PhysicalLogVolumeMountPath, podDetail.Target)
 
-					existingPodsPath[source] = true
+				existingPodsPath[source] = true
 
-					symlinkName, err := createSymlinkToPhysical(ctx, source, target)
-					if err != nil {
-						klog.Errorf("unable to create symlink for %s: %v", podDetail.Target, err)
-					}
-
-					podDetail.SymLinkName = symlinkName
+				_, err := createPodLogSymlinkToPhysical(ctx, source, target)
+				if err != nil {
+					klog.Errorf("unable to create symlink for %s: %v", podDetail.Target, err)
 				}
+
+				// create kubelet pod symlink
+				kubeletPodSymlinkSource := filepath.Join(virtualKubeletPodPath, string(vPod.GetUID()))
+				kubeletPodSymlinkTarget := filepath.Join(pods.PhysicalKubeletVolumeMountPath, string(podDetail.PhysicalPod.GetUID()))
+				existingKubeletPodsPath[kubeletPodSymlinkSource] = true
+				createKubeletVirtualToPhysicalPodLinks(ctx, kubeletPodSymlinkSource, kubeletPodSymlinkTarget)
+
+				// podDetail.SymLinkName = symlinkName
 
 				// create container to vPod symlinks
 				containerSymlinkTargetDir := filepath.Join(PodLogsMountPath,
@@ -233,22 +241,62 @@ func mapLogs(ctx context.Context, pManager, vManager manager.Manager, options *c
 		}
 
 		// cleanup old pod symlinks
-		err = cleanupOldPodPath(ctx, existingPodsPath)
+		err = cleanupOldPodPath(ctx, virtualPodLogsPath, existingPodsPath)
 		if err != nil {
-			klog.Errorf("error cleaning up old pod paths: %v", err)
+			klog.Errorf("error cleaning up old pod log paths: %v", err)
+		}
+
+		// QUESTION: should we clear this immediately, would there be
+		// repercussions as we might miss some backups if we delete immediately
+		err = cleanupOldPodPath(ctx, virtualKubeletPodPath, existingKubeletPodsPath)
+		if err != nil {
+			klog.Errorf("error cleaning up old kubelet pod paths: %v", err)
 		}
 
 	}, time.Second*5)
 }
 
-func cleanupOldPodPath(ctx context.Context, existingPodPathsFromAPIServer map[string]bool) error {
-	vPodDirsOnDisk, err := os.ReadDir(virtualPodLogsPath)
+func createKubeletVirtualToPhysicalPodLinks(ctx context.Context, vPodDirName, pPodDirName string) {
+	err := os.MkdirAll(vPodDirName, os.ModeDir)
+	if err != nil {
+		klog.Errorf("error creating vPod kubelet directory for %s: %v", vPodDirName, err)
+		return
+	}
+
+	// scan all contents in the physical pod dir
+	// and create equivalent symlinks from virtual
+	// path to physical
+	contents, err := os.ReadDir(pPodDirName)
+	if err != nil {
+		klog.Errorf("error reading physical kubelet pod dir %s: %v", pPodDirName, err)
+		return
+	}
+
+	for _, content := range contents {
+		fullKubeletVirtualPodPath := filepath.Join(vPodDirName, content.Name())
+		fullKubeletPhysicalPodPath := filepath.Join(pPodDirName, content.Name())
+
+		err := os.Symlink(
+			fullKubeletPhysicalPodPath,
+			fullKubeletVirtualPodPath)
+		if err != nil {
+			if !os.IsExist(err) {
+				klog.Errorf("error creating symlink for %s -> %s: %v", fullKubeletVirtualPodPath, fullKubeletPhysicalPodPath, err)
+			}
+		} else {
+			klog.Infof("created kubelet pod symlink %s -> %s", fullKubeletVirtualPodPath, fullKubeletPhysicalPodPath)
+		}
+	}
+}
+
+func cleanupOldPodPath(ctx context.Context, cleanupDirPath string, existingPodPathsFromAPIServer map[string]bool) error {
+	vPodDirsOnDisk, err := os.ReadDir(cleanupDirPath)
 	if err != nil {
 		return err
 	}
 
 	for _, vPodDirOnDisk := range vPodDirsOnDisk {
-		fullVPodDirDiskPath := filepath.Join(virtualPodLogsPath, vPodDirOnDisk.Name())
+		fullVPodDirDiskPath := filepath.Join(cleanupDirPath, vPodDirOnDisk.Name())
 		if _, ok := existingPodPathsFromAPIServer[fullVPodDirDiskPath]; !ok {
 			// this symlink source exists on the disk but the vPod
 			// lo longer exists as per the API server, hence delete
@@ -321,7 +369,7 @@ func getPhysicalLogFilename(ctx context.Context, physicalContainerFileName strin
 	return fileName, nil
 }
 
-func fillUpPodMapping(ctx context.Context, pPodList *corev1.PodList, podMappings PhysicalPodToVirtualPodDetail) {
+func fillUpPodMapping(ctx context.Context, pPodList *corev1.PodList, podMappings PhysicalPodMap) {
 	for _, pPod := range pPodList.Items {
 		lookupName := fmt.Sprintf("%s_%s_%s", pPod.Namespace, pPod.Name, pPod.UID)
 
@@ -373,7 +421,7 @@ func startManagers(ctx context.Context, pManager, vManager manager.Manager) {
 	}()
 }
 
-func createSymlinkToPhysical(ctx context.Context, vPodDirName, pPodDirName string) (*string, error) {
+func createPodLogSymlinkToPhysical(ctx context.Context, vPodDirName, pPodDirName string) (*string, error) {
 	err := os.Symlink(pPodDirName, vPodDirName)
 	if err != nil {
 		if os.IsExist(err) {
