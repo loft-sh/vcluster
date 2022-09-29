@@ -88,8 +88,9 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		name = ctx.Options.ServiceName
 	}
 
-	virtualLogsPath := filepath.Join(
-		fmt.Sprintf(VirtualPathTemplate, ctx.TargetNamespace, name), "log")
+	virtualPath := fmt.Sprintf(VirtualPathTemplate, ctx.TargetNamespace, name)
+	virtualLogsPath := filepath.Join(virtualPath, "log")
+	virtualKubeletPath := filepath.Join(virtualPath, "kubelet")
 
 	return &podSyncer{
 		NamespacedTranslator: namespacedTranslator,
@@ -103,9 +104,10 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		nodeSelector:          nodeSelector,
 		tolerations:           tolerations,
 
-		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
-		virtualLogsPath:     virtualLogsPath,
-		virtualPodLogsPath:  filepath.Join(virtualLogsPath, "pods"),
+		podSecurityStandard:   ctx.Options.EnforcePodSecurityStandard,
+		virtualLogsPath:       virtualLogsPath,
+		virtualPodLogsPath:    filepath.Join(virtualLogsPath, "pods"),
+		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
 	}, nil
 }
 
@@ -122,8 +124,10 @@ type podSyncer struct {
 	tolerations           []*corev1.Toleration
 
 	podSecurityStandard string
-	virtualLogsPath     string
-	virtualPodLogsPath  string
+
+	virtualLogsPath       string
+	virtualPodLogsPath    string
+	virtualKubeletPodPath string
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -247,7 +251,7 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 			if volume.HostPath != nil {
 				if volume.HostPath.Path == PodLoggingHostpathPath &&
 					// avoid recursive rewriting of HostPaths across reconciles
-					!strings.HasSuffix(volume.Name, PhysicalLogVolumeNameSuffix) {
+					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
 					// we can't just mount the new hostpath to the virtual log path
 					// we also need the actual 'physical' hostpath to be mounted
 					// at a separate location and added to the correct containers as
@@ -260,7 +264,25 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 					pPod.Spec.Volumes[i].HostPath.Path = s.virtualPodLogsPath
 
 					ctx.Log.Infof("adding original hostPath to relevant containers")
-					pPod = s.addPhysicalLogPathToVolumesAndCorrectContainers(ctx, volume.Name, volume.HostPath.Type, pPod)
+					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
+						volume.Name,
+						volume.HostPath.Type,
+						PodLoggingHostpathPath,
+						PhysicalLogVolumeMountPath,
+						pPod)
+				}
+
+				if volume.HostPath.Path == KubeletPodPath &&
+					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
+					ctx.Log.Infof("rewriting hostPath for kubelet pods %s", pPod.Name)
+					pPod.Spec.Volumes[i].HostPath.Path = s.virtualKubeletPodPath
+					ctx.Log.Infof("adding original hostPath to relevant containers")
+					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
+						volume.Name,
+						volume.HostPath.Type,
+						KubeletPodPath,
+						PhysicalKubeletVolumeMountPath,
+						pPod)
 				}
 
 				if volume.HostPath.Path == LogHostpathPath {
@@ -273,20 +295,25 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 	return pPod
 }
 
-func (s *podSyncer) addPhysicalLogPathToVolumesAndCorrectContainers(ctx *synccontext.SyncContext, volName string, hostPathType *corev1.HostPathType, pPod *corev1.Pod) *corev1.Pod {
+func (s *podSyncer) addPhysicalPathToVolumesAndCorrectContainers(ctx *synccontext.SyncContext,
+	volName string,
+	hostPathType *corev1.HostPathType,
+	hostPath,
+	physicalVolumeMount string,
+	pPod *corev1.Pod) *corev1.Pod {
 	// add another volume with the correct suffix
 	pPod.Spec.Volumes = append(pPod.Spec.Volumes, corev1.Volume{
-		Name: fmt.Sprintf("%s-%s", volName, PhysicalLogVolumeNameSuffix),
+		Name: fmt.Sprintf("%s-%s", volName, PhysicalVolumeNameSuffix),
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
-				Path: PodLoggingHostpathPath,
+				Path: hostPath,
 				Type: hostPathType,
 			},
 		},
 	})
 
 	// find containers using the original volume and mount this new volume
-	// under /var/physical/log/pods - this will be used by the logmapper
+	// under /var/vcluster/physical/ - this will be used by the hostpathMapper
 	// as the target directory for the symlinks
 	for i, container := range pPod.Spec.Containers {
 		if len(container.VolumeMounts) > 0 {
@@ -296,8 +323,8 @@ func (s *podSyncer) addPhysicalLogPathToVolumesAndCorrectContainers(ctx *synccon
 					// keeping it as it is, we mount the physical volume
 					// at the above specified mount point
 					pVolMount := volumeMount.DeepCopy()
-					pVolMount.Name = fmt.Sprintf("%s-%s", volName, PhysicalLogVolumeNameSuffix)
-					pVolMount.MountPath = PhysicalLogVolumeMountPath
+					pVolMount.Name = fmt.Sprintf("%s-%s", volName, PhysicalVolumeNameSuffix)
+					pVolMount.MountPath = physicalVolumeMount
 
 					pPod.Spec.Containers[i].VolumeMounts = append(pPod.Spec.Containers[i].VolumeMounts, *pVolMount)
 				}
