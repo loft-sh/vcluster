@@ -19,11 +19,11 @@ import (
 )
 
 func TestSync(t *testing.T) {
-	POD_LOGS_VOLUME_NAME := "pod-logs"
-	LOGS_VOLUME_NAME := "logs"
-	KUBELET_POD_VOLUME_NAME := "kubelet-pods"
-	NAMESPACE := "test"
-	HOSTPATH_POD_NAME := "test-hostpaths"
+	PodLogsVolumeName := "pod-logs"
+	LogsVolumeName := "logs"
+	KubeletPodVolumeName := "kubelet-pods"
+	Namespace := "test"
+	HostpathPodName := "test-hostpaths"
 
 	pVclusterService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -132,8 +132,8 @@ func TestSync(t *testing.T) {
 
 	vHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      HOSTPATH_POD_NAME,
-			Namespace: NAMESPACE,
+			Name:      HostpathPodName,
+			Namespace: Namespace,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -142,15 +142,15 @@ func TestSync(t *testing.T) {
 					Image: "nginx",
 					VolumeMounts: []corev1.VolumeMount{
 						{
-							Name:      POD_LOGS_VOLUME_NAME,
+							Name:      PodLogsVolumeName,
 							MountPath: PodLoggingHostpathPath,
 						},
 						{
-							Name:      LOGS_VOLUME_NAME,
+							Name:      LogsVolumeName,
 							MountPath: LogHostpathPath,
 						},
 						{
-							Name:      KUBELET_POD_VOLUME_NAME,
+							Name:      KubeletPodVolumeName,
 							MountPath: KubeletPodPath,
 						},
 					},
@@ -158,7 +158,7 @@ func TestSync(t *testing.T) {
 			},
 			Volumes: []corev1.Volume{
 				{
-					Name: POD_LOGS_VOLUME_NAME,
+					Name: PodLogsVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
 							Path: PodLoggingHostpathPath,
@@ -166,7 +166,7 @@ func TestSync(t *testing.T) {
 					},
 				},
 				{
-					Name: LOGS_VOLUME_NAME,
+					Name: LogsVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
 							Path: LogHostpathPath,
@@ -174,7 +174,7 @@ func TestSync(t *testing.T) {
 					},
 				},
 				{
-					Name: KUBELET_POD_VOLUME_NAME,
+					Name: KubeletPodVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
 							Path: KubeletPodPath,
@@ -185,11 +185,11 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	vHostPath := fmt.Sprintf(VirtualPathTemplate, NAMESPACE, generictesting.DefaultTestVclusterName)
+	vHostPath := fmt.Sprintf(VirtualPathTemplate, Namespace, generictesting.DefaultTestVclusterName)
 
 	pHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName(HOSTPATH_POD_NAME, NAMESPACE),
+			Name:      translate.PhysicalName(HostpathPodName, Namespace),
 			Namespace: generictesting.DefaultTestCurrentNamespace,
 		},
 	}
@@ -200,23 +200,23 @@ func TestSync(t *testing.T) {
 				Image: "nginx",
 				VolumeMounts: []corev1.VolumeMount{
 					{
-						Name:      POD_LOGS_VOLUME_NAME,
+						Name:      PodLogsVolumeName,
 						MountPath: PodLoggingHostpathPath,
 					},
 					{
-						Name:      LOGS_VOLUME_NAME,
+						Name:      LogsVolumeName,
 						MountPath: LogHostpathPath,
 					},
 					{
-						Name:      KUBELET_POD_VOLUME_NAME,
+						Name:      KubeletPodVolumeName,
 						MountPath: KubeletPodPath,
 					},
 					{
-						Name:      POD_LOGS_VOLUME_NAME + PhysicalVolumeNameSuffix,
+						Name:      PodLogsVolumeName + PhysicalVolumeNameSuffix,
 						MountPath: PhysicalLogVolumeMountPath,
 					},
 					{
-						Name:      KUBELET_POD_VOLUME_NAME + PhysicalVolumeNameSuffix,
+						Name:      KubeletPodVolumeName + PhysicalVolumeNameSuffix,
 						MountPath: PhysicalKubeletVolumeMountPath,
 					},
 				},
@@ -225,7 +225,7 @@ func TestSync(t *testing.T) {
 
 		Volumes: []corev1.Volume{
 			{
-				Name: POD_LOGS_VOLUME_NAME,
+				Name: PodLogsVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
 						Path: vHostPath + "/log/pods",
@@ -233,7 +233,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			{
-				Name: LOGS_VOLUME_NAME,
+				Name: LogsVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
 						Path: vHostPath + "/log",
@@ -241,7 +241,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			{
-				Name: KUBELET_POD_VOLUME_NAME,
+				Name: KubeletPodVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
 						Path: vHostPath + "/kubelet/pods",
@@ -249,7 +249,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			{
-				Name: POD_LOGS_VOLUME_NAME + PhysicalVolumeNameSuffix,
+				Name: PodLogsVolumeName + PhysicalVolumeNameSuffix,
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
 						Path: PodLoggingHostpathPath,
@@ -257,7 +257,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			{
-				Name: KUBELET_POD_VOLUME_NAME + PhysicalVolumeNameSuffix,
+				Name: KubeletPodVolumeName + PhysicalVolumeNameSuffix,
 				VolumeSource: corev1.VolumeSource{
 					HostPath: &corev1.HostPathVolumeSource{
 						Path: KubeletPodPath,
@@ -366,7 +366,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"): {pHostPathPod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.TargetNamespace = NAMESPACE
+				ctx.TargetNamespace = Namespace
 				ctx.Options.Name = generictesting.DefaultTestVclusterName
 				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
