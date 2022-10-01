@@ -255,7 +255,7 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 					// we can't just mount the new hostpath to the virtual log path
 					// we also need the actual 'physical' hostpath to be mounted
 					// at a separate location and added to the correct containers as
-					// only then the symlink targets created by logmapper would be
+					// only then the symlink targets created by hostpath-mapper would be
 					// able to point to the actual log files to be traced.
 					// Also we need to make sure this physical log path is not a
 					// path used by the scraping agent - which should only see the

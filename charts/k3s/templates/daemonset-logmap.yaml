@@ -1,6 +1,6 @@
-{{- if .Values.logmapper.enabled }}
+{{- if .Values.hostpathMapper.enabled }}
 apiVersion: apps/v1
-{{- if not .Values.logmapper.dev }}
+{{- if not .Values.hostpathMapper.dev }}
 kind: DaemonSet
 {{- else  }}
 kind: Deployment
@@ -9,8 +9,8 @@ metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: vcluster-logmapper
-    component: logmapper
+    app: vcluster-hostpath-mapper
+    component: hostpath-mapper
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
@@ -22,20 +22,20 @@ metadata:
 {{ toYaml .Values.annotations | indent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.logmapper.dev }}
+  {{- if .Values.hostpathMapper.dev }}
   replicas: 1
   {{- end }}
   selector:
     matchLabels:
-      app: vcluster-logmapper
+      app: vcluster-hostpath-mapper
       release: {{ .Release.Name }}
-      component: logmapper
+      component: hostpath-mapper
   template:
     metadata:
       labels:
-        app: vcluster-logmapper
+        app: vcluster-hostpath-mapper
         release: {{ .Release.Name }}
-        component: logmapper
+        component: hostpath-mapper
     spec:
       {{- if .Values.serviceAccount.name }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
@@ -43,9 +43,9 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       containers:
-      - name: logmapper
-        {{- if .Values.logmapper.image }}
-        image: "{{ .Values.defaultImageRegistry }}{{ .Values.logmapper.image }}"
+      - name: hostpath-mapper
+        {{- if .Values.hostpathMapper.image }}
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.hostpathMapper.image }}"
         {{- else }}
         image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
         {{- end }}

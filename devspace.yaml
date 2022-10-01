@@ -111,7 +111,7 @@ dev:
         - '!/manifests'
 
 profiles:
-  - name: dev-logmapper
+  - name: dev-hostpath-mapper
     patches:
       - op: remove
         path: dev.vcluster.imageSelector
@@ -120,13 +120,13 @@ profiles:
       - op: add
         path: dev.vcluster.labelSelector
         value:
-          component: logmapper
+          component: hostpath-mapper
     merge:
       deployments:
         vcluster-k3s:
           helm:
             values:
-              logmapper:
+              hostpathMapper:
                 image: ${SYNCER_IMAGE}
                 enabled: true
                 dev: true

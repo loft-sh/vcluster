@@ -93,7 +93,7 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
-logmapper:
+hostpath-mapper:
   enabled: false
   dev: false
 

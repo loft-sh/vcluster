@@ -1,6 +1,7 @@
 package pods
 
 import (
+	"fmt"
 	"testing"
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -18,6 +19,12 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	POD_LOGS_VOLUME_NAME := "pod-logs"
+	LOGS_VOLUME_NAME := "logs"
+	KUBELET_POD_VOLUME_NAME := "kubelet-pods"
+	NAMESPACE := "test"
+	HOSTPATH_POD_NAME := "test-hostpaths"
+
 	pVclusterService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      generictesting.DefaultTestVclusterServiceName,
@@ -123,6 +130,143 @@ func TestSync(t *testing.T) {
 		},
 	}
 
+	vHostPathPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      HOSTPATH_POD_NAME,
+			Namespace: NAMESPACE,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "nginx-placeholder",
+					Image: "nginx",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      POD_LOGS_VOLUME_NAME,
+							MountPath: PodLoggingHostpathPath,
+						},
+						{
+							Name:      LOGS_VOLUME_NAME,
+							MountPath: LogHostpathPath,
+						},
+						{
+							Name:      KUBELET_POD_VOLUME_NAME,
+							MountPath: KubeletPodPath,
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: POD_LOGS_VOLUME_NAME,
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: PodLoggingHostpathPath,
+						},
+					},
+				},
+				{
+					Name: LOGS_VOLUME_NAME,
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: LogHostpathPath,
+						},
+					},
+				},
+				{
+					Name: KUBELET_POD_VOLUME_NAME,
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: KubeletPodPath,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	vHostPath := fmt.Sprintf(VirtualPathTemplate, NAMESPACE, generictesting.DefaultTestVclusterName)
+
+	pHostPathPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.PhysicalName(HOSTPATH_POD_NAME, NAMESPACE),
+			Namespace: generictesting.DefaultTestCurrentNamespace,
+		},
+	}
+	pHostPathPod.Spec = corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "nginx-placeholder",
+				Image: "nginx",
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      POD_LOGS_VOLUME_NAME,
+						MountPath: PodLoggingHostpathPath,
+					},
+					{
+						Name:      LOGS_VOLUME_NAME,
+						MountPath: LogHostpathPath,
+					},
+					{
+						Name:      KUBELET_POD_VOLUME_NAME,
+						MountPath: KubeletPodPath,
+					},
+					{
+						Name:      POD_LOGS_VOLUME_NAME + PhysicalVolumeNameSuffix,
+						MountPath: PhysicalLogVolumeMountPath,
+					},
+					{
+						Name:      KUBELET_POD_VOLUME_NAME + PhysicalVolumeNameSuffix,
+						MountPath: PhysicalKubeletVolumeMountPath,
+					},
+				},
+			},
+		},
+
+		Volumes: []corev1.Volume{
+			{
+				Name: POD_LOGS_VOLUME_NAME,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: vHostPath + "/log/pods",
+					},
+				},
+			},
+			{
+				Name: LOGS_VOLUME_NAME,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: vHostPath + "/log",
+					},
+				},
+			},
+			{
+				Name: KUBELET_POD_VOLUME_NAME,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: vHostPath + "/kubelet/pods",
+					},
+				},
+			},
+			{
+				Name: POD_LOGS_VOLUME_NAME + PhysicalVolumeNameSuffix,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: PodLoggingHostpathPath,
+					},
+				},
+			},
+			{
+				Name: KUBELET_POD_VOLUME_NAME + PhysicalVolumeNameSuffix,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: KubeletPodPath,
+					},
+				},
+			},
+		},
+	}
+
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Delete virtual pod",
@@ -209,6 +353,23 @@ func TestSync(t *testing.T) {
 				ctx.Options.EnforcePodSecurityStandard = string(api.LevelRestricted)
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSSR.DeepCopy())
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Map hostpaths",
+			InitialVirtualState:  []runtime.Object{vHostPathPod},
+			InitialPhysicalState: []runtime.Object{},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vHostPathPod}},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pHostPathPod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.TargetNamespace = NAMESPACE
+				ctx.Options.Name = generictesting.DefaultTestVclusterName
+				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
