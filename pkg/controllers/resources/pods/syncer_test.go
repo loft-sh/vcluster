@@ -22,7 +22,6 @@ func TestSync(t *testing.T) {
 	PodLogsVolumeName := "pod-logs"
 	LogsVolumeName := "logs"
 	KubeletPodVolumeName := "kubelet-pods"
-	// Namespace := "test"
 	HostpathPodName := "test-hostpaths"
 
 	pPodContainerEnv := []corev1.EnvVar{
@@ -243,8 +242,8 @@ func TestSync(t *testing.T) {
 				translate.NamespaceLabel: vHostPathPod.Namespace,
 				translate.MarkerLabel:    translate.Suffix,
 			},
-			CreationTimestamp: metav1.Time{},
-			ResourceVersion:   "999",
+			// CreationTimestamp: metav1.Time{},
+			// ResourceVersion:   "999",
 		},
 		Spec: corev1.PodSpec{
 			AutomountServiceAccountToken: pointer.Bool(false),
@@ -423,16 +422,13 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{vHostPathPod, vHostpathNamespace},
 			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"):       {vHostPathPod.DeepCopy()},
-				corev1.SchemeGroupVersion.WithKind("Namespace"): {vHostpathNamespace.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vHostPathPod.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"):       {pHostPathPod.DeepCopy()},
-				corev1.SchemeGroupVersion.WithKind("Namespace"): {vHostpathNamespace.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pHostPathPod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.TargetNamespace = generictesting.DefaultTestTargetNamespace
-				// ctx.Options.Name = generictesting.DefaultTestVclusterName
 				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
 				assert.NilError(t, err)
