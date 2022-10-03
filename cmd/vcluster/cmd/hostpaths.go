@@ -204,10 +204,12 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, optio
 			return
 		}
 
+		existingVPodsWithNamespace := make(map[string]bool)
 		existingPodsPath := make(map[string]bool)
 		existingKubeletPodsPath := make(map[string]bool)
 
 		for _, vPod := range vPodList.Items {
+			existingVPodsWithNamespace[fmt.Sprintf("%s_%s", vPod.Name, vPod.Namespace)] = true
 			pName := translate.PhysicalName(vPod.Name, vPod.Namespace)
 
 			if podDetail, ok := podMappings[pName]; ok {
@@ -233,9 +235,6 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, optio
 				// create container to vPod symlinks
 				containerSymlinkTargetDir := filepath.Join(PodLogsMountPath,
 					fmt.Sprintf("%s_%s_%s", vPod.Namespace, vPod.Name, string(vPod.UID)))
-				// TODO: cleanup old container symlinks
-				// should be probably done with info from
-				// existingPodsPath: L234
 				createContainerToPodSymlink(ctx, vPod, podDetail, containerSymlinkTargetDir)
 			}
 		}
@@ -246,6 +245,15 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, optio
 			klog.Errorf("error cleaning up old pod log paths: %v", err)
 		}
 
+		// cleanup old container symlinks
+		// QUESTION: current mechanism cleans up container symlinks
+		// for old pods, but does not cleanup for container restarts
+		// should we be supporting that too?
+		err = cleanupOldContainerPaths(ctx, existingVPodsWithNamespace)
+		if err != nil {
+			klog.Errorf("error cleaning up old container log paths: %v", err)
+		}
+
 		// QUESTION: should we clear this immediately, would there be
 		// repercussions as we might miss some backups if we delete immediately
 		err = cleanupOldPodPath(ctx, virtualKubeletPodPath, existingKubeletPodsPath)
@@ -253,7 +261,35 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, optio
 			klog.Errorf("error cleaning up old kubelet pod paths: %v", err)
 		}
 
+		klog.Infof("successfully reconciled mapper")
+
 	}, time.Second*5)
+}
+
+func cleanupOldContainerPaths(ctx context.Context, existingVPodsWithNS map[string]bool) error {
+	vPodsContainersOnDisk, err := os.ReadDir(virtualContainerLogsPath)
+	if err != nil {
+		return err
+	}
+
+	for _, vPodContainerOnDisk := range vPodsContainersOnDisk {
+		nameParts := strings.Split(vPodContainerOnDisk.Name(), "_")
+		vPodOnDiskName, vPodOnDiskNS := nameParts[0], nameParts[1]
+
+		if _, ok := existingVPodsWithNS[fmt.Sprintf("%s_%s", vPodOnDiskName, vPodOnDiskNS)]; !ok {
+			// this pod no longer exists, hence this container
+			// belonging to it should no longer exist either
+			fullPathToCleanup := filepath.Join(virtualContainerLogsPath, vPodContainerOnDisk.Name())
+
+			klog.Infof("cleaning up %s", fullPathToCleanup)
+			err := os.RemoveAll(fullPathToCleanup)
+			if err != nil {
+				klog.Errorf("error deleting symlink %s: %v", fullPathToCleanup, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func createKubeletVirtualToPhysicalPodLinks(ctx context.Context, vPodDirName, pPodDirName string) {
