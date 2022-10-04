@@ -6,7 +6,7 @@ kind: DaemonSet
 kind: Deployment
 {{- end }}
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ .Release.Name }}-hostpath-mapper
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster-hostpath-mapper

@@ -44,12 +44,10 @@ type PodDetail struct {
 	PhysicalPod corev1.Pod
 }
 
-var (
-	virtualPath              string
-	virtualLogsPath          string
-	virtualPodLogsPath       string
-	virtualContainerLogsPath string
-	virtualKubeletPodPath    string
+type key int
+
+const (
+	optionsKey key = iota
 )
 
 func NewHostpathMapperCommand() *cobra.Command {
@@ -63,44 +61,27 @@ func NewHostpathMapperCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&options.KubeConfigContextName, "kube-config-context-name", "", "If set, will override the context name of the generated virtual cluster kube config with this name")
-	// cmd.Flags().StringSliceVar(&options.Controllers, "sync", []string{}, "A list of sync controllers to enable. 'foo' enables the sync controller named 'foo', '-foo' disables the sync controller named 'foo'")
-	cmd.Flags().StringVar(&options.RequestHeaderCaCert, "request-header-ca-cert", "/data/server/tls/request-header-ca.crt", "The path to the request header ca certificate")
 	cmd.Flags().StringVar(&options.ClientCaCert, "client-ca-cert", "/data/server/tls/client-certificate", "The path to the client ca certificate")
 	cmd.Flags().StringVar(&options.ServerCaCert, "server-ca-cert", "/data/server/tls/certificate-authority", "The path to the server ca certificate")
 	cmd.Flags().StringVar(&options.ServerCaKey, "server-ca-key", "/data/server/tls/client-key", "The path to the server ca key")
-	cmd.Flags().StringVar(&options.KubeConfigPath, "kube-config", "/data/server/tls/config", "The path to the virtual cluster admin kube config")
-	cmd.Flags().StringSliceVar(&options.TLSSANs, "tls-san", []string{}, "Add additional hostname or IP as a Subject Alternative Name in the TLS cert")
-
-	cmd.Flags().StringVar(&options.KubeConfigSecret, "out-kube-config-secret", "", "If specified, the virtual cluster will write the generated kube config to the given secret")
-	cmd.Flags().StringVar(&options.KubeConfigSecretNamespace, "out-kube-config-secret-namespace", "", "If specified, the virtual cluster will write the generated kube config in the given namespace")
-	cmd.Flags().StringVar(&options.KubeConfigServer, "out-kube-config-server", "", "If specified, the virtual cluster will use this server for the generated kube config (e.g. https://my-vcluster.domain.com)")
 
 	cmd.Flags().StringVar(&options.TargetNamespace, "target-namespace", "vcluster", "The namespace to run the virtual cluster in (defaults to current namespace)")
-	cmd.Flags().StringVar(&options.ServiceName, "service-name", "", "The service name where the vcluster proxy will be available")
-	cmd.Flags().BoolVar(&options.SetOwner, "set-owner", true, "If true, will set the same owner the currently running syncer pod has on the synced resources")
 
 	cmd.Flags().StringVar(&options.Name, "name", "vcluster", "The name of the virtual cluster")
-	cmd.Flags().StringVar(&options.BindAddress, "bind-address", "0.0.0.0", "The address to bind the server to")
-	cmd.Flags().IntVar(&options.Port, "port", 8443, "The port to bind to")
-
-	cmd.Flags().BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
-
-	cmd.Flags().StringVar(&options.ServiceAccount, "service-account", "", "If set, will set this host service account on the synced pods")
 
 	return cmd
 }
 
 func MapHostPaths(options *context2.VirtualClusterOptions) error {
-	virtualPath = fmt.Sprintf(pods.VirtualPathTemplate, options.TargetNamespace, options.Name)
+	virtualPath := fmt.Sprintf(pods.VirtualPathTemplate, options.TargetNamespace, options.Name)
 
-	virtualKubeletPodPath = filepath.Join(virtualPath, "kubelet", "pods")
-	virtualLogsPath = filepath.Join(virtualPath, "log")
-	virtualPodLogsPath = filepath.Join(virtualLogsPath, "pods")
+	options.VirtualKubeletPodPath = filepath.Join(virtualPath, "kubelet", "pods")
+	options.VirtualLogsPath = filepath.Join(virtualPath, "log")
+	options.VirtualPodLogsPath = filepath.Join(options.VirtualLogsPath, "pods")
 
-	virtualContainerLogsPath = filepath.Join(virtualLogsPath, "containers")
+	options.VirtualContainerLogsPath = filepath.Join(options.VirtualLogsPath, "containers")
 
-	err := os.Mkdir(virtualContainerLogsPath, os.ModeDir)
+	err := os.Mkdir(options.VirtualContainerLogsPath, os.ModeDir)
 	if err != nil {
 		if !os.IsExist(err) {
 			klog.Errorf("error creating container dir in log path: %v", err)
@@ -171,16 +152,18 @@ func MapHostPaths(options *context2.VirtualClusterOptions) error {
 		return err
 	}
 
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), optionsKey, options)
 
 	startManagers(ctx, localManager, virtualClusterManager)
 
-	mapHostPaths(ctx, localManager, virtualClusterManager, options)
+	mapHostPaths(ctx, localManager, virtualClusterManager)
 
 	return nil
 }
 
-func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, options *context2.VirtualClusterOptions) {
+func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager) {
+	options := ctx.Value(optionsKey).(*context2.VirtualClusterOptions)
+
 	wait.Forever(func() {
 		podList := &corev1.PodList{}
 		err := pManager.GetClient().List(ctx, podList, &client.ListOptions{Namespace: options.TargetNamespace})
@@ -214,7 +197,7 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, optio
 
 			if podDetail, ok := podMappings[pName]; ok {
 				// create pod log symlink
-				source := filepath.Join(virtualPodLogsPath, fmt.Sprintf("%s_%s_%s", vPod.Namespace, vPod.Name, string(vPod.UID)))
+				source := filepath.Join(options.VirtualPodLogsPath, fmt.Sprintf("%s_%s_%s", vPod.Namespace, vPod.Name, string(vPod.UID)))
 				target := filepath.Join(pods.PhysicalLogVolumeMountPath, podDetail.Target)
 
 				existingPodsPath[source] = true
@@ -225,7 +208,7 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, optio
 				}
 
 				// create kubelet pod symlink
-				kubeletPodSymlinkSource := filepath.Join(virtualKubeletPodPath, string(vPod.GetUID()))
+				kubeletPodSymlinkSource := filepath.Join(options.VirtualKubeletPodPath, string(vPod.GetUID()))
 				kubeletPodSymlinkTarget := filepath.Join(pods.PhysicalKubeletVolumeMountPath, string(podDetail.PhysicalPod.GetUID()))
 				existingKubeletPodsPath[kubeletPodSymlinkSource] = true
 				createKubeletVirtualToPhysicalPodLinks(ctx, kubeletPodSymlinkSource, kubeletPodSymlinkTarget)
@@ -240,23 +223,17 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, optio
 		}
 
 		// cleanup old pod symlinks
-		err = cleanupOldPodPath(ctx, virtualPodLogsPath, existingPodsPath)
+		err = cleanupOldPodPath(ctx, options.VirtualPodLogsPath, existingPodsPath)
 		if err != nil {
 			klog.Errorf("error cleaning up old pod log paths: %v", err)
 		}
 
-		// cleanup old container symlinks
-		// QUESTION: current mechanism cleans up container symlinks
-		// for old pods, but does not cleanup for container restarts
-		// should we be supporting that too?
 		err = cleanupOldContainerPaths(ctx, existingVPodsWithNamespace)
 		if err != nil {
 			klog.Errorf("error cleaning up old container log paths: %v", err)
 		}
 
-		// QUESTION: should we clear this immediately, would there be
-		// repercussions as we might miss some backups if we delete immediately
-		err = cleanupOldPodPath(ctx, virtualKubeletPodPath, existingKubeletPodsPath)
+		err = cleanupOldPodPath(ctx, options.VirtualKubeletPodPath, existingKubeletPodsPath)
 		if err != nil {
 			klog.Errorf("error cleaning up old kubelet pod paths: %v", err)
 		}
@@ -267,7 +244,9 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager, optio
 }
 
 func cleanupOldContainerPaths(ctx context.Context, existingVPodsWithNS map[string]bool) error {
-	vPodsContainersOnDisk, err := os.ReadDir(virtualContainerLogsPath)
+	options := ctx.Value(optionsKey).(*context2.VirtualClusterOptions)
+
+	vPodsContainersOnDisk, err := os.ReadDir(options.VirtualContainerLogsPath)
 	if err != nil {
 		return err
 	}
@@ -279,7 +258,7 @@ func cleanupOldContainerPaths(ctx context.Context, existingVPodsWithNS map[strin
 		if _, ok := existingVPodsWithNS[fmt.Sprintf("%s_%s", vPodOnDiskName, vPodOnDiskNS)]; !ok {
 			// this pod no longer exists, hence this container
 			// belonging to it should no longer exist either
-			fullPathToCleanup := filepath.Join(virtualContainerLogsPath, vPodContainerOnDisk.Name())
+			fullPathToCleanup := filepath.Join(options.VirtualContainerLogsPath, vPodContainerOnDisk.Name())
 
 			klog.Infof("cleaning up %s", fullPathToCleanup)
 			err := os.RemoveAll(fullPathToCleanup)
@@ -331,9 +310,34 @@ func cleanupOldPodPath(ctx context.Context, cleanupDirPath string, existingPodPa
 		return err
 	}
 
+	options := ctx.Value(optionsKey).(*context2.VirtualClusterOptions)
+
 	for _, vPodDirOnDisk := range vPodDirsOnDisk {
 		fullVPodDirDiskPath := filepath.Join(cleanupDirPath, vPodDirOnDisk.Name())
 		if _, ok := existingPodPathsFromAPIServer[fullVPodDirDiskPath]; !ok {
+
+			if cleanupDirPath == options.VirtualKubeletPodPath {
+				// check if the symlinks resolve
+				symlinks, err := os.ReadDir(fullVPodDirDiskPath)
+				if err != nil {
+					klog.Errorf("error iterating over vpod dir %s: %v", fullVPodDirDiskPath, err)
+				}
+
+				for _, sl := range symlinks {
+					target := filepath.Join(fullVPodDirDiskPath, sl.Name())
+					_, readLinkErr := os.Readlink(target)
+					if readLinkErr != nil {
+						// symlink no longer resolves, hence delete
+						klog.Infof("cleaning up %s", target)
+						err := os.RemoveAll(target)
+						if err != nil {
+							klog.Errorf("error deleting symlink %s: %v", target, err)
+						}
+					}
+				}
+				continue
+			}
+
 			// this symlink source exists on the disk but the vPod
 			// lo longer exists as per the API server, hence delete
 			// the symlink
@@ -349,6 +353,8 @@ func cleanupOldPodPath(ctx context.Context, cleanupDirPath string, existingPodPa
 }
 
 func createContainerToPodSymlink(ctx context.Context, vPod corev1.Pod, pPodDetail *PodDetail, targetDir string) {
+	options := ctx.Value(optionsKey).(*context2.VirtualClusterOptions)
+
 	for _, containerStatus := range vPod.Status.ContainerStatuses {
 		_, containerID, _ := strings.Cut(containerStatus.ContainerID, "://")
 		containerName := containerStatus.Name
@@ -373,7 +379,7 @@ func createContainerToPodSymlink(ctx context.Context, vPod corev1.Pod, pPodDetai
 		}
 
 		target := filepath.Join(targetDir, containerName, physicalLogFileName)
-		source = filepath.Join(virtualContainerLogsPath, source)
+		source = filepath.Join(options.VirtualContainerLogsPath, source)
 
 		err = os.Symlink(target, source)
 		if err != nil {

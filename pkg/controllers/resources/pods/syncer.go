@@ -232,7 +232,6 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 		}
 	}
 
-	ctx.Log.Infof("checking if pod mounts any volume")
 	pPod = s.checkAndRewriteHostPath(ctx, pPod)
 
 	// if scheduler is enabled we only sync if the pod has a node name
@@ -245,7 +244,7 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 
 func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *corev1.Pod) *corev1.Pod {
 	if len(pPod.Spec.Volumes) > 0 {
-		ctx.Log.Infof("checking for hostpath volumes")
+		ctx.Log.Debugf("checking for hostpath volumes")
 
 		for i, volume := range pPod.Spec.Volumes {
 			if volume.HostPath != nil {

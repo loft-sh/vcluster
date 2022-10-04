@@ -94,7 +94,6 @@ mapServices:
 
 hostpathMapper:
   enabled: false
-  dev: false
 
 # Syncer configuration
 syncer:

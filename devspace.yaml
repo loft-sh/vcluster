@@ -13,8 +13,6 @@ images:
     dockerfile: ./Dockerfile
     image: ${SYNCER_IMAGE}
     rebuildStrategy: ignoreContextChanges
-    buildArgs:
-      TARGETARCH: amd64
     target: builder
     buildKit: {}
 
