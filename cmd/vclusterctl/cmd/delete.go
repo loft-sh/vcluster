@@ -129,8 +129,8 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(vClusters) > 1 {
-		// set to false if there are more than 1 virtual clusters in the same namespace
+	if len(vClusters) > 0 {
+		// set to false if there are any virtual clusters running in the same namespace. The vcluster supposed to be deleted by the command has been deleted by now and hence the check should be greater than 0
 		cmd.DeleteNamespace = false
 	}
 
