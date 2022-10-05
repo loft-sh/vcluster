@@ -148,16 +148,6 @@ func (cmd *CreateCmd) Run(args []string) error {
 		return err
 	}
 
-	vclusterExistsInNamespace, err := cmd.vclusterExistsInNamespace()
-	if err != nil {
-		cmd.log.Errorf("error while listing clusters to check if the vcluster is already present in the namespace : %s", err)
-		return err
-	}
-	if !cmd.Upgrade && vclusterExistsInNamespace {
-		cmd.log.Errorf("another vcluster is already present in %s namespace, please try another namespace.", cmd.Namespace)
-		return nil
-	}
-
 	// load the default values
 	chartOptions, err := cmd.ToChartOptions(kubernetesVersion)
 	if err != nil {
@@ -516,17 +506,4 @@ func (cmd *CreateCmd) getKubernetesVersion() (*version.Info, error) {
 	}
 
 	return kubernetesVersion, nil
-}
-
-func (cmd *CreateCmd) vclusterExistsInNamespace() (bool, error) {
-	vClusters, err := find.ListVClusters(cmd.Context, "", cmd.Namespace)
-	if err != nil {
-		return false, err
-	}
-	for _, cluster := range vClusters {
-		if cluster.Namespace == cmd.Namespace {
-			return true, nil
-		}
-	}
-	return false, nil
 }
