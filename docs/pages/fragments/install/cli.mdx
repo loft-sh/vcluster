@@ -16,14 +16,14 @@ import TabItem from '@theme/TabItem'
 <TabItem value="mac">
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-amd64" && sudo install -c -m 0755 vcluster /usr/local/bin
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/download/latest/vcluster-darwin-amd64" && sudo install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </TabItem>
 <TabItem value="mac-arm">
 
 ```bash
-curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-darwin-arm64" && sudo install -c -m 0755 vcluster /usr/local/bin
+curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/download/latest/vcluster-darwin-arm64" && sudo install -c -m 0755 vcluster /usr/local/bin
 ```
 
 </TabItem>
@@ -45,7 +45,7 @@ curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/downloa
 
 ```powershell {4}
 md -Force "$Env:APPDATA\vcluster"; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]'Tls,Tls11,Tls12';
-Invoke-WebRequest -URI "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-windows-amd64.exe" -o $Env:APPDATA\vcluster\vcluster.exe;
+Invoke-WebRequest -URI "https://github.com/loft-sh/vcluster/releases/download/latest/vcluster-windows-amd64.exe" -o $Env:APPDATA\vcluster\vcluster.exe;
 $env:Path += ";" + $Env:APPDATA + "\vcluster";
 [Environment]::SetEnvironmentVariable("Path", $env:Path, [System.EnvironmentVariableTarget]::User);
 ```
