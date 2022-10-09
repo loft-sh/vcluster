@@ -217,7 +217,7 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager) {
 			if podDetail, ok := podMappings[pName]; ok {
 				// create pod log symlink
 				source := filepath.Join(options.VirtualPodLogsPath, fmt.Sprintf("%s_%s_%s", vPod.Namespace, vPod.Name, string(vPod.UID)))
-				target := filepath.Join(pods.PhysicalLogVolumeMountPath, podDetail.Target)
+				target := filepath.Join(pods.PhysicalPodLogVolumeMountPath, podDetail.Target)
 
 				existingPodsPath[source] = true
 

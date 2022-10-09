@@ -10,6 +10,7 @@ const (
 
 	PhysicalVolumeNameSuffix = "vcluster-physical"
 
-	PhysicalLogVolumeMountPath     = "/var/vcluster/physical/log/pods"
+	PhysicalLogVolumeMountPath     = "/var/vcluster/physical/log"
+	PhysicalPodLogVolumeMountPath  = "/var/vcluster/physical/log/pods"
 	PhysicalKubeletVolumeMountPath = "/var/vcluster/physical/kubelet/pods"
 )

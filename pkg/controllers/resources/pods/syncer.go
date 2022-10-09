@@ -72,6 +72,7 @@ var (
 //   mountPropagation: Bidirectional
 type ContainerPhysicalMountPathRegister struct {
 	KubeletMountPath map[string]bool
+	PodLogMountPath  map[string]bool
 	LogMountPath     map[string]bool
 }
 
@@ -283,6 +284,7 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 
 		containersWithPhysicalMountPaths := ContainerPhysicalMountPathRegister{
 			KubeletMountPath: make(map[string]bool),
+			PodLogMountPath:  make(map[string]bool),
 			LogMountPath:     make(map[string]bool),
 		}
 
@@ -307,7 +309,7 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 						volume.Name,
 						volume.HostPath.Type,
 						PodLoggingHostpathPath,
-						PhysicalLogVolumeMountPath,
+						PhysicalPodLogVolumeMountPath,
 						containersWithPhysicalMountPaths,
 						pPod)
 				}
@@ -331,7 +333,7 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
 						volume.Name,
 						volume.HostPath.Type,
-						PodLoggingHostpathPath,
+						LogHostpathPath,
 						PhysicalLogVolumeMountPath,
 						containersWithPhysicalMountPaths,
 						pPod)
@@ -371,6 +373,8 @@ func (s *podSyncer) addPhysicalPathToVolumesAndCorrectContainers(ctx *synccontex
 
 			if physicalVolumeMount == PhysicalKubeletVolumeMountPath {
 				registerToCheck = containersWithPhysicalMountPaths.KubeletMountPath
+			} else if physicalVolumeMount == PhysicalPodLogVolumeMountPath {
+				registerToCheck = containersWithPhysicalMountPaths.PodLogMountPath
 			} else {
 				registerToCheck = containersWithPhysicalMountPaths.LogMountPath
 			}

@@ -273,6 +273,10 @@ func TestSync(t *testing.T) {
 						},
 						{
 							Name:      fmt.Sprintf("%s-%s", PodLogsVolumeName, PhysicalVolumeNameSuffix),
+							MountPath: PhysicalPodLogVolumeMountPath,
+						},
+						{
+							Name:      fmt.Sprintf("%s-%s", LogsVolumeName, PhysicalVolumeNameSuffix),
 							MountPath: PhysicalLogVolumeMountPath,
 						},
 						{
@@ -313,6 +317,14 @@ func TestSync(t *testing.T) {
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
 							Path: PodLoggingHostpathPath,
+						},
+					},
+				},
+				{
+					Name: fmt.Sprintf("%s-%s", LogsVolumeName, PhysicalVolumeNameSuffix),
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: LogHostpathPath,
 						},
 					},
 				},
