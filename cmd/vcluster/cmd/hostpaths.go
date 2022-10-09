@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -31,9 +32,22 @@ const (
 	LogsMountPath    = "/var/log"
 	PodLogsMountPath = "/var/log/pods"
 
+	NodeIndexName                    = "spec.nodeName"
+	HostpathMapperSelfNodeNameEnvVar = "VCLUSTER_HOSTPATH_MAPPER_CURRENT_NODE_NAME"
+
 	// naming format <pod_name>_<namespace>_<container_name>-<containerdID(hash, with <docker/cri>:// prefix removed)>.log
 	ContainerSymlinkSourceTemplate = "%s_%s_%s-%s.log"
 )
+
+func podNodeIndexer(obj client.Object) []string {
+	res := []string{}
+	pod := obj.(*corev1.Pod)
+	if pod.Spec.NodeName != "" {
+		res = append(res, pod.Spec.NodeName)
+	}
+
+	return res
+}
 
 // map of physical pod names to the corresponding virtual pod
 type PhysicalPodMap map[string]*PodDetail
@@ -166,7 +180,12 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager) {
 
 	wait.Forever(func() {
 		podList := &corev1.PodList{}
-		err := pManager.GetClient().List(ctx, podList, &client.ListOptions{Namespace: options.TargetNamespace})
+		err := pManager.GetClient().List(ctx, podList, &client.ListOptions{
+			Namespace: options.TargetNamespace,
+			FieldSelector: fields.SelectorFromSet(fields.Set{
+				NodeIndexName: os.Getenv(HostpathMapperSelfNodeNameEnvVar),
+			}),
+		})
 		if err != nil {
 			klog.Errorf("unable to list pods: %v", err)
 			return
@@ -176,12 +195,12 @@ func mapHostPaths(ctx context.Context, pManager, vManager manager.Manager) {
 
 		fillUpPodMapping(ctx, podList, podMappings)
 
-		// TODO: remove these log lines
-		// klog.Infof("podMapping length: %d", len(podMappings))
-		// klog.Infof("podList length: %d", len(podList.Items))
-
 		vPodList := &corev1.PodList{}
-		err = vManager.GetClient().List(ctx, vPodList)
+		err = vManager.GetClient().List(ctx, vPodList, &client.ListOptions{
+			FieldSelector: fields.SelectorFromSet(fields.Set{
+				NodeIndexName: os.Getenv(HostpathMapperSelfNodeNameEnvVar),
+			}),
+		})
 		if err != nil {
 			klog.Errorf("unable to list pods: %v", err)
 			return
@@ -318,6 +337,10 @@ func cleanupOldPodPath(ctx context.Context, cleanupDirPath string, existingPodPa
 
 			if cleanupDirPath == options.VirtualKubeletPodPath {
 				// check if the symlinks resolve
+				// this extra check for kubelet is because velero backups
+				// depend on it and we don't want to delete the virtual paths
+				// which the physical paths are still not cleaned up by the
+				// kubelet
 				symlinks, err := os.ReadDir(fullVPodDirDiskPath)
 				if err != nil {
 					klog.Errorf("error iterating over vpod dir %s: %v", fullVPodDirDiskPath, err)
@@ -461,6 +484,16 @@ func startManagers(ctx context.Context, pManager, vManager manager.Manager) {
 			panic(err)
 		}
 	}()
+
+	err := pManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, NodeIndexName, podNodeIndexer)
+	if err != nil {
+		panic(err)
+	}
+
+	err = vManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, NodeIndexName, podNodeIndexer)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func createPodLogSymlinkToPhysical(ctx context.Context, vPodDirName, pPodDirName string) (*string, error) {
