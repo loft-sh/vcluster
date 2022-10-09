@@ -54,8 +54,13 @@ spec:
         {{- end }}
         command:
           - /vcluster
+        env:
+          - name: VCLUSTER_HOSTPATH_MAPPER_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
         args:
-          - maplogs
+          - maphostpaths
           - --name={{ .Release.Name }}
           - --target-namespace={{ .Release.Namespace }}
         volumeMounts:
