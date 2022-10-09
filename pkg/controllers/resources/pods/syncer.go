@@ -328,6 +328,13 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 
 				if volume.HostPath.Path == LogHostpathPath {
 					pPod.Spec.Volumes[i].HostPath.Path = s.virtualLogsPath
+					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
+						volume.Name,
+						volume.HostPath.Type,
+						PodLoggingHostpathPath,
+						PhysicalLogVolumeMountPath,
+						containersWithPhysicalMountPaths,
+						pPod)
 				}
 			}
 		}

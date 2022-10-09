@@ -54,6 +54,11 @@ spec:
         {{- end }}
         command:
           - /vcluster
+        env:
+          - name: VCLUSTER_HOSTPATH_MAPPER_CURRENT_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
         args:
           - maphostpaths
           - --name={{ .Release.Name }}

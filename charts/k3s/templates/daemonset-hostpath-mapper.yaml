@@ -55,7 +55,7 @@ spec:
         command:
           - /vcluster
         env:
-          - name: VCLUSTER_HOSTPATH_MAPPER_NODE_NAME
+          - name: VCLUSTER_HOSTPATH_MAPPER_CURRENT_NODE_NAME
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
