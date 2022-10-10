@@ -51,13 +51,13 @@ We can now install our desired logging stack and start collecting the logs.
     ```
  4. Next `port-forward` the kibana dashboard on its default port `5601` and navigate to http://localhost:5601/app/management or
     choose "Stack Management" from left menu side bar.  
-    <img width="272" alt="Screenshot 2022-10-10 at 3 46 50 PM" src="https://user-images.githubusercontent.com/7482025/194844400-22e192b5-154c-4cf0-a1b3-e227ceca4419.png">
+    <img width="272" alt="Screenshot 2022-10-10 at 3 46 50 PM" src="https://user-images.githubusercontent.com/7482025/194844400-22e192b5-154c-4cf0-a1b3-e227ceca4419.png"></img>
  5. Choose "Index Patterns" and click on "Create index Pattern"
-    <img width="653" alt="Screenshot 2022-10-10 at 3 49 07 PM" src="https://user-images.githubusercontent.com/7482025/194844814-5ec3d073-5a6f-445a-980c-f528d96367b1.png">
+    <img width="653" alt="Screenshot 2022-10-10 at 3 49 07 PM" src="https://user-images.githubusercontent.com/7482025/194844814-5ec3d073-5a6f-445a-980c-f528d96367b1.png"></img>
  6. Type the **Name** as `logstash*` and `@timestamp` for the **Timestamp field** and click on "Create index pattern"
-    <img width="1053" alt="Screenshot 2022-10-10 at 3 50 13 PM" src="https://user-images.githubusercontent.com/7482025/194845019-26426c0e-f316-46dc-b308-98e29cc6e603.png">
+    <img width="1053" alt="Screenshot 2022-10-10 at 3 50 13 PM" src="https://user-images.githubusercontent.com/7482025/194845019-26426c0e-f316-46dc-b308-98e29cc6e603.png"></img>
  7. Now you can navigate to http://localhost:5601/app/discover or click on "Discover" from the left sidebar menu and should start seeing your logs.
-    <img width="1432" alt="image" src="https://user-images.githubusercontent.com/7482025/194845815-ec3446b7-b10f-41b9-9c3d-d0e74f3ed0a9.png">
+    <img width="1432" alt="image" src="https://user-images.githubusercontent.com/7482025/194845815-ec3446b7-b10f-41b9-9c3d-d0e74f3ed0a9.png"></img>
 
 
 ## Logging with Grafana and Loki
@@ -76,11 +76,11 @@ We can now install our desired logging stack and start collecting the logs.
     * Get Grafana credentials `kubectl get secrets -n monitor prometheus-grafana -o jsonpath='{.data.admin-password}' | base64 -D`
     * Navigate to http://localhost:3000
 4. Add a data source by navigating to http://localhost:3000/datasources or click "Data Sources" under the ⚙️ icon from left menu
-    <img width="326" alt="image" src="https://user-images.githubusercontent.com/7482025/194852801-3fde2ff2-5089-4f58-bc92-57ba939c7895.png">
+    <img width="326" alt="image" src="https://user-images.githubusercontent.com/7482025/194852801-3fde2ff2-5089-4f58-bc92-57ba939c7895.png"></img>
 5. Click on "Add Data Sources" and select "Loki" from the list.
-    <img width="835" alt="image" src="https://user-images.githubusercontent.com/7482025/194853116-022872b1-38d5-4312-9f2d-11734df59a67.png">
+    <img width="835" alt="image" src="https://user-images.githubusercontent.com/7482025/194853116-022872b1-38d5-4312-9f2d-11734df59a67.png"></img>
 6. Enter the loki endpoint in the `URL` field as `http://loki.monitoring:3100` or to the corresponding `<name>.<namespace>:<port>` value according to your deployment, and click on "Save & test".
-    <img width="637" alt="image" src="https://user-images.githubusercontent.com/7482025/194854355-6345ce89-d1a8-409f-9bd7-3a9f0f4329e9.png">
+    <img width="637" alt="image" src="https://user-images.githubusercontent.com/7482025/194854355-6345ce89-d1a8-409f-9bd7-3a9f0f4329e9.png"></img>
 7. Next click on "Explore" or navigate to http://localhost:3000/explore and select "Loki" from the dropdown menu. Select the desired Labels and Click on "Run query". Youre logs should now start appearing.
-    <img width="1358" alt="image" src="https://user-images.githubusercontent.com/7482025/194855100-e0e856d4-d0a3-446d-abcf-25e9466fef62.png">
+    <img width="1358" alt="image" src="https://user-images.githubusercontent.com/7482025/194855100-e0e856d4-d0a3-446d-abcf-25e9466fef62.png"></img>
 
