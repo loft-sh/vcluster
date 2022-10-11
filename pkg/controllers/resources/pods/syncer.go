@@ -301,10 +301,10 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 					// Also we need to make sure this physical log path is not a
 					// path used by the scraping agent - which should only see the
 					// virtual log path
-					ctx.Log.Infof("rewriting hostPath for pPod %s", pPod.Name)
+					ctx.Log.Debugf("rewriting hostPath for pPod %s", pPod.Name)
 					pPod.Spec.Volumes[i].HostPath.Path = s.virtualPodLogsPath
 
-					ctx.Log.Infof("adding original hostPath to relevant containers")
+					ctx.Log.Debugf("adding original hostPath to relevant containers")
 					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
 						volume.Name,
 						volume.HostPath.Type,
@@ -316,9 +316,9 @@ func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *
 
 				if volume.HostPath.Path == KubeletPodPath &&
 					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
-					ctx.Log.Infof("rewriting hostPath for kubelet pods %s", pPod.Name)
+					ctx.Log.Debugf("rewriting hostPath for kubelet pods %s", pPod.Name)
 					pPod.Spec.Volumes[i].HostPath.Path = s.virtualKubeletPodPath
-					ctx.Log.Infof("adding original hostPath to relevant containers")
+					ctx.Log.Debugf("adding original hostPath to relevant containers")
 					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
 						volume.Name,
 						volume.HostPath.Type,
