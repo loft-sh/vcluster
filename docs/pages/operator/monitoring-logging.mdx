@@ -1,0 +1,153 @@
+---
+title: Monitoring & Logging
+sidebar_label: Monitoring & Logging
+---
+
+You can monitor the vcluster either from the host cluster or directly from within the vcluster.
+
+:::info
+In order to get node metrics from within the vcluster, vcluster will need to have RBAC permissions to access them. These permissions are given to vcluster when synchronization of the real nodes is enabled. See [Nodes documentation page](../architecture/nodes.mdx) for more details.
+:::
+
+## Installing metrics server
+
+Make sure the vcluster has access to the host clusters nodes. [Enabling real nodes synchronization](../architecture/nodes.mdx) will create the required RBAC permissions. 
+
+Install the [metrics server](https://github.com/kubernetes-sigs/metrics-server#installation) via the official method into the vcluster.
+
+Wait until the metrics server has started. You should be now able to use `kubectl top pods` and `kubectl top nodes` within the vcluster:
+```
+kubectl top pods --all-namespaces
+NAMESPACE     NAME                              CPU(cores)   MEMORY(bytes)   
+kube-system   coredns-854c77959c-q5878          3m           17Mi            
+kube-system   metrics-server-5fbdc54f8c-fgrqk   0m           6Mi
+```
+
+If you see below error after installing metrics-server (check [k3s#5334](https://github.com/k3s-io/k3s/issues/5344) for more information):
+
+```
+loading OpenAPI spec for "v1beta1.metrics.k8s.io" failed with: failed to retrieve openAPI spec, http error: ResponseCode: 503
+```
+Create a file named 'metrics_patch.yaml' with the following contents:
+```
+spec:
+  template:
+    spec:
+      containers:
+        - name: metrics-server
+          command:
+            - /metrics-server
+            - --metric-resolution=30s
+            - --kubelet-insecure-tls=true
+            - --kubelet-preferred-address-types=InternalIP,Hostname,InternalDNS,ExternalDNS,ExternalIP
+```
+and apply the patch with kubectl:
+```
+kubectl patch deployment metrics-server --patch-file metrics_patch.yaml -n kube-system
+```
+
+### How does it work?
+
+By default, vcluster will create a service for each node which redirects incoming traffic from within the vcluster to the node kubelet to vcluster itself. This means that if workloads within the vcluster try to scrape node metrics the traffic reaches vcluster first. Vcluster will redirect the incoming request to the host cluster and rewrite the response (pod names, pod namespaces etc) and return it to the requester.
+
+## Monitoring the vcluster
+
+Vcluster is able to rewrite node stats and metrics. This means monitoring a vcluster works similar to monitoring a regular Kubernetes cluster.
+
+:::info
+You need to make sure that vcluster has access to the host clusters nodes. [Enabling real nodes synchronization](../architecture/nodes.mdx) will create the required RBAC permissions.
+:::
+
+Please follow the [official Kuberentes documentation](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-usage-monitoring/) on how to monitor a Kubernetes cluster.
+
+### How does it work?
+
+By default, vcluster will create a service for each node which redirects incoming traffic from within the vcluster to the node kubelet to vcluster itself. This means that if workloads within the vcluster try to scrape node metrics the traffic reaches vcluster first. Vcluster will redirect the incoming request to the host cluster and rewrite the response (pod names, pod namespaces etc) and return it to the requester.
+
+## Monitoring the vcluster StatefulSet
+
+vcluster exposes metrics endpoints on `https://0.0.0.0:8443/metrics` (syncer metrics) and `https://0.0.0.0:6444/metrics` (k3s metrics). In order to scrape those metrics, you will need to send an `Authorization` header with a valid virtual cluster service account token, that has permissions to access the `/metrics` endpoint within the vcluster.
+
+
+## Logging
+
+You can enable logging for vcluster pods right from host cluster or from within each vcluster as well.
+
+## Enabling Hostpath Mapper
+Vcluster internal logging relies on enabling a vcluster component called the Hostpath Mapper.
+This will make sure to resolve the correct virtual pod and container names to their physical counterparts.
+
+To enable this component, simply create or upgrade an existing vcluster with the following values
+```yaml
+hostpathMapper:
+  enabled: true
+```
+
+Once deployed successfully a new `Daemonset` component of vcluster would start running on every node.
+
+We can now install our desired logging stack and start collecting the logs.
+
+## Logging with ELK and fluentd inside vcluster:
+1. Install the ELK stack:
+    ```yaml
+    helm upgrade --install elk-elasticsearch elastic/elasticsearch -f elastic_values.yaml -n logging --create-namespace
+    helm upgrade --install elk-logstash elastic/logstash -f logstash_values.yaml -n logging
+    helm upgrade --install elk-kibana elastic/kibana -f kibana_values.yaml -n logging
+
+    # optionally install filebeat if you plan to use filebeat instead of fluentd
+    helm upgrade --install elk-filebeat elastic/filebeat -f filebeat_values.yaml -n logging
+    ```
+
+2. Next install fluentd daemonset, this can be found on [github](https://github.com/fluent/fluentd-kubernetes-daemonset/blob/master/fluentd-daemonset-elasticsearch-rbac.yaml):
+    ```yaml
+    kubectl apply -f fluentd-daemonset-elasticsearch.yaml
+    ```
+    Alternatively, you can also deploy via the [helm charts provided by fluentbit](https://docs.fluentbit.io/manual/installation/kubernetes#installing-with-helm-chart).
+
+3. Check for available indices - `port-forward` the `elasticsearch-master` on port `9100` and visit the [http://localhost:9200/\_cat/indices](http://localhost:9200/_cat/indices),
+    you should see the following `logstash-*` indices available:
+    ```
+      green  open .geoip_databases                rP6BifVQSuCv1XmctC0M_Q 1 0  40   0  38.4mb  38.4mb
+      green  open .kibana_task_manager_7.17.3_001 p5Idg-xWTpCj4TWh6YpNrQ 1 0  17 543 123.6kb 123.6kb
+      yellow open logstash-2022.10.10             nyG-OW_qRKCBertmmOwwyw 1 1 895   0 416.6kb 416.6kb  ◀─────┐
+      green  open .apm-custom-link                jv3jzCztQUujEYwYv1iTIw 1 0   0   0    226b    226b        │      ┌───────────────┐
+      green  open .apm-agent-configuration        NsZHlaeGSmSc7xSa8CGcOA 1 0   0   0    226b    226b        │      │   Logstash    │
+      yellow open logstash-2022.10.07             cW3b1TJlROCwV2BKkzpt2Q 1 1 212   0  52.1kb  52.1kb  ◀─────┼──────│    Entries    │
+      yellow open logstash-2022.10.08             yzU4pqq3QOyZkukcmGKpaw 1 1 172   0  43.6kb  43.6kb  ◀─────┤      └───────────────┘
+      yellow open logstash-2022.10.09             n9GQnFB4RSWlWwkFG1848g 1 1 866   0 100.4kb 100.4kb  ◀─────┘
+      green  open .kibana_7.17.3_001              BjXjQqXcRoiiGQg_zsrSrg 1 0  21   8   2.3mb   2.3mb
+    ```
+ 4. Next `port-forward` the kibana dashboard on its default port `5601` and navigate to http://localhost:5601/app/management or
+    choose "Stack Management" from left menu side bar.  
+    <img width="272" alt="Screenshot 2022-10-10 at 3 46 50 PM" src="https://user-images.githubusercontent.com/7482025/194844400-22e192b5-154c-4cf0-a1b3-e227ceca4419.png"></img>
+ 5. Choose "Index Patterns" and click on "Create index Pattern"
+    <img width="653" alt="Screenshot 2022-10-10 at 3 49 07 PM" src="https://user-images.githubusercontent.com/7482025/194844814-5ec3d073-5a6f-445a-980c-f528d96367b1.png"></img>
+ 6. Type the **Name** as `logstash*` and `@timestamp` for the **Timestamp field** and click on "Create index pattern"
+    <img width="1053" alt="Screenshot 2022-10-10 at 3 50 13 PM" src="https://user-images.githubusercontent.com/7482025/194845019-26426c0e-f316-46dc-b308-98e29cc6e603.png"></img>
+ 7. Now you can navigate to http://localhost:5601/app/discover or click on "Discover" from the left sidebar menu and should start seeing your logs.
+    <img width="1432" alt="image" src="https://user-images.githubusercontent.com/7482025/194845815-ec3446b7-b10f-41b9-9c3d-d0e74f3ed0a9.png"></img>
+
+
+## Logging with Grafana and Loki
+1. Install the Prometheus stack:
+    ```
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitor --create-namespace
+    ```
+2. Install Loki:
+    ```
+    helm repo add loki https://grafana.github.io/loki/charts
+    helm upgrade --install loki --namespace=monitoring grafana/loki-stack --create-namespace
+    ```
+3. Open the Grafana Dashboard:
+    * Port-forward grafana dashboard `kubectl port-forward -n monitor service/prometheus-grafana 3000:80`
+    * Get Grafana credentials `kubectl get secrets -n monitor prometheus-grafana -o jsonpath='{.data.admin-password}' | base64 -D`
+    * Navigate to http://localhost:3000
+4. Add a data source by navigating to http://localhost:3000/datasources or click "Data Sources" under the ⚙️ icon from left menu
+    <img width="326" alt="image" src="https://user-images.githubusercontent.com/7482025/194852801-3fde2ff2-5089-4f58-bc92-57ba939c7895.png"></img>
+5. Click on "Add Data Sources" and select "Loki" from the list.
+    <img width="835" alt="image" src="https://user-images.githubusercontent.com/7482025/194853116-022872b1-38d5-4312-9f2d-11734df59a67.png"></img>
+6. Enter the loki endpoint in the `URL` field as `http://loki.monitoring:3100` or to the corresponding `<name>.<namespace>:<port>` value according to your deployment, and click on "Save & test".
+    <img width="637" alt="image" src="https://user-images.githubusercontent.com/7482025/194854355-6345ce89-d1a8-409f-9bd7-3a9f0f4329e9.png"></img>
+7. Next click on "Explore" or navigate to http://localhost:3000/explore and select "Loki" from the dropdown menu. Select the desired Labels and Click on "Run query". Youre logs should now start appearing.
+    <img width="1358" alt="image" src="https://user-images.githubusercontent.com/7482025/194855100-e0e856d4-d0a3-446d-abcf-25e9466fef62.png"></img>
