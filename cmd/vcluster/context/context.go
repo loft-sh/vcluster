@@ -71,6 +71,12 @@ type VirtualClusterOptions struct {
 
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
+	// hostpath mapper options
+	VirtualLogsPath          string
+	VirtualPodLogsPath       string
+	VirtualContainerLogsPath string
+	VirtualKubeletPodPath    string
+
 	// DEPRECATED FLAGS
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
 	DeprecatedDisableSyncResources     string

@@ -1,0 +1,104 @@
+{{- if .Values.hostpathMapper.enabled }}
+apiVersion: apps/v1
+{{- if not .Values.hostpathMapper.dev }}
+kind: DaemonSet
+{{- else  }}
+kind: Deployment
+{{- end }}
+metadata:
+  name: {{ .Release.Name }}-hostpath-mapper
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster-hostpath-mapper
+    component: hostpath-mapper
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 4 }}
+{{- end }}
+  {{- if .Values.annotations }}
+  annotations:
+{{ toYaml .Values.annotations | indent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.hostpathMapper.dev }}
+  replicas: 1
+  {{- end }}
+  selector:
+    matchLabels:
+      app: vcluster-hostpath-mapper
+      release: {{ .Release.Name }}
+      component: hostpath-mapper
+  template:
+    metadata:
+      labels:
+        app: vcluster-hostpath-mapper
+        release: {{ .Release.Name }}
+        component: hostpath-mapper
+    spec:
+      {{- if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- else }}
+      serviceAccountName: vc-{{ .Release.Name }}
+      {{- end }}
+      containers:
+      - name: hostpath-mapper
+        {{- if .Values.hostpathMapper.image }}
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.hostpathMapper.image }}"
+        {{- else }}
+        image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
+        {{- if .Values.syncer.workingDir }}
+        workingDir: {{ .Values.syncer.workingDir }}
+        {{- end }}
+        command:
+          - /vcluster
+        env:
+          - name: VCLUSTER_HOSTPATH_MAPPER_CURRENT_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+        args:
+          - maphostpaths
+          - --name={{ .Release.Name }}
+          - --target-namespace={{ .Release.Namespace }}
+        volumeMounts:
+          - name: logs
+            mountPath: /var/log
+          - name: virtual-logs
+            mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log
+          - name: pod-logs
+            mountPath: /var/log/pods
+          - name: virtual-pod-logs
+            mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log/pods
+          - name: kubelet-pods
+            mountPath: /var/vcluster/physical/kubelet/pods
+          - name: virtual-kubelet-pods
+            mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/kubelet/pods
+          - name: kubeconfig
+            mountPath: /data/server/tls
+      volumes:
+        - name: logs
+          hostPath:
+            path: /var/log
+        - name: virtual-logs
+          hostPath:
+            path: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log
+        - name: pod-logs
+          hostPath:
+            path: /var/log/pods
+        - name: kubelet-pods
+          hostPath:
+            path: /var/lib/kubelet/pods
+        - name: virtual-pod-logs
+          hostPath:
+            path: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/log/pods
+        - name: virtual-kubelet-pods
+          hostPath:
+            path: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/kubelet/pods
+        - name: kubeconfig
+          secret:
+            secretName: vc-{{ .Release.Name }}
+{{ end }}
+

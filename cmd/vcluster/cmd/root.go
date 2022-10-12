@@ -22,5 +22,6 @@ func BuildRoot() *cobra.Command {
 	// add top level commands
 	rootCmd.AddCommand(NewStartCommand())
 	rootCmd.AddCommand(NewCertsCommand())
+	rootCmd.AddCommand(NewHostpathMapperCommand())
 	return rootCmd
 }

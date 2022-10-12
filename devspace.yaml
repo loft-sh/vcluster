@@ -108,6 +108,35 @@ dev:
         - '!/devspace_start.sh'
         - '!/manifests'
 
+profiles:
+  - name: dev-hostpath-mapper
+    patches:
+      - op: remove
+        path: dev.vcluster.imageSelector
+      - op: remove
+        path: dev.vcluster.container
+      - op: add
+        path: dev.vcluster.labelSelector
+        value:
+          component: hostpath-mapper
+    merge:
+      deployments:
+        vcluster-k3s:
+          helm:
+            values:
+              hostpathMapper:
+                image: ${SYNCER_IMAGE}
+                enabled: true
+                dev: true
+              syncer:
+                livenessProbe:
+                  enabled: false
+                readinessProbe:
+                  enabled: false
+                extraArgs:
+                  - start
+                  - --tls-san=vcluster
+
 # Pipelines used for vcluster
 pipelines:
   dev:

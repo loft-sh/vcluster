@@ -92,6 +92,13 @@ root@vcluster-0:/vcluster#
 
 To access the virtual cluster, you can use the `vcluster connect` command locally as with any other virtual cluster.
 
+##### Developing the hostpath-mapper instead of syncer
+In case you need to develop the hostpath-mapper daemonset instead of the syncer, you can use the `dev-hostpath-mapper` profile in `devspace.yaml`. You can do this by running the following command:
+```
+devspace dev -p dev-hostpath-mapper
+```
+This should deploy the hostpath-mapper as a deployment instead of a daemonset and take care of other modifications to be made and should allow you to develop the hostpath-mapper itself against the syncer.
+
 #### Debug vcluster with Delve
 If you wish to run vcluster in the debug mode with delve, run `devspace dev -n vcluster` and wait until you see the command prompt (`root@vcluster-0:/vcluster#`).  
 Run `dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags="-mod=vendor" -- start`  

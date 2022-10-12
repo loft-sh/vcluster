@@ -92,6 +92,9 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
+hostpathMapper:
+  enabled: false
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer
