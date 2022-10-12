@@ -1,10 +1,12 @@
 package persistentvolumes
 
 import (
+	"testing"
+	"time"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,6 +53,10 @@ func TestSync(t *testing.T) {
 		Annotations: map[string]string{
 			HostClusterPersistentVolumeAnnotation: "testpv",
 		},
+	}
+	basePvWithDelTSObjectMeta := metav1.ObjectMeta{
+		Name:              "testpv",
+		DeletionTimestamp: &metav1.Time{Time: time.Now()},
 	}
 	basePPv := &corev1.PersistentVolume{
 		ObjectMeta: basePvObjectMeta,
@@ -154,9 +160,6 @@ func TestSync(t *testing.T) {
 				Namespace: "test",
 			},
 		},
-		Status: corev1.PersistentVolumeStatus{
-			Phase: corev1.VolumeBound,
-		},
 	}
 	backwardDeleteVPv := &corev1.PersistentVolume{
 		ObjectMeta: basePvObjectMeta,
@@ -167,8 +170,27 @@ func TestSync(t *testing.T) {
 				Namespace: "test",
 			},
 		},
-		Status: corev1.PersistentVolumeStatus{
-			Phase: corev1.VolumeBound,
+	}
+	backwardDeleteVPvwithDelTS := &corev1.PersistentVolume{
+		ObjectMeta: basePvWithDelTSObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			ClaimRef: &corev1.ObjectReference{
+				Name:      "deletedPVC",
+				Namespace: "test",
+			},
+		},
+	}
+	pPVforDeletePVWithoutClaim := &corev1.PersistentVolume{
+		ObjectMeta: basePvObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+		},
+	}
+	vPVforDeletePVWithoutClaim := &corev1.PersistentVolume{
+		ObjectMeta: basePvWithDelTSObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
 		},
 	}
 
@@ -360,7 +382,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			Name:                 "Retain PV and update PV Status",
+			Name:                 "Retain PV and update PV Status when reclaim policy is Retain",
 			InitialVirtualState:  []runtime.Object{backwardRetainInitialVPv},
 			InitialPhysicalState: []runtime.Object{backwardRetainPPv},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
@@ -378,7 +400,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			Name:                 "Delete PV",
+			Name:                 "Delete PV when reclaim policy is Delete",
 			InitialVirtualState:  []runtime.Object{backwardDeleteVPv},
 			InitialPhysicalState: []runtime.Object{backwardDeletePPv},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
@@ -392,6 +414,42 @@ func TestSync(t *testing.T) {
 				backwardDeletePPv := backwardDeletePPv.DeepCopy()
 				backwardDeleteVPv := backwardDeleteVPv.DeepCopy()
 				_, err := syncer.Sync(syncContext, backwardDeletePPv, backwardDeleteVPv)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Wait for the VPV to be deleted, when reclaim policy is Delete",
+			InitialVirtualState:  []runtime.Object{backwardDeleteVPvwithDelTS},
+			InitialPhysicalState: []runtime.Object{backwardDeletePPv},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {backwardDeleteVPvwithDelTS},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {backwardDeletePPv},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+				backwardDeletePPv := backwardDeletePPv.DeepCopy()
+				backwardDeleteVPvwithDelTS := backwardDeleteVPvwithDelTS.DeepCopy()
+				_, err := syncer.Sync(syncContext, backwardDeletePPv, backwardDeleteVPvwithDelTS)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Delete PPV without an associated PVC",
+			InitialVirtualState:  []runtime.Object{vPVforDeletePVWithoutClaim},
+			InitialPhysicalState: []runtime.Object{pPVforDeletePVWithoutClaim},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {vPVforDeletePVWithoutClaim},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := newFakeSyncer(t, ctx)
+				vPVforDeletePVWithoutClaim := vPVforDeletePVWithoutClaim.DeepCopy()
+				pPVforDeletePVWithoutClaim := pPVforDeletePVWithoutClaim.DeepCopy()
+				_, err := syncer.Sync(syncContext, pPVforDeletePVWithoutClaim, vPVforDeletePVWithoutClaim)
 				assert.NilError(t, err)
 			},
 		},

@@ -130,13 +130,16 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	// check if objects are getting deleted
 	if vObj.GetDeletionTimestamp() != nil {
 		if pObj.GetDeletionTimestamp() == nil {
-			ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is terminating", pObj.GetName())
-			err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
-			if err != nil {
-				return ctrl.Result{}, err
+			// check if the PV is dynamically provisioned and the reclaim policy is Delete
+			if !(vPersistentVolume.Spec.ClaimRef != nil && vPersistentVolume.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimDelete) {
+				ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is deleted", pObj.GetName())
+				err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 		}
-
+		ctx.Log.Infof("requeue because persistent volume %s, has to be deleted", vObj.GetName())
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
