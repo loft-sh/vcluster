@@ -67,3 +67,67 @@ This should recreate the vcluster workloads, configurations as well as vcluster 
 :::warning Moving vclusters
 Currently its quite difficult to move a vcluster from one namespace to another as there are objects that include a namespace reference such as the cluster role bindings or persistent volumes. velero supports namespace mapping that should work in most cases, but caution is still required as this might not work for every vcluster setup.
 :::
+
+## Using velero inside vcluster
+To use velero for making backups you need to enable the `hostpath-mapper` component of vcluster. You can do this by adding this to your values.yaml file when creating or upgrading the vcluster
+```yaml
+hostpathMapper:
+  enabled: true
+```
+This will start a the vcluster component for mapping the correct hostpaths as a `Daemonset`.
+
+Once done you need to install velero cli as explained above and then connect to your vcluster, and install velero:
+```
+velero install --provider <provider> --bucket <bucket_name>  --secret-file <your_secret_file> --plugins velero/velero-plugin-for-<provider>:<semver> --use-restic
+```
+> Make sure to fill up the appropriate fields like `provider`, `bucket_name`, `secret-file` etc. depending on your installation.
+
+Once the installation is complete you can check the status of the velero resources:
+```
+$ kubectl get all -n velero
+NAME                          READY   STATUS    RESTARTS   AGE
+pod/restic-5szkb              1/1     Running   0          118s
+pod/velero-75c5479dfd-4x7sl   1/1     Running   0          118s
+
+NAME                    DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+daemonset.apps/restic   1         1         1       1            1           <none>          118s
+
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/velero   1/1     1            1           119s
+
+NAME                                DESIRED   CURRENT   READY   AGE
+replicaset.apps/velero-75c5479dfd   1         1         1       119s
+```
+
+Now you're ready to create a backup using `restic`:
+```
+velero backup create test1 --default-volumes-to-restic
+```
+
+Wait for the backup to complete and eventually you should see the following:
+```
+$ velero backup describe test1
+Name:         test1
+Namespace:    velero
+Labels:       velero.io/storage-location=default
+Annotations:  velero.io/source-cluster-k8s-gitversion=v1.25.0+k3s1
+              velero.io/source-cluster-k8s-major-version=1
+              velero.io/source-cluster-k8s-minor-version=25
+
+Phase:  Completed
+
+Errors:    0
+Warnings:  0
+
+Namespaces:
+  Included:  *
+  Excluded:  <none>
+
+Resources:
+  Included:        *
+  Excluded:        <none>
+  Cluster-scoped:  auto
+
+...
+```
+
