@@ -1,0 +1,237 @@
+---
+title: "Generic CRD Sync Plugin"
+sidebar_label: "Generic CRD Sync Plugin"
+---
+
+On this page, we will describe what is the [vcluster generic CRD sync plugin](https://github.com/loft-sh/vcluster-generic-crd-sync-plugin) and how you can create a custom configuration to suit your needs.
+
+You should already know how to [install a plugin](./overview#loading-and-installing-plugins-to-vcluster). And we assume that you are already familiar with the basic principles of how vcluster works, including its [components](../architecture/basics#components) and how it handles [certain Kubernetes resources](../architecture/basics#kubernetes-resources).
+
+## Introduction
+Out-of-the-box vcluster can sync [certain Kubernetes resources](../architecture/synced-resources), but there are use cases where it could be useful to sync additional resource kinds as well. A popular reason for this is to utilize a controller(or operator) that is installed in the host cluster and avoid having to install it inside the vcluster. You could achieve this task by implementing a vcluster plugin, as is described in our [Development tutorial](./tutorial), and while this approach has its benefits, it requires certain level of Go knowledge and familiarity with Kubernetes libraries for Go.
+
+The [vcluster generic CRD sync plugin](https://github.com/loft-sh/vcluster-generic-crd-sync-plugin) allows you to sync additional resources to, and from the host cluster where vcluster is installed, with just a few lines of a YAML configuration. With this approach, it is much easier to get started. You will need to declare which CRD Kinds you would like to sync from the virtual cluster to the host cluster, and the plugin will automatically copy the CRD definition from the host cluster into vcluster at the start. Then it will take care of watching the resources of the predefined Kinds and execute the synchronization logic based on the configuration provided to it.
+
+The configuration for the plugin defines which Kind of resource is synced to the host cluster and how. The plugin automatically transforms the resource metadata(such as name, namespace, labels, etc.) as is common for resources synced by vcluster. In addition to the implicit transformations(rewrites), you can configure transformations that will be performed on other fields of the resource, and these will depend on the meaning of those fields. You will also be able to configure which fields of the resource should have their value copied from the synced resource in the host cluster into the original resource in virtual cluster, e.g. the "status" field. Many controllers create Kubernetes resources as a result of custom resources, for example, cert-manager creates Secrets based on Certificate custom resources, and this plugin will allow you to sync these resources from the host cluster into the virtual one. The following chapters describe the configuration options in more detail.
+
+## Configuration
+The code snippet below shows an example of the plugin's helm values. There you can notice a few things that will have a main impact on the plugin functionality:
+- the image referenced on the third line, the tag of this image represents a release of the plugin, these releases are [tracked in the GitHub repo](https://github.com/loft-sh/vcluster-generic-crd-sync-plugin/releases)
+- the RBAC namespaced `role` and cluster scoped `clusterRole` required for the plugin - these would be adjusted to fit the needs of your use case and the configuration that you define
+- the `CONFIG` environment variable - this must be a string with valid YAML formatting. It uses a custom syntax to define the behavior of the plugin. 
+
+```yaml 
+plugin:
+  my-cert-manager:
+    image: ghcr.io/loft-sh/vcluster-generic-crd-plugin:0.0.1-alpha.3
+    imagePullPolicy: IfNotPresent
+    rbac:
+      role:
+        extraRules:
+          - apiGroups: ["cert-manager.io"]
+            resources: ["issuers", "certificates"]
+            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+      clusterRole:
+        extraRules:
+          - apiGroups: ["apiextensions.k8s.io"]
+            resources: ["customresourcedefinitions"]
+            verbs: ["get", "list", "watch"]
+    env:
+      - name: CONFIG
+        value: |-
+          version: v1beta1
+          mappings:
+          # ...
+```
+
+In the following code snippets, we are showing parts of the `CONFIG` value. Additional formatting(indentation, etc.) may be necessary before the use in your `plugin.yaml` helm values file.
+
+### Virtual to Host sync mappings
+This is the only currently supported top-level mapping. It defines how a CRD of a certain `apiVersion` and `kind` is synced from the virtual cluster to the host cluster. The `patches` field allows you to define how are certain fields of the synced resource modified before its creation(or update) in the host cluster.   
+The `reversePatches` allow you to declare how changes to certain fields(`status` field in the example below) of the synced resource(the one created in the host cluster) are propagated back to the original resource in the virtual cluster. Only the fields referenced in the `copyFromObject` reverse patch operations are propagated.    
+Both these fields follow the same syntax, as documented in [the "Patch syntax" chapter of this doc](#patch-syntax), but not all patch types are supported in both cases.
+
+:::info
+Only the namespace resources are supported at this time.
+:::
+
+```yaml
+version: v1beta1
+mappings:
+  - fromVirtualCluster:
+      # CRD for the apiVersion+Kind is implicitly copied to the virtual cluster
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      patches:
+        - op: rewriteName
+          path: spec.issuerRef.name
+        - op: rewriteName
+          path: spec.secretName
+      reversePatches:
+        - op: copyFromObject
+          fromPath: status
+          path: status
+```
+
+#### Selector for a mapping
+You can limit which resources will be synced from the virtual cluster by configuring the `selectors` array. The virtual resource is synced when it matches one or more selectors, or when the `selectors` field is empty. Supported selector types for mapping:  
+`labelSelector` - the `key: value` map of the resource labels. At least one of the defined labels should be present on the resource in the virtual cluster to be synced. Example:
+```yaml 
+version: v1beta1
+mappings:
+  - fromVirtualCluster:
+      kind: Certificate
+      selectors:
+        - labelSelector:
+            syncToHost: "yes"
+```
+
+#### ID for a mapping
+You should specify the `id` field if you have multiple mappings, or sync back configurations, for the same kind.
+```yaml
+version: v1beta1
+mappings:
+  - fromVirtualCluster:
+      id: certificate-with-label-x
+      kind: Certificate
+```
+
+#### Patch syntax
+The patch defines how will the plugin behave when syncing each resource Kind to and from the host cluster. Generally, a patch is defined by the field `path` and `op`(operation) that should be performed on said field.  
+An array of `conditions` may also be set, and in such case, the field value will be modified by a patch only if the former value matches all the [conditions](#patch-conditions).  
+Some operation types may utilize additional fields, and these will be explained in the next chapter.
+
+<!-- //TODO: explain how ignore:true works  -->
+
+**Patch operations**  
+
+| op                                     | Support | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------------------- | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| copyFromObject                         |   all   | Copy value of the field referenced in the  `fromPath`  from the originating object to the  `path`  field of the destination object. The  `fromPath`  can be omitted, in such case, it will default to the same field path as referenced in the  `path`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| add                                    |   all   | Add contents of the  `value`  into the  `path`  field. The  `value`  can be either scalar or a complex object.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| replace                                |   all   | Replace the contents of the  `path`  field with the contents of the  `value`. The  `value`  can be either scalar or a complex object.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| remove                                 |   all   | Remove the contents of the  `path`  field                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| rewriteName                            |   all   | Replaces the contents of the `path` field with transformed content based on the namespace of the synced resource. This is typically done on the fields that refer to a resource name, and on the `.metadata.name` as well(implicit). This is done to avoid naming collisions when syncing resources to the host cluster. As an example, the "logstash" value of a resource in the "logging" namespace of the vcluster named "vc" is rewritten to "logstash-x-logging-x-vc". If the resulting length of the value would be over 63 characters, the last 10 characters will be replaced with a hash of the full value.<br/> When this operation is performed on a resource that is being synced from the host cluster to the virtual cluster, the name rewriting is done based on the name rewrites that were performed on the synced object (or object from the parent mapping in case of `syncBack` configuration) when syncing it from virtual to host cluster. By default, this rewrite is based on the transformation of the `.metadata.name` field, but this can be changed by referencing a different rewritten field with the `fromPath`  option. |
+| rewriteName + namePath + namespacePath |  V->H   | Similar to `rewriteName`, but with an addition of the `namePath` and/or `namespacePath`. This is used when a field of the synced resource is referencing a different resource via namespace and name via two separate fields. When using this option you would set the `path` to reference a field that is a common parent of both `namePath` and `namespacePath`, and these two fields would then contain just the relative path. For example, `path: spec.includes` + `namePath: name` + `namespacePath: namespace` for a resource that contains name in `spec.includes.name` and namespace in `spec.includes.namespace`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| rewriteName + regex                    |  V->H   | Similar to `rewriteName`, but with an addition of the `regex` option for the patch. This is used when a string contains not just the resource name, but optionally a namespace,  and other characters. For example, a string containing "namespace/name" can be correctly rewritten with the addition of this configuration option - `regex: "$NAMESPACE/$NAME"`. The plugin uses Go regular expressions to recognize the name part with the "NAME" capture group (can be written as `$NAME`), and the namespace with the "NAMESPACE" capture group (can be written as `$NAMESPACE`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| rewriteLabelKey                        |  V->H   | The keys of the `.metadata.labels` of the synced resources are rewritten by vcluster and plugins. This patch type allows you to rewrite the key references in the same way, so the fields that are referencing labels will still reference correct labels in their rewritten form. For example, the label key-value pair "app: curl"  is rewritten to "vcluster.loft.sh/label-vcluster-x-a172cedcae: curl", so with this patch operation you can rewrite a field that contains "app" to "vcluster.loft.sh/label-vcluster-x-a172cedcae, and the controllers operating on the synced resources will work with this label just as expected.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| rewriteLabelSelector                   |  V->H   | This operation exists for the same reasons as described for the rewriteLabelKey operation. It is intended to be used for the key-value map fields that represent a label selector. This patch operation will rewrite all keys in the field referenced by `path` to the expected format for the label keys, and it will also add additional key-value pairs(with virtual namespace and vcluster name) to avoid naming conflicts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| rewriteLabelExpressionsSelector        |  V->H   | Similar to the `rewriteLabelSelector`, but expects `path` reference a field with the `matchLabels` and `matchExpressions` sub-fields, which will have the label keys rewritten just as described for `rewriteLabelKey`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+
+
+_V->H - patch operation is supported only for patches, or reverse patches, that are executed in the virtual to host direction._
+
+**Example of various patch operations**  
+The example below is a useful configuration for pushing service metrics into a Prometheus instance installed in the host cluster.  
+You can refer to [ServiceMonitor spec documentation](https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.ServiceMonitorSpec) to understand the example better.
+```yaml
+version: v1beta1
+mappings:
+  - fromVirtualCluster:
+      apiVersion: monitoring.coreos.com/v1
+      kind: ServiceMonitor
+      patches:
+        - op: add
+          path: .metadata.labels
+          value:
+            prometheus-instance: default-instance
+        - op: copyFromObject
+          fromPath: .metadata.labels['prometheus-instance'] # could be omitted when equal to path
+          path: .metadata.labels['prometheus-instance']
+        - op: replace
+          path: .spec.namespaceSelector
+          value:
+            any: false
+            matchNames: []
+        - op: rewriteName
+          path: .spec.endpoints[*]
+        - op: rewriteLabelKey
+          path: .spec.jobLabel
+        - op: rewriteLabelKey
+          path: .spec.targetLabels[*]
+        - op: rewriteLabelKey
+          path: .spec.podTargetLabels[*]
+        - op: rewriteLabelExpressionsSelector
+          path: .spec.selector
+```
+
+**Patch conditions**  
+A patch can be applied conditionally by adding conditions to the `conditions` field of the patch definition. The condition will be checked either on a field referenced relative to the patch `path` via the `subPath` field of the condition or referenced as an absolute path in the synced resource via the `path` field of the condition.  
+A condition can then have one of these three fields set to check the value respectively:
+- `equal` - either a scalar value or a complex object can be used
+- `notEqual` - either a scalar value or a complex object can be used
+- `empty` - a boolean (true or false) value
+Examples:  
+```yaml
+...
+patches:
+	- op: add
+		path: .metadata.labels
+		value:
+			prometheus-instance: default-instance
+		conditions:
+			- path: .metadata.labels['prometheus-instance']
+				equal: "forbidden-instance"
+	- op: copyFromObject
+		fromPath: .metadata.labels['prometheus-instance'] # could be omitted when equal to path
+		path: .metadata.labels['prometheus-instance']
+		conditions:
+			- subPath: "."
+			  notEqual: "forbidden-instance"
+	- op: add
+		path: .metadata.labels
+		value:
+			mandatory: setIt
+		conditions:
+			- path: .metadata.labels['mandatory']
+				empty: true
+
+```
+
+#### Sync accompanying Secrets or ConfigMaps
+vcluster is automatically syncing Secrets and ConfigMaps from the virtual cluster to the host cluster, but only those that are referenced by other resources synced to the host cluster(e.g. Pods that mount them). This plugin allows you to mark certain fields of the synced resource as Secret or Configmap references to force them to be synced by vcluster as well. Example:
+```yaml
+version: v1beta1
+  mappings:
+  - fromVirtualCluster:
+    apiVersion: cert-manager.io/v1
+    kind: Issuer
+    patches:
+      - op: rewriteName
+        path: spec.ca.secretName
+        sync:
+          secret: true
+          # or for ConfigMaps:
+          # configmap: true
+```
+
+### Sync back related resources from the host cluster
+Resources can also be synced from the host cluster back to the virtual cluster if they have some relationship to the resource that is synced in its "parent" `fromVirtualCluster` mapping. This relationship is described in the `.syncBack[].selectors` field. Only resources from the host namespace of the vcluster are synced back. 
+
+The synced back resources can also define the `patches` and `reversePatches`. Here the `patches` apply when syncing from the host cluster to the virtual cluster, and the opposite for the `reversePatches`. The [syntax for the `patches` and `reversePatches`](#patch-syntax) is the same as for the `fromVirtualCluster` mapping.  
+The `fromPath` of the `rewriteName` patch refers to the field in the resource of the "parent" mapping, and it is applicable for the fields that were patched with `rewriteName` operation, or to the `.metadata.name`(rewritten implicitly). If the `fromPath` is not set then it defaults to `.metadata.name`.
+
+```yaml
+version: v1beta1
+mappings:
+  - fromVirtualCluster:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      patches:
+        - op: rewriteName
+          path: spec.secretName
+      syncBack:
+        # CRD for the apiVersion+Kind is implicitly copied to the virtual cluster
+        # Built-in Kubernetes resource Kinds are excluded from CRD copying
+        - kind: Secret
+          apiVersion: v1
+          selectors:
+            - name:
+                rewrittenPath: spec.secretName
+          patches:
+            - op: rewriteName
+              path: metadata.annotations['cert-manager.io/certificate-name']
+```
+
+#### Supported sync back selector types:
+The `name` selector - the value of the `.metadata.name` field of the synced back resource must match the value of the field set in the `rewrittenPath`. In the example above you can see `rewrittenPath: spec.secretName`, which references the field from the parent mapping for the Certificate resource. This means that a Secret in the host cluster must be named the same as the value contained in the `.spec.secretName` of one of the synced Certificates in the host. The plugin will then create a Secret inside the virtual cluster, in the same namespace as the originating Certificate resource, and with the name equal to `.spec.secretName` of the Certificate resource in the virtual cluster. 
