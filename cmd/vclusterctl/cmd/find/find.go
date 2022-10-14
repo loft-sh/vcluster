@@ -78,13 +78,13 @@ func ListVClusters(context, name, namespace string) ([]VCluster, error) {
 		timeout = time.Second * 5
 	}
 
-	vclusters, err := findInContext(context, name, namespace, timeout)
+	vclusters, err := findInContext(context, name, namespace, timeout, false)
 	if err != nil && vClusterName == "" {
 		return nil, errors.Wrap(err, "find vcluster")
 	}
 
 	if vClusterName != "" {
-		parentContextVclusters, err := findInContext(vClusterContext, name, namespace, time.Minute)
+		parentContextVclusters, err := findInContext(vClusterContext, name, namespace, time.Minute, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "find vcluster")
 		}
@@ -116,12 +116,18 @@ func VClusterFromContext(originalContext string) (name string, namespace string,
 	return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
 }
 
-func findInContext(context, name, namespace string, timeout time.Duration) ([]VCluster, error) {
+func findInContext(context, name, namespace string, timeout time.Duration, isParentContext bool) ([]VCluster, error) {
+	// statefulset based vclusters
+	vclusters := []VCluster{}
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: context,
 	})
 	restConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
+		// we can ignore this error for parent context, this means that the kubeconfig set doesn't have parent config in it.
+		if isParentContext {
+			return vclusters, nil
+		}
 		return nil, errors.Wrap(err, "load kube config")
 	}
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
@@ -129,8 +135,6 @@ func findInContext(context, name, namespace string, timeout time.Duration) ([]VC
 		return nil, errors.Wrap(err, "create kube client")
 	}
 
-	// statefulset based vclusters
-	vclusters := []VCluster{}
 	statefulSets, err := getStatefulSets(kubeClient, namespace, kubeClientConfig, timeout)
 	if err != nil {
 		return nil, err
