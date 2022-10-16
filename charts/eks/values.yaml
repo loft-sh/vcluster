@@ -285,6 +285,8 @@ service:
   loadBalancerIP: ""
   # CIDR block(s) for the service allowlist
   loadBalancerSourceRanges: []
+  # Set the loadBalancerClass if using an external load balancer controller
+  loadBalancerClass: ""
 
 # job configuration
 job:
