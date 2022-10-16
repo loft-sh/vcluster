@@ -16,7 +16,7 @@ metadata:
 data:
   manifests: |-
     {{ .Values.init.manifests | nindent 4 | trim }}
-    {{- tpl .Values.init.manifestsTemplate $ | nindent 4 | trim }}
+    {{ tpl .Values.init.manifestsTemplate $ | nindent 4 | trim }}
   {{- if .Values.init.helm }}
   charts: |-
   {{- range .Values.init.helm }}
