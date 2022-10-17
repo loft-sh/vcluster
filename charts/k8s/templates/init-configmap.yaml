@@ -35,7 +35,7 @@ data:
       {{- end}}
       {{- if .values }}
       values: |-
-        {{ .values | nindent 4 | trim }}
+        {{ .values | nindent 8 | trim }}
       {{- end}}
       {{- if .release }}
       timeout: {{ .timeout | default "120s" | quote }}
