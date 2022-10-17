@@ -225,6 +225,8 @@ service:
   loadBalancerIP: ""
   # CIDR block(s) for the service allowlist
   loadBalancerSourceRanges: []
+  # Set the loadBalancerClass if using an external load balancer controller
+  loadBalancerClass: ""
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
