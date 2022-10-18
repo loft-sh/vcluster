@@ -34,6 +34,7 @@ type DeleteCmd struct {
 	restConfig *rest.Config
 	kubeClient *kubernetes.Clientset
 	log        log.Logger
+	IgnoreNotFound bool
 }
 
 // NewDeleteCmd creates a new command
@@ -64,6 +65,7 @@ vcluster delete test --namespace test
 	}
 
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
+	cobraCmd.Flags().BoolVar(&cmd.IgnoreNotFound, "ignore-not-found", false, "If enabled, vcluster will not error out in case vcluster does not exists")
 	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster")
 	cobraCmd.Flags().BoolVar(&cmd.AutoDeleteNamespace, "auto-delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl")
 	return cobraCmd
@@ -102,6 +104,12 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	cmd.log.Infof("Delete vcluster %s...", args[0])
 	err = helm.NewClient(cmd.rawConfig, cmd.log, helmBinaryPath).Delete(args[0], cmd.Namespace)
 	if err != nil {
+		if cmd.IgnoreNotFound {
+			if kerrors.IsNotFound(err){
+				cmd.log.Info("vcluster not found,--ignore-not-found flag set")
+				return nil
+			}
+		}
 		return err
 	}
 	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], cmd.Namespace)
