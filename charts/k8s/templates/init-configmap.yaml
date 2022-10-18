@@ -33,9 +33,10 @@ data:
       {{- if .insecure }}
       insecure: true
       {{- end}}
-      {{- if .values }}
+      {{- if or .values .valuesTemplate }}
       values: |-
-        {{ .values | nindent 8 | trim }}
+        {{ (.values | default "") | nindent 8 | trim }}
+        {{ tpl (.valuesTemplate | default "") $ | nindent 8 | trim }}
       {{- end}}
       {{- if .release }}
       timeout: {{ .timeout | default "120s" | quote }}
