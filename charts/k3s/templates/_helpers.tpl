@@ -25,10 +25,19 @@ If release name contains chart name it will be used as a full name.
 {{- end -}}
 
 {{/*
+Whether the ingressclasses syncer should be enabled
+*/}}
+{{- define "vcluster.syncIngressclassesEnabled" -}}
+{{- if or (.Values.sync.ingressclasses).enabled (and .Values.sync.ingresses.enabled (not (hasKey .Values.sync.ingressclasses "enabled"))) -}}
+    {{- true -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Whether to create a cluster role or not
 */}}
 {{- define "vcluster.createClusterRole" -}}
-{{- if or (not (empty (include "vcluster.serviceMapping.fromHost" . ))) (not (empty (include "vcluster.plugin.clusterRoleExtraRules" . ))) .Values.rbac.clusterRole.create (index .Values.sync "legacy-storageclasses" "enabled") .Values.sync.ingresses.enabled .Values.sync.nodes.enabled .Values.sync.persistentvolumes.enabled .Values.sync.storageclasses.enabled .Values.sync.priorityclasses.enabled .Values.sync.volumesnapshots.enabled -}}
+{{- if or (not (empty (include "vcluster.serviceMapping.fromHost" . ))) (not (empty (include "vcluster.plugin.clusterRoleExtraRules" . ))) .Values.rbac.clusterRole.create (index .Values.sync "legacy-storageclasses" "enabled") (include "vcluster.syncIngressclassesEnabled" . ) .Values.sync.ingresses.enabled .Values.sync.nodes.enabled .Values.sync.persistentvolumes.enabled .Values.sync.storageclasses.enabled .Values.sync.priorityclasses.enabled .Values.sync.volumesnapshots.enabled -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
@@ -81,6 +90,9 @@ Prints only the flags that modify the defaults:
 {{- else if and (not (has $key $defaultEnabled)) ($val.enabled)}}
 - --sync={{ $key }}
 {{- end -}}
+{{- end -}}
+{{- if not (include "vcluster.syncIngressclassesEnabled" . ) }}
+- --sync=-ingressclasses
 {{- end -}}
 {{- end -}}
 

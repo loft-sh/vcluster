@@ -231,6 +231,14 @@ func parseControllers(options *VirtualClusterOptions) (map[string]bool, error) {
 		}
 	}
 
+	// enable ingressclasses if ingress syncing is enabled
+	// and ingressclasses is not explicitly disabled
+	if _, ok := enabledControllers["ingresses"]; ok {
+		if _, ok = disabledControllers["ingressclasses"]; !ok {
+			enabledControllers["ingressclasses"] = true
+		}
+	}
+
 	return enabledControllers, nil
 }
 
