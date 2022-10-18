@@ -3,6 +3,10 @@ package find
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -13,8 +17,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"time"
 )
 
 const VirtualClusterSelector = "app=vcluster"
@@ -79,6 +81,7 @@ func ListVClusters(context, name, namespace string) ([]VCluster, error) {
 	}
 
 	vclusters, err := findInContext(context, name, namespace, timeout, false)
+	// In case of error in vcluster listing in vcluster context, the below check will skip the error and try searching for parent context vclusters.
 	if err != nil && vClusterName == "" {
 		return nil, errors.Wrap(err, "find vcluster")
 	}
@@ -117,15 +120,16 @@ func VClusterFromContext(originalContext string) (name string, namespace string,
 }
 
 func findInContext(context, name, namespace string, timeout time.Duration, isParentContext bool) ([]VCluster, error) {
-	// statefulset based vclusters
 	vclusters := []VCluster{}
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: context,
 	})
 	restConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
-		// we can ignore this error for parent context, this means that the kubeconfig set doesn't have parent config in it.
+		// we can ignore this error for parent context, it just means that the kubeconfig set doesn't have parent config in it.
 		if isParentContext {
+			logger := log.GetInstance()
+			logger.Warn("parent context unreachable - No vclusters listed from parent context")
 			return vclusters, nil
 		}
 		return nil, errors.Wrap(err, "load kube config")
@@ -135,6 +139,7 @@ func findInContext(context, name, namespace string, timeout time.Duration, isPar
 		return nil, errors.Wrap(err, "create kube client")
 	}
 
+	// statefulset based vclusters
 	statefulSets, err := getStatefulSets(kubeClient, namespace, kubeClientConfig, timeout)
 	if err != nil {
 		return nil, err
@@ -165,7 +170,7 @@ func findInContext(context, name, namespace string, timeout time.Duration, isPar
 			if err != nil {
 				return nil, err
 			}
-
+			vCluster.Context = context
 			vclusters = append(vclusters, vCluster)
 		}
 	}
@@ -186,6 +191,7 @@ func findInContext(context, name, namespace string, timeout time.Duration, isPar
 				return nil, err2
 			}
 
+			vCluster.Context = context
 			vclusters = append(vclusters, vCluster)
 		}
 	}
