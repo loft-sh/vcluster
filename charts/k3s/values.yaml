@@ -40,6 +40,10 @@ sync:
     enabled: true
   ingresses:
     enabled: false
+  ingressclasses: {}
+    # By default IngressClasses sync is enabled when the Ingress sync is enabled
+    # but it can be explicitly disabled by setting:
+    # enabled: false
   fake-nodes:
     enabled: true # will be ignored if nodes.enabled = true
   fake-persistentvolumes:

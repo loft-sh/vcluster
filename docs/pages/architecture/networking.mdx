@@ -60,19 +60,31 @@ mapServices:
 With this configuration, vcluster will manage a service called `my-host-service` inside the namespace where the vcluster workloads are synced to, which points to the virtual service `my-virtual-service` in namespace `my-virtual-namespace` inside the vcluster. So pods in the host cluster will be able to access the virtual service via e.g. `curl http://my-host-service`.
 
 ## Ingress Controller Traffic
-By default (this can be disabled), the vcluster also synchronizes Ingress resources. That means that you can create an ingress in a vcluster to make a service in this vcluster available via a hostname/domain. However, instead of having to run a separate ingress controller in each vcluster, the ingress resource will be synchronized to the underlying cluster (by default) which means that vcluster can use a shared ingress controller that is running inside the host cluster. This helps to share resources across different vclusters and is easier for users of vclusters because otherwise, they would need to install an ingress controller and manually configure DNS for each vcluster.
+The vcluster has the option to enable Ingress resources synchronization. That means that you can create an ingress in a vcluster to make a service in this vcluster available via a hostname/domain. However, instead of having to run a separate ingress controller in each vcluster, the ingress resource will be synchronized to the underlying cluster (when enabled) which means that the vcluster can use a shared ingress controller that is running in the host cluster. This helps to share resources across different vclusters and is easier for users of vclusters because otherwise, they would need to install an ingress controller and manually configure DNS for each vcluster.
 
-### Disable Ingress Sync
-If you do **not** want ingresses to be synchronized and instead, you want to use a separate ingress controller within a vcluster, set the following in your `values.yaml`: 
+:::info 
+Before the v0.12.0 release of vcluster, the Ingress synchronization was enabled by default.
+:::
+
+
+### Enable Ingress Sync
+If you want to use an ingress controller from the underlying cluster by synchronizing the Ingress resources, set the following in your `values.yaml`: 
 ```
 sync:
   ingresses:
-    enabled: false
+    enabled: true
 ```
 then create or upgrade the vcluster with:
 
 ```
 vcluster create my-vcluster --upgrade -f values.yaml
+```
+
+By default, when Ingress sync is enabled, the IngressClasses will be synced from the underlying cluster to the vcluster. This can be disabled by setting the following in your `values.yaml`: 
+```
+sync:
+  ingressclasses:
+    enabled: false
 ```
 
 ### SSL Certificates

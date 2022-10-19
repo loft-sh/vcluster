@@ -36,7 +36,7 @@ rules:
     resources: ["storageclasses"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if .Values.sync.ingresses.enabled }}
+  {{- if (include "vcluster.syncIngressclassesEnabled" . ) }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingressclasses"]
     verbs: ["get", "watch", "list"]
