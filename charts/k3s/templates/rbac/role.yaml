@@ -42,9 +42,11 @@ rules:
   - apiGroups: [""]
     resources: ["endpoints", "events", "pods/log"]
     verbs: ["get", "list", "watch"]
+  {{- if or .Values.sync.ingresses.enabled}}
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
