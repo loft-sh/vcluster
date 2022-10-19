@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
@@ -29,12 +30,11 @@ type DeleteCmd struct {
 	KeepPVC             bool
 	DeleteNamespace     bool
 	AutoDeleteNamespace bool
-
-	rawConfig  *clientcmdapi.Config
-	restConfig *rest.Config
-	kubeClient *kubernetes.Clientset
-	log        log.Logger
-	IgnoreNotFound bool
+	IgnoreNotFound      bool
+	rawConfig           *clientcmdapi.Config
+	restConfig          *rest.Config
+	kubeClient          *kubernetes.Clientset
+	log                 log.Logger
 }
 
 // NewDeleteCmd creates a new command
@@ -87,6 +87,12 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// prepare client
 	err = cmd.prepare(args[0])
 	if err != nil {
+		if cmd.IgnoreNotFound {
+			if strings.Contains(err.Error(), "couldn't find vcluster") {
+				cmd.log.Donef("vcluster %s not found in namespace %s, ignoring since --ignore-not-found flag is set", args[0], cmd.Namespace)
+				return nil
+			}
+		}
 		return err
 	}
 
@@ -104,12 +110,6 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	cmd.log.Infof("Delete vcluster %s...", args[0])
 	err = helm.NewClient(cmd.rawConfig, cmd.log, helmBinaryPath).Delete(args[0], cmd.Namespace)
 	if err != nil {
-		if cmd.IgnoreNotFound {
-			if kerrors.IsNotFound(err){
-				cmd.log.Info("vcluster not found,--ignore-not-found flag set")
-				return nil
-			}
-		}
 		return err
 	}
 	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", args[0], cmd.Namespace)
