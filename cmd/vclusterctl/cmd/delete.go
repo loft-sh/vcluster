@@ -90,10 +90,10 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		if cmd.IgnoreNotFound {
 			if strings.Contains(err.Error(), "couldn't find vcluster") {
 				cmd.log.Donef("vcluster %s not found in namespace %s, ignoring since --ignore-not-found flag is set", args[0], cmd.Namespace)
-				return nil
 			}
+		} else {
+			return err
 		}
-		return err
 	}
 
 	// check if namespace
@@ -125,7 +125,11 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		err = client.CoreV1().PersistentVolumeClaims(cmd.Namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
-				return errors.Wrap(err, "delete pvc")
+				if cmd.IgnoreNotFound{
+					cmd.log.Donef("virtual cluster pvc %s not found in namespace %s, ignoring since --ignore-not-found flag is set", pvcName, cmd.Namespace)
+				} else {
+					return errors.Wrap(err, "delete pvc")
+				}
 			}
 		} else {
 			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, cmd.Namespace)
@@ -152,7 +156,11 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		err = client.CoreV1().Namespaces().Delete(context.Background(), cmd.Namespace, metav1.DeleteOptions{})
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
-				return errors.Wrap(err, "delete namespace")
+				if cmd.IgnoreNotFound{
+					cmd.log.Donef("virtual cluster namespace %s not found, ignoring since --ignore-not-found flag is set",cmd.Namespace)
+				} else {
+					return errors.Wrap(err, "delete namespace")
+				}
 			}
 		} else {
 			cmd.log.Donef("Successfully deleted virtual cluster namespace %s", cmd.Namespace)
