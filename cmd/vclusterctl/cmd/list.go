@@ -92,7 +92,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 		cmd.log.WriteString(string(bytes) + "\n")
 	} else {
-		header := []string{"NAME", "NAMESPACE", "STATUS", "CONNECTED", "CREATED", "AGE"}
+		header := []string{"NAME", "NAMESPACE", "STATUS", "CONNECTED", "CREATED", "AGE", "CONTEXT"}
 		values := [][]string{}
 		for _, vcluster := range vClusters {
 			connected := ""
@@ -107,6 +107,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				connected,
 				vcluster.Created.String(),
 				time.Since(vcluster.Created.Time).Round(1 * time.Second).String(),
+				vcluster.Context,
 			})
 		}
 
