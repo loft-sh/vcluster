@@ -3,10 +3,15 @@ title: High Availability
 sidebar_label: High Availability
 ---
 
-import HighAvailability from '../fragments/high-availability.mdx';
+import HighAvailabilityK3s from '../fragments/high-availability-k3s.mdx';
+import HighAvailabilityK8s from '../fragments/high-availability-k8s.mdx';
 
-vcluster supports high-availability with the vanilla k8s distribution. Single binary distributions such as k0s and k3s are currently not supported for high availability setup of vcluster.
+vcluster supports high-availability with k3s as well as the vanilla k8s distribution. k0s is currently not supported for high availability setup of vcluster.
 
-### Enabling High Availability
+## k3s
 
-<HighAvailability />
+<HighAvailabilityK3s />
+
+## Vanilla k8s
+
+<HighAvailabilityK8s />

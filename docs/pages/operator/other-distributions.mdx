@@ -3,7 +3,7 @@ title: Other Kubernetes distributions
 sidebar_label: Other Kubernetes distributions
 ---
 
-import HighAvailability from '../fragments/high-availability.mdx';
+import HighAvailabilityK8s from '../fragments/high-availability-k8s.mdx';
 
 By default, vcluster will use [k3s](https://github.com/k3s-io/k3s) as virtual Kubernetes cluster, which is a highly available, certified Kubernetes distribution designed for production workloads in unattended, resource-constrained, remote locations or inside IoT appliances.
 
@@ -29,7 +29,7 @@ Behind the scenes a different helm chart will be deployed (`vcluster-k0s`), that
 
 ## Vanilla k8s
 
-When choosing this option, vcluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vcluster hypervisor. 
+When choosing this option, vcluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vcluster hypervisor.
 
 In order to use vanilla k8s as backing cluster, create a vcluster with the following command:
 
@@ -47,7 +47,7 @@ Behind the scenes a different helm chart will be deployed (`vcluster-k8s`), that
 
 ### High Available Vanilla k8s
 
-<HighAvailability />
+<HighAvailabilityK8s />
 
 ## Other Distributions
 
