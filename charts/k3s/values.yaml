@@ -1,6 +1,10 @@
 # These annotations will be applied to all objects created in this chart
 globalAnnotations: {}
 
+# If the control plane is deployed in high availability mode
+# Make sure to scale up the replicas, use an external datastore and provide a static server token (K3S_TOKEN)
+enableHA: false
+
 # DefaultImageRegistry will be prepended to all deployed vcluster images, such as the vcluster pod, coredns etc.. Deployed
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""

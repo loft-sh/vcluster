@@ -1,6 +1,6 @@
-{{- if not .Values.enableHA }}
+{{- if .Values.enableHA }}
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -12,50 +12,70 @@ metadata:
 {{- if .Values.labels }}
 {{ toYaml .Values.labels | indent 4 }}
 {{- end }}
-{{- $annotations := merge .Values.annotations .Values.globalAnnotations }}
-  {{- if $annotations }}
+  {{- if .Values.annotations }}
   annotations:
-{{ toYaml $annotations | indent 4 }}
+{{ toYaml .Values.annotations | indent 4 }}
   {{- end }}
 spec:
-  serviceName: {{ .Release.Name }}-headless
   replicas: {{ .Values.replicas }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      {{- if (eq (int .Values.replicas) 1) }}
+      maxUnavailable: 0
+      {{- else }}
+      maxUnavailable: 1
+      {{- end }}
+    type: RollingUpdate
   selector:
     matchLabels:
       app: vcluster
       release: {{ .Release.Name }}
-  {{- if (hasKey .Values "volumeClaimTemplates") }}
-  volumeClaimTemplates:
-{{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-  {{- else if .Values.storage.persistence }}
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: [ "ReadWriteOnce" ]
-        storageClassName: {{ .Values.storage.className }}
-        resources:
-          requests:
-            storage: {{ .Values.storage.size }}
-  {{- end }}
   template:
     metadata:
-  {{- if .Values.podAnnotations }}
-      annotations:
-{{ toYaml .Values.podAnnotations | indent 8 }}
-  {{- end }}
       labels:
         app: vcluster
         release: {{ .Release.Name }}
-      {{- range $k, $v := .Values.podLabels }}
-        {{ $k }}: {{ $v | quote }}
-      {{- end }}
     spec:
       terminationGracePeriodSeconds: 10
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
+      {{- if .Values.affinity }}
       affinity:
 {{ toYaml .Values.affinity | indent 8 }}
+      {{- else }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # if possible avoid scheduling more than one pod on one node
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vcluster
+                - key: release
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: "kubernetes.io/hostname"
+          # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vcluster
+                - key: release
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: topology.kubernetes.io/zone
+      {{- end }}
       tolerations:
 {{ toYaml .Values.tolerations | indent 8 }}
       {{- if .Values.serviceAccount.name }}
@@ -110,10 +130,10 @@ spec:
           {{- end }}
           {{- if not .Values.sync.nodes.enableScheduler }}
             --disable-scheduler
-            --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl
+            --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
             --kube-apiserver-arg=endpoint-reconciler-type=none
           {{- else }}
-            --kube-controller-manager-arg=controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl
+            --kube-controller-manager-arg=controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle
             --kube-apiserver-arg=endpoint-reconciler-type=none
             --kube-controller-manager-arg=node-monitor-grace-period=1h
             --kube-controller-manager-arg=node-monitor-period=1h
@@ -180,6 +200,11 @@ spec:
           {{- end }}
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
+          {{- end }}
+          {{- if .Values.enableHA }}
+          - --leader-elect=true
+          {{- else }}
+          - --leader-elect=false
           {{- end }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
