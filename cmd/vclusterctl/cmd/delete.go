@@ -57,6 +57,7 @@ vcluster delete test --namespace test
 #######################################################
 	`,
 		Args:              cobra.ExactArgs(1),
+		Aliases:           []string{"del"},
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd, args)

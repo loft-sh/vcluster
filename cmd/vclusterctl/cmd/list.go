@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"encoding/json"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"k8s.io/client-go/tools/clientcmd"
 	"strings"
 	"time"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -53,7 +54,8 @@ vcluster list --output json
 vcluster list --namespace test
 #######################################################
 	`,
-		Args: cobra.NoArgs,
+		Args:    cobra.NoArgs,
+		Aliases: []string{"ls"},
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd, args)
 		},
