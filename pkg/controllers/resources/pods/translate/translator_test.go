@@ -1,9 +1,9 @@
 package translate
 
 import (
-	translator2 "github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"testing"
 
+	translator2 "github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-func TestPlannedAction(t *testing.T) {
+func TestPodAffinityTermsTranslation(t *testing.T) {
 	longKey := "pretty-loooooooooooong-test-key"
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -156,6 +156,62 @@ type translatePodAffinityTermTestCase struct {
 	term           corev1.PodAffinityTerm
 	expectedTerm   corev1.PodAffinityTerm
 	expectedEvents []string
+}
+
+func TestVolumeTranslation(t *testing.T) {
+	testCases := []translatePodVolumesTestCase{
+		{
+			name: "ephemeral volume",
+			vPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-name",
+					Namespace: "test-ns",
+				},
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
+						{
+							Name: "eph-vol",
+							VolumeSource: corev1.VolumeSource{
+								Ephemeral: &corev1.EphemeralVolumeSource{
+									VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedVolumes: []corev1.Volume{
+				{
+					Name: "eph-vol",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: translate.PhysicalName("pod-name-eph-vol", "test-ns"),
+						},
+						Ephemeral: nil,
+					},
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		fakeRecorder := record.NewFakeRecorder(10)
+		tr := &translator{
+			eventRecorder: fakeRecorder,
+			log:           loghelper.New("pods-syncer-translator-test"),
+		}
+
+		pPod := testCase.vPod.DeepCopy()
+		err := tr.translateVolumes(pPod, &testCase.vPod)
+		assert.NilError(t, err)
+		assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
+	}
+}
+
+type translatePodVolumesTestCase struct {
+	name            string
+	vPod            corev1.Pod
+	expectedVolumes []corev1.Volume
 }
 
 func appendToMatchLabels(source *metav1.LabelSelector, k, v string) *metav1.LabelSelector {

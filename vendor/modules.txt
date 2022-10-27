@@ -1325,6 +1325,9 @@ k8s.io/component-base/metrics/testutil
 k8s.io/component-base/tracing
 k8s.io/component-base/tracing/api/v1
 k8s.io/component-base/version
+# k8s.io/component-helpers v0.25.0
+## explicit; go 1.19
+k8s.io/component-helpers/storage/ephemeral
 # k8s.io/klog v1.0.0
 ## explicit; go 1.12
 k8s.io/klog
