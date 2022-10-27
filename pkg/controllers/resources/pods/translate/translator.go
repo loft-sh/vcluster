@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/component-helpers/storage/ephemeral"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -326,6 +327,19 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 		}
 		if pPod.Spec.Volumes[i].PersistentVolumeClaim != nil {
 			pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName = translate.PhysicalName(pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName, vPod.Namespace)
+		}
+		if pPod.Spec.Volumes[i].Ephemeral != nil {
+			// An ephemeral volume is created as a PVC by the "ephemeral_volume" K8s controller.
+			// We shall replace this volume type with a PVC reference to avoid PVC duplication
+			// which would occur if both vcluster and host kube controllers would create the PVC
+			// based on the pPod.Spec.Volumes[i].Ephemeral.VolumeClaimTemplate
+			// What makes this volume ephemeral is an ownerReference set on PVC, which references
+			// the Pod, and that remains unchanged and thus the PVC will be removed by the kube
+			// controllers of the vcluster, and syncer will then remove the PVC from the host.
+			pPod.Spec.Volumes[i].PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: translate.PhysicalName(ephemeral.VolumeClaimName(vPod, &vPod.Spec.Volumes[i]), vPod.Namespace),
+			}
+			pPod.Spec.Volumes[i].Ephemeral = nil
 		}
 		if pPod.Spec.Volumes[i].Projected != nil {
 			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod, vPod)

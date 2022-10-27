@@ -37,6 +37,7 @@ require (
 	k8s.io/apiserver v0.25.0
 	k8s.io/cli-runtime v0.25.0
 	k8s.io/client-go v0.25.0
+	k8s.io/component-helpers v0.25.0
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.70.1
 	k8s.io/kube-aggregator v0.25.0
