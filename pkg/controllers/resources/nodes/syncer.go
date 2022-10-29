@@ -291,7 +291,10 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 			ls = labels.Set{}
 		}
 
-		return s.nodeSelector.Matches(ls), nil
+		if !s.nodeSelector.Matches(ls) {
+			return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)
+		}
+		return true, nil
 	}
 
 	return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)

@@ -1,6 +1,8 @@
 package nodes
 
 import (
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
@@ -276,6 +278,128 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Options.Tolerations = []string{":NoSchedule op=Exists"}
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+	})
+
+	baseName = types.NamespacedName{
+		Name: "mynode",
+	}
+	basePod = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mypod",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: baseName.Name,
+		},
+	}
+	baseNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+		},
+	}
+	baseVNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: nodeservice.KubeletPort,
+				},
+			},
+		},
+	}
+	editedNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: nodeservice.KubeletPort,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Label Matched - expect node to be synced from NodeSelector",
+			InitialPhysicalState: []runtime.Object{baseNode},
+			InitialVirtualState:  []runtime.Object{baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				req, _ := labels.NewRequirement("test", selection.Equals, []string{"true"})
+				sel := labels.NewSelector().Add(*req)
+				ctx.Options.NodeSelector = sel.String()
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Label Not Matched - expect node to be synced from pod needs",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				req, _ := labels.NewRequirement("test", selection.NotEquals, []string{"true"})
+				sel := labels.NewSelector().Add(*req)
+				ctx.Options.NodeSelector = sel.String()
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "No NodeSelector LabelSet - expect node to be synced from pod needs",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
