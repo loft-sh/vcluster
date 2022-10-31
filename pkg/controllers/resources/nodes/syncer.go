@@ -55,6 +55,7 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 	return &nodeSyncer{
 		enableScheduler: ctx.Options.EnableScheduler,
 
+		enforceNodeSelector: ctx.Options.EnforceNodeSelector,
 		nodeServiceProvider: nodeService,
 		nodeSelector:        nodeSelector,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
@@ -69,8 +70,9 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 type nodeSyncer struct {
 	enableScheduler bool
 
-	nodeSelector    labels.Selector
-	useFakeKubelets bool
+	enforceNodeSelector bool
+	nodeSelector        labels.Selector
+	useFakeKubelets     bool
 
 	physicalClient client.Client
 	virtualClient  client.Client
@@ -291,10 +293,11 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 			ls = labels.Set{}
 		}
 
-		if !s.nodeSelector.Matches(ls) {
+		matched := s.nodeSelector.Matches(ls)
+		if !matched && !s.enforceNodeSelector {
 			return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)
 		}
-		return true, nil
+		return matched, nil
 	}
 
 	return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)

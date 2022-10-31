@@ -359,13 +359,14 @@ func TestSync(t *testing.T) {
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
-			Name:                 "Label Matched - expect node to be synced from NodeSelector",
+			Name:                 "Label Matched and enforceNodeSelector false - expect node to be synced from NodeSelector",
 			InitialPhysicalState: []runtime.Object{baseNode},
 			InitialVirtualState:  []runtime.Object{baseVNode},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.EnforceNodeSelector = false
 				req, _ := labels.NewRequirement("test", selection.Equals, []string{"true"})
 				sel := labels.NewSelector().Add(*req)
 				ctx.Options.NodeSelector = sel.String()
@@ -375,7 +376,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			Name:                 "Label Not Matched - expect node to be synced from pod needs",
+			Name:                 "Label Not Matched and enforceNodeSelector false - expect node to be synced from pod needs",
 			InitialPhysicalState: []runtime.Object{basePod, baseNode},
 			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
@@ -383,6 +384,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.EnforceNodeSelector = false
 				req, _ := labels.NewRequirement("test", selection.NotEquals, []string{"true"})
 				sel := labels.NewSelector().Add(*req)
 				ctx.Options.NodeSelector = sel.String()
@@ -392,7 +394,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			Name:                 "No NodeSelector LabelSet - expect node to be synced from pod needs",
+			Name:                 "No NodeSelector LabelSet and enforceNodeSelector false - expect node to be synced from pod needs",
 			InitialPhysicalState: []runtime.Object{basePod, baseNode},
 			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
@@ -400,6 +402,22 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.EnforceNodeSelector = false
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Label Not Matched and enforceNodeSelector true - expect node not to be synced",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				req, _ := labels.NewRequirement("test", selection.NotEquals, []string{"true"})
+				sel := labels.NewSelector().Add(*req)
+				ctx.Options.NodeSelector = sel.String()
+				ctx.Options.EnforceNodeSelector = true
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
