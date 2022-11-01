@@ -112,6 +112,14 @@ func HasPodProblem(pod *corev1.Pod) bool {
 	return CriticalStatus[status]
 }
 
+func CheckHelmVersion(output string) error {
+	if !(strings.Contains(output, "Version:\"v3.")) {
+		return errors.New("Please ensure that the \"helm\" binary in your PATH is valid. Only Helm v3 is supported")
+	}
+
+	return nil
+}
+
 func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, setActive bool) error {
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {

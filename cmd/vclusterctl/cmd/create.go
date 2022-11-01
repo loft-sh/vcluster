@@ -132,7 +132,10 @@ func (cmd *CreateCmd) Run(args []string) error {
 		return err
 	}
 
-	_, err = exec.Command(helmBinaryPath, "version").CombinedOutput()
+	output, err := exec.Command(helmBinaryPath, "version", "--client").CombinedOutput()
+	if errHelm := CheckHelmVersion(string(output)); errHelm != nil {
+		return errHelm
+	}
 	if err != nil {
 		return err
 	}
