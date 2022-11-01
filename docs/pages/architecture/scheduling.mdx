@@ -68,6 +68,9 @@ This will pass the necessary flags to the "syncer" container and create or updat
 Vcluster allows you to limit on which nodes the pods synced by vcluster will run.
 You can achieve this by combining `--node-selector` and `--enforce-node-selector` syncer flags. 
 The `--enforce-node-selector` flag is enabled by default.
+When `--enforce-node-selector` flag is disabled, and a `--node-selector` is specified nodes will be synced based on the
+selector, as well as nodes running pod workloads.
+
 When using vcluster helm chart or CLI, there are two options for setting the `--node-selector` flag.
 
 This first option is recommended if you are not enabling node synchronization, and use [the fake nodes](./nodes), which are enabled by default. In such case, you would write a string representation of your node selector(e.g. "nodeLabel=labelValue") and set it as the value of `--node-selector` argument for syncer in your `values.yaml`:

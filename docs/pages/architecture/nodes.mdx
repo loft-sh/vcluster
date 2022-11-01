@@ -12,7 +12,7 @@ vcluster supports multiple modes to customize node syncing behaviour:
 - **Real Nodes** : vcluster will copy and sync real nodes information for each `spec.nodeName`. If there are no more pods on a node within vcluster, the virtual cluster node will be deleted. This mode requires helm value `.sync.nodes.enabled: true`, as described below.
 - **Real Nodes All** : vcluster will always sync all nodes from the host cluster to the vcluster, no matter where pods are running. This is useful if you want to use DaemonSets within the vcluster. This mode requires following helm values: `.sync.nodes.enabled: true` and `.sync.nodes.syncAllNodes: true`.
 - **Real Nodes Label Selector** vcluster will only sync nodes that match the given label selector. This mode requires following helm values: `.sync.nodes.enabled: true` and `.sync.nodes.nodeSelector: "label1=value1"`. You can also specify `--enforce-node-selector` to enforce scheduling only on these nodes. 
-
+- **Real Nodes + Label Selector** vcluster will sync nodes that match the given label selector as well as the real nodes information for each `spec.nodeName`. This mode requires following helm values: `.sync.nodes.enabled: true` and `.sync.nodes.nodeSelector: "label1=value1"` and the flag `--enforce-node-selector=false`.
 
 To set the `.sync.nodes.enabled: true` helm value add the following to your `values.yaml` file:
 ```
