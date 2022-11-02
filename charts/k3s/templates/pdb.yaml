@@ -1,9 +1,5 @@
 {{- if and (.Values.enableHA) (gt (int .Values.replicas) 1) -}}
-{{- if .Capabilities.APIVersions.Has "policy/v1" -}}
 apiVersion: policy/v1
-{{- else }}
-apiVersion: policy/v1beta1
-{{- end }}
 kind: PodDisruptionBudget
 metadata:
   name: {{ .Release.Name }}
