@@ -32,7 +32,6 @@ const (
 	bindCompletedAnnotation      = "pv.kubernetes.io/bind-completed"
 	boundByControllerAnnotation  = "pv.kubernetes.io/bound-by-controller"
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
-	selectedNodeAnnotation       = "volume.kubernetes.io/selected-node"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {

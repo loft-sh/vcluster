@@ -36,9 +36,6 @@ func (s *csistoragecapacitySyncer) RegisterIndices(ctx *synccontext.RegisterCont
 	})
 }
 
-// Phyiscal: name: sc1-zone-a namespace: rook-storage
-// Virtual: name: sc1-zone-a-x-rook-storage namespace: kube-system
-
 // translate namespace
 func (s *csistoragecapacitySyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translate.SafeConcatName(pObj.GetName(), "x", pObj.GetNamespace()), Namespace: "kube-system"}

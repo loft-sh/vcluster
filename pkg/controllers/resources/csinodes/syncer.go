@@ -11,12 +11,14 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &csinodeSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}),
+		Translator:     translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}),
+		physicalClient: ctx.PhysicalManager.GetClient(),
 	}, nil
 }
 
 type csinodeSyncer struct {
 	translator.Translator
+	physicalClient client.Client
 }
 
 var _ syncer.UpSyncer = &csinodeSyncer{}
@@ -26,6 +28,8 @@ var _ syncer.Syncer = &csinodeSyncer{}
 // look up matching node name, don't enqueue if not synced
 
 func (s *csinodeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+	node := &corev1.Node{}
+	s.physicalClient.Get(ctx.Context, types)
 	vObj := s.translateBackwards(pObj.(*storagev1.CSINode))
 	ctx.Log.Infof("create CSINode %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)

@@ -20,34 +20,42 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &csistoragecapacitySyncer{
-		storageClassSyncEnabled: ctx.Controllers.Has("storageclasses"),
-		physicalClient:          ctx.PhysicalManager.GetClient(),
+		storageClassSyncEnabled:       ctx.Controllers.Has("storageclasses"),
+		legacyStorageClassSyncEnabled: ctx.Controllers.Has("legacy-storageclasses"),
+		physicalClient:                ctx.PhysicalManager.GetClient(),
 	}, nil
 }
 
 type csistoragecapacitySyncer struct {
-	storageClassSyncEnabled bool
-	physicalClient          client.Client
+	storageClassSyncEnabled       bool
+	legacyStorageClassSyncEnabled bool
+	physicalClient                client.Client
 }
 
 var _ syncer.UpSyncer = &csistoragecapacitySyncer{}
 var _ syncer.Syncer = &csistoragecapacitySyncer{}
 
 func (s *csistoragecapacitySyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj, err := s.translateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity))
-	if err != nil {
+	vObj, shouldSync, err := s.translateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity))
+	if err != nil || shouldSync {
 		return ctrl.Result{}, err
 	}
+
 	ctx.Log.Infof("create CSIStorageCapacity %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
 
 func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if there is a change
-	updated, err := s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity), vObj.(*storagev1.CSIStorageCapacity))
+	updated, shouldSync, err := s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity), vObj.(*storagev1.CSIStorageCapacity))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	if shouldSync {
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+	}
+
 	if updated != nil {
 		ctx.Log.Infof("update CSIStorageCapacity %s", vObj.GetName())
 		translator.PrintChanges(pObj, updated, ctx.Log)
@@ -69,11 +77,8 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to create allNSCache: %w", err)
 	}
-	// err = allNSCache.Start(ctx.Context)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to start allNSCache: %w", err)
-	// }
-	ctx.PhysicalManager.Add(allNSCache)
+
+	err = ctx.PhysicalManager.Add(allNSCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add allNSCache to physical manager: %w", err)
 	}
