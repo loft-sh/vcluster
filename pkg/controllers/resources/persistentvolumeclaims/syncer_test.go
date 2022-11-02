@@ -1,13 +1,14 @@
 package persistentvolumeclaims
 
 import (
+	"testing"
+	"time"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/types"
-	"testing"
-	"time"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -128,7 +129,7 @@ func TestSync(t *testing.T) {
 
 	generictesting.RunTestsWithContext(t, func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		ctx := generictesting.NewFakeRegisterContext(pClient, vClient)
-		ctx.Controllers["storageclasses"] = false
+		ctx.Controllers.Delete("storageclasses")
 		return ctx
 	}, []*generictesting.SyncTest{
 		{

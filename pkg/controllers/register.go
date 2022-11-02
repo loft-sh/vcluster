@@ -84,7 +84,7 @@ func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
 		for _, controllerNew := range v {
 			controllers := strings.Split(k, ",")
 			for _, controller := range controllers {
-				if ctx.Controllers[controller] {
+				if ctx.Controllers.Has(controller) {
 					loghelper.Infof("Start %s sync controller", controller)
 					ctrl, err := controllerNew(registerContext)
 					if err != nil {

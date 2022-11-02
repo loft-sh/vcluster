@@ -10,7 +10,6 @@ const (
 	DisableSubdomainRewriteAnnotation = "vcluster.loft.sh/disable-subdomain-rewrite"
 	HostsRewrittenAnnotation          = "vcluster.loft.sh/hosts-rewritten"
 	HostsVolumeName                   = "vcluster-rewrite-hosts"
-	HostsRewriteImage                 = "library/alpine:3.13.1"
 	HostsRewriteContainerName         = "vcluster-rewrite-hosts"
 )
 

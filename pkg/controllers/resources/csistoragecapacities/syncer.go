@@ -20,7 +20,7 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &csistoragecapacitySyncer{
-		storageClassSyncEnabled: ctx.Controllers["storageclasses"],
+		storageClassSyncEnabled: ctx.Controllers.Has("storageclasses"),
 		physicalClient:          ctx.PhysicalManager.GetClient(),
 	}, nil
 }

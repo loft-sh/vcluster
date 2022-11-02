@@ -36,14 +36,14 @@ const (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	storageClassesEnabled := ctx.Controllers["storageclasses"]
+	storageClassesEnabled := ctx.Controllers.Has("storageclasses")
 	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
 	return &persistentVolumeClaimSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, excludedAnnotations...),
 
 		storageClassesEnabled:    storageClassesEnabled,
 		schedulerEnabled:         ctx.Options.EnableScheduler,
-		useFakePersistentVolumes: !ctx.Controllers["persistentvolumes"],
+		useFakePersistentVolumes: !ctx.Controllers.Has("persistentvolumes"),
 	}, nil
 }
 
