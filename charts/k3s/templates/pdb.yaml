@@ -1,4 +1,4 @@
-{{- if and (.Values.enableHA) (gt (int .Values.replicas) 1) -}}
+{{- if and (.Values.enableHA) (.Values.podDisruptionBudget.enabled) (gt (int .Values.replicas) 1) -}}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -14,7 +14,12 @@ metadata:
 {{ toYaml .Values.globalAnnotations | indent 4 }}
   {{- end }}
 spec:
-  minAvailable: 1
+  {{- with .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- with .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       app: vcluster
