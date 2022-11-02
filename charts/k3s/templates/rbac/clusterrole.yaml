@@ -33,7 +33,7 @@ rules:
   {{- end }}
   {{- if .Values.sync.nodes.enableScheduler }}
   - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses"]
+    resources: ["storageclasses","csinodes","csidrivers","csistoragecapacities"]
     verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if (include "vcluster.syncIngressclassesEnabled" . ) }}

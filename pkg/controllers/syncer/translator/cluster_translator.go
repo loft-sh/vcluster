@@ -118,7 +118,7 @@ func (n *clusterTranslator) TranslateLabels(vObj client.Object, pObj client.Obje
 }
 
 func (n *clusterTranslator) TranslateAnnotations(vObj client.Object, pObj client.Object) map[string]string {
-	return translateAnnotations(vObj, pObj, n.excludedAnnotations)
+	return TranslateAnnotations(vObj, pObj, n.excludedAnnotations)
 }
 
 func convertNamespacedLabelKey(physicalNamespace, key string) string {

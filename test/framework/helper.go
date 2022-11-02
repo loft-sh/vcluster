@@ -22,6 +22,10 @@ func ExpectError(err error, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, err).To(gomega.HaveOccurred(), explain...)
 }
 
+func ExpectNotEmpty(actual interface{}, explain ...interface{}) {
+	gomega.ExpectWithOffset(1, actual).ToNot(gomega.BeEmpty(), explain...)
+}
+
 // ExpectNoError checks if "err" is set, and if so, fails assertion while logging the error.
 func ExpectNoError(err error, explain ...interface{}) {
 	ExpectNoErrorWithOffset(1, err, explain...)

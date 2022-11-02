@@ -146,9 +146,8 @@ func TranslateMetadata(physicalNamespace string, vObj client.Object, syncedLabel
 	if err != nil {
 		return nil
 	}
-
-	pObj.SetLabels(translateLabels(vObj, nil, syncedLabels))
-	pObj.SetAnnotations(translateAnnotations(vObj, nil, excludedAnnotations))
+	pObj.SetLabels(TranslateLabels(vObj, nil, syncedLabels))
+	pObj.SetAnnotations(TranslateAnnotations(vObj, nil, excludedAnnotations))
 	return pObj
 }
 
@@ -157,18 +156,18 @@ func (n *namespacedTranslator) TranslateMetadataUpdate(vObj client.Object, pObj 
 }
 
 func TranslateMetadataUpdate(vObj client.Object, pObj client.Object, syncedLabels []string, excludedAnnotations ...string) (bool, map[string]string, map[string]string) {
-	updatedAnnotations := translateAnnotations(vObj, pObj, excludedAnnotations)
-	updatedLabels := translateLabels(vObj, pObj, syncedLabels)
+	updatedAnnotations := TranslateAnnotations(vObj, pObj, excludedAnnotations)
+	updatedLabels := TranslateLabels(vObj, pObj, syncedLabels)
 	return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels
 }
 
-func translateAnnotations(vObj client.Object, pObj client.Object, excluded []string) map[string]string {
+func TranslateAnnotations(src client.Object, dest client.Object, excluded []string) map[string]string {
 	excluded = append(excluded, ManagedAnnotationsAnnotation, NameAnnotation, NamespaceAnnotation)
 
 	retMap := map[string]string{}
 	managedAnnotations := []string{}
-	if vObj != nil {
-		for k, v := range vObj.GetAnnotations() {
+	if src != nil {
+		for k, v := range src.GetAnnotations() {
 			if translate.Exists(excluded, k) {
 				continue
 			}
@@ -178,8 +177,8 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 		}
 	}
 
-	if pObj != nil {
-		pAnnotations := pObj.GetAnnotations()
+	if dest != nil {
+		pAnnotations := dest.GetAnnotations()
 		if pAnnotations != nil {
 			oldManagedAnnotationsStr := pAnnotations[ManagedAnnotationsAnnotation]
 			oldManagedAnnotations := strings.Split(oldManagedAnnotationsStr, "\n")
@@ -200,11 +199,11 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 	}
 
 	sort.Strings(managedAnnotations)
-	retMap[NameAnnotation] = vObj.GetName()
-	if vObj.GetNamespace() == "" {
+	retMap[NameAnnotation] = src.GetName()
+	if src.GetNamespace() == "" {
 		delete(retMap, NamespaceAnnotation)
 	} else {
-		retMap[NamespaceAnnotation] = vObj.GetNamespace()
+		retMap[NamespaceAnnotation] = src.GetNamespace()
 	}
 
 	managedAnnotationsStr := strings.Join(managedAnnotations, "\n")
@@ -216,9 +215,9 @@ func translateAnnotations(vObj client.Object, pObj client.Object, excluded []str
 	return retMap
 }
 
-func translateLabels(vObj client.Object, pObj client.Object, syncedLabels []string) map[string]string {
+func TranslateLabels(src client.Object, dest client.Object, syncedLabels []string) map[string]string {
 	newLabels := map[string]string{}
-	vObjLabels := vObj.GetLabels()
+	vObjLabels := src.GetLabels()
 	for k, v := range vObjLabels {
 		newLabels[ConvertLabelKey(k)] = v
 	}
@@ -229,16 +228,16 @@ func translateLabels(vObj client.Object, pObj client.Object, syncedLabels []stri
 			}
 		}
 	}
-	if pObj != nil {
-		pObjLabels := pObj.GetLabels()
+	if dest != nil {
+		pObjLabels := dest.GetLabels()
 		if pObjLabels != nil && pObjLabels[translate.ControllerLabel] != "" {
 			newLabels[translate.ControllerLabel] = pObjLabels[translate.ControllerLabel]
 		}
 	}
 
 	newLabels[translate.MarkerLabel] = translate.Suffix
-	if vObj.GetNamespace() != "" {
-		newLabels[translate.NamespaceLabel] = vObj.GetNamespace()
+	if src.GetNamespace() != "" {
+		newLabels[translate.NamespaceLabel] = src.GetNamespace()
 	}
 	return newLabels
 }

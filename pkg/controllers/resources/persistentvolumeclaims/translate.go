@@ -8,7 +8,6 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -108,50 +107,6 @@ func (s *persistentVolumeClaimSyncer) translateUpdate(ctx *synccontext.SyncConte
 		updated = newIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations
 		updated.Labels = updatedLabels
-	}
-
-	// this is a workaround for WaitForFirstConsumer storage classes as they will wait
-	// for a pod to bind the pvc. Since we only sync pods that have a node assigned, the
-	// host cluster will never see a pod, therefore never bind the PVC and they both will
-	// be stuck pending.
-	if !s.storageClassesEnabled && /* the scheduler can make the right decision and set selectedNodeAnnotation if the storageClass is synced */
-		s.schedulerEnabled && /* pods are scheduled by the host cluster if the scheduler is enabled */
-		pObj.Status.Phase == corev1.ClaimPending && /* only assign unbound PVs */
-		pObj.Spec.StorageClassName != nil &&
-		(pObj.Annotations == nil || pObj.Annotations[selectedNodeAnnotation] == "") { /* only set the annotation once */
-
-		// check if owning storage class is WaitForFirstConsumer
-		storageClass := &storagev1.StorageClass{}
-		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *pObj.Spec.StorageClassName}, storageClass)
-		if err != nil {
-			return nil, err
-		}
-
-		if storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
-			// get all virtual nodes
-			nodes := &corev1.NodeList{}
-			err = ctx.VirtualClient.List(ctx.Context, nodes)
-			if err != nil {
-				return nil, errors.Wrap(err, "list virtual nodes")
-			}
-
-			// TODO: mimic correct scheduler behaviour here instead of just assigning the PVC to a random node
-			found := false
-			for _, node := range nodes.Items {
-				if MatchTopologySelectorTerms(storageClass.AllowedTopologies, node.Labels) {
-					updated = newIfNil(updated, pObj)
-					if updated.Annotations == nil {
-						updated.Annotations = map[string]string{}
-					}
-					updated.Annotations[selectedNodeAnnotation] = node.Name
-					found = true
-					break
-				}
-			}
-			if !found {
-				return nil, fmt.Errorf("couldn't find any virtual nodes in cluster matching storage class topologies")
-			}
-		}
 	}
 
 	return updated, nil

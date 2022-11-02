@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -129,6 +130,9 @@ var ExistingControllers = map[string]bool{
 	"volumesnapshots":        true,
 	"poddisruptionbudgets":   true,
 	"serviceaccounts":        true,
+	"csinodes":               true,
+	"csidrivers":             true,
+	"csistoragecapacities":   true,
 }
 
 var DefaultEnabledControllers = []string{
@@ -143,6 +147,12 @@ var DefaultEnabledControllers = []string{
 	"persistentvolumeclaims",
 	"fake-nodes",
 	"fake-persistentvolumes",
+}
+
+var schedulerRequiredControllers = []string{
+	"csinodes",
+	"csidrivers",
+	"csistoragecapacities",
 }
 
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
@@ -169,6 +179,18 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 	// check if storage classes and legacy storage classes are enabled at the same time
 	if controllers["storageclasses"] && controllers["legacy-storageclasses"] {
 		return nil, fmt.Errorf("you cannot sync storage classes and legacy storage classes at the same time. Choose only one of them")
+	}
+
+	// enable additional controllers required for scheduling with storage
+	if options.EnableScheduler && controllers["persistentvolumeclaims"] {
+		klog.Infof("persistentvolumeclaim syncing and scheduler enabled, enabling required controllers: %q", schedulerRequiredControllers)
+		for _, ctr := range schedulerRequiredControllers {
+			controllers[ctr] = true
+		}
+		if !(controllers["storageclasses"] || controllers["legacy-storageclasses"]) {
+			klog.Info("persistentvolumeclaim syncing and scheduler enabled, but storageclass sync not enabled. Syncing host storageclasses to vcluster(legacy-storageclasses)")
+			controllers["legacy-storageclasses"] = true
+		}
 	}
 
 	return &ControllerContext{
