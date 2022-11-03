@@ -2,7 +2,7 @@
 globalAnnotations: {}
 
 # If the control plane is deployed in high availability mode
-# Make sure to scale up the replicas, use an external datastore and provide a static server token (K3S_TOKEN)
+# Make sure to scale up the replicas and use an external datastore
 enableHA: false
 
 # DefaultImageRegistry will be prepended to all deployed vcluster images, such as the vcluster pod, coredns etc.. Deployed
@@ -228,12 +228,23 @@ annotations: {}
 podAnnotations: {}
 
 # PodDisruptionBudget settings for the vcluster
+# (takes effect only if high availability mode is enabled and more than one replica is created)
 podDisruptionBudget:
   # Controls wether a PodDisruptionBudget will be created
-  # (takes effect only if high availability mode is enabled and more than one replica is created)
   enabled: false
   minAvailable: 1
   # maxUnavailable: 1
+
+# k3s token settings for the vcluster
+# (take effect only if high availability mode is enabled)
+serverToken:
+  # Shared secret used to join a k3s server to the cluster. If empty, a random token value will be generated.
+  # (Note that this token is also used to generate the encryption key for important content in the database e.g., bootstrap data)
+  value: ""
+  # Reference to an existing secret key used as value for the k3s server token
+  secretKeyRef: {}
+    # name: ""
+    # key: ""
 
 # Service configurations
 service:

@@ -1,19 +1,11 @@
 ### Enabling High Availability
 
-
 In order to run vcluster with k3s as Kubernetes distribution in high availability mode, the following steps are required:
 
 * create and use an [external datastore](./external-datastore.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
-* create secret with a static value for the k3s server token (see the [official k3s FAQs](https://docs.k3s.io/faq#what-is-the-difference-between-k3s-server-and-agent-tokens) for more information)
 * run two or more k3s pods that will serve the Kubernetes API and run other control plane services
 
-First create a secret with a random value used as the k3s server token:
-
-```
-kubectl -n vcluster create secret generic my-k3s-tokens --from-literal=server-token=$(cat /dev/urandom | tr -dc A-Za-z0-9 | head -c32)
-```
-
-Then create a `values.yaml` in the following form and make sure to change the connection string in `K3S_DATASTORE_ENDPOINT`:
+First create a `values.yaml` in the following form and make sure to change the connection string in `K3S_DATASTORE_ENDPOINT`:
 
 ```
 # Enable HA mode
@@ -22,14 +14,9 @@ enableHA: true
 # Scale up k3s replicas
 replicas: 2
 
-# Provide static k3s token and set external datastore endpoint
+# Set external datastore endpoint
 vcluster:
   env:
-    - name: K3S_TOKEN
-      valueFrom:
-        secretKeyRef:
-          name: my-k3s-tokens
-          key: server-token
     - name: K3S_DATASTORE_ENDPOINT
       value: mysql://username:password@tcp(hostname:3306)/database-name
 
@@ -42,7 +29,7 @@ coredns:
   replicas: 2
 ```
 
-Finally create the vcluster with the following command:
+Then create the vcluster with the following command:
 
 ```
 vcluster create ... --connect=false -f values.yaml
