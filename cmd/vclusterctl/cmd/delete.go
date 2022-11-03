@@ -77,7 +77,10 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output, err := exec.Command(helmBinaryPath, "version").CombinedOutput()
+	output, err := exec.Command(helmBinaryPath, "version", "--client").CombinedOutput()
+	if errHelm := CheckHelmVersion(string(output)); errHelm != nil {
+		return errHelm
+	}
 	if err != nil {
 		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
 	}
