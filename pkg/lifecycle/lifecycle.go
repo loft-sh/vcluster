@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/loft-sh/utils/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	log "github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
