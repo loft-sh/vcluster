@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	dockerterm "github.com/docker/docker/pkg/term"
+	dockerterm "github.com/moby/term"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
