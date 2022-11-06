@@ -302,6 +302,16 @@ job:
   resources: {}
   podAnnotations: {}
   podLabels: {}
+  # Security context configuration of the container
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
