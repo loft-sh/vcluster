@@ -150,7 +150,9 @@ If you want more control over this, you can also use an admission controller, th
 
 ### Advanced Isolation
 
-Besides this basic workload isolation, you could also dive into more advanced isolation methods, such as isolating the workloads on separate nodes or through an other container runtime. Using different nodes for your vcluster workloads can be accomplished through the [--node-selector flag](../architecture/nodes.mdx) on vcluster syncer.
+Besides this basic workload isolation, you could also dive into more advanced isolation methods, such as isolating the workloads on separate nodes or through another container runtime. Using different nodes for your vcluster workloads can be accomplished through the [--node-selector flag](../architecture/nodes.mdx) on vcluster syncer.
+
+You should also be aware that pods created in the vcluster will set their [tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/), which will affect scheduling decisions. To prevent the pods from being scheduled to the undesirable nodes you can use the [--node-selector flag](../architecture/nodes.mdx) or admission controller as mentioned above.
 
 ## Network Isolation
 
