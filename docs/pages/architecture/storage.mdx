@@ -80,12 +80,6 @@ Kubernetes VolumeSnapshot resource represents a snapshot of a volume on a storag
 
 By default, VolumeSnapshot syncing is disabled, and creating a VolumeSnapshot custom resource in the vcluster will have no effect. Following chapters describe how to enable this feature in the vcluster.
 
-:::caution Tech-preview feature
-This vcluster feature is still in the early state of maturity, so it is highly recommended to perform testing with your specific storage configurations and use cases.
-
-We offer this feature to the community as a tech-preview to gather feedback and information about compatibility with various CSI implementations and Kubernetes distributions. Please share your experience with us via *#vcluster* channel in [our Slack instance](https://slack.loft.sh/) or via [GitHub issues](https://github.com/loft-sh/vcluster/issues).
-:::
-
 #### Host prerequisites
 Vcluster relies fully on the volume snapshot capabilities of the host cluster, which has to fullfil certain criteria.
 

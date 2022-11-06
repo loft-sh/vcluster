@@ -15,11 +15,6 @@ Besides these benefits, vcluster by default will **not** provide any workload or
 In general, we recommend to deploy a single vcluster into a namespace and then isolate the namespace, which is far easier than isolating multiple vclusters from each other in a single namespace.
 
 ## Isolated Mode
-
-:::warning
-This is an alpha feature and only available in v0.7.0 and newer vcluster versions
-:::
-
 vcluster offers a feature called isolated mode to automatically isolate workloads in a virtual cluster. Isolated mode can be enabled via the `--isolate` flag in `vcluster create` or through the helm value `isolation.enabled: true`:
 
 ```
