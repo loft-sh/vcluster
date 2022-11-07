@@ -77,6 +77,9 @@ type VirtualClusterOptions struct {
 	VirtualContainerLogsPath string
 	VirtualKubeletPodPath    string
 
+	HostMetricsBindAddress    string `json:"hostMetricsBindAddress,omitempty"`
+	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
+
 	// DEPRECATED FLAGS
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
 	DeprecatedDisableSyncResources     string

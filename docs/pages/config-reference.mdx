@@ -4,24 +4,36 @@ sidebar_label: Config Reference
 ---
 
 ### Syncer Flags
+Before using any particular flag mentioned below, we recommend making yourself familiar with the documentation pages that are related to the topic addressed by the flag and default to using the flags and helm variables as described in the documentation. 
 
 ```
       --bind-address string                       The address to bind the server to (default "0.0.0.0")
       --client-ca-cert string                     The path to the client ca certificate (default "/data/server/tls/client-ca.crt")
       --cluster-domain string                     The cluster domain ending that should be used for the virtual cluster (default "cluster.local")
+      --default-image-registry string             This address will be prepended to all deployed system images by vcluster
       --disable-fake-kubelets                     If disabled, the virtual cluster will not create fake kubelet endpoints to support metrics-servers
+      --disable-plugins                           If enabled, vcluster will not load any plugins
+      --enable-scheduler                          If enabled, will expect a scheduler running in the virtual cluster
       --enforce-node-selector                     If enabled and --node-selector is set then the virtual cluster will ensure that no pods are scheduled outside of the node selector (default true)
-  -h, --help                                      help for start
+      --enforce-pod-security-standard string      This can be set to privileged, baseline, restricted and vcluster would make sure during translation that these policies are enforced.
+      --enforce-toleration strings                If set will apply the provided tolerations to all pods in the vcluster
+      -h, --help                                      help for start
+      --host-metrics-bind-address string          If set, metrics for the controller manager for the resources managed in the host cluster will be exposed at this address
       --kube-config string                        The path to the virtual cluster admin kube config (default "/data/server/cred/admin.kubeconfig")
+      --kube-config-context-name string           If set, will override the context name of the generated virtual cluster kube config with this name
       --leader-elect                              If enabled, syncer will use leader election
       --lease-duration int                        Lease duration of the leader election in seconds (default 60)
+      --map-host-service strings                  Maps a given service inside the host cluster to a service inside the virtual cluster. E.g. other-namespace/my-service=my-vcluster-namespace/my-service
+      --map-virtual-service strings               Maps a given service inside the virtual cluster to a service inside the host cluster. E.g. default/test=physical-service
       --name string                               The name of the virtual cluster
-      --node-selector string                      If set, nodes with the given node selector will be synced to the virtual cluster. This will implicitly set --fake-nodes=false
+      --node-selector string                      If nodes sync is enabled, nodes with the given node selector will be synced to the virtual cluster. If fake nodes are used, and --enforce-node-selector flag is set, then vcluster will ensure that no pods are scheduled outside of the node selector.
       --out-kube-config-secret string             If specified, the virtual cluster will write the generated kube config to the given secret
       --out-kube-config-secret-namespace string   If specified, the virtual cluster will write the generated kube config in the given namespace
       --out-kube-config-server string             If specified, the virtual cluster will use this server for the generated kube config (e.g. https://my-vcluster.domain.com)
       --override-hosts                            If enabled, vcluster will override a containers /etc/hosts file if there is a subdomain specified for the pod (spec.subdomain). (default true)
       --override-hosts-container-image string     The image for the init container that is used for creating the override hosts file. (default "library/alpine:3.13.1")
+      --plugin-listen-address string              The plugin address to listen to. If this is changed, you'll need to configure your plugins to connect to the updated port (default "localhost:10099")
+      --plugins strings                           The plugins to wait for during startup
       --port int                                  The port to bind to (default 8443)
       --renew-deadline int                        Renew deadline of the leader election in seconds (default 40)
       --request-header-ca-cert string             The path to the request header ca certificate (default "/data/server/tls/request-header-ca.crt")
@@ -31,12 +43,14 @@ sidebar_label: Config Reference
       --service-account string                    If set, will set this host service account on the synced pods
       --service-name string                       The service name where the vcluster proxy will be available
       --set-owner                                 If true, will set the same owner the currently running syncer pod has on the synced resources (default true)
-      --sync string                               A list of sync controllers to enable. 'foo' enables the sync controller named 'foo', '-foo' disables the sync controller named 'foo'
+      --sync strings                              A list of sync controllers to enable. 'foo' enables the sync controller named 'foo', '-foo' disables the sync controller named 'foo'
       --sync-all-nodes                            If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones
+      --sync-labels strings                       The specified labels will be synced to physical resources, in addition to their vcluster translated versions.
       --sync-node-changes                         If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.
       --target-namespace string                   The namespace to run the virtual cluster in (defaults to current namespace)
       --tls-san strings                           Add additional hostname or IP as a Subject Alternative Name in the TLS cert
       --translate-image strings                   Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)
+      --virtual-metrics-bind-address string       If set, metrics for the controller manager for the resources managed in the virtual cluster will be exposed at this address
 ```
 
 All of these syncer flags can be set and configured through the values override file when creating the vcluster. In particular these syncer flags go into the `extraArgs` section of the values

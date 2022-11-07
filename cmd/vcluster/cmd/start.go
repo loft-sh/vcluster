@@ -140,6 +140,9 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&options.MapVirtualServices, "map-virtual-service", []string{}, "Maps a given service inside the virtual cluster to a service inside the host cluster. E.g. default/test=physical-service")
 	cmd.Flags().StringSliceVar(&options.MapHostServices, "map-host-service", []string{}, "Maps a given service inside the host cluster to a service inside the virtual cluster. E.g. other-namespace/my-service=my-vcluster-namespace/my-service")
 
+	cmd.Flags().StringVar(&options.HostMetricsBindAddress, "host-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the host cluster will be exposed at this address")
+	cmd.Flags().StringVar(&options.VirtualMetricsBindAddress, "virtual-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the virtual cluster will be exposed at this address")
+
 	// Deprecated Flags
 	cmd.Flags().BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
 	cmd.Flags().BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
@@ -309,7 +312,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	klog.Info("Using physical cluster at " + inClusterConfig.Host)
 	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
 		Scheme:             scheme,
-		MetricsBindAddress: "0",
+		MetricsBindAddress: options.HostMetricsBindAddress,
 		LeaderElection:     false,
 		Namespace:          options.TargetNamespace,
 		NewClient:          pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
@@ -319,7 +322,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 	virtualClusterManager, err := ctrl.NewManager(virtualClusterConfig, ctrl.Options{
 		Scheme:             scheme,
-		MetricsBindAddress: "0",
+		MetricsBindAddress: options.VirtualMetricsBindAddress,
 		LeaderElection:     false,
 		NewClient:          pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
 	})
