@@ -1,3 +1,4 @@
+{{- if (eq (include "vcluster.k3s.workloadKind" .) "StatefulSet") }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -22,3 +23,4 @@ spec:
   selector:
     app: vcluster
     release: "{{ .Release.Name }}"
+{{- end }}

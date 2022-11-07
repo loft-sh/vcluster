@@ -1,3 +1,5 @@
+### Enabling High Availability
+
 In order to run vcluster in high availability mode, create a `values.yaml` in the following form:
 
 ```
@@ -57,11 +59,11 @@ vcluster connect vcluster-1 -n host-namespace-1
 
 # Then execute in a new terminal
 export KUBECONFIG=kubeconfig.yaml
-kubectl get ns  
+kubectl get ns
 ...
 ```
 
-## Enable HA in rootless mode
+### Enable HA in rootless mode
 Rootless mode means running vcluster without root user privileges in container, making host k8s cluster more secure.
 You can find more about rootless mode [here](../operator/restricted-hosts.mdx).
 
