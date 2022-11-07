@@ -7,14 +7,23 @@ Returns the desired workload kind (StatefulSet / Deployment) for k3s
 {{- end -}}
 
 {{/*
-Returns the existing value of the k3s server token stored in the Kubernetes secret.
-If the Kubernetes secret does not exist, returns a generated, random server token.
+Returns the name of the secret containing the k3s tokens.
 */}}
-{{- define "vcluster.k3s.serverToken" -}}
-{{- $secret := (lookup "v1" "Secret" .Release.Namespace .Release.Name ) -}}
-  {{- if $secret -}}
-    {{-  index $secret "data" "server-token" -}}
-  {{- else -}}
-    {{- (randAlphaNum 32) | b64enc | quote -}}
-  {{- end -}}
+{{- define "vcluster.k3s.tokenSecretName" -}}
+{{- with .Values.serverToken.secretKeyRef.name -}}
+{{- . -}}
+{{- else -}}
+{{- printf "%s-tokens" .Release.Name -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Returns the secret key name containing the k3s server token.
+*/}}
+{{- define "vcluster.k3s.serverTokenKey" -}}
+{{- with .Values.serverToken.secretKeyRef.key -}}
+{{- . -}}
+{{- else -}}
+{{- "server-token" -}}
+{{- end -}}
 {{- end -}}

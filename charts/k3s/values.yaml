@@ -246,6 +246,18 @@ serverToken:
     # name: ""
     # key: ""
 
+# Helm hooks configuration
+hooks:
+  tokenBootstrap:
+    enabled: true
+    priorityClassName: ""
+    nodeSelector: {}
+    affinity: {}
+    tolerations: []
+    resources: {}
+    podAnnotations: {}
+    podLabels: {}
+
 # Service configurations
 service:
   type: ClusterIP

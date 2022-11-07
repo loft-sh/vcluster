@@ -184,8 +184,8 @@ spec:
           - name: K3S_TOKEN
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.serverToken.secretKeyRef.name | default .Release.Name | quote }}
-                key: {{ .Values.serverToken.secretKeyRef.key | default "server-token" | quote }}
+                name: {{ include "vcluster.k3s.tokenSecretName" . | quote }}
+                key: {{ include "vcluster.k3s.serverTokenKey" . | quote }}
           {{- end }}
           {{- if not .Values.serviceCIDR }}
           - name: SERVICE_CIDR
