@@ -2,7 +2,7 @@
 
 In order to run vcluster with k3s as Kubernetes distribution in high availability mode, the following steps are required:
 
-* create and use an [external datastore](./external-datastore.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
+* create and use an [external datastore](../operator/external-datastore.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
 * run two or more k3s pods that will serve the Kubernetes API and run other control plane services
 
 First create a `values.yaml` in the following form and make sure to change the connection string in `K3S_DATASTORE_ENDPOINT`:
