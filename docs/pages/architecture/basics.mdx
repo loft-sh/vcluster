@@ -13,7 +13,7 @@ Virtual clusters are Kubernetes clusters that run on top of other Kubernetes clu
 ## Components
 
 By default, vclusters run as a single pod (scheduled by a StatefulSet) that consists of 2 containers:
-- [**Control Plane**](#vcluster-control-plane): This container contains API server, controller manager and a connection (or mount) of the data store. By default, vclusters use sqlite as data store and run the API server and controller manager of k3s, which is a certified Kubernetes distribution and CNCF sandbox project. You can also use a [different data store, such as etcd, mysql or postgresql](../operator/external-datastore). You are also able to use another Kubernetes distribution as backing virtual cluster, such as [k0s or vanilla k8s](../operator/other-distributions.mdx).
+- [**Control Plane**](#vcluster-control-plane): This container contains API server, controller manager and a connection (or mount) of the data store. By default, vclusters use sqlite as data store and run the API server and controller manager of k3s, which is a certified Kubernetes distribution and CNCF sandbox project. You can also use a [different data store, such as etcd, mysql or postgresql](../operator/external-datastore.mdx). You are also able to use another Kubernetes distribution as backing virtual cluster, such as [k0s or vanilla k8s](../operator/other-distributions.mdx).
 - [**Syncer**](#vcluster-syncer): What makes a vcluster virtual is the fact that it does not have actual worker nodes or network. Instead, it uses a so-called syncer which copies the pods that are created within the vcluster to the underlying host cluster. Then, the host cluster will actually schedule the pod and the vcluster will keep the vcluster pod and host cluster pod in sync.
 
 ### vcluster Control Plane
@@ -21,7 +21,7 @@ Each vcluster has its own control plane consisting of:
 - **Kubernetes API** server (point your kubectl requests to this vcluster API server)
 - **Data store** (where the API stores all resources, real clusters run with etcd)
 - **Controller Manager** (creates pods objects in the data store according to replica number in ReplicaSets etc.)
-- **(Optional) Scheduler** (schedules workloads inside the virtual cluster. See [scheduling](./scheduling) for more info)
+- **(Optional) Scheduler** (schedules workloads inside the virtual cluster. See [scheduling](./scheduling.mdx) for more info)
 
 ### vcluster Syncer
 The vcluster uses a so-called syncer which copies the pods that are created within the vcluster to the underlying host cluster. Then, the host cluster will schedule the pod and the vcluster will keep the vcluster pod and host cluster pod in sync.
@@ -36,7 +36,7 @@ It is possible to run multiple vclusters inside the same namespace and you can e
 The core idea of virtual clusters is to provision isolated Kubernetes control planes (e.g. API servers) that run on top of "real" Kubernetes clusters. When working with the virtual cluster's API server, resources first only exist in the virtual cluster. However, some low-level Kubernetes resources need to be synchronized to the underlying cluster.
 
 ### High-Level = Purely Virtual
-Generally, all Kubernetes resource objects that you create using the vcluster API server are stored in the data store of the vcluster (sqlite by default, see [external datastore](../operator/external-datastore) for more options). That applies in particular to all higher level Kubernetes resources, such as Deployments, StatefulSets, CRDs, etc. These objects only exist inside the virtual cluster and never reach the API server or data store (etcd) of the underlying host cluster.
+Generally, all Kubernetes resource objects that you create using the vcluster API server are stored in the data store of the vcluster (sqlite by default, see [external datastore](../operator/external-datastore.mdx) for more options). That applies in particular to all higher level Kubernetes resources, such as Deployments, StatefulSets, CRDs, etc. These objects only exist inside the virtual cluster and never reach the API server or data store (etcd) of the underlying host cluster.
 
 ### Low-Level = Sync'd Resources
 To be able to actually start containers, the vcluster synchronizes certain low-level resources (e.g. Pods, ConfigMaps mounted in Pods) to the underlying host namespace, so that the scheduler of the underlying host cluster can schedule these pods.
