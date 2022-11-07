@@ -20,7 +20,7 @@ Besides k3s, other Kubernetes distributions such as [k0s and vanilla k8s are sup
 * **Configmaps & Secrets**: ConfigMaps or secrets in the virtual cluster that are mounted to pods will be synced to the host cluster, all other configmaps or secrets will purely stay in the virtual cluster.
 * **Other Resources**: Deployments, statefulsets, CRDs, service accounts etc. are **NOT** synced to the host cluster and purely exist in the virtual cluster.
 
-See [synced resources](./architecture/synced-resources) for more information about what resources are synced exactly.
+See [synced resources](./architecture/synced-resources.mdx) for more information about what resources are synced exactly.
 
 In addition to the synchronization of virtual and host cluster resources, the hypervisor proxies certain Kubernetes API requests to the host cluster, such as pod port forwarding or container command execution. It essentially acts as a reverse proxy for the virtual cluster.
 
