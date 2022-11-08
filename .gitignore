@@ -9,3 +9,5 @@ profile.out
 /vcluster
 /zzz
 /cmd/vclusterctl/__debug_bin
+/release
+/cmd/vclusterctl/cmd/charts/
