@@ -1,14 +1,15 @@
 package main
 
 import (
+	"os"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"os"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
-var version string = ""
+var version string = "0.0.1"
 
 func main() {
 	upgrade.SetVersion(version)

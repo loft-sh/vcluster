@@ -27,6 +27,8 @@ if [[ "$(pwd)" != "${VCLUSTER_ROOT}" ]]; then
   exit 1
 fi
 
+RELEASE_VERSION="${RELEASE_VERSION}" go generate ${VCLUSTER_ROOT}/...
+
 GO_BUILD_CMD="go build -a"
 GO_BUILD_LDFLAGS="-s -w -X main.commitHash=${COMMIT_HASH} -X main.buildDate=${DATE} -X main.version=${RELEASE_VERSION}"
 
