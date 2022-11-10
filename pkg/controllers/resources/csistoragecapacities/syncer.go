@@ -20,16 +20,16 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &csistoragecapacitySyncer{
-		storageClassSyncEnabled:       ctx.Controllers.Has("storageclasses"),
-		legacyStorageClassSyncEnabled: ctx.Controllers.Has("legacy-storageclasses"),
-		physicalClient:                ctx.PhysicalManager.GetClient(),
+		storageClassSyncEnabled:     ctx.Controllers.Has("storageclasses"),
+		hostStorageClassSyncEnabled: ctx.Controllers.Has("hoststorageclasses"),
+		physicalClient:              ctx.PhysicalManager.GetClient(),
 	}, nil
 }
 
 type csistoragecapacitySyncer struct {
-	storageClassSyncEnabled       bool
-	legacyStorageClassSyncEnabled bool
-	physicalClient                client.Client
+	storageClassSyncEnabled     bool
+	hostStorageClassSyncEnabled bool
+	physicalClient              client.Client
 }
 
 var _ syncer.UpSyncer = &csistoragecapacitySyncer{}

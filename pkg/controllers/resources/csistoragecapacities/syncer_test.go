@@ -19,7 +19,7 @@ import (
 
 const kind = "CSIStorageCapacity"
 
-func TestSyncLegacyStorageClass(t *testing.T) {
+func TestSyncHostStorageClass(t *testing.T) {
 
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      "test-csistoragecapacity",
@@ -101,7 +101,7 @@ func TestSyncLegacyStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Insert("legacy-storageclasses")
+				ctx.Controllers.Insert("hoststorageclasses")
 				ctx.Controllers.Delete("storageclasses")
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).SyncUp(syncCtx, pObj)
@@ -114,7 +114,7 @@ func TestSyncLegacyStorageClass(t *testing.T) {
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Insert("legacy-storageclasses")
+				ctx.Controllers.Insert("hoststorageclasses")
 				ctx.Controllers.Delete("storageclasses")
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).SyncDown(syncCtx, vObj)
@@ -132,7 +132,7 @@ func TestSyncLegacyStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Insert("legacy-storageclasses")
+				ctx.Controllers.Insert("hoststorageclasses")
 				ctx.Controllers.Delete("storageclasses")
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObjUpdated, vObj)
@@ -240,7 +240,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Delete("legacy-storageclasses")
+				ctx.Controllers.Delete("hoststorageclasses")
 				ctx.Controllers.Insert("storageclasses")
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -265,7 +265,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Delete("legacy-storageclasses")
+				ctx.Controllers.Delete("hoststorageclasses")
 				ctx.Controllers.Insert("storageclasses")
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -290,7 +290,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Delete("legacy-storageclasses")
+				ctx.Controllers.Delete("hoststorageclasses")
 				ctx.Controllers.Insert("storageclasses")
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -310,7 +310,7 @@ func TestSyncStorageClass(t *testing.T) {
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Delete("legacy-storageclasses")
+				ctx.Controllers.Delete("hoststorageclasses")
 				ctx.Controllers.Insert("storageclasses")
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -335,7 +335,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Delete("legacy-storageclasses")
+				ctx.Controllers.Delete("hoststorageclasses")
 				ctx.Controllers.Insert("storageclasses")
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -360,7 +360,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Delete("legacy-storageclasses")
+				ctx.Controllers.Delete("hoststorageclasses")
 				ctx.Controllers.Insert("storageclasses")
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -385,7 +385,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Controllers.Delete("legacy-storageclasses")
+				ctx.Controllers.Delete("hoststorageclasses")
 				ctx.Controllers.Insert("storageclasses")
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)

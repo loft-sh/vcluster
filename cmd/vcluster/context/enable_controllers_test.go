@@ -40,7 +40,7 @@ func TestEnableControllers(t *testing.T) {
 				v.Controllers = []string{"persistentvolumeclaims", "nodes"}
 				v.EnableScheduler = true
 			},
-			expectEnabled:  append([]string{"legacy-storageclasses"}, schedulerRequiredControllers.List()...),
+			expectEnabled:  append([]string{"hoststorageclasses"}, schedulerRequiredControllers.List()...),
 			expectDisabled: []string{"storageclasses"},
 			expectError:    false,
 		},
@@ -51,16 +51,16 @@ func TestEnableControllers(t *testing.T) {
 				v.EnableScheduler = true
 			},
 			expectEnabled:  append([]string{"storageclasses"}, schedulerRequiredControllers.List()...),
-			expectDisabled: []string{"legacy-storageclasses"},
+			expectDisabled: []string{"hoststorageclasses"},
 			expectError:    false,
 		},
 		{
-			desc: "scheduler with pvc enabled, legacy-storageclasses enabled",
+			desc: "scheduler with pvc enabled, hoststorageclasses enabled",
 			optsModifier: func(v *VirtualClusterOptions) {
 				v.Controllers = []string{"persistentvolumeclaims", "nodes"}
 				v.EnableScheduler = true
 			},
-			expectEnabled:  append([]string{"legacy-storageclasses"}, schedulerRequiredControllers.List()...),
+			expectEnabled:  append([]string{"hoststorageclasses"}, schedulerRequiredControllers.List()...),
 			expectDisabled: []string{"storageclasses"},
 			expectError:    false,
 		},
@@ -70,13 +70,13 @@ func TestEnableControllers(t *testing.T) {
 				v.Controllers = []string{"persistentvolumeclaims"}
 			},
 			expectEnabled:  []string{},
-			expectDisabled: append([]string{"storageclasses", "legacy-storageclasses"}, schedulerRequiredControllers.List()...),
+			expectDisabled: append([]string{"storageclasses", "hoststorageclasses"}, schedulerRequiredControllers.List()...),
 			expectError:    false,
 		},
 		{
-			desc: "storageclasses and legacy-storageclasses enabled",
+			desc: "storageclasses and hoststorageclasses enabled",
 			optsModifier: func(v *VirtualClusterOptions) {
-				v.Controllers = []string{"storageclasses", "legacy-storageclasses"}
+				v.Controllers = []string{"storageclasses", "hoststorageclasses"}
 			},
 			expectEnabled:  []string{},
 			expectDisabled: []string{},

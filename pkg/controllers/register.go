@@ -62,7 +62,7 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 	"persistentvolumeclaims": {persistentvolumeclaims.New},
 	"ingresses":              {ingresses.New, ingressclasses.New},
 	"storageclasses":         {storageclasses.New},
-	"legacy-storageclasses":  {storageclasses.NewLegacy},
+	"hoststorageclasses":     {storageclasses.NewHostStorageClassSyncer},
 	"priorityclasses":        {priorityclasses.New},
 	"nodes,fake-nodes":       {nodes.New},
 	"poddisruptionbudgets":   {poddisruptionbudgets.New},

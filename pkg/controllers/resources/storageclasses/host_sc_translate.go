@@ -5,11 +5,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *legacyStorageClassSyncer) translateBackwards(pStorageClass *storagev1.StorageClass) *storagev1.StorageClass {
+func (s *hostStorageClassSyncer) translateBackwards(pStorageClass *storagev1.StorageClass) *storagev1.StorageClass {
 	return s.TranslateMetadata(pStorageClass).(*storagev1.StorageClass)
 }
 
-func (s *legacyStorageClassSyncer) translateUpdateBackwards(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
+func (s *hostStorageClassSyncer) translateUpdateBackwards(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
 	var updated *storagev1.StorageClass
 
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
