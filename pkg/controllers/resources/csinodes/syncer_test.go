@@ -5,6 +5,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,11 +19,13 @@ const kind = "CSINode"
 func TestSync(t *testing.T) {
 
 	pObjectMeta := metav1.ObjectMeta{
-		Name: "test-csinode",
+		Name: "test-node",
 	}
 	vObjectMeta := metav1.ObjectMeta{
-		Name: "test-csinode",
+		Name: "test-node",
 	}
+
+	vNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
 
 	pObj := &storagev1.CSINode{
 		ObjectMeta: pObjectMeta,
@@ -95,7 +98,7 @@ func TestSync(t *testing.T) {
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Sync Up",
-			InitialVirtualState:  []runtime.Object{},
+			InitialVirtualState:  []runtime.Object{vNode},
 			InitialPhysicalState: []runtime.Object{pObj},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {vObj},
@@ -111,7 +114,7 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                  "Sync Down",
-			InitialVirtualState:   []runtime.Object{vObj},
+			InitialVirtualState:   []runtime.Object{vObj, vNode},
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
@@ -122,7 +125,7 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Sync",
-			InitialVirtualState:  []runtime.Object{vObj},
+			InitialVirtualState:  []runtime.Object{vObj, vNode},
 			InitialPhysicalState: []runtime.Object{pObjUpdated},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {vObjUpdated},
@@ -130,6 +133,23 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
 			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*csinodeSyncer).Sync(syncCtx, pObjUpdated, vObj)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Sync, virtual node not synced",
+			InitialVirtualState:  []runtime.Object{vObj},
+			InitialPhysicalState: []runtime.Object{pObjUpdated},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				storagev1.SchemeGroupVersion.WithKind(kind): {},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
+			},
+
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*csinodeSyncer).Sync(syncCtx, pObjUpdated, vObj)

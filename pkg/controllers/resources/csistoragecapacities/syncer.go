@@ -36,8 +36,8 @@ var _ syncer.UpSyncer = &csistoragecapacitySyncer{}
 var _ syncer.Syncer = &csistoragecapacitySyncer{}
 
 func (s *csistoragecapacitySyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj, shouldSync, err := s.translateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity))
-	if err != nil || shouldSync {
+	vObj, shouldSkip, err := s.translateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity))
+	if err != nil || shouldSkip {
 		return ctrl.Result{}, err
 	}
 
@@ -47,12 +47,12 @@ func (s *csistoragecapacitySyncer) SyncUp(ctx *synccontext.SyncContext, pObj cli
 
 func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if there is a change
-	updated, shouldSync, err := s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity), vObj.(*storagev1.CSIStorageCapacity))
+	updated, shouldSkip, err := s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity), vObj.(*storagev1.CSIStorageCapacity))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if shouldSync {
+	if shouldSkip {
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 	}
 

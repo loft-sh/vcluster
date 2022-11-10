@@ -6,9 +6,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // returns virtual scname, shouldSync
@@ -25,8 +28,30 @@ func (s *csistoragecapacitySyncer) fetchVirtualStorageClass(ctx *synccontext.Syn
 	return physName, false, nil
 }
 
+func (s *csistoragecapacitySyncer) hasMatchingVirtualNodes(ctx *synccontext.SyncContext, ls *metav1.LabelSelector) (bool, error) {
+	// sync only if the capacity applies to a synced node
+	if s.storageClassSyncEnabled && ls != nil {
+		nodeList := &corev1.NodeList{}
+		selector, err := metav1.LabelSelectorAsSelector(ls)
+		if err != nil {
+			return false, err
+		}
+		err = ctx.VirtualClient.List(ctx.Context, nodeList, client.MatchingLabelsSelector{Selector: selector})
+		if err != nil {
+			return false, err
+		}
+		return len(nodeList.Items) == 0, nil
+	}
+	return false, nil
+}
+
 func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncContext, pObj *storagev1.CSIStorageCapacity) (*storagev1.CSIStorageCapacity, bool, error) {
 	scName, shouldSkip, err := s.fetchVirtualStorageClass(ctx, pObj.StorageClassName)
+	if shouldSkip || err != nil {
+		return nil, shouldSkip, err
+	}
+
+	shouldSkip, err = s.hasMatchingVirtualNodes(ctx, pObj.NodeTopology)
 	if shouldSkip || err != nil {
 		return nil, shouldSkip, err
 	}
@@ -50,6 +75,11 @@ func (s *csistoragecapacitySyncer) translateUpdateBackwards(ctx *synccontext.Syn
 	var err error
 
 	scName, shouldSkip, err := s.fetchVirtualStorageClass(ctx, pObj.StorageClassName)
+	if shouldSkip || err != nil {
+		return nil, shouldSkip, err
+	}
+
+	shouldSkip, err = s.hasMatchingVirtualNodes(ctx, pObj.NodeTopology)
 	if shouldSkip || err != nil {
 		return nil, shouldSkip, err
 	}
