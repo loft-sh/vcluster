@@ -2,6 +2,7 @@ package constants
 
 const (
 	IndexByPhysicalName  = "IndexByPhysicalName"
+	IndexByVirtualName   = "IndexByVirtualName"
 	IndexByAssigned      = "IndexByAssigned"
 	IndexByStorageClass  = "IndexByStorageClass"
 	IndexByIngressSecret = "IndexByIngressSecret"

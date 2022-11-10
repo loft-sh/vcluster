@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -52,6 +53,10 @@ type Framework struct {
 	// host kubernetes cluster were we are testing in
 	HostClient *kubernetes.Clientset
 
+	// HostCRClient is the controller runtime client of the current
+	// host kubernetes cluster were we are testing in
+	HostCRClient client.Client
+
 	// VclusterConfig is the kubernetes rest config of the current
 	// vcluster instance which we are testing
 	VclusterConfig *rest.Config
@@ -59,6 +64,10 @@ type Framework struct {
 	// VclusterClient is the kubernetes client of the current
 	// vcluster instance which we are testing
 	VclusterClient *kubernetes.Clientset
+
+	// VclusterCRClient is the controller runtime client of the current
+	// vcluster instance which we are testing
+	VclusterCRClient client.Client
 
 	// VclusterKubeconfigFile is a file containing kube config
 	// of the current vcluster instance which we are testing.
@@ -116,6 +125,11 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		return err
 	}
 
+	hostCRClient, err := client.New(hostConfig, client.Options{Scheme: scheme})
+	if err != nil {
+		return err
+	}
+
 	// run port forwarder and retrieve kubeconfig for the vcluster
 	vKubeconfigFile, err := os.CreateTemp(os.TempDir(), "vcluster_e2e_kubeconfig_")
 	if err != nil {
@@ -139,30 +153,36 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 
 	var vclusterConfig *rest.Config
 	var vclusterClient *kubernetes.Clientset
+	var vclusterCRClient client.Client
 
 	err = wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
 		output, err := os.ReadFile(vKubeconfigFile.Name())
 		if err != nil {
-			return false, err
+			return false, nil
 		}
 
 		// try to parse config from file with retry because the file content might not be written
 		vclusterConfig, err = clientcmd.RESTConfigFromKubeConfig(output)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		vclusterConfig.Timeout = timeout
 
 		// create kubernetes client using the config retry in case port forwarding is not ready yet
 		vclusterClient, err = kubernetes.NewForConfig(vclusterConfig)
 		if err != nil {
-			return false, nil
+			return false, err
+		}
+
+		vclusterCRClient, err = client.New(vclusterConfig, client.Options{Scheme: scheme})
+		if err != nil {
+			return false, err
 		}
 
 		// try to use the client with retry in case port forwarding is not ready yet
 		_, err = vclusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 
 		return true, nil
@@ -179,8 +199,10 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		Suffix:                 suffix,
 		HostConfig:             hostConfig,
 		HostClient:             hostClient,
+		HostCRClient:           hostCRClient,
 		VclusterConfig:         vclusterConfig,
 		VclusterClient:         vclusterClient,
+		VclusterCRClient:       vclusterCRClient,
 		VclusterKubeconfigFile: vKubeconfigFile,
 		Scheme:                 scheme,
 		Log:                    l,

@@ -6,7 +6,7 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	if !ctx.Controllers["persistentvolumes"] {
+	if !ctx.Controllers.Has("persistentvolumes") {
 		return NewFakeSyncer(ctx)
 	}
 

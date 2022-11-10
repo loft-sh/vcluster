@@ -74,8 +74,8 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		serviceAccount:         ctx.Options.ServiceAccount,
 		overrideHosts:          ctx.Options.OverrideHosts,
 		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
-		serviceAccountsEnabled: ctx.Controllers["serviceaccounts"],
-		priorityClassesEnabled: ctx.Controllers["priorityclasses"],
+		serviceAccountsEnabled: ctx.Controllers.Has("serviceaccounts"),
+		priorityClassesEnabled: ctx.Controllers.Has("priorityclasses"),
 		enableScheduler:        ctx.Options.EnableScheduler,
 		syncedLabels:           ctx.Options.SyncLabels,
 	}, nil

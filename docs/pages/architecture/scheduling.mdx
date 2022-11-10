@@ -42,6 +42,10 @@ vcluster create my-vcluster -f values.yaml
 
 Now you can taint and label nodes inside the virtual cluster without actually modifying the host cluster nodes.
 
+:::info
+If the `persistentvolumeclaims` syncer is also enabled, relevant `csistoragecapacity`,`csinode`, and `csidriver` objects will be mirrored to the virtual cluster so the scheduler can make storage-aware scheduling decisions.
+:::
+
 ## Reuse Host Scheduler
 
 If you don't want to use a separate scheduler inside the vcluster, you can also customize to a certain degree how the host scheduler will schedule your virtual cluster workloads.
@@ -132,3 +136,4 @@ syncer:
 :::info
 vcluster does not support setting the `tolerationSeconds` field of a toleration through the syntax that the `--enforce-toleration` flag uses. If your use case requires this, please raise an issue in [the vcluster repo on GitHub](https://github.com/loft-sh/vcluster/issues).
 ::: 
+

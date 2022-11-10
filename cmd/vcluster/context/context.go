@@ -2,95 +2,13 @@ package context
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-// VirtualClusterOptions holds the cmd flags
-type VirtualClusterOptions struct {
-	Controllers []string `json:"controllers,omitempty"`
-
-	ServerCaCert        string   `json:"serverCaCert,omitempty"`
-	ServerCaKey         string   `json:"serverCaKey,omitempty"`
-	TLSSANs             []string `json:"tlsSans,omitempty"`
-	RequestHeaderCaCert string   `json:"requestHeaderCaCert,omitempty"`
-	ClientCaCert        string   `json:"clientCaCert,omitempty"`
-	KubeConfigPath      string   `json:"kubeConfig,omitempty"`
-
-	KubeConfigContextName     string   `json:"kubeConfigContextName,omitempty"`
-	KubeConfigSecret          string   `json:"kubeConfigSecret,omitempty"`
-	KubeConfigSecretNamespace string   `json:"kubeConfigSecretNamespace,omitempty"`
-	KubeConfigServer          string   `json:"kubeConfigServer,omitempty"`
-	Tolerations               []string `json:"tolerations,omitempty"`
-
-	BindAddress string `json:"bindAddress,omitempty"`
-	Port        int    `json:"port,omitempty"`
-
-	Name string `json:"name,omitempty"`
-
-	TargetNamespace string `json:"targetNamespace,omitempty"`
-	ServiceName     string `json:"serviceName,omitempty"`
-
-	SetOwner bool `json:"setOwner,omitempty"`
-
-	SyncAllNodes        bool `json:"syncAllNodes,omitempty"`
-	EnableScheduler     bool `json:"enableScheduler,omitempty"`
-	DisableFakeKubelets bool `json:"disableFakeKubelets,omitempty"`
-
-	TranslateImages []string `json:"translateImages,omitempty"`
-
-	NodeSelector        string `json:"nodeSelector,omitempty"`
-	EnforceNodeSelector bool   `json:"enforceNodeSelector,omitempty"`
-	ServiceAccount      string `json:"serviceAccount,omitempty"`
-
-	OverrideHosts               bool   `json:"overrideHosts,omitempty"`
-	OverrideHostsContainerImage string `json:"overrideHostsContainerImage,omitempty"`
-
-	ClusterDomain string `json:"clusterDomain,omitempty"`
-
-	LeaderElect   bool  `json:"leaderElect,omitempty"`
-	LeaseDuration int64 `json:"leaseDuration,omitempty"`
-	RenewDeadline int64 `json:"renewDeadline,omitempty"`
-	RetryPeriod   int64 `json:"retryPeriod,omitempty"`
-
-	DisablePlugins      bool     `json:"disablePlugins,omitempty"`
-	PluginListenAddress string   `json:"pluginListenAddress,omitempty"`
-	Plugins             []string `json:"plugins,omitempty"`
-
-	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
-
-	EnforcePodSecurityStandard string `json:"enforcePodSecurityStandard,omitempty"`
-
-	MapHostServices    []string `json:"mapHostServices,omitempty"`
-	MapVirtualServices []string `json:"mapVirtualServices,omitempty"`
-
-	SyncLabels []string `json:"syncLabels,omitempty"`
-
-	// hostpath mapper options
-	VirtualLogsPath          string
-	VirtualPodLogsPath       string
-	VirtualContainerLogsPath string
-	VirtualKubeletPodPath    string
-
-	HostMetricsBindAddress    string `json:"hostMetricsBindAddress,omitempty"`
-	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
-
-	// DEPRECATED FLAGS
-	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
-	DeprecatedDisableSyncResources     string
-	DeprecatedOwningStatefulSet        string
-	DeprecatedUseFakeNodes             bool
-	DeprecatedUseFakePersistentVolumes bool
-	DeprecatedEnableStorageClasses     bool
-	DeprecatedEnablePriorityClasses    bool
-	DeprecatedSuffix                   string
-	DeprecatedUseFakeKubelets          bool
-}
 
 type ControllerContext struct {
 	Context context.Context
@@ -101,48 +19,9 @@ type ControllerContext struct {
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 
-	Controllers map[string]bool
+	Controllers sets.String
 	Options     *VirtualClusterOptions
 	StopChan    <-chan struct{}
-}
-
-var ExistingControllers = map[string]bool{
-	// helm charts need to be updated when changing this!
-	// values.yaml references these in .sync.*
-	"services":               true,
-	"configmaps":             true,
-	"secrets":                true,
-	"endpoints":              true,
-	"pods":                   true,
-	"events":                 true,
-	"fake-nodes":             true,
-	"fake-persistentvolumes": true,
-	"persistentvolumeclaims": true,
-	"ingresses":              true,
-	"ingressclasses":         true,
-	"nodes":                  true,
-	"persistentvolumes":      true,
-	"storageclasses":         true,
-	"legacy-storageclasses":  true,
-	"priorityclasses":        true,
-	"networkpolicies":        true,
-	"volumesnapshots":        true,
-	"poddisruptionbudgets":   true,
-	"serviceaccounts":        true,
-}
-
-var DefaultEnabledControllers = []string{
-	// helm charts need to be updated when changing this!
-	// values.yaml and template/_helpers.tpl reference these
-	"services",
-	"configmaps",
-	"secrets",
-	"endpoints",
-	"pods",
-	"events",
-	"persistentvolumeclaims",
-	"fake-nodes",
-	"fake-persistentvolumes",
 }
 
 func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
@@ -161,16 +40,6 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 		return nil, err
 	}
 
-	// check if nodes controller needs to be enabled
-	if (options.SyncAllNodes || options.EnableScheduler) && !controllers["nodes"] {
-		return nil, fmt.Errorf("you cannot use --sync-all-nodes and --enable-scheduler without enabling nodes sync")
-	}
-
-	// check if storage classes and legacy storage classes are enabled at the same time
-	if controllers["storageclasses"] && controllers["legacy-storageclasses"] {
-		return nil, fmt.Errorf("you cannot sync storage classes and legacy storage classes at the same time. Choose only one of them")
-	}
-
 	return &ControllerContext{
 		Context:        ctx,
 		Controllers:    controllers,
@@ -183,75 +52,6 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 		StopChan: stopChan,
 		Options:  options,
 	}, nil
-}
-
-func parseControllers(options *VirtualClusterOptions) (map[string]bool, error) {
-	controllers := append(DefaultEnabledControllers, options.Controllers...)
-
-	// migrate deprecated flags
-	if len(options.DeprecatedDisableSyncResources) > 0 {
-		for _, controller := range strings.Split(options.DeprecatedDisableSyncResources, ",") {
-			controllers = append(controllers, "-"+strings.TrimSpace(controller))
-		}
-	}
-	if options.DeprecatedEnablePriorityClasses {
-		controllers = append(controllers, "priorityclasses")
-	}
-	if !options.DeprecatedUseFakePersistentVolumes {
-		controllers = append(controllers, "persistentvolumes")
-	}
-	if !options.DeprecatedUseFakeNodes {
-		controllers = append(controllers, "nodes")
-	}
-	if options.DeprecatedEnableStorageClasses {
-		controllers = append(controllers, "storageclasses")
-	}
-
-	enabledControllers := map[string]bool{}
-	disabledControllers := map[string]bool{}
-	for _, c := range controllers {
-		controller := strings.TrimSpace(c)
-		if len(controller) == 0 {
-			return nil, fmt.Errorf("unrecognized controller %s, available controllers: %s", c, availableControllers())
-		}
-
-		if controller[0] == '-' {
-			controller = controller[1:]
-			disabledControllers[controller] = true
-		} else {
-			enabledControllers[controller] = true
-		}
-
-		if !ExistingControllers[controller] {
-			return nil, fmt.Errorf("unrecognized controller %s, available controllers: %s", controller, availableControllers())
-		}
-	}
-
-	// only return the enabled controllers
-	for k := range enabledControllers {
-		if disabledControllers[k] {
-			delete(enabledControllers, k)
-		}
-	}
-
-	// enable ingressclasses if ingress syncing is enabled
-	// and ingressclasses is not explicitly disabled
-	if _, ok := enabledControllers["ingresses"]; ok {
-		if _, ok = disabledControllers["ingressclasses"]; !ok {
-			enabledControllers["ingressclasses"] = true
-		}
-	}
-
-	return enabledControllers, nil
-}
-
-func availableControllers() string {
-	controllers := []string{}
-	for controller := range ExistingControllers {
-		controllers = append(controllers, controller)
-	}
-
-	return strings.Join(controllers, ", ")
 }
 
 func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, localManager ctrl.Manager, options *VirtualClusterOptions) (client.Client, error) {

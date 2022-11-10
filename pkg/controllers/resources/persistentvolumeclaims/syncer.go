@@ -32,21 +32,17 @@ const (
 	bindCompletedAnnotation      = "pv.kubernetes.io/bind-completed"
 	boundByControllerAnnotation  = "pv.kubernetes.io/bound-by-controller"
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
-	selectedNodeAnnotation       = "volume.kubernetes.io/selected-node"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	storageClassesEnabled := ctx.Controllers["storageclasses"]
+	storageClassesEnabled := ctx.Controllers.Has("storageclasses")
 	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
-	if !storageClassesEnabled && ctx.Options.EnableScheduler {
-		excludedAnnotations = append(excludedAnnotations, selectedNodeAnnotation)
-	}
 	return &persistentVolumeClaimSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, excludedAnnotations...),
 
 		storageClassesEnabled:    storageClassesEnabled,
 		schedulerEnabled:         ctx.Options.EnableScheduler,
-		useFakePersistentVolumes: !ctx.Controllers["persistentvolumes"],
+		useFakePersistentVolumes: !ctx.Controllers.Has("persistentvolumes"),
 	}, nil
 }
 

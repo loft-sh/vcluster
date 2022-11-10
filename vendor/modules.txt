@@ -742,6 +742,14 @@ gotest.tools/assert/cmp
 gotest.tools/internal/difflib
 gotest.tools/internal/format
 gotest.tools/internal/source
+# gotest.tools/v3 v3.0.3
+## explicit; go 1.11
+gotest.tools/v3/assert
+gotest.tools/v3/assert/cmp
+gotest.tools/v3/internal/assert
+gotest.tools/v3/internal/difflib
+gotest.tools/v3/internal/format
+gotest.tools/v3/internal/source
 # k8s.io/api v0.25.2
 ## explicit; go 1.19
 k8s.io/api/admission/v1
@@ -1423,6 +1431,9 @@ k8s.io/kubectl/pkg/validation
 # k8s.io/kubelet v0.25.2
 ## explicit; go 1.19
 k8s.io/kubelet/pkg/apis/stats/v1alpha1
+# k8s.io/kubernetes v1.25.3
+## explicit; go 1.19
+k8s.io/kubernetes/pkg/apis/storage/util
 # k8s.io/pod-security-admission v0.25.2
 ## explicit; go 1.19
 k8s.io/pod-security-admission/admission
@@ -1452,7 +1463,7 @@ mvdan.cc/sh/v3/expand
 mvdan.cc/sh/v3/fileutil
 mvdan.cc/sh/v3/pattern
 mvdan.cc/sh/v3/syntax
-# sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.32
+# sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.33
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client

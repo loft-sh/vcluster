@@ -3,9 +3,10 @@ package testing
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
-	"testing"
 
 	"github.com/ghodss/yaml"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
