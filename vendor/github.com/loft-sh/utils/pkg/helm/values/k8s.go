@@ -8,35 +8,35 @@ import (
 )
 
 var K8SAPIVersionMap = map[string]string{
-	"1.24": "k8s.gcr.io/kube-apiserver:v1.24.3",
-	"1.23": "k8s.gcr.io/kube-apiserver:v1.23.9",
-	"1.22": "k8s.gcr.io/kube-apiserver:v1.22.12",
-	"1.21": "k8s.gcr.io/kube-apiserver:v1.21.14",
-	"1.20": "k8s.gcr.io/kube-apiserver:v1.20.15",
+	"1.24": "registry.k8s.io/kube-apiserver:v1.24.3",
+	"1.23": "registry.k8s.io/kube-apiserver:v1.23.9",
+	"1.22": "registry.k8s.io/kube-apiserver:v1.22.12",
+	"1.21": "registry.k8s.io/kube-apiserver:v1.21.14",
+	"1.20": "registry.k8s.io/kube-apiserver:v1.20.15",
 }
 
 var K8SControllerVersionMap = map[string]string{
-	"1.24": "k8s.gcr.io/kube-controller-manager:v1.24.3",
-	"1.23": "k8s.gcr.io/kube-controller-manager:v1.23.9",
-	"1.22": "k8s.gcr.io/kube-controller-manager:v1.22.12",
-	"1.21": "k8s.gcr.io/kube-controller-manager:v1.21.14",
-	"1.20": "k8s.gcr.io/kube-controller-manager:v1.20.15",
+	"1.24": "registry.k8s.io/kube-controller-manager:v1.24.3",
+	"1.23": "registry.k8s.io/kube-controller-manager:v1.23.9",
+	"1.22": "registry.k8s.io/kube-controller-manager:v1.22.12",
+	"1.21": "registry.k8s.io/kube-controller-manager:v1.21.14",
+	"1.20": "registry.k8s.io/kube-controller-manager:v1.20.15",
 }
 
 var K8SSchedulerVersionMap = map[string]string{
-	"1.24": "k8s.gcr.io/kube-scheduler:v1.24.3",
-	"1.23": "k8s.gcr.io/kube-scheduler:v1.23.9",
-	"1.22": "k8s.gcr.io/kube-scheduler:v1.22.12",
-	"1.21": "k8s.gcr.io/kube-scheduler:v1.21.14",
-	"1.20": "k8s.gcr.io/kube-scheduler:v1.20.15",
+	"1.24": "registry.k8s.io/kube-scheduler:v1.24.3",
+	"1.23": "registry.k8s.io/kube-scheduler:v1.23.9",
+	"1.22": "registry.k8s.io/kube-scheduler:v1.22.12",
+	"1.21": "registry.k8s.io/kube-scheduler:v1.21.14",
+	"1.20": "registry.k8s.io/kube-scheduler:v1.20.15",
 }
 
 var K8SEtcdVersionMap = map[string]string{
-	"1.24": "k8s.gcr.io/etcd:3.5.1-0",
-	"1.23": "k8s.gcr.io/etcd:3.5.1-0",
-	"1.22": "k8s.gcr.io/etcd:3.5.1-0",
-	"1.21": "k8s.gcr.io/etcd:3.4.13-0",
-	"1.20": "k8s.gcr.io/etcd:3.4.13-0",
+	"1.24": "registry.k8s.io/etcd:3.5.1-0",
+	"1.23": "registry.k8s.io/etcd:3.5.1-0",
+	"1.22": "registry.k8s.io/etcd:3.5.1-0",
+	"1.21": "registry.k8s.io/etcd:3.4.13-0",
+	"1.20": "registry.k8s.io/etcd:3.4.13-0",
 }
 
 func getDefaultK8SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
