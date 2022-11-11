@@ -23,7 +23,7 @@ var ExistingControllers = sets.NewString(
 	"nodes",
 	"persistentvolumes",
 	"storageclasses",
-	"legacy-storageclasses",
+	"hoststorageclasses",
 	"priorityclasses",
 	"networkpolicies",
 	"volumesnapshots",
@@ -108,10 +108,10 @@ func parseControllers(options *VirtualClusterOptions) (sets.String, error) {
 			return nil, fmt.Errorf("pesistentvolumeclaim syncing and scheduler enabled, but required syncers explicitly disabled: %q", requiredButDisabled.List())
 		}
 		if !enabledControllers.Has("storageclasses") {
-			klog.Info("persistentvolumeclaim syncing and scheduler enabled, but storageclass sync not enabled. Syncing host storageclasses to vcluster(legacy-storageclasses)")
-			enabledControllers.Insert("legacy-storageclasses")
-			if disabledControllers.HasAll("storageclasses", "legacy-storageclasses") {
-				return nil, fmt.Errorf("pesistentvolumeclaim syncing and scheduler enabled, but both storageclasses and legacy-storageclasses syncers disabled")
+			klog.Info("persistentvolumeclaim syncing and scheduler enabled, but storageclass sync not enabled. Syncing host storageclasses to vcluster(hoststorageclasses)")
+			enabledControllers.Insert("hoststorageclasses")
+			if disabledControllers.HasAll("storageclasses", "hoststorageclasses") {
+				return nil, fmt.Errorf("pesistentvolumeclaim syncing and scheduler enabled, but both storageclasses and hoststorageclasses syncers disabled")
 			}
 		}
 	}
@@ -126,9 +126,9 @@ func parseControllers(options *VirtualClusterOptions) (sets.String, error) {
 		return nil, fmt.Errorf("you cannot use --sync-all-nodes and --enable-scheduler without enabling nodes sync")
 	}
 
-	// check if storage classes and legacy storage classes are enabled at the same time
-	if enabledControllers.HasAll("storageclasses", "legacy-storageclasses") {
-		return nil, fmt.Errorf("you cannot sync storageclasses and legacy-storageclasses at the same time. Choose only one of them")
+	// check if storage classes and host storage classes are enabled at the same time
+	if enabledControllers.HasAll("storageclasses", "hoststorageclasses") {
+		return nil, fmt.Errorf("you cannot sync storageclasses and hoststorageclasses at the same time. Choose only one of them")
 	}
 
 	return enabledControllers, nil

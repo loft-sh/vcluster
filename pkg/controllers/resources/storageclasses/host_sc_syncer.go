@@ -9,27 +9,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewLegacy(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	return &legacyStorageClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("legacy-storageclass", &storagev1.StorageClass{}),
+func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	return &hostStorageClassSyncer{
+		Translator: translator.NewMirrorPhysicalTranslator("host-storageclass", &storagev1.StorageClass{}),
 	}, nil
 }
 
-type legacyStorageClassSyncer struct {
+type hostStorageClassSyncer struct {
 	translator.Translator
 }
 
-var _ syncer.UpSyncer = &legacyStorageClassSyncer{}
+var _ syncer.UpSyncer = &hostStorageClassSyncer{}
 
-func (s *legacyStorageClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *hostStorageClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj := s.translateBackwards(pObj.(*storagev1.StorageClass))
 	ctx.Log.Infof("create storage class %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
 
-var _ syncer.Syncer = &legacyStorageClassSyncer{}
+var _ syncer.Syncer = &hostStorageClassSyncer{}
 
-func (s *legacyStorageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if there is a change
 	updated := s.translateUpdateBackwards(pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
 	if updated != nil {
@@ -41,7 +41,7 @@ func (s *legacyStorageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj clien
 	return ctrl.Result{}, nil
 }
 
-func (s *legacyStorageClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *hostStorageClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual storage class %s, because physical object is missing", vObj.GetName())
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 }

@@ -42,7 +42,7 @@ rules:
     resources: ["storageclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
   {{- end }}
-  {{- if or (index .Values.sync "legacy-storageclasses" "enabled") .Values.rbac.clusterRole.create }}
+  {{- if or .Values.sync.hoststorageclasses.enabled (index ((index .Values.sync "legacy-storageclasses") | default (dict "enabled" false)) "enabled") .Values.rbac.clusterRole.create }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "watch", "list"]

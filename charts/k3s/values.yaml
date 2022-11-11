@@ -73,7 +73,8 @@ sync:
     enabled: false
   storageclasses:
     enabled: false
-  legacy-storageclasses:
+  # formerly named - "legacy-storageclasses"
+  hoststorageclasses:
     enabled: false
   priorityclasses:
     enabled: false
