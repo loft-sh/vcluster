@@ -4,8 +4,7 @@
 
 set -eu
 
-
-VCLUSTER_ROOT="$(realpath $(dirname ${0})/..)"
+VCLUSTER_ROOT="$(pwd)/$(dirname ${0})/.."
 RELEASE_VERSION="${RELEASE_VERSION:-0.0.1}"
 EMBED_DIR="${VCLUSTER_ROOT}/cmd/vclusterctl/cmd/charts"
 
@@ -15,4 +14,3 @@ for CHART in k3s k8s k0s eks;
 do
     helm package --version "${RELEASE_VERSION}" "${VCLUSTER_ROOT}/charts/${CHART}" -d "${EMBED_DIR}";
 done
-
