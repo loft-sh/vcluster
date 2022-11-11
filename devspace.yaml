@@ -100,6 +100,7 @@ dev:
     - excludePaths:
         - '**'
         - '!/pkg'
+        - 'cmd/vclusterctl/cmd/charts'
         - '!/cmd'
         - '!/vendor'
         - '!/hack'
