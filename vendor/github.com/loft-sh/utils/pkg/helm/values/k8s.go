@@ -8,30 +8,34 @@ import (
 )
 
 var K8SAPIVersionMap = map[string]string{
-	"1.24": "registry.k8s.io/kube-apiserver:v1.24.3",
-	"1.23": "registry.k8s.io/kube-apiserver:v1.23.9",
-	"1.22": "registry.k8s.io/kube-apiserver:v1.22.12",
+	"1.25": "registry.k8s.io/kube-apiserver:v1.25.4",
+	"1.24": "registry.k8s.io/kube-apiserver:v1.24.8",
+	"1.23": "registry.k8s.io/kube-apiserver:v1.23.14",
+	"1.22": "registry.k8s.io/kube-apiserver:v1.22.16",
 	"1.21": "registry.k8s.io/kube-apiserver:v1.21.14",
 	"1.20": "registry.k8s.io/kube-apiserver:v1.20.15",
 }
 
 var K8SControllerVersionMap = map[string]string{
-	"1.24": "registry.k8s.io/kube-controller-manager:v1.24.3",
-	"1.23": "registry.k8s.io/kube-controller-manager:v1.23.9",
-	"1.22": "registry.k8s.io/kube-controller-manager:v1.22.12",
+	"1.25": "registry.k8s.io/kube-controller-manager:v1.25.4",
+	"1.24": "registry.k8s.io/kube-controller-manager:v1.24.8",
+	"1.23": "registry.k8s.io/kube-controller-manager:v1.23.14",
+	"1.22": "registry.k8s.io/kube-controller-manager:v1.22.16",
 	"1.21": "registry.k8s.io/kube-controller-manager:v1.21.14",
 	"1.20": "registry.k8s.io/kube-controller-manager:v1.20.15",
 }
 
 var K8SSchedulerVersionMap = map[string]string{
-	"1.24": "registry.k8s.io/kube-scheduler:v1.24.3",
-	"1.23": "registry.k8s.io/kube-scheduler:v1.23.9",
-	"1.22": "registry.k8s.io/kube-scheduler:v1.22.12",
+	"1.25": "registry.k8s.io/kube-scheduler:v1.25.4",
+	"1.24": "registry.k8s.io/kube-scheduler:v1.24.8",
+	"1.23": "registry.k8s.io/kube-scheduler:v1.23.14",
+	"1.22": "registry.k8s.io/kube-scheduler:v1.22.16",
 	"1.21": "registry.k8s.io/kube-scheduler:v1.21.14",
 	"1.20": "registry.k8s.io/kube-scheduler:v1.20.15",
 }
 
 var K8SEtcdVersionMap = map[string]string{
+	"1.25": "registry.k8s.io/etcd:3.5.5-0",
 	"1.24": "registry.k8s.io/etcd:3.5.1-0",
 	"1.23": "registry.k8s.io/etcd:3.5.1-0",
 	"1.22": "registry.k8s.io/etcd:3.5.1-0",
@@ -51,12 +55,12 @@ func getDefaultK8SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 	schedulerImage := K8SSchedulerVersionMap[serverVersionString]
 	etcdImage, ok := K8SEtcdVersionMap[serverVersionString]
 	if !ok {
-		if serverMinorInt > 24 {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.24", serverVersionString)
-			apiImage = K8SAPIVersionMap["1.24"]
-			controllerImage = K8SControllerVersionMap["1.24"]
-			schedulerImage = K8SSchedulerVersionMap["1.24"]
-			etcdImage = K8SEtcdVersionMap["1.24"]
+		if serverMinorInt > 25 {
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.25", serverVersionString)
+			apiImage = K8SAPIVersionMap["1.25"]
+			controllerImage = K8SControllerVersionMap["1.25"]
+			schedulerImage = K8SSchedulerVersionMap["1.25"]
+			etcdImage = K8SEtcdVersionMap["1.25"]
 		} else {
 			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.20", serverVersionString)
 			apiImage = K8SAPIVersionMap["1.20"]
