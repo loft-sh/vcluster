@@ -29,8 +29,8 @@ var (
 	serviceName     = "e2e-test-webhook"
 	roleBindingName = "webhook-auth-reader"
 
-	image                   = "k8s.gcr.io/e2e-test-images/agnhost:2.33"
-	pauseImage              = "k8s.gcr.io/pause:3.6"
+	image                   = "registry.k8s.io/e2e-test-images/agnhost:2.33"
+	pauseImage              = "registry.k8s.io/pause:3.6"
 	uniqueName              = "webhook-test-" + string(uuid.NewUUID())
 	skipNamespaceLabelKey   = "skip-webhook-admission"
 	skipNamespaceLabelValue = "yes"
