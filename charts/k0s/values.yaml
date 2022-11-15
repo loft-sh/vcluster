@@ -126,7 +126,7 @@ syncer:
 # Virtual Cluster (k0s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: k0sproject/k0s:v1.24.3-k0s.0
+  image: k0sproject/k0s:v1.25.3-k0s.0
   command:
     - k0s
   baseArgs:
