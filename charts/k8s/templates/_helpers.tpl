@@ -84,6 +84,9 @@ Prints only the flags that modify the defaults:
 */}}
 {{- define "vcluster.syncer.syncArgs" -}}
 {{- $defaultEnabled := list "services" "configmaps" "secrets" "endpoints" "pods" "events" "persistentvolumeclaims" "fake-nodes" "fake-persistentvolumes" -}}
+{{- if and (hasKey .Values.sync.nodes "enableScheduler") .Values.sync.nodes.enableScheduler -}}
+    {{- $defaultEnabled = concat $defaultEnabled (list "csinodes" "csidrivers" "csistoragecapacities" ) -}}
+{{- end -}}
 {{- range $key, $val := .Values.sync }}
 {{- if and (has $key $defaultEnabled) (not $val.enabled) }}
 - --sync=-{{ $key }}
