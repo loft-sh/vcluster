@@ -203,7 +203,7 @@ controller:
 
 # Kubernetes API Server settings
 api:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.24.6-eks-1-24-3"
+  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.24.6-eks-1-24-3
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
