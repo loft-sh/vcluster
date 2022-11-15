@@ -278,7 +278,7 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues, helmExecutablePath 
 	if cmd.LocalChartDir == "" {
 		chartEmbedded := false
 		if cmd.ChartVersion == upgrade.GetVersion() { // use embedded chart if default version
-			embeddedChartName := fmt.Sprintf("%s-v%s.tgz", cmd.ChartName, upgrade.GetVersion())
+			embeddedChartName := fmt.Sprintf("%s-%s.tgz", cmd.ChartName, upgrade.GetVersion())
 			// not using filepath.Join because the embed.FS separator is not OS specific
 			embeddedChartPath := fmt.Sprintf("charts/%s", embeddedChartName)
 
