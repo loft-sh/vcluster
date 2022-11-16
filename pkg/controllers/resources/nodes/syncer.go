@@ -58,6 +58,7 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 		enforceNodeSelector: ctx.Options.EnforceNodeSelector,
 		nodeServiceProvider: nodeService,
 		nodeSelector:        nodeSelector,
+		clearImages:         ctx.Options.ClearNodeImages,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 
 		targetNamespace:     ctx.Options.TargetNamespace,
@@ -69,6 +70,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 
 type nodeSyncer struct {
 	enableScheduler bool
+
+	clearImages bool
 
 	enforceNodeSelector bool
 	nodeSelector        labels.Selector
