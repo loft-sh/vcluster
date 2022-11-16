@@ -153,6 +153,11 @@ mappings:
           path: .spec.podTargetLabels[*]
         - op: rewriteLabelExpressionsSelector
           path: .spec.selector
+        # A regex example, e.g. if we have a field in "namespace/name" string
+        - op: rewriteName
+          path: .metadata.annotations['custom-one-namespace-slash-name']
+          regex: >
+            ^$NAMESPACE/$NAME$
 ```
 
 **Patch conditions**  
