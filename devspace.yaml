@@ -18,34 +18,12 @@ images:
 
 # Deployment used for vcluster
 deployments:
-  vcluster-k0s:
-    helm:
-      releaseName: vcluster
-      chart:
-        name: ./charts/k0s
-      values:
-        service:
-          type: NodePort
-        serviceCIDR: $([ $1 == "dev" ] && vcluster get service-cidr || echo "null")
-        tolerations:
-          - operator: "Exists"
-        serviceAccount:
-          create: false
-          name: default
-        rbac:
-          clusterRole:
-            create: true
-          role:
-            extended: true
-        syncer:
-          image: ${SYNCER_IMAGE}
-
   vcluster-k8s:
     helm:
       releaseName: vcluster
       chart:
         name: ./charts/k8s
-      values:
+      values: &values
         job:
           enabled: false
         service:
@@ -69,22 +47,14 @@ deployments:
       releaseName: vcluster
       chart:
         name: ./charts/k3s
-      values:
-        service:
-          type: NodePort
-        serviceCIDR: $([ $1 == "dev" ] && vcluster get service-cidr || echo "null")
-        tolerations:
-          - operator: "Exists"
-        serviceAccount:
-          create: false
-          name: default
-        rbac:
-          clusterRole:
-            create: true
-          role:
-            extended: true
-        syncer:
-          image: ${SYNCER_IMAGE}
+      values: *values # reuses the same values defined under the &values anchor
+
+  vcluster-k0s:
+    helm:
+      releaseName: vcluster
+      chart:
+        name: ./charts/k0s
+      values: *values # reuses the same values defined under the &values anchor
 
 # Dev Configuration for vcluster
 dev:
@@ -92,6 +62,10 @@ dev:
     imageSelector: ${SYNCER_IMAGE}
     container: syncer
     workingDir: /vcluster-dev
+    resources:
+      limits:
+        cpu: "0" # to prevent CPU throttling during compilation
+        memory: "0" # to prevent OOM kills which can happen during first compilation due to high number of deps
     terminal:
       command: "./devspace_start.sh"
     ports:
@@ -108,6 +82,7 @@ dev:
         - '!/go.sum'
         - '!/devspace_start.sh'
         - '!/manifests'
+        - '/manifests/coredns' # shouldn't sync to this path because it is mounted from a ConfigMap as ReadOnly
 
 profiles:
   - name: dev-hostpath-mapper
@@ -122,7 +97,7 @@ profiles:
           component: hostpath-mapper
     merge:
       deployments:
-        vcluster-k3s:
+        vcluster-k3s: &hostmapper_patch
           helm:
             values:
               hostpathMapper:
@@ -137,6 +112,8 @@ profiles:
                 extraArgs:
                   - start
                   - --tls-san=vcluster
+        vcluster-k0s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
+        vcluster-k8s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
 
 # Pipelines used for vcluster
 pipelines:
