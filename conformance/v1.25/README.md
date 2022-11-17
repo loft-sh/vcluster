@@ -31,6 +31,9 @@ sync:
     enabled: true
   ingresses:
     enabled: false
+  # For vcluster v0.13.0 uncomment lines below
+  # csistoragecapacities:
+  #   enabled: false
 ```
 
 Now create the vcluster with the [vcluster cli](https://github.com/loft-sh/vcluster/releases) (version v0.12.0 or newer):
