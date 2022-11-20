@@ -87,8 +87,6 @@ spec:
       {{- end }}
       nodeSelector:
 {{ toYaml .Values.api.nodeSelector | indent 8 }}
-      affinity:
-{{ toYaml .Values.api.affinity | indent 8 }}
       tolerations:
 {{ toYaml .Values.api.tolerations | indent 8 }}
       automountServiceAccountToken: false

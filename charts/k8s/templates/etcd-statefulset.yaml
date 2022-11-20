@@ -94,8 +94,6 @@ spec:
       {{- end }}
       nodeSelector:
 {{ toYaml .Values.etcd.nodeSelector | indent 8 }}
-      affinity:
-{{ toYaml .Values.etcd.affinity | indent 8 }}
       tolerations:
 {{ toYaml .Values.etcd.tolerations | indent 8 }}
       automountServiceAccountToken: false
