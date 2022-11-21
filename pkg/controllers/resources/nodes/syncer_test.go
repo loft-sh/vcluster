@@ -424,17 +424,11 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+
 	baseName = types.NamespacedName{
 		Name: "mynode",
 	}
-	basePod = &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "mypod",
-		},
-		Spec: corev1.PodSpec{
-			NodeName: baseName.Name,
-		},
-	}
+
 	baseNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
