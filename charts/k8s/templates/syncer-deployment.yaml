@@ -86,8 +86,6 @@ spec:
       {{- end }}
       nodeSelector:
 {{ toYaml .Values.syncer.nodeSelector | indent 8 }}
-      affinity:
-{{ toYaml .Values.syncer.affinity | indent 8 }}
       tolerations:
 {{ toYaml .Values.syncer.tolerations | indent 8 }}
       {{- if .Values.serviceAccount.name }}
