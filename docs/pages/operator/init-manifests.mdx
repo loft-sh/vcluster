@@ -4,7 +4,7 @@ sidebar_label: Applying manifests and charts on init
 ---
 
 ## Applying manifests on initialization
-Starting in version 0.8.0, vcluster allows users to apply manifests as soon as a virtual cluster is started. This can be useful for users configuring internal vcluster resources.
+Starting in version 0.8.0, vcluster allows users to apply manifests as soon as a virtual cluster is started. This can be useful for users configuring internal vcluster resources. These manifests are applied before applying the helm charts.
 
 This can be configured via `helm` values:
 
