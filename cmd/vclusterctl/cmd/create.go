@@ -366,7 +366,10 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 		NodePort:           cmd.localCluster,
 		K3SImage:           cmd.K3SImage,
 		Isolate:            cmd.Isolate,
-		KubernetesVersion:  kubernetesVersion,
+		KubernetesVersion: helmUtils.Version{
+			Major: kubernetesVersion.Major,
+			Minor: kubernetesVersion.Minor,
+		},
 	}, nil
 }
 
@@ -529,9 +532,14 @@ func (cmd *CreateCmd) getKubernetesVersion() (*version.Info, error) {
 			cmd.log.Warnf("currently we only support major.minor version (%s) and not the patch version (%s)", majorMinorVer, cmd.KubernetesVersion)
 		}
 
-		kubernetesVersion, err = values.ParseKubernetesVersionInfo(majorMinorVer)
+		parsedVersion, err := values.ParseKubernetesVersionInfo(majorMinorVer)
 		if err != nil {
 			return nil, err
+		}
+
+		kubernetesVersion = &version.Info{
+			Major: parsedVersion.Major,
+			Minor: parsedVersion.Minor,
 		}
 	}
 

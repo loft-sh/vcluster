@@ -1,7 +1,5 @@
 package helm
 
-import "k8s.io/apimachinery/pkg/version"
-
 const (
 	K3SChart = "vcluster"
 	K0SChart = "vcluster-k0s"
@@ -22,5 +20,10 @@ type ChartOptions struct {
 	SyncNodes          bool
 	K3SImage           string
 	Isolate            bool
-	KubernetesVersion  *version.Info
+	KubernetesVersion  Version
+}
+
+type Version struct {
+	Major string
+	Minor string
 }
