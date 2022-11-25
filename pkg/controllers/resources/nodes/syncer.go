@@ -60,7 +60,6 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 		nodeSelector:        nodeSelector,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 
-		targetNamespace:     ctx.Options.TargetNamespace,
 		physicalClient:      ctx.PhysicalManager.GetClient(),
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		enforcedTolerations: tolerations,
@@ -77,7 +76,6 @@ type nodeSyncer struct {
 	physicalClient client.Client
 	virtualClient  client.Client
 
-	targetNamespace     string
 	podCache            client.Reader
 	nodeServiceProvider nodeservice.NodeServiceProvider
 	enforcedTolerations []*corev1.Toleration
@@ -110,7 +108,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder 
 			// to later calculate the status.allocatable part of the nodes correctly
 			if pPod.Status.Phase == corev1.PodSucceeded || pPod.Status.Phase == corev1.PodFailed {
 				return []string{}
-			} else if pPod.Labels != nil && pPod.Labels[translate.MarkerLabel] == translate.Suffix && pPod.Namespace == s.targetNamespace {
+			} else if translate.Default.IsManaged(pPod) {
 				return []string{}
 			} else if pPod.Spec.NodeName == "" {
 				return []string{}
@@ -141,7 +139,7 @@ func modifyController(ctx *synccontext.RegisterContext, nodeService nodeservice.
 
 	return builder.Watches(source.NewKindWithCache(&corev1.Pod{}, ctx.PhysicalManager.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 		pod, ok := object.(*corev1.Pod)
-		if !ok || pod == nil || pod.Namespace != ctx.TargetNamespace || !translate.IsManaged(pod) || pod.Spec.NodeName == "" {
+		if !ok || pod == nil || !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
 			return []reconcile.Request{}
 		}
 
@@ -177,7 +175,7 @@ func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 func registerIndices(ctx *synccontext.RegisterContext) error {
 	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
-		if pod.Namespace != ctx.TargetNamespace || !translate.IsManaged(pod) || pod.Spec.NodeName == "" {
+		if !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
 			return nil
 		}
 		return []string{pod.Spec.NodeName}

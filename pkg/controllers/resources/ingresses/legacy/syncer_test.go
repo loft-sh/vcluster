@@ -51,9 +51,9 @@ func TestSync(t *testing.T) {
 	}
 	pBaseSpec := networkingv1beta1.IngressSpec{
 		Backend: &networkingv1beta1.IngressBackend{
-			ServiceName: translate.PhysicalName("testservice", "test"),
+			ServiceName: translate.Default.PhysicalName("testservice", "test"),
 			Resource: &corev1.TypedLocalObjectReference{
-				Name: translate.PhysicalName("testbackendresource", "test"),
+				Name: translate.Default.PhysicalName("testbackendresource", "test"),
 			},
 		},
 		Rules: []networkingv1beta1.IngressRule{
@@ -63,9 +63,9 @@ func TestSync(t *testing.T) {
 						Paths: []networkingv1beta1.HTTPIngressPath{
 							{
 								Backend: networkingv1beta1.IngressBackend{
-									ServiceName: translate.PhysicalName("testbackendservice", "test"),
+									ServiceName: translate.Default.PhysicalName("testbackendservice", "test"),
 									Resource: &corev1.TypedLocalObjectReference{
-										Name: translate.PhysicalName("testbackendresource", "test"),
+										Name: translate.Default.PhysicalName("testbackendresource", "test"),
 									},
 								},
 							},
@@ -76,7 +76,7 @@ func TestSync(t *testing.T) {
 		},
 		TLS: []networkingv1beta1.IngressTLS{
 			{
-				SecretName: translate.PhysicalName("testtlssecret", "test"),
+				SecretName: translate.Default.PhysicalName("testtlssecret", "test"),
 			},
 		},
 	}
@@ -95,7 +95,7 @@ func TestSync(t *testing.T) {
 		Namespace: "test",
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testingress", "test"),
+		Name:      translate.Default.PhysicalName("testingress", "test"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			translator.NameAnnotation:      vObjectMeta.Name,

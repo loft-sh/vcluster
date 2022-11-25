@@ -4,6 +4,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -72,5 +73,5 @@ func SecretNamesFromIngress(ingress *networkingv1beta1.Ingress) []string {
 			secrets = append(secrets, ingress.Namespace+"/"+tls.SecretName)
 		}
 	}
-	return translator.UniqueSlice(secrets)
+	return translate.UniqueSlice(secrets)
 }

@@ -56,10 +56,10 @@ func translateSpec(namespace string, vIngressSpec *networkingv1beta1.IngressSpec
 	retSpec := vIngressSpec.DeepCopy()
 	if retSpec.Backend != nil {
 		if retSpec.Backend.ServiceName != "" {
-			retSpec.Backend.ServiceName = translate.PhysicalName(retSpec.Backend.ServiceName, namespace)
+			retSpec.Backend.ServiceName = translate.Default.PhysicalName(retSpec.Backend.ServiceName, namespace)
 		}
 		if retSpec.Backend.Resource != nil {
-			retSpec.Backend.Resource.Name = translate.PhysicalName(retSpec.Backend.Resource.Name, namespace)
+			retSpec.Backend.Resource.Name = translate.Default.PhysicalName(retSpec.Backend.Resource.Name, namespace)
 		}
 	}
 
@@ -67,10 +67,10 @@ func translateSpec(namespace string, vIngressSpec *networkingv1beta1.IngressSpec
 		if rule.HTTP != nil {
 			for j, path := range rule.HTTP.Paths {
 				if path.Backend.ServiceName != "" {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.ServiceName = translate.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.ServiceName, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.ServiceName = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.ServiceName, namespace)
 				}
 				if path.Backend.Resource != nil {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
 				}
 			}
 		}
@@ -78,7 +78,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1beta1.IngressSpec
 
 	for i, tls := range retSpec.TLS {
 		if tls.SecretName != "" {
-			retSpec.TLS[i].SecretName = translate.PhysicalName(retSpec.TLS[i].SecretName, namespace)
+			retSpec.TLS[i].SecretName = translate.Default.PhysicalName(retSpec.TLS[i].SecretName, namespace)
 		}
 	}
 

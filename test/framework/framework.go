@@ -112,6 +112,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		suffix = "vcluster"
 	}
 	translate.Suffix = suffix
+	translate.NewSingleNamespaceTranslator(ns)
 	l.Infof("Testing Vcluster named: %s in namespace: %s", name, ns)
 
 	hostConfig, err := ctrl.GetConfig()

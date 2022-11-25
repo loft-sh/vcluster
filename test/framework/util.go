@@ -83,7 +83,7 @@ func (f *Framework) WaitForPodToComeUpWithEphemeralContainers(podName string, ns
 
 func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error {
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
-		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(pvcName, ns), metav1.GetOptions{})
+		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(pvcName, ns), metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -142,7 +142,7 @@ func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 
 func (f *Framework) WaitForService(serviceName string, ns string) error {
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
-		_, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(serviceName, ns), metav1.GetOptions{})
+		_, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(serviceName, ns), metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -185,7 +185,7 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 		}
 
 		// Check for annotation
-		pService, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(serviceName, ns), metav1.GetOptions{})
+		pService, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(serviceName, ns), metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil

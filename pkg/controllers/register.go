@@ -408,7 +408,6 @@ func ToRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterCont
 		Options:     ctx.Options,
 		Controllers: ctx.Controllers,
 
-		TargetNamespace:        ctx.Options.TargetNamespace,
 		CurrentNamespace:       ctx.CurrentNamespace,
 		CurrentNamespaceClient: ctx.CurrentNamespaceClient,
 

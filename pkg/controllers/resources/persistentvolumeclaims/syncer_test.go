@@ -26,7 +26,7 @@ func TestSync(t *testing.T) {
 		Namespace: "testns",
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testpvc", "testns"),
+		Name:      translate.Default.PhysicalName("testpvc", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			translator.NameAnnotation:      vObjectMeta.Name,

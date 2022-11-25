@@ -41,7 +41,7 @@ func TestSync(t *testing.T) {
 	}
 	syncedEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName(baseEndpoints.Name, baseEndpoints.Namespace),
+			Name:      translate.Default.PhysicalName(baseEndpoints.Name, baseEndpoints.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
 				translator.NameAnnotation:      baseEndpoints.Name,

@@ -2,7 +2,6 @@ package networkpolicies
 
 import (
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -58,7 +57,7 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 		})
 	}
 
-	outSpec.PodSelector = *translator.TranslateLabelSelector(&spec.PodSelector)
+	outSpec.PodSelector = *translate.TranslateLabelSelector(&spec.PodSelector)
 	if outSpec.PodSelector.MatchLabels == nil {
 		outSpec.PodSelector.MatchLabels = map[string]string{}
 	}
@@ -78,12 +77,12 @@ func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespa
 	out := []networkingv1.NetworkPolicyPeer{}
 	for _, peer := range peers {
 		newPeer := networkingv1.NetworkPolicyPeer{
-			PodSelector:       translator.TranslateLabelSelector(peer.PodSelector),
+			PodSelector:       translate.TranslateLabelSelector(peer.PodSelector),
 			NamespaceSelector: nil, // must be set to nil as all vcluster pods are in the same host namespace as the NetworkPolicy
 		}
 		if peer.IPBlock == nil {
-			translatedNamespaceSelectors := translator.TranslateLabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
-			newPeer.PodSelector = translator.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
+			translatedNamespaceSelectors := translate.TranslateLabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
+			newPeer.PodSelector = translate.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
 
 			if newPeer.PodSelector.MatchLabels == nil {
 				newPeer.PodSelector.MatchLabels = map[string]string{}

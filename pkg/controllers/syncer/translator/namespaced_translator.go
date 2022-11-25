@@ -2,8 +2,6 @@ package translator
 
 import (
 	context2 "context"
-	"crypto/sha256"
-	"encoding/hex"
 	"reflect"
 	"sort"
 	"strings"
@@ -25,19 +23,12 @@ var (
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	NamespaceAnnotation          = "vcluster.loft.sh/object-namespace"
 	NameAnnotation               = "vcluster.loft.sh/object-name"
-	LabelPrefix                  = "vcluster.loft.sh/label"
 )
-
-func DefaultPhysicalName(vName string, vObj client.Object) string {
-	name, namespace := vObj.GetName(), vObj.GetNamespace()
-	return translate.PhysicalName(name, namespace)
-}
 
 func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj client.Object, excludedAnnotations ...string) NamespacedTranslator {
 	return &namespacedTranslator{
 		name: name,
 
-		physicalNamespace:   ctx.TargetNamespace,
 		syncedLabels:        ctx.Options.SyncLabels,
 		excludedAnnotations: excludedAnnotations,
 
@@ -51,7 +42,6 @@ func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj clie
 type namespacedTranslator struct {
 	name string
 
-	physicalNamespace   string
 	excludedAnnotations []string
 	syncedLabels        []string
 
@@ -75,7 +65,7 @@ func (n *namespacedTranslator) Resource() client.Object {
 
 func (n *namespacedTranslator) RegisterIndices(ctx *context.RegisterContext) error {
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, n.obj.DeepCopyObject().(client.Object), constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{ObjectPhysicalName(rawObj)}
+		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
 	})
 }
 
@@ -106,13 +96,13 @@ func (n *namespacedTranslator) SyncDownUpdate(ctx *context.SyncContext, vObj, pO
 }
 
 func (n *namespacedTranslator) IsManaged(pObj client.Object) (bool, error) {
-	return translate.IsManaged(pObj), nil
+	return translate.Default.IsManaged(pObj), nil
 }
 
 func (n *namespacedTranslator) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
-		Namespace: n.physicalNamespace,
-		Name:      translate.PhysicalName(req.Name, req.Namespace),
+		Namespace: translate.Default.PhysicalNamespace(req.Namespace),
+		Name:      translate.Default.PhysicalName(req.Name, req.Namespace),
 	}
 }
 
@@ -126,7 +116,7 @@ func (n *namespacedTranslator) PhysicalToVirtual(pObj client.Object) types.Names
 	}
 
 	vObj := n.obj.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context2.Background(), n.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
+	err := clienthelper.GetByIndex(context2.Background(), n.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetNamespace()+"/"+pObj.GetName())
 	if err != nil {
 		return types.NamespacedName{}
 	}
@@ -138,11 +128,13 @@ func (n *namespacedTranslator) PhysicalToVirtual(pObj client.Object) types.Names
 }
 
 func (n *namespacedTranslator) TranslateMetadata(vObj client.Object) client.Object {
-	return TranslateMetadata(n.physicalNamespace, vObj, n.syncedLabels, n.excludedAnnotations...)
+	return TranslateMetadata(vObj, n.syncedLabels, n.excludedAnnotations...)
 }
 
-func TranslateMetadata(physicalNamespace string, vObj client.Object, syncedLabels []string, excludedAnnotations ...string) client.Object {
-	pObj, err := setupMetadataWithName(physicalNamespace, vObj, DefaultPhysicalName)
+func TranslateMetadata(vObj client.Object, syncedLabels []string, excludedAnnotations ...string) client.Object {
+	pObj, err := setupMetadataWithName(vObj, func(vName string, vObj client.Object) string {
+		return translate.Default.ObjectPhysicalName(vObj)
+	})
 	if err != nil {
 		return nil
 	}
@@ -219,7 +211,7 @@ func TranslateLabels(src client.Object, dest client.Object, syncedLabels []strin
 	newLabels := map[string]string{}
 	vObjLabels := src.GetLabels()
 	for k, v := range vObjLabels {
-		newLabels[ConvertLabelKey(k)] = v
+		newLabels[translate.ConvertLabelKey(k)] = v
 	}
 	if vObjLabels != nil {
 		for _, k := range syncedLabels {
@@ -242,7 +234,7 @@ func TranslateLabels(src client.Object, dest client.Object, syncedLabels []strin
 	return newLabels
 }
 
-func setupMetadataWithName(targetNamespace string, vObj client.Object, translator PhysicalNameTranslator) (client.Object, error) {
+func setupMetadataWithName(vObj client.Object, translator PhysicalNameTranslator) (client.Object, error) {
 	target := vObj.DeepCopyObject().(client.Object)
 	m, err := meta.Accessor(target)
 	if err != nil {
@@ -253,24 +245,15 @@ func setupMetadataWithName(targetNamespace string, vObj client.Object, translato
 	ResetObjectMetadata(m)
 	m.SetName(translator(m.GetName(), vObj))
 	if vObj.GetNamespace() != "" {
-		m.SetNamespace(targetNamespace)
+		m.SetNamespace(translate.Default.PhysicalNamespace(vObj.GetNamespace()))
 
 		// set owning stateful set if defined
 		if translate.Owner != nil {
-			m.SetOwnerReferences(translate.GetOwnerReference(vObj))
+			m.SetOwnerReferences(translate.Default.GetOwnerReference(vObj))
 		}
 	}
 
 	return target, nil
-}
-
-func ConvertLabelKey(key string) string {
-	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
-}
-
-func ConvertLabelKeyWithPrefix(prefix, key string) string {
-	digest := sha256.Sum256([]byte(key))
-	return translate.SafeConcatName(prefix, translate.Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
 // ResetObjectMetadata resets the objects metadata except name, namespace and annotations

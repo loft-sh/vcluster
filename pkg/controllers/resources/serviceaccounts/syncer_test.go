@@ -35,7 +35,7 @@ func TestSync(t *testing.T) {
 	}
 	pSA := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName(vSA.Name, vSA.Namespace),
+			Name:      translate.Default.PhysicalName(vSA.Name, vSA.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
 				"test":                                  "test",

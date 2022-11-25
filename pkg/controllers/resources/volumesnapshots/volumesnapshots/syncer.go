@@ -32,7 +32,7 @@ var (
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotSyncer{
 		NamespacedTranslator:                translator.NewNamespacedTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}),
-		volumeSnapshotContentNameTranslator: volumesnapshotcontents.NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace),
+		volumeSnapshotContentNameTranslator: volumesnapshotcontents.NewVolumeSnapshotContentTranslator(),
 	}, nil
 }
 

@@ -106,7 +106,7 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 var _ syncer.UpSyncer = &serviceSyncer{}
 
 func (s *serviceSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	if !translate.IsManaged(pObj) {
+	if !translate.Default.IsManaged(pObj) {
 		return ctrl.Result{}, nil
 	}
 

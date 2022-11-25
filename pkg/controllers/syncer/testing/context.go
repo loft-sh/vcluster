@@ -2,6 +2,7 @@ package testing
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/util/log"
@@ -43,6 +44,7 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 }
 
 func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
 	return &synccontext.RegisterContext{
 		Context: context.TODO(),
 		Options: &controllercontext.VirtualClusterOptions{
@@ -51,7 +53,6 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 			TargetNamespace: DefaultTestTargetNamespace,
 		},
 		Controllers:            controllercontext.ExistingControllers.Clone(),
-		TargetNamespace:        DefaultTestTargetNamespace,
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),

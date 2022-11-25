@@ -20,10 +20,9 @@ import (
 
 func RegisterSyncer(ctx *synccontext.RegisterContext, syncer Syncer) error {
 	controller := &syncerController{
-		syncer:          syncer,
-		log:             loghelper.New(syncer.Name()),
-		targetNamespace: ctx.TargetNamespace,
-		physicalClient:  ctx.PhysicalManager.GetClient(),
+		syncer:         syncer,
+		log:            loghelper.New(syncer.Name()),
+		physicalClient: ctx.PhysicalManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
@@ -39,8 +38,7 @@ type syncerController struct {
 
 	log loghelper.Logger
 
-	targetNamespace string
-	physicalClient  client.Client
+	physicalClient client.Client
 
 	currentNamespace       string
 	currentNamespaceClient client.Client
@@ -53,7 +51,6 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	syncContext := &synccontext.SyncContext{
 		Context:                ctx,
 		Log:                    log,
-		TargetNamespace:        r.targetNamespace,
 		PhysicalClient:         r.physicalClient,
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,

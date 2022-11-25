@@ -52,7 +52,7 @@ func Encode(metricsFamilies []*dto.MetricFamily, format expfmt.Format) ([]byte, 
 	return buffer.Bytes(), nil
 }
 
-func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, targetNamespace string, vClient client.Client) ([]*dto.MetricFamily, error) {
+func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, vClient client.Client) ([]*dto.MetricFamily, error) {
 	resultMetricsFamily := []*dto.MetricFamily{}
 
 	// rewrite metrics
@@ -80,16 +80,11 @@ func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, targetNam
 				continue
 			}
 
-			// skip the metric if it is not within the virtual cluster
-			if namespace != targetNamespace {
-				continue
-			}
-
 			// rewrite pod
 			if pod != "" {
 				// search if we can find the pod by name in the virtual cluster
 				podList := &corev1.PodList{}
-				err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: pod})
+				err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: namespace + "/" + pod})
 				if err != nil {
 					return nil, err
 				}
@@ -107,7 +102,7 @@ func Rewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, targetNam
 			if persistentvolumeclaim != "" {
 				// search if we can find the pvc by name in the virtual cluster
 				pvcList := &corev1.PersistentVolumeClaimList{}
-				err := vClient.List(ctx, pvcList, client.MatchingFields{constants.IndexByPhysicalName: persistentvolumeclaim})
+				err := vClient.List(ctx, pvcList, client.MatchingFields{constants.IndexByPhysicalName: namespace + "/" + persistentvolumeclaim})
 				if err != nil {
 					return nil, err
 				}

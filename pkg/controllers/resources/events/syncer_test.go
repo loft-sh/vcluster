@@ -16,12 +16,10 @@ import (
 	"testing"
 )
 
-var targetNamespace = "p-test"
-
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *eventSyncer) {
 	// we need that index here as well otherwise we wouldn't find the related pod
 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translate.ObjectPhysicalName(rawObj)}
+		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
 	})
 	assert.NilError(t, err)
 
@@ -30,6 +28,8 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 }
 
 func TestSync(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+
 	vNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test",
@@ -43,14 +43,14 @@ func TestSync(t *testing.T) {
 	}
 	pPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName(vPod.Name, vPod.Namespace),
-			Namespace: targetNamespace,
+			Name:      translate.Default.PhysicalName(vPod.Name, vPod.Namespace),
+			Namespace: generictesting.DefaultTestTargetNamespace,
 		},
 	}
 	pEvent := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-event",
-			Namespace: targetNamespace,
+			Namespace: generictesting.DefaultTestTargetNamespace,
 		},
 		InvolvedObject: corev1.ObjectReference{
 			APIVersion:      corev1.SchemeGroupVersion.String(),

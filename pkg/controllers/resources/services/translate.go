@@ -1,7 +1,6 @@
 package services
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,7 +32,7 @@ func RewriteSelector(pObj, vObj *corev1.Service) {
 	if vObj.Spec.Selector != nil {
 		pObj.Spec.Selector = map[string]string{}
 		for k, v := range vObj.Spec.Selector {
-			pObj.Spec.Selector[translator.ConvertLabelKey(k)] = v
+			pObj.Spec.Selector[translate.ConvertLabelKey(k)] = v
 		}
 		pObj.Spec.Selector[translate.NamespaceLabel] = vObj.Namespace
 		pObj.Spec.Selector[translate.MarkerLabel] = translate.Suffix

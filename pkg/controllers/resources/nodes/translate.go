@@ -172,7 +172,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 				klog.Errorf("Error listing pods: %v", err)
 			} else {
 				for _, pod := range podList.Items {
-					if !translate.IsManaged(&pod) {
+					if !translate.Default.IsManaged(&pod) {
 						// count pods that are not synced by this vcluster
 						nonVClusterPods++
 					}

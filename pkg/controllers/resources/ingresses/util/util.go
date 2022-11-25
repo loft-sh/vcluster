@@ -33,7 +33,7 @@ func ProcessAlbAnnotations(namespace string, k string, v string) (string, string
 		// change k
 		action := getActionOrConditionValue(k, ActionsSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
-			k = strings.Replace(k, action, translate.PhysicalName(action, namespace), 1)
+			k = strings.Replace(k, action, translate.Default.PhysicalName(action, namespace), 1)
 		}
 		// change v
 		var payload *actionPayload
@@ -47,7 +47,7 @@ func ProcessAlbAnnotations(namespace string, k string, v string) (string, string
 					case string:
 						if svcName != "" {
 							if !strings.Contains(svcName, "x-"+namespace+"-x") {
-								targetGroup["serviceName"] = translate.PhysicalName(svcName, namespace)
+								targetGroup["serviceName"] = translate.Default.PhysicalName(svcName, namespace)
 							} else {
 								targetGroup["serviceName"] = svcName
 							}
@@ -65,7 +65,7 @@ func ProcessAlbAnnotations(namespace string, k string, v string) (string, string
 	if strings.HasPrefix(k, AlbConditionAnnotation) {
 		condition := getActionOrConditionValue(k, ConditionSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
-			k = strings.Replace(k, condition, translate.PhysicalName(condition, namespace), 1)
+			k = strings.Replace(k, condition, translate.Default.PhysicalName(condition, namespace), 1)
 		}
 	}
 	return k, v

@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithFakeKubelet(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client, targetNamespace string) http.Handler {
+func WithFakeKubelet(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client) http.Handler {
 	s := serializer.NewCodecFactory(cachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		nodeName, found := NodeNameFrom(req.Context())
@@ -23,7 +23,7 @@ func WithFakeKubelet(h http.Handler, localConfig *rest.Config, cachedVirtualClie
 			req.URL.Path = "/api/v1/nodes/" + nodeName + "/proxy" + req.URL.Path
 
 			// execute the request
-			_, err := handleNodeRequest(localConfig, cachedVirtualClient, targetNamespace, w, req)
+			_, err := handleNodeRequest(localConfig, cachedVirtualClient, w, req)
 			if err != nil {
 				responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 				return

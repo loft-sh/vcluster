@@ -6,14 +6,11 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -29,7 +26,7 @@ func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vP
 	}
 	if newPvc.Spec.DataSource != nil && vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" &&
 		(newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" || newPvc.Spec.DataSource.Kind == "VolumeSnapshot") {
-		newPvc.Spec.DataSource.Name = translate.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
+		newPvc.Spec.DataSource.Name = translate.Default.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
 	}
 
 	//TODO: add support for the .Spec.DataSourceRef field
@@ -54,7 +51,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 
 		// translate storage class name if there is any
 		if storageClassName != "" {
-			translated := translate.PhysicalNameClusterScoped(storageClassName, ctx.TargetNamespace)
+			translated := translate.Default.PhysicalNameClusterScoped(storageClassName)
 			delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
 			vPvc.Spec.StorageClassName = &translated
 		}
@@ -64,10 +61,10 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	if !s.useFakePersistentVolumes {
 		if vPvc.Annotations == nil || vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 			if vPvc.Spec.Selector != nil {
-				vPvc.Spec.Selector = translator.TranslateLabelSelectorCluster(ctx.TargetNamespace, vPvc.Spec.Selector)
+				vPvc.Spec.Selector = translate.Default.TranslateLabelSelectorCluster(vPvc.Spec.Selector)
 			}
 			if vPvc.Spec.VolumeName != "" {
-				vPvc.Spec.VolumeName = translate.PhysicalNameClusterScoped(vPvc.Spec.VolumeName, ctx.TargetNamespace)
+				vPvc.Spec.VolumeName = translate.Default.PhysicalNameClusterScoped(vPvc.Spec.VolumeName)
 			}
 			// check if the storage class exists in the physical cluster
 			if !s.storageClassesEnabled && storageClassName != "" {
@@ -75,12 +72,12 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 				if vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
 					err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
 					if err != nil && kerrors.IsNotFound(err) {
-						translated := translate.PhysicalNameClusterScoped(storageClassName, ctx.TargetNamespace)
+						translated := translate.Default.PhysicalNameClusterScoped(storageClassName)
 						delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
 						vPvc.Spec.StorageClassName = &translated
 					}
 				} else {
-					translated := translate.PhysicalNameClusterScoped(storageClassName, ctx.TargetNamespace)
+					translated := translate.Default.PhysicalNameClusterScoped(storageClassName)
 					delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
 					vPvc.Spec.StorageClassName = &translated
 				}
@@ -90,7 +87,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	return vPvc, nil
 }
 
-func (s *persistentVolumeClaimSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
 	var updated *corev1.PersistentVolumeClaim
 
 	// allow storage size to be increased
@@ -154,48 +151,4 @@ func newIfNil(updated *corev1.PersistentVolumeClaim, pObj *corev1.PersistentVolu
 		return pObj.DeepCopy()
 	}
 	return updated
-}
-
-// MatchTopologySelectorTerms checks whether given labels match topology selector terms in ORed;
-// nil or empty term matches no objects; while empty term list matches all objects.
-func MatchTopologySelectorTerms(topologySelectorTerms []corev1.TopologySelectorTerm, lbls labels.Set) bool {
-	if len(topologySelectorTerms) == 0 {
-		// empty term list matches all objects
-		return true
-	}
-
-	for _, req := range topologySelectorTerms {
-		// nil or empty term selects no objects
-		if len(req.MatchLabelExpressions) == 0 {
-			continue
-		}
-
-		labelSelector, err := TopologySelectorRequirementsAsSelector(req.MatchLabelExpressions)
-		if err != nil || !labelSelector.Matches(lbls) {
-			continue
-		}
-
-		return true
-	}
-
-	return false
-}
-
-// TopologySelectorRequirementsAsSelector converts the []TopologySelectorLabelRequirement api type into a struct
-// that implements labels.Selector.
-func TopologySelectorRequirementsAsSelector(tsm []corev1.TopologySelectorLabelRequirement) (labels.Selector, error) {
-	if len(tsm) == 0 {
-		return labels.Nothing(), nil
-	}
-
-	selector := labels.NewSelector()
-	for _, expr := range tsm {
-		r, err := labels.NewRequirement(expr.Key, selection.In, expr.Values)
-		if err != nil {
-			return nil, err
-		}
-		selector = selector.Add(*r)
-	}
-
-	return selector, nil
 }

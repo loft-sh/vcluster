@@ -17,7 +17,7 @@ func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volu
 		pVS.Spec.Source = vVS.Spec.Source
 	} else {
 		if vVS.Spec.Source.PersistentVolumeClaimName != nil {
-			pvcName := translate.PhysicalName(*vVS.Spec.Source.PersistentVolumeClaimName, vVS.Namespace)
+			pvcName := translate.Default.PhysicalName(*vVS.Spec.Source.PersistentVolumeClaimName, vVS.Namespace)
 			pVS.Spec.Source.PersistentVolumeClaimName = &pvcName
 		}
 		if vVS.Spec.Source.VolumeSnapshotContentName != nil {

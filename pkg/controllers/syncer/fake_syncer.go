@@ -14,10 +14,9 @@ import (
 
 func RegisterFakeSyncer(ctx *synccontext.RegisterContext, syncer FakeSyncer) error {
 	controller := &fakeSyncer{
-		syncer:          syncer,
-		log:             loghelper.New(syncer.Name()),
-		targetNamespace: ctx.TargetNamespace,
-		physicalClient:  ctx.PhysicalManager.GetClient(),
+		syncer:         syncer,
+		log:            loghelper.New(syncer.Name()),
+		physicalClient: ctx.PhysicalManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
@@ -32,8 +31,7 @@ type fakeSyncer struct {
 	syncer FakeSyncer
 	log    loghelper.Logger
 
-	targetNamespace string
-	physicalClient  client.Client
+	physicalClient client.Client
 
 	currentNamespace       string
 	currentNamespaceClient client.Client
@@ -46,7 +44,6 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	syncContext := &synccontext.SyncContext{
 		Context:                ctx,
 		Log:                    log,
-		TargetNamespace:        r.targetNamespace,
 		PhysicalClient:         r.physicalClient,
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,

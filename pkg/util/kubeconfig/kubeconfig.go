@@ -73,7 +73,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 
 			// set owner reference
 			if translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
-				kubeConfigSecret.OwnerReferences = translate.GetOwnerReference(nil)
+				kubeConfigSecret.OwnerReferences = translate.Default.GetOwnerReference(nil)
 			}
 			return nil
 		})

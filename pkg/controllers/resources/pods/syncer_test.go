@@ -19,6 +19,8 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+
 	PodLogsVolumeName := "pod-logs"
 	LogsVolumeName := "logs"
 	KubeletPodVolumeName := "kubelet-pods"
@@ -67,7 +69,7 @@ func TestSync(t *testing.T) {
 	translate.Suffix = generictesting.DefaultTestVclusterName
 	pDNSService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName("kube-dns", "kube-system"),
+			Name:      translate.Default.PhysicalName("kube-dns", "kube-system"),
 			Namespace: generictesting.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.ServiceSpec{
@@ -84,7 +86,7 @@ func TestSync(t *testing.T) {
 		Namespace: vNamespace.Name,
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testpod", "testns"),
+		Name:      translate.Default.PhysicalName("testpod", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			podtranslate.ClusterAutoScalerAnnotation:  "false",
@@ -179,15 +181,15 @@ func TestSync(t *testing.T) {
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      PodLogsVolumeName,
-							MountPath: PodLoggingHostpathPath,
+							MountPath: podtranslate.PodLoggingHostPath,
 						},
 						{
 							Name:      LogsVolumeName,
-							MountPath: LogHostpathPath,
+							MountPath: podtranslate.LogHostPath,
 						},
 						{
 							Name:      KubeletPodVolumeName,
-							MountPath: KubeletPodPath,
+							MountPath: podtranslate.KubeletPodPath,
 						},
 					},
 				},
@@ -197,7 +199,7 @@ func TestSync(t *testing.T) {
 					Name: PodLogsVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
-							Path: PodLoggingHostpathPath,
+							Path: podtranslate.PodLoggingHostPath,
 						},
 					},
 				},
@@ -205,7 +207,7 @@ func TestSync(t *testing.T) {
 					Name: LogsVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
-							Path: LogHostpathPath,
+							Path: podtranslate.LogHostPath,
 						},
 					},
 				},
@@ -213,7 +215,7 @@ func TestSync(t *testing.T) {
 					Name: KubeletPodVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
-							Path: KubeletPodPath,
+							Path: podtranslate.KubeletPodPath,
 						},
 					},
 				},
@@ -221,11 +223,11 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	vHostPath := fmt.Sprintf(VirtualPathTemplate, generictesting.DefaultTestTargetNamespace, generictesting.DefaultTestVclusterName)
+	vHostPath := fmt.Sprintf(podtranslate.VirtualPathTemplate, generictesting.DefaultTestCurrentNamespace, generictesting.DefaultTestVclusterName)
 
 	pHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName(vHostPathPod.Name, generictesting.DefaultTestCurrentNamespace),
+			Name:      translate.Default.PhysicalName(vHostPathPod.Name, generictesting.DefaultTestCurrentNamespace),
 			Namespace: generictesting.DefaultTestTargetNamespace,
 
 			Annotations: map[string]string{
@@ -261,27 +263,27 @@ func TestSync(t *testing.T) {
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      PodLogsVolumeName,
-							MountPath: PodLoggingHostpathPath,
+							MountPath: podtranslate.PodLoggingHostPath,
 						},
 						{
 							Name:      LogsVolumeName,
-							MountPath: LogHostpathPath,
+							MountPath: podtranslate.LogHostPath,
 						},
 						{
 							Name:      KubeletPodVolumeName,
-							MountPath: KubeletPodPath,
+							MountPath: podtranslate.KubeletPodPath,
 						},
 						{
-							Name:      fmt.Sprintf("%s-%s", PodLogsVolumeName, PhysicalVolumeNameSuffix),
-							MountPath: PhysicalPodLogVolumeMountPath,
+							Name:      fmt.Sprintf("%s-%s", PodLogsVolumeName, podtranslate.PhysicalVolumeNameSuffix),
+							MountPath: podtranslate.PhysicalPodLogVolumeMountPath,
 						},
 						{
-							Name:      fmt.Sprintf("%s-%s", LogsVolumeName, PhysicalVolumeNameSuffix),
-							MountPath: PhysicalLogVolumeMountPath,
+							Name:      fmt.Sprintf("%s-%s", LogsVolumeName, podtranslate.PhysicalVolumeNameSuffix),
+							MountPath: podtranslate.PhysicalLogVolumeMountPath,
 						},
 						{
-							Name:      fmt.Sprintf("%s-%s", KubeletPodVolumeName, PhysicalVolumeNameSuffix),
-							MountPath: PhysicalKubeletVolumeMountPath,
+							Name:      fmt.Sprintf("%s-%s", KubeletPodVolumeName, podtranslate.PhysicalVolumeNameSuffix),
+							MountPath: podtranslate.PhysicalKubeletVolumeMountPath,
 						},
 					},
 				},
@@ -313,26 +315,26 @@ func TestSync(t *testing.T) {
 					},
 				},
 				{
-					Name: fmt.Sprintf("%s-%s", PodLogsVolumeName, PhysicalVolumeNameSuffix),
+					Name: fmt.Sprintf("%s-%s", PodLogsVolumeName, podtranslate.PhysicalVolumeNameSuffix),
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
-							Path: PodLoggingHostpathPath,
+							Path: podtranslate.PodLoggingHostPath,
 						},
 					},
 				},
 				{
-					Name: fmt.Sprintf("%s-%s", LogsVolumeName, PhysicalVolumeNameSuffix),
+					Name: fmt.Sprintf("%s-%s", LogsVolumeName, podtranslate.PhysicalVolumeNameSuffix),
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
-							Path: LogHostpathPath,
+							Path: podtranslate.LogHostPath,
 						},
 					},
 				},
 				{
-					Name: fmt.Sprintf("%s-%s", KubeletPodVolumeName, PhysicalVolumeNameSuffix),
+					Name: fmt.Sprintf("%s-%s", KubeletPodVolumeName, podtranslate.PhysicalVolumeNameSuffix),
 					VolumeSource: corev1.VolumeSource{
 						HostPath: &corev1.HostPathVolumeSource{
-							Path: KubeletPodPath,
+							Path: podtranslate.KubeletPodPath,
 						},
 					},
 				},
@@ -440,7 +442,6 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"): {pHostPathPod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.TargetNamespace = generictesting.DefaultTestTargetNamespace
 				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
 				assert.NilError(t, err)

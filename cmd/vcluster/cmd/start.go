@@ -211,6 +211,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	if options.TargetNamespace == "" {
 		options.TargetNamespace = currentNamespace
 	}
+	translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
 
 	virtualClusterConfig, err := clientConfig.ClientConfig()
 	if err != nil {
