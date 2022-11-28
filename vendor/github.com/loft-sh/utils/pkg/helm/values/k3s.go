@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/loft-sh/utils/pkg/helm"
+	helm "github.com/loft-sh/utils/pkg/helm"
+	kubernetes "github.com/loft-sh/utils/pkg/helm"
 	"github.com/loft-sh/utils/pkg/log"
-	"k8s.io/apimachinery/pkg/version"
 )
 
 var K3SVersionMap = map[string]string{
@@ -139,7 +139,7 @@ isolation:
 	return values, nil
 }
 
-func ParseKubernetesVersionInfo(versionStr string) (*version.Info, error) {
+func ParseKubernetesVersionInfo(versionStr string) (*kubernetes.Version, error) {
 	if versionStr[0] == 'v' {
 		versionStr = versionStr[1:]
 	}
@@ -152,16 +152,16 @@ func ParseKubernetesVersionInfo(versionStr string) (*version.Info, error) {
 	major := splittedVersion[0]
 	minor := splittedVersion[1]
 
-	return &version.Info{
+	return &kubernetes.Version{
 		Major: major,
 		Minor: minor,
 	}, nil
 }
 
-func GetKubernetesVersion(serverVersion *version.Info) string {
+func GetKubernetesVersion(serverVersion kubernetes.Version) string {
 	return replaceRegEx.ReplaceAllString(serverVersion.Major, "") + "." + replaceRegEx.ReplaceAllString(serverVersion.Minor, "")
 }
 
-func GetKubernetesMinorVersion(serverVersion *version.Info) (int, error) {
+func GetKubernetesMinorVersion(serverVersion kubernetes.Version) (int, error) {
 	return strconv.Atoi(replaceRegEx.ReplaceAllString(serverVersion.Minor, ""))
 }
