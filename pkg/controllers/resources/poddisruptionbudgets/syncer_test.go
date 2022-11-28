@@ -24,7 +24,7 @@ func TestSync(t *testing.T) {
 		ResourceVersion: generictesting.FakeClientResourceVersion,
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testPDB", vObjectMeta.Namespace),
+		Name:      translate.Default.PhysicalName("testPDB", vObjectMeta.Namespace),
 		Namespace: "test",
 		Annotations: map[string]string{
 			translator.NameAnnotation:      vObjectMeta.Name,
@@ -73,7 +73,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: hostClusterSyncedPDB.ObjectMeta,
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MaxUnavailable: vclusterUpdatedSelectorPDB.Spec.MaxUnavailable,
-			Selector:       translator.TranslateLabelSelector(vclusterUpdatedSelectorPDB.Spec.Selector),
+			Selector:       translate.TranslateLabelSelector(vclusterUpdatedSelectorPDB.Spec.Selector),
 		},
 	}
 

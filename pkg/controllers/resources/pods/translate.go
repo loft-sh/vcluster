@@ -78,11 +78,10 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 }
 
 func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, namespace, name string) string {
-	pName := translate.PhysicalName(name, namespace)
 	pService := &corev1.Service{}
 	err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{
-		Name:      pName,
-		Namespace: ctx.TargetNamespace,
+		Name:      translate.Default.PhysicalName(name, namespace),
+		Namespace: translate.Default.PhysicalNamespace(namespace),
 	}, pService)
 	if err != nil {
 		return ""

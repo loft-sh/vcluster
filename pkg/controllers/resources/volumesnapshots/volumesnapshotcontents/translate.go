@@ -11,8 +11,8 @@ import (
 func (s *volumeSnapshotContentSyncer) translate(vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
 	pVSC := s.TranslateMetadata(vVSC).(*volumesnapshotv1.VolumeSnapshotContent)
 	pVSC.Spec.VolumeSnapshotRef = corev1.ObjectReference{
-		Namespace: s.targetNamespace,
-		Name:      translate.PhysicalName(vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace),
+		Namespace: translate.Default.PhysicalNamespace(vVSC.Spec.VolumeSnapshotRef.Namespace),
+		Name:      translate.Default.PhysicalName(vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace),
 	}
 	return pVSC
 }

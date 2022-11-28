@@ -56,10 +56,10 @@ func TestSync(t *testing.T) {
 	pBaseSpec := networkingv1.IngressSpec{
 		DefaultBackend: &networkingv1.IngressBackend{
 			Service: &networkingv1.IngressServiceBackend{
-				Name: translate.PhysicalName("testservice", "test"),
+				Name: translate.Default.PhysicalName("testservice", "test"),
 			},
 			Resource: &corev1.TypedLocalObjectReference{
-				Name: translate.PhysicalName("testbackendresource", "test"),
+				Name: translate.Default.PhysicalName("testbackendresource", "test"),
 			},
 		},
 		Rules: []networkingv1.IngressRule{
@@ -70,10 +70,10 @@ func TestSync(t *testing.T) {
 							{
 								Backend: networkingv1.IngressBackend{
 									Service: &networkingv1.IngressServiceBackend{
-										Name: translate.PhysicalName("testbackendservice", "test"),
+										Name: translate.Default.PhysicalName("testbackendservice", "test"),
 									},
 									Resource: &corev1.TypedLocalObjectReference{
-										Name: translate.PhysicalName("testbackendresource", "test"),
+										Name: translate.Default.PhysicalName("testbackendresource", "test"),
 									},
 								},
 							},
@@ -84,7 +84,7 @@ func TestSync(t *testing.T) {
 		},
 		TLS: []networkingv1.IngressTLS{
 			{
-				SecretName: translate.PhysicalName("testtlssecret", "test"),
+				SecretName: translate.Default.PhysicalName("testtlssecret", "test"),
 			},
 		},
 	}
@@ -103,7 +103,7 @@ func TestSync(t *testing.T) {
 		Namespace: "test",
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testingress", "test"),
+		Name:      translate.Default.PhysicalName("testingress", "test"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			translator.NameAnnotation:      vObjectMeta.Name,
@@ -329,7 +329,7 @@ func TestSync(t *testing.T) {
 							Namespace: createdIngress.Namespace,
 							Labels:    createdIngress.Labels,
 							Annotations: map[string]string{
-								"nginx.ingress.kubernetes.io/auth-secret": translate.PhysicalName("my-secret", baseIngress.Namespace),
+								"nginx.ingress.kubernetes.io/auth-secret": translate.Default.PhysicalName("my-secret", baseIngress.Namespace),
 								"vcluster.loft.sh/managed-annotations":    "nginx.ingress.kubernetes.io/auth-secret",
 								"vcluster.loft.sh/object-name":            baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":       baseIngress.Namespace,
@@ -401,7 +401,7 @@ func TestSync(t *testing.T) {
 							Labels:    createdIngress.Labels,
 							Annotations: map[string]string{
 								"vcluster.loft.sh/managed-annotations":                          "alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix\nnginx.ingress.kubernetes.io/auth-secret",
-								"nginx.ingress.kubernetes.io/auth-secret":                       translate.PhysicalName("my-secret", baseIngress.Namespace),
+								"nginx.ingress.kubernetes.io/auth-secret":                       translate.Default.PhysicalName("my-secret", baseIngress.Namespace),
 								"vcluster.loft.sh/object-name":                                  baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":                             baseIngress.Namespace,
 								"alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix": "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service-x-test-x-suffix\",\"servicePort\":\"80\",\"weight\":100}]}}",

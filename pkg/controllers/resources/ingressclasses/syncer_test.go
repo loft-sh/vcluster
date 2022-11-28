@@ -59,7 +59,7 @@ func TestSync(t *testing.T) {
 
 	pObjUpdated := &v1.IngressClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: translate.PhysicalNameClusterScoped(vObjectMeta.Name, generictesting.DefaultTestTargetNamespace),
+			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.Suffix,
 			},

@@ -150,7 +150,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	// forward update
-	newPvc, err := s.translateUpdate(ctx, pPvc, vPvc)
+	newPvc, err := s.translateUpdate(pPvc, vPvc)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if newPvc != nil {

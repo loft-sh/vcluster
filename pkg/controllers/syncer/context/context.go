@@ -14,10 +14,8 @@ type SyncContext struct {
 	Context context.Context
 	Log     loghelper.Logger
 
-	TargetNamespace string
-	PhysicalClient  client.Client
-
-	VirtualClient client.Client
+	PhysicalClient client.Client
+	VirtualClient  client.Client
 
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
@@ -29,7 +27,6 @@ type RegisterContext struct {
 	Options     *controllercontext.VirtualClusterOptions
 	Controllers sets.String
 
-	TargetNamespace        string
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 
@@ -41,7 +38,6 @@ func ConvertContext(registerContext *RegisterContext, logName string) *SyncConte
 	return &SyncContext{
 		Context:                registerContext.Context,
 		Log:                    loghelper.New(logName),
-		TargetNamespace:        registerContext.TargetNamespace,
 		PhysicalClient:         registerContext.PhysicalManager.GetClient(),
 		VirtualClient:          registerContext.VirtualManager.GetClient(),
 		CurrentNamespace:       registerContext.CurrentNamespace,

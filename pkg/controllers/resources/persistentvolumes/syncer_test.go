@@ -23,7 +23,7 @@ import (
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *persistentVolumeSyncer) {
 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translate.ObjectPhysicalName(rawObj)}
+		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
 	})
 	assert.NilError(t, err)
 
@@ -39,7 +39,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 	basePPvcReference := &corev1.ObjectReference{
-		Name:            translate.PhysicalName("testpvc", "test"),
+		Name:            translate.Default.PhysicalName("testpvc", "test"),
 		Namespace:       "test",
 		ResourceVersion: generictesting.FakeClientResourceVersion,
 	}

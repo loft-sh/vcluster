@@ -3,7 +3,6 @@ package translate
 import (
 	"testing"
 
-	translator2 "github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
@@ -26,7 +25,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 	}
 	basicSelectorTranslatedWithMarker := &metav1.LabelSelector{MatchLabels: map[string]string{}}
 	for k, v := range basicSelector.MatchLabels {
-		basicSelectorTranslatedWithMarker.MatchLabels[translator2.ConvertLabelKey(k)] = v
+		basicSelectorTranslatedWithMarker.MatchLabels[translate.ConvertLabelKey(k)] = v
 	}
 	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.Suffix
 
@@ -94,7 +93,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 			expectedTerm: corev1.PodAffinityTerm{
 				LabelSelector: appendToMatchLabels(&metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						translator2.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey): "good-value",
+						translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey): "good-value",
 					},
 				}, translate.MarkerLabel, translate.Suffix),
 			},
@@ -117,7 +116,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				LabelSelector: appendToMatchLabels(&metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
-							Key:      translator2.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey),
+							Key:      translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey),
 							Operator: metav1.LabelSelectorOpNotIn,
 							Values:   []string{"bad-value"},
 						},
@@ -185,7 +184,7 @@ func TestVolumeTranslation(t *testing.T) {
 					Name: "eph-vol",
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: translate.PhysicalName("pod-name-eph-vol", "test-ns"),
+							ClaimName: translate.Default.PhysicalName("pod-name-eph-vol", "test-ns"),
 						},
 						Ephemeral: nil,
 					},

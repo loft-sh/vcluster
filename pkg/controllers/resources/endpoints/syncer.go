@@ -23,11 +23,11 @@ type endpointsSyncer struct {
 }
 
 func (s *endpointsSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx, vObj))
+	return s.SyncDownCreate(ctx, vObj, s.translate(vObj))
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	newEndpoints := s.translateUpdate(ctx, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+	newEndpoints := s.translateUpdate(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
 	if newEndpoints != nil {
 		translator.PrintChanges(pObj, newEndpoints, ctx.Log)
 	}

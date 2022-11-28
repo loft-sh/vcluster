@@ -15,6 +15,8 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+
 	vObjectMeta := metav1.ObjectMeta{
 		Name: "testsc",
 	}
@@ -24,7 +26,7 @@ func TestSync(t *testing.T) {
 	}
 	pObject := &v1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: translate.PhysicalNameClusterScoped(vObjectMeta.Name, generictesting.DefaultTestTargetNamespace),
+			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.Suffix,
 			},
@@ -43,7 +45,7 @@ func TestSync(t *testing.T) {
 	}
 	pObjectUpdated := &v1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: translate.PhysicalNameClusterScoped(vObjectMeta.Name, generictesting.DefaultTestTargetNamespace),
+			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.Suffix,
 			},

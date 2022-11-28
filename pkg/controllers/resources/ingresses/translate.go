@@ -58,10 +58,10 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 	retSpec := vIngressSpec.DeepCopy()
 	if retSpec.DefaultBackend != nil {
 		if retSpec.DefaultBackend.Service != nil && retSpec.DefaultBackend.Service.Name != "" {
-			retSpec.DefaultBackend.Service.Name = translate.PhysicalName(retSpec.DefaultBackend.Service.Name, namespace)
+			retSpec.DefaultBackend.Service.Name = translate.Default.PhysicalName(retSpec.DefaultBackend.Service.Name, namespace)
 		}
 		if retSpec.DefaultBackend.Resource != nil {
-			retSpec.DefaultBackend.Resource.Name = translate.PhysicalName(retSpec.DefaultBackend.Resource.Name, namespace)
+			retSpec.DefaultBackend.Resource.Name = translate.Default.PhysicalName(retSpec.DefaultBackend.Resource.Name, namespace)
 		}
 	}
 
@@ -69,10 +69,10 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 		if rule.HTTP != nil {
 			for j, path := range rule.HTTP.Paths {
 				if path.Backend.Service != nil && path.Backend.Service.Name != "" {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = translate.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace)
 				}
 				if path.Backend.Resource != nil {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
 				}
 			}
 		}
@@ -80,7 +80,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 
 	for i, tls := range retSpec.TLS {
 		if tls.SecretName != "" {
-			retSpec.TLS[i].SecretName = translate.PhysicalName(retSpec.TLS[i].SecretName, namespace)
+			retSpec.TLS[i].SecretName = translate.Default.PhysicalName(retSpec.TLS[i].SecretName, namespace)
 		}
 	}
 

@@ -25,7 +25,7 @@ func TestSync(t *testing.T) {
 		Namespace: "testns",
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testservice", "testns"),
+		Name:      translate.Default.PhysicalName("testservice", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			translator.NameAnnotation:      vObjectMeta.Name,
@@ -291,7 +291,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pObjectMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				translator.ConvertLabelKeyWithPrefix(translator.LabelPrefix, selectorKey): vServiceNodePortFromExternal.Spec.Selector[selectorKey],
+				translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, selectorKey): vServiceNodePortFromExternal.Spec.Selector[selectorKey],
 				translate.NamespaceLabel: vServiceNodePortFromExternal.Namespace,
 				translate.MarkerLabel:    translate.Suffix,
 			},

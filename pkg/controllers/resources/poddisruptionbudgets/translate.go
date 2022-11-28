@@ -1,7 +1,7 @@
 package poddisruptionbudgets
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -9,7 +9,7 @@ import (
 func (pdb *pdbSyncer) translate(vObj *policyv1.PodDisruptionBudget) *policyv1.PodDisruptionBudget {
 	newPDB := pdb.TranslateMetadata(vObj).(*policyv1.PodDisruptionBudget)
 	if newPDB.Spec.Selector != nil {
-		newPDB.Spec.Selector = translator.TranslateLabelSelector(newPDB.Spec.Selector)
+		newPDB.Spec.Selector = translate.TranslateLabelSelector(newPDB.Spec.Selector)
 	}
 	return newPDB
 }
@@ -34,7 +34,7 @@ func (pdb *pdbSyncer) translateUpdate(pObj, vObj *policyv1.PodDisruptionBudget) 
 	}
 
 	// check LabelSelector
-	vObjLabelSelector := translator.TranslateLabelSelector(vObj.Spec.Selector)
+	vObjLabelSelector := translate.TranslateLabelSelector(vObj.Spec.Selector)
 	if !equality.Semantic.DeepEqual(vObjLabelSelector, pObj.Spec.Selector) {
 		updated = newIfNil(updated, pObj)
 		updated.Spec.Selector = vObjLabelSelector

@@ -163,7 +163,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 
 	// set owner if defined
 	if translate.Owner != nil {
-		nodeService.SetOwnerReferences(translate.GetOwnerReference(nil))
+		nodeService.SetOwnerReferences(translate.Default.GetOwnerReference(nil))
 	}
 
 	// create the service

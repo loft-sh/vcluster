@@ -76,7 +76,7 @@ func SecretNamesFromIngress(ingress *networkingv1.Ingress) []string {
 			secrets = append(secrets, ingress.Namespace+"/"+tls.SecretName)
 		}
 	}
-	return translator.UniqueSlice(secrets)
+	return translate.UniqueSlice(secrets)
 }
 
 var TranslateAnnotations = map[string]bool{
@@ -97,10 +97,10 @@ func translateIngressAnnotations(annotations map[string]string, ingressNamespace
 		splitted := strings.Split(annotations[k], "/")
 		if len(splitted) == 1 {
 			foundSecrets = append(foundSecrets, ingressNamespace+"/"+splitted[0])
-			newAnnotations[k] = translate.PhysicalName(splitted[0], ingressNamespace)
+			newAnnotations[k] = translate.Default.PhysicalName(splitted[0], ingressNamespace)
 		} else if len(splitted) == 2 {
 			foundSecrets = append(foundSecrets, splitted[0]+"/"+splitted[1])
-			newAnnotations[k] = translate.PhysicalName(splitted[1], splitted[0])
+			newAnnotations[k] = translate.Default.PhysicalName(splitted[1], splitted[0])
 		} else {
 			newAnnotations[k] = v
 		}

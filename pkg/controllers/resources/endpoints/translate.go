@@ -1,16 +1,15 @@
 package endpoints
 
 import (
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *endpointsSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Endpoints {
+func (s *endpointsSyncer) translate(vObj client.Object) *corev1.Endpoints {
 	endpoints := s.TranslateMetadata(vObj).(*corev1.Endpoints)
-	s.translateSpec(ctx, endpoints)
+	s.translateSpec(endpoints)
 
 	// make sure we delete the control-plane.alpha.kubernetes.io/leader annotation
 	// that will disable endpoint slice mirroring otherwise
@@ -21,13 +20,13 @@ func (s *endpointsSyncer) translate(ctx *synccontext.SyncContext, vObj client.Ob
 	return endpoints
 }
 
-func (s *endpointsSyncer) translateSpec(ctx *synccontext.SyncContext, endpoints *corev1.Endpoints) {
+func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) {
 	// translate the addresses
 	for i, subset := range endpoints.Subsets {
 		for j, addr := range subset.Addresses {
 			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-				endpoints.Subsets[i].Addresses[j].TargetRef.Name = translate.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
-				endpoints.Subsets[i].Addresses[j].TargetRef.Namespace = ctx.TargetNamespace
+				endpoints.Subsets[i].Addresses[j].TargetRef.Name = translate.Default.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
+				endpoints.Subsets[i].Addresses[j].TargetRef.Namespace = translate.Default.PhysicalNamespace(endpoints.Namespace)
 
 				// TODO: set the actual values here
 				endpoints.Subsets[i].Addresses[j].TargetRef.UID = ""
@@ -36,8 +35,8 @@ func (s *endpointsSyncer) translateSpec(ctx *synccontext.SyncContext, endpoints 
 		}
 		for j, addr := range subset.NotReadyAddresses {
 			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Name = translate.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
-				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Namespace = ctx.TargetNamespace
+				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Name = translate.Default.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
+				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Namespace = translate.Default.PhysicalNamespace(endpoints.Namespace)
 
 				// TODO: set the actual values here
 				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.UID = ""
@@ -47,12 +46,12 @@ func (s *endpointsSyncer) translateSpec(ctx *synccontext.SyncContext, endpoints 
 	}
 }
 
-func (s *endpointsSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *corev1.Endpoints) *corev1.Endpoints {
+func (s *endpointsSyncer) translateUpdate(pObj, vObj *corev1.Endpoints) *corev1.Endpoints {
 	var updated *corev1.Endpoints
 
 	// check subsets
 	translated := vObj.DeepCopy()
-	s.translateSpec(ctx, translated)
+	s.translateSpec(translated)
 	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
 		updated = newIfNil(updated, pObj)
 		updated.Subsets = translated.Subsets
