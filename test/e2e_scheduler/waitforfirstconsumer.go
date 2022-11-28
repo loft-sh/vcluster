@@ -2,9 +2,9 @@ package e2escheduler
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -89,7 +89,7 @@ var _ = ginkgo.Describe("Schedule a Statefulset with WaitForFirstConsumer PVCs",
 		if scToUse.VolumeBindingMode == nil || *scToUse.VolumeBindingMode != storagev1.VolumeBindingWaitForFirstConsumer {
 			fmt.Fprintf(ginkgo.GinkgoWriter, "creating a copy of %q with WaitForFirstConsumer\n", scToUse.Name)
 			newSC := scToUse.DeepCopy()
-			translator.ResetObjectMetadata(&newSC.ObjectMeta)
+			translate.ResetObjectMetadata(&newSC.ObjectMeta)
 			newSC.Name = "test-sc"
 			err = f.HostCRClient.Create(f.Context, newSC)
 			framework.ExpectNoError(err)

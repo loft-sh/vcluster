@@ -7,7 +7,6 @@ import (
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -93,8 +92,8 @@ func TestSync(t *testing.T) {
 			podtranslate.LabelsAnnotation:             "",
 			podtranslate.NameAnnotation:               vObjectMeta.Name,
 			podtranslate.NamespaceAnnotation:          vObjectMeta.Namespace,
-			translator.NameAnnotation:                 vObjectMeta.Name,
-			translator.NamespaceAnnotation:            vObjectMeta.Namespace,
+			translate.NameAnnotation:                  vObjectMeta.Name,
+			translate.NamespaceAnnotation:             vObjectMeta.Namespace,
 			podtranslate.ServiceAccountNameAnnotation: "",
 			podtranslate.UIDAnnotation:                string(vObjectMeta.UID),
 		},
@@ -235,8 +234,8 @@ func TestSync(t *testing.T) {
 				podtranslate.LabelsAnnotation:             "",
 				podtranslate.NameAnnotation:               vHostPathPod.Name,
 				podtranslate.NamespaceAnnotation:          vHostPathPod.Namespace,
-				translator.NameAnnotation:                 vHostPathPod.Name,
-				translator.NamespaceAnnotation:            vHostPathPod.Namespace,
+				translate.NameAnnotation:                  vHostPathPod.Name,
+				translate.NamespaceAnnotation:             vHostPathPod.Namespace,
 				podtranslate.ServiceAccountNameAnnotation: "",
 				podtranslate.UIDAnnotation:                string(vHostPathPod.UID),
 			},

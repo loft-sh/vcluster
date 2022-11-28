@@ -7,7 +7,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
@@ -41,14 +40,13 @@ func (s *csistoragecapacitySyncer) PhysicalToVirtual(pObj client.Object) types.N
 	return types.NamespacedName{Name: translate.SafeConcatName(pObj.GetName(), "x", pObj.GetNamespace()), Namespace: "kube-system"}
 }
 func (s *csistoragecapacitySyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
-
 	// if the virtual object is annotated with the physical name and namespace, return that
 	if vObj != nil {
 		vAnnotations := vObj.GetAnnotations()
-		if vAnnotations != nil && vAnnotations[translator.NameAnnotation] != "" {
+		if vAnnotations != nil && vAnnotations[translate.NameAnnotation] != "" {
 			return types.NamespacedName{
-				Namespace: vAnnotations[translator.NamespaceAnnotation],
-				Name:      vAnnotations[translator.NameAnnotation],
+				Namespace: vAnnotations[translate.NamespaceAnnotation],
+				Name:      vAnnotations[translate.NameAnnotation],
 			}
 		}
 	}
@@ -74,18 +72,18 @@ func (s *csistoragecapacitySyncer) TranslateMetadata(pObj client.Object) (client
 	if !ok {
 		return nil, fmt.Errorf("%q not a metadata object: %+v", pObj.GetName(), pObjCopy)
 	}
-	translator.ResetObjectMetadata(vObj)
+	translate.ResetObjectMetadata(vObj)
 	vObj.SetName(name.Name)
 	vObj.SetNamespace(name.Namespace)
-	vObj.SetLabels(translator.TranslateLabels(pObj, nil, []string{}))
-	vObj.SetAnnotations(translator.TranslateAnnotations(pObj, nil, []string{}))
+	vObj.SetAnnotations(translate.Default.ApplyAnnotations(pObj, nil, []string{}))
+	vObj.SetLabels(translate.Default.ApplyLabels(pObj, nil, []string{}))
 	return vObj, nil
 }
 
 // TranslateMetadataUpdate translates the object's metadata annotations and labels and determines
 // if they have changed between the physical and virtual object
 func (s *csistoragecapacitySyncer) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
-	updatedAnnotations := translator.TranslateAnnotations(pObj, vObj, []string{})
-	updatedLabels := translator.TranslateLabels(pObj, vObj, []string{})
+	updatedAnnotations := translate.Default.ApplyAnnotations(pObj, vObj, []string{})
+	updatedLabels := translate.Default.ApplyLabels(pObj, vObj, []string{})
 	return !equality.Semantic.DeepEqual(updatedAnnotations, vObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, vObj.GetLabels()), updatedAnnotations, updatedLabels
 }

@@ -12,14 +12,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 )
 
 func TestSync(t *testing.T) {
 	vObjectMeta := metav1.ObjectMeta{
 		Name: "test-ingc",
 		Annotations: map[string]string{
-			translator.NameAnnotation: "test-ingc",
+			translate.NameAnnotation: "test-ingc",
 		},
 	}
 
@@ -37,7 +36,7 @@ func TestSync(t *testing.T) {
 				translate.MarkerLabel: translate.Suffix,
 			},
 			Annotations: map[string]string{
-				translator.NameAnnotation: "test-ingc",
+				translate.NameAnnotation: "test-ingc",
 			},
 		},
 		Spec: v1.IngressClassSpec{
@@ -64,7 +63,7 @@ func TestSync(t *testing.T) {
 				translate.MarkerLabel: translate.Suffix,
 			},
 			Annotations: map[string]string{
-				translator.NameAnnotation: "test-ingc",
+				translate.NameAnnotation: "test-ingc",
 			},
 		},
 		Spec: v1.IngressClassSpec{

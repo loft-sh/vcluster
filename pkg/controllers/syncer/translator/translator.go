@@ -54,6 +54,3 @@ type NamespacedTranslator interface {
 	// SyncDownUpdate updates the given pObj (if not nil) in the target namespace
 	SyncDownUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
 }
-
-// PhysicalNameTranslator transforms a virtual cluster name to a physical name
-type PhysicalNameTranslator func(vName string, vObj client.Object) string

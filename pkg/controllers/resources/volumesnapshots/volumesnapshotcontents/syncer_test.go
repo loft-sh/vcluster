@@ -2,7 +2,6 @@ package volumesnapshotcontents
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
 	"testing"
 	"time"
@@ -75,7 +74,7 @@ func TestSync(t *testing.T) {
 		Name:            translate.Default.PhysicalNameClusterScoped(vPreProvisioned.Name),
 		ResourceVersion: "12345",
 		Annotations: map[string]string{
-			translator.NameAnnotation: vObjectMeta.Name,
+			translate.NameAnnotation: vObjectMeta.Name,
 		},
 	}
 	pPreProvisioned := &volumesnapshotv1.VolumeSnapshotContent{

@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, nameTranslator PhysicalNameTranslator, excludedAnnotations ...string) Translator {
+func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, nameTranslator translate.PhysicalNameTranslator, excludedAnnotations ...string) Translator {
 	return &clusterTranslator{
 		name:                name,
 		excludedAnnotations: excludedAnnotations,
@@ -26,7 +26,7 @@ type clusterTranslator struct {
 	name                string
 	virtualClient       client.Client
 	obj                 client.Object
-	nameTranslator      PhysicalNameTranslator
+	nameTranslator      translate.PhysicalNameTranslator
 	excludedAnnotations []string
 	syncedLabels        []string
 }
@@ -51,10 +51,10 @@ func (n *clusterTranslator) VirtualToPhysical(req types.NamespacedName, vObj cli
 
 func (n *clusterTranslator) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[NameAnnotation] != "" {
+	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
-			Namespace: pAnnotations[NamespaceAnnotation],
-			Name:      pAnnotations[NameAnnotation],
+			Namespace: pAnnotations[translate.NamespaceAnnotation],
+			Name:      pAnnotations[translate.NameAnnotation],
 		}
 	}
 
@@ -71,7 +71,7 @@ func (n *clusterTranslator) PhysicalToVirtual(pObj client.Object) types.Namespac
 }
 
 func (n *clusterTranslator) TranslateMetadata(vObj client.Object) client.Object {
-	pObj, err := setupMetadataWithName(vObj, n.nameTranslator)
+	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.nameTranslator)
 	if err != nil {
 		return nil
 	}
@@ -92,5 +92,5 @@ func (n *clusterTranslator) TranslateLabels(vObj client.Object, pObj client.Obje
 }
 
 func (n *clusterTranslator) TranslateAnnotations(vObj client.Object, pObj client.Object) map[string]string {
-	return TranslateAnnotations(vObj, pObj, n.excludedAnnotations)
+	return translate.Default.ApplyAnnotations(vObj, pObj, n.excludedAnnotations)
 }

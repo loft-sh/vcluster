@@ -57,7 +57,7 @@ func mapPVCs(obj client.Object) []reconcile.Request {
 	return nil
 }
 
-func NewPersistentVolumeTranslator() translator.PhysicalNameTranslator {
+func NewPersistentVolumeTranslator() translate.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
 		return translatePersistentVolumeName(vName, vObj)
 	}
@@ -283,9 +283,9 @@ func (s *persistentVolumeSyncer) VirtualToPhysical(req types.NamespacedName, vOb
 
 func (s *persistentVolumeSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[translator.NameAnnotation] != "" {
+	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
-			Name: pAnnotations[translator.NameAnnotation],
+			Name: pAnnotations[translate.NameAnnotation],
 		}
 	}
 

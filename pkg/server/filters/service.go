@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/encoding"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -204,12 +203,12 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		vService.Name = vService.GenerateName + random.RandomString(5)
 	}
 
-	newService := translator.TranslateMetadata(vService, syncedLabels).(*corev1.Service)
+	newService := translate.Default.ApplyMetadata(vService, syncedLabels).(*corev1.Service)
 	if newService.Annotations == nil {
 		newService.Annotations = map[string]string{}
 	}
 	newService.Annotations[services.ServiceBlockDeletion] = "true"
-	services.RewriteSelector(newService, vService)
+	newService.Spec.Selector = translate.Default.TranslateLabels(vService.Spec.Selector, vService.Namespace, nil)
 	err = localClient.Create(req.Context(), newService)
 	if err != nil {
 		klog.Infof("Error creating service in physical cluster: %v", err)

@@ -3,6 +3,8 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sort"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,15 +22,6 @@ var (
 )
 
 var Owner client.Object
-
-func SafeConcatGenerateName(name ...string) string {
-	fullPath := strings.Join(name, "-")
-	if len(fullPath) > 53 {
-		digest := sha256.Sum256([]byte(fullPath))
-		return strings.ReplaceAll(fullPath[0:42]+"-"+hex.EncodeToString(digest[0:])[0:10], ".-", "-")
-	}
-	return fullPath
-}
 
 func SafeConcatName(name ...string) string {
 	fullPath := strings.Join(name, "-")
@@ -66,7 +59,7 @@ func safeIndex(parts []string, idx int) string {
 	return parts[idx]
 }
 
-func Exists(a []string, k string) bool {
+func exists(a []string, k string) bool {
 	for _, i := range a {
 		if i == k {
 			return true
@@ -74,4 +67,101 @@ func Exists(a []string, k string) bool {
 	}
 
 	return false
+}
+
+// ResetObjectMetadata resets the objects metadata except name, namespace and annotations
+func ResetObjectMetadata(obj metav1.Object) {
+	obj.SetGenerateName("")
+	obj.SetSelfLink("")
+	obj.SetUID("")
+	obj.SetResourceVersion("")
+	obj.SetGeneration(0)
+	obj.SetCreationTimestamp(metav1.Time{})
+	obj.SetDeletionTimestamp(nil)
+	obj.SetDeletionGracePeriodSeconds(nil)
+	obj.SetOwnerReferences(nil)
+	obj.SetFinalizers(nil)
+	obj.SetManagedFields(nil)
+}
+
+func ApplyMetadata(fromAnnotations map[string]string, toAnnotations map[string]string, fromLabels map[string]string, toLabels map[string]string, excludeAnnotations ...string) (labels map[string]string, annotations map[string]string) {
+	mergedAnnotations := applyAnnotations(fromAnnotations, toAnnotations, excludeAnnotations...)
+	return applyLabels(fromLabels, toLabels, mergedAnnotations)
+}
+
+func applyAnnotations(fromAnnotations map[string]string, toAnnotations map[string]string, excludeAnnotations ...string) map[string]string {
+	if toAnnotations == nil {
+		toAnnotations = map[string]string{}
+	}
+
+	excludedKeys := []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation}
+	excludedKeys = append(excludedKeys, excludeAnnotations...)
+	mergedAnnotations, managedKeys := applyMaps(fromAnnotations, toAnnotations, ApplyMapsOptions{
+		ManagedKeys: strings.Split(toAnnotations[ManagedAnnotationsAnnotation], "\n"),
+		ExcludeKeys: excludedKeys,
+	})
+	if managedKeys == "" {
+		delete(mergedAnnotations, ManagedAnnotationsAnnotation)
+	} else {
+		mergedAnnotations[ManagedAnnotationsAnnotation] = managedKeys
+	}
+
+	return mergedAnnotations
+}
+
+func applyLabels(fromLabels map[string]string, toLabels map[string]string, toAnnotations map[string]string) (labels map[string]string, annotations map[string]string) {
+	if toAnnotations == nil {
+		toAnnotations = map[string]string{}
+	}
+
+	mergedLabels, managedKeys := applyMaps(fromLabels, toLabels, ApplyMapsOptions{
+		ManagedKeys: strings.Split(toAnnotations[ManagedLabelsAnnotation], "\n"),
+		ExcludeKeys: []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation},
+	})
+	mergedAnnotations := map[string]string{}
+	for k, v := range toAnnotations {
+		mergedAnnotations[k] = v
+	}
+	if managedKeys == "" {
+		delete(mergedAnnotations, ManagedLabelsAnnotation)
+	} else {
+		mergedAnnotations[ManagedLabelsAnnotation] = managedKeys
+	}
+
+	return mergedLabels, mergedAnnotations
+}
+
+type ApplyMapsOptions struct {
+	ManagedKeys []string
+	ExcludeKeys []string
+}
+
+func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
+	retMap := map[string]string{}
+	managedKeys := []string{}
+	for k, v := range fromMap {
+		if exists(opts.ExcludeKeys, k) {
+			continue
+		}
+
+		retMap[k] = v
+		managedKeys = append(managedKeys, k)
+	}
+
+	for key, value := range toMap {
+		if exists(opts.ExcludeKeys, key) {
+			if value != "" {
+				retMap[key] = value
+			}
+			continue
+		} else if exists(managedKeys, key) || exists(opts.ManagedKeys, key) {
+			continue
+		}
+
+		retMap[key] = value
+	}
+
+	sort.Strings(managedKeys)
+	managedKeysStr := strings.Join(managedKeys, "\n")
+	return retMap, managedKeysStr
 }

@@ -55,10 +55,7 @@ func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime
 
 				// exchange namespace & name
 				splitted[4] = translate.Default.PhysicalNamespace(info.Namespace)
-
-				// make sure we keep the prefix and suffix
-				targetName := translate.Default.PhysicalName(splitted[6], info.Namespace)
-				splitted[6] = targetName
+				splitted[6] = translate.Default.PhysicalName(splitted[6], info.Namespace)
 				req.URL.Path = strings.Join(splitted, "/")
 
 				// we have to add a trailing slash here, because otherwise the

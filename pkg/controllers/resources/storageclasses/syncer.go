@@ -62,7 +62,7 @@ func (s *storageClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.
 	return ctrl.Result{}, nil
 }
 
-func NewStorageClassTranslator() translator.PhysicalNameTranslator {
+func NewStorageClassTranslator() translate.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
 		return translateStorageClassName(vName)
 	}

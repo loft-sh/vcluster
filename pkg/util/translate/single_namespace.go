@@ -3,12 +3,11 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strings"
 )
 
 var _ Translator = &singleNamespace{}
@@ -23,6 +22,10 @@ type singleNamespace struct {
 	targetNamespace string
 }
 
+func (s *singleNamespace) SingleNamespaceTarget() bool {
+	return true
+}
+
 // PhysicalName returns the physical name of the name / namespace resource
 func (s *singleNamespace) PhysicalName(name, namespace string) string {
 	if name == "" {
@@ -31,7 +34,7 @@ func (s *singleNamespace) PhysicalName(name, namespace string) string {
 	return SafeConcatName(name, "x", namespace, "x", Suffix)
 }
 
-func (s *singleNamespace) ObjectPhysicalName(obj runtime.Object) string {
+func (s *singleNamespace) objectPhysicalName(obj runtime.Object) string {
 	if obj == nil {
 		return ""
 	}
@@ -165,16 +168,107 @@ func (s *singleNamespace) LegacyGetTargetNamespace() (string, error) {
 	return s.targetNamespace, nil
 }
 
-func ConvertLabelKey(key string) string {
-	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
+func (s *singleNamespace) ApplyMetadata(vObj client.Object, syncedLabels []string, excludedAnnotations ...string) client.Object {
+	pObj, err := s.SetupMetadataWithName(vObj, func(vName string, vObj client.Object) string {
+		return s.objectPhysicalName(vObj)
+	})
+	if err != nil {
+		return nil
+	}
+	pObj.SetAnnotations(s.ApplyAnnotations(vObj, nil, excludedAnnotations))
+	pObj.SetLabels(s.ApplyLabels(vObj, nil, syncedLabels))
+	return pObj
 }
 
-func ConvertLabelKeyWithPrefix(prefix, key string) string {
-	digest := sha256.Sum256([]byte(key))
-	return SafeConcatName(prefix, Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
+func (s *singleNamespace) ApplyMetadataUpdate(vObj client.Object, pObj client.Object, syncedLabels []string, excludedAnnotations ...string) (bool, map[string]string, map[string]string) {
+	updatedAnnotations := s.ApplyAnnotations(vObj, pObj, excludedAnnotations)
+	updatedLabels := s.ApplyLabels(vObj, pObj, syncedLabels)
+	return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels
 }
 
-func TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+func (s *singleNamespace) ApplyAnnotations(src client.Object, to client.Object, excluded []string) map[string]string {
+	excluded = append(excluded, NameAnnotation, NamespaceAnnotation)
+	toAnnotations := map[string]string{}
+	if to != nil {
+		toAnnotations = to.GetAnnotations()
+	}
+
+	retMap := applyAnnotations(src.GetAnnotations(), toAnnotations, excluded...)
+	retMap[NameAnnotation] = src.GetName()
+	if src.GetNamespace() == "" {
+		delete(retMap, NamespaceAnnotation)
+	} else {
+		retMap[NamespaceAnnotation] = src.GetNamespace()
+	}
+
+	return retMap
+}
+
+func (s *singleNamespace) ApplyLabels(src client.Object, dest client.Object, syncedLabels []string) map[string]string {
+	fromLabels := src.GetLabels()
+	if fromLabels == nil {
+		fromLabels = map[string]string{}
+	}
+
+	newLabels := s.TranslateLabels(fromLabels, src.GetNamespace(), syncedLabels)
+	if dest != nil {
+		pObjLabels := dest.GetLabels()
+		if pObjLabels != nil && pObjLabels[ControllerLabel] != "" {
+			newLabels[ControllerLabel] = pObjLabels[ControllerLabel]
+		}
+	}
+
+	return newLabels
+}
+
+func (s *singleNamespace) TranslateLabels(fromLabels map[string]string, vNamespace string, syncedLabels []string) map[string]string {
+	if fromLabels == nil {
+		return nil
+	}
+
+	newLabels := map[string]string{}
+	for k, v := range fromLabels {
+		newLabels[ConvertLabelKey(k)] = v
+	}
+	for _, k := range syncedLabels {
+		if value, ok := fromLabels[k]; ok {
+			newLabels[k] = value
+		}
+	}
+
+	newLabels[MarkerLabel] = Suffix
+	if vNamespace != "" {
+		newLabels[NamespaceLabel] = vNamespace
+	} else {
+		delete(newLabels, NamespaceLabel)
+	}
+
+	return newLabels
+}
+
+func (s *singleNamespace) SetupMetadataWithName(vObj client.Object, translator PhysicalNameTranslator) (client.Object, error) {
+	target := vObj.DeepCopyObject().(client.Object)
+	m, err := meta.Accessor(target)
+	if err != nil {
+		return nil, err
+	}
+
+	// reset metadata & translate name and namespace
+	ResetObjectMetadata(m)
+	m.SetName(translator(m.GetName(), vObj))
+	if vObj.GetNamespace() != "" {
+		m.SetNamespace(s.PhysicalNamespace(vObj.GetNamespace()))
+
+		// set owning stateful set if defined
+		if Owner != nil {
+			m.SetOwnerReferences(s.GetOwnerReference(vObj))
+		}
+	}
+
+	return target, nil
+}
+
+func (s *singleNamespace) TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
 	return TranslateLabelSelectorWithPrefix(LabelPrefix, labelSelector)
 }
 
@@ -204,6 +298,15 @@ func TranslateLabelSelectorWithPrefix(labelPrefix string, labelSelector *metav1.
 	return newLabelSelector
 }
 
+func ConvertLabelKey(key string) string {
+	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
+}
+
+func ConvertLabelKeyWithPrefix(prefix, key string) string {
+	digest := sha256.Sum256([]byte(key))
+	return SafeConcatName(prefix, Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
+}
+
 func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
 	out := &metav1.LabelSelector{}
 	for _, selector := range elems {
@@ -224,86 +327,4 @@ func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
 		}
 	}
 	return out
-}
-
-func ApplyMetadata(fromAnnotations map[string]string, toAnnotations map[string]string, fromLabels map[string]string, toLabels map[string]string, excludeAnnotations ...string) (labels map[string]string, annotations map[string]string) {
-	mergedAnnotations := ApplyAnnotations(fromAnnotations, toAnnotations, excludeAnnotations...)
-	return ApplyLabels(fromLabels, toLabels, mergedAnnotations)
-}
-
-func ApplyAnnotations(fromAnnotations map[string]string, toAnnotations map[string]string, excludeAnnotations ...string) map[string]string {
-	if toAnnotations == nil {
-		toAnnotations = map[string]string{}
-	}
-
-	excludedKeys := []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation}
-	excludedKeys = append(excludedKeys, excludeAnnotations...)
-	mergedAnnotations, managedKeys := ApplyMaps(fromAnnotations, toAnnotations, ApplyMapsOptions{
-		ManagedKeys: strings.Split(toAnnotations[ManagedAnnotationsAnnotation], "\n"),
-		ExcludeKeys: excludedKeys,
-	})
-	if managedKeys == "" {
-		delete(mergedAnnotations, ManagedAnnotationsAnnotation)
-	} else {
-		mergedAnnotations[ManagedAnnotationsAnnotation] = managedKeys
-	}
-
-	return mergedAnnotations
-}
-
-func ApplyLabels(fromLabels map[string]string, toLabels map[string]string, toAnnotations map[string]string) (labels map[string]string, annotations map[string]string) {
-	if toAnnotations == nil {
-		toAnnotations = map[string]string{}
-	}
-
-	mergedLabels, managedKeys := ApplyMaps(fromLabels, toLabels, ApplyMapsOptions{
-		ManagedKeys: strings.Split(toAnnotations[ManagedLabelsAnnotation], "\n"),
-		ExcludeKeys: []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation},
-	})
-	mergedAnnotations := map[string]string{}
-	for k, v := range toAnnotations {
-		mergedAnnotations[k] = v
-	}
-	if managedKeys == "" {
-		delete(mergedAnnotations, ManagedLabelsAnnotation)
-	} else {
-		mergedAnnotations[ManagedLabelsAnnotation] = managedKeys
-	}
-
-	return mergedLabels, mergedAnnotations
-}
-
-type ApplyMapsOptions struct {
-	ManagedKeys []string
-	ExcludeKeys []string
-}
-
-func ApplyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
-	retMap := map[string]string{}
-	managedKeys := []string{}
-	for k, v := range fromMap {
-		if Exists(opts.ExcludeKeys, k) {
-			continue
-		}
-
-		retMap[k] = v
-		managedKeys = append(managedKeys, k)
-	}
-
-	for key, value := range toMap {
-		if Exists(opts.ExcludeKeys, key) {
-			if value != "" {
-				retMap[key] = value
-			}
-			continue
-		} else if Exists(managedKeys, key) || Exists(opts.ManagedKeys, key) {
-			continue
-		}
-
-		retMap[key] = value
-	}
-
-	sort.Strings(managedKeys)
-	managedKeysStr := strings.Join(managedKeys, "\n")
-	return retMap, managedKeysStr
 }
