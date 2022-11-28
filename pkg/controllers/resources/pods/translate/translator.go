@@ -89,9 +89,10 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		enableScheduler:        ctx.Options.EnableScheduler,
 		syncedLabels:           ctx.Options.SyncLabels,
 
-		virtualLogsPath:       virtualLogsPath,
-		virtualPodLogsPath:    filepath.Join(virtualLogsPath, "pods"),
-		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
+		rewriteVirtualHostPaths: ctx.Options.RewriteHostPaths,
+		virtualLogsPath:         virtualLogsPath,
+		virtualPodLogsPath:      filepath.Join(virtualLogsPath, "pods"),
+		virtualKubeletPodPath:   filepath.Join(virtualKubeletPath, "pods"),
 	}, nil
 }
 
@@ -113,9 +114,10 @@ type translator struct {
 	enableScheduler        bool
 	syncedLabels           []string
 
-	virtualLogsPath       string
-	virtualPodLogsPath    string
-	virtualKubeletPodPath string
+	rewriteVirtualHostPaths bool
+	virtualLogsPath         string
+	virtualPodLogsPath      string
+	virtualKubeletPodPath   string
 }
 
 func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -399,7 +401,9 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 	}
 
 	// rewrite host paths if enabled
-	t.rewriteHostPaths(pPod)
+	if t.rewriteVirtualHostPaths {
+		t.rewriteHostPaths(pPod)
+	}
 
 	return nil
 }

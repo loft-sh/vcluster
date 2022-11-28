@@ -69,6 +69,7 @@ type VirtualClusterOptions struct {
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
 	// hostpath mapper options
+	RewriteHostPaths         bool `json:"rewriteHostPaths,omitempty"`
 	VirtualLogsPath          string
 	VirtualPodLogsPath       string
 	VirtualContainerLogsPath string
@@ -145,6 +146,8 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 
 	flags.StringVar(&options.HostMetricsBindAddress, "host-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the host cluster will be exposed at this address")
 	flags.StringVar(&options.VirtualMetricsBindAddress, "virtual-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the virtual cluster will be exposed at this address")
+
+	flags.BoolVar(&options.RewriteHostPaths, "rewrite-host-paths", false, "If enabled, syncer with rewite hostpaths in synced pod volumes")
 
 	// Deprecated Flags
 	flags.BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
