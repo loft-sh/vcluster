@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -28,8 +27,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.Default.PhysicalName("testservice", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translator.NameAnnotation:      vObjectMeta.Name,
-			translator.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.NameAnnotation:      vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
@@ -82,10 +81,10 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translator.NameAnnotation:               vObjectMeta.Name,
-				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translator.ManagedAnnotationsAnnotation: "a",
-				"a":                                     "b",
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translate.ManagedAnnotationsAnnotation: "a",
+				"a":                                    "b",
 			},
 			Labels: pObjectMeta.Labels,
 		},

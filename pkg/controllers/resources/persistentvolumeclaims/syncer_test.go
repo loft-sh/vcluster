@@ -5,7 +5,6 @@ import (
 	"time"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,8 +28,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.Default.PhysicalName("testpvc", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translator.NameAnnotation:      vObjectMeta.Name,
-			translator.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.NameAnnotation:      vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -74,10 +73,10 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translator.NameAnnotation:               vObjectMeta.Name,
-				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translator.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				"otherAnnotationKey":                    "update this",
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
+				"otherAnnotationKey":                   "update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -90,13 +89,13 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translator.NameAnnotation:               vObjectMeta.Name,
-				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translator.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				bindCompletedAnnotation:                 "testannotation",
-				boundByControllerAnnotation:             "testannotation2",
-				storageProvisionerAnnotation:            "testannotation3",
-				"otherAnnotationKey":                    "don't update this",
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
+				bindCompletedAnnotation:                "testannotation",
+				boundByControllerAnnotation:            "testannotation2",
+				storageProvisionerAnnotation:           "testannotation3",
+				"otherAnnotationKey":                   "don't update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},

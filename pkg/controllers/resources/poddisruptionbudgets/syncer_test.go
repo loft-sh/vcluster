@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -18,6 +17,7 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "testPDB",
 		Namespace:       "default",
@@ -27,8 +27,8 @@ func TestSync(t *testing.T) {
 		Name:      translate.Default.PhysicalName("testPDB", vObjectMeta.Namespace),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translator.NameAnnotation:      vObjectMeta.Name,
-			translator.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.NameAnnotation:      vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
@@ -73,7 +73,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: hostClusterSyncedPDB.ObjectMeta,
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MaxUnavailable: vclusterUpdatedSelectorPDB.Spec.MaxUnavailable,
-			Selector:       translate.TranslateLabelSelector(vclusterUpdatedSelectorPDB.Spec.Selector),
+			Selector:       translate.Default.TranslateLabelSelector(vclusterUpdatedSelectorPDB.Spec.Selector),
 		},
 	}
 

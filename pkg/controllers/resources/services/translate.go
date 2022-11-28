@@ -8,7 +8,7 @@ import (
 
 func (s *serviceSyncer) translate(vObj *corev1.Service) *corev1.Service {
 	newService := s.TranslateMetadata(vObj).(*corev1.Service)
-	RewriteSelector(newService, vObj)
+	newService.Spec.Selector = translate.Default.TranslateLabels(vObj.Spec.Selector, vObj.Namespace, nil)
 	if newService.Spec.ClusterIP != "None" {
 		newService.Spec.ClusterIP = ""
 	}
@@ -26,19 +26,6 @@ func (s *serviceSyncer) translate(vObj *corev1.Service) *corev1.Service {
 
 	StripNodePorts(newService)
 	return newService
-}
-
-func RewriteSelector(pObj, vObj *corev1.Service) {
-	if vObj.Spec.Selector != nil {
-		pObj.Spec.Selector = map[string]string{}
-		for k, v := range vObj.Spec.Selector {
-			pObj.Spec.Selector[translate.ConvertLabelKey(k)] = v
-		}
-		pObj.Spec.Selector[translate.NamespaceLabel] = vObj.Namespace
-		pObj.Spec.Selector[translate.MarkerLabel] = translate.Suffix
-	} else {
-		pObj.Spec.Selector = nil
-	}
 }
 
 func StripNodePorts(vObj *corev1.Service) {
@@ -160,7 +147,7 @@ func (s *serviceSyncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Serv
 
 	// translate selector
 	translated := pObj.DeepCopy()
-	RewriteSelector(translated, vObj)
+	translated.Spec.Selector = translate.Default.TranslateLabels(vObj.Spec.Selector, vObj.Namespace, nil)
 	if !equality.Semantic.DeepEqual(translated.Spec.Selector, pObj.Spec.Selector) {
 		updated = newIfNil(updated, pObj)
 		updated.Spec.Selector = translated.Spec.Selector

@@ -50,7 +50,7 @@ func (s *volumeSnapshotContentSyncer) Init(registerContext *synccontext.Register
 	return util.EnsureCRDFromFile(registerContext.Context, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"))
 }
 
-func NewVolumeSnapshotContentTranslator() translator.PhysicalNameTranslator {
+func NewVolumeSnapshotContentTranslator() translate.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
 		return translateVolumeSnapshotContentName(vName, vObj)
 	}
@@ -250,9 +250,9 @@ func (s *volumeSnapshotContentSyncer) VirtualToPhysical(req types.NamespacedName
 
 func (s *volumeSnapshotContentSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[translator.NameAnnotation] != "" {
+	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
-			Name: pAnnotations[translator.NameAnnotation],
+			Name: pAnnotations[translate.NameAnnotation],
 		}
 	}
 

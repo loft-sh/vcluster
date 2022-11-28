@@ -2,7 +2,6 @@ package storageclasses
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	"testing"
@@ -31,7 +30,7 @@ func TestSync(t *testing.T) {
 				translate.MarkerLabel: translate.Suffix,
 			},
 			Annotations: map[string]string{
-				translator.NameAnnotation: "testsc",
+				translate.NameAnnotation: "testsc",
 			},
 		},
 		Provisioner: "my-provisioner",
@@ -50,7 +49,7 @@ func TestSync(t *testing.T) {
 				translate.MarkerLabel: translate.Suffix,
 			},
 			Annotations: map[string]string{
-				translator.NameAnnotation: "testsc",
+				translate.NameAnnotation: "testsc",
 			},
 		},
 		Provisioner: "my-provisioner",

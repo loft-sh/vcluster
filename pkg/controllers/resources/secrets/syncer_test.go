@@ -3,7 +3,6 @@ package secrets
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -45,8 +44,8 @@ func TestSync(t *testing.T) {
 			Name:      translate.Default.PhysicalName(baseSecret.Name, baseSecret.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
-				translator.NameAnnotation:      baseSecret.Name,
-				translator.NamespaceAnnotation: baseSecret.Namespace,
+				translate.NameAnnotation:      baseSecret.Name,
+				translate.NamespaceAnnotation: baseSecret.Namespace,
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel:             baseSecret.Namespace,

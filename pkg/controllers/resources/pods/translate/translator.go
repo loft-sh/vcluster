@@ -13,7 +13,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	translator2 "github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -129,7 +128,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 
 	// convert to core object
-	pPod := translator2.TranslateMetadata(vPod, t.syncedLabels).(*corev1.Pod)
+	pPod := translate.Default.ApplyMetadata(vPod, t.syncedLabels).(*corev1.Pod)
 
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}
@@ -296,7 +295,9 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 		pPod.Spec.NodeSelector = nil
 	} else {
 		// translate topology spread constraints
-		translateTopologySpreadConstraints(vPod, pPod)
+		if translate.Default.SingleNamespaceTarget() {
+			translateTopologySpreadConstraints(vPod, pPod)
+		}
 
 		// translate pod affinity
 		t.translatePodAffinity(vPod, pPod)
@@ -663,10 +664,15 @@ func (t *translator) translatePodAffinity(vPod *corev1.Pod, pPod *corev1.Pod) {
 }
 
 func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodAffinityTerm) corev1.PodAffinityTerm {
+	// TODO(Multi-Namespace): Add multi-namespace support for this
+	if !translate.Default.SingleNamespaceTarget() {
+		return term
+	}
+
 	// We never select pods that are not in the vcluster namespace on the host, so we will
 	// omit Namespaces and namespaceSelector here
 	newAffinityTerm := corev1.PodAffinityTerm{
-		LabelSelector: translate.TranslateLabelSelector(term.LabelSelector),
+		LabelSelector: translate.Default.TranslateLabelSelector(term.LabelSelector),
 		TopologyKey:   term.TopologyKey,
 	}
 
@@ -723,7 +729,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 	for i := range pPod.Spec.TopologySpreadConstraints {
-		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.TranslateLabelSelector(pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
+		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.Default.TranslateLabelSelector(pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
 
 		// make sure we only select pods in the current namespace
 		if pPod.Spec.TopologySpreadConstraints[i].LabelSelector != nil {
@@ -799,7 +805,7 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 	}
 
 	// check annotations
-	_, updatedAnnotations, updatedLabels := translator2.TranslateMetadataUpdate(vPod, pPod, t.syncedLabels, getExcludedAnnotations(pPod)...)
+	_, updatedAnnotations, updatedLabels := translate.Default.ApplyMetadataUpdate(vPod, pPod, t.syncedLabels, getExcludedAnnotations(pPod)...)
 	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {

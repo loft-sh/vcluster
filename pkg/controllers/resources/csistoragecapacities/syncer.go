@@ -106,9 +106,9 @@ func (s *csistoragecapacitySyncer) enqueuePhysical(obj client.Object, q workqueu
 	if obj == nil {
 		return
 	}
+
 	name := s.PhysicalToVirtual(obj)
 	if name.Name != "" && name.Namespace != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}
-
 }

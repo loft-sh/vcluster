@@ -9,7 +9,7 @@ import (
 func (pdb *pdbSyncer) translate(vObj *policyv1.PodDisruptionBudget) *policyv1.PodDisruptionBudget {
 	newPDB := pdb.TranslateMetadata(vObj).(*policyv1.PodDisruptionBudget)
 	if newPDB.Spec.Selector != nil {
-		newPDB.Spec.Selector = translate.TranslateLabelSelector(newPDB.Spec.Selector)
+		newPDB.Spec.Selector = translate.Default.TranslateLabelSelector(newPDB.Spec.Selector)
 	}
 	return newPDB
 }
@@ -34,7 +34,7 @@ func (pdb *pdbSyncer) translateUpdate(pObj, vObj *policyv1.PodDisruptionBudget) 
 	}
 
 	// check LabelSelector
-	vObjLabelSelector := translate.TranslateLabelSelector(vObj.Spec.Selector)
+	vObjLabelSelector := translate.Default.TranslateLabelSelector(vObj.Spec.Selector)
 	if !equality.Semantic.DeepEqual(vObjLabelSelector, pObj.Spec.Selector) {
 		updated = newIfNil(updated, pObj)
 		updated.Spec.Selector = vObjLabelSelector
