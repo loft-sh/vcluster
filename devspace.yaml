@@ -6,6 +6,8 @@ vars:
   # Make sure vcluster is the default namespace
   DEVSPACE_FLAGS: "-n vcluster"
   SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+  COMMON_VALUES:  ./test/commonValues.yaml
+  VALUES_FILE: ./test/e2e/values.yaml
 
 # Images DevSpace will build for vcluster
 images:
@@ -84,37 +86,6 @@ dev:
         - '!/manifests'
         - '/manifests/coredns' # shouldn't sync to this path because it is mounted from a ConfigMap as ReadOnly
 
-profiles:
-  - name: dev-hostpath-mapper
-    patches:
-      - op: remove
-        path: dev.vcluster.imageSelector
-      - op: remove
-        path: dev.vcluster.container
-      - op: add
-        path: dev.vcluster.labelSelector
-        value:
-          component: hostpath-mapper
-    merge:
-      deployments:
-        vcluster-k3s: &hostmapper_patch
-          helm:
-            values:
-              hostpathMapper:
-                image: ${SYNCER_IMAGE}
-                enabled: true
-                dev: true
-              syncer:
-                livenessProbe:
-                  enabled: false
-                readinessProbe:
-                  enabled: false
-                extraArgs:
-                  - start
-                  - --tls-san=vcluster
-        vcluster-k0s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
-        vcluster-k8s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
-
 # Pipelines used for vcluster
 pipelines:
   dev:
@@ -160,3 +131,68 @@ pipelines:
       
       # Make sure the pvcs are deleted as well
       kubectl delete pvc --all -n ${DEVSPACE_NAMESPACE}
+
+profiles:
+  - name: dev-hostpath-mapper
+    patches:
+      - op: remove
+        path: dev.vcluster.imageSelector
+      - op: remove
+        path: dev.vcluster.container
+      - op: add
+        path: dev.vcluster.labelSelector
+        value:
+          component: hostpath-mapper
+    merge:
+      deployments:
+        vcluster-k3s: &hostmapper_patch
+          helm:
+            values:
+              hostpathMapper:
+                image: ${SYNCER_IMAGE}
+                enabled: true
+                dev: true
+              syncer:
+                livenessProbe:
+                  enabled: false
+                readinessProbe:
+                  enabled: false
+                extraArgs:
+                  - start
+                  - --tls-san=vcluster
+        vcluster-k0s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
+        vcluster-k8s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
+  
+  - name: test-k3s
+    patches:
+      - op: add
+        path: deployments.vcluster-k3s.helm
+        value:
+          valuesFiles:
+          - ${COMMON_VALUES}
+          - ${VALUES_FILE}
+
+  - name: test-k8s
+    patches:
+      - op: add
+        path: deployments.vcluster-k8s.helm
+        value:
+          valuesFiles:
+          - ${COMMON_VALUES}
+          - ${VALUES_FILE}
+  
+  - name: test-k0s
+    patches:
+      - op: add
+        path: deployments.vcluster-k0s.helm
+        value:
+          valuesFiles:
+          - ${COMMON_VALUES}
+          - ${VALUES_FILE}
+
+commands:
+  # e.g. devspace run test k3s
+  # e.g. devspace run test k3s --var VALUES_FILE=./test/e2e_node
+  test: |-
+    devspace purge -n ${DEVSPACE_NAMESPACE} --debug
+    devspace dev -n ${DEVSPACE_NAMESPACE} --profile test-$@

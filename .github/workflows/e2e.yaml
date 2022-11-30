@@ -8,10 +8,11 @@ on:
     branches:
       - main 
     paths:
-      - "Dockerfile"
       - "**.go"
-      - "!**_test.go" # exclude test files to ignore unit test changes
+      - "!**_test.go" # exclude test files to ignore unit test changes      
       - "test/**" # include test files in e2e again
+      - "!**.md"
+      - "Dockerfile"
       - ".github/workflows/e2e.yaml"
       - "charts/**"
       - "manifests/**"
