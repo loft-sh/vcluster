@@ -236,6 +236,10 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		}
 	}
 
+	if s.clearImages {
+		translatedStatus.Images = make([]corev1.ContainerImage, 0)
+	}
+
 	// check if the status has changed
 	if !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus) {
 		newNode := vNode.DeepCopy()
