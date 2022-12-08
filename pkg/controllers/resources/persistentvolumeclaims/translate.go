@@ -24,12 +24,17 @@ func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vP
 	if err != nil {
 		return nil, err
 	}
-	if newPvc.Spec.DataSource != nil && vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" &&
-		(newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" || newPvc.Spec.DataSource.Kind == "VolumeSnapshot") {
-		newPvc.Spec.DataSource.Name = translate.Default.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
+
+	if vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
+		if newPvc.Spec.DataSource != nil {
+			newPvc.Spec.DataSource.Name = translate.Default.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
+		}
+
+		if newPvc.Spec.DataSourceRef != nil {
+			newPvc.Spec.DataSourceRef.Name = translate.Default.PhysicalName(newPvc.Spec.DataSourceRef.Name, vPvc.Namespace)
+		}
 	}
 
-	//TODO: add support for the .Spec.DataSourceRef field
 	return newPvc, nil
 }
 
