@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,13 +23,23 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	t := translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{})
+	t.SetNameTranslator(ConfigMapNameTranslator)
 	return &configMapSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{}),
+		NamespacedTranslator: t,
 	}, nil
 }
 
 type configMapSyncer struct {
 	translator.NamespacedTranslator
+}
+
+func ConfigMapNameTranslator(vNN types.NamespacedName, _ client.Object) string {
+	name := translate.Default.PhysicalName(vNN.Name, vNN.Namespace)
+	if name == "kube-root-ca.crt" {
+		name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.Suffix)
+	}
+	return name
 }
 
 var _ syncer.IndicesRegisterer = &configMapSyncer{}
@@ -44,7 +53,7 @@ func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 	// index pods by their used config maps
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
-		return pods.ConfigNamesFromPod(pod)
+		return ConfigNamesFromPod(pod)
 	})
 }
 
@@ -114,7 +123,7 @@ func mapPods(obj client.Object) []reconcile.Request {
 	}
 
 	requests := []reconcile.Request{}
-	names := pods.ConfigNamesFromPod(pod)
+	names := ConfigNamesFromPod(pod)
 	for _, name := range names {
 		splitted := strings.Split(name, "/")
 		if len(splitted) == 2 {

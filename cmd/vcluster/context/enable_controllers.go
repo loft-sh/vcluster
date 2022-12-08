@@ -32,6 +32,7 @@ var ExistingControllers = sets.NewString(
 	"csinodes",
 	"csidrivers",
 	"csistoragecapacities",
+	"namespaces",
 )
 
 var DefaultEnabledControllers = sets.NewString(
@@ -95,6 +96,11 @@ func parseControllers(options *VirtualClusterOptions) (sets.String, error) {
 	// enable ingressclasses if ingress syncing is enabled
 	if enabledControllers.Has("ingresses") {
 		enabledControllers.Insert("ingressclasses")
+	}
+
+	// enable namespaces controller in MultiNamespaceMode
+	if options.MultiNamespaceMode {
+		enabledControllers.Insert("namespaces")
 	}
 
 	// do validations on dynamically added controllers here (to take into acount disabledControllers):

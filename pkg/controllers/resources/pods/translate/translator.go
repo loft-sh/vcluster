@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -22,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -198,6 +200,9 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 
 	// Add Namespace labels
 	updatedLabels := pPod.GetLabels()
+	if updatedLabels == nil {
+		updatedLabels = map[string]string{}
+	}
 	for k, v := range vNamespace.GetLabels() {
 		updatedLabels[translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
 	}
@@ -337,7 +342,7 @@ func translateLabelsAnnotation(obj client.Object) string {
 func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error {
 	for i := range pPod.Spec.Volumes {
 		if pPod.Spec.Volumes[i].ConfigMap != nil {
-			pPod.Spec.Volumes[i].ConfigMap.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].ConfigMap.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].ConfigMap.Name = configmaps.ConfigMapNameTranslator(types.NamespacedName{Name: pPod.Spec.Volumes[i].ConfigMap.Name, Namespace: vPod.Namespace}, nil)
 		}
 		if pPod.Spec.Volumes[i].Secret != nil {
 			pPod.Spec.Volumes[i].Secret.SecretName = translate.Default.PhysicalName(pPod.Spec.Volumes[i].Secret.SecretName, vPod.Namespace)
@@ -416,6 +421,9 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 		}
 		if projectedVolume.Sources[i].ConfigMap != nil {
 			projectedVolume.Sources[i].ConfigMap.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].ConfigMap.Name, vPod.Namespace)
+			if projectedVolume.Sources[i].ConfigMap.Name == "kube-root-ca.crt" {
+				projectedVolume.Sources[i].ConfigMap.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.Suffix)
+			}
 		}
 		if projectedVolume.Sources[i].DownwardAPI != nil {
 			for j := range projectedVolume.Sources[i].DownwardAPI.Items {
@@ -664,7 +672,7 @@ func (t *translator) translatePodAffinity(vPod *corev1.Pod, pPod *corev1.Pod) {
 }
 
 func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodAffinityTerm) corev1.PodAffinityTerm {
-	// TODO(Multi-Namespace): Add multi-namespace support for this
+	// TODO(Multi-Namespace): Add multi-namespace support for this - condition below might be enough
 	if !translate.Default.SingleNamespaceTarget() {
 		return term
 	}
@@ -806,6 +814,13 @@ func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 
 	// check annotations
 	_, updatedAnnotations, updatedLabels := translate.Default.ApplyMetadataUpdate(vPod, pPod, t.syncedLabels, getExcludedAnnotations(pPod)...)
+	if updatedAnnotations == nil {
+		updatedAnnotations = map[string]string{}
+	}
+	if updatedLabels == nil {
+		updatedLabels = map[string]string{}
+	}
+
 	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {

@@ -1,5 +1,9 @@
 {{- if .Values.rbac.role.create }}
+{{- if .Values.multiNamespaceMode.enabled }}
+kind: ClusterRoleBinding
+{{- else -}}
 kind: RoleBinding
+{{- end }}
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Release.Name }}
@@ -9,6 +13,10 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
 subjects:
   - kind: ServiceAccount
     {{- if .Values.serviceAccount.name }}
@@ -18,7 +26,11 @@ subjects:
     {{- end }}
     namespace: {{ .Release.Namespace }}
 roleRef:
+{{- if .Values.multiNamespaceMode.enabled }}
+  kind: ClusterRole
+{{- else }}
   kind: Role
+{{- end }}
   name: {{ .Release.Name }}
   apiGroup: rbac.authorization.k8s.io
 {{- end }}

@@ -3,6 +3,7 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,32 +77,6 @@ func (s *singleNamespace) IsManagedCluster(obj runtime.Object) bool {
 	}
 
 	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.targetNamespace, "x", Suffix)
-}
-
-func (s *singleNamespace) GetOwnerReference(object client.Object) []metav1.OwnerReference {
-	if Owner == nil || Owner.GetName() == "" || Owner.GetUID() == "" {
-		return nil
-	}
-
-	typeAccessor, err := meta.TypeAccessor(Owner)
-	if err != nil || typeAccessor.GetAPIVersion() == "" || typeAccessor.GetKind() == "" {
-		return nil
-	}
-
-	isController := false
-	if object != nil {
-		ctrl := metav1.GetControllerOf(object)
-		isController = ctrl != nil
-	}
-	return []metav1.OwnerReference{
-		{
-			APIVersion: typeAccessor.GetAPIVersion(),
-			Kind:       typeAccessor.GetKind(),
-			Name:       Owner.GetName(),
-			UID:        Owner.GetUID(),
-			Controller: &isController,
-		},
-	}
 }
 
 func (s *singleNamespace) convertNamespacedLabelKey(key string) string {
@@ -261,7 +236,7 @@ func (s *singleNamespace) SetupMetadataWithName(vObj client.Object, translator P
 
 		// set owning stateful set if defined
 		if Owner != nil {
-			m.SetOwnerReferences(s.GetOwnerReference(vObj))
+			m.SetOwnerReferences(GetOwnerReference(vObj))
 		}
 	}
 

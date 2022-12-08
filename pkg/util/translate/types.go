@@ -3,6 +3,7 @@ package translate
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -16,9 +17,6 @@ var Default Translator = &singleNamespace{}
 type Translator interface {
 	// SingleNamespaceTarget signals if we sync all objects into a single namespace
 	SingleNamespaceTarget() bool
-
-	// GetOwnerReference rewrites the host objects owner reference
-	GetOwnerReference(object client.Object) []metav1.OwnerReference
 
 	// IsManaged checks if the object is managed by vcluster
 	IsManaged(obj runtime.Object) bool
@@ -70,3 +68,6 @@ type Translator interface {
 
 // PhysicalNameTranslator transforms a virtual cluster name to a physical name
 type PhysicalNameTranslator func(vName string, vObj client.Object) string
+
+// PhysicalNameTranslator transforms a virtual cluster name to a physical name
+type PhysicalNamespacedNameTranslator func(vNN types.NamespacedName, vObj client.Object) string

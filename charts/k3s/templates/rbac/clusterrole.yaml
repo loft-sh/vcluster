@@ -70,4 +70,9 @@ rules:
     resources: ["services"]
     verbs: ["get", "watch", "list"]
   {{- end }}
+  {{- if .Values.multiNamespaceMode.enabled }}
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  {{- end }}
 {{- end }}

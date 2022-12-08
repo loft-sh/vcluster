@@ -43,6 +43,8 @@ deployments:
             extended: true
         syncer:
           image: ${SYNCER_IMAGE}
+        multiNamespaceMode:
+          enabled: false
 
   vcluster-k3s:
     helm:

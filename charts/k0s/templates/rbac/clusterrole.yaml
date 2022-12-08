@@ -8,6 +8,10 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
 rules:
   {{- if or .Values.sync.nodes.enabled .Values.rbac.clusterRole.create }}
   - apiGroups: [""]
@@ -29,7 +33,7 @@ rules:
   {{- end }}
   {{- if .Values.sync.nodes.enableScheduler }}
   - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses", "csinodes","csidrivers","csistoragecapacities"]
+    resources: ["storageclasses","csinodes","csidrivers","csistoragecapacities"]
     verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if (include "vcluster.syncIngressclassesEnabled" . ) }}
@@ -65,5 +69,10 @@ rules:
   - apiGroups: [""]
     resources: ["services"]
     verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.multiNamespaceMode.enabled }}
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
   {{- end }}
 {{- end }}

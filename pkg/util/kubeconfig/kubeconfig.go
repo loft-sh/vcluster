@@ -3,6 +3,8 @@ package kubeconfig
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -11,7 +13,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -73,7 +74,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 
 			// set owner reference
 			if translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
-				kubeConfigSecret.OwnerReferences = translate.Default.GetOwnerReference(nil)
+				kubeConfigSecret.OwnerReferences = translate.GetOwnerReference(nil)
 			}
 			return nil
 		})

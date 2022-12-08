@@ -429,3 +429,6 @@ init:
   # this allows you to use helm values inside, e.g.: {{ .Release.Name }}
   manifestsTemplate: ''
   helm: []
+
+multiNamespaceMode:
+  enabled: false

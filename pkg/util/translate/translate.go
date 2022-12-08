@@ -3,10 +3,11 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,6 +23,32 @@ var (
 )
 
 var Owner client.Object
+
+func GetOwnerReference(object client.Object) []metav1.OwnerReference {
+	if Owner == nil || Owner.GetName() == "" || Owner.GetUID() == "" {
+		return nil
+	}
+
+	typeAccessor, err := meta.TypeAccessor(Owner)
+	if err != nil || typeAccessor.GetAPIVersion() == "" || typeAccessor.GetKind() == "" {
+		return nil
+	}
+
+	isController := false
+	if object != nil {
+		ctrl := metav1.GetControllerOf(object)
+		isController = ctrl != nil
+	}
+	return []metav1.OwnerReference{
+		{
+			APIVersion: typeAccessor.GetAPIVersion(),
+			Kind:       typeAccessor.GetKind(),
+			Name:       Owner.GetName(),
+			UID:        Owner.GetUID(),
+			Controller: &isController,
+		},
+	}
+}
 
 func SafeConcatName(name ...string) string {
 	fullPath := strings.Join(name, "-")
