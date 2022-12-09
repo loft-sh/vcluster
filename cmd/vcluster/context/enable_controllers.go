@@ -92,8 +92,8 @@ func parseControllers(options *VirtualClusterOptions) (sets.String, error) {
 			return nil, fmt.Errorf("unrecognized controller %s, available controllers: %s", controller, availableControllers())
 		}
 	}
-	// enable ingressclasses if ingress syncing is enabled
-	if enabledControllers.Has("ingresses") {
+	// enable ingressclasses if ingress syncing is enabled and incressclasses not explicitly disabled
+	if enabledControllers.Has("ingresses") && !disabledControllers.Has("ingressesclasses") {
 		enabledControllers.Insert("ingressclasses")
 	}
 
