@@ -141,6 +141,9 @@ spec:
           {{- if .Values.hostpathMapper.enabled }}
           - --rewrite-host-paths=true
           {{- end }}
+          {{- if .Values.multiNamespaceMode.enabled }}
+          - --multi-namespace-mode=true
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}

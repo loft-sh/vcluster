@@ -68,7 +68,8 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.Persistent
 		// check if claim was created on virtual
 		if vPv.Spec.ClaimRef != nil && translatedSpec.ClaimRef != nil {
 			claimRefPhysicalName := translate.Default.PhysicalName(vPv.Spec.ClaimRef.Name, vPv.Spec.ClaimRef.Namespace)
-			isClaimRefCreatedOnVirtual = equality.Semantic.DeepEqual(claimRefPhysicalName, translatedSpec.ClaimRef.Name)
+			claimRefPhysicalNamespace := translate.Default.PhysicalNamespace(vPv.Spec.ClaimRef.Namespace)
+			isClaimRefCreatedOnVirtual = equality.Semantic.DeepEqual(claimRefPhysicalName, translatedSpec.ClaimRef.Name) && equality.Semantic.DeepEqual(claimRefPhysicalNamespace, translatedSpec.ClaimRef.Namespace)
 		}
 	}
 

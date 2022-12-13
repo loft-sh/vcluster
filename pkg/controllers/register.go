@@ -22,6 +22,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csinodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csistoragecapacities"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
@@ -73,6 +74,7 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 	"csinodes":               {csinodes.New},
 	"csidrivers":             {csidrivers.New},
 	"csistoragecapacities":   {csistoragecapacities.New},
+	"namespaces":             {namespaces.New},
 	"persistentvolumes,fake-persistentvolumes": {persistentvolumes.New},
 }
 

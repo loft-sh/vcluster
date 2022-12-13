@@ -207,11 +207,17 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	// set kubelet port
 	nodeservice.KubeletTargetPort = options.Port
 
-	// ensure target namespace
-	if options.TargetNamespace == "" {
-		options.TargetNamespace = currentNamespace
+	if options.MultiNamespaceMode {
+		// set options.TargetNamespace to empty because it will later be used in Manager
+		options.TargetNamespace = ""
+		translate.Default = translate.NewMultiNamespaceTranslator(currentNamespace)
+	} else {
+		// ensure target namespace
+		if options.TargetNamespace == "" {
+			options.TargetNamespace = currentNamespace
+		}
+		translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
 	}
-	translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
 
 	virtualClusterConfig, err := clientConfig.ClientConfig()
 	if err != nil {

@@ -2,13 +2,15 @@ package translator
 
 import (
 	context2 "context"
+	"reflect"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -30,6 +32,7 @@ func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj clie
 type namespacedTranslator struct {
 	name string
 
+	nameTranslator      translate.PhysicalNamespacedNameTranslator
 	excludedAnnotations []string
 	syncedLabels        []string
 
@@ -37,6 +40,10 @@ type namespacedTranslator struct {
 	obj           client.Object
 
 	eventRecorder record.EventRecorder
+}
+
+func (n *namespacedTranslator) SetNameTranslator(nameTranslator translate.PhysicalNamespacedNameTranslator) {
+	n.nameTranslator = nameTranslator
 }
 
 func (n *namespacedTranslator) EventRecorder() record.EventRecorder {
@@ -88,9 +95,14 @@ func (n *namespacedTranslator) IsManaged(pObj client.Object) (bool, error) {
 }
 
 func (n *namespacedTranslator) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+	name := translate.Default.PhysicalName(req.Name, req.Namespace)
+	if n.nameTranslator != nil {
+		name = n.nameTranslator(req, vObj)
+	}
+
 	return types.NamespacedName{
 		Namespace: translate.Default.PhysicalNamespace(req.Namespace),
-		Name:      translate.Default.PhysicalName(req.Name, req.Namespace),
+		Name:      name,
 	}
 }
 
@@ -116,7 +128,27 @@ func (n *namespacedTranslator) PhysicalToVirtual(pObj client.Object) types.Names
 }
 
 func (n *namespacedTranslator) TranslateMetadata(vObj client.Object) client.Object {
-	return translate.Default.ApplyMetadata(vObj, n.syncedLabels, n.excludedAnnotations...)
+	pObj := vObj.DeepCopyObject().(client.Object)
+	m, err := meta.Accessor(pObj)
+	if err != nil {
+		return nil
+	}
+
+	// reset metadata & translate name and namespace
+	translate.ResetObjectMetadata(m)
+	m.SetName(n.VirtualToPhysical(types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj).Name)
+	if vObj.GetNamespace() != "" {
+		m.SetNamespace(translate.Default.PhysicalNamespace(vObj.GetNamespace()))
+
+		// set owning stateful set if defined
+		if translate.Owner != nil {
+			m.SetOwnerReferences(translate.GetOwnerReference(vObj))
+		}
+	}
+
+	pObj.SetAnnotations(translate.Default.ApplyAnnotations(vObj, nil, n.excludedAnnotations))
+	pObj.SetLabels(translate.Default.ApplyLabels(vObj, nil, n.syncedLabels))
+	return pObj
 }
 
 func (n *namespacedTranslator) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
