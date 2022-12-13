@@ -151,7 +151,7 @@ syncer:
 
 # Etcd settings
 etcd:
-  image: registry.k8s.io/etcd:3.5.5-0
+  image: registry.k8s.io/etcd:3.5.6-0
   # The amount of replicas to run 
   replicas: 1
   # NodeSelector used
@@ -184,7 +184,7 @@ etcd:
   securityContext: {}
 # Kubernetes Controller Manager settings
 controller:
-  image: registry.k8s.io/kube-controller-manager:v1.25.4
+  image: registry.k8s.io/kube-controller-manager:v1.26.0
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used 
@@ -206,7 +206,7 @@ controller:
   securityContext: {}
 # Kubernetes Scheduler settings. Only enabled if sync.nodes.enableScheduler is true
 scheduler:
-  image: registry.k8s.io/kube-scheduler:v1.25.4
+  image: registry.k8s.io/kube-scheduler:v1.26.0
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used
@@ -228,7 +228,7 @@ scheduler:
 
 # Kubernetes API Server settings
 api:
-  image: registry.k8s.io/kube-apiserver:v1.25.4
+  image: registry.k8s.io/kube-apiserver:v1.26.0
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
