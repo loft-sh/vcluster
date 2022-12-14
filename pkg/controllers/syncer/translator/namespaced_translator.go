@@ -3,11 +3,13 @@ package translator
 import (
 	context2 "context"
 	"reflect"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -68,6 +70,10 @@ func (n *namespacedTranslator) SyncDownCreate(ctx *context.SyncContext, vObj, pO
 	ctx.Log.Infof("create physical %s %s/%s", n.name, pObj.GetNamespace(), pObj.GetName())
 	err := ctx.PhysicalClient.Create(ctx.Context, pObj)
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			ctx.Log.Debugf("error syncing %s %s/%s to physical cluster: %v", n.name, vObj.GetNamespace(), vObj.GetName(), err)
+			return ctrl.Result{RequeueAfter: time.Second}, nil
+		}
 		ctx.Log.Infof("error syncing %s %s/%s to physical cluster: %v", n.name, vObj.GetNamespace(), vObj.GetName(), err)
 		n.eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, err
