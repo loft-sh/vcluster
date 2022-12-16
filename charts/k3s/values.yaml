@@ -86,6 +86,10 @@ sync:
     enabled: false
   serviceaccounts:
     enabled: false
+  secrets:
+    all: false
+  configmaps:
+    all: false
 
 # Map Services between host and virtual cluster
 mapServices:
