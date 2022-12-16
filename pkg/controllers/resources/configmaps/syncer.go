@@ -28,14 +28,14 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &configMapSyncer{
 		NamespacedTranslator: t,
 
-		SyncAllConfigMaps: ctx.Options.SyncAllConfigMaps,
+		syncAllConfigMaps: ctx.Options.SyncAllConfigMaps,
 	}, nil
 }
 
 type configMapSyncer struct {
 	translator.NamespacedTranslator
 
-	SyncAllConfigMaps bool
+	syncAllConfigMaps bool
 }
 
 func ConfigMapNameTranslator(vNN types.NamespacedName, _ client.Object) string {
@@ -109,7 +109,7 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 		return false, fmt.Errorf("%#v is not a config map", vObj)
 	} else if configMap.Annotations != nil && configMap.Annotations[constants.SyncResourceAnnotation] == "true" {
 		return true, nil
-	} else if s.SyncAllConfigMaps {
+	} else if s.syncAllConfigMaps {
 		return true, nil
 	}
 

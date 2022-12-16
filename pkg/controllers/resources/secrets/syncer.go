@@ -43,6 +43,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, useLegacy bool) (syncer.Object,
 
 		useLegacyIngress: useLegacy,
 		includeIngresses: ctx.Controllers.Has("ingresses"),
+
+		syncAllSecrets: ctx.Options.SyncAllSecrets,
 	}, nil
 }
 
@@ -51,6 +53,8 @@ type secretSyncer struct {
 
 	useLegacyIngress bool
 	includeIngresses bool
+
+	syncAllSecrets bool
 }
 
 var _ syncer.IndicesRegisterer = &secretSyncer{}
@@ -165,6 +169,10 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 		}
 
 		return meta.LenList(ingressesList) > 0, nil
+	}
+
+	if s.syncAllSecrets {
+		return true, nil
 	}
 
 	return false, nil
