@@ -19,7 +19,7 @@ import (
 )
 
 func wrapperKeyBSONType(key string) bsontype.Type {
-	switch string(key) {
+	switch key {
 	case "$numberInt":
 		return bsontype.Int32
 	case "$numberLong":
@@ -46,12 +46,6 @@ func wrapperKeyBSONType(key string) bsontype.Type {
 		return bsontype.DBPointer
 	case "$date":
 		return bsontype.DateTime
-	case "$ref":
-		fallthrough
-	case "$id":
-		fallthrough
-	case "$db":
-		return bsontype.EmbeddedDocument // dbrefs aren't bson types
 	case "$minKey":
 		return bsontype.MinKey
 	case "$maxKey":
@@ -217,7 +211,7 @@ func parseDatetimeString(data string) (int64, error) {
 		return 0, fmt.Errorf("invalid $date value string: %s", data)
 	}
 
-	return t.Unix()*1e3 + int64(t.Nanosecond())/1e6, nil
+	return int64(primitive.NewDateTimeFromTime(t)), nil
 }
 
 func parseDatetimeObject(data *extJSONObject) (d int64, err error) {
@@ -275,7 +269,7 @@ func (ejv *extJSONValue) parseDouble() (float64, error) {
 		return 0, fmt.Errorf("$numberDouble value should be string, but instead is %s", ejv.t)
 	}
 
-	switch string(ejv.v.(string)) {
+	switch ejv.v.(string) {
 	case "Infinity":
 		return math.Inf(1), nil
 	case "-Infinity":
@@ -370,7 +364,7 @@ func (ejv *extJSONValue) parseRegex() (pattern, options string, err error) {
 	for i, key := range regexObj.keys {
 		val := regexObj.values[i]
 
-		switch string(key) {
+		switch key {
 		case "pattern":
 			if patFound {
 				return "", "", errors.New("duplicate pattern key in $regularExpression")
@@ -430,17 +424,20 @@ func (ejv *extJSONValue) parseTimestamp() (t, i uint32, err error) {
 
 		switch val.t {
 		case bsontype.Int32:
-			if val.v.(int32) < 0 {
-				return 0, fmt.Errorf("$timestamp %s number should be uint32: %s", key, string(val.v.(int32)))
+			value := val.v.(int32)
+
+			if value < 0 {
+				return 0, fmt.Errorf("$timestamp %s number should be uint32: %d", key, value)
 			}
 
-			return uint32(val.v.(int32)), nil
+			return uint32(value), nil
 		case bsontype.Int64:
-			if val.v.(int64) < 0 || uint32(val.v.(int64)) > math.MaxUint32 {
-				return 0, fmt.Errorf("$timestamp %s number should be uint32: %s", key, string(val.v.(int32)))
+			value := val.v.(int64)
+			if value < 0 || value > int64(math.MaxUint32) {
+				return 0, fmt.Errorf("$timestamp %s number should be uint32: %d", key, value)
 			}
 
-			return uint32(val.v.(int64)), nil
+			return uint32(value), nil
 		default:
 			return 0, fmt.Errorf("$timestamp %s value should be uint32, but instead is %s", key, val.t)
 		}
