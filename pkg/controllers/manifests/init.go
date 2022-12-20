@@ -3,14 +3,18 @@ package manifests
 import (
 	"context"
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"k8s.io/klog"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
+	"k8s.io/klog"
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/pkg/helm"
@@ -361,38 +365,53 @@ func (r *InitManifestsConfigMapReconciler) initiateUpgrade(ctx context.Context, 
 	return nil
 }
 
+func getTarballPath(helmWorkDir, repo, name, version string) (tarballPath, tarballDir string) {
+	var repoDir string
+	// hashing the name so that slashes in url characters and other unaccounted-for characters
+	// don't fail making the directory
+	if repo != "" {
+		repoDigest := sha256.Sum256([]byte(repo))
+		repoDir = hex.EncodeToString(repoDigest[0:])[0:10]
+	}
+	// empty repoDir is ignored
+	tarballDir = filepath.Join(helmWorkDir, repoDir)
+	tarballPath = filepath.Join(tarballDir, fmt.Sprintf("%s-%s.tgz", name, version))
+
+	return tarballPath, tarballDir
+}
+
 func (r *InitManifestsConfigMapReconciler) findChart(chart Chart) (string, error) {
-	if chart.Version == "" {
-		files, err := os.ReadDir(HelmWorkDir)
-		if err != nil {
+	tarballPath, tarballDir := getTarballPath(HelmWorkDir, chart.Repo, chart.Name, chart.Version)
+	// if version specified, look for specific file
+	if chart.Version != "" {
+		pathsToTry := []string{tarballPath}
+		// try with alternate names as well
+		if chart.Version[0] != 'v' {
+			tarballPathWithV, _ := getTarballPath(HelmWorkDir, chart.Repo, chart.Name, fmt.Sprintf("v%s", chart.Version))
+			pathsToTry = append(pathsToTry, tarballPathWithV)
+		}
+		for _, path := range pathsToTry {
+			_, err := os.Stat(path)
+			if err == nil {
+				return path, nil
+			} else if !os.IsNotExist(err) {
+				return "", err
+			}
+		}
+		// if version not specified, look for any version
+	} else {
+		files, err := os.ReadDir(tarballDir)
+		if os.IsNotExist(err) {
+			return "", nil
+		} else if err != nil {
 			return "", err
 		}
-
 		for _, f := range files {
 			if strings.HasPrefix(f.Name(), chart.Name+"-") {
-				return f.Name(), nil
+				return filepath.Join(tarballDir, f.Name()), nil
 			}
 		}
-	} else {
-		tarball := fmt.Sprintf("%s/%s-%s.tgz", HelmWorkDir, chart.Name, chart.Version)
-		_, err := os.Stat(tarball)
-		if err != nil {
-			if os.IsNotExist(err) {
-				if chart.Version[0] != 'v' {
-					tarball = fmt.Sprintf("%s/%s-v%s.tgz", HelmWorkDir, chart.Name, chart.Version)
-					_, err = os.Stat(tarball)
-					if err == nil {
-						return tarball, nil
-					}
-				}
 
-				return "", nil
-			}
-
-			return "", err
-		}
-
-		return tarball, nil
 	}
 
 	return "", nil
@@ -464,20 +483,25 @@ func (r *InitManifestsConfigMapReconciler) releaseExists(chart Chart) (bool, err
 }
 
 func (r *InitManifestsConfigMapReconciler) pullChartArchive(ctx context.Context, chart Chart) error {
-	tarball, err := r.findChart(chart)
+	tarballPath, err := r.findChart(chart)
 	if err != nil {
 		return err
 	}
 
 	// check if tarball exists
-	if tarball == "" {
+	if tarballPath == "" {
+		tarballPath, tarballDir := getTarballPath(HelmWorkDir, chart.Repo, chart.Name, chart.Version)
+		err := os.MkdirAll(tarballDir, 0755)
+		if err != nil {
+			return err
+		}
 		if chart.Bundle != "" {
 			bytes, err := base64.StdEncoding.DecodeString(chart.Bundle)
 			if err != nil {
 				return err
 			}
 
-			err = os.WriteFile(tarball, bytes, 0666)
+			err = os.WriteFile(tarballPath, bytes, 0666)
 			if err != nil {
 				return errors.Wrap(err, "write bundle to file")
 			}
@@ -490,7 +514,7 @@ func (r *InitManifestsConfigMapReconciler) pullChartArchive(ctx context.Context,
 				Username: chart.Username,
 				Password: chart.Password,
 
-				WorkDir: HelmWorkDir,
+				WorkDir: tarballDir,
 			})
 			if helmErr != nil {
 				r.Log.Errorf("unable to pull chart %s: %v", chart.Name, helmErr)
