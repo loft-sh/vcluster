@@ -9,40 +9,40 @@ import (
 
 var K8SAPIVersionMap = map[string]string{
 	"1.26": "registry.k8s.io/kube-apiserver:v1.26.0",
-	"1.25": "registry.k8s.io/kube-apiserver:v1.25.4",
-	"1.24": "registry.k8s.io/kube-apiserver:v1.24.8",
-	"1.23": "registry.k8s.io/kube-apiserver:v1.23.14",
-	"1.22": "registry.k8s.io/kube-apiserver:v1.22.16",
+	"1.25": "registry.k8s.io/kube-apiserver:v1.25.5",
+	"1.24": "registry.k8s.io/kube-apiserver:v1.24.9",
+	"1.23": "registry.k8s.io/kube-apiserver:v1.23.15",
+	"1.22": "registry.k8s.io/kube-apiserver:v1.22.17",
 	"1.21": "registry.k8s.io/kube-apiserver:v1.21.14",
 	"1.20": "registry.k8s.io/kube-apiserver:v1.20.15",
 }
 
 var K8SControllerVersionMap = map[string]string{
 	"1.26": "registry.k8s.io/kube-controller-manager:v1.26.0",
-	"1.25": "registry.k8s.io/kube-controller-manager:v1.25.4",
-	"1.24": "registry.k8s.io/kube-controller-manager:v1.24.8",
-	"1.23": "registry.k8s.io/kube-controller-manager:v1.23.14",
-	"1.22": "registry.k8s.io/kube-controller-manager:v1.22.16",
+	"1.25": "registry.k8s.io/kube-controller-manager:v1.25.5",
+	"1.24": "registry.k8s.io/kube-controller-manager:v1.24.9",
+	"1.23": "registry.k8s.io/kube-controller-manager:v1.23.15",
+	"1.22": "registry.k8s.io/kube-controller-manager:v1.22.17",
 	"1.21": "registry.k8s.io/kube-controller-manager:v1.21.14",
 	"1.20": "registry.k8s.io/kube-controller-manager:v1.20.15",
 }
 
 var K8SSchedulerVersionMap = map[string]string{
 	"1.26": "registry.k8s.io/kube-scheduler:v1.26.0",
-	"1.25": "registry.k8s.io/kube-scheduler:v1.25.4",
-	"1.24": "registry.k8s.io/kube-scheduler:v1.24.8",
-	"1.23": "registry.k8s.io/kube-scheduler:v1.23.14",
-	"1.22": "registry.k8s.io/kube-scheduler:v1.22.16",
+	"1.25": "registry.k8s.io/kube-scheduler:v1.25.5",
+	"1.24": "registry.k8s.io/kube-scheduler:v1.24.9",
+	"1.23": "registry.k8s.io/kube-scheduler:v1.23.15",
+	"1.22": "registry.k8s.io/kube-scheduler:v1.22.17",
 	"1.21": "registry.k8s.io/kube-scheduler:v1.21.14",
 	"1.20": "registry.k8s.io/kube-scheduler:v1.20.15",
 }
 
 var K8SEtcdVersionMap = map[string]string{
 	"1.26": "registry.k8s.io/etcd:3.5.6-0",
-	"1.25": "registry.k8s.io/etcd:3.5.5-0",
-	"1.24": "registry.k8s.io/etcd:3.5.1-0",
-	"1.23": "registry.k8s.io/etcd:3.5.1-0",
-	"1.22": "registry.k8s.io/etcd:3.5.1-0",
+	"1.25": "registry.k8s.io/etcd:3.5.6-0",
+	"1.24": "registry.k8s.io/etcd:3.5.6-0",
+	"1.23": "registry.k8s.io/etcd:3.5.6-0",
+	"1.22": "registry.k8s.io/etcd:3.5.6-0",
 	"1.21": "registry.k8s.io/etcd:3.4.13-0",
 	"1.20": "registry.k8s.io/etcd:3.4.13-0",
 }
