@@ -2,6 +2,8 @@ package translator
 
 import (
 	context2 "context"
+	"crypto/sha256"
+	"encoding/hex"
 	"reflect"
 	"time"
 
@@ -15,6 +17,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	LabelPrefix = "vcluster.loft.sh/label"
 )
 
 func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj client.Object, excludedAnnotations ...string) NamespacedTranslator {
@@ -159,4 +165,13 @@ func (n *namespacedTranslator) TranslateMetadata(vObj client.Object) client.Obje
 
 func (n *namespacedTranslator) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
 	return translate.Default.ApplyMetadataUpdate(vObj, pObj, n.syncedLabels, n.excludedAnnotations...)
+}
+
+func ConvertLabelKey(key string) string {
+	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
+}
+
+func ConvertLabelKeyWithPrefix(prefix, key string) string {
+	digest := sha256.Sum256([]byte(key))
+	return translate.SafeConcatName(prefix, translate.Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }

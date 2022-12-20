@@ -42,7 +42,7 @@ type Export struct {
 
 	// Selector is the selector to select the objects in the host cluster.
 	// If empty will select all objects.
-	// Selector *Selector `yaml:"selector,omitempty" json:"selector,omitempty"`
+	Selector *Selector `yaml:"selector,omitempty" json:"selector,omitempty"`
 
 	// // Resources to sync back to virtual cluster
 	// SyncBack []*SyncBack `yaml:"syncBack,omitempty" json:"syncBack,omitempty"`
