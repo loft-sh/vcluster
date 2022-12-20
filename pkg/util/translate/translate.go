@@ -8,6 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -109,6 +110,17 @@ func ResetObjectMetadata(obj metav1.Object) {
 	obj.SetOwnerReferences(nil)
 	obj.SetFinalizers(nil)
 	obj.SetManagedFields(nil)
+}
+
+func IsManaged(obj runtime.Object) bool {
+	metaAccessor, err := meta.Accessor(obj)
+	if err != nil {
+		return false
+	} else if metaAccessor.GetLabels() == nil {
+		return false
+	}
+
+	return metaAccessor.GetLabels()[MarkerLabel] == Suffix
 }
 
 func ApplyMetadata(fromAnnotations map[string]string, toAnnotations map[string]string, fromLabels map[string]string, toLabels map[string]string, excludeAnnotations ...string) (labels map[string]string, annotations map[string]string) {
