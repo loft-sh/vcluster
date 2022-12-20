@@ -21,8 +21,10 @@ plugin: {}
 sync:
   services:
     enabled: true
+    all: false
   configmaps:
     enabled: true
+    all: false
   secrets:
     enabled: true
   endpoints:

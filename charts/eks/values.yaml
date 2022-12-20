@@ -27,8 +27,10 @@ sync:
     enabled: true
   configmaps:
     enabled: true
+    all: false
   secrets:
     enabled: true
+    all: false
   endpoints:
     enabled: true
   pods:

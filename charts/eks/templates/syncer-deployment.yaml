@@ -144,6 +144,12 @@ spec:
           {{- if .Values.multiNamespaceMode.enabled }}
           - --multi-namespace-mode=true
           {{- end }}
+          {{- if .Values.sync.configmaps.all }}
+          - --sync-all-configmaps=true
+          {{- end }}
+          {{- if .Values.sync.secrets.all }}
+          - --sync-all-secrets=true
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}

@@ -79,6 +79,8 @@ type VirtualClusterOptions struct {
 	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
 
 	MultiNamespaceMode bool `json:"multiNamespaceMode,omitempty"`
+	SyncAllSecrets     bool `json:"syncAllSecrets,omitempty"`
+	SyncAllConfigMaps  bool `json:"syncAllConfigMaps,omitempty"`
 
 	// DEPRECATED FLAGS
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
@@ -152,6 +154,8 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 
 	flags.BoolVar(&options.RewriteHostPaths, "rewrite-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
 	flags.BoolVar(&options.MultiNamespaceMode, "multi-namespace-mode", false, "If enabled, syncer will create a namespace for each virtual namespace and use the original names for the synced namespaced resources")
+	flags.BoolVar(&options.SyncAllConfigMaps, "sync-all-configmaps", false, "Sync all configmaps from virtual to host cluster")
+	flags.BoolVar(&options.SyncAllSecrets, "sync-all-secrets", false, "Sync all secrets from virtual to host cluster")
 
 	// Deprecated Flags
 	flags.BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
