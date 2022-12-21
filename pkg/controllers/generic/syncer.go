@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/log"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -11,6 +12,7 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"
+	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,11 +20,47 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateExporter(ctx *synccontext.RegisterContext, config *config.Export) (syncer.Syncer, error) {
+func CreateExporters(ctx *context.ControllerContext, config *config.Config) error {
+	scheme := ctx.LocalManager.GetScheme()
+	registerCtx := util.ToRegisterContext(ctx)
+
+	for _, exportConfig := range config.Exports {
+		gvk := schema.FromAPIVersionAndKind(exportConfig.APIVersion, exportConfig.Kind)
+		if !scheme.Recognizes(gvk) {
+			err := translate.EnsureCRDFromPhysicalCluster(
+				registerCtx.Context,
+				registerCtx.PhysicalManager.GetConfig(),
+				registerCtx.VirtualManager.GetConfig(),
+				gvk)
+			if err != nil {
+				klog.Errorf("Error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", exportConfig.Kind, exportConfig.APIVersion, err)
+				return err
+			}
+		}
+	}
+
+	for _, exportConfig := range config.Exports {
+		s, err := createExporter(registerCtx, exportConfig)
+		if err != nil {
+			klog.Errorf("Error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
+			return err
+		}
+
+		err = syncer.RegisterSyncer(registerCtx, s)
+		if err != nil {
+			klog.Errorf("Error registering syncer %v", err)
+		}
+	}
+
+	return nil
+}
+
+func createExporter(ctx *synccontext.RegisterContext, config *config.Export) (syncer.Syncer, error) {
 	obj := &unstructured.Unstructured{}
 	obj.SetKind(config.Kind)
 	obj.SetAPIVersion(config.APIVersion)

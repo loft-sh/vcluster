@@ -14,6 +14,11 @@ type Object interface {
 	Resource() client.Object
 }
 
+type Exporter interface {
+	Name() string
+	Register()
+}
+
 type Syncer interface {
 	Object
 	translator.NameTranslator

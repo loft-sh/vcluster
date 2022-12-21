@@ -10,10 +10,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/loft-sh/vcluster-generic-crd-plugin/pkg/config"
-	patchesregex "github.com/loft-sh/vcluster-generic-crd-plugin/pkg/patches/regex"
-	"github.com/loft-sh/vcluster-sdk/syncer/translator"
-	"github.com/loft-sh/vcluster-sdk/translate"
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	yaml "gopkg.in/yaml.v3"
 	"gotest.tools/assert"
 )
@@ -495,10 +495,10 @@ func (r *fakeVirtualToHostNameResolver) TranslateNameWithNamespace(name string, 
 			if ns == "" {
 				ns = namespace
 			}
-			return types.NamespacedName{Namespace: r.targetNamespace, Name: translate.PhysicalName(name, ns)}
+			return types.NamespacedName{Namespace: r.targetNamespace, Name: translate.Default.PhysicalName(name, ns)}
 		}), nil
 	} else {
-		return translate.PhysicalName(name, namespace), nil
+		return translate.Default.PhysicalName(name, namespace), nil
 	}
 }
 
