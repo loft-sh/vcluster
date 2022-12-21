@@ -6,8 +6,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/loft-sh/vcluster-generic-crd-plugin/pkg/config"
-	yamlhelper "github.com/loft-sh/vcluster-generic-crd-plugin/pkg/util/yaml"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v3"
 	k8syaml "sigs.k8s.io/yaml"
@@ -372,7 +371,7 @@ func RewriteLabelSelector(obj1 *yaml.Node, patch *config.Patch, resolver NameRes
 			// try to unmarshal into label selector first
 			var newNode *yaml.Node
 			labelSelector := map[string]string{}
-			err = yamlhelper.UnmarshalStrict(yamlString, &labelSelector)
+			err = k8syaml.UnmarshalStrict(yamlString, &labelSelector)
 			if err != nil {
 				return errors.Wrap(err, "unmarshal label selector")
 			}

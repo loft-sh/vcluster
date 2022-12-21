@@ -82,6 +82,9 @@ type VirtualClusterOptions struct {
 	SyncAllSecrets     bool `json:"syncAllSecrets,omitempty"`
 	SyncAllConfigMaps  bool `json:"syncAllConfigMaps,omitempty"`
 
+	// ENV var name for generic config
+	GenericConfig string `json:"genericConfig,omitempty"`
+
 	// DEPRECATED FLAGS
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
 	DeprecatedDisableSyncResources     string
@@ -156,6 +159,8 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.BoolVar(&options.MultiNamespaceMode, "multi-namespace-mode", false, "If enabled, syncer will create a namespace for each virtual namespace and use the original names for the synced namespaced resources")
 	flags.BoolVar(&options.SyncAllConfigMaps, "sync-all-configmaps", false, "Sync all configmaps from virtual to host cluster")
 	flags.BoolVar(&options.SyncAllSecrets, "sync-all-secrets", false, "Sync all secrets from virtual to host cluster")
+
+	flags.StringVar(&options.GenericConfig, "generic-config", "CONFIG", "ENV var name from where to pick up the generic config")
 
 	// Deprecated Flags
 	flags.BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
