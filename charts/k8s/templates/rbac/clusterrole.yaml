@@ -65,6 +65,7 @@ rules:
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
   {{- if (not (empty (include "vcluster.serviceMapping.fromHost" . ))) }}
   - apiGroups: [""]
     resources: ["services"]

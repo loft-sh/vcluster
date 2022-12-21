@@ -184,7 +184,6 @@ Role rules defined in generic syncer
 {{- end }}
 {{- end -}}
 
-
 {{/*
 Virtual cluster service mapping
 */}}
