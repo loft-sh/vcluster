@@ -107,6 +107,11 @@ mapServices:
 hostpathMapper:
   enabled: false
 
+# generic CRD configuration
+generic:
+  config: |-
+    ---
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer
