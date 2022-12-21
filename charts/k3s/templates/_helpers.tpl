@@ -145,8 +145,12 @@ Cluster role rules defined by plugins
 Cluster role rules defined in generic syncer
 */}}
 {{- define "vcluster.generic.clusterRoleExtraRules" -}}
+{{- if .Values.generic.clusterRole }}
+{{- if .Values.generic.clusterRole.extraRules}}
 {{- range $ruleIndex, $rule := .Values.generic.clusterRole.extraRules }}
 - {{ toJson $rule }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end -}}
 
@@ -171,8 +175,12 @@ Role rules defined by plugins
 Role rules defined in generic syncer
 */}}
 {{- define "vcluster.generic.roleExtraRules" -}}
+{{- if .Values.generic.role }}
+{{- if .Values.generic.role.extraRules}}
 {{- range $ruleIndex, $rule := .Values.generic.role.extraRules }}
 - {{ toJson $rule }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end -}}
 

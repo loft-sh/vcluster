@@ -215,7 +215,7 @@ func registerGenericSyncController(ctx *context.ControllerContext) error {
 	// first check if a generic CRD config is provided and we actually need
 	// to create any of these syncer controllers
 	c := os.Getenv(ctx.Options.GenericConfig)
-	if c == "" {
+	if c == "---" || c == "" {
 		// empty configuration, no need for creating any syncer controllers
 		klog.Info("**********************************************************")
 		klog.Info("no generic config provided, skipping creating controllers")
