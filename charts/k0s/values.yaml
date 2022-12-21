@@ -150,6 +150,7 @@ vcluster:
       cpu: 200m
       memory: 256Mi
   priorityClassName: ""
+  # clusterDomain: cluster.local
 
 # Storage settings for the vcluster
 storage:
