@@ -76,10 +76,10 @@ func applyPatch(obj1, obj2 *yaml.Node, patch *config.Patch, resolver NameResolve
 	switch patch.Operation {
 	case config.PatchTypeRewriteName:
 		return RewriteName(obj1, patch, resolver)
-	case config.PatchTypeRewriteLabelKey:
-		return RewriteLabelKey(obj1, patch, resolver)
-	case config.PatchTypeRewriteLabelExpressionsSelector:
-		return RewriteLabelExpressionsSelector(obj1, patch, resolver)
+	// case config.PatchTypeRewriteLabelKey:
+	// 	return RewriteLabelKey(obj1, patch, resolver)
+	// case config.PatchTypeRewriteLabelExpressionsSelector:
+	// return RewriteLabelExpressionsSelector(obj1, patch, resolver)
 	case config.PatchTypeRewriteLabelSelector:
 		return RewriteLabelSelector(obj1, patch, resolver)
 	case config.PatchTypeReplace:

@@ -24,7 +24,7 @@ type Import struct {
 type SyncBase struct {
 	TypeInformation `yaml:",inline" json:",inline"`
 
-	// ID is the id of the controller. This is optional and only necessary if you have multiple syncBack or fromVirtualSyncer
+	// ID is the id of the controller. This is optional and only necessary if you have multiple export
 	// controllers that target the same group version kind.
 	ID string `yaml:"id,omitempty" json:"id,omitempty"`
 
@@ -43,9 +43,6 @@ type Export struct {
 	// Selector is the selector to select the objects in the host cluster.
 	// If empty will select all objects.
 	Selector *Selector `yaml:"selector,omitempty" json:"selector,omitempty"`
-
-	// // Resources to sync back to virtual cluster
-	// SyncBack []*SyncBack `yaml:"syncBack,omitempty" json:"syncBack,omitempty"`
 }
 
 type TypeInformation struct {

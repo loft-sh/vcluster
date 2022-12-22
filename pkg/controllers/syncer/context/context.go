@@ -27,10 +27,6 @@ type RegisterContext struct {
 	Options     *controllercontext.VirtualClusterOptions
 	Controllers sets.String
 
-	// TargetNamespace is the namespace in the host cluster where
-	// vcluster should sync namespaced scope objects to
-	TargetNamespace string
-
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 
