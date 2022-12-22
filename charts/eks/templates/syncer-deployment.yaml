@@ -192,10 +192,10 @@ spec:
         {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
         {{- end }}
-        {{- if .Values.generic.config }}
+        {{- if .Values.sync.generic.config }}
           - name: CONFIG
             value: |-
-              {{- .Values.generic.config | nindent 14 }}
+              {{- .Values.sync.generic.config | nindent 14 }}
         {{- end }}
         volumeMounts:
         {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}

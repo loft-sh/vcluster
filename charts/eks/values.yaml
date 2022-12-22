@@ -80,6 +80,10 @@ sync:
     enabled: false
   serviceaccounts:
     enabled: false
+  # generic CRD configuration
+  generic:
+    config: |-
+      ---
 
 # Map Services between host and virtual cluster
 mapServices:
@@ -101,11 +105,6 @@ mapServices:
 
 hostpathMapper:
   enabled: false
-
-# generic CRD configuration
-generic:
-  config: |-
-    ---
 
 # Syncer configuration
 syncer:
