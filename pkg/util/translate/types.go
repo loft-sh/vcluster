@@ -10,6 +10,7 @@ import (
 var (
 	NamespaceAnnotation = "vcluster.loft.sh/object-namespace"
 	NameAnnotation      = "vcluster.loft.sh/object-name"
+	UIDAnnotation       = "vcluster.loft.sh/object-uid"
 )
 
 var Default Translator = &singleNamespace{}

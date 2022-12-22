@@ -31,6 +31,7 @@ func TestSync(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				translate.NameAnnotation: "testsc",
+				translate.UIDAnnotation:  "",
 			},
 		},
 		Provisioner: "my-provisioner",
@@ -50,6 +51,7 @@ func TestSync(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				translate.NameAnnotation: "testsc",
+				translate.UIDAnnotation:  "",
 			},
 		},
 		Provisioner: "my-provisioner",

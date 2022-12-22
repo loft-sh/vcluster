@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"time"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -19,6 +20,12 @@ import (
 )
 
 func RegisterSyncer(ctx *synccontext.RegisterContext, syncer Syncer) error {
+	options := &Options{}
+	optionsProvider, ok := syncer.(OptionsProvider)
+	if ok {
+		options = optionsProvider.WithOptions()
+	}
+
 	controller := &syncerController{
 		syncer:         syncer,
 		log:            loghelper.New(syncer.Name()),
@@ -28,6 +35,7 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer Syncer) error {
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 
 		virtualClient: ctx.VirtualManager.GetClient(),
+		options:       options,
 	}
 
 	return controller.Register(ctx)
@@ -44,6 +52,7 @@ type syncerController struct {
 	currentNamespaceClient client.Client
 
 	virtualClient client.Client
+	options       *Options
 }
 
 func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -103,6 +112,18 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if vObj != nil && pObj == nil {
 		return r.syncer.SyncDown(syncContext, vObj)
 	} else if vObj != nil && pObj != nil {
+		// make sure the object uid matches
+		pAnnotations := pObj.GetAnnotations()
+		if !r.options.DisableUIDDeletion && pAnnotations != nil && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
+			// requeue if object is already being deleted
+			if pObj.GetDeletionTimestamp() != nil {
+				return ctrl.Result{RequeueAfter: time.Second}, nil
+			}
+
+			// delete physical object
+			return DeleteObject(syncContext, pObj, "virtual object uid is different")
+		}
+
 		return r.syncer.Sync(syncContext, pObj, vObj)
 	} else if vObj == nil && pObj != nil {
 		// check if up syncer
@@ -118,7 +139,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, nil
 		}
 
-		return DeleteObject(syncContext, pObj)
+		return DeleteObject(syncContext, pObj, "virtual object was deleted")
 	}
 
 	return ctrl.Result{}, nil
@@ -183,16 +204,16 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 	return controller.Complete(r)
 }
 
-func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object, reason string) (ctrl.Result, error) {
 	accessor, err := meta.Accessor(pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if pObj.GetNamespace() != "" {
-		ctx.Log.Infof("delete physical %s/%s, because virtual object was deleted", accessor.GetNamespace(), accessor.GetName())
+		ctx.Log.Infof("delete physical %s/%s, because %s", accessor.GetNamespace(), accessor.GetName(), reason)
 	} else {
-		ctx.Log.Infof("delete physical %s, because virtual object was deleted", accessor.GetName())
+		ctx.Log.Infof("delete physical %s, because %s", accessor.GetName(), reason)
 	}
 	err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
 	if err != nil {

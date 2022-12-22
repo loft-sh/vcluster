@@ -99,6 +99,7 @@ func TestSync(t *testing.T) {
 		Annotations: map[string]string{
 			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -326,6 +327,7 @@ func TestSync(t *testing.T) {
 								"nginx.ingress.kubernetes.io/auth-secret":                       "my-secret",
 								"vcluster.loft.sh/object-name":                                  baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":                             baseIngress.Namespace,
+								translate.UIDAnnotation:                                         "",
 								"alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix": "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service-x-test-x-suffix\",\"servicePort\":\"80\",\"weight\":100}]}}",
 							},
 						},

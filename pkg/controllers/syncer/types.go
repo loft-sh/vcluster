@@ -52,3 +52,13 @@ type ControllerModifier interface {
 type Initializer interface {
 	Init(registerContext *synccontext.RegisterContext) error
 }
+
+type Options struct {
+	// DisableUIDDeletion disables automatic deletion of physical objects if the uid between physical
+	// and virtual doesn't match anymore.
+	DisableUIDDeletion bool
+}
+
+type OptionsProvider interface {
+	WithOptions() *Options
+}

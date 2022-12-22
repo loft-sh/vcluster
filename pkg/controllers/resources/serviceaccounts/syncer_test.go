@@ -41,6 +41,7 @@ func TestSync(t *testing.T) {
 				translate.ManagedAnnotationsAnnotation: "test",
 				translate.NameAnnotation:               vSA.Name,
 				translate.NamespaceAnnotation:          vSA.Namespace,
+				translate.UIDAnnotation:                "",
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: vSA.Namespace,

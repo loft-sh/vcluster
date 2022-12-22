@@ -37,6 +37,12 @@ type serviceSyncer struct {
 	serviceName string
 }
 
+var _ syncer.OptionsProvider = &serviceSyncer{}
+
+func (s *serviceSyncer) WithOptions() *syncer.Options {
+	return &syncer.Options{DisableUIDDeletion: true}
+}
+
 func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.Service)))
 }
@@ -118,7 +124,7 @@ func (s *serviceSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return syncer.DeleteObject(ctx, pObj)
+	return syncer.DeleteObject(ctx, pObj, "virtual object was deleted")
 }
 
 func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) (*corev1.Service, error) {

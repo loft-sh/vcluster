@@ -30,6 +30,7 @@ func TestSync(t *testing.T) {
 		Annotations: map[string]string{
 			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -75,6 +76,7 @@ func TestSync(t *testing.T) {
 			Annotations: map[string]string{
 				translate.NameAnnotation:               vObjectMeta.Name,
 				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translate.UIDAnnotation:                "",
 				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
 				"otherAnnotationKey":                   "update this",
 			},
@@ -91,6 +93,7 @@ func TestSync(t *testing.T) {
 			Annotations: map[string]string{
 				translate.NameAnnotation:               vObjectMeta.Name,
 				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translate.UIDAnnotation:                "",
 				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
 				bindCompletedAnnotation:                "testannotation",
 				boundByControllerAnnotation:            "testannotation2",

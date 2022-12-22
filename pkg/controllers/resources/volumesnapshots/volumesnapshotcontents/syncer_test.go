@@ -75,6 +75,7 @@ func TestSync(t *testing.T) {
 		ResourceVersion: "12345",
 		Annotations: map[string]string{
 			translate.NameAnnotation: vObjectMeta.Name,
+			translate.UIDAnnotation:  "",
 		},
 	}
 	pPreProvisioned := &volumesnapshotv1.VolumeSnapshotContent{

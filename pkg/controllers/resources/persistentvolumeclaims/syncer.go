@@ -54,6 +54,12 @@ type persistentVolumeClaimSyncer struct {
 	useFakePersistentVolumes bool
 }
 
+var _ syncer.OptionsProvider = &persistentVolumeClaimSyncer{}
+
+func (s *persistentVolumeClaimSyncer) WithOptions() *syncer.Options {
+	return &syncer.Options{DisableUIDDeletion: true}
+}
+
 var _ syncer.Syncer = &persistentVolumeClaimSyncer{}
 
 func (s *persistentVolumeClaimSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {

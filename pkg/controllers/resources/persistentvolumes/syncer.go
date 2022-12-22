@@ -211,6 +211,12 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	return ctrl.Result{}, nil
 }
 
+var _ syncer.OptionsProvider = &persistentVolumeSyncer{}
+
+func (s *persistentVolumeSyncer) WithOptions() *syncer.Options {
+	return &syncer.Options{DisableUIDDeletion: true}
+}
+
 var _ syncer.UpSyncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
@@ -220,7 +226,7 @@ func (s *persistentVolumeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj clien
 		return ctrl.Result{}, err
 	} else if translate.Default.IsManagedCluster(pObj) {
 		ctx.Log.Infof("delete physical persistent volume %s, because it is not needed anymore", pPersistentVolume.Name)
-		return syncer.DeleteObject(ctx, pObj)
+		return syncer.DeleteObject(ctx, pObj, "it is not needed anymore")
 	} else if sync {
 		// create the persistent volume
 		vObj := s.translateBackwards(pPersistentVolume, vPvc)
