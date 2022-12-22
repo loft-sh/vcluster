@@ -21,7 +21,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/controllers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
@@ -204,9 +203,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		options.ServiceName = translate.Suffix
 	}
 
-	// set kubelet port
-	nodeservice.KubeletTargetPort = options.Port
-
+	// is multi namespace mode?
 	if options.MultiNamespaceMode {
 		// set options.TargetNamespace to empty because it will later be used in Manager
 		options.TargetNamespace = ""

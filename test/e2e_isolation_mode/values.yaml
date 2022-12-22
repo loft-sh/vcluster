@@ -2,4 +2,4 @@ isolation:
   enabled: true
   resourceQuota:
     quota:
-      services.nodeports: 2
+      services.nodeports: 3

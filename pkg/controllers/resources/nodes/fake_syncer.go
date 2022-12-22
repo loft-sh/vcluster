@@ -3,14 +3,15 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/api/equality"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,14 +26,14 @@ var (
 	FakeNodesVersion = "v1.19.1"
 )
 
-func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
+func NewFakeSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &fakeNodeSyncer{
-		nodeServiceProvider: nodeService,
+		currentNamespace: ctx.CurrentNamespace,
 	}, nil
 }
 
 type fakeNodeSyncer struct {
-	nodeServiceProvider nodeservice.NodeServiceProvider
+	currentNamespace string
 }
 
 func (r *fakeNodeSyncer) Resource() client.Object {
@@ -52,7 +53,7 @@ func (r *fakeNodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error
 var _ syncer.ControllerModifier = &fakeNodeSyncer{}
 
 func (r *fakeNodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return modifyController(ctx, r.nodeServiceProvider, builder)
+	return modifyController(ctx, builder)
 }
 
 var _ syncer.FakeSyncer = &fakeNodeSyncer{}
@@ -66,7 +67,7 @@ func (r *fakeNodeSyncer) FakeSyncUp(ctx *synccontext.SyncContext, name types.Nam
 	}
 
 	ctx.Log.Infof("Create fake node %s", name.Name)
-	return ctrl.Result{}, CreateFakeNode(ctx.Context, r.nodeServiceProvider, ctx.VirtualClient, name)
+	return ctrl.Result{}, CreateFakeNode(ctx.Context, r.currentNamespace, ctx.VirtualClient, name)
 }
 
 func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -78,12 +79,39 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 	needed, err := r.nodeNeeded(ctx, node.Name)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if needed {
-		return ctrl.Result{}, nil
+	} else if !needed {
+		ctx.Log.Infof("Delete fake node %s as it is not needed anymore", vObj.GetName())
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 	}
 
-	ctx.Log.Infof("Delete fake node %s as it is not needed anymore", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+	// check if we need to update node ips
+	updated := r.updateNeeded(node)
+	if updated != nil {
+		ctx.Log.Infof("Update fake node %s", node.Name)
+		err := ctx.VirtualClient.Status().Update(ctx.Context, updated)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "update node")
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *fakeNodeSyncer) updateNeeded(node *corev1.Node) *corev1.Node {
+	var updated *corev1.Node
+
+	newAddresses := []corev1.NodeAddress{
+		{
+			Address: getNodeHost(node.Name, r.currentNamespace),
+			Type:    corev1.NodeHostName,
+		},
+	}
+	if !equality.Semantic.DeepEqual(node.Status.Addresses, newAddresses) {
+		updated = newIfNil(updated, node)
+		updated.Status.Addresses = newAddresses
+	}
+
+	return updated
 }
 
 func (r *fakeNodeSyncer) nodeNeeded(ctx *synccontext.SyncContext, nodeName string) (bool, error) {
@@ -95,10 +123,7 @@ func newGUID() string {
 	return random.RandomString(8) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(12)
 }
 
-func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeServiceProvider, virtualClient client.Client, name types.NamespacedName) error {
-	nodeServiceProvider.Lock()
-	defer nodeServiceProvider.Unlock()
-
+func CreateFakeNode(ctx context.Context, currentNamespace string, virtualClient client.Client, name types.NamespacedName) error {
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name.Name,
@@ -120,11 +145,6 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeSer
 	err := virtualClient.Create(ctx, node)
 	if err != nil {
 		return err
-	}
-
-	nodeIP, err := nodeServiceProvider.GetNodeIP(ctx, name)
-	if err != nil {
-		return errors.Wrap(err, "create fake node ip")
 	}
 
 	orig := node.DeepCopy()
@@ -181,13 +201,13 @@ func CreateFakeNode(ctx context.Context, nodeServiceProvider nodeservice.NodeSer
 		},
 		Addresses: []corev1.NodeAddress{
 			{
-				Address: nodeIP,
-				Type:    corev1.NodeInternalIP,
+				Address: getNodeHost(node.Name, currentNamespace),
+				Type:    corev1.NodeHostName,
 			},
 		},
 		DaemonEndpoints: corev1.NodeDaemonEndpoints{
 			KubeletEndpoint: corev1.DaemonEndpoint{
-				Port: nodeservice.KubeletPort,
+				Port: constants.KubeletPort,
 			},
 		},
 		NodeInfo: corev1.NodeSystemInfo{
@@ -254,4 +274,8 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 		}
 	}
 	return podsNoDaemonSets
+}
+
+func getNodeHost(nodeName, currentNamespace string) string {
+	return nodeName + "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
 }

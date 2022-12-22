@@ -5,7 +5,6 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -30,7 +29,7 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 	assert.NilError(t, err)
 
 	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-		return NewSyncer(ctx, &fakeNodeServiceProvider{})
+		return NewSyncer(ctx)
 	})
 	return syncContext, object.(*nodeSyncer)
 }
@@ -66,13 +65,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 		},
@@ -92,13 +91,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
@@ -197,13 +196,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
@@ -222,13 +221,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
@@ -321,13 +320,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 		},
@@ -342,13 +341,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
@@ -459,13 +458,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 		},
@@ -480,13 +479,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
@@ -524,13 +523,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{

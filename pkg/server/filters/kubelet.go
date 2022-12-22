@@ -28,6 +28,7 @@ func WithFakeKubelet(h http.Handler, localConfig *rest.Config, cachedVirtualClie
 				responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 				return
 			}
+
 			return
 		}
 

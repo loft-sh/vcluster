@@ -6,7 +6,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -29,7 +28,7 @@ var (
 	indexPodByRunningNonVClusterNode = "indexpodbyrunningnonvclusternode"
 )
 
-func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	var err error
 	var nodeSelector labels.Selector
 	if ctx.Options.SyncAllNodes {
@@ -56,7 +55,6 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 		enableScheduler: ctx.Options.EnableScheduler,
 
 		enforceNodeSelector: ctx.Options.EnforceNodeSelector,
-		nodeServiceProvider: nodeService,
 		nodeSelector:        nodeSelector,
 		clearImages:         ctx.Options.ClearNodeImages,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
@@ -64,6 +62,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 		physicalClient:      ctx.PhysicalManager.GetClient(),
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		enforcedTolerations: tolerations,
+
+		currentNamespace: ctx.CurrentNamespace,
 	}, nil
 }
 
@@ -80,8 +80,8 @@ type nodeSyncer struct {
 	virtualClient  client.Client
 
 	podCache            client.Reader
-	nodeServiceProvider nodeservice.NodeServiceProvider
 	enforcedTolerations []*corev1.Toleration
+	currentNamespace    string
 }
 
 func (s *nodeSyncer) Resource() client.Object {
@@ -131,15 +131,10 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder 
 		podCache.WaitForCacheSync(ctx.Context)
 		s.podCache = podCache
 	}
-	return modifyController(ctx, s.nodeServiceProvider, builder)
+	return modifyController(ctx, builder)
 }
 
-func modifyController(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider, builder *builder.Builder) (*builder.Builder, error) {
-	// start the node service provider
-	go func() {
-		nodeService.Start(ctx.Context)
-	}()
-
+func modifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(source.NewKindWithCache(&corev1.Pod{}, ctx.PhysicalManager.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 		pod, ok := object.(*corev1.Pod)
 		if !ok || pod == nil || !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
@@ -232,7 +227,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 	}
 
-	updatedVNode, err := s.translateUpdateStatus(ctx, pNode, vNode)
+	updatedVNode, err := s.translateUpdateStatus(pNode, vNode)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "update node status")
 	} else if updatedVNode != nil {

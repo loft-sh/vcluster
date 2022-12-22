@@ -36,6 +36,9 @@ var _ = ginkgo.Describe("map default/kubernetes endpoint to physical vcluster en
 		}
 
 		for _, port := range hostClusterEndpoint.Subsets[0].Ports {
+			if port.Name == "kubelet" {
+				continue
+			}
 			hostClusterPorts = append(hostClusterPorts, port.Port)
 		}
 
