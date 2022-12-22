@@ -3,6 +3,7 @@ package generic
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/log"
@@ -89,10 +90,9 @@ func createExporter(ctx *synccontext.RegisterContext, config *config.Export) (sy
 			statusIsSubresource: statusIsSubresource,
 			log:                 log.New(config.Kind + "-exporter"),
 		},
-		gvk:             schema.FromAPIVersionAndKind(config.APIVersion, config.Kind),
-		config:          config,
-		selector:        selector,
-		targetNamespace: ctx.TargetNamespace,
+		gvk:      schema.FromAPIVersionAndKind(config.APIVersion, config.Kind),
+		config:   config,
+		selector: selector,
 	}, nil
 }
 
@@ -104,8 +104,7 @@ type exporter struct {
 
 	config *config.Export
 
-	selector        labels.Selector
-	targetNamespace string
+	selector labels.Selector
 }
 
 func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -118,7 +117,7 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	ctx.Log.Infof("Create physical %s %s/%s, since it is missing, but virtual object exists", f.config.Kind, vObj.GetNamespace(), vObj.GetName())
 	_, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return f.TranslateMetadata(vObj), nil
-	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: f.targetNamespace})
+	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
@@ -166,7 +165,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	// apply patches
 	_, err := f.patcher.ApplyPatches(ctx.Context, vObj, pObj, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return f.TranslateMetadata(vObj), nil
-	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: f.targetNamespace})
+	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
 		if kerrors.IsInvalid(err) {
 			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch physical %s %s/%s: %v", f.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
@@ -198,7 +197,7 @@ func (f *exporter) getControllerID() string {
 		return f.config.ID
 	}
 	// return plugin.GetPluginName()
-	return fmt.Sprintf("%s/%s", f.config.APIVersion, f.config.Kind)
+	return strings.Join(append(strings.Split(f.config.APIVersion, "/"), f.config.Kind), "-")
 }
 
 // TranslateMetadata converts the virtual object into a physical object
@@ -245,6 +244,8 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 			if ns == "" {
 				ns = namespace
 			}
+
+			translate.Default.PhysicalNamespace(namespace)
 			return types.NamespacedName{Namespace: r.targetNamespace, Name: translate.Default.PhysicalName(name, ns)}
 		}), nil
 	} else {
@@ -257,13 +258,13 @@ func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *
 	if selector != nil {
 		s = &metav1.LabelSelector{MatchLabels: map[string]string{}}
 		for k, v := range selector.MatchLabels {
-			s.MatchLabels[translator.ConvertLabelKey(k)] = v
+			s.MatchLabels[k] = v
 		}
 		if len(selector.MatchExpressions) > 0 {
 			s.MatchExpressions = []metav1.LabelSelectorRequirement{}
 			for i, r := range selector.MatchExpressions {
 				s.MatchExpressions[i] = metav1.LabelSelectorRequirement{
-					Key:      translator.ConvertLabelKey(r.Key),
+					Key:      r.Key,
 					Operator: r.Operator,
 					Values:   r.Values,
 				}
@@ -276,14 +277,14 @@ func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
-	return translator.ConvertLabelKey(key), nil
+	return key, nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
 	s := map[string]string{}
 	if selector != nil {
 		for k, v := range selector {
-			s[translator.ConvertLabelKey(k)] = v
+			s[k] = v
 		}
 		s[translate.NamespaceLabel] = r.namespace
 		s[translate.MarkerLabel] = translate.Suffix

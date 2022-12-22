@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	yaml "gopkg.in/yaml.v3"
@@ -503,7 +502,7 @@ func (r *fakeVirtualToHostNameResolver) TranslateNameWithNamespace(name string, 
 }
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
-	return translator.ConvertLabelKey(key), nil
+	return key, nil
 }
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
