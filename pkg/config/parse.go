@@ -66,7 +66,7 @@ func validatePatch(patch *Patch) error {
 		}
 
 		return nil
-	case PatchTypeRewriteName, PatchTypeRewriteLabelKey, PatchTypeRewriteLabelSelector, PatchTypeRewriteLabelExpressionsSelector:
+	case PatchTypeRewriteName, PatchTypeRewriteLabelSelector:
 		return nil
 	case PatchTypeCopyFromObject:
 		if patch.FromPath == "" {

@@ -368,34 +368,34 @@ test2: {}`,
         - ns: xyz`,
 			expectedErr: errors.New("found multiple namespace references"),
 		},
-		{
-			name: "rewrite label key",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteLabelKey,
-				Path:      "test.label",
-			},
-			nameResolver: &fakeVirtualToHostNameResolver{},
-			obj1: `test:
-    label: myLabel`,
-			expected: `test:
-    label: vcluster.loft.sh/label-suffix-x-cb4e76426f`,
-		},
-		{
-			name: "rewrite label key - many",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteLabelKey,
-				Path:      "test.labels[*]",
-			},
-			nameResolver: &fakeVirtualToHostNameResolver{},
-			obj1: `test:
-    labels: 
-      - myLabel
-      - myLabel2`,
-			expected: `test:
-    labels:
-        - vcluster.loft.sh/label-suffix-x-cb4e76426f
-        - vcluster.loft.sh/label-suffix-x-bae4a2c2e5`,
-		},
+		// 	{
+		// 		name: "rewrite label key",
+		// 		patch: &config.Patch{
+		// 			Operation: config.PatchTypeRewriteLabelKey,
+		// 			Path:      "test.label",
+		// 		},
+		// 		nameResolver: &fakeVirtualToHostNameResolver{},
+		// 		obj1: `test:
+		// label: myLabel`,
+		// 		expected: `test:
+		// label: vcluster.loft.sh/label-suffix-x-cb4e76426f`,
+		// 	},
+		// 	{
+		// 		name: "rewrite label key - many",
+		// 		patch: &config.Patch{
+		// 			Operation: config.PatchTypeRewriteLabelKey,
+		// 			Path:      "test.labels[*]",
+		// 		},
+		// 		nameResolver: &fakeVirtualToHostNameResolver{},
+		// 		obj1: `test:
+		// labels:
+		//   - myLabel
+		//   - myLabel2`,
+		// 		expected: `test:
+		// labels:
+		//     - vcluster.loft.sh/label-suffix-x-cb4e76426f
+		//     - vcluster.loft.sh/label-suffix-x-bae4a2c2e5`,
+		// 	},
 		{
 			name: "rewrite name should not panic when match is not scalar",
 			patch: &config.Patch{
