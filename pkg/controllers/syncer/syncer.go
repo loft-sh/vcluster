@@ -165,11 +165,9 @@ func (r *syncerController) enqueuePhysical(obj client.Object, q workqueue.RateLi
 }
 
 func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
-	maxConcurrentReconciles := 1
-
 	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
 		WithOptions(controller2.Options{
-			MaxConcurrentReconciles: maxConcurrentReconciles,
+			MaxConcurrentReconciles: 10,
 		}).
 		Named(r.syncer.Name()).
 		Watches(source.NewKindWithCache(r.syncer.Resource(), ctx.PhysicalManager.GetCache()), r).

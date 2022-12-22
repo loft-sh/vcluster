@@ -81,10 +81,9 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 func (r *fakeSyncer) Register(ctx *synccontext.RegisterContext) error {
-	maxConcurrentReconciles := 1
 	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
 		WithOptions(controller2.Options{
-			MaxConcurrentReconciles: maxConcurrentReconciles,
+			MaxConcurrentReconciles: 10,
 		}).
 		Named(r.syncer.Name()).
 		For(r.syncer.Resource())
