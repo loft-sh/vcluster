@@ -189,7 +189,7 @@ func (f *exporter) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	}
 
 	// delete physical object because virtual one is missing
-	return syncer.DeleteObject(ctx, pObj)
+	return syncer.DeleteObject(ctx, pObj, fmt.Sprintf("delete physical %s because virtual is missing", pObj.GetName()))
 }
 
 func (f *exporter) getControllerID() string {
