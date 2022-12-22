@@ -2,8 +2,6 @@ package coredns
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/test/framework"
@@ -51,7 +49,6 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// sleep to reduce the rate of pod/exec calls made when checking if service is reacheable
-		time.Sleep(time.Second * 10)
 		framework.DefaultFramework.TestServiceIsEventuallyReachable(curlPod, service)
 	})
 
@@ -66,8 +63,8 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 					break
 				}
 			}
+
 			// sleep to reduce the rate of pod/exec calls
-			time.Sleep(time.Second * 10)
 			url := fmt.Sprintf("https://%s:%d/healthz", hostname, node.Status.DaemonEndpoints.KubeletEndpoint.Port)
 			cmd := []string{"curl", "-k", "-s", "--show-error", url}
 			stdoutBuffer, stderrBuffer, err := podhelper.ExecBuffered(f.VclusterConfig, ns, curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)

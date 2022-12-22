@@ -1,6 +1,7 @@
 package csistoragecapacities
 
 import (
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
@@ -29,8 +30,9 @@ func TestSyncHostStorageClass(t *testing.T) {
 		Name:      "test-csistoragecapacity-x-test",
 		Namespace: "kube-system",
 		Annotations: map[string]string{
-			"vcluster.loft.sh/object-name":      "test-csistoragecapacity",
-			"vcluster.loft.sh/object-namespace": "test",
+			translate.NameAnnotation:      "test-csistoragecapacity",
+			translate.NamespaceAnnotation: "test",
+			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
 			"vcluster.loft.sh/namespace": "test",
@@ -143,7 +145,6 @@ func TestSyncHostStorageClass(t *testing.T) {
 }
 
 func TestSyncStorageClass(t *testing.T) {
-
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      "test-csistoragecapacity",
 		Namespace: "test",
@@ -152,8 +153,9 @@ func TestSyncStorageClass(t *testing.T) {
 		Name:      "test-csistoragecapacity-x-test",
 		Namespace: "kube-system",
 		Annotations: map[string]string{
-			"vcluster.loft.sh/object-name":      "test-csistoragecapacity",
-			"vcluster.loft.sh/object-namespace": "test",
+			translate.NameAnnotation:      "test-csistoragecapacity",
+			translate.NamespaceAnnotation: "test",
+			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
 			"vcluster.loft.sh/namespace": "test",

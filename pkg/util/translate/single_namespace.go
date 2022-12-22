@@ -162,7 +162,7 @@ func (s *singleNamespace) ApplyMetadataUpdate(vObj client.Object, pObj client.Ob
 }
 
 func (s *singleNamespace) ApplyAnnotations(src client.Object, to client.Object, excluded []string) map[string]string {
-	excluded = append(excluded, NameAnnotation, NamespaceAnnotation)
+	excluded = append(excluded, NameAnnotation, UIDAnnotation, NamespaceAnnotation)
 	toAnnotations := map[string]string{}
 	if to != nil {
 		toAnnotations = to.GetAnnotations()
@@ -170,6 +170,7 @@ func (s *singleNamespace) ApplyAnnotations(src client.Object, to client.Object, 
 
 	retMap := applyAnnotations(src.GetAnnotations(), toAnnotations, excluded...)
 	retMap[NameAnnotation] = src.GetName()
+	retMap[UIDAnnotation] = string(src.GetUID())
 	if src.GetNamespace() == "" {
 		delete(retMap, NamespaceAnnotation)
 	} else {

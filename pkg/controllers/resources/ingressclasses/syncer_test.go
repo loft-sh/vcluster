@@ -19,6 +19,7 @@ func TestSync(t *testing.T) {
 		Name: "test-ingc",
 		Annotations: map[string]string{
 			translate.NameAnnotation: "test-ingc",
+			translate.UIDAnnotation:  "",
 		},
 	}
 
@@ -37,6 +38,7 @@ func TestSync(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				translate.NameAnnotation: "test-ingc",
+				translate.UIDAnnotation:  "",
 			},
 		},
 		Spec: v1.IngressClassSpec{
@@ -64,6 +66,7 @@ func TestSync(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				translate.NameAnnotation: "test-ingc",
+				translate.UIDAnnotation:  "",
 			},
 		},
 		Spec: v1.IngressClassSpec{

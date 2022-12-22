@@ -185,6 +185,7 @@ func (s *multiNamespace) ApplyAnnotations(src client.Object, to client.Object, e
 
 	retMap := applyAnnotations(src.GetAnnotations(), toAnnotations, excluded...)
 	retMap[NameAnnotation] = src.GetName()
+	retMap[UIDAnnotation] = string(src.GetUID())
 	if src.GetNamespace() == "" {
 		delete(retMap, NamespaceAnnotation)
 	} else {

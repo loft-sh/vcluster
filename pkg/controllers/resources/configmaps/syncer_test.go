@@ -32,6 +32,7 @@ func TestSync(t *testing.T) {
 			Annotations: map[string]string{
 				translate.NameAnnotation:      baseConfigMap.Name,
 				translate.NamespaceAnnotation: baseConfigMap.Namespace,
+				translate.UIDAnnotation:       "",
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseConfigMap.Namespace,
