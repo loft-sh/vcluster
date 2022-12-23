@@ -8,5 +8,4 @@ const (
 	IndexByIngressSecret = "IndexByIngressSecret"
 	IndexByPodSecret     = "IndexByPodSecret"
 	IndexByConfigMap     = "IndexByConfigMap"
-	IndexByClusterIP     = "IndexByClusterIP"
 )

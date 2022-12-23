@@ -16,7 +16,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
@@ -55,8 +54,7 @@ import (
 type Server struct {
 	uncachedVirtualClient client.Client
 
-	currentNamespace       string
-	currentNamespaceClient client.Client
+	currentNamespace string
 
 	certSyncer cert.Syncer
 	handler    *http.ServeMux
@@ -86,16 +84,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		return nil, err
 	}
 
-	cachedLocalClient, err := createCachedClient(ctx.Context, localConfig, ctx.CurrentNamespace, uncachedLocalClient.RESTMapper(), uncachedLocalClient.Scheme(), func(cache cache.Cache) error {
-		return cache.IndexField(ctx.Context, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
-			svc := object.(*corev1.Service)
-			if len(svc.Labels) == 0 || svc.Labels[nodeservice.ServiceClusterLabel] != translate.Suffix {
-				return nil
-			}
-
-			return []string{svc.Spec.ClusterIP}
-		})
-	})
+	cachedLocalClient, err := createCachedClient(ctx.Context, localConfig, ctx.CurrentNamespace, uncachedLocalClient.RESTMapper(), uncachedLocalClient.Scheme(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +120,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		certSyncer:            certSyncer,
 		handler:               http.NewServeMux(),
 
-		currentNamespace:       ctx.CurrentNamespace,
-		currentNamespaceClient: cachedLocalClient,
+		currentNamespace: ctx.CurrentNamespace,
 
 		requestHeaderCaFile: requestHeaderCaFile,
 		clientCaFile:        clientCaFile,
@@ -264,9 +252,11 @@ func createCachedClient(ctx context.Context, config *rest.Config, namespace stri
 	}
 
 	// register indices
-	err = registerIndices(clientCache)
-	if err != nil {
-		return nil, err
+	if registerIndices != nil {
+		err = registerIndices(clientCache)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// start cache
@@ -292,7 +282,7 @@ func createCachedClient(ctx context.Context, config *rest.Config, namespace stri
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
-	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.currentNamespaceClient)
+	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace)
 	return defaultHandler
 }
 

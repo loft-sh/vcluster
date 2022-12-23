@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/metrics"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -55,7 +54,7 @@ func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualCli
 				}
 
 				// delete port if it is the default one
-				if port == strconv.Itoa(int(nodeservice.KubeletPort)) {
+				if port == strconv.Itoa(int(constants.KubeletPort)) {
 					if len(splittedName) == 2 {
 						targetNode = splittedName[0]
 					} else {

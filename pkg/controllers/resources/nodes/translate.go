@@ -3,18 +3,15 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 )
 
@@ -121,28 +118,21 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	return updated
 }
 
-func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
+func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
 	if s.useFakeKubelets {
-		s.nodeServiceProvider.Lock()
-		defer s.nodeServiceProvider.Unlock()
 		translatedStatus.DaemonEndpoints = corev1.NodeDaemonEndpoints{
 			KubeletEndpoint: corev1.DaemonEndpoint{
-				Port: nodeservice.KubeletPort,
+				Port: constants.KubeletPort,
 			},
 		}
 
 		// translate addresses
-		// create a new service for this node
-		nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, types.NamespacedName{Name: vNode.Name})
-		if err != nil {
-			return nil, errors.Wrap(err, "get vNode IP")
-		}
 		newAddresses := []corev1.NodeAddress{
 			{
-				Address: nodeIP,
-				Type:    corev1.NodeInternalIP,
+				Address: getNodeHost(vNode.Name, s.currentNamespace),
+				Type:    corev1.NodeHostName,
 			},
 		}
 		for _, oldAddress := range translatedStatus.Addresses {
@@ -157,7 +147,6 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 
 	// if scheduler is enabled we allow custom capacity and allocatable
 	if s.enableScheduler {
-
 		// calculate what's really allocatable
 		if translatedStatus.Allocatable != nil {
 			cpu := translatedStatus.Allocatable.Cpu().MilliValue()

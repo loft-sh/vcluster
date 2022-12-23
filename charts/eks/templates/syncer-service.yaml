@@ -15,6 +15,10 @@ spec:
       port: 443
       targetPort: 8443
       protocol: TCP
+    - name: kubelet
+      port: 10250
+      targetPort: 8443
+      protocol: TCP
   {{- if .Values.service.externalIPs }}
   externalIPs:
     {{- range $f := .Values.service.externalIPs }}

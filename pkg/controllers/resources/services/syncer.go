@@ -230,6 +230,10 @@ func SyncKubernetesService(ctx context.Context, virtualClient client.Client, loc
 func translateKubernetesServicePorts(ports []corev1.ServicePort) []corev1.ServicePort {
 	retPorts := []corev1.ServicePort{}
 	for _, p := range ports {
+		if p.Name == "kubelet" {
+			continue
+		}
+
 		// Delete the NodePort
 		retPorts = append(retPorts, corev1.ServicePort{
 			Name:        p.Name,
