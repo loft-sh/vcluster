@@ -240,6 +240,10 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		translatedStatus.Images = make([]corev1.ContainerImage, 0)
 	}
 
+	for _, nodeLabel := range s.nodeLabelsExclude {
+		delete(vNode.Labels, nodeLabel)
+	}
+
 	// check if the status has changed
 	if !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus) {
 		newNode := vNode.DeepCopy()

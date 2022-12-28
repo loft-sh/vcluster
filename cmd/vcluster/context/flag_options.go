@@ -40,10 +40,10 @@ type VirtualClusterOptions struct {
 	DisableFakeKubelets bool     `json:"disableFakeKubelets,omitempty"`
 	ClearNodeImages     bool     `json:"clearNodeImages,omitempty"`
 	TranslateImages     []string `json:"translateImages,omitempty"`
-
-	NodeSelector        string `json:"nodeSelector,omitempty"`
-	EnforceNodeSelector bool   `json:"enforceNodeSelector,omitempty"`
-	ServiceAccount      string `json:"serviceAccount,omitempty"`
+	NodeLabelsExclude   []string `json:"nodeLabelsExclude,omitempty"`
+	NodeSelector        string   `json:"nodeSelector,omitempty"`
+	EnforceNodeSelector bool     `json:"enforceNodeSelector,omitempty"`
+	ServiceAccount      string   `json:"serviceAccount,omitempty"`
 
 	OverrideHosts               bool   `json:"overrideHosts,omitempty"`
 	OverrideHostsContainerImage string `json:"overrideHostsContainerImage,omitempty"`
@@ -124,7 +124,7 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.StringSliceVar(&options.Tolerations, "enforce-toleration", []string{}, "If set will apply the provided tolerations to all pods in the vcluster")
 	flags.StringVar(&options.NodeSelector, "node-selector", "", "If nodes sync is enabled, nodes with the given node selector will be synced to the virtual cluster. If fake nodes are used, and --enforce-node-selector flag is set, then vcluster will ensure that no pods are scheduled outside of the node selector.")
 	flags.StringVar(&options.ServiceAccount, "service-account", "", "If set, will set this host service account on the synced pods")
-
+	flags.StringSliceVar(&options.NodeLabelsExclude, "node-labels-exclude", []string{}, "Excludes this list of labels from nodes being synced from the host cluster to virtual cluster, only used when nodes sync is enabled.")
 	flags.BoolVar(&options.OverrideHosts, "override-hosts", true, "If enabled, vcluster will override a containers /etc/hosts file if there is a subdomain specified for the pod (spec.subdomain).")
 	flags.StringVar(&options.OverrideHostsContainerImage, "override-hosts-container-image", DefaultHostsRewriteImage, "The image for the init container that is used for creating the override hosts file.")
 

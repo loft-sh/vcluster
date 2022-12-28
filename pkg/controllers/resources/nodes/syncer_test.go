@@ -560,4 +560,95 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+
+	baseName = types.NamespacedName{
+		Name: "mynode",
+	}
+
+	baseNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test":                   "true",
+				"excluded.kubernetes.io": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+			Images: []corev1.ContainerImage{
+				{
+					Names: []string{"ghcr.io/jetpack/calico"},
+				},
+			},
+		},
+	}
+	baseVNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: nodeservice.KubeletPort,
+				},
+			},
+		},
+	}
+	editedNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: "127.0.0.1",
+					Type:    corev1.NodeInternalIP,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: nodeservice.KubeletPort,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+			Images: []corev1.ContainerImage{},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Clear Node Label -- Should not have excluded.kubernetes.io label",
+			InitialPhysicalState: []runtime.Object{baseNode},
+			InitialVirtualState:  []runtime.Object{baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.SyncAllNodes = true
+				ctx.Options.ClearNodeImages = true
+				ctx.Options.NodeLabelsExclude = []string{"excluded.kubernetes.io"}
+				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
+				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+	})
 }

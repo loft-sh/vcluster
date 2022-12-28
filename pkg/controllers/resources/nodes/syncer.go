@@ -59,6 +59,7 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 		nodeServiceProvider: nodeService,
 		nodeSelector:        nodeSelector,
 		clearImages:         ctx.Options.ClearNodeImages,
+		nodeLabelsExclude:   ctx.Options.NodeLabelsExclude,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 
 		physicalClient:      ctx.PhysicalManager.GetClient(),
@@ -75,9 +76,9 @@ type nodeSyncer struct {
 	enforceNodeSelector bool
 	nodeSelector        labels.Selector
 	useFakeKubelets     bool
-
-	physicalClient client.Client
-	virtualClient  client.Client
+	nodeLabelsExclude   []string
+	physicalClient      client.Client
+	virtualClient       client.Client
 
 	podCache            client.Reader
 	nodeServiceProvider nodeservice.NodeServiceProvider
