@@ -3,9 +3,11 @@ package nodes
 import (
 	"context"
 	"encoding/json"
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
@@ -95,7 +97,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Spec, *translatedSpec) {
-		updated = newIfNil(updated, vNode)
+		updated = translator.NewIfNil(updated, vNode)
 		updated.Spec = *translatedSpec
 	}
 
@@ -106,12 +108,12 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Annotations, annotations) {
-		updated = newIfNil(updated, vNode)
+		updated = translator.NewIfNil(updated, vNode)
 		updated.Annotations = annotations
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Labels, labels) {
-		updated = newIfNil(updated, vNode)
+		updated = translator.NewIfNil(updated, vNode)
 		updated.Labels = labels
 	}
 
@@ -237,13 +239,6 @@ func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Nod
 	}
 
 	return nil, nil
-}
-
-func newIfNil(updated *corev1.Node, pObj *corev1.Node) *corev1.Node {
-	if updated == nil {
-		return pObj.DeepCopy()
-	}
-	return updated
 }
 
 func mergeStrings(physical []string, virtual []string, oldPhysical []string) []string {

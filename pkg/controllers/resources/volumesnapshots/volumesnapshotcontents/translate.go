@@ -2,6 +2,7 @@ package volumesnapshotcontents
 
 import (
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -45,7 +46,7 @@ func (s *volumeSnapshotContentSyncer) translateUpdateBackwards(pVSC, vVSC *volum
 	controllerutil.AddFinalizer(pCopy, PhysicalVSCGarbageCollectionFinalizer)
 
 	if !equality.Semantic.DeepEqual(vVSC.Finalizers, pCopy.Finalizers) {
-		updated = newIfNil(updated, vVSC)
+		updated = translator.NewIfNil(updated, vVSC)
 		updated.Finalizers = pCopy.Finalizers
 	}
 
@@ -60,18 +61,18 @@ func (s *volumeSnapshotContentSyncer) translateUpdate(vVSC *volumesnapshotv1.Vol
 	var updated *volumesnapshotv1.VolumeSnapshotContent
 
 	if !equality.Semantic.DeepEqual(pVSC.Spec.DeletionPolicy, vVSC.Spec.DeletionPolicy) {
-		updated = newIfNil(updated, pVSC)
+		updated = translator.NewIfNil(updated, pVSC)
 		updated.Spec.DeletionPolicy = vVSC.Spec.DeletionPolicy
 	}
 
 	if !equality.Semantic.DeepEqual(pVSC.Spec.VolumeSnapshotClassName, vVSC.Spec.VolumeSnapshotClassName) {
-		updated = newIfNil(updated, pVSC)
+		updated = translator.NewIfNil(updated, pVSC)
 		updated.Spec.VolumeSnapshotClassName = vVSC.Spec.VolumeSnapshotClassName
 	}
 
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vVSC, pVSC)
 	if changed {
-		updated = newIfNil(updated, pVSC)
+		updated = translator.NewIfNil(updated, pVSC)
 		updated.Annotations = updatedAnnotations
 		updated.Labels = updatedLabels
 	}
@@ -86,11 +87,4 @@ func translateVolumeSnapshotRefBackwards(ref *corev1.ObjectReference, vVS *volum
 	newRef.UID = vVS.UID
 	newRef.ResourceVersion = vVS.ResourceVersion
 	return *newRef
-}
-
-func newIfNil(updated *volumesnapshotv1.VolumeSnapshotContent, objBase *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
-	if updated == nil {
-		return objBase.DeepCopy()
-	}
-	return updated
 }

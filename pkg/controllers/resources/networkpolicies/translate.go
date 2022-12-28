@@ -2,6 +2,7 @@ package networkpolicies
 
 import (
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -18,13 +19,13 @@ func (s *networkPolicySyncer) translateUpdate(pObj, vObj *networkingv1.NetworkPo
 
 	translatedSpec := *translateSpec(&vObj.Spec, vObj.GetNamespace())
 	if !equality.Semantic.DeepEqual(translatedSpec, pObj.Spec) {
-		updated = newIfNil(updated, pObj)
+		updated = translator.NewIfNil(updated, pObj)
 		updated.Spec = translatedSpec
 	}
 
 	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
 	if changed {
-		updated = newIfNil(updated, pObj)
+		updated = translator.NewIfNil(updated, pObj)
 		updated.Labels = translatedLabels
 		updated.Annotations = translatedAnnotations
 	}
@@ -103,11 +104,4 @@ func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespa
 		out = append(out, newPeer)
 	}
 	return out
-}
-
-func newIfNil(updated *networkingv1.NetworkPolicy, pObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
-	if updated == nil {
-		return pObj.DeepCopy()
-	}
-	return updated
 }
