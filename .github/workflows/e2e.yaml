@@ -159,7 +159,7 @@ jobs:
       continue-on-error: true
     
     - name: Collect deployment information in case vcluster fails to start
-      if: steps.wait-until-vcluster-is-ready.outcome == 'failure'
+      if: steps.wait-until-vcluster-is-ready.outcome != 'success'
       run: |
         set -x 
         kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
