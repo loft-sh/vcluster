@@ -28,9 +28,10 @@ subjects:
 roleRef:
 {{- if .Values.multiNamespaceMode.enabled }}
   kind: ClusterRole
+  name: {{ template "vcluster.clusterRoleName" . }}
 {{- else }}
   kind: Role
-{{- end }}
   name: {{ .Release.Name }}
+{{- end }}
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
