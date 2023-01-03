@@ -1,6 +1,7 @@
 package serviceaccounts
 
 import (
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -25,17 +26,10 @@ func (s *serviceAccountSyncer) translateUpdate(pObj, vObj *corev1.ServiceAccount
 	// check annotations & labels
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
 	if changed {
-		updated = newIfNil(updated, pObj)
+		updated = translator.NewIfNil(updated, pObj)
 		updated.Labels = updatedLabels
 		updated.Annotations = updatedAnnotations
 	}
 
-	return updated
-}
-
-func newIfNil(updated *corev1.ServiceAccount, pObj *corev1.ServiceAccount) *corev1.ServiceAccount {
-	if updated == nil {
-		return pObj.DeepCopy()
-	}
 	return updated
 }

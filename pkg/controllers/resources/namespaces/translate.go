@@ -1,6 +1,7 @@
 package namespaces
 
 import (
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -14,17 +15,10 @@ func (s *namespaceSyncer) translateUpdate(pObj, vObj *corev1.Namespace) *corev1.
 	var updated *corev1.Namespace
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
 	if changed {
-		updated = newIfNil(updated, pObj)
+		updated = translator.NewIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations
 		updated.Labels = updatedLabels
 	}
 
-	return updated
-}
-
-func newIfNil(updated *corev1.Namespace, obj *corev1.Namespace) *corev1.Namespace {
-	if updated == nil {
-		return obj.DeepCopy()
-	}
 	return updated
 }

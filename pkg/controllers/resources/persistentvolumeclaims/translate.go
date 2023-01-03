@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -97,7 +98,7 @@ func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.Persist
 
 	// allow storage size to be increased
 	if pObj.Spec.Resources.Requests["storage"] != vObj.Spec.Resources.Requests["storage"] {
-		updated = newIfNil(updated, pObj)
+		updated = translator.NewIfNil(updated, pObj)
 		if updated.Spec.Resources.Requests == nil {
 			updated.Spec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
 		}
@@ -106,7 +107,7 @@ func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.Persist
 
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
 	if changed {
-		updated = newIfNil(updated, pObj)
+		updated = translator.NewIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations
 		updated.Labels = updatedLabels
 	}
@@ -119,7 +120,7 @@ func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev
 
 	// check for metadata annotations
 	if translateUpdateNeeded(pObj.Annotations, vObj.Annotations) {
-		updated = newIfNil(updated, vObj)
+		updated = translator.NewIfNil(updated, vObj)
 		if updated.Annotations == nil {
 			updated.Annotations = map[string]string{}
 		}
@@ -149,11 +150,4 @@ func translateUpdateNeeded(pAnnotations, vAnnotations map[string]string) bool {
 	return vAnnotations[bindCompletedAnnotation] != pAnnotations[bindCompletedAnnotation] ||
 		vAnnotations[boundByControllerAnnotation] != pAnnotations[boundByControllerAnnotation] ||
 		vAnnotations[storageProvisionerAnnotation] != pAnnotations[storageProvisionerAnnotation]
-}
-
-func newIfNil(updated *corev1.PersistentVolumeClaim, pObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
-	if updated == nil {
-		return pObj.DeepCopy()
-	}
-	return updated
 }

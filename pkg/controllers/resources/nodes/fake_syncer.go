@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -10,6 +11,7 @@ import (
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -107,7 +109,7 @@ func (r *fakeNodeSyncer) updateNeeded(node *corev1.Node) *corev1.Node {
 		},
 	}
 	if !equality.Semantic.DeepEqual(node.Status.Addresses, newAddresses) {
-		updated = newIfNil(updated, node)
+		updated = translator.NewIfNil(updated, node)
 		updated.Status.Addresses = newAddresses
 	}
 

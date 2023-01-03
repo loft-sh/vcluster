@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -86,38 +87,31 @@ func (s *csistoragecapacitySyncer) translateUpdateBackwards(ctx *synccontext.Syn
 
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
 	if changed {
-		updated = newIfNil(updated, vObj)
+		updated = translator.NewIfNil(updated, vObj)
 		updated.Labels = updatedLabels
 		updated.Annotations = updatedAnnotations
 	}
 
 	if scName != vObj.StorageClassName {
-		updated = newIfNil(updated, vObj)
+		updated = translator.NewIfNil(updated, vObj)
 		updated.StorageClassName = scName
 
 	}
 
 	if !equality.Semantic.DeepEqual(vObj.NodeTopology, pObj.NodeTopology) {
-		updated = newIfNil(updated, vObj)
+		updated = translator.NewIfNil(updated, vObj)
 		updated.NodeTopology = pObj.NodeTopology
 	}
 
 	if !equality.Semantic.DeepEqual(vObj.Capacity, pObj.Capacity) {
-		updated = newIfNil(updated, vObj)
+		updated = translator.NewIfNil(updated, vObj)
 		updated.Capacity = pObj.Capacity
 	}
 
 	if !equality.Semantic.DeepEqual(vObj.MaximumVolumeSize, pObj.MaximumVolumeSize) {
-		updated = newIfNil(updated, vObj)
+		updated = translator.NewIfNil(updated, vObj)
 		updated.MaximumVolumeSize = pObj.MaximumVolumeSize
 	}
 
 	return updated, false, nil
-}
-
-func newIfNil(updated *storagev1.CSIStorageCapacity, obj *storagev1.CSIStorageCapacity) *storagev1.CSIStorageCapacity {
-	if updated == nil {
-		return obj.DeepCopy()
-	}
-	return updated
 }
