@@ -172,6 +172,7 @@ spec:
           {{- else }}
             --service-cidr=$(SERVICE_CIDR)
           {{- end }}
+            --tls-san={{ .Release.Name }}
           {{- range $f := .Values.vcluster.extraArgs }}
             {{ $f }}
           {{- end }}
