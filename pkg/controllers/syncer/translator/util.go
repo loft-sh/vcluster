@@ -1,10 +1,9 @@
 package translator
 
 import (
-	"os"
-	"reflect"
-
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"k8s.io/apimachinery/pkg/runtime"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -17,11 +16,12 @@ func PrintChanges(oldObject, newObject client.Object, log loghelper.Logger) {
 	}
 }
 
-func NewIfNil[T interface {
-	DeepCopy() T
-}](updated, obj T) T {
-	if reflect.ValueOf(updated).IsNil() {
-		return obj.DeepCopy()
+func NewIfNil[T any, P interface {
+	*T
+	runtime.Object
+}](updated, obj P) P {
+	if updated == nil {
+		return obj.DeepCopyObject().(P)
 	}
 
 	return updated
