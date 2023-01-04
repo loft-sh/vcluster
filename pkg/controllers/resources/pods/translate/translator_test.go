@@ -25,7 +25,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 	}
 	basicSelectorTranslatedWithMarker := &metav1.LabelSelector{MatchLabels: map[string]string{}}
 	for k, v := range basicSelector.MatchLabels {
-		basicSelectorTranslatedWithMarker.MatchLabels[translate.ConvertLabelKey(k)] = v
+		basicSelectorTranslatedWithMarker.MatchLabels[translate.Default.ConvertLabelKey(k)] = v
 	}
 	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.Suffix
 

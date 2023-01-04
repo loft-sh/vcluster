@@ -204,7 +204,7 @@ func (s *singleNamespace) TranslateLabels(fromLabels map[string]string, vNamespa
 
 	newLabels := map[string]string{}
 	for k, v := range fromLabels {
-		newLabels[ConvertLabelKey(k)] = v
+		newLabels[s.ConvertLabelKey(k)] = v
 	}
 	for _, k := range syncedLabels {
 		if value, ok := fromLabels[k]; ok {
@@ -274,7 +274,7 @@ func TranslateLabelSelectorWithPrefix(labelPrefix string, labelSelector *metav1.
 	return newLabelSelector
 }
 
-func ConvertLabelKey(key string) string {
+func (s *singleNamespace) ConvertLabelKey(key string) string {
 	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
 }
 

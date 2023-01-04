@@ -45,8 +45,9 @@ func defaultNewClient(cache cache.Cache, config *rest.Config, options client.Opt
 	}
 
 	return client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader: cache,
-		Client:      c,
+		CacheReader:       cache,
+		Client:            c,
+		CacheUnstructured: true,
 	})
 }
 

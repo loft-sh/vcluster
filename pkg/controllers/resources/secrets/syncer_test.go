@@ -1,6 +1,8 @@
 package secrets
 
 import (
+	"testing"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -10,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
@@ -49,9 +50,9 @@ func TestSync(t *testing.T) {
 				translate.UIDAnnotation:       "",
 			},
 			Labels: map[string]string{
-				translate.NamespaceLabel:             baseSecret.Namespace,
-				testLabel:                            testLabelValue,
-				translate.ConvertLabelKey(testLabel): testLabelValue,
+				translate.NamespaceLabel: baseSecret.Namespace,
+				testLabel:                testLabelValue,
+				translate.Default.ConvertLabelKey(testLabel): testLabelValue,
 			},
 		},
 	}

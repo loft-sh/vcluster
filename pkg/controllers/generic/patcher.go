@@ -18,8 +18,6 @@ import (
 
 var (
 	fieldManager = "vcluster-syncer"
-
-	controlledByLabel = "vcluster.loft.sh/controlled-by"
 )
 
 type patcher struct {
