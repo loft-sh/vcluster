@@ -271,24 +271,39 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
-	return translate.Default.TranslateLabelSelectorCluster(selector), nil
+	var s *metav1.LabelSelector
+	if selector != nil {
+		s = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+		for k, v := range selector.MatchLabels {
+			s.MatchLabels[k] = v
+		}
+		if len(selector.MatchExpressions) > 0 {
+			s.MatchExpressions = []metav1.LabelSelectorRequirement{}
+			for i, r := range selector.MatchExpressions {
+				s.MatchExpressions[i] = metav1.LabelSelectorRequirement{
+					Key:      r.Key,
+					Operator: r.Operator,
+					Values:   r.Values,
+				}
+			}
+		}
+		s.MatchLabels[translate.NamespaceLabel] = r.namespace
+		s.MatchLabels[translate.MarkerLabel] = translate.Suffix
+	}
+	return s, nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
 	return translate.Default.ConvertLabelKey(key), nil
-	// return key, nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
-	s := map[string]string{}
-	if selector != nil {
-		for k, v := range selector {
-			s[k] = v
-		}
-		s[translate.NamespaceLabel] = r.namespace
-		s[translate.MarkerLabel] = translate.Suffix
+	labelSelector := &metav1.LabelSelector{
+		MatchLabels: selector,
 	}
-	return s, nil
+
+	return metav1.LabelSelectorAsMap(
+		translate.Default.TranslateLabelSelectorCluster(labelSelector))
 }
 
 func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
