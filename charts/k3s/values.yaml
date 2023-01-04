@@ -112,11 +112,11 @@ hostpathMapper:
   enabled: false
   resources: {}
     # limits:
-    #   cpu: 200m
-    #   memory: 128Mi
+    #   cpu: 40m
+    #   memory: 100Mi
     # requests:
     #   cpu: 20m
-    #   memory: 64Mi
+    #   memory: 50Mi
 
 # Syncer configuration
 syncer:
