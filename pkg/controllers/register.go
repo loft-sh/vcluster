@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
@@ -217,18 +216,18 @@ func registerGenericSyncController(ctx *context.ControllerContext) error {
 	c := os.Getenv(ctx.Options.GenericConfig)
 	if c == "---" {
 		// empty configuration, no need for creating any syncer controllers
-		klog.Info("no generic config provided, skipping creating controllers")
+		loghelper.Infof("no generic config provided, skipping creating controllers")
 
 		return nil
 	}
 
 	configuration, err := config.Parse(c)
 	if err != nil {
-		klog.Error("error parsing the config", err.Error())
-		return err
+		loghelper.Infof("error parsing the config %v", err.Error())
+		return errors.Wrapf(err, "parsing the config")
 	}
 
-	klog.Info("generic config provided, parsed successfully")
+	loghelper.Infof("generic config provided, parsed successfully")
 
 	err = generic.CreateExporters(ctx, configuration)
 	if err != nil {

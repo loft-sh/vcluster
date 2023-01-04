@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	VclusterTranslationObjectNameKey = "vcluster.loft.sh/object-name"
+	VclusterTranslationObjectNameKey      = "vcluster.loft.sh/object-name"
+	VclusterTranslationObjectNamespaceKey = "vcluster.loft.sh/object-namespace"
 )
 
 func CreateExporters(ctx *context.ControllerContext, config *config.Config) error {
@@ -150,7 +151,6 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// apply reverse patches
-	klog.Infof("applying reverse patches")
 	result, err := f.patcher.ApplyReversePatches(ctx.Context, vObj, pObj, f.config.ReversePatches, &hostToVirtualNameResolver{
 		gvk:  f.gvk,
 		pObj: pObj,
@@ -271,26 +271,7 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
-	var s *metav1.LabelSelector
-	if selector != nil {
-		s = &metav1.LabelSelector{MatchLabels: map[string]string{}}
-		for k, v := range selector.MatchLabels {
-			s.MatchLabels[k] = v
-		}
-		if len(selector.MatchExpressions) > 0 {
-			s.MatchExpressions = []metav1.LabelSelectorRequirement{}
-			for i, r := range selector.MatchExpressions {
-				s.MatchExpressions[i] = metav1.LabelSelectorRequirement{
-					Key:      r.Key,
-					Operator: r.Operator,
-					Values:   r.Values,
-				}
-			}
-		}
-		s.MatchLabels[translate.NamespaceLabel] = r.namespace
-		s.MatchLabels[translate.MarkerLabel] = translate.Suffix
-	}
-	return s, nil
+	return translate.Default.TranslateLabelSelectorCluster(selector), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
@@ -303,7 +284,7 @@ func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]s
 	}
 
 	return metav1.LabelSelectorAsMap(
-		translate.Default.TranslateLabelSelectorCluster(labelSelector))
+		translate.Default.TranslateLabelSelector(labelSelector))
 }
 
 func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
@@ -329,35 +310,7 @@ type hostToVirtualNameResolver struct {
 }
 
 func (r *hostToVirtualNameResolver) TranslateName(name string, regex *regexp.Regexp, path string) (string, error) {
-	var n types.NamespacedName
-	// if regex != nil {
-	// 	return patchesregex.ProcessRegex(regex, name, func(name, namespace string) types.NamespacedName {
-	// 		if path == "" {
-	// 			return r.nameCache.ResolveName(r.gvk, name)
-	// 		} else {
-	// 			return r.nameCache.ResolveNamePath(r.gvk, name, path)
-	// 		}
-	// 	}), nil
-	// } else {
-	// 	if path == "" {
-	// 		n = r.nameCache.ResolveName(r.gvk, name)
-	// 	} else {
-	// 		n = r.nameCache.ResolveNamePath(r.gvk, name, path)
-	// 	}
-	// }
-	if n.Name == "" {
-		return "", fmt.Errorf("could not translate %s host resource name to vcluster resource name", name)
-	}
-
-	klog.Info("************************* translated name ********************")
-	annotations := r.pObj.GetAnnotations()
-	if name, ok := annotations[VclusterTranslationObjectNameKey]; ok {
-		klog.Info("name: ", name)
-	} else {
-		klog.Error("cannot find key", VclusterTranslationObjectNameKey)
-	}
-
-	return n.Name, nil
+	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
 func (r *hostToVirtualNameResolver) TranslateNameWithNamespace(name string, namespace string, regex *regexp.Regexp, path string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")

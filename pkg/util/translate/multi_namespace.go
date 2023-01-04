@@ -227,6 +227,6 @@ func (s *multiNamespace) TranslateLabelSelector(labelSelector *metav1.LabelSelec
 	return labelSelector
 }
 
-func (m *multiNamespace) ConvertLabelKey(key string) string {
+func (s *multiNamespace) ConvertLabelKey(key string) string {
 	return key
 }

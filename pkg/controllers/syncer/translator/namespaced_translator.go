@@ -160,12 +160,3 @@ func (n *namespacedTranslator) TranslateMetadata(vObj client.Object) client.Obje
 func (n *namespacedTranslator) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
 	return translate.Default.ApplyMetadataUpdate(vObj, pObj, n.syncedLabels, n.excludedAnnotations...)
 }
-
-// func ConvertLabelKey(key string) string {
-// 	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
-// }
-
-// func ConvertLabelKeyWithPrefix(prefix, key string) string {
-// 	digest := sha256.Sum256([]byte(key))
-// 	return translate.SafeConcatName(prefix, translate.Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
-// }

@@ -37,7 +37,7 @@ func ProcessRegex(regex *regexp.Regexp, input string, translateFunc RegexTransla
 	}
 
 	// Find indexes of all matches and create a list of replacements from it
-	replacements := []IndexBasedRelaceItem{}
+	replacements := []IndexBasedReplaceItem{}
 	allIndexes := regex.FindAllStringSubmatchIndex(input, -1)
 	for _, indexes := range allIndexes {
 
@@ -51,14 +51,14 @@ func ProcessRegex(regex *regexp.Regexp, input string, translateFunc RegexTransla
 
 			translatedName := translateFunc(name, namespace)
 
-			replacements = append(replacements, IndexBasedRelaceItem{
+			replacements = append(replacements, IndexBasedReplaceItem{
 				StartIndex:  indexes[2*namePos],
 				EndIndex:    indexes[2*namePos+1],
 				Replacement: translatedName.Name,
 			})
 
 			if namespacePos != -1 && indexes[2*namespacePos] != -1 && indexes[2*namespacePos+1] != -1 {
-				replacements = append(replacements, IndexBasedRelaceItem{
+				replacements = append(replacements, IndexBasedReplaceItem{
 					StartIndex:  indexes[2*namespacePos],
 					EndIndex:    indexes[2*namespacePos+1],
 					Replacement: translatedName.Namespace,
@@ -70,7 +70,7 @@ func ProcessRegex(regex *regexp.Regexp, input string, translateFunc RegexTransla
 	return IndexBasedReplace(input, replacements)
 }
 
-type IndexBasedRelaceItem struct {
+type IndexBasedReplaceItem struct {
 	StartIndex  int
 	EndIndex    int
 	Replacement string
@@ -80,7 +80,7 @@ type IndexBasedRelaceItem struct {
 // with the replacement values based on the indexes in the original input string.
 // input - string that will have parts of it replaced
 // items - slice of IndexBasedRelaceItem(s). Only nonoverlaping index pairs are supported.
-func IndexBasedReplace(input string, items []IndexBasedRelaceItem) string {
+func IndexBasedReplace(input string, items []IndexBasedReplaceItem) string {
 	// sort thereplace items because otherwise indexOffset could cause
 	// panic due to out of bound access
 	sort.Slice(items, func(i, j int) bool {

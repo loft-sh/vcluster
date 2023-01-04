@@ -91,17 +91,17 @@ type Patch struct {
 	Ignore *bool `yaml:"ignore,omitempty" json:"ignore,omitempty"`
 
 	// Sync defines if a specialized syncer should be initialized using values
-	// from the rewriteName operation as Secret/Confgimap names to be synced
+	// from the rewriteName operation as Secret/Configmap names to be synced
 	Sync *PatchSync `yaml:"sync,omitempty" json:"sync,omitempty"`
 }
 
 type PatchType string
 
 const (
-	PatchTypeRewriteName = "rewriteName"
-	// PatchTypeRewriteLabelKey                 = "rewriteLabelKey"
-	PatchTypeRewriteLabelSelector = "rewriteLabelSelector"
-	// PatchTypeRewriteLabelExpressionsSelector = "rewriteLabelExpressionsSelector"
+	PatchTypeRewriteName                     = "rewriteName"
+	PatchTypeRewriteLabelKey                 = "rewriteLabelKey"
+	PatchTypeRewriteLabelSelector            = "rewriteLabelSelector"
+	PatchTypeRewriteLabelExpressionsSelector = "rewriteLabelExpressionsSelector"
 
 	PatchTypeCopyFromObject = "copyFromObject"
 	PatchTypeAdd            = "add"

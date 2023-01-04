@@ -9,16 +9,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// func init() {
-// 	if os.Getenv("SKIP_LOG") != "true" {
-// 		if os.Getenv("DEBUG") == "true" {
-// 			ctrl.SetLogger(newLog(0))
-// 		} else {
-// 			ctrl.SetLogger(newLog(2))
-// 		}
-// 	}
-// }
-
 type Logger interface {
 	Infof(format string, a ...interface{})
 }
