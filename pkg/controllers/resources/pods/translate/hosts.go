@@ -14,7 +14,14 @@ const (
 )
 
 var (
-	nonRoot = true
+	nonRoot             = true
+	privilegeEscalation = false
+	capabilities        = corev1.Capabilities{
+		Drop: []corev1.Capability{"ALL"},
+	}
+	seccompProfile = corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeRuntimeDefault,
+	}
 )
 
 func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewriteImage, fromHost, toHostname, toHostnameFQDN string) {
@@ -26,8 +33,11 @@ func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewrite
 			Command: []string{"sh"},
 			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostnameFQDN + " " + toHostname + "/' /etc/hosts > /hosts/hosts"},
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:    &userID,
-				RunAsNonRoot: &nonRoot,
+				RunAsUser:                &userID,
+				RunAsNonRoot:             &nonRoot,
+				Capabilities:             &capabilities,
+				AllowPrivilegeEscalation: &privilegeEscalation,
+				SeccompProfile:           &seccompProfile,
 			},
 			Resources: corev1.ResourceRequirements{
 				Limits: map[corev1.ResourceName]resource.Quantity{
