@@ -78,6 +78,8 @@ spec:
             mountPath: /tmp/vcluster/{{ .Release.Namespace }}/{{ .Release.Name }}/kubelet/pods
           - name: kubeconfig
             mountPath: /data/server/tls
+        resources:
+{{ toYaml .Values.hostpathMapper.resources | indent 10 }}
       volumes:
         - name: logs
           hostPath:

@@ -101,6 +101,13 @@ mapServices:
 
 hostpathMapper:
   enabled: false
+  resources: {}
+    # limits:
+    #   cpu: 40m
+    #   memory: 100Mi
+    # requests:
+    #   cpu: 20m
+    #   memory: 50Mi
 
 # Syncer configuration
 syncer:
