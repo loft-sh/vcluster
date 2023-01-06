@@ -79,9 +79,10 @@ type VirtualClusterOptions struct {
 	HostMetricsBindAddress    string `json:"hostMetricsBindAddress,omitempty"`
 	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
 
-	MultiNamespaceMode bool `json:"multiNamespaceMode,omitempty"`
-	SyncAllSecrets     bool `json:"syncAllSecrets,omitempty"`
-	SyncAllConfigMaps  bool `json:"syncAllConfigMaps,omitempty"`
+	MultiNamespaceMode bool     `json:"multiNamespaceMode,omitempty"`
+	NamespaceLabels    []string `json:"namespaceLabels,omitempty"`
+	SyncAllSecrets     bool     `json:"syncAllSecrets,omitempty"`
+	SyncAllConfigMaps  bool     `json:"syncAllConfigMaps,omitempty"`
 
 	// DEPRECATED FLAGS
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
@@ -155,6 +156,7 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 
 	flags.BoolVar(&options.RewriteHostPaths, "rewrite-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
 	flags.BoolVar(&options.MultiNamespaceMode, "multi-namespace-mode", false, "If enabled, syncer will create a namespace for each virtual namespace and use the original names for the synced namespaced resources")
+	flags.StringSliceVar(&options.NamespaceLabels, "namespace-labels", []string{}, "Defines one or more labels that will be added to the namespaces synced in the multi-namespace mode. Format: \"labelKey=labelValue\". Multiple values can be passed in a comma-separated string.")
 	flags.BoolVar(&options.SyncAllConfigMaps, "sync-all-configmaps", false, "Sync all configmaps from virtual to host cluster")
 	flags.BoolVar(&options.SyncAllSecrets, "sync-all-secrets", false, "Sync all secrets from virtual to host cluster")
 

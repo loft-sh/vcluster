@@ -1,12 +1,17 @@
 package namespaces
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -20,15 +25,22 @@ var excludedAnnotations = []string{
 }
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	namespaceLabels, err := parseNamespaceLabels(ctx.Options.NamespaceLabels)
+	if err != nil {
+		return nil, fmt.Errorf("invalid value of the namespace-labels flag: %v", err)
+	}
+
 	return &namespaceSyncer{
 		Translator:                 translator.NewClusterTranslator(ctx, "namespace", &corev1.Namespace{}, NewNamespaceTranslator(), excludedAnnotations...),
 		workloadServiceAccountName: ctx.Options.ServiceAccount,
+		namespaceLabels:            namespaceLabels,
 	}, nil
 }
 
 type namespaceSyncer struct {
 	translator.Translator
 	workloadServiceAccountName string
+	namespaceLabels            map[string]string
 }
 
 var _ syncer.Syncer = &namespaceSyncer{}
@@ -60,6 +72,10 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 }
 
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {
+	if s.workloadServiceAccountName == "" {
+		return nil
+	}
+
 	svc := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pNamespace,
@@ -77,4 +93,21 @@ func NewNamespaceTranslator() translate.PhysicalNameTranslator {
 	return func(vName string, _ client.Object) string {
 		return translate.Default.PhysicalNamespace(vName)
 	}
+}
+
+func parseNamespaceLabels(labels []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, v := range labels {
+		parts := strings.SplitN(v, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("incorrect format, expected: key=value got: %s", v)
+		}
+		out[parts[0]] = parts[1]
+	}
+	errs := validation.ValidateLabels(out, field.NewPath("namespace-labels"))
+	if len(errs) != 0 {
+		return nil, fmt.Errorf("invalid labels: %v", errs)
+	}
+
+	return out, nil
 }
