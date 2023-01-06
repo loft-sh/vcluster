@@ -65,6 +65,8 @@ type Translator interface {
 	// LegacyGetTargetNamespace returns in the case of a single namespace the target namespace, but fails
 	// if vcluster is syncing to multiple namespaces.
 	LegacyGetTargetNamespace() (string, error)
+
+	ConvertLabelKey(string) string
 }
 
 // PhysicalNameTranslator transforms a virtual cluster name to a physical name

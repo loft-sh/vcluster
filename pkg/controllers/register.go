@@ -2,14 +2,18 @@ package controllers
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -79,7 +83,7 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 }
 
 func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
-	registerContext := ToRegisterContext(ctx)
+	registerContext := util.ToRegisterContext(ctx)
 
 	// register controllers for resource synchronization
 	syncers := []syncer.Object{}
@@ -105,7 +109,7 @@ func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
 }
 
 func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syncer.Object) error {
-	registerContext := ToRegisterContext(controllerCtx)
+	registerContext := util.ToRegisterContext(controllerCtx)
 
 	// execute in parallel because each one might be time-consuming
 	errorGroup, ctx := errgroup.WithContext(controllerCtx.Context)
@@ -127,7 +131,7 @@ func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syn
 }
 
 func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) error {
-	registerContext := ToRegisterContext(ctx)
+	registerContext := util.ToRegisterContext(ctx)
 	for _, s := range syncers {
 		indexRegisterer, ok := s.(syncer.IndicesRegisterer)
 		if ok {
@@ -142,7 +146,7 @@ func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) er
 }
 
 func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
-	registerContext := ToRegisterContext(ctx)
+	registerContext := util.ToRegisterContext(ctx)
 
 	err := k8sdefaultendpoint.Register(ctx)
 	if err != nil {
@@ -175,6 +179,11 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 		return err
 	}
 
+	err = registerGenericSyncController(ctx)
+	if err != nil {
+		return err
+	}
+
 	// register controllers for resource synchronization
 	for _, v := range syncers {
 		// fake syncer?
@@ -196,6 +205,33 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 				return fmt.Errorf("syncer %s does not implement fake syncer or syncer interface", v.Name())
 			}
 		}
+	}
+
+	return nil
+}
+
+func registerGenericSyncController(ctx *context.ControllerContext) error {
+	// first check if a generic CRD config is provided and we actually need
+	// to create any of these syncer controllers
+	c := os.Getenv(context.GenericConfig)
+	if c == "---" {
+		// empty configuration, no need for creating any syncer controllers
+		loghelper.Infof("no generic config provided, skipping creating controllers")
+
+		return nil
+	}
+
+	configuration, err := config.Parse(c)
+	if err != nil {
+		loghelper.Infof("error parsing the config %v", err.Error())
+		return errors.Wrapf(err, "parsing the config")
+	}
+
+	loghelper.Infof("generic config provided, parsed successfully")
+
+	err = generic.CreateExporters(ctx, configuration)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -402,19 +438,4 @@ func registerPodSecurityController(ctx *context.ControllerContext) error {
 		return fmt.Errorf("unable to setup pod security controller: %v", err)
 	}
 	return nil
-}
-
-func ToRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterContext {
-	return &synccontext.RegisterContext{
-		Context: ctx.Context,
-
-		Options:     ctx.Options,
-		Controllers: ctx.Controllers,
-
-		CurrentNamespace:       ctx.CurrentNamespace,
-		CurrentNamespaceClient: ctx.CurrentNamespaceClient,
-
-		VirtualManager:  ctx.VirtualManager,
-		PhysicalManager: ctx.LocalManager,
-	}
 }

@@ -46,6 +46,8 @@ Whether to create a cluster role or not
         (empty (include "vcluster.serviceMapping.fromHost" . )))
     (not
         (empty (include "vcluster.plugin.clusterRoleExtraRules" . )))
+    (not
+        (empty (include "vcluster.generic.clusterRoleExtraRules" . )))
     .Values.rbac.clusterRole.create
     .Values.sync.hoststorageclasses.enabled
     (index
@@ -140,6 +142,19 @@ Cluster role rules defined by plugins
 {{- end -}}
 
 {{/*
+Cluster role rules defined in generic syncer
+*/}}
+{{- define "vcluster.generic.clusterRoleExtraRules" -}}
+{{- if .Values.sync.generic.clusterRole }}
+{{- if .Values.sync.generic.clusterRole.extraRules}}
+{{- range $ruleIndex, $rule := .Values.sync.generic.clusterRole.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
 Role rules defined by plugins
 */}}
 {{- define "vcluster.plugin.roleExtraRules" -}}
@@ -156,6 +171,18 @@ Role rules defined by plugins
 {{- end }}
 {{- end -}}
 
+{{/*
+Role rules defined in generic syncer
+*/}}
+{{- define "vcluster.generic.roleExtraRules" -}}
+{{- if .Values.sync.generic.role }}
+{{- if .Values.sync.generic.role.extraRules}}
+{{- range $ruleIndex, $rule := .Values.sync.generic.role.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
 
 {{/*
 Virtual cluster service mapping

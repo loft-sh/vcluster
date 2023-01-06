@@ -86,4 +86,5 @@ rules:
   {{- end }}
   {{- end }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
+  {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
 {{- end }}

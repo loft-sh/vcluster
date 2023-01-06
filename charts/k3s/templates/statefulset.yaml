@@ -315,6 +315,11 @@ spec:
               fieldRef:
                 fieldPath: spec.nodeName
           {{- end }}
+          {{- if .Values.sync.generic.config }}
+          - name: CONFIG
+            value: |-
+              {{- .Values.sync.generic.config | nindent 14 }}
+          {{- end }}
         volumeMounts:
         {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
           - name: helm-cache

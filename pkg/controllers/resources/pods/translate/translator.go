@@ -510,7 +510,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	// check if its a label we have to rewrite
 	labelsMatch := FieldPathLabelRegEx.FindStringSubmatch(fieldSelector.FieldPath)
 	if len(labelsMatch) == 2 {
-		fieldSelector.FieldPath = "metadata.labels['" + translate.ConvertLabelKey(labelsMatch[1]) + "']"
+		fieldSelector.FieldPath = "metadata.labels['" + translate.Default.ConvertLabelKey(labelsMatch[1]) + "']"
 		return
 	}
 

@@ -226,3 +226,7 @@ func (s *multiNamespace) SetupMetadataWithName(vObj client.Object, translator Ph
 func (s *multiNamespace) TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
 	return labelSelector
 }
+
+func (s *multiNamespace) ConvertLabelKey(key string) string {
+	return key
+}

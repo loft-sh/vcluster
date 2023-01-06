@@ -2,8 +2,9 @@ package syncer
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"time"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -88,7 +89,10 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// check if we should skip resource
-	if vObj != nil && vObj.GetLabels() != nil && vObj.GetLabels()[translate.ControllerLabel] != "" {
+	if vObj != nil &&
+		vObj.GetLabels() != nil &&
+		vObj.GetLabels()[translate.ControllerLabel] != "" &&
+		vObj.GetLabels()[translate.ControllerLabel] == r.syncer.Name() { // this is to distinguish generic syncers with core syncers
 		return ctrl.Result{}, nil
 	}
 
@@ -104,7 +108,10 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// check if we should skip resource
-	if pObj != nil && pObj.GetLabels() != nil && pObj.GetLabels()[translate.ControllerLabel] != "" {
+	if pObj != nil &&
+		pObj.GetLabels() != nil &&
+		pObj.GetLabels()[translate.ControllerLabel] != "" &&
+		pObj.GetLabels()[translate.ControllerLabel] != r.syncer.Name() { // this is to distinguish generic syncers with core syncers
 		return ctrl.Result{}, nil
 	}
 

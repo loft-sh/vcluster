@@ -6,6 +6,7 @@ import (
 
 const (
 	DefaultHostsRewriteImage = "library/alpine:3.13.1"
+	GenericConfig            = "CONFIG"
 )
 
 // VirtualClusterOptions holds the cmd flags
