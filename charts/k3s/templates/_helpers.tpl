@@ -67,6 +67,10 @@ Whether to create a cluster role or not
 {{- printf "vc-%s-v-%s" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "vcluster.clusterRoleNameMultinamespace" -}}
+{{- printf "vc-%s-v-%s-mn" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
 {{/*
 Create chart name and version as used by the chart label.
 */}}
