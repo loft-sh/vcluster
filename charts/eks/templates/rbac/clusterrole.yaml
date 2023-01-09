@@ -75,5 +75,8 @@ rules:
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
 {{- end }}
