@@ -22,8 +22,9 @@ import (
 type ServiceSyncer struct {
 	SyncServices map[string]types.NamespacedName
 
-	CreateNamespace bool
-	CreateEndpoints bool
+	IsVirtualToHostSyncer bool
+	CreateNamespace       bool
+	CreateEndpoints       bool
 
 	From ctrl.Manager
 	To   ctrl.Manager
@@ -123,6 +124,11 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 				Ports: fromService.Spec.Ports,
 			},
 		}
+
+		if e.IsVirtualToHostSyncer {
+			e.Log.Infof("Add owner reference to host target service %s", to.Name)
+			toService.OwnerReferences = translate.GetOwnerReference(nil)
+		}
 		toService.Spec.Selector = translate.Default.TranslateLabels(fromService.Spec.Selector, fromService.Namespace, nil)
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
@@ -188,6 +194,11 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 				Ports:     fromService.Spec.Ports,
 				ClusterIP: corev1.ClusterIPNone,
 			},
+		}
+
+		if e.IsVirtualToHostSyncer {
+			e.Log.Infof("Add owner reference to host target service %s", to.Name)
+			toService.OwnerReferences = translate.GetOwnerReference(nil)
 		}
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)

@@ -353,10 +353,11 @@ func registerServiceSyncControllers(ctx *context.ControllerContext) error {
 		}
 
 		controller := &servicesync.ServiceSyncer{
-			SyncServices: mapping,
-			From:         ctx.VirtualManager,
-			To:           ctx.LocalManager,
-			Log:          loghelper.New("map-virtual-service-syncer"),
+			SyncServices:          mapping,
+			IsVirtualToHostSyncer: true,
+			From:                  ctx.VirtualManager,
+			To:                    ctx.LocalManager,
+			Log:                   loghelper.New("map-virtual-service-syncer"),
 		}
 		err = controller.Register()
 		if err != nil {
