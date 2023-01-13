@@ -123,6 +123,8 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 				Ports: fromService.Spec.Ports,
 			},
 		}
+
+		toService.OwnerReferences = translate.GetOwnerReference(nil)
 		toService.Spec.Selector = translate.Default.TranslateLabels(fromService.Spec.Selector, fromService.Namespace, nil)
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
@@ -189,6 +191,8 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 				ClusterIP: corev1.ClusterIPNone,
 			},
 		}
+
+		toService.OwnerReferences = translate.GetOwnerReference(nil)
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
 	} else if toService.Labels == nil || toService.Labels[translate.ControllerLabel] != "vcluster" {
