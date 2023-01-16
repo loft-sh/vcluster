@@ -8,7 +8,7 @@ sidebar_label: Storage
   <figcaption>vcluster - Persistent Volume Provisioning</figcaption>
 </figure>
 
-Since the vcluster's syncer synchronizes pods to the underlying host cluster to schedule them, vcluster users can use the storage classes of the underlying host cluster to create persistent volume claims and to mount persistent volumes. By default, the host's storage classes can be used without the need to create it in the vcluster, but this can be configured by [enabling sync of "storageclasses" or "legacy-storageclasses"](./synced-resources.mdx).
+Since the vcluster's syncer synchronizes pods to the underlying host cluster to schedule them, vcluster users can use the storage classes of the underlying host cluster to create persistent volume claims and to mount persistent volumes. By default, the host's storage classes can be used without the need to create it in the vcluster, but this can be configured by [enabling sync of "storageclasses" or "hoststorageclasses"](./synced-resources.mdx).
 
 
 vcluster provides helm values to adjust this behavior during vcluster installation or upgrade. Find out more below. 
@@ -79,12 +79,6 @@ This only happens if persistent volume sync is enabled in the vcluster. There mi
 Kubernetes VolumeSnapshot resource represents a snapshot of a volume on a storage system. You can read more about volume snapshots on [the official Kubernetes documentation page of this feature](https://kubernetes.io/docs/concepts/storage/volume-snapshots/).
 
 By default, VolumeSnapshot syncing is disabled, and creating a VolumeSnapshot custom resource in the vcluster will have no effect. Following chapters describe how to enable this feature in the vcluster.
-
-:::caution Tech-preview feature
-This vcluster feature is still in the early state of maturity, so it is highly recommended to perform testing with your specific storage configurations and use cases.
-
-We offer this feature to the community as a tech-preview to gather feedback and information about compatibility with various CSI implementations and Kubernetes distributions. Please share your experience with us via *#vcluster* channel in [our Slack instance](https://slack.loft.sh/) or via [GitHub issues](https://github.com/loft-sh/vcluster/issues).
-:::
 
 #### Host prerequisites
 Vcluster relies fully on the volume snapshot capabilities of the host cluster, which has to fullfil certain criteria.

@@ -3,7 +3,6 @@ package configmaps
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -28,11 +27,12 @@ func TestSync(t *testing.T) {
 	}
 	syncedConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName(baseConfigMap.Name, baseConfigMap.Namespace),
+			Name:      translate.Default.PhysicalName(baseConfigMap.Name, baseConfigMap.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
-				translator.NameAnnotation:      baseConfigMap.Name,
-				translator.NamespaceAnnotation: baseConfigMap.Namespace,
+				translate.NameAnnotation:      baseConfigMap.Name,
+				translate.NamespaceAnnotation: baseConfigMap.Namespace,
+				translate.UIDAnnotation:       "",
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseConfigMap.Namespace,

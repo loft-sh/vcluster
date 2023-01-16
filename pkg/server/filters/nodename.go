@@ -3,13 +3,9 @@ package filters
 import (
 	"context"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
-	"net"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 type nodeName int
@@ -19,13 +15,10 @@ type nodeName int
 // does not conflict with the keys defined in pkg/api.
 const nodeNameKey nodeName = iota
 
-func WithNodeName(h http.Handler, currentNamespace string, currentNamespaceClient client.Client) http.Handler {
+func WithNodeName(h http.Handler, currentNamespace string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		nodeName, err := nodeNameFromHost(req.Context(), req.Host, currentNamespace, currentNamespaceClient)
-		if err != nil {
-			requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, errors.Wrap(err, "find node name from host"))
-			return
-		} else if nodeName != "" {
+		nodeName := nodeNameFromHost(req.Host, currentNamespace)
+		if nodeName != "" {
 			req = req.WithContext(context.WithValue(req.Context(), nodeNameKey, nodeName))
 		}
 
@@ -39,24 +32,14 @@ func NodeNameFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-func nodeNameFromHost(ctx context.Context, host, currentNamespace string, currentNamespaceClient client.Client) (string, error) {
-	addr, err := net.ResolveUDPAddr("udp", host)
-	if err == nil {
-		clusterIP := addr.IP.String()
-		serviceList := &corev1.ServiceList{}
-		err = currentNamespaceClient.List(ctx, serviceList, client.InNamespace(currentNamespace), client.MatchingFields{constants.IndexByClusterIP: clusterIP})
-		if err != nil {
-			return "", err
-		}
+func nodeNameFromHost(host, currentNamespace string) string {
+	suffix := "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
 
-		// we found a service?
-		if len(serviceList.Items) > 0 {
-			serviceLabels := serviceList.Items[0].Labels
-			if len(serviceLabels) > 0 && serviceLabels[nodeservice.ServiceNodeLabel] != "" {
-				return serviceLabels[nodeservice.ServiceNodeLabel], nil
-			}
-		}
+	// retrieve the node name
+	splitted := strings.Split(host, ":")
+	if len(splitted) == 2 && strings.HasSuffix(splitted[0], suffix) {
+		return strings.TrimSuffix(splitted[0], suffix)
 	}
 
-	return "", nil
+	return ""
 }

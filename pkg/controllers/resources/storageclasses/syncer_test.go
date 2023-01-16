@@ -2,7 +2,6 @@ package storageclasses
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	"testing"
@@ -15,6 +14,8 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+
 	vObjectMeta := metav1.ObjectMeta{
 		Name: "testsc",
 	}
@@ -24,12 +25,13 @@ func TestSync(t *testing.T) {
 	}
 	pObject := &v1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: translate.PhysicalNameClusterScoped(vObjectMeta.Name, generictesting.DefaultTestTargetNamespace),
+			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.Suffix,
 			},
 			Annotations: map[string]string{
-				translator.NameAnnotation: "testsc",
+				translate.NameAnnotation: "testsc",
+				translate.UIDAnnotation:  "",
 			},
 		},
 		Provisioner: "my-provisioner",
@@ -43,12 +45,13 @@ func TestSync(t *testing.T) {
 	}
 	pObjectUpdated := &v1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: translate.PhysicalNameClusterScoped(vObjectMeta.Name, generictesting.DefaultTestTargetNamespace),
+			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.Suffix,
 			},
 			Annotations: map[string]string{
-				translator.NameAnnotation: "testsc",
+				translate.NameAnnotation: "testsc",
+				translate.UIDAnnotation:  "",
 			},
 		},
 		Provisioner: "my-provisioner",

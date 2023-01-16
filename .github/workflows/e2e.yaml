@@ -8,10 +8,11 @@ on:
     branches:
       - main 
     paths:
-      - "Dockerfile"
       - "**.go"
-      - "!**_test.go" # exclude test files to ignore unit test changes
+      - "!**_test.go" # exclude test files to ignore unit test changes      
       - "test/**" # include test files in e2e again
+      - "!**.md"
+      - "Dockerfile"
       - ".github/workflows/e2e.yaml"
       - "charts/**"
       - "manifests/**"
@@ -57,7 +58,7 @@ jobs:
       - name: Build vcluster cli
         run: |
           set -x
-          GO111MODULE=on GOFLAGS=-mod=vendor go build -v -o ./vcluster ./cmd/vclusterctl/main.go
+          go generate ./... && GO111MODULE=on GOFLAGS=-mod=vendor go build -v -o ./vcluster ./cmd/vclusterctl/main.go
       - name: Upload vcluster cli to artifact
         uses: actions/upload-artifact@v2
         with:
@@ -100,6 +101,10 @@ jobs:
       with:
         version: "v0.14.0"
         image: kindest/node:v1.25.0
+
+    - name: Generate Embedded Helm Charts
+      run: |
+        go generate ./...
     
     - name: Testing kind cluster set-up
       run: |
@@ -154,7 +159,7 @@ jobs:
       continue-on-error: true
     
     - name: Collect deployment information in case vcluster fails to start
-      if: steps.wait-until-vcluster-is-ready.outcome == 'failure'
+      if: steps.wait-until-vcluster-is-ready.outcome != 'success'
       run: |
         set -x 
         kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}

@@ -7,8 +7,6 @@
 // Based on gopkg.in/mgo.v2/bson by Gustavo Niemeyer
 // See THIRD-PARTY-NOTICES for original license terms.
 
-// +build go1.9
-
 package bson // import "go.mongodb.org/mongo-driver/bson"
 
 import (
@@ -24,6 +22,8 @@ type Zeroer interface {
 
 // D is an ordered representation of a BSON document. This type should be used when the order of the elements matters,
 // such as MongoDB command documents. If the order of the elements does not matter, an M should be used instead.
+//
+// A D should not be constructed with duplicate key names, as that can cause undefined server behavior.
 //
 // Example usage:
 //

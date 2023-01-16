@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -25,11 +24,12 @@ func TestSync(t *testing.T) {
 		Namespace: "testns",
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testservice", "testns"),
+		Name:      translate.Default.PhysicalName("testservice", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translator.NameAnnotation:      vObjectMeta.Name,
-			translator.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.NameAnnotation:      vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
@@ -82,10 +82,11 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translator.NameAnnotation:               vObjectMeta.Name,
-				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translator.ManagedAnnotationsAnnotation: "a",
-				"a":                                     "b",
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translate.UIDAnnotation:                "",
+				translate.ManagedAnnotationsAnnotation: "a",
+				"a":                                    "b",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -291,7 +292,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pObjectMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				translator.ConvertLabelKeyWithPrefix(translator.LabelPrefix, selectorKey): vServiceNodePortFromExternal.Spec.Selector[selectorKey],
+				translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, selectorKey): vServiceNodePortFromExternal.Spec.Selector[selectorKey],
 				translate.NamespaceLabel: vServiceNodePortFromExternal.Namespace,
 				translate.MarkerLabel:    translate.Suffix,
 			},

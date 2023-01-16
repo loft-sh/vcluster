@@ -42,7 +42,9 @@ func NewSyncer(ctx *synccontext.RegisterContext, useLegacy bool) (syncer.Object,
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secret", &corev1.Secret{}),
 
 		useLegacyIngress: useLegacy,
-		includeIngresses: ctx.Controllers["ingresses"],
+		includeIngresses: ctx.Controllers.Has("ingresses"),
+
+		syncAllSecrets: ctx.Options.SyncAllSecrets,
 	}, nil
 }
 
@@ -51,12 +53,14 @@ type secretSyncer struct {
 
 	useLegacyIngress bool
 	includeIngresses bool
+
+	syncAllSecrets bool
 }
 
 var _ syncer.IndicesRegisterer = &secretSyncer{}
 
 func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	if ctx.Controllers["ingresses"] {
+	if ctx.Controllers.Has("ingresses") {
 		if s.useLegacyIngress {
 			err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1beta1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
 				return legacy.SecretNamesFromIngress(rawObj.(*networkingv1beta1.Ingress))
@@ -165,6 +169,10 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 		}
 
 		return meta.LenList(ingressesList) > 0, nil
+	}
+
+	if s.syncAllSecrets {
+		return true, nil
 	}
 
 	return false, nil

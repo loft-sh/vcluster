@@ -2,7 +2,6 @@ package legacy
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,9 +50,9 @@ func TestSync(t *testing.T) {
 	}
 	pBaseSpec := networkingv1beta1.IngressSpec{
 		Backend: &networkingv1beta1.IngressBackend{
-			ServiceName: translate.PhysicalName("testservice", "test"),
+			ServiceName: translate.Default.PhysicalName("testservice", "test"),
 			Resource: &corev1.TypedLocalObjectReference{
-				Name: translate.PhysicalName("testbackendresource", "test"),
+				Name: translate.Default.PhysicalName("testbackendresource", "test"),
 			},
 		},
 		Rules: []networkingv1beta1.IngressRule{
@@ -63,9 +62,9 @@ func TestSync(t *testing.T) {
 						Paths: []networkingv1beta1.HTTPIngressPath{
 							{
 								Backend: networkingv1beta1.IngressBackend{
-									ServiceName: translate.PhysicalName("testbackendservice", "test"),
+									ServiceName: translate.Default.PhysicalName("testbackendservice", "test"),
 									Resource: &corev1.TypedLocalObjectReference{
-										Name: translate.PhysicalName("testbackendresource", "test"),
+										Name: translate.Default.PhysicalName("testbackendresource", "test"),
 									},
 								},
 							},
@@ -76,7 +75,7 @@ func TestSync(t *testing.T) {
 		},
 		TLS: []networkingv1beta1.IngressTLS{
 			{
-				SecretName: translate.PhysicalName("testtlssecret", "test"),
+				SecretName: translate.Default.PhysicalName("testtlssecret", "test"),
 			},
 		},
 	}
@@ -95,11 +94,12 @@ func TestSync(t *testing.T) {
 		Namespace: "test",
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testingress", "test"),
+		Name:      translate.Default.PhysicalName("testingress", "test"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translator.NameAnnotation:      vObjectMeta.Name,
-			translator.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.NameAnnotation:      vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -327,6 +327,7 @@ func TestSync(t *testing.T) {
 								"nginx.ingress.kubernetes.io/auth-secret":                       "my-secret",
 								"vcluster.loft.sh/object-name":                                  baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":                             baseIngress.Namespace,
+								translate.UIDAnnotation:                                         "",
 								"alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix": "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service-x-test-x-suffix\",\"servicePort\":\"80\",\"weight\":100}]}}",
 							},
 						},

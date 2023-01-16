@@ -6,32 +6,9 @@ sidebar_label: Cluster API Provider
 [Cluster API (CAPI)](https://cluster-api.sigs.k8s.io/) is a Kubernetes sub-project focused on providing declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. Kubernetes service providers and distribution maintainers implement CAPI providers which allow users to create Kubernetes clusters of their choice with the CAPI tooling. For the vcluster project, we have also implemented a CAPI provider - [cluster-api-provider-vcluster](https://github.com/loft-sh/cluster-api-provider-vcluster). Instructions below will describe how to instantiate a vcluster instance using CAPI tooling.
 
 ## Prerequisites 
-[clusterctl](https://cluster-api.sigs.k8s.io/clusterctl/overview.html) CLI tool is used to install the vcluster provider and to generate a custom resource that will serve as a declarative definition of the cluster. It is possible to create the custom resource without clusterctl, but in this guide, we will be using it because it provides access to the templates for the `VCluster` custom resource. Please follow [the official installation instructions for clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl).
+[clusterctl (v1.1.5+)](https://cluster-api.sigs.k8s.io/clusterctl/overview.html) CLI tool is used to install the vcluster provider and to generate a custom resource that will serve as a declarative definition of the cluster. It is possible to create the custom resource without clusterctl, but in this guide, we will be using it because it provides access to the templates for the `VCluster` custom resource. Please follow [the official installation instructions for clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl).
 
 You will need cluster-admin permissions in a Kubernetes cluster where you wish to install the CAPI stack with the vcluster provider. This is required because vcluster instances that will be created by the vcluster provider may have arbitrary RBAC permission requirements. The vcluster provider installation with a more limited permission scope will be introduced in a future version.
-
-### Provider configuration - only clusterctl v1.1.4 and earlier
-If you are using clusterctl version 1.1.4 or earlier, you will need to add the vcluster provider to your local clusterctl configuration. To check which version you have installed look for the value of `GitVersion` field in the output of the `clusterctl version` command. You may skip to the next chapter if you are using a newer version.
-
-```console
-$ clusterctl version
-clusterctl version: &version.Info{Major:"1", Minor:"1", GitVersion:"v1.1.4", GitCommit:"31146bd17a220ef6214c4c7a21f1aa57380b6b1f", GitTreeState:"clean", BuildDate:"2022-03-08T18:52:05Z", GoVersion:"go1.17.3", Compiler:"gc", Platform:"linux/amd64"}
-```
-
-Open your local clusterctl configuration file `~/.cluster-api/clusterctl.yaml` and add vcluster to the list of provider as follows:
-
-```yaml
-providers:
-  - name: vcluster
-    url: https://github.com/loft-sh/cluster-api-provider-vcluster/releases/latest/infrastructure-components.yaml
-    type: InfrastructureProvider                                                           
-```
-
-Verify that the vcluster provider was added successfully using the `clusterctl config repositories` command, e.g.:
-```shell
-clusterctl config repositories | grep vcluster
-vcluster   InfrastructureProvider   https://github.com/loft-sh/cluster-api-provider-vcluster/releases/latest/                    infrastructure-components.yaml
-```
 
 ## Installing the CAPI stack with the vcluster provider
 Switch your kubectl context to the cluster where you wish to install the CAPI stack with the vcluster provider and run the following command:
@@ -78,13 +55,13 @@ kubectl wait --for=condition=ready vcluster -n $CLUSTER_NAMESPACE $CLUSTER_NAME
 The cluster is ready to be used once the command above exits.
 
 ### Expose vcluster externally
-There are multiple methods for exposing your vcluster instance, and they are described on the ["Exposing vcluster (ingress etc.)" page](./external-access). 
+There are multiple methods for exposing your vcluster instance, and they are described on the [exposing vcluster page](./external-access).
 
 If the documentation instructs you to update your values.yaml file, you will need to update the `HELM_VALUES` environment variable, execute the clusterctl generate cluster again, and apply the updated output to your cluster.  
 Alternatively, you can edit the `.spec.helmRelease.values` field of the vcluster custom resource using `kubectl edit vcluster -n $CLUSTER_NAMESPACE $CLUSTER_NAME ` command. Be mindful of the formatting of the value: the string should be a valid YAML file, with the expected indentation for the various helm values. The vcluster provider is watching for the changes made to vcluster custom resource, and it will automatically update the vcluster instance when changes are detected.
 
 ### Connecting to your vcluster
-The recommended way of connecting to your vcluster is to use vcluster CLI as described in the ["Using the vcluster CLI" chapter of the "Accessing vcluster" page](./accessing-vcluster).
+The recommended way of connecting to your vcluster is to use vcluster CLI as described in the [accessing vcluster page](./accessing-vcluster).
 
 However, if your vcluster is created with the vcluster provider, and you expose your cluster externally, you have an alternative:  
 ```clusterctl get kubeconfig ${CLUSTER_NAME} --namespace ${CLUSTER_NAMESPACE} > ./kubeconfig.yaml```  

@@ -108,9 +108,9 @@ spec:
           - --status-socket=/run/k0s/status.sock
           {{- end }}
           {{- if not .Values.sync.nodes.enableScheduler }}
-          - --disable-components=konnectivity-server,kube-scheduler,csr-approver,default-psp,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
+          - --disable-components=konnectivity-server,kube-scheduler,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
           {{- else }}
-          - --disable-components=konnectivity-server,csr-approver,default-psp,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
+          - --disable-components=konnectivity-server,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
           {{- end }}
           {{- range $f := .Values.vcluster.extraArgs }}
           - {{ $f | quote }}
@@ -191,6 +191,18 @@ spec:
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
           {{- end }}
+          {{- if .Values.hostpathMapper.enabled }}
+          - --rewrite-host-paths=true
+          {{- end }}
+          {{- if .Values.multiNamespaceMode.enabled }}
+          - --multi-namespace-mode=true
+          {{- end }}
+          {{- if .Values.sync.configmaps.all }}
+          - --sync-all-configmaps=true
+          {{- end }}
+          {{- if .Values.sync.secrets.all }}
+          - --sync-all-secrets=true
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
@@ -232,6 +244,11 @@ spec:
         {{- end }}
         {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
+        {{- end }}
+        {{- if .Values.sync.generic.config }}
+          - name: CONFIG
+            value: |-
+              {{- .Values.sync.generic.config | nindent 14 }}
         {{- end }}
         volumeMounts:
         {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}

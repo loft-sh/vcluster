@@ -1,5 +1,6 @@
+{{- $kind := include "vcluster.k3s.workloadKind" . -}}
 apiVersion: apps/v1
-kind: StatefulSet
+kind: {{ $kind }}
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -17,12 +18,26 @@ metadata:
 {{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
+{{- if (eq $kind "StatefulSet") }}
   serviceName: {{ .Release.Name }}-headless
+{{- end }}
   replicas: {{ .Values.replicas }}
+{{- if (and (eq $kind "Deployment") (.Values.enableHA)) }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+    {{- if (eq (int .Values.replicas) 1) }}
+      maxUnavailable: 0
+    {{- else }}
+      maxUnavailable: 1
+    {{- end }}
+    type: RollingUpdate
+{{- end }}
   selector:
     matchLabels:
       app: vcluster
       release: {{ .Release.Name }}
+  {{- if (eq $kind "StatefulSet") }}
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
@@ -36,6 +51,7 @@ spec:
         resources:
           requests:
             storage: {{ .Values.storage.size }}
+  {{- end }}
   {{- end }}
   template:
     metadata:
@@ -53,8 +69,42 @@ spec:
       terminationGracePeriodSeconds: 10
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
+      {{- if .Values.affinity }}
       affinity:
 {{ toYaml .Values.affinity | indent 8 }}
+      {{- else if .Values.enableHA }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # if possible avoid scheduling more than one pod on one node
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vcluster
+                - key: release
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: "kubernetes.io/hostname"
+          # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vcluster
+                - key: release
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: topology.kubernetes.io/zone
+      {{- end }}
       tolerations:
 {{ toYaml .Values.tolerations | indent 8 }}
       {{- if .Values.serviceAccount.name }}
@@ -130,6 +180,13 @@ spec:
           {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
           {{- end }}
+          {{- if .Values.enableHA }}
+          - name: K3S_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "vcluster.k3s.tokenSecretName" . | quote }}
+                key: {{ include "vcluster.k3s.serverTokenKey" . | quote }}
+          {{- end }}
           {{- if not .Values.serviceCIDR }}
           - name: SERVICE_CIDR
             valueFrom:
@@ -180,6 +237,11 @@ spec:
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
+          {{- if .Values.enableHA }}
+          - --leader-elect=true
+          {{- else }}
+          - --leader-elect=false
+          {{- end }}
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}
@@ -192,6 +254,18 @@ spec:
           {{- end }}
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
+          {{- end }}
+          {{- if .Values.hostpathMapper.enabled }}
+          - --rewrite-host-paths=true
+          {{- end }}
+          {{- if .Values.multiNamespaceMode.enabled }}
+          - --multi-namespace-mode=true
+          {{- end }}
+          {{- if .Values.sync.configmaps.all }}
+          - --sync-all-configmaps=true
+          {{- end }}
+          {{- if .Values.sync.secrets.all }}
+          - --sync-all-secrets=true
           {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
@@ -240,6 +314,11 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+          {{- end }}
+          {{- if .Values.sync.generic.config }}
+          - name: CONFIG
+            value: |-
+              {{- .Values.sync.generic.config | nindent 14 }}
           {{- end }}
         volumeMounts:
         {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}

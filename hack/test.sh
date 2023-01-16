@@ -6,7 +6,7 @@ export GOFLAGS=-mod=vendor
 
 # Test if we can build the program
 echo "Building virtual cluster..."
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build cmd/vcluster/main.go || exit 1
+go generate ./... && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build cmd/vcluster/main.go || exit 1
  
 # List packages
 PKGS=$(go list ./... | grep -v -e /vendor/ -e /test)

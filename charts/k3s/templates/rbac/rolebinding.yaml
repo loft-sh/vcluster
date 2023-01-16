@@ -1,9 +1,17 @@
 {{- if .Values.rbac.role.create }}
+{{- if .Values.multiNamespaceMode.enabled }}
+kind: ClusterRoleBinding
+{{- else -}}
 kind: RoleBinding
+{{- end }}
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+{{- if .Values.multiNamespaceMode.enabled }}
+  name: {{ template "vcluster.clusterRoleNameMultinamespace" . }}
+{{- else }}
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
+{{- end }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
@@ -22,7 +30,12 @@ subjects:
     {{- end }}
     namespace: {{ .Release.Namespace }}
 roleRef:
+{{- if .Values.multiNamespaceMode.enabled }}
+  kind: ClusterRole
+  name: {{ template "vcluster.clusterRoleNameMultinamespace" . }}
+{{- else }}
   kind: Role
   name: {{ .Release.Name }}
+{{- end }}
   apiGroup: rbac.authorization.k8s.io
 {{- end }}

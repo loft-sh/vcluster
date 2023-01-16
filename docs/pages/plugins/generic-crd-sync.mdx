@@ -5,10 +5,10 @@ sidebar_label: "Generic CRD Sync Plugin"
 
 On this page, we will describe what is the [vcluster generic CRD sync plugin](https://github.com/loft-sh/vcluster-generic-crd-sync-plugin) and how you can create a custom configuration to suit your needs.
 
-You should already know how to [install a plugin](./overview#loading-and-installing-plugins-to-vcluster). And we assume that you are already familiar with the basic principles of how vcluster works, including its [components](../architecture/basics#components) and how it handles [certain Kubernetes resources](../architecture/basics#kubernetes-resources).
+You should already know how to [install a plugin](./overview.mdx#loading-and-installing-plugins-to-vcluster). And we assume that you are already familiar with the basic principles of how vcluster works, including its [components](../architecture/basics.mdx#components) and how it handles [certain Kubernetes resources](../architecture/basics.mdx#kubernetes-resources).
 
 ## Introduction
-Out-of-the-box vcluster can sync [certain Kubernetes resources](../architecture/synced-resources), but there are use cases where it could be useful to sync additional resource kinds as well. A popular reason for this is to utilize a controller(or operator) that is installed in the host cluster and avoid having to install it inside the vcluster. You could achieve this task by implementing a vcluster plugin, as is described in our [Development tutorial](./tutorial), and while this approach has its benefits, it requires certain level of Go knowledge and familiarity with Kubernetes libraries for Go.
+Out-of-the-box vcluster can sync [certain Kubernetes resources](../architecture/synced-resources.mdx), but there are use cases where it could be useful to sync additional resource kinds as well. A popular reason for this is to utilize a controller(or operator) that is installed in the host cluster and avoid having to install it inside the vcluster. You could achieve this task by implementing a vcluster plugin, as is described in our [Development tutorial](./tutorial.mdx), and while this approach has its benefits, it requires certain level of Go knowledge and familiarity with Kubernetes libraries for Go.
 
 The [vcluster generic CRD sync plugin](https://github.com/loft-sh/vcluster-generic-crd-sync-plugin) allows you to sync additional resources to, and from the host cluster where vcluster is installed, with just a few lines of a YAML configuration. With this approach, it is much easier to get started. You will need to declare which CRD Kinds you would like to sync from the virtual cluster to the host cluster, and the plugin will automatically copy the CRD definition from the host cluster into vcluster at the start. Then it will take care of watching the resources of the predefined Kinds and execute the synchronization logic based on the configuration provided to it.
 
@@ -153,6 +153,11 @@ mappings:
           path: .spec.podTargetLabels[*]
         - op: rewriteLabelExpressionsSelector
           path: .spec.selector
+        # A regex example, e.g. if we have a field in "namespace/name" string
+        - op: rewriteName
+          path: .metadata.annotations['custom-one-namespace-slash-name']
+          regex: >
+            ^$NAMESPACE/$NAME$
 ```
 
 **Patch conditions**  

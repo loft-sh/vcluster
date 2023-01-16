@@ -17,7 +17,7 @@ var (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &storageClassSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "storageclass", &storagev1.StorageClass{}, NewStorageClassTranslator(ctx.Options.TargetNamespace), DefaultStorageClassAnnotation),
+		Translator: translator.NewClusterTranslator(ctx, "storageclass", &storagev1.StorageClass{}, NewStorageClassTranslator(), DefaultStorageClassAnnotation),
 	}, nil
 }
 
@@ -29,7 +29,7 @@ var _ syncer.IndicesRegisterer = &storageClassSyncer{}
 
 func (s *storageClassSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &storagev1.StorageClass{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translateStorageClassName(ctx.Options.TargetNamespace, rawObj.GetName())}
+		return []string{translateStorageClassName(rawObj.GetName())}
 	})
 }
 
@@ -62,13 +62,13 @@ func (s *storageClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.
 	return ctrl.Result{}, nil
 }
 
-func NewStorageClassTranslator(physicalNamespace string) translator.PhysicalNameTranslator {
+func NewStorageClassTranslator() translate.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
-		return translateStorageClassName(physicalNamespace, vName)
+		return translateStorageClassName(vName)
 	}
 }
 
-func translateStorageClassName(physicalNamespace, name string) string {
+func translateStorageClassName(name string) string {
 	// we have to prefix with vcluster as system is reserved
-	return translate.PhysicalNameClusterScoped(name, physicalNamespace)
+	return translate.Default.PhysicalNameClusterScoped(name)
 }

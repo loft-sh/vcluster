@@ -1,6 +1,7 @@
 package volumesnapshots
 
 import (
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"path"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -32,13 +33,13 @@ var (
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotSyncer{
 		NamespacedTranslator:                translator.NewNamespacedTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}),
-		volumeSnapshotContentNameTranslator: volumesnapshotcontents.NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace),
+		volumeSnapshotContentNameTranslator: volumesnapshotcontents.NewVolumeSnapshotContentTranslator(),
 	}, nil
 }
 
 type volumeSnapshotSyncer struct {
 	translator.NamespacedTranslator
-	volumeSnapshotContentNameTranslator translator.PhysicalNameTranslator
+	volumeSnapshotContentNameTranslator translate.PhysicalNameTranslator
 }
 
 var _ syncer.Initializer = &volumeSnapshotSyncer{}

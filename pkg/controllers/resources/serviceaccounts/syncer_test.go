@@ -3,7 +3,6 @@ package serviceaccounts
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -35,13 +34,14 @@ func TestSync(t *testing.T) {
 	}
 	pSA := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName(vSA.Name, vSA.Namespace),
+			Name:      translate.Default.PhysicalName(vSA.Name, vSA.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
-				"test":                                  "test",
-				translator.ManagedAnnotationsAnnotation: "test",
-				translator.NameAnnotation:               vSA.Name,
-				translator.NamespaceAnnotation:          vSA.Namespace,
+				"test":                                 "test",
+				translate.ManagedAnnotationsAnnotation: "test",
+				translate.NameAnnotation:               vSA.Name,
+				translate.NamespaceAnnotation:          vSA.Namespace,
+				translate.UIDAnnotation:                "",
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: vSA.Namespace,

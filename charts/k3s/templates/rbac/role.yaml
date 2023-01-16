@@ -1,8 +1,16 @@
 {{- if .Values.rbac.role.create }}
+{{- if .Values.multiNamespaceMode.enabled }}
+kind: ClusterRole
+{{- else -}}
 kind: Role
+{{- end }}
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+{{- if .Values.multiNamespaceMode.enabled }}
+  name: {{ template "vcluster.clusterRoleNameMultinamespace" . }}
+{{- else }}
   name: {{ .Release.Name }}
+{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
@@ -78,4 +86,5 @@ rules:
   {{- end }}
   {{- end }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
+  {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
 {{- end }}

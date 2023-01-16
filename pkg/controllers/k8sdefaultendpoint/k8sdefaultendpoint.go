@@ -122,21 +122,37 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 		vEndpoints.Labels[discovery.LabelSkipMirror] = "true"
 
 		// build new subsets
-		newSubsets := pEndpoints.DeepCopy().Subsets
-		for i := range newSubsets {
-			for j := range newSubsets[i].Ports {
-				newSubsets[i].Ports[j].Name = "https"
+		newSubsets := []corev1.EndpointSubset{}
+		for _, subset := range pEndpoints.Subsets {
+			newPorts := []corev1.EndpointPort{}
+			for _, p := range subset.Ports {
+				if p.Name != "https" {
+					continue
+				}
+
+				newPorts = append(newPorts, p)
 			}
-			for j := range pEndpoints.Subsets[i].Addresses {
-				newSubsets[i].Addresses[j].Hostname = ""
-				newSubsets[i].Addresses[j].NodeName = nil
-				newSubsets[i].Addresses[j].TargetRef = nil
+
+			newAddresses := []corev1.EndpointAddress{}
+			for _, address := range subset.Addresses {
+				address.Hostname = ""
+				address.NodeName = nil
+				address.TargetRef = nil
+				newAddresses = append(newAddresses, address)
 			}
-			for j := range pEndpoints.Subsets[i].NotReadyAddresses {
-				newSubsets[i].NotReadyAddresses[j].Hostname = ""
-				newSubsets[i].NotReadyAddresses[j].NodeName = nil
-				newSubsets[i].NotReadyAddresses[j].TargetRef = nil
+			newNotReadyAddresses := []corev1.EndpointAddress{}
+			for _, address := range subset.NotReadyAddresses {
+				address.Hostname = ""
+				address.NodeName = nil
+				address.TargetRef = nil
+				newNotReadyAddresses = append(newNotReadyAddresses, address)
 			}
+
+			newSubsets = append(newSubsets, corev1.EndpointSubset{
+				Addresses:         newAddresses,
+				NotReadyAddresses: newNotReadyAddresses,
+				Ports:             newPorts,
+			})
 		}
 
 		vEndpoints.Subsets = newSubsets

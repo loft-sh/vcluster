@@ -19,13 +19,13 @@ func (s *networkPolicySyncer) translateUpdate(pObj, vObj *networkingv1.NetworkPo
 
 	translatedSpec := *translateSpec(&vObj.Spec, vObj.GetNamespace())
 	if !equality.Semantic.DeepEqual(translatedSpec, pObj.Spec) {
-		updated = newIfNil(updated, pObj)
+		updated = translator.NewIfNil(updated, pObj)
 		updated.Spec = translatedSpec
 	}
 
 	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
 	if changed {
-		updated = newIfNil(updated, pObj)
+		updated = translator.NewIfNil(updated, pObj)
 		updated.Labels = translatedLabels
 		updated.Annotations = translatedAnnotations
 	}
@@ -58,7 +58,12 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 		})
 	}
 
-	outSpec.PodSelector = *translator.TranslateLabelSelector(&spec.PodSelector)
+	// TODO(Multi-Namespace): add support for multi-namespace translation
+	if !translate.Default.SingleNamespaceTarget() {
+		panic("Multi-Namespace Mode not supported for network policies yet!")
+	}
+
+	outSpec.PodSelector = *translate.Default.TranslateLabelSelector(&spec.PodSelector)
 	if outSpec.PodSelector.MatchLabels == nil {
 		outSpec.PodSelector.MatchLabels = map[string]string{}
 	}
@@ -78,12 +83,12 @@ func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespa
 	out := []networkingv1.NetworkPolicyPeer{}
 	for _, peer := range peers {
 		newPeer := networkingv1.NetworkPolicyPeer{
-			PodSelector:       translator.TranslateLabelSelector(peer.PodSelector),
+			PodSelector:       translate.Default.TranslateLabelSelector(peer.PodSelector),
 			NamespaceSelector: nil, // must be set to nil as all vcluster pods are in the same host namespace as the NetworkPolicy
 		}
 		if peer.IPBlock == nil {
-			translatedNamespaceSelectors := translator.TranslateLabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
-			newPeer.PodSelector = translator.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
+			translatedNamespaceSelectors := translate.TranslateLabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
+			newPeer.PodSelector = translate.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
 
 			if newPeer.PodSelector.MatchLabels == nil {
 				newPeer.PodSelector.MatchLabels = map[string]string{}
@@ -99,11 +104,4 @@ func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespa
 		out = append(out, newPeer)
 	}
 	return out
-}
-
-func newIfNil(updated *networkingv1.NetworkPolicy, pObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
-	if updated == nil {
-		return pObj.DeepCopy()
-	}
-	return updated
 }

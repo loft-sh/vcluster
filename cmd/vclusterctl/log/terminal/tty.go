@@ -4,7 +4,7 @@ import (
 	"io"
 	"os"
 
-	dockerterm "github.com/docker/docker/pkg/term"
+	dockerterm "github.com/moby/term"
 	"k8s.io/kubectl/pkg/util/term"
 )
 

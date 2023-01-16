@@ -4,6 +4,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,11 +24,11 @@ type endpointsSyncer struct {
 }
 
 func (s *endpointsSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx, vObj))
+	return s.SyncDownCreate(ctx, vObj, s.translate(vObj))
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	newEndpoints := s.translateUpdate(ctx, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+	newEndpoints := s.translateUpdate(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
 	if newEndpoints != nil {
 		translator.PrintChanges(pObj, newEndpoints, ctx.Log)
 	}
@@ -66,7 +67,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 		}
 
 		// check if endpoints were created by us
-		if endpoints.Annotations != nil && endpoints.Annotations[translator.NameAnnotation] != "" {
+		if endpoints.Annotations != nil && endpoints.Annotations[translate.NameAnnotation] != "" {
 			// Deleting the endpoints is necessary here as some clusters would not correctly maintain
 			// the endpoints if they were managed by us previously and now should be managed by Kubernetes.
 			// In the worst case we would end up in a state where we have multiple endpoint slices pointing

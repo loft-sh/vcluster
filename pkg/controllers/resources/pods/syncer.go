@@ -2,10 +2,7 @@ package pods
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
 	"reflect"
-	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -39,42 +36,6 @@ var (
 	minimumGracePeriodInSeconds int64 = 30
 	zero                              = int64(0)
 )
-
-// ContainerPhysicalMountPathRegister is a register that
-// keeps track of the containers that already have a physical
-// mount added to them before, so that we don't append the same
-// mount path more than once to the same container. This is to
-// tackle edge cases like in kubevirt where we had
-// VolumeMounts
-//	- mountPath: /pods
-//	  name: kubelet-pods-shortened
-// 	- mountPath: /var/lib/kubelet/pods
-//    mountPropagation: Bidirectional
-//    name: kubelet-pods
-//
-// and Volumes
-//	- hostPath:
-// 		path: /var/lib/kubelet/pods
-// 		type: ""
-// 	  name: kubelet-pods-shortened
-//	- hostPath:
-// 		path: /var/lib/kubelet/pods
-// 		type: ""
-// 	  name: kubelet-pods
-//
-// causing the physical physical path to be mounted twice, one for each above
-// virtual volumeMounts
-// ---
-// - name: kubelet-pods-shortened-vcluster-physical
-//   mountPath: "/var/vcluster/physical/kubelet/pods"
-// - name: kubelet-pods-vcluster-physical
-//   mountPath: "/var/vcluster/physical/kubelet/pods"
-//   mountPropagation: Bidirectional
-type ContainerPhysicalMountPathRegister struct {
-	KubeletMountPath map[string]bool
-	PodLogMountPath  map[string]bool
-	LogMountPath     map[string]bool
-}
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	virtualClusterClient, err := kubernetes.NewForConfig(ctx.VirtualManager.GetConfig())
@@ -119,15 +80,6 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		return nil, errors.Wrap(err, "create pod translator")
 	}
 
-	name := ctx.Options.Name
-	if name == "" {
-		name = ctx.Options.ServiceName
-	}
-
-	virtualPath := fmt.Sprintf(VirtualPathTemplate, ctx.TargetNamespace, name)
-	virtualLogsPath := filepath.Join(virtualPath, "log")
-	virtualKubeletPath := filepath.Join(virtualPath, "kubelet")
-
 	return &podSyncer{
 		NamespacedTranslator: namespacedTranslator,
 
@@ -140,10 +92,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		nodeSelector:          nodeSelector,
 		tolerations:           tolerations,
 
-		podSecurityStandard:   ctx.Options.EnforcePodSecurityStandard,
-		virtualLogsPath:       virtualLogsPath,
-		virtualPodLogsPath:    filepath.Join(virtualLogsPath, "pods"),
-		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
+		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
 	}, nil
 }
 
@@ -160,10 +109,6 @@ type podSyncer struct {
 	tolerations           []*corev1.Toleration
 
 	podSecurityStandard string
-
-	virtualLogsPath       string
-	virtualPodLogsPath    string
-	virtualKubeletPodPath string
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -268,142 +213,12 @@ func (s *podSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (
 		}
 	}
 
-	pPod = s.checkAndRewriteHostPath(ctx, pPod)
-
 	// if scheduler is enabled we only sync if the pod has a node name
 	if s.enableScheduler && pPod.Spec.NodeName == "" {
 		return ctrl.Result{}, nil
 	}
 
 	return s.SyncDownCreate(ctx, vPod, pPod)
-}
-
-func (s *podSyncer) checkAndRewriteHostPath(ctx *synccontext.SyncContext, pPod *corev1.Pod) *corev1.Pod {
-	if len(pPod.Spec.Volumes) > 0 {
-		ctx.Log.Debugf("checking for hostpath volumes")
-
-		containersWithPhysicalMountPaths := ContainerPhysicalMountPathRegister{
-			KubeletMountPath: make(map[string]bool),
-			PodLogMountPath:  make(map[string]bool),
-			LogMountPath:     make(map[string]bool),
-		}
-
-		for i, volume := range pPod.Spec.Volumes {
-			if volume.HostPath != nil {
-				if volume.HostPath.Path == PodLoggingHostpathPath &&
-					// avoid recursive rewriting of HostPaths across reconciles
-					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
-					// we can't just mount the new hostpath to the virtual log path
-					// we also need the actual 'physical' hostpath to be mounted
-					// at a separate location and added to the correct containers as
-					// only then the symlink targets created by hostpath-mapper would be
-					// able to point to the actual log files to be traced.
-					// Also we need to make sure this physical log path is not a
-					// path used by the scraping agent - which should only see the
-					// virtual log path
-					ctx.Log.Debugf("rewriting hostPath for pPod %s", pPod.Name)
-					pPod.Spec.Volumes[i].HostPath.Path = s.virtualPodLogsPath
-
-					ctx.Log.Debugf("adding original hostPath to relevant containers")
-					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
-						volume.Name,
-						volume.HostPath.Type,
-						PodLoggingHostpathPath,
-						PhysicalPodLogVolumeMountPath,
-						containersWithPhysicalMountPaths,
-						pPod)
-				}
-
-				if volume.HostPath.Path == KubeletPodPath &&
-					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
-					ctx.Log.Debugf("rewriting hostPath for kubelet pods %s", pPod.Name)
-					pPod.Spec.Volumes[i].HostPath.Path = s.virtualKubeletPodPath
-					ctx.Log.Debugf("adding original hostPath to relevant containers")
-					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
-						volume.Name,
-						volume.HostPath.Type,
-						KubeletPodPath,
-						PhysicalKubeletVolumeMountPath,
-						containersWithPhysicalMountPaths,
-						pPod)
-				}
-
-				if volume.HostPath.Path == LogHostpathPath {
-					pPod.Spec.Volumes[i].HostPath.Path = s.virtualLogsPath
-					pPod = s.addPhysicalPathToVolumesAndCorrectContainers(ctx,
-						volume.Name,
-						volume.HostPath.Type,
-						LogHostpathPath,
-						PhysicalLogVolumeMountPath,
-						containersWithPhysicalMountPaths,
-						pPod)
-				}
-			}
-		}
-	}
-
-	return pPod
-}
-
-func (s *podSyncer) addPhysicalPathToVolumesAndCorrectContainers(ctx *synccontext.SyncContext,
-	volName string,
-	hostPathType *corev1.HostPathType,
-	hostPath,
-	physicalVolumeMount string,
-	containersWithPhysicalMountPaths ContainerPhysicalMountPathRegister,
-	pPod *corev1.Pod) *corev1.Pod {
-	// add another volume with the correct suffix
-	pPod.Spec.Volumes = append(pPod.Spec.Volumes, corev1.Volume{
-		Name: fmt.Sprintf("%s-%s", volName, PhysicalVolumeNameSuffix),
-		VolumeSource: corev1.VolumeSource{
-			HostPath: &corev1.HostPathVolumeSource{
-				Path: hostPath,
-				Type: hostPathType,
-			},
-		},
-	})
-
-	// find containers using the original volume and mount this new volume
-	// under /var/vcluster/physical/ - this will be used by the hostpathMapper
-	// as the target directory for the symlinks
-	for i, container := range pPod.Spec.Containers {
-		if len(container.VolumeMounts) > 0 {
-			// check for already added physical path to this container
-			var registerToCheck map[string]bool
-
-			if physicalVolumeMount == PhysicalKubeletVolumeMountPath {
-				registerToCheck = containersWithPhysicalMountPaths.KubeletMountPath
-			} else if physicalVolumeMount == PhysicalPodLogVolumeMountPath {
-				registerToCheck = containersWithPhysicalMountPaths.PodLogMountPath
-			} else {
-				registerToCheck = containersWithPhysicalMountPaths.LogMountPath
-			}
-
-			if _, ok := registerToCheck[container.Name]; ok {
-				// physical path already added to the container
-				// volume mounts hence skip
-				continue
-			}
-
-			for _, volumeMount := range container.VolumeMounts {
-				if volumeMount.Name == volName {
-					// this container uses the original volume
-					// keeping it as it is, we mount the physical volume
-					// at the above specified mount point
-					pVolMount := volumeMount.DeepCopy()
-					pVolMount.Name = fmt.Sprintf("%s-%s", volName, PhysicalVolumeNameSuffix)
-					pVolMount.MountPath = physicalVolumeMount
-
-					pPod.Spec.Containers[i].VolumeMounts = append(pPod.Spec.Containers[i].VolumeMounts, *pVolMount)
-
-					// add this to the container volume mount mapping
-					registerToCheck[container.Name] = true
-				}
-			}
-		}
-	}
-
-	return pPod
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {

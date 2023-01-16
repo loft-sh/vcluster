@@ -6,7 +6,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -29,7 +28,7 @@ var (
 	indexPodByRunningNonVClusterNode = "indexpodbyrunningnonvclusternode"
 )
 
-func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	var err error
 	var nodeSelector labels.Selector
 	if ctx.Options.SyncAllNodes {
@@ -55,30 +54,34 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeSer
 	return &nodeSyncer{
 		enableScheduler: ctx.Options.EnableScheduler,
 
-		nodeServiceProvider: nodeService,
+		enforceNodeSelector: ctx.Options.EnforceNodeSelector,
 		nodeSelector:        nodeSelector,
+		clearImages:         ctx.Options.ClearNodeImages,
 		useFakeKubelets:     !ctx.Options.DisableFakeKubelets,
 
-		targetNamespace:     ctx.Options.TargetNamespace,
 		physicalClient:      ctx.PhysicalManager.GetClient(),
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		enforcedTolerations: tolerations,
+
+		currentNamespace: ctx.CurrentNamespace,
 	}, nil
 }
 
 type nodeSyncer struct {
 	enableScheduler bool
 
-	nodeSelector    labels.Selector
-	useFakeKubelets bool
+	clearImages bool
+
+	enforceNodeSelector bool
+	nodeSelector        labels.Selector
+	useFakeKubelets     bool
 
 	physicalClient client.Client
 	virtualClient  client.Client
 
-	targetNamespace     string
 	podCache            client.Reader
-	nodeServiceProvider nodeservice.NodeServiceProvider
 	enforcedTolerations []*corev1.Toleration
+	currentNamespace    string
 }
 
 func (s *nodeSyncer) Resource() client.Object {
@@ -108,7 +111,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder 
 			// to later calculate the status.allocatable part of the nodes correctly
 			if pPod.Status.Phase == corev1.PodSucceeded || pPod.Status.Phase == corev1.PodFailed {
 				return []string{}
-			} else if pPod.Labels != nil && pPod.Labels[translate.MarkerLabel] == translate.Suffix && pPod.Namespace == s.targetNamespace {
+			} else if translate.Default.IsManaged(pPod) {
 				return []string{}
 			} else if pPod.Spec.NodeName == "" {
 				return []string{}
@@ -128,18 +131,13 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder 
 		podCache.WaitForCacheSync(ctx.Context)
 		s.podCache = podCache
 	}
-	return modifyController(ctx, s.nodeServiceProvider, builder)
+	return modifyController(ctx, builder)
 }
 
-func modifyController(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider, builder *builder.Builder) (*builder.Builder, error) {
-	// start the node service provider
-	go func() {
-		nodeService.Start(ctx.Context)
-	}()
-
+func modifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(source.NewKindWithCache(&corev1.Pod{}, ctx.PhysicalManager.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 		pod, ok := object.(*corev1.Pod)
-		if !ok || pod == nil || pod.Namespace != ctx.TargetNamespace || !translate.IsManaged(pod) || pod.Spec.NodeName == "" {
+		if !ok || pod == nil || !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
 			return []reconcile.Request{}
 		}
 
@@ -175,7 +173,7 @@ func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 func registerIndices(ctx *synccontext.RegisterContext) error {
 	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
-		if pod.Namespace != ctx.TargetNamespace || !translate.IsManaged(pod) || pod.Spec.NodeName == "" {
+		if !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
 			return nil
 		}
 		return []string{pod.Spec.NodeName}
@@ -229,7 +227,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 	}
 
-	updatedVNode, err := s.translateUpdateStatus(ctx, pNode, vNode)
+	updatedVNode, err := s.translateUpdateStatus(pNode, vNode)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "update node status")
 	} else if updatedVNode != nil {
@@ -291,7 +289,11 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 			ls = labels.Set{}
 		}
 
-		return s.nodeSelector.Matches(ls), nil
+		matched := s.nodeSelector.Matches(ls)
+		if !matched && !s.enforceNodeSelector {
+			return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)
+		}
+		return matched, nil
 	}
 
 	return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)

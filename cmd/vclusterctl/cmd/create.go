@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"embed"
 	"encoding/base64"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +39,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
+
+//go:generate ../../../hack/embed-charts.sh
+//go:embed charts/*.tgz
+var Charts embed.FS
 
 var (
 	AllowedDistros              = []string{"k3s", "k0s", "k8s", "eks"}
@@ -132,7 +138,10 @@ func (cmd *CreateCmd) Run(args []string) error {
 		return err
 	}
 
-	_, err = exec.Command(helmBinaryPath, "version").CombinedOutput()
+	output, err := exec.Command(helmBinaryPath, "version", "--client").CombinedOutput()
+	if errHelm := CheckHelmVersion(string(output)); errHelm != nil {
+		return errHelm
+	}
 	if err != nil {
 		return err
 	}
@@ -266,16 +275,44 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues, helmExecutablePath 
 		return fmt.Errorf("aborting vcluster creation. Current working directory contains a file or a directory with the name equal to the vcluster chart name - \"%s\". Please execute vcluster create command from a directory that doesn't contain a file or directory named \"%s\"", cmd.ChartName, cmd.ChartName)
 	}
 
-	// rewrite chart location, this is an optimization to avoid
-	// downloading the whole index.yaml and parsing it
-	if cmd.LocalChartDir == "" && cmd.ChartVersion != "" && cmd.ChartRepo == LoftChartRepo {
-		if cmd.ChartVersion[0] == 'v' {
-			cmd.ChartVersion = cmd.ChartVersion[1:]
-		}
+	if cmd.LocalChartDir == "" {
+		chartEmbedded := false
+		if cmd.ChartVersion == upgrade.GetVersion() { // use embedded chart if default version
+			embeddedChartName := fmt.Sprintf("%s-%s.tgz", cmd.ChartName, upgrade.GetVersion())
+			// not using filepath.Join because the embed.FS separator is not OS specific
+			embeddedChartPath := fmt.Sprintf("charts/%s", embeddedChartName)
 
-		cmd.LocalChartDir = LoftChartRepo + "/charts/" + cmd.ChartName + "-" + cmd.ChartVersion + ".tgz"
-		cmd.ChartVersion = ""
-		cmd.ChartRepo = ""
+			embeddedChartFile, err := Charts.ReadFile(embeddedChartPath)
+			if err != nil && errors.Is(err, fs.ErrNotExist) {
+				cmd.log.Infof("Chart not embedded: %q, pulling from helm repository.", err)
+			} else if err != nil {
+				cmd.log.Errorf("Unexpected error while accessing embedded file: %q", err)
+			} else {
+				temp, err := os.CreateTemp("", fmt.Sprintf("%s%s", embeddedChartName, "-"))
+				if err != nil {
+					cmd.log.Errorf("Error creating temp file: %v", err)
+				} else {
+					defer temp.Close()
+					defer os.Remove(temp.Name())
+					_, err = temp.Write(embeddedChartFile)
+					if err != nil {
+						cmd.log.Errorf("Error writing package file to temp: %v", err)
+					}
+					cmd.LocalChartDir = temp.Name()
+					chartEmbedded = true
+					cmd.log.Debugf("Using embedded chart: %q", embeddedChartName)
+				}
+
+			}
+		}
+		// rewrite chart location, this is an optimization to avoid
+		// downloading the whole index.yaml and parsing it
+		if !chartEmbedded && cmd.ChartRepo == LoftChartRepo { // specify versioned path to repo url
+			cmd.ChartVersion = strings.TrimPrefix(cmd.ChartVersion, "v")
+			cmd.LocalChartDir = LoftChartRepo + "/charts/" + cmd.ChartName + "-" + cmd.ChartVersion + ".tgz"
+			cmd.ChartVersion = ""
+			cmd.ChartRepo = ""
+		}
 	}
 
 	if cmd.Upgrade {
@@ -329,7 +366,10 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 		NodePort:           cmd.localCluster,
 		K3SImage:           cmd.K3SImage,
 		Isolate:            cmd.Isolate,
-		KubernetesVersion:  kubernetesVersion,
+		KubernetesVersion: helmUtils.Version{
+			Major: kubernetesVersion.Major,
+			Minor: kubernetesVersion.Minor,
+		},
 	}, nil
 }
 
@@ -492,9 +532,14 @@ func (cmd *CreateCmd) getKubernetesVersion() (*version.Info, error) {
 			cmd.log.Warnf("currently we only support major.minor version (%s) and not the patch version (%s)", majorMinorVer, cmd.KubernetesVersion)
 		}
 
-		kubernetesVersion, err = values.ParseKubernetesVersionInfo(majorMinorVer)
+		parsedVersion, err := values.ParseKubernetesVersionInfo(majorMinorVer)
 		if err != nil {
 			return nil, err
+		}
+
+		kubernetesVersion = &version.Info{
+			Major: parsedVersion.Major,
+			Minor: parsedVersion.Minor,
 		}
 	}
 

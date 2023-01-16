@@ -3,18 +3,17 @@ package nodes
 import (
 	"context"
 	"encoding/json"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 )
 
@@ -98,7 +97,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Spec, *translatedSpec) {
-		updated = newIfNil(updated, vNode)
+		updated = translator.NewIfNil(updated, vNode)
 		updated.Spec = *translatedSpec
 	}
 
@@ -109,40 +108,33 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Annotations, annotations) {
-		updated = newIfNil(updated, vNode)
+		updated = translator.NewIfNil(updated, vNode)
 		updated.Annotations = annotations
 	}
 
 	if !equality.Semantic.DeepEqual(vNode.Labels, labels) {
-		updated = newIfNil(updated, vNode)
+		updated = translator.NewIfNil(updated, vNode)
 		updated.Labels = labels
 	}
 
 	return updated
 }
 
-func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
+func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
 	if s.useFakeKubelets {
-		s.nodeServiceProvider.Lock()
-		defer s.nodeServiceProvider.Unlock()
 		translatedStatus.DaemonEndpoints = corev1.NodeDaemonEndpoints{
 			KubeletEndpoint: corev1.DaemonEndpoint{
-				Port: nodeservice.KubeletPort,
+				Port: constants.KubeletPort,
 			},
 		}
 
 		// translate addresses
-		// create a new service for this node
-		nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, types.NamespacedName{Name: vNode.Name})
-		if err != nil {
-			return nil, errors.Wrap(err, "get vNode IP")
-		}
 		newAddresses := []corev1.NodeAddress{
 			{
-				Address: nodeIP,
-				Type:    corev1.NodeInternalIP,
+				Address: getNodeHost(vNode.Name, s.currentNamespace),
+				Type:    corev1.NodeHostName,
 			},
 		}
 		for _, oldAddress := range translatedStatus.Addresses {
@@ -157,7 +149,6 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 
 	// if scheduler is enabled we allow custom capacity and allocatable
 	if s.enableScheduler {
-
 		// calculate what's really allocatable
 		if translatedStatus.Allocatable != nil {
 			cpu := translatedStatus.Allocatable.Cpu().MilliValue()
@@ -172,7 +163,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 				klog.Errorf("Error listing pods: %v", err)
 			} else {
 				for _, pod := range podList.Items {
-					if !translate.IsManaged(&pod) {
+					if !translate.Default.IsManaged(&pod) {
 						// count pods that are not synced by this vcluster
 						nonVClusterPods++
 					}
@@ -236,6 +227,10 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		}
 	}
 
+	if s.clearImages {
+		translatedStatus.Images = make([]corev1.ContainerImage, 0)
+	}
+
 	// check if the status has changed
 	if !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus) {
 		newNode := vNode.DeepCopy()
@@ -244,13 +239,6 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 	}
 
 	return nil, nil
-}
-
-func newIfNil(updated *corev1.Node, pObj *corev1.Node) *corev1.Node {
-	if updated == nil {
-		return pObj.DeepCopy()
-	}
-	return updated
 }
 
 func mergeStrings(physical []string, virtual []string, oldPhysical []string) []string {

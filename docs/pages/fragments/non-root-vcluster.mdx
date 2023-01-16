@@ -27,7 +27,7 @@ vcluster create my-vcluster -f values.yaml
 </TabItem>
 <TabItem value="helm">
 
-Update the `vcluster.yaml` file described in the [deployment guide](../getting-started/deployment). 
+Update the `vcluster.yaml` file described in the [deployment guide](../getting-started/deployment.mdx).
 
 You will need to add the `securityContext` block as shown below:
 
@@ -37,7 +37,7 @@ securityContext:
   runAsNonRoot: true
 ```
 
-Then, install helm chart using `vcluster.yaml` for chart values as described in the [deployment guide](../getting-started/deployment). 
+Then, install helm chart using `vcluster.yaml` for chart values as described in the [deployment guide](../getting-started/deployment.mdx).
 
 </TabItem>
 <TabItem value="kubectl">

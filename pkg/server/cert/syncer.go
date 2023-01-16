@@ -3,6 +3,7 @@ package cert
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"os"
 	"reflect"
 	"sort"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -81,7 +81,7 @@ func (s *syncer) AddListener(listener dynamiccertificates.Listener) {
 }
 
 func (s *syncer) getSANs() ([]string, error) {
-	retSANs := []string{s.serviceName, s.serviceName + "." + s.currentNamespace}
+	retSANs := []string{s.serviceName, s.serviceName + "." + s.currentNamespace, "*." + translate.Suffix + "." + s.currentNamespace + "." + constants.NodeSuffix}
 
 	// get cluster ip of target service
 	svc := &corev1.Service{}
@@ -111,20 +111,6 @@ func (s *syncer) getSANs() ([]string, error) {
 	podIP := os.Getenv("POD_IP")
 	if podIP != "" {
 		retSANs = append(retSANs, podIP)
-	}
-
-	// get cluster ips of node services
-	svcs := &corev1.ServiceList{}
-	err = s.currentNamespaceCient.List(context.TODO(), svcs, client.InNamespace(s.currentNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
-	if err != nil {
-		return nil, err
-	}
-	for _, svc := range svcs.Items {
-		if svc.Spec.ClusterIP == "" {
-			continue
-		}
-
-		retSANs = append(retSANs, svc.Spec.ClusterIP)
 	}
 
 	// make sure other sans are there as well

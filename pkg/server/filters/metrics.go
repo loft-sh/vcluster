@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/metrics"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -28,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client, targetNamespace string) http.Handler {
+func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client) http.Handler {
 	s := serializer.NewCodecFactory(cachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
@@ -55,7 +54,7 @@ func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualCli
 				}
 
 				// delete port if it is the default one
-				if port == strconv.Itoa(int(nodeservice.KubeletPort)) {
+				if port == strconv.Itoa(int(constants.KubeletPort)) {
 					if len(splittedName) == 2 {
 						targetNode = splittedName[0]
 					} else {
@@ -69,7 +68,7 @@ func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualCli
 			req.URL.Path = strings.Join(splitted, "/")
 
 			// execute the request
-			_, err := handleNodeRequest(localConfig, cachedVirtualClient, targetNamespace, w, req)
+			_, err := handleNodeRequest(localConfig, cachedVirtualClient, w, req)
 			if err != nil {
 				responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 				return
@@ -96,13 +95,13 @@ func writeWithHeader(w http.ResponseWriter, code int, header http.Header, body [
 	_, _ = w.Write(body)
 }
 
-func rewritePrometheusMetrics(req *http.Request, data []byte, targetNamespace string, vClient client.Client) ([]byte, error) {
+func rewritePrometheusMetrics(req *http.Request, data []byte, vClient client.Client) ([]byte, error) {
 	metricsFamilies, err := metrics.Decode(data)
 	if err != nil {
 		return nil, err
 	}
 
-	metricsFamilies, err = metrics.Rewrite(req.Context(), metricsFamilies, targetNamespace, vClient)
+	metricsFamilies, err = metrics.Rewrite(req.Context(), metricsFamilies, vClient)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +109,7 @@ func rewritePrometheusMetrics(req *http.Request, data []byte, targetNamespace st
 	return metrics.Encode(metricsFamilies, expfmt.Negotiate(req.Header))
 }
 
-func handleNodeRequest(localConfig *rest.Config, vClient client.Client, targetNamespace string, w http.ResponseWriter, req *http.Request) (bool, error) {
+func handleNodeRequest(localConfig *rest.Config, vClient client.Client, w http.ResponseWriter, req *http.Request) (bool, error) {
 	// authorization was done here already so we will just go forward with the rewrite
 	req.Header.Del("Authorization")
 	h, err := handler.Handler("", localConfig, nil)
@@ -129,12 +128,12 @@ func handleNodeRequest(localConfig *rest.Config, vClient client.Client, targetNa
 	// now rewrite the metrics
 	newData := data
 	if IsKubeletMetrics(req.URL.Path) {
-		newData, err = rewritePrometheusMetrics(req, data, targetNamespace, vClient)
+		newData, err = rewritePrometheusMetrics(req, data, vClient)
 		if err != nil {
 			return false, err
 		}
 	} else if IsKubeletStats(req.URL.Path) {
-		newData, err = rewriteStats(req.Context(), data, targetNamespace, vClient)
+		newData, err = rewriteStats(req.Context(), data, vClient)
 		if err != nil {
 			return false, err
 		}
@@ -146,7 +145,7 @@ func handleNodeRequest(localConfig *rest.Config, vClient client.Client, targetNa
 	return true, nil
 }
 
-func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vClient client.Client) ([]byte, error) {
+func rewriteStats(ctx context.Context, data []byte, vClient client.Client) ([]byte, error) {
 	stats := &statsv1alpha1.Summary{}
 	err := json.Unmarshal(data, stats)
 	if err != nil {
@@ -156,13 +155,9 @@ func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vCli
 	// rewrite pods
 	newPods := []statsv1alpha1.PodStats{}
 	for _, pod := range stats.Pods {
-		if pod.PodRef.Namespace != targetNamespace {
-			continue
-		}
-
 		// search if we can find the pod by name in the virtual cluster
 		podList := &corev1.PodList{}
-		err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: pod.PodRef.Name})
+		err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: pod.PodRef.Namespace + "/" + pod.PodRef.Name})
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +176,7 @@ func rewriteStats(ctx context.Context, data []byte, targetNamespace string, vCli
 		for _, volume := range pod.VolumeStats {
 			if volume.PVCRef != nil {
 				vPVC := &corev1.PersistentVolumeClaim{}
-				err = clienthelper.GetByIndex(ctx, vClient, vPVC, constants.IndexByPhysicalName, volume.PVCRef.Name)
+				err = clienthelper.GetByIndex(ctx, vClient, vPVC, constants.IndexByPhysicalName, volume.PVCRef.Namespace+"/"+volume.PVCRef.Name)
 				if err != nil {
 					return nil, err
 				}

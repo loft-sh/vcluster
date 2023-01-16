@@ -32,18 +32,16 @@ const (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotContentSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}, NewVolumeSnapshotContentTranslator(ctx.Options.TargetNamespace)),
+		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}, NewVolumeSnapshotContentTranslator()),
 
-		targetNamespace: ctx.Options.TargetNamespace,
-		virtualClient:   ctx.VirtualManager.GetClient(),
+		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
 }
 
 type volumeSnapshotContentSyncer struct {
 	translator.Translator
 
-	targetNamespace string
-	virtualClient   client.Client
+	virtualClient client.Client
 }
 
 var _ syncer.Initializer = &volumeSnapshotContentSyncer{}
@@ -52,21 +50,21 @@ func (s *volumeSnapshotContentSyncer) Init(registerContext *synccontext.Register
 	return util.EnsureCRDFromFile(registerContext.Context, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"))
 }
 
-func NewVolumeSnapshotContentTranslator(physicalNamespace string) translator.PhysicalNameTranslator {
+func NewVolumeSnapshotContentTranslator() translate.PhysicalNameTranslator {
 	return func(vName string, vObj client.Object) string {
-		return translateVolumeSnapshotContentName(physicalNamespace, vName, vObj)
+		return translateVolumeSnapshotContentName(vName, vObj)
 	}
 }
 
 var _ syncer.IndicesRegisterer = &volumeSnapshotContentSyncer{}
 
 func (s *volumeSnapshotContentSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName(ctx.Options.TargetNamespace))
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName())
 }
 
-func newIndexByVSCPhysicalName(targetNamespace string) client.IndexerFunc {
+func newIndexByVSCPhysicalName() client.IndexerFunc {
 	return func(rawObj client.Object) []string {
-		return []string{translateVolumeSnapshotContentName(targetNamespace, rawObj.GetName(), rawObj)}
+		return []string{translateVolumeSnapshotContentName(rawObj.GetName(), rawObj)}
 	}
 }
 
@@ -218,16 +216,12 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 }
 
 func (s *volumeSnapshotContentSyncer) shouldSync(ctx context.Context, pObj *volumesnapshotv1.VolumeSnapshotContent) (bool, *volumesnapshotv1.VolumeSnapshot, error) {
-	if pObj.Spec.VolumeSnapshotRef.Namespace != s.targetNamespace {
-		return false, nil, nil
-	}
-
 	vVS := &volumesnapshotv1.VolumeSnapshot{}
-	err := clienthelper.GetByIndex(ctx, s.virtualClient, vVS, constants.IndexByPhysicalName, pObj.Spec.VolumeSnapshotRef.Name)
+	err := clienthelper.GetByIndex(ctx, s.virtualClient, vVS, constants.IndexByPhysicalName, pObj.Spec.VolumeSnapshotRef.Namespace+"/"+pObj.Spec.VolumeSnapshotRef.Name)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return false, nil, err
-		} else if translate.IsManagedCluster(s.targetNamespace, pObj) {
+		} else if translate.Default.IsManagedCluster(pObj) {
 			return true, nil, nil
 		}
 		return false, nil, nil
@@ -251,14 +245,14 @@ func (s *volumeSnapshotContentSyncer) IsManaged(pObj client.Object) (bool, error
 }
 
 func (s *volumeSnapshotContentSyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
-	return types.NamespacedName{Name: translateVolumeSnapshotContentName(s.targetNamespace, req.Name, vObj)}
+	return types.NamespacedName{Name: translateVolumeSnapshotContentName(req.Name, vObj)}
 }
 
 func (s *volumeSnapshotContentSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[translator.NameAnnotation] != "" {
+	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
-			Name: pAnnotations[translator.NameAnnotation],
+			Name: pAnnotations[translate.NameAnnotation],
 		}
 	}
 
@@ -275,14 +269,14 @@ func (s *volumeSnapshotContentSyncer) PhysicalToVirtual(pObj client.Object) type
 	return types.NamespacedName{Name: vObj.GetName()}
 }
 
-func translateVolumeSnapshotContentName(physicalNamespace, name string, vObj runtime.Object) string {
+func translateVolumeSnapshotContentName(name string, vObj runtime.Object) string {
 	if vObj == nil {
 		return name
 	}
 
 	vVSC, ok := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 	if !ok || vVSC.Annotations == nil || vVSC.Annotations[HostClusterVSCAnnotation] == "" {
-		return translate.PhysicalNameClusterScoped(name, physicalNamespace)
+		return translate.Default.PhysicalNameClusterScoped(name)
 	}
 
 	return vVSC.Annotations[HostClusterVSCAnnotation]

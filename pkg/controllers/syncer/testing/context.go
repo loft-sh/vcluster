@@ -2,9 +2,11 @@ package testing
 
 import (
 	"context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"testing"
+
 	"github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"testing"
 
 	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -42,10 +44,7 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 }
 
 func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
-	enabledControllers := map[string]bool{}
-	for k, v := range controllercontext.ExistingControllers {
-		enabledControllers[k] = v
-	}
+	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
 	return &synccontext.RegisterContext{
 		Context: context.TODO(),
 		Options: &controllercontext.VirtualClusterOptions{
@@ -53,8 +52,7 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 			ServiceName:     DefaultTestVclusterServiceName,
 			TargetNamespace: DefaultTestTargetNamespace,
 		},
-		Controllers:            enabledControllers,
-		TargetNamespace:        DefaultTestTargetNamespace,
+		Controllers:            controllercontext.ExistingControllers.Clone(),
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),

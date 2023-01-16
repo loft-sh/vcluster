@@ -2,7 +2,6 @@ package volumesnapshotcontents
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
 	"testing"
 	"time"
@@ -24,10 +23,10 @@ const (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *volumeSnapshotContentSyncer) {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName(targetNamespace))
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName())
 	assert.NilError(t, err)
 	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshot{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translate.ObjectPhysicalName(rawObj)}
+		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
 	})
 	assert.NilError(t, err)
 
@@ -36,6 +35,8 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 }
 
 func TestSync(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(targetNamespace)
+
 	vVolumeSnapshot := &volumesnapshotv1.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "snapshoty-mcsnapshotface",
@@ -45,7 +46,7 @@ func TestSync(t *testing.T) {
 	}
 	pVolumeSnapshot := &volumesnapshotv1.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.PhysicalName(vVolumeSnapshot.Name, vVolumeSnapshot.Namespace),
+			Name:      translate.Default.PhysicalName(vVolumeSnapshot.Name, vVolumeSnapshot.Namespace),
 			Namespace: targetNamespace,
 		},
 	}
@@ -70,10 +71,11 @@ func TestSync(t *testing.T) {
 	}
 
 	pPreProvisionedObjectMeta := metav1.ObjectMeta{
-		Name:            translate.PhysicalNameClusterScoped(vPreProvisioned.Name, targetNamespace),
+		Name:            translate.Default.PhysicalNameClusterScoped(vPreProvisioned.Name),
 		ResourceVersion: "12345",
 		Annotations: map[string]string{
-			translator.NameAnnotation: vObjectMeta.Name,
+			translate.NameAnnotation: vObjectMeta.Name,
+			translate.UIDAnnotation:  "",
 		},
 	}
 	pPreProvisioned := &volumesnapshotv1.VolumeSnapshotContent{
@@ -81,7 +83,7 @@ func TestSync(t *testing.T) {
 		Spec:       *vPreProvisioned.Spec.DeepCopy(),
 	}
 	pPreProvisioned.Spec.VolumeSnapshotRef = corev1.ObjectReference{
-		Name:      translate.PhysicalName(vPreProvisioned.Spec.VolumeSnapshotRef.Name, vPreProvisioned.Spec.VolumeSnapshotRef.Namespace),
+		Name:      translate.Default.PhysicalName(vPreProvisioned.Spec.VolumeSnapshotRef.Name, vPreProvisioned.Spec.VolumeSnapshotRef.Namespace),
 		Namespace: targetNamespace,
 	}
 
@@ -93,7 +95,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pDynamicObjectMeta,
 		Spec: volumesnapshotv1.VolumeSnapshotContentSpec{
 			VolumeSnapshotRef: corev1.ObjectReference{
-				Name:      translate.PhysicalName(vVolumeSnapshot.Name, vVolumeSnapshot.Namespace),
+				Name:      translate.Default.PhysicalName(vVolumeSnapshot.Name, vVolumeSnapshot.Namespace),
 				Namespace: targetNamespace,
 			},
 			DeletionPolicy:          volumesnapshotv1.VolumeSnapshotContentDelete,

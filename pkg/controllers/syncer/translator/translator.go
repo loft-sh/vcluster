@@ -2,6 +2,7 @@ package translator
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +54,7 @@ type NamespacedTranslator interface {
 
 	// SyncDownUpdate updates the given pObj (if not nil) in the target namespace
 	SyncDownUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
-}
 
-// PhysicalNameTranslator transforms a virtual cluster name to a physical name
-type PhysicalNameTranslator func(vName string, vObj client.Object) string
+	// Function to override default VirtualToPhysical name translation
+	SetNameTranslator(nameTranslator translate.PhysicalNamespacedNameTranslator)
+}

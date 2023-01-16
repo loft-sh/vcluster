@@ -1,6 +1,7 @@
 package events
 
 import (
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"strings"
 
@@ -110,7 +111,7 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 	}
 
 	// get involved object
-	err = clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, vInvolvedObj, index, pEvent.InvolvedObject.Name)
+	err = clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, vInvolvedObj, index, pEvent.Namespace+"/"+pEvent.InvolvedObject.Name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
@@ -127,7 +128,7 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 
 	// copy physical object
 	vObj := pEvent.DeepCopy()
-	translator.ResetObjectMetadata(vObj)
+	translate.ResetObjectMetadata(vObj)
 
 	// set the correct involved object meta
 	vObj.Namespace = m.GetNamespace()

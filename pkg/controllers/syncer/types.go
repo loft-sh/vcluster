@@ -14,6 +14,11 @@ type Object interface {
 	Resource() client.Object
 }
 
+type Exporter interface {
+	Name() string
+	Register()
+}
+
 type Syncer interface {
 	Object
 	translator.NameTranslator
@@ -51,4 +56,14 @@ type ControllerModifier interface {
 // Initializer is used to create and update the prerequisites of the syncer before the controller is started
 type Initializer interface {
 	Init(registerContext *synccontext.RegisterContext) error
+}
+
+type Options struct {
+	// DisableUIDDeletion disables automatic deletion of physical objects if the uid between physical
+	// and virtual doesn't match anymore.
+	DisableUIDDeletion bool
+}
+
+type OptionsProvider interface {
+	WithOptions() *Options
 }

@@ -85,7 +85,6 @@ spec:
           - '--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
           - '--horizontal-pod-autoscaler-sync-period=60s'
           - '--kubeconfig=/run/config/pki/controller-manager.conf'
-          - '--port=0'
           - '--profiling=false'
           {{- if .Values.serviceCIDR }}
           - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'

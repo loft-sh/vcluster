@@ -6,6 +6,7 @@ import (
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,7 +18,7 @@ func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volu
 		pVS.Spec.Source = vVS.Spec.Source
 	} else {
 		if vVS.Spec.Source.PersistentVolumeClaimName != nil {
-			pvcName := translate.PhysicalName(*vVS.Spec.Source.PersistentVolumeClaimName, vVS.Namespace)
+			pvcName := translate.Default.PhysicalName(*vVS.Spec.Source.PersistentVolumeClaimName, vVS.Namespace)
 			pVS.Spec.Source.PersistentVolumeClaimName = &pvcName
 		}
 		if vVS.Spec.Source.VolumeSnapshotContentName != nil {
@@ -40,14 +41,14 @@ func (s *volumeSnapshotSyncer) translateUpdate(pVS, vVS *volumesnapshotv1.Volume
 
 	// snapshot class can be updated
 	if !equality.Semantic.DeepEqual(pVS.Spec.VolumeSnapshotClassName, vVS.Spec.VolumeSnapshotClassName) {
-		updated = newIfNil(updated, pVS)
+		updated = translator.NewIfNil(updated, pVS)
 		updated.Spec.VolumeSnapshotClassName = vVS.Spec.VolumeSnapshotClassName
 	}
 
 	// check if metadata changed
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vVS, pVS)
 	if changed {
-		updated = newIfNil(updated, pVS)
+		updated = translator.NewIfNil(updated, pVS)
 		updated.Annotations = updatedAnnotations
 		updated.Labels = updatedLabels
 	}
@@ -60,15 +61,8 @@ func (s *volumeSnapshotSyncer) translateUpdateBackwards(pObj, vObj *volumesnapsh
 
 	// sync back the finalizers
 	if !equality.Semantic.DeepEqual(vObj.Finalizers, pObj.Finalizers) {
-		updated = newIfNil(updated, vObj)
+		updated = translator.NewIfNil(updated, vObj)
 		updated.Finalizers = pObj.Finalizers
-	}
-	return updated
-}
-
-func newIfNil(updated *volumesnapshotv1.VolumeSnapshot, objBase *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
-	if updated == nil {
-		return objBase.DeepCopy()
 	}
 	return updated
 }

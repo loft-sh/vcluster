@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo"
@@ -119,7 +118,7 @@ func testMapping(fromClient kubernetes.Interface, fromNamespace, fromName string
 		framework.ExpectEqual(len(toService.Spec.Selector), 3)
 		framework.ExpectEqual(toService.Spec.Selector[translate.NamespaceLabel], fromNamespace)
 		framework.ExpectEqual(toService.Spec.Selector[translate.MarkerLabel], translate.Suffix)
-		framework.ExpectEqual(toService.Spec.Selector[translator.ConvertLabelKeyWithPrefix(translator.LabelPrefix, "test")], "test")
+		framework.ExpectEqual(toService.Spec.Selector[translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, "test")], "test")
 	}
 
 	// check service deletion

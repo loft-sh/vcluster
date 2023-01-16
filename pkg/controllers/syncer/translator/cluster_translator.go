@@ -2,9 +2,6 @@ package translator
 
 import (
 	context2 "context"
-	"crypto/sha256"
-	"encoding/hex"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -14,10 +11,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, nameTranslator PhysicalNameTranslator, excludedAnnotations ...string) Translator {
+func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, nameTranslator translate.PhysicalNameTranslator, excludedAnnotations ...string) Translator {
 	return &clusterTranslator{
 		name:                name,
-		physicalNamespace:   ctx.TargetNamespace,
 		excludedAnnotations: excludedAnnotations,
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		obj:                 obj,
@@ -28,10 +24,9 @@ func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.
 
 type clusterTranslator struct {
 	name                string
-	physicalNamespace   string
 	virtualClient       client.Client
 	obj                 client.Object
-	nameTranslator      PhysicalNameTranslator
+	nameTranslator      translate.PhysicalNameTranslator
 	excludedAnnotations []string
 	syncedLabels        []string
 }
@@ -45,7 +40,7 @@ func (n *clusterTranslator) Resource() client.Object {
 }
 
 func (n *clusterTranslator) IsManaged(pObj client.Object) (bool, error) {
-	return translate.IsManagedCluster(n.physicalNamespace, pObj), nil
+	return translate.Default.IsManagedCluster(pObj), nil
 }
 
 func (n *clusterTranslator) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
@@ -56,10 +51,10 @@ func (n *clusterTranslator) VirtualToPhysical(req types.NamespacedName, vObj cli
 
 func (n *clusterTranslator) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[NameAnnotation] != "" {
+	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
-			Namespace: pAnnotations[NamespaceAnnotation],
-			Name:      pAnnotations[NameAnnotation],
+			Namespace: pAnnotations[translate.NamespaceAnnotation],
+			Name:      pAnnotations[translate.NameAnnotation],
 		}
 	}
 
@@ -76,7 +71,7 @@ func (n *clusterTranslator) PhysicalToVirtual(pObj client.Object) types.Namespac
 }
 
 func (n *clusterTranslator) TranslateMetadata(vObj client.Object) client.Object {
-	pObj, err := setupMetadataWithName(n.physicalNamespace, vObj, n.nameTranslator)
+	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.nameTranslator)
 	if err != nil {
 		return nil
 	}
@@ -93,35 +88,9 @@ func (n *clusterTranslator) TranslateMetadataUpdate(vObj client.Object, pObj cli
 }
 
 func (n *clusterTranslator) TranslateLabels(vObj client.Object, pObj client.Object) map[string]string {
-	newLabels := map[string]string{}
-	if vObj != nil {
-		vObjLabels := vObj.GetLabels()
-		for k, v := range vObjLabels {
-			newLabels[convertNamespacedLabelKey(n.physicalNamespace, k)] = v
-		}
-		if vObjLabels != nil {
-			for _, k := range n.syncedLabels {
-				if value, ok := vObjLabels[k]; ok {
-					newLabels[k] = value
-				}
-			}
-		}
-	}
-	if pObj != nil {
-		pObjLabels := pObj.GetLabels()
-		if pObjLabels != nil && pObjLabels[translate.ControllerLabel] != "" {
-			newLabels[translate.ControllerLabel] = pObjLabels[translate.ControllerLabel]
-		}
-	}
-	newLabels[translate.MarkerLabel] = translate.SafeConcatName(n.physicalNamespace, "x", translate.Suffix)
-	return newLabels
+	return translate.Default.TranslateLabelsCluster(vObj, pObj, n.syncedLabels)
 }
 
 func (n *clusterTranslator) TranslateAnnotations(vObj client.Object, pObj client.Object) map[string]string {
-	return translateAnnotations(vObj, pObj, n.excludedAnnotations)
-}
-
-func convertNamespacedLabelKey(physicalNamespace, key string) string {
-	digest := sha256.Sum256([]byte(key))
-	return translate.SafeConcatName(LabelPrefix, physicalNamespace, "x", translate.Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
+	return translate.Default.ApplyAnnotations(vObj, pObj, n.excludedAnnotations)
 }

@@ -42,6 +42,10 @@ vcluster create my-vcluster -f values.yaml
 
 Now you can taint and label nodes inside the virtual cluster without actually modifying the host cluster nodes.
 
+:::info
+If the `persistentvolumeclaims` syncer is also enabled, relevant `csistoragecapacity`,`csinode`, and `csidriver` objects will be mirrored to the virtual cluster so the scheduler can make storage-aware scheduling decisions.
+:::
+
 ## Reuse Host Scheduler
 
 If you don't want to use a separate scheduler inside the vcluster, you can also customize to a certain degree how the host scheduler will schedule your virtual cluster workloads.
@@ -68,9 +72,12 @@ This will pass the necessary flags to the "syncer" container and create or updat
 Vcluster allows you to limit on which nodes the pods synced by vcluster will run.
 You can achieve this by combining `--node-selector` and `--enforce-node-selector` syncer flags. 
 The `--enforce-node-selector` flag is enabled by default.
+When `--enforce-node-selector` flag is disabled, and a `--node-selector` is specified nodes will be synced based on the
+selector, as well as nodes running pod workloads.
+
 When using vcluster helm chart or CLI, there are two options for setting the `--node-selector` flag.
 
-This first option is recommended if you are not enabling node synchronization, and use [the fake nodes](./nodes), which are enabled by default. In such case, you would write a string representation of your node selector(e.g. "nodeLabel=labelValue") and set it as the value of `--node-selector` argument for syncer in your `values.yaml`:
+This first option is recommended if you are not enabling node synchronization, and use [the fake nodes](./nodes.mdx), which are enabled by default. In such case, you would write a string representation of your node selector(e.g. "nodeLabel=labelValue") and set it as the value of `--node-selector` argument for syncer in your `values.yaml`:
 ```
 syncer:
   extraArgs:
@@ -82,7 +89,7 @@ then create or upgrade the vcluster with:
 vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
-This second option is recommended if you are enabling synchronization of [the real nodes](./nodes) via helm values. This is how you would then set the selector in your `values.yaml`:
+This second option is recommended if you are enabling synchronization of [the real nodes](./nodes.mdx) via helm values. This is how you would then set the selector in your `values.yaml`:
 ```
 sync:
   nodes:
@@ -96,7 +103,7 @@ vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
 :::info
-When sync of the real nodes is enabled and nodeSelector is set, all nodes that match the selector will be synced into vcluster. Read more about Node sync modes on the [Nodes documentation page](./nodes).
+When sync of the real nodes is enabled and nodeSelector is set, all nodes that match the selector will be synced into vcluster. Read more about Node sync modes on the [Nodes documentation page](./nodes.mdx).
 ::: 
 
 
@@ -129,3 +136,4 @@ syncer:
 :::info
 vcluster does not support setting the `tolerationSeconds` field of a toleration through the syntax that the `--enforce-toleration` flag uses. If your use case requires this, please raise an issue in [the vcluster repo on GitHub](https://github.com/loft-sh/vcluster/issues).
 ::: 
+

@@ -105,7 +105,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 		vpvc, err := f.VclusterClient.CoreV1().PersistentVolumeClaims(ns).Get(f.Context, pvcName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(f.VclusterNamespace).Get(f.Context, translate.PhysicalName(pvcName, ns), metav1.GetOptions{})
+		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(pvcName, ns), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		framework.ExpectEqual(vpvc.Status, pvc.Status)

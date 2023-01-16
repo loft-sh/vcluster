@@ -28,7 +28,11 @@ If release name contains chart name it will be used as a full name.
 Whether the ingressclasses syncer should be enabled
 */}}
 {{- define "vcluster.syncIngressclassesEnabled" -}}
-{{- if or (.Values.sync.ingressclasses).enabled (and .Values.sync.ingresses.enabled (not (hasKey .Values.sync.ingressclasses "enabled"))) -}}
+{{- if or
+    (.Values.sync.ingressclasses).enabled
+    (and
+        .Values.sync.ingresses.enabled
+        (not .Values.sync.ingressclasses)) -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
@@ -37,13 +41,34 @@ Whether the ingressclasses syncer should be enabled
 Whether to create a cluster role or not
 */}}
 {{- define "vcluster.createClusterRole" -}}
-{{- if or (not (empty (include "vcluster.serviceMapping.fromHost" . ))) (not (empty (include "vcluster.plugin.clusterRoleExtraRules" . ))) .Values.rbac.clusterRole.create (index .Values.sync "legacy-storageclasses" "enabled") (include "vcluster.syncIngressclassesEnabled" . ) .Values.sync.ingresses.enabled .Values.sync.nodes.enabled .Values.sync.persistentvolumes.enabled .Values.sync.storageclasses.enabled .Values.sync.priorityclasses.enabled .Values.sync.volumesnapshots.enabled -}}
+{{- if or
+    (not
+        (empty (include "vcluster.serviceMapping.fromHost" . )))
+    (not
+        (empty (include "vcluster.plugin.clusterRoleExtraRules" . )))
+    (not
+        (empty (include "vcluster.generic.clusterRoleExtraRules" . )))
+    .Values.rbac.clusterRole.create
+    .Values.sync.hoststorageclasses.enabled
+    (index
+        ((index .Values.sync "legacy-storageclasses") | default (dict "enabled" false))
+    "enabled")
+    (include "vcluster.syncIngressclassesEnabled" . )
+    .Values.sync.nodes.enabled
+    .Values.sync.persistentvolumes.enabled
+    .Values.sync.storageclasses.enabled
+    .Values.sync.priorityclasses.enabled
+    .Values.sync.volumesnapshots.enabled -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
 
 {{- define "vcluster.clusterRoleName" -}}
 {{- printf "vc-%s-v-%s" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "vcluster.clusterRoleNameMultinamespace" -}}
+{{- printf "vc-%s-v-%s-mn" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -84,11 +109,18 @@ Prints only the flags that modify the defaults:
 */}}
 {{- define "vcluster.syncer.syncArgs" -}}
 {{- $defaultEnabled := list "services" "configmaps" "secrets" "endpoints" "pods" "events" "persistentvolumeclaims" "fake-nodes" "fake-persistentvolumes" -}}
+{{- if and (hasKey .Values.sync.nodes "enableScheduler") .Values.sync.nodes.enableScheduler -}}
+    {{- $defaultEnabled = concat $defaultEnabled (list "csinodes" "csidrivers" "csistoragecapacities" ) -}}
+{{- end -}}
 {{- range $key, $val := .Values.sync }}
 {{- if and (has $key $defaultEnabled) (not $val.enabled) }}
 - --sync=-{{ $key }}
 {{- else if and (not (has $key $defaultEnabled)) ($val.enabled)}}
+{{- if eq $key "legacy-storageclasses" }}
+- --sync=hoststorageclasses
+{{- else }}
 - --sync={{ $key }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- if not (include "vcluster.syncIngressclassesEnabled" . ) }}
@@ -114,6 +146,19 @@ Cluster role rules defined by plugins
 {{- end -}}
 
 {{/*
+Cluster role rules defined in generic syncer
+*/}}
+{{- define "vcluster.generic.clusterRoleExtraRules" -}}
+{{- if .Values.sync.generic.clusterRole }}
+{{- if .Values.sync.generic.clusterRole.extraRules}}
+{{- range $ruleIndex, $rule := .Values.sync.generic.clusterRole.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
 Role rules defined by plugins
 */}}
 {{- define "vcluster.plugin.roleExtraRules" -}}
@@ -130,6 +175,18 @@ Role rules defined by plugins
 {{- end }}
 {{- end -}}
 
+{{/*
+Role rules defined in generic syncer
+*/}}
+{{- define "vcluster.generic.roleExtraRules" -}}
+{{- if .Values.sync.generic.role }}
+{{- if .Values.sync.generic.role.extraRules}}
+{{- range $ruleIndex, $rule := .Values.sync.generic.role.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
 
 {{/*
 Virtual cluster service mapping

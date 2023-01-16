@@ -2,7 +2,6 @@ package volumesnapshots
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"gotest.tools/assert"
 	"testing"
 	"time"
@@ -21,6 +20,8 @@ const (
 )
 
 func TestSync(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(targetNamespace)
+
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "test-snapshot",
 		Namespace:       "test",
@@ -51,12 +52,13 @@ func TestSync(t *testing.T) {
 	}
 
 	pObjectMeta := metav1.ObjectMeta{
-		Name:            translate.PhysicalName(vObjectMeta.Name, vObjectMeta.Namespace),
+		Name:            translate.Default.PhysicalName(vObjectMeta.Name, vObjectMeta.Namespace),
 		Namespace:       targetNamespace,
 		ResourceVersion: "1234",
 		Annotations: map[string]string{
-			translator.NameAnnotation:      vObjectMeta.Name,
-			translator.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.NameAnnotation:      vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -67,14 +69,14 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pObjectMeta,
 		Spec: volumesnapshotv1.VolumeSnapshotSpec{
 			Source: volumesnapshotv1.VolumeSnapshotSource{
-				PersistentVolumeClaimName: pointer.String(translate.PhysicalName(*vPVSourceSnapshot.Spec.Source.PersistentVolumeClaimName, vObjectMeta.Namespace)),
+				PersistentVolumeClaimName: pointer.String(translate.Default.PhysicalName(*vPVSourceSnapshot.Spec.Source.PersistentVolumeClaimName, vObjectMeta.Namespace)),
 			},
 			VolumeSnapshotClassName: vPVSourceSnapshot.Spec.VolumeSnapshotClassName,
 		},
 	}
 	pVSCSourceSnapshot := pPVSourceSnapshot.DeepCopy()
 	pVSCSourceSnapshot.Spec.Source = volumesnapshotv1.VolumeSnapshotSource{
-		VolumeSnapshotContentName: pointer.String(translate.PhysicalNameClusterScoped(*vVSCSourceSnapshot.Spec.Source.VolumeSnapshotContentName, targetNamespace)),
+		VolumeSnapshotContentName: pointer.String(translate.Default.PhysicalNameClusterScoped(*vVSCSourceSnapshot.Spec.Source.VolumeSnapshotContentName)),
 	}
 
 	pWithNilClass := pPVSourceSnapshot.DeepCopy()

@@ -37,6 +37,12 @@ type serviceSyncer struct {
 	serviceName string
 }
 
+var _ syncer.OptionsProvider = &serviceSyncer{}
+
+func (s *serviceSyncer) WithOptions() *syncer.Options {
+	return &syncer.Options{DisableUIDDeletion: true}
+}
+
 func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.Service)))
 }
@@ -106,7 +112,7 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 var _ syncer.UpSyncer = &serviceSyncer{}
 
 func (s *serviceSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	if !translate.IsManaged(pObj) {
+	if !translate.Default.IsManaged(pObj) {
 		return ctrl.Result{}, nil
 	}
 
@@ -118,7 +124,7 @@ func (s *serviceSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return syncer.DeleteObject(ctx, pObj)
+	return syncer.DeleteObject(ctx, pObj, "virtual object was deleted")
 }
 
 func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) (*corev1.Service, error) {
@@ -224,6 +230,10 @@ func SyncKubernetesService(ctx context.Context, virtualClient client.Client, loc
 func translateKubernetesServicePorts(ports []corev1.ServicePort) []corev1.ServicePort {
 	retPorts := []corev1.ServicePort{}
 	for _, p := range ports {
+		if p.Name == "kubelet" {
+			continue
+		}
+
 		// Delete the NodePort
 		retPorts = append(retPorts, corev1.ServicePort{
 			Name:        p.Name,

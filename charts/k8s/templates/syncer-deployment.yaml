@@ -86,8 +86,6 @@ spec:
       {{- end }}
       nodeSelector:
 {{ toYaml .Values.syncer.nodeSelector | indent 8 }}
-      affinity:
-{{ toYaml .Values.syncer.affinity | indent 8 }}
       tolerations:
 {{ toYaml .Values.syncer.tolerations | indent 8 }}
       {{- if .Values.serviceAccount.name }}
@@ -175,6 +173,18 @@ spec:
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
           {{- end }}
+          {{- if .Values.hostpathMapper.enabled }}
+          - --rewrite-host-paths=true
+          {{- end }}
+          {{- if .Values.multiNamespaceMode.enabled }}
+          - --multi-namespace-mode=true
+          {{- end }}
+          {{- if .Values.sync.configmaps.all }}
+          - --sync-all-configmaps=true
+          {{- end }}
+          {{- if .Values.sync.secrets.all }}
+          - --sync-all-secrets=true
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
@@ -216,6 +226,11 @@ spec:
         {{- end }}
         {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
+        {{- end }}
+        {{- if .Values.sync.generic.config }}
+          - name: CONFIG
+            value: |-
+              {{- .Values.sync.generic.config | nindent 14 }}
         {{- end }}
         volumeMounts:
         {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}

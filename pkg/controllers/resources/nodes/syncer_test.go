@@ -1,9 +1,10 @@
 package nodes
 
 import (
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -28,7 +29,7 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 	assert.NilError(t, err)
 
 	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-		return NewSyncer(ctx, &fakeNodeServiceProvider{})
+		return NewSyncer(ctx)
 	})
 	return syncContext, object.(*nodeSyncer)
 }
@@ -64,13 +65,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 		},
@@ -90,13 +91,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
@@ -195,13 +196,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
@@ -220,13 +221,13 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: "127.0.0.1",
-					Type:    corev1.NodeInternalIP,
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
 				},
 			},
 			DaemonEndpoints: corev1.NodeDaemonEndpoints{
 				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: nodeservice.KubeletPort,
+					Port: constants.KubeletPort,
 				},
 			},
 			NodeInfo: corev1.NodeSystemInfo{
@@ -278,6 +279,282 @@ func TestSync(t *testing.T) {
 				ctx.Options.Tolerations = []string{":NoSchedule op=Exists"}
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+	})
+
+	baseName = types.NamespacedName{
+		Name: "mynode",
+	}
+	basePod = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mypod",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: baseName.Name,
+		},
+	}
+	baseNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+		},
+	}
+	baseVNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+		},
+	}
+	editedNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Label Matched and enforceNodeSelector false - expect node to be synced from NodeSelector",
+			InitialPhysicalState: []runtime.Object{baseNode},
+			InitialVirtualState:  []runtime.Object{baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.EnforceNodeSelector = false
+				req, _ := labels.NewRequirement("test", selection.Equals, []string{"true"})
+				sel := labels.NewSelector().Add(*req)
+				ctx.Options.NodeSelector = sel.String()
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Label Not Matched and enforceNodeSelector false - expect node to be synced from pod needs",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.EnforceNodeSelector = false
+				req, _ := labels.NewRequirement("test", selection.NotEquals, []string{"true"})
+				sel := labels.NewSelector().Add(*req)
+				ctx.Options.NodeSelector = sel.String()
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "No NodeSelector LabelSet and enforceNodeSelector false - expect node to be synced from pod needs",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.EnforceNodeSelector = false
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Label Not Matched and enforceNodeSelector true - expect node not to be synced",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				req, _ := labels.NewRequirement("test", selection.NotEquals, []string{"true"})
+				sel := labels.NewSelector().Add(*req)
+				ctx.Options.NodeSelector = sel.String()
+				ctx.Options.EnforceNodeSelector = true
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+	})
+
+	baseName = types.NamespacedName{
+		Name: "mynode",
+	}
+
+	baseNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+			Images: []corev1.ContainerImage{
+				{
+					Names: []string{"ghcr.io/jetpack/calico"},
+				},
+			},
+		},
+	}
+	baseVNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+		},
+	}
+	editedNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+			Images: []corev1.ContainerImage{},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Clear Node Images Enabled -- Synced Node Should have no images in status.images",
+			InitialPhysicalState: []runtime.Object{baseNode},
+			InitialVirtualState:  []runtime.Object{baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.SyncAllNodes = true
+				ctx.Options.ClearNodeImages = true
+				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
+				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
+				assert.NilError(t, err)
+			},
+		},
+	})
+
+	editedNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+			Images: []corev1.ContainerImage{
+				{
+					Names: []string{"ghcr.io/jetpack/calico"},
+				},
+			},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Clear Node Images Disabled -- Synced Node Should have images in status.images",
+			InitialPhysicalState: []runtime.Object{baseNode},
+			InitialVirtualState:  []runtime.Object{baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.SyncAllNodes = true
+				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
+				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
 			},
 		},

@@ -1,0 +1,27 @@
+{{- if and (.Values.enableHA) (.Values.podDisruptionBudget.enabled) (gt (int .Values.replicas) 1) -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- with .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: vcluster
+      release: {{ .Release.Name }}
+{{- end }}

@@ -2,6 +2,7 @@ package volumesnapshotclasses
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	"testing"
 
@@ -13,6 +14,8 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "testclass",
 		Namespace:       "test",

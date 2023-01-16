@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime.Scheme, uncachedVirtualClient client.Client, admit admission.Interface, targetNamespace string, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
+func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime.Scheme, uncachedVirtualClient client.Client, admit admission.Interface, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
 	s := serializer.NewCodecFactory(localScheme)
 	parameterCodec := runtime.NewParameterCodec(uncachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -54,11 +54,8 @@ func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime
 				}
 
 				// exchange namespace & name
-				splitted[4] = targetNamespace
-
-				// make sure we keep the prefix and suffix
-				targetName := translate.PhysicalName(splitted[6], info.Namespace)
-				splitted[6] = targetName
+				splitted[4] = translate.Default.PhysicalNamespace(info.Namespace)
+				splitted[6] = translate.Default.PhysicalName(splitted[6], info.Namespace)
 				req.URL.Path = strings.Join(splitted, "/")
 
 				// we have to add a trailing slash here, because otherwise the

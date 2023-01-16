@@ -23,8 +23,10 @@ sync:
     enabled: true
   configmaps:
     enabled: true
+    all: false
   secrets:
     enabled: true
+    all: false
   endpoints:
     enabled: true
   pods:
@@ -66,7 +68,8 @@ sync:
     enabled: false
   storageclasses:
     enabled: false
-  legacy-storageclasses:
+  # formerly named - "legacy-storageclasses"
+  hoststorageclasses:
     enabled: false
   priorityclasses:
     enabled: false
@@ -78,6 +81,10 @@ sync:
     enabled: false
   serviceaccounts:
     enabled: false
+  # generic CRD configuration
+  generic:
+    config: |-
+      ---
 
 # Map Services between host and virtual cluster
 mapServices:
@@ -99,6 +106,13 @@ mapServices:
 
 hostpathMapper:
   enabled: false
+  resources: {}
+    # limits:
+    #   cpu: 40m
+    #   memory: 100Mi
+    # requests:
+    #   cpu: 20m
+    #   memory: 50Mi
 
 # Syncer configuration
 syncer:
@@ -125,7 +139,7 @@ syncer:
 # Virtual Cluster (k0s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: k0sproject/k0s:v1.24.3-k0s.0
+  image: k0sproject/k0s:v1.25.3-k0s.0
   command:
     - k0s
   baseArgs:
@@ -147,6 +161,7 @@ vcluster:
       cpu: 200m
       memory: 256Mi
   priorityClassName: ""
+  # clusterDomain: cluster.local
 
 # Storage settings for the vcluster
 storage:
@@ -366,3 +381,6 @@ init:
   # this allows you to use helm values inside, e.g.: {{ .Release.Name }}
   manifestsTemplate: ''
   helm: []
+
+multiNamespaceMode:
+  enabled: false

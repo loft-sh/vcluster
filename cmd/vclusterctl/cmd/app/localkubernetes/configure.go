@@ -69,7 +69,7 @@ func CleanupLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 }
 
 func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
-	if len(service.Spec.Ports) != 1 {
+	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
@@ -86,7 +86,7 @@ func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Co
 }
 
 func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
-	if len(service.Spec.Ports) != 1 {
+	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
@@ -184,7 +184,7 @@ func cleanupProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 }
 
 func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
-	if len(service.Spec.Ports) != 1 {
+	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
@@ -202,7 +202,7 @@ func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.C
 }
 
 func directConnection(vRawConfig *clientcmdapi.Config, service *corev1.Service, timeout time.Duration) (string, error) {
-	if len(service.Spec.Ports) != 1 {
+	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 

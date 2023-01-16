@@ -1,0 +1,152 @@
+### Enabling High Availability
+
+In order to run vcluster in high availability mode, create a `values.yaml` in the following form:
+
+```
+# Enable HA mode
+enableHA: true
+
+# Scale up syncer replicas
+syncer:
+  replicas: 3
+
+# Scale up etcd
+etcd:
+  replicas: 3
+
+# Scale up controller manager
+controller:
+  replicas: 3
+
+# Scale up api server
+api:
+  replicas: 3
+
+# Scale up DNS server
+coredns:
+  replicas: 3
+```
+
+Then create the vcluster with the following command:
+```
+vcluster create ... --connect=false --distro k8s -f values.yaml
+```
+
+Check that vcluster including the control plane are running correctly:
+```
+kubectl get po -n vcluster
+NAME                                                READY   STATUS    RESTARTS   AGE
+coredns-6ff7df994d-m5pcd-x-kube-system-x-vcluster   1/1     Running   0          23m
+coredns-6ff7df994d-dfgjb-x-kube-system-x-vcluster   1/1     Running   0          23m
+coredns-6ff7df994d-weuir-x-kube-system-x-vcluster   1/1     Running   0          23m
+vcluster-9d88f577-m55xf                             1/1     Running   0          30m
+vcluster-9d88f577-drsxz                             1/1     Running   0          30m
+vcluster-9d88f577-maslo                             1/1     Running   0          30m
+vcluster-api-66bfc4cf94-cp28t                       1/1     Running   0          30m
+vcluster-api-66bfc4cf94-drnll                       1/1     Running   0          30m
+vcluster-api-66bfc4cf94-jfbnn                       1/1     Running   0          30m
+vcluster-controller-b4cd55bb6-9mvc4                 1/1     Running   0          30m
+vcluster-controller-b4cd55bb6-bmfdj                 1/1     Running   0          30m
+vcluster-controller-b4cd55bb6-kcxr7                 1/1     Running   0          30m
+vcluster-etcd-0                                     1/1     Running   0          30m
+vcluster-etcd-1                                     1/1     Running   0          29m
+vcluster-etcd-2                                     1/1     Running   0          29m
+```
+
+Now connect to the vcluster:
+```
+vcluster connect vcluster-1 -n host-namespace-1
+
+# Then execute in a new terminal
+export KUBECONFIG=kubeconfig.yaml
+kubectl get ns
+...
+```
+
+### Enable HA in rootless mode
+Rootless mode means running vcluster without root user privileges in container, making host k8s cluster more secure.
+You can find more about rootless mode [here](../operator/restricted-hosts.mdx).
+
+Below is HA configuration for running rootless vcluster with vanilla Kubernetes distribution.
+```
+# Enable HA mode
+enableHA: true
+
+# Scale up syncer replicas
+syncer:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up etcd
+etcd:
+  replicas: 3
+  fsGroup: 12345
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up controller manager
+controller:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up api server
+api:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up DNS server
+coredns:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+```
+
+Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.

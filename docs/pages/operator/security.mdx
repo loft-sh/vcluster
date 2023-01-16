@@ -15,11 +15,6 @@ Besides these benefits, vcluster by default will **not** provide any workload or
 In general, we recommend to deploy a single vcluster into a namespace and then isolate the namespace, which is far easier than isolating multiple vclusters from each other in a single namespace.
 
 ## Isolated Mode
-
-:::warning
-This is an alpha feature and only available in v0.7.0 and newer vcluster versions
-:::
-
 vcluster offers a feature called isolated mode to automatically isolate workloads in a virtual cluster. Isolated mode can be enabled via the `--isolate` flag in `vcluster create` or through the helm value `isolation.enabled: true`:
 
 ```
@@ -150,7 +145,9 @@ If you want more control over this, you can also use an admission controller, th
 
 ### Advanced Isolation
 
-Besides this basic workload isolation, you could also dive into more advanced isolation methods, such as isolating the workloads on separate nodes or through an other container runtime. Using different nodes for your vcluster workloads can be accomplished through the [--node-selector flag](../architecture/nodes.mdx) on vcluster syncer.
+Besides this basic workload isolation, you could also dive into more advanced isolation methods, such as isolating the workloads on separate nodes or through another container runtime. Using different nodes for your vcluster workloads can be accomplished through the [--node-selector flag](../architecture/nodes.mdx) on vcluster syncer.
+
+You should also be aware that pods created in the vcluster will set their [tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/), which will affect scheduling decisions. To prevent the pods from being scheduled to the undesirable nodes you can use the [--node-selector flag](../architecture/nodes.mdx) or admission controller as mentioned above.
 
 ## Network Isolation
 

@@ -1,13 +1,13 @@
 package persistentvolumeclaims
 
 import (
+	"testing"
+	"time"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/types"
-	"testing"
-	"time"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -25,11 +25,12 @@ func TestSync(t *testing.T) {
 		Namespace: "testns",
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.PhysicalName("testpvc", "testns"),
+		Name:      translate.Default.PhysicalName("testpvc", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
-			translator.NameAnnotation:      vObjectMeta.Name,
-			translator.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.NameAnnotation:      vObjectMeta.Name,
+			translate.NamespaceAnnotation: vObjectMeta.Namespace,
+			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.Suffix,
@@ -73,10 +74,11 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translator.NameAnnotation:               vObjectMeta.Name,
-				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translator.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				"otherAnnotationKey":                    "update this",
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translate.UIDAnnotation:                "",
+				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
+				"otherAnnotationKey":                   "update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -89,13 +91,14 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translator.NameAnnotation:               vObjectMeta.Name,
-				translator.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translator.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				bindCompletedAnnotation:                 "testannotation",
-				boundByControllerAnnotation:             "testannotation2",
-				storageProvisionerAnnotation:            "testannotation3",
-				"otherAnnotationKey":                    "don't update this",
+				translate.NameAnnotation:               vObjectMeta.Name,
+				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
+				translate.UIDAnnotation:                "",
+				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
+				bindCompletedAnnotation:                "testannotation",
+				boundByControllerAnnotation:            "testannotation2",
+				storageProvisionerAnnotation:           "testannotation3",
+				"otherAnnotationKey":                   "don't update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -128,7 +131,7 @@ func TestSync(t *testing.T) {
 
 	generictesting.RunTestsWithContext(t, func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		ctx := generictesting.NewFakeRegisterContext(pClient, vClient)
-		ctx.Controllers["storageclasses"] = false
+		ctx.Controllers.Delete("storageclasses")
 		return ctx
 	}, []*generictesting.SyncTest{
 		{
