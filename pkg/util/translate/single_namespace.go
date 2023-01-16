@@ -61,7 +61,14 @@ func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
 		return false
 	} else if metaAccessor.GetLabels() == nil {
 		return false
-	} else if metaAccessor.GetNamespace() != "" && metaAccessor.GetNamespace() != s.targetNamespace {
+	} else if metaAccessor.GetNamespace() != "" && !s.IsTargetedNamespace(metaAccessor.GetNamespace()) {
+		return false
+	}
+
+	// vcluster has not synced the object IF:
+	// If object-name annotation is not set OR
+	// If object-name annotation is different from actual name
+	if metaAccessor.GetAnnotations() == nil || metaAccessor.GetAnnotations()[NameAnnotation] == "" || metaAccessor.GetName() != s.PhysicalName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation]) {
 		return false
 	}
 
@@ -77,6 +84,10 @@ func (s *singleNamespace) IsManagedCluster(obj runtime.Object) bool {
 	}
 
 	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.targetNamespace, "x", Suffix)
+}
+
+func (s *singleNamespace) IsTargetedNamespace(ns string) bool {
+	return ns == s.targetNamespace
 }
 
 func (s *singleNamespace) convertNamespacedLabelKey(key string) string {

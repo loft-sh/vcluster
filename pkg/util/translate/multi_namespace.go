@@ -61,7 +61,11 @@ func (s *multiNamespace) IsManaged(obj runtime.Object) bool {
 		return false
 	}
 
-	if !strings.HasPrefix(metaAccessor.GetNamespace(), s.getNamespacePrefix()) || !strings.HasSuffix(metaAccessor.GetNamespace(), s.getNamespaceSuffix()) || metaAccessor.GetAnnotations() == nil || metaAccessor.GetAnnotations()[NameAnnotation] == "" {
+	// vcluster has not synced the object IF:
+	// If obj is not in the synced namespace OR
+	// If object-name annotation is not set OR
+	// If object-name annotation is different from actual name
+	if !s.IsTargetedNamespace(metaAccessor.GetNamespace()) || metaAccessor.GetAnnotations() == nil || metaAccessor.GetAnnotations()[NameAnnotation] == "" || metaAccessor.GetAnnotations()[NameAnnotation] != metaAccessor.GetName() {
 		return false
 	}
 
@@ -82,6 +86,10 @@ func (s *multiNamespace) IsManagedCluster(obj runtime.Object) bool {
 	}
 
 	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.currentNamespace, "x", Suffix)
+}
+
+func (s *multiNamespace) IsTargetedNamespace(ns string) bool {
+	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, s.getNamespaceSuffix())
 }
 
 func (s *multiNamespace) convertLabelKey(key string) string {

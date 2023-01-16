@@ -1,0 +1,303 @@
+package generic
+
+import (
+	"context"
+	"fmt"
+	"regexp"
+	"strings"
+
+	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/log"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	util "github.com/loft-sh/vcluster/pkg/util/context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	ImportedByAnnotation = "vcluster.loft.sh/imported-by"
+)
+
+func CreateImporters(ctx *context2.ControllerContext, config *config.Config) error {
+	scheme := ctx.LocalManager.GetScheme()
+	registerCtx := util.ToRegisterContext(ctx)
+
+	if !registerCtx.Options.MultiNamespaceMode {
+		return fmt.Errorf("invalid configuration, 'import' type sync of the generic CRDs is allowed only in the multi-namespace mode")
+	}
+
+	for _, importConfig := range config.Imports {
+		gvk := schema.FromAPIVersionAndKind(importConfig.APIVersion, importConfig.Kind)
+		if !scheme.Recognizes(gvk) {
+			err := translate.EnsureCRDFromPhysicalCluster(
+				registerCtx.Context,
+				registerCtx.PhysicalManager.GetConfig(),
+				registerCtx.VirtualManager.GetConfig(),
+				gvk)
+			if err != nil {
+				return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", importConfig.Kind, importConfig.APIVersion, err)
+			}
+		}
+	}
+
+	for _, importConfig := range config.Imports {
+		s, err := createImporter(registerCtx, importConfig)
+		if err != nil {
+			return fmt.Errorf("error creating %s(%s) syncer: %v", importConfig.Kind, importConfig.APIVersion, err)
+		}
+
+		err = syncer.RegisterSyncer(registerCtx, s)
+		if err != nil {
+			return fmt.Errorf("error registering syncer %v", err)
+		}
+	}
+
+	return nil
+}
+
+func createImporter(ctx *synccontext.RegisterContext, config *config.Import) (syncer.Syncer, error) {
+	statusIsSubresource := true
+	// TODO: [low priority] check if config.Kind + config.APIVersion has status subresource
+
+	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
+	name := fmt.Sprintf("%s/%s/GenericImport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.Group))
+
+	return &importer{
+		patcher: &patcher{
+			fromClient:          ctx.PhysicalManager.GetClient(),
+			toClient:            ctx.VirtualManager.GetClient(),
+			statusIsSubresource: statusIsSubresource,
+			log:                 log.New(name),
+		},
+		gvk:           gvk,
+		config:        config,
+		virtualClient: ctx.VirtualManager.GetClient(),
+		name:          name,
+	}, nil
+}
+
+type importer struct {
+	translator.Translator
+	patcher       *patcher
+	gvk           schema.GroupVersionKind
+	config        *config.Import
+	virtualClient client.Client
+	name          string
+}
+
+func (s *importer) Resource() client.Object {
+	obj := &unstructured.Unstructured{}
+	obj.SetKind(s.config.Kind)
+	obj.SetAPIVersion(s.config.APIVersion)
+	return obj
+}
+
+func (s *importer) Name() string {
+	return s.name
+}
+
+var _ syncer.UpSyncer = &importer{}
+
+func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+	// add annotation to physical resource to mark it as controlled by this syncer
+	err := s.addAnnotationsToPhysicalObject(ctx, pObj)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// apply object to virtual cluster
+	ctx.Log.Infof("Create virtual %s %s/%s, since it is missing, but physical object exists", s.config.Kind, pObj.GetNamespace(), pObj.GetName())
+	_, err = s.patcher.ApplyPatches(ctx.Context, pObj, nil, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
+		return s.TranslateMetadata(vObj), nil
+	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient})
+	if err != nil {
+		//TODO: add eventRecorder?
+		//s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+	}
+	return ctrl.Result{}, nil
+}
+
+var _ syncer.Syncer = &importer{}
+
+func (s *importer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	// ignore all virtual resources that were not created by this controller
+	if !s.IsVirtualManaged(vObj) {
+		return ctrl.Result{}, nil
+	}
+
+	if vObj.GetDeletionTimestamp() == nil {
+		ctx.Log.Infof("remove virtual %s %s/%s, because object should get deleted", s.config.Kind, vObj.GetNamespace(), vObj.GetName())
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+	} else {
+		if len(vObj.GetFinalizers()) > 0 {
+			// delete the finalizer here so that the object can be deleted
+			vObj.SetFinalizers([]string{})
+			ctx.Log.Infof("remove virtual %s %s/%s finalizers, because object should get deleted", s.config.Kind, vObj.GetNamespace(), vObj.GetName())
+			return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vObj)
+		}
+		return ctrl.Result{}, nil
+	}
+}
+
+func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+	// execute reverse patches
+	result, err := s.patcher.ApplyReversePatches(ctx.Context, pObj, vObj, s.config.ReversePatches, &virtualToHostNameResolver{namespace: vObj.GetNamespace()})
+	if err != nil {
+		if kerrors.IsInvalid(err) {
+			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch virtual %s %s/%s: %v", s.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+			// this happens when some field is being removed shortly after being added, which suggest it's a timing issue
+			// it doesn't seem to have any negative consequence besides the logged error message
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		return ctrl.Result{}, fmt.Errorf("failed to apply reverse patch on physical %s %s/%s: %v", s.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+	} else if result == controllerutil.OperationResultUpdated || result == controllerutil.OperationResultUpdatedStatus || result == controllerutil.OperationResultUpdatedStatusOnly {
+		// a change will trigger reconciliation anyway, and at that point we can make
+		// a more accurate updates(reverse patches) to the virtual resource
+		return ctrl.Result{}, nil
+	}
+
+	// apply patches
+	_, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
+		return s.TranslateMetadata(vObj), nil
+	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient})
+
+	if err != nil {
+		if kerrors.IsInvalid(err) {
+			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch physical %s %s/%s: %v", s.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+			// this happens when some field is being removed shortly after being added, which suggest it's a timing issue
+			// it doesn't seem to have any negative consequence besides the logged error message
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+	}
+
+	// ensure that annotation on physical resource to mark it as controlled by this syncer is present
+	return ctrl.Result{}, s.addAnnotationsToPhysicalObject(ctx, pObj)
+}
+
+func (s *importer) IsManaged(pObj client.Object) (bool, error) {
+	if pObj.GetAnnotations() != nil && pObj.GetAnnotations()[translate.ControllerLabel] != "" && pObj.GetAnnotations()[translate.ControllerLabel] != s.Name() {
+		return false, nil
+	}
+
+	// check if the pObj belong to a namespace managed by this vcluster
+	// and that it is not managed by a non-generic syncer
+	return translate.Default.IsTargetedNamespace(pObj.GetNamespace()) && !translate.Default.IsManaged(pObj), nil
+}
+
+func (s *importer) IsVirtualManaged(vObj client.Object) bool {
+	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
+}
+
+func (s *importer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
+}
+
+func (s *importer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
+	err := clienthelper.GetByIndex(context.Background(), s.virtualClient, vNamespace, constants.IndexByPhysicalName, pObj.GetNamespace())
+	if err != nil {
+		return types.NamespacedName{}
+	}
+
+	return types.NamespacedName{Name: pObj.GetName(), Namespace: vNamespace.GetName()}
+}
+
+func (s *importer) TranslateMetadata(pObj client.Object) client.Object {
+	vObj := pObj.DeepCopyObject().(client.Object)
+	vObj.SetResourceVersion("")
+	vObj.SetUID("")
+	vObj.SetManagedFields(nil)
+	vObj.SetOwnerReferences(nil)
+	vObj.SetAnnotations(s.updateVirtualAnnotations(vObj.GetAnnotations()))
+	nn := s.PhysicalToVirtual(pObj)
+	vObj.SetName(nn.Name)
+	vObj.SetNamespace(nn.Namespace)
+	return vObj
+}
+
+// TranslateMetadataUpdate translates the object's metadata annotations and labels and determines
+// if they have changed between the physical and virtual object
+func (s *importer) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+	updatedAnnotations := s.updateVirtualAnnotations(pObj.GetAnnotations())
+	updatedLabels := pObj.GetLabels()
+	return !equality.Semantic.DeepEqual(updatedAnnotations, vObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, vObj.GetLabels()), updatedAnnotations, updatedLabels
+}
+
+func (s *importer) updateVirtualAnnotations(a map[string]string) map[string]string {
+	if a == nil {
+		return map[string]string{translate.ControllerLabel: s.Name()}
+	} else {
+		a[translate.ControllerLabel] = s.Name()
+		delete(a, translate.NameAnnotation)
+		delete(a, translate.UIDAnnotation)
+		delete(a, corev1.LastAppliedConfigAnnotation)
+		return a
+	}
+}
+
+func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, pObj client.Object) error {
+	originalObject := pObj.DeepCopyObject().(client.Object)
+	annotations := pObj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[translate.ControllerLabel] = s.Name()
+	pObj.SetAnnotations(annotations)
+
+	patch := client.MergeFrom(originalObject)
+	patchBytes, err := patch.Data(pObj)
+	if err != nil {
+		return err
+	} else if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	ctx.Log.Infof("Patch controlled-by annotation on %s %s/%s", s.config.Kind, pObj.GetNamespace(), pObj.GetName())
+	return ctx.PhysicalClient.Patch(ctx.Context, pObj, patch)
+}
+
+type hostToVirtualImportNameResolver struct {
+	virtualClient client.Client
+}
+
+func (r *hostToVirtualImportNameResolver) TranslateName(name string, regex *regexp.Regexp, path string) (string, error) {
+	return name, nil
+}
+func (r *hostToVirtualImportNameResolver) TranslateNameWithNamespace(name string, namespace string, regex *regexp.Regexp, path string) (string, error) {
+	return name, nil
+}
+func (r *hostToVirtualImportNameResolver) TranslateLabelKey(key string) (string, error) {
+	return key, nil
+}
+func (r *hostToVirtualImportNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
+	return selector, nil
+}
+func (r *hostToVirtualImportNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
+	return selector, nil
+}
+func (r *hostToVirtualImportNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
+	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
+	err := clienthelper.GetByIndex(context.Background(), r.virtualClient, vNamespace, constants.IndexByPhysicalName, namespace)
+	if err != nil {
+		return "", err
+	}
+	return vNamespace.GetName(), nil
+}

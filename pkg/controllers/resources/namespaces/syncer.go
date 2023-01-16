@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -31,7 +32,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	}
 
 	return &namespaceSyncer{
-		Translator:                 translator.NewClusterTranslator(ctx, "namespace", &corev1.Namespace{}, NewNamespaceTranslator(), excludedAnnotations...),
+		Translator:                 translator.NewClusterTranslator(ctx, "namespace", &corev1.Namespace{}, NamespaceNameTranslator, excludedAnnotations...),
 		workloadServiceAccountName: ctx.Options.ServiceAccount,
 		namespaceLabels:            namespaceLabels,
 	}, nil
@@ -41,6 +42,14 @@ type namespaceSyncer struct {
 	translator.Translator
 	workloadServiceAccountName string
 	namespaceLabels            map[string]string
+}
+
+var _ syncer.IndicesRegisterer = &namespaceSyncer{}
+
+func (s *namespaceSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Namespace{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		return []string{NamespaceNameTranslator(rawObj.GetName(), rawObj)}
+	})
 }
 
 var _ syncer.Syncer = &namespaceSyncer{}
@@ -89,10 +98,8 @@ func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncCont
 	return err
 }
 
-func NewNamespaceTranslator() translate.PhysicalNameTranslator {
-	return func(vName string, _ client.Object) string {
-		return translate.Default.PhysicalNamespace(vName)
-	}
+func NamespaceNameTranslator(vName string, _ client.Object) string {
+	return translate.Default.PhysicalNamespace(vName)
 }
 
 func parseNamespaceLabels(labels []string) (map[string]string, error) {

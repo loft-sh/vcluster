@@ -47,7 +47,7 @@ func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 	}
 
 	// compare status
-	if s.statusIsSubresource {
+	if s.statusIsSubresource && toObjCopied.GetUID() != "" {
 		_, hasAfterStatus, err := unstructured.NestedFieldCopy(toObjCopied.Object, "status")
 		if err != nil {
 			return nil, err
