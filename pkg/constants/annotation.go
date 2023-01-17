@@ -4,7 +4,8 @@ const (
 	SkipTranslationAnnotation = "vcluster.loft.sh/skip-translate"
 	SyncResourceAnnotation    = "vcluster.loft.sh/force-sync"
 
-	PausedAnnotation = "loft.sh/paused"
+	PausedAnnotation         = "loft.sh/paused"
+	PausedReplicasAnnotation = "loft.sh/paused-replicas"
 
 	// NodeSuffix is the dns suffix for our nodes
 	NodeSuffix = "nodes.vcluster.com"
