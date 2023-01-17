@@ -58,7 +58,8 @@ Whether to create a cluster role or not
     .Values.sync.persistentvolumes.enabled
     .Values.sync.storageclasses.enabled
     .Values.sync.priorityclasses.enabled
-    .Values.sync.volumesnapshots.enabled -}}
+    .Values.sync.volumesnapshots.enabled
+    .Values.multiNamespaceMode.enabled -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
