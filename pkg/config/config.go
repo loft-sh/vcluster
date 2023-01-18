@@ -24,6 +24,10 @@ type Import struct {
 type SyncBase struct {
 	TypeInformation `yaml:",inline" json:",inline"`
 
+	// ReplaceOnConflict determines if the controller should try to recreate the object
+	// if there is a problem applying
+	ReplaceOnConflict bool `yaml:"replaceOnConflict,omitempty" json:"replaceOnConflict,omitempty"`
+
 	// Patches are the patches to apply on the virtual cluster objects
 	// when syncing them from the host cluster
 	Patches []*Patch `yaml:"patches,omitempty" json:"patches,omitempty"`

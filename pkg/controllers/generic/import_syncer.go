@@ -3,8 +3,10 @@ package generic
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"regexp"
 	"strings"
+	"time"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -26,10 +28,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	ImportedByAnnotation = "vcluster.loft.sh/imported-by"
 )
 
 func CreateImporters(ctx *context2.ControllerContext, config *config.Config) error {
@@ -74,19 +72,18 @@ func createImporter(ctx *synccontext.RegisterContext, config *config.Import) (sy
 	// TODO: [low priority] check if config.Kind + config.APIVersion has status subresource
 
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
-	name := fmt.Sprintf("%s/%s/GenericImport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.Group))
-
+	controllerID := fmt.Sprintf("%s/%s/GenericImport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.Group))
 	return &importer{
 		patcher: &patcher{
 			fromClient:          ctx.PhysicalManager.GetClient(),
 			toClient:            ctx.VirtualManager.GetClient(),
 			statusIsSubresource: statusIsSubresource,
-			log:                 log.New(name),
+			log:                 log.New(controllerID),
 		},
 		gvk:           gvk,
 		config:        config,
 		virtualClient: ctx.VirtualManager.GetClient(),
-		name:          name,
+		name:          controllerID,
 	}, nil
 }
 
@@ -113,6 +110,15 @@ func (s *importer) Name() string {
 var _ syncer.UpSyncer = &importer{}
 
 func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+	// check if annotation is already present
+	if pObj.GetAnnotations() != nil && pObj.GetAnnotations()[translate.ControllerLabel] == s.Name() {
+		err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
 	// add annotation to physical resource to mark it as controlled by this syncer
 	err := s.addAnnotationsToPhysicalObject(ctx, pObj)
 	if err != nil {
@@ -121,7 +127,7 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 
 	// apply object to virtual cluster
 	ctx.Log.Infof("Create virtual %s %s/%s, since it is missing, but physical object exists", s.config.Kind, pObj.GetNamespace(), pObj.GetName())
-	_, err = s.patcher.ApplyPatches(ctx.Context, pObj, nil, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
+	vObj, err := s.patcher.ApplyPatches(ctx.Context, pObj, nil, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return s.TranslateMetadata(vObj), nil
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient})
 	if err != nil {
@@ -129,6 +135,27 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 		//s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
 	}
+
+	// wait here for vObj to be created
+	err = wait.PollImmediate(time.Millisecond*10, time.Second, func() (done bool, err error) {
+		err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
+			Namespace: vObj.GetNamespace(),
+			Name:      vObj.GetName(),
+		}, s.Resource())
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+
+		return true, nil
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// all good we can return safely
 	return ctrl.Result{}, nil
 }
 
@@ -140,21 +167,56 @@ func (s *importer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 		return ctrl.Result{}, nil
 	}
 
+	// should we delete the object?
 	if vObj.GetDeletionTimestamp() == nil {
 		ctx.Log.Infof("remove virtual %s %s/%s, because object should get deleted", s.config.Kind, vObj.GetNamespace(), vObj.GetName())
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
-	} else {
-		if len(vObj.GetFinalizers()) > 0 {
-			// delete the finalizer here so that the object can be deleted
-			vObj.SetFinalizers([]string{})
-			ctx.Log.Infof("remove virtual %s %s/%s finalizers, because object should get deleted", s.config.Kind, vObj.GetNamespace(), vObj.GetName())
-			return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vObj)
-		}
+	}
+
+	// remove finalizers if there are any
+	if len(vObj.GetFinalizers()) > 0 {
+		// delete the finalizer here so that the object can be deleted
+		vObj.SetFinalizers([]string{})
+		ctx.Log.Infof("remove virtual %s %s/%s finalizers, because object should get deleted", s.config.Kind, vObj.GetNamespace(), vObj.GetName())
+		return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vObj)
+	}
+
+	// force deletion
+	err := ctx.VirtualClient.Delete(ctx.Context, vObj, &client.DeleteOptions{
+		GracePeriodSeconds: &[]int64{0}[0],
+	})
+	if kerrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	}
+	return ctrl.Result{}, err
 }
 
 func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+	// check if physical object is managed by this import controller
+	managed, err := s.IsManaged(pObj)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if !managed {
+		return ctrl.Result{}, nil
+	}
+
+	// check if either object is getting deleted
+	if vObj.GetDeletionTimestamp() != nil || pObj.GetDeletionTimestamp() != nil {
+		if pObj.GetDeletionTimestamp() == nil {
+			ctx.Log.Infof("delete physical object %s/%s, because the virtual object is being deleted", pObj.GetNamespace(), pObj.GetName())
+			if err := ctx.PhysicalClient.Delete(ctx.Context, pObj); err != nil {
+				return ctrl.Result{}, err
+			}
+		} else if vObj.GetDeletionTimestamp() == nil {
+			ctx.Log.Infof("delete virtual object %s/%s, because physical object is being deleted", vObj.GetNamespace(), vObj.GetName())
+			if err := ctx.VirtualClient.Delete(ctx.Context, vObj); err != nil {
+				return ctrl.Result{}, nil
+			}
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	// execute reverse patches
 	result, err := s.patcher.ApplyReversePatches(ctx.Context, pObj, vObj, s.config.ReversePatches, &virtualToHostNameResolver{namespace: vObj.GetNamespace()})
 	if err != nil {
@@ -176,13 +238,19 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	_, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return s.TranslateMetadata(vObj), nil
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient})
-
 	if err != nil {
-		if kerrors.IsInvalid(err) {
-			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch physical %s %s/%s: %v", s.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
-			// this happens when some field is being removed shortly after being added, which suggest it's a timing issue
-			// it doesn't seem to have any negative consequence besides the logged error message
-			return ctrl.Result{Requeue: true}, nil
+		// on conflict, auto delete and recreate
+		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && s.config.ReplaceOnConflict {
+			// Replace the object
+			ctx.Log.Infof("Replace virtual object, because of conflict: %v", err)
+			err = ctx.VirtualClient.Delete(ctx.Context, vObj, &client.DeleteOptions{
+				GracePeriodSeconds: &[]int64{0}[0],
+			})
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			return ctrl.Result{}, nil
 		}
 
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
@@ -226,6 +294,7 @@ func (s *importer) TranslateMetadata(pObj client.Object) client.Object {
 	vObj.SetUID("")
 	vObj.SetManagedFields(nil)
 	vObj.SetOwnerReferences(nil)
+	vObj.SetFinalizers(nil)
 	vObj.SetAnnotations(s.updateVirtualAnnotations(vObj.GetAnnotations()))
 	nn := s.PhysicalToVirtual(pObj)
 	vObj.SetName(nn.Name)

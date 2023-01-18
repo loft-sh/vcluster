@@ -1,37 +1,7 @@
-# version: v1beta1
-# export:
-#   - apiVersion: cert-manager.io/v1
-#     kind: Issuer
-#     patches:
-#       - op: rewriteName
-#         path: spec.ca.secretName
-#         sync:
-#           secret: true
-#     reversePatches:
-#       - op: copyFromObject
-#         fromPath: status
-#         path: status
-#   - apiVersion: cert-manager.io/v1
-#     kind: Certificate
-#     patches:
-#       - op: rewriteName
-#         path: spec.issuerRef.name
-#       - op: rewriteName
-#         path: spec.secretName
-#     reversePatches:
-#       - op: copyFromObject
-#         fromPath: status
-#         path: status
-# import:
-#   - kind: Secret
-#     apiVersion: v1
-#     patches:
-#       - op: add
-#         path: .metadata.annotations
-#         value:
-#           testv: appear-on-virtual
-#     reversePatches:
-#       - op: add
-#         path: .metadata.labels
-#         value:
-#           testp: appear-on-physical
+version: v1beta1
+import:
+  - kind: Secret
+    apiVersion: v1
+  - kind: Pod
+    apiVersion: v1
+    replaceOnConflict: true

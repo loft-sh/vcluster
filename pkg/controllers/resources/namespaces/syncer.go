@@ -77,7 +77,7 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		}
 	}
 
-	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, updated.Name)
+	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, pObj.GetName())
 }
 
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {
@@ -91,10 +91,7 @@ func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncCont
 			Name:      s.workloadServiceAccountName,
 		},
 	}
-	_, err := controllerutil.CreateOrPatch(ctx.Context, ctx.PhysicalClient, svc, func() error {
-
-		return nil
-	})
+	_, err := controllerutil.CreateOrPatch(ctx.Context, ctx.PhysicalClient, svc, func() error { return nil })
 	return err
 }
 
