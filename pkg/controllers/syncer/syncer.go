@@ -89,11 +89,17 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// check if we should skip resource
-	if vObj != nil &&
-		vObj.GetLabels() != nil &&
-		vObj.GetLabels()[translate.ControllerLabel] != "" &&
-		vObj.GetLabels()[translate.ControllerLabel] == r.syncer.Name() { // this is to distinguish generic syncers with core syncers
-		return ctrl.Result{}, nil
+	// this is to distinguish generic and plugin syncers with the core syncers
+	if vObj != nil {
+		if vObj.GetLabels() != nil &&
+			vObj.GetLabels()[translate.ControllerLabel] != "" {
+			return ctrl.Result{}, nil
+		}
+		if vObj.GetAnnotations() != nil &&
+			vObj.GetAnnotations()[translate.ControllerLabel] != "" &&
+			vObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// translate to physical name
@@ -108,11 +114,17 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// check if we should skip resource
-	if pObj != nil &&
-		pObj.GetLabels() != nil &&
-		pObj.GetLabels()[translate.ControllerLabel] != "" &&
-		pObj.GetLabels()[translate.ControllerLabel] != r.syncer.Name() { // this is to distinguish generic syncers with core syncers
-		return ctrl.Result{}, nil
+	// this is to distinguish generic and plugin syncers with the core syncers
+	if pObj != nil {
+		if pObj.GetLabels() != nil &&
+			pObj.GetLabels()[translate.ControllerLabel] != "" {
+			return ctrl.Result{}, nil
+		}
+		if pObj.GetAnnotations() != nil &&
+			pObj.GetAnnotations()[translate.ControllerLabel] != "" &&
+			pObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// check what function we should call

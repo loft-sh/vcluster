@@ -2,8 +2,10 @@ package generic
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/log"
@@ -21,15 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	VclusterTranslationObjectNameKey      = "vcluster.loft.sh/object-name"
-	VclusterTranslationObjectNamespaceKey = "vcluster.loft.sh/object-namespace"
 )
 
 func CreateExporters(ctx *context.ControllerContext, config *config.Config) error {
@@ -45,8 +41,7 @@ func CreateExporters(ctx *context.ControllerContext, config *config.Config) erro
 				registerCtx.VirtualManager.GetConfig(),
 				gvk)
 			if err != nil {
-				klog.Errorf("Error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", exportConfig.Kind, exportConfig.APIVersion, err)
-				return err
+				return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
 			}
 		}
 	}
@@ -54,13 +49,12 @@ func CreateExporters(ctx *context.ControllerContext, config *config.Config) erro
 	for _, exportConfig := range config.Exports {
 		s, err := createExporter(registerCtx, exportConfig)
 		if err != nil {
-			klog.Errorf("Error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
-			return err
+			return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
 		}
 
 		err = syncer.RegisterSyncer(registerCtx, s)
 		if err != nil {
-			klog.Errorf("Error registering syncer %v", err)
+			return fmt.Errorf("error registering syncer %v", err)
 		}
 	}
 
@@ -88,40 +82,42 @@ func createExporter(ctx *synccontext.RegisterContext, config *config.Export) (sy
 	statusIsSubresource := true
 	// TODO: [low priority] check if config.Kind + config.APIVersion has status subresource
 
+	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
+	controllerID := fmt.Sprintf("%s/%s/GenericExport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.Group))
 	return &exporter{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, config.Kind+"-exporter", obj),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, controllerID, obj),
 		patcher: &patcher{
 			fromClient:          ctx.VirtualManager.GetClient(),
 			toClient:            ctx.PhysicalManager.GetClient(),
 			statusIsSubresource: statusIsSubresource,
-			log:                 log.New(config.Kind + "-exporter"),
+			log:                 log.New(controllerID),
 		},
-		gvk:      schema.FromAPIVersionAndKind(config.APIVersion, config.Kind),
+		gvk:      gvk,
 		config:   config,
 		selector: selector,
+		name:     controllerID,
 	}, nil
 }
 
 type exporter struct {
 	translator.NamespacedTranslator
 
-	patcher *patcher
-	gvk     schema.GroupVersionKind
-
-	config *config.Export
-
+	patcher  *patcher
+	gvk      schema.GroupVersionKind
+	config   *config.Export
 	selector labels.Selector
+	name     string
 }
 
 func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// check if selector matches
-	if isControlled(vObj) || !f.objectMatches(vObj) {
+	if !f.objectMatches(vObj) {
 		return ctrl.Result{}, nil
 	}
 
 	// apply object to physical cluster
 	ctx.Log.Infof("Create physical %s %s/%s, since it is missing, but virtual object exists", f.config.Kind, vObj.GetNamespace(), vObj.GetName())
-	_, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
+	pObj, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return f.TranslateMetadata(vObj), nil
 	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
@@ -129,22 +125,56 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
 	}
 
+	// wait here for vObj to be created
+	err = wait.PollImmediate(time.Millisecond*10, time.Second, func() (done bool, err error) {
+		err = ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{
+			Namespace: pObj.GetNamespace(),
+			Name:      pObj.GetName(),
+		}, f.Resource())
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+
+		return true, nil
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// all good we can return safely
 	return ctrl.Result{}, nil
-}
-func (f *exporter) isExcluded(pObj client.Object) bool {
-	labels := pObj.GetLabels()
-	return labels == nil
 }
 
 func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	if isControlled(vObj) || f.isExcluded(pObj) {
-		return ctrl.Result{}, nil
-	} else if !f.objectMatches(vObj) {
+	// check if virtual object is not matching anymore
+	if !f.objectMatches(vObj) {
 		ctx.Log.Infof("delete physical %s %s/%s, because it is not used anymore", f.config.Kind, pObj.GetNamespace(), pObj.GetName())
-		err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
+		err := ctx.PhysicalClient.Delete(ctx.Context, pObj, &client.DeleteOptions{
+			GracePeriodSeconds: &[]int64{0}[0],
+		})
 		if err != nil {
 			ctx.Log.Infof("error deleting physical %s %s/%s in physical cluster: %v", f.config.Kind, pObj.GetNamespace(), pObj.GetName(), err)
 			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	// check if either object is getting deleted
+	if vObj.GetDeletionTimestamp() != nil || pObj.GetDeletionTimestamp() != nil {
+		if pObj.GetDeletionTimestamp() == nil {
+			ctx.Log.Infof("delete physical object %s/%s, because the virtual object is being deleted", pObj.GetNamespace(), pObj.GetName())
+			if err := ctx.PhysicalClient.Delete(ctx.Context, pObj); err != nil {
+				return ctrl.Result{}, err
+			}
+		} else if vObj.GetDeletionTimestamp() == nil {
+			ctx.Log.Infof("delete virtual object %s/%s, because physical object is being deleted", vObj.GetNamespace(), vObj.GetName())
+			if err := ctx.VirtualClient.Delete(ctx.Context, vObj); err != nil {
+				return ctrl.Result{}, nil
+			}
 		}
 
 		return ctrl.Result{}, nil
@@ -178,11 +208,18 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		namespace:       vObj.GetNamespace(),
 		targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
-		if kerrors.IsInvalid(err) {
-			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch physical %s %s/%s: %v", f.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
-			// this happens when some field is being removed shortly after being added, which suggest it's a timing issue
-			// it doesn't seem to have any negative consequence besides the logged error message
-			return ctrl.Result{Requeue: true}, nil
+		// on conflict, auto delete and recreate
+		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && f.config.ReplaceOnConflict {
+			// Replace the object
+			ctx.Log.Infof("Replace physical object, because of conflict: %v", err)
+			err = ctx.PhysicalClient.Delete(ctx.Context, pObj, &client.DeleteOptions{
+				GracePeriodSeconds: &[]int64{0}[0],
+			})
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			return ctrl.Result{}, nil
 		}
 
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -195,7 +232,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 var _ syncer.UpSyncer = &exporter{}
 
 func (f *exporter) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	if !translate.Default.IsManaged(pObj) || f.isExcluded(pObj) {
+	if !translate.Default.IsManaged(pObj) {
 		return ctrl.Result{}, nil
 	}
 
@@ -203,41 +240,25 @@ func (f *exporter) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	return syncer.DeleteObject(ctx, pObj, fmt.Sprintf("delete physical %s because virtual is missing", pObj.GetName()))
 }
 
-func (f *exporter) getControllerID() string {
-	if f.config.ID != "" {
-		return f.config.ID
-	}
-
-	return strings.Join(append(strings.Split(f.config.APIVersion, "/"), f.config.Kind), "-")
-}
-
 func (f *exporter) Name() string {
-	return f.getControllerID()
+	return f.name
 }
 
 // TranslateMetadata converts the virtual object into a physical object
 func (f *exporter) TranslateMetadata(vObj client.Object) client.Object {
 	pObj := f.NamespacedTranslator.TranslateMetadata(vObj)
-	labels := pObj.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
+	if pObj.GetAnnotations() == nil {
+		pObj.SetAnnotations(map[string]string{translate.ControllerLabel: f.Name()})
+	} else {
+		a := pObj.GetAnnotations()
+		a[translate.ControllerLabel] = f.Name()
+		pObj.SetAnnotations(a)
 	}
-
-	labels[translate.ControllerLabel] = f.getControllerID()
-	pObj.SetLabels(labels)
 	return pObj
 }
 
 func (f *exporter) IsManaged(pObj client.Object) (bool, error) {
-	if !translate.Default.IsManaged(pObj) {
-		return false, nil
-	}
-
-	return !f.isExcluded(pObj), nil
-}
-
-func isControlled(obj client.Object) bool {
-	return obj.GetLabels() != nil && obj.GetLabels()[translate.ControllerLabel] != ""
+	return translate.Default.IsManaged(pObj), nil
 }
 
 func (f *exporter) objectMatches(obj client.Object) bool {

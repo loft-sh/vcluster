@@ -24,9 +24,9 @@ type Import struct {
 type SyncBase struct {
 	TypeInformation `yaml:",inline" json:",inline"`
 
-	// ID is the id of the controller. This is optional and only necessary if you have multiple export
-	// controllers that target the same group version kind.
-	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+	// ReplaceOnConflict determines if the controller should try to recreate the object
+	// if there is a problem applying
+	ReplaceOnConflict bool `yaml:"replaceOnConflict,omitempty" json:"replaceOnConflict,omitempty"`
 
 	// Patches are the patches to apply on the virtual cluster objects
 	// when syncing them from the host cluster
@@ -40,8 +40,8 @@ type SyncBase struct {
 type Export struct {
 	SyncBase `yaml:",inline" json:",inline"`
 
-	// Selector is the selector to select the objects in the host cluster.
-	// If empty will select all objects.
+	// Selector is a label selector to select the synced objects in the virtual cluster.
+	// If empty, all objects will be synced.
 	Selector *Selector `yaml:"selector,omitempty" json:"selector,omitempty"`
 }
 

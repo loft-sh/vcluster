@@ -9,10 +9,12 @@ import (
 
 func (s *namespaceSyncer) translate(vObj client.Object) *corev1.Namespace {
 	newNamespace := s.TranslateMetadata(vObj).(*corev1.Namespace)
+
 	// add user defined namespace labels
 	for k, v := range s.namespaceLabels {
 		newNamespace.Labels[k] = v
 	}
+
 	return newNamespace
 }
 
@@ -24,6 +26,8 @@ func (s *namespaceSyncer) translateUpdate(pObj, vObj *corev1.Namespace) *corev1.
 	for k, v := range s.namespaceLabels {
 		updatedLabels[k] = v
 	}
+	// set the kubernetes.io/metadata.name label
+	updatedLabels[corev1.LabelMetadataName] = pObj.Name
 	// check if any labels or annotations changed
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()) {
 		updated = translator.NewIfNil(updated, pObj)

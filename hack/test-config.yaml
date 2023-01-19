@@ -1,0 +1,7 @@
+version: v1beta1
+import:
+  - kind: Secret
+    apiVersion: v1
+  - kind: Pod
+    apiVersion: v1
+    replaceOnConflict: true

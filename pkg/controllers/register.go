@@ -234,6 +234,11 @@ func registerGenericSyncController(ctx *context.ControllerContext) error {
 		return err
 	}
 
+	err = generic.CreateImporters(ctx, configuration)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
