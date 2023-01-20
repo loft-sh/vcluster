@@ -100,7 +100,6 @@ spec:
           {{- end }}
           - '--node-monitor-grace-period=180s'
           - '--node-monitor-period=30s'
-          - '--port=0'
           - '--pvclaimbinder-sync-period=60s'
           - '--requestheader-client-ca-file=/run/config/pki/front-proxy-ca.crt'
           - '--root-ca-file=/run/config/pki/ca.crt'
