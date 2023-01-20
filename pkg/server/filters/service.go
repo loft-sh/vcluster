@@ -63,7 +63,7 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 						return
 					}
 
-					responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusCreated, svc)
+					responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusCreated, svc, false)
 					return
 				}
 			} else if info.Verb == "update" {
@@ -95,7 +95,7 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 							return
 						}
 
-						responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, svc)
+						responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, svc, false)
 						return
 					}
 				}
