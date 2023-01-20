@@ -8,34 +8,34 @@ import (
 )
 
 var EKSAPIVersionMap = map[string]string{
-	"1.24": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.24.6-eks-1-24-3",
-	"1.23": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.23.13-eks-1-23-8",
-	"1.22": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.22.15-eks-1-22-13",
-	"1.21": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.21.14-eks-1-21-21",
+	"1.24": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.24.9-eks-1-24-7",
+	"1.23": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.23.15-eks-1-23-12",
+	"1.22": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.22.17-eks-1-22-17",
+	"1.21": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.21.14-eks-1-21-24",
 	"1.20": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.20.15-eks-1-20-22",
 }
 
 var EKSControllerVersionMap = map[string]string{
-	"1.24": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.23.7-eks-1-23-4",
-	"1.23": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.23.13-eks-1-23-8",
-	"1.22": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.22.15-eks-1-22-13",
-	"1.21": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.21.14-eks-1-21-21",
+	"1.24": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.24.9-eks-1-24-7",
+	"1.23": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.23.15-eks-1-23-12",
+	"1.22": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.22.17-eks-1-22-17",
+	"1.21": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.21.14-eks-1-21-24",
 	"1.20": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.20.15-eks-1-20-22",
 }
 
 var EKSEtcdVersionMap = map[string]string{
-	"1.24": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.4-eks-1-24-3",
-	"1.23": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.4-eks-1-23-8",
-	"1.22": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.4-eks-1-22-13",
-	"1.21": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.4.21-eks-1-21-21",
+	"1.24": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.6-eks-1-24-7",
+	"1.23": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.6-eks-1-23-12",
+	"1.22": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.6-eks-1-22-17",
+	"1.21": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.4.21-eks-1-21-24",
 	"1.20": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.4.21-eks-1-20-22",
 }
 
 var EKSCoreDNSVersionMap = map[string]string{
-	"1.24": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-24-3",
-	"1.23": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-23-8",
-	"1.22": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-22-13",
-	"1.21": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.4-eks-1-21-21",
+	"1.24": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-24-7",
+	"1.23": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-23-12",
+	"1.22": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-22-17",
+	"1.21": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.4-eks-1-21-24",
 	"1.20": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.3-eks-1-20-22",
 }
 

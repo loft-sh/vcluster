@@ -395,8 +395,8 @@ github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0 h1:nHHjmvjitIiyP
 github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0/go.mod h1:YBCo4DoEeDndqvAn6eeu0vWM7QdXmHEeI9cFWplmBys=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhnIaL+V+BEER86oLrvS+kWobKpbJuye0=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
-github.com/loft-sh/utils v0.0.14 h1:oSMqghhW3Pqc/3OxQbbpelqx7wyIVPQM24CnZEKwW0s=
-github.com/loft-sh/utils v0.0.14/go.mod h1:n2L3X4i7d8kb2NF+q5duKa41N+N6fBde6XY2AolgSBI=
+github.com/loft-sh/utils v0.0.15 h1:OfW9D6Xf7wFxplK1b7pjVVyYeh8tvZcygbGBcHEYc9A=
+github.com/loft-sh/utils v0.0.15/go.mod h1:n2L3X4i7d8kb2NF+q5duKa41N+N6fBde6XY2AolgSBI=
 github.com/mailru/easyjson v0.0.0-20160728113105-d5b7844b561a/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
