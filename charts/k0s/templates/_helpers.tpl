@@ -69,7 +69,7 @@ Whether to create a cluster role or not
 {{- end -}}
 
 {{- define "vcluster.clusterRoleNameMultinamespace" -}}
-{{- printf "vc-%s-v-%s-mn" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- printf "vc-mn-%s-v-%s" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
