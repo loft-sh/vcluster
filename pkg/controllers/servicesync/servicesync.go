@@ -19,6 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+const (
+	ClusterIPNone = "None"
+)
+
 type ServiceSyncer struct {
 	SyncServices map[string]types.NamespacedName
 
@@ -123,6 +127,11 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 			Spec: corev1.ServiceSpec{
 				Ports: fromService.Spec.Ports,
 			},
+		}
+
+		// case for a headless service
+		if fromService.Spec.ClusterIP == ClusterIPNone {
+			toService.Spec.ClusterIP = ClusterIPNone
 		}
 
 		if e.IsVirtualToHostSyncer {
