@@ -364,6 +364,11 @@ func registerServiceSyncControllers(ctx *context.ControllerContext) error {
 			To:                    ctx.LocalManager,
 			Log:                   loghelper.New("map-virtual-service-syncer"),
 		}
+
+		if ctx.Options.MultiNamespaceMode {
+			controller.CreateEndpoints = true
+		}
+
 		err = controller.Register()
 		if err != nil {
 			return errors.Wrap(err, "register virtual service sync controller")
