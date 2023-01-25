@@ -107,6 +107,43 @@ func (s *importer) Name() string {
 	return s.name
 }
 
+var _ syncer.OptionsProvider = &importer{}
+
+func (s *importer) WithOptions() *syncer.Options {
+	return &syncer.Options{DisableUIDDeletion: true}
+}
+
+var _ syncer.ObjectExcluder = &importer{}
+
+func (s *importer) ExcludeVirtual(vObj client.Object) bool {
+	return s.excludeObject(vObj)
+}
+
+func (s *importer) ExcludePhysical(pObj client.Object) bool {
+	return s.excludeObject(pObj)
+}
+
+func (s *importer) excludeObject(obj client.Object) bool {
+	if obj.GetLabels() != nil &&
+		obj.GetLabels()[translate.ControllerLabel] != "" {
+		return true
+	}
+	if obj.GetAnnotations() != nil &&
+		obj.GetAnnotations()[translate.ControllerLabel] != "" &&
+		obj.GetAnnotations()[translate.ControllerLabel] != s.Name() {
+		// make sure kind matches
+		splitted := strings.Split(obj.GetAnnotations()[translate.ControllerLabel], "/")
+		if len(splitted) != 3 {
+			return true
+		} else if splitted[0] != strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind) {
+			return false
+		}
+
+		return true
+	}
+	return false
+}
+
 var _ syncer.UpSyncer = &importer{}
 
 func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
@@ -261,7 +298,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 }
 
 func (s *importer) IsManaged(pObj client.Object) (bool, error) {
-	if pObj.GetAnnotations() != nil && pObj.GetAnnotations()[translate.ControllerLabel] != "" && pObj.GetAnnotations()[translate.ControllerLabel] != s.Name() {
+	if s.excludeObject(pObj) {
 		return false, nil
 	}
 

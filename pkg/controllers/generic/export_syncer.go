@@ -28,11 +28,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateExporters(ctx *context.ControllerContext, config *config.Config) error {
+func CreateExporters(ctx *context.ControllerContext, exporterConfig *config.Config) error {
 	scheme := ctx.LocalManager.GetScheme()
 	registerCtx := util.ToRegisterContext(ctx)
 
-	for _, exportConfig := range config.Exports {
+	for _, exportConfig := range exporterConfig.Exports {
 		gvk := schema.FromAPIVersionAndKind(exportConfig.APIVersion, exportConfig.Kind)
 		if !scheme.Recognizes(gvk) {
 			err := translate.EnsureCRDFromPhysicalCluster(
@@ -46,7 +46,17 @@ func CreateExporters(ctx *context.ControllerContext, config *config.Config) erro
 		}
 	}
 
-	for _, exportConfig := range config.Exports {
+	for _, exportConfig := range exporterConfig.Exports {
+		reversePatches := []*config.Patch{
+			{
+				Operation: config.PatchTypeCopyFromObject,
+				FromPath:  "status",
+				Path:      "status",
+			},
+		}
+		reversePatches = append(reversePatches, exportConfig.ReversePatches...)
+		exportConfig.ReversePatches = reversePatches
+
 		s, err := createExporter(registerCtx, exportConfig)
 		if err != nil {
 			return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)

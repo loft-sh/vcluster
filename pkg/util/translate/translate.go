@@ -241,6 +241,21 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 	crdDefinition.OwnerReferences = nil
 	crdDefinition.Status = apiextensionsv1.CustomResourceDefinitionStatus{}
 	crdDefinition.Spec.PreserveUnknownFields = false
+	crdDefinition.Spec.Conversion = nil
+
+	// make sure we only store the version we care about
+	newVersions := []apiextensionsv1.CustomResourceDefinitionVersion{}
+	for _, version := range crdDefinition.Spec.Versions {
+		if version.Name == groupVersionKind.Version {
+			version.Served = true
+			version.Storage = true
+			newVersions = append(newVersions, version)
+			break
+		}
+	}
+	crdDefinition.Spec.Versions = newVersions
+
+	// apply the crd
 	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
 	if err != nil {
 		return err

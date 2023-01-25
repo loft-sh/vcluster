@@ -67,3 +67,8 @@ type Options struct {
 type OptionsProvider interface {
 	WithOptions() *Options
 }
+
+type ObjectExcluder interface {
+	ExcludeVirtual(vObj client.Object) bool
+	ExcludePhysical(vObj client.Object) bool
+}
