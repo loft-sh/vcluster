@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"os/exec"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
@@ -65,8 +66,8 @@ vcluster delete test --namespace test
 	}
 
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
-	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster")
-	cobraCmd.Flags().BoolVar(&cmd.AutoDeleteNamespace, "auto-delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl")
+	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster")
+	cobraCmd.Flags().BoolVar(&cmd.AutoDeleteNamespace, "auto-delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster")
 	return cobraCmd
 }
 
@@ -152,6 +153,28 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			}
 		} else {
 			cmd.log.Donef("Successfully deleted virtual cluster namespace %s", cmd.Namespace)
+		}
+
+		// delete multi namespace mode namespaces
+		namespaces, err := client.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{
+			LabelSelector: translate.MarkerLabel + "=" + translate.SafeConcatName(cmd.Namespace, "x", args[0]),
+		})
+		if err != nil && !kerrors.IsForbidden(err) {
+			return errors.Wrap(err, "list namespaces")
+		}
+
+		// delete all namespaces
+		if namespaces != nil && len(namespaces.Items) > 0 {
+			for _, namespace := range namespaces.Items {
+				err = client.CoreV1().Namespaces().Delete(context.Background(), namespace.Name, metav1.DeleteOptions{})
+				if err != nil {
+					if !kerrors.IsNotFound(err) {
+						return errors.Wrap(err, "delete namespace")
+					}
+				} else {
+					cmd.log.Donef("Successfully deleted virtual cluster namespace %s", namespace.Name)
+				}
+			}
 		}
 	}
 

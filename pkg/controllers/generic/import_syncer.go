@@ -135,7 +135,7 @@ func (s *importer) excludeObject(obj client.Object) bool {
 		splitted := strings.Split(obj.GetAnnotations()[translate.ControllerLabel], "/")
 		if len(splitted) != 3 {
 			return true
-		} else if splitted[0] != strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind) {
+		} else if splitted[0] != strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind) || splitted[1] != strings.ToLower(obj.GetObjectKind().GroupVersionKind().Group) {
 			return false
 		}
 
