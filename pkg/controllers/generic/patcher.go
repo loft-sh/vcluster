@@ -3,10 +3,8 @@ package generic
 import (
 	"context"
 	"fmt"
-
-	"github.com/loft-sh/vcluster/pkg/log"
-
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/patches"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"

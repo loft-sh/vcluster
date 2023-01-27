@@ -90,16 +90,8 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// check if we should skip resource
 	// this is to distinguish generic and plugin syncers with the core syncers
-	if vObj != nil {
-		if vObj.GetLabels() != nil &&
-			vObj.GetLabels()[translate.ControllerLabel] != "" {
-			return ctrl.Result{}, nil
-		}
-		if vObj.GetAnnotations() != nil &&
-			vObj.GetAnnotations()[translate.ControllerLabel] != "" &&
-			vObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
-			return ctrl.Result{}, nil
-		}
+	if vObj != nil && r.excludeVirtual(vObj) {
+		return ctrl.Result{}, nil
 	}
 
 	// translate to physical name
@@ -115,16 +107,8 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// check if we should skip resource
 	// this is to distinguish generic and plugin syncers with the core syncers
-	if pObj != nil {
-		if pObj.GetLabels() != nil &&
-			pObj.GetLabels()[translate.ControllerLabel] != "" {
-			return ctrl.Result{}, nil
-		}
-		if pObj.GetAnnotations() != nil &&
-			pObj.GetAnnotations()[translate.ControllerLabel] != "" &&
-			pObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
-			return ctrl.Result{}, nil
-		}
+	if pObj != nil && r.excludePhysical(pObj) {
+		return ctrl.Result{}, nil
 	}
 
 	// check what function we should call
@@ -162,6 +146,44 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *syncerController) excludePhysical(pObj client.Object) bool {
+	excluder, ok := r.syncer.(ObjectExcluder)
+	if ok {
+		return excluder.ExcludePhysical(pObj)
+	}
+
+	if pObj.GetLabels() != nil &&
+		pObj.GetLabels()[translate.ControllerLabel] != "" {
+		return true
+	}
+	if pObj.GetAnnotations() != nil &&
+		pObj.GetAnnotations()[translate.ControllerLabel] != "" &&
+		pObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
+		return true
+	}
+
+	return false
+}
+
+func (r *syncerController) excludeVirtual(vObj client.Object) bool {
+	excluder, ok := r.syncer.(ObjectExcluder)
+	if ok {
+		return excluder.ExcludeVirtual(vObj)
+	}
+
+	if vObj.GetLabels() != nil &&
+		vObj.GetLabels()[translate.ControllerLabel] != "" {
+		return true
+	}
+	if vObj.GetAnnotations() != nil &&
+		vObj.GetAnnotations()[translate.ControllerLabel] != "" &&
+		vObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
+		return true
+	}
+
+	return false
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
