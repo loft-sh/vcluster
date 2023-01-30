@@ -17,14 +17,14 @@ Since pods are synchronized by the [syncer component](./scheduling.mdx) of the v
 ## Pod-To-Service Traffic
 By default, the vcluster also synchronizes Services (while stripping away unnecessary information from the resource) to allow pods to communicate with services. However, instead of using the DNS names of the services inside the host cluster, the vcluster has its own DNS service which allows the vcluster pods to use much more intuitive DNS mappings just as in a regular cluster.
 
-### Mapping Services between vcluster and Host Cluster
+## Mapping Services between vcluster and Host Cluster
 
 Each vcluster has its own DNS service (CoreDNS by default) which allows pods in the vcluster to get the IP addresses of services that are also running in this vcluster.
 The vcluster syncer ensures that the intuitive naming logic of Kubernetes DNS names for services applies and users can connect to these DNS names which in fact map to the IP address of the synchronized services that are present in the underlying host cluster.
 
 However, this also means that you cannot directly access host services inside the virtual cluster via DNS as well as host pods can only access virtual cluster services by their synced name. vcluster offers a feature to map services from the virtual cluster to the host cluster and vice versa.
 
-#### Map Host Cluster Service to vcluster Service
+### Map Host Cluster Service to vcluster Service
 
 :::info
 Version v0.8.0 or higher required
@@ -41,7 +41,7 @@ mapServices:
 
 With this configuration, vcluster will manage a service called `my-virtual-service` inside the virtual cluster that points to the host service `my-host-service` in namespace `my-host-namespace`. So pods inside the vcluster will be able to access the host service via e.g. `curl http://my-virtual-service.my-virtual-namespace`.
 
-#### Map vcluster Service to Host Cluster Service
+### Map vcluster Service to Host Cluster Service
 
 :::info
 Version v0.8.0 or higher required
