@@ -19,7 +19,7 @@ type ControllerContext struct {
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 
-	Controllers sets.String
+	Controllers sets.Set[string]
 	Options     *VirtualClusterOptions
 	StopChan    <-chan struct{}
 }
