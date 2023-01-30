@@ -123,7 +123,6 @@ func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions,
 		All:             flags.All,
 		Overwrite:       flags.Overwrite,
 		OpenAPIPatch:    flags.OpenAPIPatch,
-		PruneWhitelist:  flags.PruneWhitelist,
 
 		Recorder:         recorder,
 		Namespace:        namespace,

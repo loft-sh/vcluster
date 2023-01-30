@@ -56,7 +56,7 @@ func WithNodeChanges(h http.Handler, uncachedLocalClient, uncachedVirtualClient 
 						return
 					}
 
-					responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, updatedNode)
+					responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, updatedNode, false)
 					return
 				}
 			} else if info.Verb == "patch" {
@@ -103,7 +103,7 @@ func patchNode(w http.ResponseWriter, req *http.Request, s runtime.NegotiatedSer
 		return
 	}
 
-	responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, vObj)
+	responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, vObj, false)
 }
 
 func updateNode(decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, rawObj []byte, status bool) (runtime.Object, error) {

@@ -2,6 +2,7 @@ package podhelper
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 
@@ -109,7 +110,7 @@ func ExecStreamWithTransport(client kubernetes.Interface, options *ExecStreamWit
 	}
 
 	return t.Safe(func() error {
-		return exec.Stream(streamOptions)
+		return exec.StreamWithContext(context.TODO(), streamOptions)
 	})
 }
 

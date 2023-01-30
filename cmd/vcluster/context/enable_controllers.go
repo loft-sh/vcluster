@@ -8,7 +8,7 @@ import (
 	"k8s.io/klog"
 )
 
-var ExistingControllers = sets.NewString(
+var ExistingControllers = sets.New[string](
 	"services",
 	"configmaps",
 	"secrets",
@@ -35,7 +35,7 @@ var ExistingControllers = sets.NewString(
 	"namespaces",
 )
 
-var DefaultEnabledControllers = sets.NewString(
+var DefaultEnabledControllers = sets.New[string](
 	// helm charts need to be updated when changing this!
 	// values.yaml and template/_helpers.tpl reference these
 	"services",
@@ -49,15 +49,15 @@ var DefaultEnabledControllers = sets.NewString(
 	"fake-persistentvolumes",
 )
 
-var schedulerRequiredControllers = sets.NewString(
+var schedulerRequiredControllers = sets.New[string](
 	"csinodes",
 	"csidrivers",
 	"csistoragecapacities",
 )
 
-func parseControllers(options *VirtualClusterOptions) (sets.String, error) {
+func parseControllers(options *VirtualClusterOptions) (sets.Set[string], error) {
 	enabledControllers := DefaultEnabledControllers.Clone()
-	disabledControllers := sets.NewString()
+	disabledControllers := sets.New[string]()
 
 	// migrate deprecated flags
 	if len(options.DeprecatedDisableSyncResources) > 0 {
@@ -111,7 +111,7 @@ func parseControllers(options *VirtualClusterOptions) (sets.String, error) {
 		enabledControllers = enabledControllers.Union(schedulerRequiredControllers)
 		requiredButDisabled := disabledControllers.Intersection(schedulerRequiredControllers)
 		if requiredButDisabled.Len() > 0 {
-			klog.Warningf("pesistentvolumeclaim syncing and scheduler enabled, but required syncers explicitly disabled: %q. This may result in incorrect pod scheduling.", requiredButDisabled.List())
+			klog.Warningf("pesistentvolumeclaim syncing and scheduler enabled, but required syncers explicitly disabled: %q. This may result in incorrect pod scheduling.", sets.List(requiredButDisabled))
 		}
 		if !enabledControllers.Has("storageclasses") {
 			klog.Info("persistentvolumeclaim syncing and scheduler enabled, but storageclass sync not enabled. Syncing host storageclasses to vcluster(hoststorageclasses)")
@@ -141,5 +141,5 @@ func parseControllers(options *VirtualClusterOptions) (sets.String, error) {
 }
 
 func availableControllers() string {
-	return strings.Join(ExistingControllers.List(), ", ")
+	return strings.Join(sets.List(ExistingControllers), ", ")
 }

@@ -612,7 +612,7 @@ func translateDNSClusterFirstConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterD
 		Options: []corev1.PodDNSConfigOption{
 			{
 				Name:  "ndots",
-				Value: pointer.StringPtr("5"),
+				Value: pointer.String("5"),
 			},
 		},
 	}
@@ -949,12 +949,12 @@ func isInt64Different(i1, i2 *int64) (*int64, bool) {
 	if i1 == nil && i2 == nil {
 		return nil, true
 	} else if i1 != nil && i2 != nil {
-		return pointer.Int64Ptr(*i2), *i1 == *i2
+		return pointer.Int64(*i2), *i1 == *i2
 	}
 
 	var updated *int64
 	if i2 != nil {
-		updated = pointer.Int64Ptr(*i2)
+		updated = pointer.Int64(*i2)
 	}
 
 	return updated, false

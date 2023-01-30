@@ -186,7 +186,16 @@ type CacheStatusClient struct {
 	Cache *CacheClient
 }
 
-func (c *CacheStatusClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+func (c *CacheStatusClient) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	err := c.Cache.Client.Status().Create(ctx, obj, subResource, opts...)
+	if err != nil {
+		return err
+	}
+
+	return c.Cache.blockCreate(ctx, obj)
+}
+
+func (c *CacheStatusClient) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
 	err := c.Cache.Client.Status().Update(ctx, obj, opts...)
 	if err != nil {
 		return err
@@ -195,7 +204,7 @@ func (c *CacheStatusClient) Update(ctx context.Context, obj client.Object, opts 
 	return c.Cache.blockUpdate(ctx, obj)
 }
 
-func (c *CacheStatusClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+func (c *CacheStatusClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 	err := c.Cache.Client.Status().Patch(ctx, obj, patch, opts...)
 	if err != nil {
 		return err

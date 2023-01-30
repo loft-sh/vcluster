@@ -22,8 +22,8 @@ func TestEnableControllers(t *testing.T) {
 		{
 			desc:           "default case",
 			optsModifier:   func(v *VirtualClusterOptions) {},
-			expectEnabled:  DefaultEnabledControllers.List(),
-			expectDisabled: ExistingControllers.Difference(DefaultEnabledControllers).List(),
+			expectEnabled:  sets.List(DefaultEnabledControllers),
+			expectDisabled: sets.List(ExistingControllers.Difference(DefaultEnabledControllers)),
 			expectError:    false,
 		},
 		{
@@ -40,7 +40,7 @@ func TestEnableControllers(t *testing.T) {
 				v.Controllers = []string{"persistentvolumeclaims", "nodes"}
 				v.EnableScheduler = true
 			},
-			expectEnabled:  append([]string{"hoststorageclasses"}, schedulerRequiredControllers.List()...),
+			expectEnabled:  append([]string{"hoststorageclasses"}, sets.List(schedulerRequiredControllers)...),
 			expectDisabled: []string{"storageclasses"},
 			expectError:    false,
 		},
@@ -50,7 +50,7 @@ func TestEnableControllers(t *testing.T) {
 				v.Controllers = []string{"persistentvolumeclaims", "nodes", "storageclasses"}
 				v.EnableScheduler = true
 			},
-			expectEnabled:  append([]string{"storageclasses"}, schedulerRequiredControllers.List()...),
+			expectEnabled:  append([]string{"storageclasses"}, sets.List(schedulerRequiredControllers)...),
 			expectDisabled: []string{"hoststorageclasses"},
 			expectError:    false,
 		},
@@ -60,7 +60,7 @@ func TestEnableControllers(t *testing.T) {
 				v.Controllers = []string{"persistentvolumeclaims", "nodes"}
 				v.EnableScheduler = true
 			},
-			expectEnabled:  append([]string{"hoststorageclasses"}, schedulerRequiredControllers.List()...),
+			expectEnabled:  append([]string{"hoststorageclasses"}, sets.List(schedulerRequiredControllers)...),
 			expectDisabled: []string{"storageclasses"},
 			expectError:    false,
 		},
@@ -70,7 +70,7 @@ func TestEnableControllers(t *testing.T) {
 				v.Controllers = []string{"persistentvolumeclaims"}
 			},
 			expectEnabled:  []string{},
-			expectDisabled: append([]string{"storageclasses", "hoststorageclasses"}, schedulerRequiredControllers.List()...),
+			expectDisabled: append([]string{"storageclasses", "hoststorageclasses"}, sets.List(schedulerRequiredControllers)...),
 			expectError:    false,
 		},
 		{
@@ -122,11 +122,11 @@ func TestEnableControllers(t *testing.T) {
 			assert.NilError(t, err, "should have passed validation")
 		}
 
-		expectedNotFound := sets.NewString(tc.expectEnabled...).Difference(foundControllers)
-		assert.Assert(t, is.Len(expectedNotFound.List(), 0), "should be enabled, but not enabled")
+		expectedNotFound := sets.New[string](tc.expectEnabled...).Difference(foundControllers)
+		assert.Assert(t, is.Len(sets.List(expectedNotFound), 0), "should be enabled, but not enabled")
 
-		disabledFound := sets.NewString(tc.expectDisabled...).Intersection(foundControllers)
-		assert.Assert(t, is.Len(disabledFound.List(), 0), "should be disabled, but found enabled")
+		disabledFound := sets.New[string](tc.expectDisabled...).Intersection(foundControllers)
+		assert.Assert(t, is.Len(sets.List(disabledFound), 0), "should be disabled, but found enabled")
 
 	}
 

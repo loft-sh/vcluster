@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/plugin/remote"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -17,8 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
-	"strings"
-	"time"
 )
 
 func WrapPhysicalClient(delegate client.Client) client.Client {
@@ -196,7 +197,20 @@ type StatusClient struct {
 	scheme *runtime.Scheme
 }
 
-func (c *StatusClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+func (c *StatusClient) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Status().Create(ctx, obj, subResource, opts...)
+	}
+
+	err := executeClientHooksFor(ctx, obj, "Create"+c.suffix, c.scheme)
+	if err != nil {
+		return err
+	}
+
+	return c.Client.Status().Create(ctx, obj, subResource, opts...)
+}
+
+func (c *StatusClient) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
 	if !plugin.DefaultManager.HasClientHooks() {
 		return c.Client.Status().Update(ctx, obj, opts...)
 	}
@@ -209,7 +223,7 @@ func (c *StatusClient) Update(ctx context.Context, obj client.Object, opts ...cl
 	return c.Client.Status().Update(ctx, obj, opts...)
 }
 
-func (c *StatusClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+func (c *StatusClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 	if !plugin.DefaultManager.HasClientHooks() {
 		return c.Client.Status().Patch(ctx, obj, patch, opts...)
 	}
