@@ -177,6 +177,7 @@ data:
               securityContext:
                 runAsNonRoot: true
                 runAsUser: {{`{{.RUN_AS_USER}}`}}
+                runAsGroup: {{`{{.RUN_AS_GROUP}}`}}
                 allowPrivilegeEscalation: false
                 capabilities:
                   drop:
