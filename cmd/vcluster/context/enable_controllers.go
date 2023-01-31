@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/discovery"
 	"k8s.io/klog"
 )
 
-var ExistingControllers = sets.New[string](
+var ExistingControllers = sets.New(
 	"services",
 	"configmaps",
 	"secrets",
@@ -35,7 +37,7 @@ var ExistingControllers = sets.New[string](
 	"namespaces",
 )
 
-var DefaultEnabledControllers = sets.New[string](
+var DefaultEnabledControllers = sets.New(
 	// helm charts need to be updated when changing this!
 	// values.yaml and template/_helpers.tpl reference these
 	"services",
@@ -49,11 +51,21 @@ var DefaultEnabledControllers = sets.New[string](
 	"fake-persistentvolumes",
 )
 
-var schedulerRequiredControllers = sets.New[string](
+var schedulerRequiredControllers = sets.New(
 	"csinodes",
 	"csidrivers",
 	"csistoragecapacities",
 )
+
+const (
+	storageV1GroupVersion = "storage.k8s.io/v1"
+)
+
+// map from groupversion to list of resources in that groupversion
+// the syncers will be disabled unless that resource is advertised in that groupversion
+var possibleMissing = map[string][]string{
+	storageV1GroupVersion: schedulerRequiredControllers.UnsortedList(),
+}
 
 func parseControllers(options *VirtualClusterOptions) (sets.Set[string], error) {
 	enabledControllers := DefaultEnabledControllers.Clone()
@@ -142,4 +154,32 @@ func parseControllers(options *VirtualClusterOptions) (sets.Set[string], error) 
 
 func availableControllers() string {
 	return strings.Join(sets.List(ExistingControllers), ", ")
+}
+
+// disableMissingAPIs checks if the  apis are enabled, if any are missing, disable the syncer and print a log
+func disableMissingAPIs(discoveryClient discovery.DiscoveryInterface, controllers sets.Set[string]) (sets.Set[string], error) {
+	enabledControllers := controllers.Clone()
+	for groupVersion, resourceList := range possibleMissing {
+		resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		}
+		for _, resourcePlural := range resourceList {
+			found := false
+			// search the resourses for a match
+			if resources != nil {
+				for _, r := range resources.APIResources {
+					if r.Name == resourcePlural {
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				enabledControllers.Delete(resourcePlural)
+				klog.Warningf("host kubernetes apiserver not advertising resource %q in GroupVersion %q, disabling the syncer", resourcePlural, storageV1GroupVersion)
+			}
+		}
+	}
+	return enabledControllers, nil
 }
