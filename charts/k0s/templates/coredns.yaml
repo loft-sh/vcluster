@@ -175,8 +175,9 @@ data:
                   name: metrics
                   protocol: TCP
               securityContext:
+                runAsNonRoot: true
                 runAsUser: {{`{{.RUN_AS_USER}}`}}
-                runAsNonRoot: {{`{{.RUN_AS_NON_ROOT}}`}}
+                runAsGroup: {{`{{.RUN_AS_GROUP}}`}}
                 allowPrivilegeEscalation: false
                 capabilities:
                   drop:

@@ -20,8 +20,10 @@ const (
 	VarImage              = "IMAGE"
 	VarRunAsUser          = "RUN_AS_USER"
 	VarRunAsNonRoot       = "RUN_AS_NON_ROOT"
+	VarRunAsGroup         = "RUN_AS_GROUP"
 	VarLogInDebug         = "LOG_IN_DEBUG"
-	UID                   = int64(1001)
+	defaultUID            = int64(1001)
+	defaultGID            = int64(1001)
 )
 
 func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
@@ -64,7 +66,7 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 	}
 	vars[VarImage] = defaultImageRegistry + vars[VarImage].(string)
 	vars[VarRunAsUser] = fmt.Sprintf("%v", GetUserID())
-	vars[VarRunAsNonRoot] = "true"
+	vars[VarRunAsGroup] = fmt.Sprintf("%v", GetGroupID())
 	if os.Getenv("DEBUG") == "true" {
 		vars[VarLogInDebug] = "log"
 	} else {
@@ -73,12 +75,23 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 	return vars
 }
 
+// GetGroupID retrieves the current group id and if the current process is running
+// as root we fallback to GID 1001
+func GetGroupID() int64 {
+	gid := os.Getgid()
+	if gid == 0 {
+		return defaultGID
+	}
+
+	return int64(gid)
+}
+
 // GetUserID retrieves the current user id and if the current process is running
 // as root we fallback to UID 1001
 func GetUserID() int64 {
 	uid := os.Getuid()
 	if uid == 0 {
-		return UID
+		return defaultUID
 	}
 
 	return int64(uid)
