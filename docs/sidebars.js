@@ -72,7 +72,6 @@ module.exports = {
       items: [
           'plugins/overview',
           'plugins/tutorial',
-          'plugins/generic-crd-sync',
       ]
     },
     {
