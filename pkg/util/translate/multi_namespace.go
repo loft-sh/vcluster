@@ -102,7 +102,7 @@ func (s *multiNamespace) getNamespacePrefix() string {
 }
 
 func (s *multiNamespace) getNamespaceSuffix() string {
-	sha := sha256.Sum256([]byte(s.currentNamespace + Suffix))
+	sha := sha256.Sum256([]byte(s.currentNamespace + "x" + Suffix))
 	return hex.EncodeToString(sha[0:])[0:8]
 }
 
