@@ -115,12 +115,13 @@ func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syn
 	errorGroup, ctx := errgroup.WithContext(controllerCtx.Context)
 	registerContext.Context = ctx
 	for _, s := range syncers {
+		name := s.Name()
 		initializer, ok := s.(syncer.Initializer)
 		if ok {
 			errorGroup.Go(func() error {
 				err := initializer.Init(registerContext)
 				if err != nil {
-					return errors.Wrapf(err, "ensure prerequisites for %s syncer", s.Name())
+					return errors.Wrapf(err, "ensure prerequisites for %s syncer", name)
 				}
 				return nil
 			})

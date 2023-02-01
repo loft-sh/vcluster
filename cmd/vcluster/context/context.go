@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,6 +37,16 @@ func NewControllerContext(currentNamespace string, localManager ctrl.Manager, vi
 
 	// parse enabled controllers
 	controllers, err := parseControllers(options)
+	if err != nil {
+		return nil, err
+	}
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(localManager.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	controllers, err = disableMissingAPIs(discoveryClient, controllers)
 	if err != nil {
 		return nil, err
 	}
