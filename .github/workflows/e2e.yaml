@@ -89,9 +89,23 @@ jobs:
       matrix:
         distribution: ["k3s", "k8s", "k0s", "eks"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
+        multinamespace-mode: ["false", "true"]
         exclude:
-        - distribution: eks
-          test-suite-path: ./test/e2e_scheduler
+        - distribution: "eks"
+          test-suite-path: "./test/e2e_scheduler"
+        - distribution: "k8s"
+          multinamespace-mode: "true"
+        - distribution: "k0s"
+          multinamespace-mode: "true"
+        - distribution: "eks"
+          multinamespace-mode: "true"
+        - distribution: "k3s"
+          multinamespace-mode: "true"
+          test-suite-path: "./test/e2e_target_namespace"
+        - distribution: "k3s"
+          multinamespace-mode: "true"
+          test-suite-path: "./test/e2e_isolation_mode"
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -131,6 +145,11 @@ jobs:
       id: create-vcluster
       run: |
         set -x 
+
+        MULTINS_VALUES=""
+        if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
+            MULTINS_VALUES="-f ./test/multins_values.yaml"
+        fi
         
         sudo apt-get install -y sed
         
@@ -147,7 +166,8 @@ jobs:
         --distro=${{ matrix.distribution }} \
         --local-chart-dir ./charts/${{ matrix.distribution }} \
         -f ./test/commonValues.yaml \
-        -f ${{ matrix.test-suite-path }}/values.yaml
+        -f ${{ matrix.test-suite-path }}/values.yaml \
+        $MULTINS_VALUES
       continue-on-error: true
 
     - name: Wait until vcluster is ready
@@ -182,7 +202,7 @@ jobs:
       working-directory: ${{ matrix.test-suite-path }}
       run: |
         set -x
-        VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
+        VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
       continue-on-error: true
 
     - name: Print logs if e2e tests fail
