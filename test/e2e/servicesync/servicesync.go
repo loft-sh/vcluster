@@ -40,7 +40,7 @@ var _ = ginkgo.Describe("map services from host to virtual cluster and vice vers
 		testMapping(f.HostClient, "test", "test", f.VclusterClient, "default", "test", true)
 
 		// virtual -> physical
-		testMapping(f.VclusterClient, "test", "test", f.HostClient, f.VclusterNamespace, "test", false)
+		testMapping(f.VclusterClient, "test", "test", f.HostClient, f.VclusterNamespace, "test", f.MultiNamespaceMode)
 	})
 })
 
