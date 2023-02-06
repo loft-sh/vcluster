@@ -1,7 +1,2 @@
 multiNamespaceMode:
   enabled: true
-
-mapServices:
-  fromVirtual:
-  - from: test/test
-    to: vcluster/test
