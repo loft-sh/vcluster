@@ -82,6 +82,9 @@ type Framework struct {
 
 	// ClientTimeout value used in the clients
 	ClientTimeout time.Duration
+
+	// MultiNamespaceMode denotes whether the multi namespace mode is enabled for the virtualcluster
+	MultiNamespaceMode bool
 }
 
 func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
@@ -112,7 +115,15 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		suffix = "vcluster"
 	}
 	translate.Suffix = suffix
-	translate.NewSingleNamespaceTranslator(ns)
+
+	var multiNamespaceMode bool
+	if os.Getenv("MULTINAMESPACE_MODE") == "true" {
+		translate.Default = translate.NewMultiNamespaceTranslator(ns)
+		multiNamespaceMode = true
+	} else {
+		translate.Default = translate.NewSingleNamespaceTranslator(ns)
+	}
+
 	l.Infof("Testing Vcluster named: %s in namespace: %s", name, ns)
 
 	hostConfig, err := ctrl.GetConfig()
@@ -208,6 +219,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		Scheme:                 scheme,
 		Log:                    l,
 		ClientTimeout:          timeout,
+		MultiNamespaceMode:     multiNamespaceMode,
 	}
 
 	l.Done("Framework successfully initialized")
