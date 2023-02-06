@@ -13,6 +13,10 @@ import (
 
 var _ = ginkgo.Describe("Target Namespace", func() {
 	f := framework.DefaultFramework
+	if f.MultiNamespaceMode {
+		ginkgo.Skip("Target Namespace tests are not applicable in Multi-Namespace mode")
+	}
+
 	ginkgo.It("Create vcluster with target namespace", func() {
 		ginkgo.By("Create target namespace")
 		ns := &corev1.Namespace{
