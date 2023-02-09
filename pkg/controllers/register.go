@@ -305,8 +305,13 @@ func registerInitManifestsController(ctx *context.ControllerContext) error {
 }
 
 func registerServiceSyncControllers(ctx *context.ControllerContext) error {
+	hostNamespace := ctx.Options.TargetNamespace
+	if ctx.Options.MultiNamespaceMode {
+		hostNamespace = ctx.CurrentNamespace
+	}
+
 	if len(ctx.Options.MapHostServices) > 0 {
-		mapping, err := parseMapping(ctx.Options.MapHostServices, ctx.Options.TargetNamespace, "")
+		mapping, err := parseMapping(ctx.Options.MapHostServices, hostNamespace, "")
 		if err != nil {
 			return errors.Wrap(err, "parse physical service mapping")
 		}
@@ -353,7 +358,7 @@ func registerServiceSyncControllers(ctx *context.ControllerContext) error {
 	}
 
 	if len(ctx.Options.MapVirtualServices) > 0 {
-		mapping, err := parseMapping(ctx.Options.MapVirtualServices, "", ctx.Options.TargetNamespace)
+		mapping, err := parseMapping(ctx.Options.MapVirtualServices, "", hostNamespace)
 		if err != nil {
 			return errors.Wrap(err, "parse physical service mapping")
 		}
