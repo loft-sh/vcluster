@@ -18,7 +18,16 @@ init:
     apiVersion: v1
     kind: ConfigMap
     ...
+  manifestsTemplate: |-
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    data:
+      example: {{ .Release.Name }}
+    ...
 ```
+
+The contents of `init.manifests` will be applied as-is, while the contents of `init.manifestsTemplate` will be templated using helm to allow you to use helm values inside, e.g.: `{{ .Release.Name }}`. `init.manifests` and `init.manifestsTemplate` will be concatenated to form a single config map.
 
 ## Applying charts on vcluster initialization
 vcluster now supports applying helm charts while initializing a new vcluster. Currently 2 methods of applying charts are supported:
