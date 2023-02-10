@@ -21,4 +21,3 @@ sync:
         apiVersion: dapr.io/v1alpha1
       - kind: Subscription
         apiVersion: dapr.io/v1alpha1
-      import:
