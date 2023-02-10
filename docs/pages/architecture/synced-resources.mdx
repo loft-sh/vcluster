@@ -299,6 +299,8 @@ patches:
 
 ```
 
+#### More Examples
+A list of sample configurations can be found here - [vcluster generic-sync-examples](https://github.com/loft-sh/vcluster/generic-sync-examples)
 
 ## Multi-namespace mode
 In this mode vcluster diverges from the [architecture described previously](./basics.mdx). By default, all namespaced resources that need to be synced to the host cluster are created in the namespace where vcluster is installed. But in multi-namespace mode vcluster will create a namespace in the host cluster for each namespace in the virtual cluster. The namespace name is modified to avoid conflicts between multiple vcluster instances in the same host, but the synced namespaced resources are created with the same name as in the virtual cluster. To enable this mode use the following helm value:
