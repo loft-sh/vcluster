@@ -19,10 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const (
-	ClusterIPNone = "None"
-)
-
 type ServiceSyncer struct {
 	SyncServices map[string]types.NamespacedName
 
@@ -130,8 +126,8 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 		}
 
 		// case for a headless service
-		if fromService.Spec.ClusterIP == ClusterIPNone {
-			toService.Spec.ClusterIP = ClusterIPNone
+		if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
+			toService.Spec.ClusterIP = corev1.ClusterIPNone
 		}
 
 		if e.IsVirtualToHostSyncer {
@@ -237,6 +233,32 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 			return ctrl.Result{}, err
 		}
 
+		// copy subsets from endpoint
+		subsets := []corev1.EndpointSubset{}
+
+		if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
+			// fetch the corresponding endpoint and assign address from there to here
+			fromEndpoint := &corev1.Endpoints{}
+			err = e.From.GetClient().Get(ctx, types.NamespacedName{
+				Name:      fromService.GetName(),
+				Namespace: fromService.GetNamespace(),
+			}, fromEndpoint)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			subsets = fromEndpoint.Subsets
+		} else {
+			subsets = append(subsets, corev1.EndpointSubset{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: fromService.Spec.ClusterIP,
+					},
+				},
+				Ports: convertPorts(toService.Spec.Ports),
+			})
+		}
+
 		// create endpoints
 		toEndpoints = &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
@@ -246,17 +268,9 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 					translate.ControllerLabel: "vcluster",
 				},
 			},
-			Subsets: []corev1.EndpointSubset{
-				{
-					Addresses: []corev1.EndpointAddress{
-						{
-							IP: fromService.Spec.ClusterIP,
-						},
-					},
-					Ports: convertPorts(toService.Spec.Ports),
-				},
-			},
+			Subsets: subsets,
 		}
+
 		e.Log.Infof("Create target endpoints %s/%s because they are missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toEndpoints)
 	}
