@@ -45,7 +45,7 @@ clusterctl generate cluster ${CLUSTER_NAME} \
 
 :::tip
 You can populate the HELM_VALUES variable from a `values.yaml` file using this command:
-```export HELM_VALUES=$(cat values.yaml | sed -z 's/\n/\\n/g')```
+```export HELM_VALUES=$(cat values.yaml | python -c 'import yaml,sys; print(yaml.dump(sys.stdin.read()).strip()[1:-1])')```
 :::
 
 Next, we need to wait until vcluster custom resource reports ready status:
