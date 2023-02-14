@@ -123,13 +123,13 @@ func parseControllers(options *VirtualClusterOptions) (sets.Set[string], error) 
 		enabledControllers = enabledControllers.Union(schedulerRequiredControllers)
 		requiredButDisabled := disabledControllers.Intersection(schedulerRequiredControllers)
 		if requiredButDisabled.Len() > 0 {
-			klog.Warningf("pesistentvolumeclaim syncing and scheduler enabled, but required syncers explicitly disabled: %q. This may result in incorrect pod scheduling.", sets.List(requiredButDisabled))
+			klog.Warningf("persistentvolumeclaim syncing and scheduler enabled, but required syncers explicitly disabled: %q. This may result in incorrect pod scheduling.", sets.List(requiredButDisabled))
 		}
 		if !enabledControllers.Has("storageclasses") {
 			klog.Info("persistentvolumeclaim syncing and scheduler enabled, but storageclass sync not enabled. Syncing host storageclasses to vcluster(hoststorageclasses)")
 			enabledControllers.Insert("hoststorageclasses")
 			if disabledControllers.HasAll("storageclasses", "hoststorageclasses") {
-				return nil, fmt.Errorf("pesistentvolumeclaim syncing and scheduler enabled, but both storageclasses and hoststorageclasses syncers disabled")
+				return nil, fmt.Errorf("persistentvolumeclaim syncing and scheduler enabled, but both storageclasses and hoststorageclasses syncers disabled")
 			}
 		}
 	}
