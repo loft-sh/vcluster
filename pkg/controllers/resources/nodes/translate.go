@@ -133,7 +133,7 @@ func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Nod
 		// translate addresses
 		newAddresses := []corev1.NodeAddress{
 			{
-				Address: getNodeHost(vNode.Name, s.currentNamespace),
+				Address: GetNodeHost(vNode.Name, s.currentNamespace),
 				Type:    corev1.NodeHostName,
 			},
 		}

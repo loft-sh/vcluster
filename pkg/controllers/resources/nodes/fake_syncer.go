@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
@@ -12,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -87,7 +89,7 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 	}
 
 	// check if we need to update node ips
-	updated := r.updateNeeded(node)
+	updated := r.updateIfNeeded(node)
 	if updated != nil {
 		ctx.Log.Infof("Update fake node %s", node.Name)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, updated)
@@ -99,12 +101,12 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 	return ctrl.Result{}, nil
 }
 
-func (r *fakeNodeSyncer) updateNeeded(node *corev1.Node) *corev1.Node {
+func (r *fakeNodeSyncer) updateIfNeeded(node *corev1.Node) *corev1.Node {
 	var updated *corev1.Node
 
 	newAddresses := []corev1.NodeAddress{
 		{
-			Address: getNodeHost(node.Name, r.currentNamespace),
+			Address: GetNodeHost(node.Name, r.currentNamespace),
 			Type:    corev1.NodeHostName,
 		},
 	}
@@ -203,7 +205,7 @@ func CreateFakeNode(ctx context.Context, currentNamespace string, virtualClient 
 		},
 		Addresses: []corev1.NodeAddress{
 			{
-				Address: getNodeHost(node.Name, currentNamespace),
+				Address: GetNodeHost(node.Name, currentNamespace),
 				Type:    corev1.NodeHostName,
 			},
 		},
@@ -278,6 +280,9 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 	return podsNoDaemonSets
 }
 
-func getNodeHost(nodeName, currentNamespace string) string {
-	return nodeName + "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
+func GetNodeHost(nodeName, currentNamespace string) string {
+	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
+	log := loghelper.New("GetNodeHost()")
+	log.Debugf("translating nodename %q into hostname: %q", nodeName, hostname)
+	return hostname
 }
