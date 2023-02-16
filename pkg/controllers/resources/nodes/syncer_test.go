@@ -1,9 +1,10 @@
 package nodes
 
 import (
+	"testing"
+
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -65,7 +66,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -91,7 +92,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -196,7 +197,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -221,7 +222,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -320,7 +321,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -341,7 +342,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -458,7 +459,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -479,7 +480,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -523,7 +524,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},

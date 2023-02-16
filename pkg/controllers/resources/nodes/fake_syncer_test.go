@@ -1,10 +1,11 @@
 package nodes
 
 import (
+	"testing"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
-	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -108,7 +109,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
 					Type:    corev1.NodeHostName,
 				},
 			},

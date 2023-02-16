@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
@@ -53,6 +54,7 @@ import (
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
 type Server struct {
 	uncachedVirtualClient client.Client
+	cachedVirtualClient   client.Client
 
 	currentNamespace string
 
@@ -96,9 +98,21 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 			return err
 		}
 
-		return cache.IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		err = cache.IndexField(ctx.Context, &corev1.Node{}, constants.IndexByHostName, func(rawObj client.Object) []string {
+			return []string{nodes.GetNodeHost(rawObj.GetName(), ctx.CurrentNamespace)}
+		})
+		if err != nil {
+			return err
+		}
+
+		err = cache.IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 			return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
 		})
+		if err != nil {
+			return err
+		}
+		return nil
+
 	})
 	if err != nil {
 		return nil, err
@@ -117,6 +131,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 
 	s := &Server{
 		uncachedVirtualClient: uncachedVirtualClient,
+		cachedVirtualClient:   cachedVirtualClient,
 		certSyncer:            certSyncer,
 		handler:               http.NewServeMux(),
 
@@ -282,7 +297,7 @@ func createCachedClient(ctx context.Context, config *rest.Config, namespace stri
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
-	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace)
+	defaultHandler = filters.WithNodeName(defaultHandler, s.cachedVirtualClient)
 	return defaultHandler
 }
 

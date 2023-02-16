@@ -2,10 +2,15 @@ package filters
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"net/http"
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type nodeName int
@@ -15,13 +20,12 @@ type nodeName int
 // does not conflict with the keys defined in pkg/api.
 const nodeNameKey nodeName = iota
 
-func WithNodeName(h http.Handler, currentNamespace string) http.Handler {
+func WithNodeName(h http.Handler, cli client.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		nodeName := nodeNameFromHost(req.Host, currentNamespace)
+		nodeName := nodeNameFromHost(req, cli)
 		if nodeName != "" {
 			req = req.WithContext(context.WithValue(req.Context(), nodeNameKey, nodeName))
 		}
-
 		h.ServeHTTP(w, req)
 	})
 }
@@ -32,14 +36,24 @@ func NodeNameFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-func nodeNameFromHost(host, currentNamespace string) string {
-	suffix := "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
-
-	// retrieve the node name
-	splitted := strings.Split(host, ":")
-	if len(splitted) == 2 && strings.HasSuffix(splitted[0], suffix) {
-		return strings.TrimSuffix(splitted[0], suffix)
+func nodeNameFromHost(req *http.Request, cli client.Client) string {
+	log := loghelper.New("nodeNameFromHost()")
+	splitted := strings.Split(req.Host, ":")
+	if len(splitted) == 2 {
+		hostname := splitted[0]
+		log.Debugf("attempting to translate hostname %q in case it is a node", hostname)
+		nodeList := &corev1.NodeList{}
+		err := cli.List(req.Context(), nodeList, client.MatchingFields{constants.IndexByHostName: hostname})
+		if err != nil && !errors.IsNotFound(err) {
+			klog.Error(err, "couldn't fetch nodename for hostname")
+			return ""
+		}
+		if len(nodeList.Items) == 1 {
+			nodeName := nodeList.Items[0].Name
+			log.Debugf("translating hostname %q into nodename %q", hostname, nodeName)
+			return nodeName
+		}
 	}
-
 	return ""
+
 }
