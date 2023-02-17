@@ -197,9 +197,10 @@ func SyncKubernetesService(ctx context.Context, virtualClient client.Client, loc
 	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.Ports, translatedPorts) {
 		newService := vObj.DeepCopy()
 		newService.Spec.ClusterIP = pObj.Spec.ClusterIP
+		newService.Spec.ClusterIPs = pObj.Spec.ClusterIPs
+		newService.Spec.IPFamilies = pObj.Spec.IPFamilies
 		newService.Spec.Ports = translatedPorts
-		if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP {
-			newService.Spec.ClusterIPs = nil
+		if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.ClusterIPs, pObj.Spec.ClusterIPs) {
 
 			// delete & create with correct ClusterIP
 			err = virtualClient.Delete(ctx, vObj)
