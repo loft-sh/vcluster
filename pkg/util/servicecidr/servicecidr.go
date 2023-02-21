@@ -10,6 +10,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -20,9 +21,8 @@ const (
 	K0sCIDRPlaceHolder  = "CIDR_PLACEHOLDER"
 	K0sConfigReadyFlag  = "CONFIG_READY"
 
-	ErrorMessageIPFamily     = "expected an IPv6 value as indicated by " // Dual-stack cluster with .spec.ipFamilies=["IPv6"]
-	ErrorMessageIPv4Disabled = "IPv4 is not configured on this cluster"  // IPv6 only cluster
-	ErrorMessageFind         = "The range of valid IPs is "
+	ErrorMessageFind = "The range of valid IPs is "
+	FallbackCIDR     = "10.96.0.0/12"
 )
 
 func GetCIDRConfigMapName(vclusterName string) string {
@@ -57,7 +57,10 @@ func EnsureServiceCIDRConfigmap(ctx context.Context, c kubernetes.Interface, cur
 	}
 
 	// find out correct cidr
-	cidr := GetServiceCIDR(c, currentNamespace)
+	cidr, warning := GetServiceCIDR(c, currentNamespace)
+	if warning != "" {
+		klog.Warning(warning)
+	}
 
 	if !exists {
 		cm.Data = map[string]string{
@@ -93,7 +96,10 @@ func EnsureServiceCIDRInK0sSecret(ctx context.Context, c kubernetes.Interface, c
 	}
 
 	// find out correct cidr
-	cidr := GetServiceCIDR(c, currentNamespace)
+	cidr, warning := GetServiceCIDR(c, currentNamespace)
+	if warning != "" {
+		klog.Warning(warning)
+	}
 	newData := strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, cidr)
 
 	originalObject := secret.DeepCopy()
@@ -111,19 +117,55 @@ func EnsureServiceCIDRInK0sSecret(ctx context.Context, c kubernetes.Interface, c
 	return nil
 }
 
-func GetServiceCIDR(client kubernetes.Interface, namespace string) string {
-	cidr, err := getServiceCIDR(client, namespace, false)
-	if err != nil {
-		idx := strings.Index(err.Error(), ErrorMessageIPFamily)
-		idz := strings.Index(err.Error(), ErrorMessageIPv4Disabled)
-		if idx != -1 || idz != -1 {
-			cidr, err = getServiceCIDR(client, namespace, true)
-		}
-		if err != nil {
-			return "10.96.0.0/12"
+func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, string) {
+	ipv4CIDR, ipv4Err := getServiceCIDR(client, namespace, false)
+	ipv6CIDR, ipv6Err := getServiceCIDR(client, namespace, true)
+	if ipv4Err != nil && ipv6Err != nil {
+		return FallbackCIDR, fmt.Sprintf("failed to detect service CIDR, will fallback to %s, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match. Error details: failed to find IPv4 service CIDR: %v ; or IPv6 service CIDR: %v", FallbackCIDR, ipv4Err, ipv6Err)
+	}
+	if ipv4Err != nil {
+		return ipv6CIDR, fmt.Sprintf("failed to find IPv4 service CIDR: %v", ipv4Err)
+	}
+	if ipv6Err != nil {
+		return ipv4CIDR, fmt.Sprintf("failed to find IPv6 service CIDR: %v", ipv6Err)
+	}
+
+	// Both IPv4 and IPv6 are configured, we need to find out which one is the default
+	policy := corev1.IPFamilyPolicyPreferDualStack
+	testService, err := client.CoreV1().Services(namespace).Create(context.Background(), &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "test-service-delete-me-",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port: 80,
+				},
+			},
+			IPFamilyPolicy: &policy,
+		},
+	}, metav1.CreateOptions{})
+
+	if err == nil {
+		defer func() {
+			_ = client.CoreV1().Services(namespace).Delete(context.Background(), testService.GetName(), metav1.DeleteOptions{})
+		}()
+
+		// check if this is dual stack, and which family is default
+		if len(testService.Spec.IPFamilies) == 2 {
+			if testService.Spec.IPFamilies[0] == corev1.IPv4Protocol {
+				// IPv4 is the default
+				return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), ""
+			} else {
+				// IPv6 is the default
+				return fmt.Sprintf("%s,%s", ipv6CIDR, ipv4CIDR), ""
+			}
+		} else {
+			return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), fmt.Sprintf("unexpected number of entries in .Spec.IPFamilies - %d, defaulting to IPv4 family", len(testService.Spec.IPFamilies))
 		}
 	}
-	return cidr
+
+	return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), "failed to find host cluster default Service IP family, defaulting to IPv4"
 }
 
 func getServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {
@@ -146,13 +188,13 @@ func getServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (s
 		},
 	}, metav1.CreateOptions{})
 	if err == nil {
-		return "", fmt.Errorf("couldn't find cluster service cidr, will fallback to 10.96.0.0/12, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match")
+		return "", fmt.Errorf("couldn't find host cluster Service CIDR")
 	}
 
 	errorMessage := err.Error()
 	idx := strings.Index(errorMessage, ErrorMessageFind)
 	if idx == -1 {
-		return "", fmt.Errorf("couldn't find cluster service cidr (" + errorMessage + "), will fallback to 10.96.0.0/12, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match")
+		return "", fmt.Errorf("couldn't find host cluster Service CIDR (\"%s\")", errorMessage)
 	}
 
 	return strings.TrimSpace(errorMessage[idx+len(ErrorMessageFind):]), nil

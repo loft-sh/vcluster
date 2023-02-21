@@ -3,10 +3,11 @@ package generic
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"regexp"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -31,6 +32,10 @@ import (
 )
 
 func CreateImporters(ctx *context2.ControllerContext, config *config.Config) error {
+	if len(config.Imports) == 0 {
+		return nil
+	}
+
 	scheme := ctx.LocalManager.GetScheme()
 	registerCtx := util.ToRegisterContext(ctx)
 
