@@ -17,23 +17,8 @@ sync:
       export:
         - apiVersion: cert-manager.io/v1
           kind: Issuer
-          patches:
-            - op: rewriteName
-              path: spec.ca.secretName
         - apiVersion: cert-manager.io/v1
           kind: Certificate
-          patches:
-            - op: rewriteName
-              path: spec.issuerRef.name
-            - op: rewriteName
-              path: spec.keystores.pkcs12.passwordSecretRef.name
-            - op: rewriteName
-              path: spec.secretName
       import:
         - kind: Secret
           apiVersion: v1
-          patches:
-            - op: rewriteName
-              path: metadata.annotations['cert-manager.io/certificate-name']
-            - op: rewriteName
-              path: metadata.annotations['cert-manager.io/issuer-name']
