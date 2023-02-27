@@ -126,6 +126,14 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: "vc-{{ .Release.Name }}-config"
+        {{- if .Values.vcluster.livenessProbe }}
+        livenessProbe:
+{{ toYaml .Values.vcluster.livenessProbe | indent 10 }}
+        {{- end }}
+        {{- if .Values.vcluster.readinessProbe }}
+        readinessProbe:
+{{ toYaml .Values.vcluster.readinessProbe | indent 10 }}
+        {{- end }}
                 key: CONFIG_READY
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
