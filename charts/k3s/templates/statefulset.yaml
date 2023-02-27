@@ -112,11 +112,14 @@ spec:
       {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
+      automountServiceAccountToken: true
       volumes:
-      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
+      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot .Values.securityContext.readOnlyRootFilesystem }}
         - name: helm-cache
           emptyDir: {}
         - name: tmp
+          emptyDir: {}
+        - name: kube
           emptyDir: {}
       {{- end }}
         - name: config
@@ -194,11 +197,37 @@ spec:
                 name: "vc-cidr-{{ .Release.Name }}"
                 key: cidr
           {{- end }}
+        ports:
+          - containerPort: 6443
+            protocol: TCP
+        livenessProbe:
+          exec:
+            command:
+              - kubectl
+              - get
+              - --raw=/livez
+          failureThreshold: 10
+          initialDelaySeconds: 30
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          exec:
+            command:
+              - kubectl
+              - get
+              - --raw=/readyz
+          failureThreshold: 30
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 1
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
           - name: config
             mountPath: /etc/rancher
+          - name: kube
+            mountPath: /.kube
 {{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
