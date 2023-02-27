@@ -61,6 +61,7 @@ spec:
       {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
+      automountServiceAccountToken: true
       volumes:
       {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
         - name: helm-cache

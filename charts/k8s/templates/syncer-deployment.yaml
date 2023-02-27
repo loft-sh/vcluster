@@ -93,6 +93,7 @@ spec:
       {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
+      automountServiceAccountToken: true
       volumes:
         - name: certs
           secret:
