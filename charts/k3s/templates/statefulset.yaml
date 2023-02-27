@@ -200,27 +200,6 @@ spec:
         ports:
           - containerPort: 6443
             protocol: TCP
-        livenessProbe:
-          exec:
-            command:
-              - kubectl
-              - get
-              - --raw=/livez
-          failureThreshold: 10
-          initialDelaySeconds: 30
-          periodSeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 1
-        readinessProbe:
-          exec:
-            command:
-              - kubectl
-              - get
-              - --raw=/readyz
-          failureThreshold: 30
-          periodSeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 1
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
