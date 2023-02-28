@@ -89,7 +89,7 @@ spec:
 {{ toYaml .Values.controller.nodeSelector | indent 8 }}
       tolerations:
 {{ toYaml .Values.controller.tolerations | indent 8 }}
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
       {{- if .Values.serviceAccount.name }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- else }}

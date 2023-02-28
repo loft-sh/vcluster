@@ -132,6 +132,7 @@ data:
         spec:
           priorityClassName: "system-cluster-critical"
           serviceAccountName: coredns
+          automountServiceAccountToken: true
           nodeSelector:
             kubernetes.io/os: linux
           topologySpreadConstraints:

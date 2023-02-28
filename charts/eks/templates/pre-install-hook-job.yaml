@@ -23,6 +23,7 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ .Release.Name }}-job
+      automountServiceAccountToken: true
       restartPolicy: OnFailure
       nodeSelector:
 {{ toYaml .Values.job.nodeSelector | indent 8 }}

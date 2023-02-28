@@ -19,6 +19,7 @@ data:
     metadata:
       name: coredns
       namespace: kube-system
+    automountServiceAccountToken: false
     ---
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
@@ -136,6 +137,7 @@ data:
         spec:
           priorityClassName: "system-cluster-critical"
           serviceAccountName: coredns
+          automountServiceAccountToken: true
           nodeSelector:
             kubernetes.io/os: linux
           topologySpreadConstraints:

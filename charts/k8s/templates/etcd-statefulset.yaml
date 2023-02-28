@@ -96,7 +96,7 @@ spec:
 {{ toYaml .Values.etcd.nodeSelector | indent 8 }}
       tolerations:
 {{ toYaml .Values.etcd.tolerations | indent 8 }}
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
       {{- if .Values.serviceAccount.name }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- else }}

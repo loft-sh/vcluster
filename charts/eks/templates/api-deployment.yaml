@@ -46,11 +46,11 @@ spec:
     spec:
       terminationGracePeriodSeconds: 10
       {{- if .Values.api.affinity }}
-      affinity: 
+      affinity:
 {{ toYaml .Values.api.affinity | indent 8 }}
       {{- end }}
       {{- if .Values.api.topologySpreadConstraints }}
-      topologySpreadConstraints: 
+      topologySpreadConstraints:
 {{ toYaml .Values.api.topologySpreadConstraints | indent 8 }}
       {{- end }}
       nodeSelector:
