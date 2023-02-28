@@ -9,5 +9,11 @@
       "version": "latest"
     },
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {}
+  },
+
+  "customizations": {
+    "devpod": {
+      "prebuildRepository": "fdog239/prebuilds"
+    }
   }
 }
