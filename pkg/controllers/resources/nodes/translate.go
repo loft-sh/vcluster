@@ -138,7 +138,7 @@ func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Nod
 			},
 		}
 		for _, oldAddress := range translatedStatus.Addresses {
-			if oldAddress.Type == corev1.NodeInternalIP || oldAddress.Type == corev1.NodeInternalDNS || oldAddress.Type == corev1.NodeHostName {
+			if oldAddress.Type == corev1.NodeInternalDNS || oldAddress.Type == corev1.NodeHostName {
 				continue
 			}
 
