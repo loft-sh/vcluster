@@ -3,16 +3,18 @@ package cert
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"os"
 	"reflect"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
@@ -81,7 +83,11 @@ func (s *syncer) AddListener(listener dynamiccertificates.Listener) {
 }
 
 func (s *syncer) getSANs() ([]string, error) {
-	retSANs := []string{s.serviceName, s.serviceName + "." + s.currentNamespace, "*." + translate.Suffix + "." + s.currentNamespace + "." + constants.NodeSuffix}
+
+	retSANs := []string{
+		s.serviceName,
+		s.serviceName + "." + s.currentNamespace, "*." + translate.Suffix + "." + s.currentNamespace + "." + constants.NodeSuffix,
+	}
 
 	// get cluster ip of target service
 	svc := &corev1.Service{}
@@ -96,6 +102,9 @@ func (s *syncer) getSANs() ([]string, error) {
 	}
 
 	// get load balancer ip
+	// currently, the load balancer service is named <serviceName>-lb, but the syncer image might run in legacy environments
+	// where the load balancer service is the same service, the service is only updated if the helm template is rerun,
+	// so we are leaving this snippet in, but the load balancer ip will be read via the lbSVC var below
 	for _, ing := range svc.Status.LoadBalancer.Ingress {
 		if ing.IP != "" {
 			retSANs = append(retSANs, ing.IP)
@@ -111,6 +120,36 @@ func (s *syncer) getSANs() ([]string, error) {
 	podIP := os.Getenv("POD_IP")
 	if podIP != "" {
 		retSANs = append(retSANs, podIP)
+	}
+
+	// get cluster ip of load balancer service
+	lbSVCName := translate.GetLoadBalancerSVCName(s.serviceName)
+	lbSVC := &corev1.Service{}
+	err = s.currentNamespaceCient.Get(context.TODO(), types.NamespacedName{
+		Namespace: s.currentNamespace,
+		Name:      lbSVCName,
+	}, lbSVC)
+	// proceed only if load balancer service exists
+	if !errors.IsNotFound(err) {
+		if err != nil {
+			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %v", s.currentNamespace, lbSVCName, err)
+		} else if lbSVC.Spec.ClusterIP == "" {
+			return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, lbSVCName)
+		}
+
+		for _, ing := range lbSVC.Status.LoadBalancer.Ingress {
+			if ing.IP != "" {
+				retSANs = append(retSANs, ing.IP)
+			}
+			if ing.Hostname != "" {
+				retSANs = append(retSANs, ing.Hostname)
+			}
+		}
+		// append hostnames for load balancer service
+		retSANs = append(retSANs,
+			lbSVCName,
+			lbSVCName+"."+s.currentNamespace, "*."+translate.Suffix+"."+s.currentNamespace+"."+constants.NodeSuffix,
+		)
 	}
 
 	// make sure other sans are there as well
