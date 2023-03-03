@@ -152,7 +152,7 @@ func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, stri
 		}()
 
 		// check if this is dual stack, and which family is default
-		if len(testService.Spec.IPFamilies) == 2 {
+		if len(testService.Spec.IPFamilies) > 0 {
 			if testService.Spec.IPFamilies[0] == corev1.IPv4Protocol {
 				// IPv4 is the default
 				return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), ""
@@ -161,11 +161,11 @@ func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, stri
 				return fmt.Sprintf("%s,%s", ipv6CIDR, ipv4CIDR), ""
 			}
 		} else {
-			return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), fmt.Sprintf("unexpected number of entries in .Spec.IPFamilies - %d, defaulting to IPv4 family", len(testService.Spec.IPFamilies))
+			return ipv4CIDR, fmt.Sprintf("unexpected number of entries in .Spec.IPFamilies - %d, defaulting to IPv4 CIDR only", len(testService.Spec.IPFamilies))
 		}
 	}
 
-	return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), "failed to find host cluster default Service IP family, defaulting to IPv4"
+	return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), "failed to find host cluster default Service IP family, defaulting to IPv4 family"
 }
 
 func getServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {
@@ -197,5 +197,18 @@ func getServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (s
 		return "", fmt.Errorf("couldn't find host cluster Service CIDR (\"%s\")", errorMessage)
 	}
 
-	return strings.TrimSpace(errorMessage[idx+len(ErrorMessageFind):]), nil
+	cidr := strings.TrimSpace(errorMessage[idx+len(ErrorMessageFind):])
+	ip, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", err
+	}
+	isIPv4 := ip.To4() != nil
+
+	if isIPv4 && ipv6 {
+		return "", fmt.Errorf("invalid IP family, got IPv4 when trying to determine IPv6 Service CIDR")
+	}
+	if !isIPv4 && !ipv6 {
+		return "", fmt.Errorf("invalid IP family, got invalid IPv4 address when trying to determine IPv4 Service CIDR")
+	}
+	return cidr, nil
 }
