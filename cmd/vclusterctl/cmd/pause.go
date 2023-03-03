@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -71,6 +72,11 @@ func (cmd *PauseCmd) Run(args []string) error {
 	err = lifecycle.DeleteVClusterWorkloads(cmd.kubeClient, "vcluster.loft.sh/managed-by="+args[0], cmd.Namespace, cmd.Log)
 	if err != nil {
 		return errors.Wrap(err, "delete vcluster workloads")
+	}
+
+	err = lifecycle.DeleteMultiNamespaceVclusterWorkloads(context.TODO(), cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
+	if err != nil {
+		return errors.Wrap(err, "delete vcluster multinamespace workloads")
 	}
 
 	cmd.Log.Donef("Successfully paused vcluster %s/%s", cmd.Namespace, args[0])

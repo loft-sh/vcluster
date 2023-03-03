@@ -7,8 +7,11 @@ import (
 
 	"github.com/loft-sh/utils/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -64,6 +67,35 @@ func DeleteVClusterWorkloads(kubeClient *kubernetes.Clientset, labelSelector, na
 			err = kubeClient.CoreV1().Pods(namespace).Delete(context.TODO(), item.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return errors.Wrapf(err, "delete pod %s/%s", namespace, item.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
+func DeleteMultiNamespaceVclusterWorkloads(ctx context.Context, client *kubernetes.Clientset, vclusterName, vclusterNamespace string, log log.Logger) error {
+	// get all host namespaces managed by this multinamespace mode enabled vcluster
+	namespaces, err := client.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{
+		LabelSelector: labels.FormatLabels(map[string]string{
+			translate.MarkerLabel: translate.SafeConcatName(vclusterNamespace, "x", vclusterName),
+		}),
+	})
+	if err != nil && !kerrors.IsForbidden(err) {
+		return errors.Wrap(err, "list namespaces")
+	}
+
+	// delete all pods inside the above returned namespaces
+	for _, ns := range namespaces.Items {
+		podList, podListErr := client.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
+		if podListErr != nil {
+			return errors.Wrapf(err, "error listing pods in namespace %s", ns.Name)
+		}
+
+		for _, pod := range podList.Items {
+			err := client.CoreV1().Pods(ns.Name).Delete(ctx, pod.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return errors.Wrapf(err, "error deleting pod %s/%s", ns.Name, pod.Name)
 			}
 		}
 	}
