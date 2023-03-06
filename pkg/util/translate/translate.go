@@ -29,7 +29,8 @@ var (
 	MarkerLabel     = "vcluster.loft.sh/managed-by"
 	LabelPrefix     = "vcluster.loft.sh/label"
 	ControllerLabel = "vcluster.loft.sh/controlled-by"
-	Suffix          = "suffix"
+	// Suffix is the vcluster name, usually set at start time
+	Suffix = "suffix"
 
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
