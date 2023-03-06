@@ -20,7 +20,9 @@ jobs:
         run: brew install helm
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
-      - uses: sigstore/cosign-installer@main
+      - uses: sigstore/cosign-installer@bd2d1189b064bcddc3903176a807dcdba72d7fd0
+        with:
+          cosign-release: ' v2.0.0'
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
@@ -48,7 +50,9 @@ jobs:
       id-token: write   # This is the key for OIDC!
     steps:
       - uses: actions/checkout@v2
-      - uses: sigstore/cosign-installer@main
+      - uses: sigstore/cosign-installer@bd2d1189b064bcddc3903176a807dcdba72d7fd0
+        with:
+          cosign-release: ' v2.0.0'
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
@@ -84,7 +88,7 @@ jobs:
         run: echo ${{ steps.docker_build.outputs.digest }}
       - name: Sign Container Image
         run: |
-          COSIGN_EXPERIMENTAL=1 cosign sign --force loftsh/vcluster@${{ steps.docker_build.outputs.digest }}
+          cosign sign --yes loftsh/vcluster@${{ steps.docker_build.outputs.digest }}
   publish-vcluster-cli-image:
     if: startsWith(github.ref, 'refs/tags/v') == true
     runs-on: ubuntu-22.04
@@ -92,7 +96,9 @@ jobs:
       id-token: write   # This is the key for OIDC!
     steps:
       - uses: actions/checkout@v2
-      - uses: sigstore/cosign-installer@main
+      - uses: sigstore/cosign-installer@bd2d1189b064bcddc3903176a807dcdba72d7fd0
+        with:
+          cosign-release: ' v2.0.0'
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
@@ -128,7 +134,7 @@ jobs:
         run: echo ${{ steps.docker_build.outputs.digest }}
       - name: Sign Container Image
         run: |
-          COSIGN_EXPERIMENTAL=1 cosign sign --force loftsh/vcluster-cli@${{ steps.docker_build.outputs.digest }}
+          cosign sign --yes loftsh/vcluster-cli@${{ steps.docker_build.outputs.digest }}
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [publish-vcluster-image, publish-vcluster-cli-image]
