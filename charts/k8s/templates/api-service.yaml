@@ -12,7 +12,7 @@ metadata:
   {{- $annotations := merge .Values.globalAnnotations .Values.api.serviceAnnotations }}
   {{- if $annotations }}
   annotations:
-  {{ toYaml $annotations | nindent 4 }}
+  {{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   type: ClusterIP
