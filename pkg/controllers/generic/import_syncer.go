@@ -44,13 +44,13 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 		return fmt.Errorf("invalid configuration, 'import' type sync of the generic CRDs is allowed only in the multi-namespace mode")
 	}
 
-	clusterScopedRegister := make(ClusterScopedGVKRegister)
+	gvkRegister := make(GVKRegister)
 
 	for _, importConfig := range cfg.Imports {
 		gvk := schema.FromAPIVersionAndKind(importConfig.APIVersion, importConfig.Kind)
 
 		if !scheme.Recognizes(gvk) {
-			isClusterScoped, err := translate.EnsureCRDFromPhysicalCluster(
+			isClusterScoped, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
 				registerCtx.Context,
 				registerCtx.PhysicalManager.GetConfig(),
 				registerCtx.VirtualManager.GetConfig(),
@@ -59,12 +59,15 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 				return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", importConfig.Kind, importConfig.APIVersion, err)
 			}
 
-			clusterScopedRegister[gvk] = isClusterScoped
+			gvkRegister[gvk] = &GVKScopeAndSubresource{
+				IsClusterScoped:      isClusterScoped,
+				HasStatusSubresource: hasStatusSubresource,
+			}
 		}
 	}
 
 	for _, importConfig := range cfg.Imports {
-		s, err := createImporter(registerCtx, importConfig, clusterScopedRegister)
+		s, err := createImporter(registerCtx, importConfig, gvkRegister)
 		klog.Infof("creating importer for %s/%s", importConfig.APIVersion, importConfig.Kind)
 		if err != nil {
 			return fmt.Errorf("error creating %s(%s) syncer: %v", importConfig.Kind, importConfig.APIVersion, err)
@@ -80,10 +83,7 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 	return nil
 }
 
-func createImporter(ctx *synccontext.RegisterContext, config *config.Import, clusterScopedRegister map[schema.GroupVersionKind]bool) (syncer.Syncer, error) {
-	statusIsSubresource := true
-	// TODO: [low priority] check if config.Kind + config.APIVersion has status subresource
-
+func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvkRegister GVKRegister) (syncer.Syncer, error) {
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
 	controllerID := fmt.Sprintf("%s/%s/GenericImport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.GroupVersion().String()))
 
@@ -91,15 +91,21 @@ func createImporter(ctx *synccontext.RegisterContext, config *config.Import, clu
 		DisableUIDDeletion: true,
 	}
 
-	if _, ok := clusterScopedRegister[gvk]; ok {
-		syncerOptions.IsClusterScopedCRD = true
+	if scopeAndSubresource, ok := gvkRegister[gvk]; ok {
+		if scopeAndSubresource.IsClusterScoped {
+			syncerOptions.IsClusterScopedCRD = true
+		}
+
+		if scopeAndSubresource.HasStatusSubresource {
+			syncerOptions.HasStatusSubresource = true
+		}
 	}
 
 	return &importer{
 		patcher: &patcher{
 			fromClient:          ctx.PhysicalManager.GetClient(),
 			toClient:            ctx.VirtualManager.GetClient(),
-			statusIsSubresource: statusIsSubresource,
+			statusIsSubresource: syncerOptions.HasStatusSubresource,
 			log:                 log.New(controllerID),
 		},
 		gvk:           gvk,
