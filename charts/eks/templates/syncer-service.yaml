@@ -8,9 +8,10 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-  {{- if .Values.globalAnnotations }}
+  {{- $annotations := merge .Values.globalAnnotations .Values.syncer.serviceAnnotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   type: {{ if eq .Values.service.type "LoadBalancer" -}}ClusterIP{{- else }} {{- .Values.service.type }}  {{- end }}

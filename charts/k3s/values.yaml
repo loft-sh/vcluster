@@ -146,6 +146,7 @@ syncer:
       cpu: 20m
       memory: 64Mi
   kubeConfigContextName: "my-vcluster"
+  serviceAnnotations: {}
 
 # Virtual Cluster (k3s) configuration
 vcluster:

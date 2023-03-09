@@ -225,6 +225,9 @@ data:
       annotations:
         prometheus.io/port: "9153"
         prometheus.io/scrape: "true"
+        {{- if .Values.coredns.service.annotations }}
+{{ toYaml .Values.coredns.service.annotations | indent 8 }}
+        {{- end }}
       labels:
         k8s-app: kube-dns
         kubernetes.io/cluster-service: "true"
