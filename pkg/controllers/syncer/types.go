@@ -62,6 +62,8 @@ type Options struct {
 	// DisableUIDDeletion disables automatic deletion of physical objects if the uid between physical
 	// and virtual doesn't match anymore.
 	DisableUIDDeletion bool
+
+	IsClusterScopedCRD bool
 }
 
 type OptionsProvider interface {

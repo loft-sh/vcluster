@@ -206,32 +206,34 @@ func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMap
 	return retMap, managedKeysStr
 }
 
-func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) error {
+func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, error) {
+	var isClusterScoped bool
+
 	exists, err := KindExists(vConfig, groupVersionKind)
 	if err != nil {
-		return errors.Wrap(err, "check virtual cluster kind")
+		return isClusterScoped, errors.Wrap(err, "check virtual cluster kind")
 	} else if exists {
-		return nil
+		return isClusterScoped, nil
 	}
 
 	// get resource from kind name in physical cluster
 	groupVersionResource, err := ConvertKindToResource(pConfig, groupVersionKind)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return fmt.Errorf("seems like resource %s is not available in the physical cluster or vcluster has no access to it", groupVersionKind.String())
+			return isClusterScoped, fmt.Errorf("seems like resource %s is not available in the physical cluster or vcluster has no access to it", groupVersionKind.String())
 		}
 
-		return err
+		return isClusterScoped, err
 	}
 
 	// get crd in physical cluster
 	pClient, err := apiextensionsv1clientset.NewForConfig(pConfig)
 	if err != nil {
-		return err
+		return isClusterScoped, err
 	}
 	crdDefinition, err := pClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, groupVersionResource.GroupResource().String(), metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "retrieve crd in host cluster")
+		return isClusterScoped, errors.Wrap(err, "retrieve crd in host cluster")
 	}
 
 	// now create crd in virtual cluster
@@ -258,13 +260,13 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 	// apply the crd
 	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
 	if err != nil {
-		return err
+		return isClusterScoped, err
 	}
 
 	log.NewWithoutName().Infof("Create crd %s in virtual cluster", groupVersionKind.String())
 	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crdDefinition, metav1.CreateOptions{})
 	if err != nil {
-		return errors.Wrap(err, "create crd in virtual cluster")
+		return isClusterScoped, errors.Wrap(err, "create crd in virtual cluster")
 	}
 
 	// wait for crd to become ready
@@ -285,10 +287,15 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to wait for CRD %s to become ready: %v", groupVersionKind.String(), err)
+		return isClusterScoped, fmt.Errorf("failed to wait for CRD %s to become ready: %v", groupVersionKind.String(), err)
 	}
 
-	return nil
+	// check if crd is cluster scoped
+	if crdDefinition.Spec.Scope == apiextensionsv1.ClusterScoped {
+		isClusterScoped = true
+	}
+
+	return isClusterScoped, nil
 }
 
 func ConvertKindToResource(config *rest.Config, groupVersionKind schema.GroupVersionKind) (schema.GroupVersionResource, error) {

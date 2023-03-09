@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -217,12 +218,19 @@ func (r *syncerController) enqueuePhysical(obj client.Object, q workqueue.RateLi
 		klog.Errorf("error checking object %v if managed: %v", obj, err)
 		return
 	} else if !managed {
+		// klog.Infof("returning without enqueuing since not managed")
 		return
 	}
 
 	name := r.syncer.PhysicalToVirtual(obj)
 	if name.Name != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
+	} else if r.options.IsClusterScopedCRD {
+		q.Add(reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: obj.GetName(),
+			},
+		})
 	}
 }
 
