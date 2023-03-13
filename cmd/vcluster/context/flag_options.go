@@ -144,7 +144,7 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 
 	flags.StringVar(&options.DefaultImageRegistry, "default-image-registry", "", "This address will be prepended to all deployed system images by vcluster")
 
-	flags.StringVar(&options.EnforcePodSecurityStandard, "enforce-pod-security-standard", "", "This can be set to privileged, baseline, restricted and vcluster would make sure during translation that these policies are enforced.")
+	flags.StringVar(&options.EnforcePodSecurityStandard, "enforce-pod-security-standard", "", "This can be set to 'privileged', 'baseline', or 'restricted' to make vcluster enforce these policies during translation.")
 	flags.StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions.")
 	flags.StringSliceVar(&options.Plugins, "plugins", []string{}, "The plugins to wait for during startup")
 
