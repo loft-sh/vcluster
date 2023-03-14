@@ -202,6 +202,11 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Options.SyncLabels)
 	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, s.redirectResources)
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
+
+	if ctx.Options.ProxyMetricsServer {
+		h = filters.WithMetricsServerProxy(h, cachedLocalClient, cachedVirtualClient, localConfig)
+	}
+
 	if ctx.Options.DeprecatedSyncNodeChanges {
 		h = filters.WithNodeChanges(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 
@@ -297,6 +298,14 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		err = proxyServer.ServeOnListenerTLS(options.BindAddress, options.Port, ctx.StopChan)
 		if err != nil {
 			klog.Fatalf("Error serving: %v", err)
+		}
+	}()
+
+	// check apiservice for metrics server
+	go func() {
+		err := metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, virtualClusterConfig)
+		if err != nil {
+			klog.Fatalf("Error registering metrics apiservice: %v", err)
 		}
 	}()
 
