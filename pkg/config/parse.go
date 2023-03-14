@@ -23,7 +23,7 @@ func Parse(rawConfig string) (*Config, error) {
 
 func validate(config *Config) error {
 	if config.Version != Version {
-		return fmt.Errorf("unsupported configuration version. Only %s is supported by this plugin version", config.Version)
+		return fmt.Errorf("unsupported configuration version. Only %s is supported currently", Version)
 	}
 
 	err := validateExportDuplicates(config.Exports)
