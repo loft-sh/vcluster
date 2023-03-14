@@ -92,13 +92,8 @@ func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvk
 	}
 
 	if scopeAndSubresource, ok := gvkRegister[gvk]; ok {
-		if scopeAndSubresource.IsClusterScoped {
-			syncerOptions.IsClusterScopedCRD = true
-		}
-
-		if scopeAndSubresource.HasStatusSubresource {
-			syncerOptions.HasStatusSubresource = true
-		}
+		syncerOptions.IsClusterScopedCRD = scopeAndSubresource.IsClusterScoped
+		syncerOptions.HasStatusSubresource = scopeAndSubresource.HasStatusSubresource
 	}
 
 	return &importer{
@@ -270,7 +265,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 	// check if either object is getting deleted
 	if vObj.GetDeletionTimestamp() != nil || pObj.GetDeletionTimestamp() != nil {
-		if pObj.GetDeletionTimestamp() == nil {
+		if pObj.GetDeletionTimestamp() == nil && !s.syncerOptions.IsClusterScopedCRD {
 			ctx.Log.Infof("delete physical object %s/%s, because the virtual object is being deleted", pObj.GetNamespace(), pObj.GetName())
 			if err := ctx.PhysicalClient.Delete(ctx.Context, pObj); err != nil {
 				return ctrl.Result{}, err
@@ -406,6 +401,11 @@ func (s *importer) updateVirtualAnnotations(a map[string]string) map[string]stri
 }
 
 func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, pObj client.Object) error {
+	if s.syncerOptions.IsClusterScopedCRD {
+		// do not add annotations to physical object
+		return nil
+	}
+
 	originalObject := pObj.DeepCopyObject().(client.Object)
 	annotations := pObj.GetAnnotations()
 	if annotations == nil {
