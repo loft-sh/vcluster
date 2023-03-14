@@ -152,6 +152,8 @@ spec:
           {{- end }}
           {{- if not .Values.sync.nodes.fakeKubeletIPs }}
           - --fake-kubelet-ips=false
+          {{- if .Values.proxy.metricsServer.enabled }}
+          - --proxy-metrics-server=true
           {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}

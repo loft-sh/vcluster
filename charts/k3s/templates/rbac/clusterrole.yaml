@@ -79,4 +79,9 @@ rules:
     resources: ["serviceaccounts"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if .Values.proxy.metricsServer.enabled }}
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  {{- end }}
 {{- end }}

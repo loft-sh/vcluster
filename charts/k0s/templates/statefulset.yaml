@@ -200,6 +200,9 @@ spec:
           {{- if .Values.sync.configmaps.all }}
           - --sync-all-configmaps=true
           {{- end }}
+          {{- if .Values.proxy.metricsServer.enabled }}
+          - --proxy-metrics-server=true
+          {{- end }}
           {{- if .Values.sync.secrets.all }}
           - --sync-all-secrets=true
           {{- end }}

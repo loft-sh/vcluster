@@ -85,6 +85,8 @@ type VirtualClusterOptions struct {
 	SyncAllSecrets     bool     `json:"syncAllSecrets,omitempty"`
 	SyncAllConfigMaps  bool     `json:"syncAllConfigMaps,omitempty"`
 
+	ProxyMetricsServer bool `json:"proxyMetricsServer,omitempty"`
+
 	// DEPRECATED FLAGS
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
 	DeprecatedDisableSyncResources     string
@@ -161,6 +163,8 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.StringSliceVar(&options.NamespaceLabels, "namespace-labels", []string{}, "Defines one or more labels that will be added to the namespaces synced in the multi-namespace mode. Format: \"labelKey=labelValue\". Multiple values can be passed in a comma-separated string.")
 	flags.BoolVar(&options.SyncAllConfigMaps, "sync-all-configmaps", false, "Sync all configmaps from virtual to host cluster")
 	flags.BoolVar(&options.SyncAllSecrets, "sync-all-secrets", false, "Sync all secrets from virtual to host cluster")
+
+	flags.BoolVar(&options.ProxyMetricsServer, "proxy-metrics-server", false, "Proxy the host cluster metrics server")
 
 	// Deprecated Flags
 	flags.BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")

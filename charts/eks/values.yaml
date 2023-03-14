@@ -112,6 +112,10 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
+proxy:
+  metricsServer:
+    enabled: false
+
 hostpathMapper:
   enabled: false
   resources: {}
