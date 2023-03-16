@@ -28,6 +28,7 @@ deployments:
       values: &values
         job:
           enabled: false
+        fallbackHostDns: true
         service:
           type: NodePort
         serviceCIDR: $([ $1 == "dev" ] && vcluster get service-cidr || echo "null")
