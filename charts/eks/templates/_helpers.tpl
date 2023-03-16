@@ -43,7 +43,7 @@ Whether to create a cluster role or not
 {{- define "vcluster.createClusterRole" -}}
 {{- if or
     (not
-        (empty (include "vcluster.serviceMapping.fromHost" . )))
+        (empty (include "vcluster.serviceMapping.fromHost.otherNamespace" . )))
     (not
         (empty (include "vcluster.plugin.clusterRoleExtraRules" . )))
     (not
@@ -205,4 +205,18 @@ Host cluster service mapping
 {{- range $key, $value := .Values.mapServices.fromHost }}
 - '--map-host-service={{ $value.from }}={{ $value.to }}'
 {{- end }}
+{{- end -}}
+
+{{/*
+Whether Host cluster service mapping is for service residing in other than vcluster namespace
+*/}}
+{{- define "vcluster.serviceMapping.fromHost.otherNamespace" -}}
+{{- if (not (empty (include "vcluster.serviceMapping.fromHost" . ))) -}}
+{{- range $key, $value := .Values.mapServices.fromHost }}
+{{- $parts := split "/" $value.from -}}
+{{- if (not (eq $parts._0 $.Release.Namespace )) -}}
+- {{ true }}
+{{- end -}}
+{{- end }}
+{{- end -}}
 {{- end -}}

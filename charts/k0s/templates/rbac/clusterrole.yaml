@@ -66,7 +66,7 @@ rules:
   {{- end }}
   {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
-  {{- if (not (empty (include "vcluster.serviceMapping.fromHost" . ))) }}
+  {{- if (include "vcluster.serviceMapping.fromHost.otherNamespace" . ) }}
   - apiGroups: [""]
     resources: ["services"]
     verbs: ["get", "watch", "list"]
