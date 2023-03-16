@@ -18,6 +18,7 @@ const (
 	ManifestRelativePath  = "coredns/coredns.yaml"
 	ManifestsOutputFolder = "/tmp/manifests-to-apply"
 	VarImage              = "IMAGE"
+	VarHostDNS            = "HOST_CLUSTER_DNS"
 	VarRunAsUser          = "RUN_AS_USER"
 	VarRunAsNonRoot       = "RUN_AS_NON_ROOT"
 	VarRunAsGroup         = "RUN_AS_GROUP"
@@ -72,7 +73,22 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 	} else {
 		vars[VarLogInDebug] = ""
 	}
+	vars[VarHostDNS] = getNameserver()
 	return vars
+}
+
+func getNameserver() string {
+	raw, err := os.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		return "/etc/resolv.conf"
+	}
+
+	nameservers := GetNameservers(raw)
+	if len(nameservers) == 0 {
+		return "/etc/resolv.conf"
+	}
+
+	return nameservers[0]
 }
 
 // GetGroupID retrieves the current group id and if the current process is running

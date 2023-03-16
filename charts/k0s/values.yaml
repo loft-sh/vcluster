@@ -88,6 +88,12 @@ sync:
     config: |-
       ---
 
+# If enabled, will fallback to host dns for resolving domains. This
+# is useful if using istio or dapr in the host cluster and sidecar
+# containers cannot connect to the central instance. Its also useful
+# if you want to access host cluster services from within the vcluster.
+fallbackHostDns: false
+
 # Map Services between host and virtual cluster
 mapServices:
   # Services that should get mapped from the
