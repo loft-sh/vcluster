@@ -102,6 +102,6 @@ func MakeEllipticPrivateKeyPEM() ([]byte, error) {
 
 // IsCertExpired checks if the certificate about to expire
 func IsCertExpired(cert *x509.Certificate) bool {
-	diffDays := time.Until(time.Now()).Hours() / 24.0
+	diffDays := time.Until(cert.NotAfter).Hours() / 24.0
 	return diffDays <= 90
 }
