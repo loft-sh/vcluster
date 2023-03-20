@@ -80,6 +80,10 @@ isolation:
           - 192.168.0.0/16
 ```
 
+:::warn
+In case you are using `--isolate` flag or isolated mode along with the `--expose` flag, make sure you appropriately bump up the `isolation.resourceQuotas.quota.services.nodeports` accordingly as some LoadBalancer implementations rely on `NodePorts`
+:::
+
 ## Workload Isolation
 
 vcluster by default will not isolate any workloads in the host cluster and only ensures that those are deployed in the same namespace.
