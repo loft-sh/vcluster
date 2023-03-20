@@ -37,7 +37,6 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 		return nil
 	}
 
-	scheme := ctx.LocalManager.GetScheme()
 	registerCtx := util.ToRegisterContext(ctx)
 
 	if !registerCtx.Options.MultiNamespaceMode {
@@ -49,20 +48,20 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 	for _, importConfig := range cfg.Imports {
 		gvk := schema.FromAPIVersionAndKind(importConfig.APIVersion, importConfig.Kind)
 
-		if !scheme.Recognizes(gvk) {
-			isClusterScoped, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
-				registerCtx.Context,
-				registerCtx.PhysicalManager.GetConfig(),
-				registerCtx.VirtualManager.GetConfig(),
-				gvk)
-			if err != nil {
-				return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", importConfig.Kind, importConfig.APIVersion, err)
-			}
+		// don't skip even if scheme.Recognizes(gvk) to ensure scope for builtin
+		// cluster scoped resources is registered and set properly
+		isClusterScoped, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
+			registerCtx.Context,
+			registerCtx.PhysicalManager.GetConfig(),
+			registerCtx.VirtualManager.GetConfig(),
+			gvk)
+		if err != nil {
+			return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", importConfig.Kind, importConfig.APIVersion, err)
+		}
 
-			gvkRegister[gvk] = &GVKScopeAndSubresource{
-				IsClusterScoped:      isClusterScoped,
-				HasStatusSubresource: hasStatusSubresource,
-			}
+		gvkRegister[gvk] = &GVKScopeAndSubresource{
+			IsClusterScoped:      isClusterScoped,
+			HasStatusSubresource: hasStatusSubresource,
 		}
 	}
 
@@ -174,7 +173,9 @@ var _ syncer.UpSyncer = &importer{}
 
 func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// check if annotation is already present
-	if pObj.GetAnnotations() != nil && pObj.GetAnnotations()[translate.ControllerLabel] == s.Name() {
+	if pObj.GetAnnotations() != nil &&
+		pObj.GetAnnotations()[translate.ControllerLabel] == s.Name() &&
+		!s.syncerOptions.IsClusterScopedCRD { // only delete pObj if its not cluster scoped
 		err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
@@ -372,10 +373,6 @@ func (s *importer) TranslateMetadata(pObj client.Object) client.Object {
 	nn := s.PhysicalToVirtual(pObj)
 	vObj.SetName(nn.Name)
 	vObj.SetNamespace(nn.Namespace)
-
-	if s.syncerOptions.IsClusterScopedCRD {
-		vObj.SetLabels(nil)
-	}
 
 	return vObj
 }

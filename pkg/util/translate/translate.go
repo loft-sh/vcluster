@@ -209,7 +209,7 @@ func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMap
 func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
 	var isClusterScoped, hasStatusSubresource bool
 
-	exists, err := KindExists(vConfig, groupVersionKind)
+	isClusterScoped, exists, err := KindExistsAndIsClusterScoped(vConfig, groupVersionKind)
 	if err != nil {
 		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "check virtual cluster kind")
 	} else if exists {
@@ -322,28 +322,32 @@ func ConvertKindToResource(config *rest.Config, groupVersionKind schema.GroupVer
 	return schema.GroupVersionResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
 }
 
-// KindExists checks if given CRDs exist in the given group.
+// KindExistsAndIsClusterScoped checks if given CRDs exist in the given group.
 // Returns foundKinds, notFoundKinds, error
-func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, error) {
+func KindExistsAndIsClusterScoped(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersionKind.GroupVersion().String())
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return false, nil
+			return false, false, nil
 		}
 
-		return false, err
+		return false, false, err
 	}
 
 	for _, r := range resources.APIResources {
 		if r.Kind == groupVersionKind.Kind {
-			return true, nil
+			if r.Namespaced {
+				return false, true, nil
+			}
+
+			return true, true, nil
 		}
 	}
 
-	return false, nil
+	return false, false, nil
 }
