@@ -40,7 +40,7 @@ func CreateExporters(ctx *context.ControllerContext, exporterConfig *config.Conf
 	for _, exportConfig := range exporterConfig.Exports {
 		gvk := schema.FromAPIVersionAndKind(exportConfig.APIVersion, exportConfig.Kind)
 		if !scheme.Recognizes(gvk) {
-			err := translate.EnsureCRDFromPhysicalCluster(
+			_, _, err := translate.EnsureCRDFromPhysicalCluster(
 				registerCtx.Context,
 				registerCtx.PhysicalManager.GetConfig(),
 				registerCtx.VirtualManager.GetConfig(),

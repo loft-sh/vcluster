@@ -207,32 +207,34 @@ func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMap
 	return retMap, managedKeysStr
 }
 
-func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) error {
-	exists, err := KindExists(vConfig, groupVersionKind)
+func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
+	var isClusterScoped, hasStatusSubresource bool
+
+	isClusterScoped, exists, err := KindExistsAndIsClusterScoped(vConfig, groupVersionKind)
 	if err != nil {
-		return errors.Wrap(err, "check virtual cluster kind")
+		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "check virtual cluster kind")
 	} else if exists {
-		return nil
+		return isClusterScoped, hasStatusSubresource, nil
 	}
 
 	// get resource from kind name in physical cluster
 	groupVersionResource, err := ConvertKindToResource(pConfig, groupVersionKind)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return fmt.Errorf("seems like resource %s is not available in the physical cluster or vcluster has no access to it", groupVersionKind.String())
+			return isClusterScoped, hasStatusSubresource, fmt.Errorf("seems like resource %s is not available in the physical cluster or vcluster has no access to it", groupVersionKind.String())
 		}
 
-		return err
+		return isClusterScoped, hasStatusSubresource, err
 	}
 
 	// get crd in physical cluster
 	pClient, err := apiextensionsv1clientset.NewForConfig(pConfig)
 	if err != nil {
-		return err
+		return isClusterScoped, hasStatusSubresource, err
 	}
 	crdDefinition, err := pClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, groupVersionResource.GroupResource().String(), metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "retrieve crd in host cluster")
+		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "retrieve crd in host cluster")
 	}
 
 	// now create crd in virtual cluster
@@ -251,6 +253,10 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 			version.Served = true
 			version.Storage = true
 			newVersions = append(newVersions, version)
+
+			if version.Subresources.Status != nil {
+				hasStatusSubresource = true
+			}
 			break
 		}
 	}
@@ -259,13 +265,13 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 	// apply the crd
 	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
 	if err != nil {
-		return err
+		return isClusterScoped, hasStatusSubresource, err
 	}
 
 	log.NewWithoutName().Infof("Create crd %s in virtual cluster", groupVersionKind.String())
 	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crdDefinition, metav1.CreateOptions{})
 	if err != nil {
-		return errors.Wrap(err, "create crd in virtual cluster")
+		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "create crd in virtual cluster")
 	}
 
 	// wait for crd to become ready
@@ -286,10 +292,15 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to wait for CRD %s to become ready: %v", groupVersionKind.String(), err)
+		return isClusterScoped, hasStatusSubresource, fmt.Errorf("failed to wait for CRD %s to become ready: %v", groupVersionKind.String(), err)
 	}
 
-	return nil
+	// check if crd is cluster scoped
+	if crdDefinition.Spec.Scope == apiextensionsv1.ClusterScoped {
+		isClusterScoped = true
+	}
+
+	return isClusterScoped, hasStatusSubresource, nil
 }
 
 func ConvertKindToResource(config *rest.Config, groupVersionKind schema.GroupVersionKind) (schema.GroupVersionResource, error) {
@@ -312,28 +323,32 @@ func ConvertKindToResource(config *rest.Config, groupVersionKind schema.GroupVer
 	return schema.GroupVersionResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
 }
 
-// KindExists checks if given CRDs exist in the given group.
+// KindExistsAndIsClusterScoped checks if given CRDs exist in the given group.
 // Returns foundKinds, notFoundKinds, error
-func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, error) {
+func KindExistsAndIsClusterScoped(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersionKind.GroupVersion().String())
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return false, nil
+			return false, false, nil
 		}
 
-		return false, err
+		return false, false, err
 	}
 
 	for _, r := range resources.APIResources {
 		if r.Kind == groupVersionKind.Kind {
-			return true, nil
+			if r.Namespaced {
+				return false, true, nil
+			}
+
+			return true, true, nil
 		}
 	}
 
-	return false, nil
+	return false, false, nil
 }

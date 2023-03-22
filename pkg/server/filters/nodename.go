@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
@@ -37,11 +36,9 @@ func NodeNameFrom(ctx context.Context) (string, bool) {
 }
 
 func nodeNameFromHost(req *http.Request, cli client.Client) string {
-	log := loghelper.New("nodeNameFromHost()")
 	splitted := strings.Split(req.Host, ":")
 	if len(splitted) == 2 {
 		hostname := splitted[0]
-		log.Debugf("attempting to translate hostname %q in case it is a node", hostname)
 		nodeList := &corev1.NodeList{}
 		err := cli.List(req.Context(), nodeList, client.MatchingFields{constants.IndexByHostName: hostname})
 		if err != nil && !errors.IsNotFound(err) {
@@ -50,7 +47,6 @@ func nodeNameFromHost(req *http.Request, cli client.Client) string {
 		}
 		if len(nodeList.Items) == 1 {
 			nodeName := nodeList.Items[0].Name
-			log.Debugf("translating hostname %q into nodename %q", hostname, nodeName)
 			return nodeName
 		}
 	}
