@@ -65,10 +65,10 @@ var _ = ginkgo.Describe("Generic sync cluster scoped resources", func() {
 			_, err = f.HostClient.NetworkingV1().IngressClasses().Get(ctx, IngressClassName, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
-					return false, nil
+					return false, err
 				}
 
-				return false, err
+				return false, nil
 			}
 
 			return true, nil
