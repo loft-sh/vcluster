@@ -24,6 +24,8 @@ type Import struct {
 type SyncBase struct {
 	TypeInformation `yaml:",inline" json:",inline"`
 
+	Optional bool `yaml:"optional,omitempty" json:"optional,omitempty"`
+
 	// ReplaceOnConflict determines if the controller should try to recreate the object
 	// if there is a problem applying
 	ReplaceOnConflict bool `yaml:"replaceOnConflict,omitempty" json:"replaceOnConflict,omitempty"`

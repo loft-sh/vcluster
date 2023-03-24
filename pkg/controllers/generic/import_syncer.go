@@ -56,6 +56,11 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 			registerCtx.VirtualManager.GetConfig(),
 			gvk)
 		if err != nil {
+			if importConfig.Optional {
+				klog.Infof("error ensuring CRD %s(%s) from host cluster: %v. Skipping importSyncer as resource is optional", importConfig.Kind, importConfig.APIVersion, err)
+				continue
+			}
+
 			return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", importConfig.Kind, importConfig.APIVersion, err)
 		}
 
@@ -63,9 +68,7 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 			IsClusterScoped:      isClusterScoped,
 			HasStatusSubresource: hasStatusSubresource,
 		}
-	}
 
-	for _, importConfig := range cfg.Imports {
 		s, err := createImporter(registerCtx, importConfig, gvkRegister)
 		klog.Infof("creating importer for %s/%s", importConfig.APIVersion, importConfig.Kind)
 		if err != nil {
@@ -73,7 +76,7 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 		}
 
 		err = syncer.RegisterSyncer(registerCtx, s)
-		klog.Infof("registering syncer for %s/%s", importConfig.APIVersion, importConfig.Kind)
+		klog.Infof("registering import syncer for %s/%s", importConfig.APIVersion, importConfig.Kind)
 		if err != nil {
 			return fmt.Errorf("error registering syncer %v", err)
 		}
