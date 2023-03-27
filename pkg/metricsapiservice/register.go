@@ -6,13 +6,11 @@ import (
 	"time"
 
 	vclustercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/metrics/pkg/apis/metrics"
-	"k8s.io/utils/pointer"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	apiregclientv1 "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
@@ -76,16 +74,10 @@ func createOperation(ctx context.Context, kubeAggClient *apiregclientv1.Apiregis
 				Name: MetricsAPIService,
 			},
 			Spec: apiregistrationv1.APIServiceSpec{
-				Group:                 metrics.GroupName,
-				GroupPriorityMinimum:  100,
-				InsecureSkipTLSVerify: true,
-				Version:               MetricsVersion,
-				VersionPriority:       100,
-				Service: &apiregistrationv1.ServiceReference{
-					Name:      KubernetesSvc,
-					Namespace: corev1.NamespaceDefault,
-					Port:      pointer.Int32(443),
-				},
+				Group:                metrics.GroupName,
+				GroupPriorityMinimum: 100,
+				Version:              MetricsVersion,
+				VersionPriority:      100,
 			},
 		}, v1.CreateOptions{})
 		if err != nil {

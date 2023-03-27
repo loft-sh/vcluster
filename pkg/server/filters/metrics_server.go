@@ -74,8 +74,36 @@ func WithMetricsServerProxy(h http.Handler, cacheHostClient, cachedVirtualClient
 			return
 		}
 
+		if isAPIResourceListRequest(info) {
+			klog.Infof("request is a isAPIResourceListRequest for metrics")
+
+			apiResourceListProxy := &APIResourceListProxy{
+				codecFactory:   serializer.NewCodecFactory(cachedVirtualClient.Scheme()),
+				request:        req,
+				requestInfo:    info,
+				responseWriter: w,
+				resourceType:   NodeResource,
+			}
+
+			proxyHandler, err := handler.Handler("", hostConfig, nil)
+			if err != nil {
+				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
+				return
+			}
+
+			req.Header.Del("Authorization")
+			apiResourceListProxy.handler = proxyHandler
+			apiResourceListProxy.HandleRequest()
+
+			return
+		}
+
 		h.ServeHTTP(w, req)
 	})
+}
+
+func isAPIResourceListRequest(r *request.RequestInfo) bool {
+	return r.Path == "/apis/metrics.k8s.io/v1beta1"
 }
 
 func isMetricsServerProxyRequest(r *request.RequestInfo) bool {
@@ -86,6 +114,35 @@ func isMetricsServerProxyRequest(r *request.RequestInfo) bool {
 	return (r.APIGroup == metrics.SchemeGroupVersion.Group &&
 		r.APIVersion == APIVersion) &&
 		(r.Resource == NodeResource || r.Resource == PodResource)
+}
+
+type APIResourceListProxy struct {
+	codecFactory   serializer.CodecFactory
+	handler        http.Handler
+	request        *http.Request
+	requestInfo    *request.RequestInfo
+	responseWriter http.ResponseWriter
+	resourceType   string
+}
+
+func (p *APIResourceListProxy) HandleRequest() {
+	code, header, data, err := executeRequest(p.request, p.handler)
+	if err != nil {
+		responsewriters.ErrorNegotiated(err, p.codecFactory, corev1.SchemeGroupVersion, p.responseWriter, p.request)
+		return
+	} else if code != http.StatusOK {
+		writeWithHeader(p.responseWriter, code, header, data)
+		return
+	}
+
+	newData := data
+
+	p.responseWriter.Header().Set(HeaderContentType, header.Get(HeaderContentType))
+	_, err = p.responseWriter.Write(newData)
+	if err != nil {
+		requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+		return
+	}
 }
 
 type MetricsServerProxy struct {
