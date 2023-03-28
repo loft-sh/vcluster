@@ -29,6 +29,9 @@ var (
 const (
 	eventsCountThreshold = 10          //dev //TODO: replace with proper value - 1000 ?
 	minUploadInterval    = time.Minute //dev //TODO: replace with proper value - 60 * time.Minute
+
+	// time to wait at least before sending an event
+	minWait = time.Second * 30
 )
 
 type EventCollector interface {
@@ -54,39 +57,30 @@ func NewDefaulCollector() *DefaultCollector {
 		enabled:           true,
 		hostClient:        hostClient,
 		vclusterNamespace: vclusterNamespace,
-		eventsBuffer:      make([]*Event, 0, eventsCountThreshold),
-		bufferMutex:       sync.Mutex{},
-		eventsToUpload:    make([]*Event, 0, eventsCountThreshold), // preallocating this slice as well because it will be swapped with data slice
-		uploadMutex:       sync.Mutex{},
-		nextUploadTime:    time.Now().Add(minUploadInterval),
+
+		// events doesn't need to match eventsCountThreshold, we just
+		// need to make sure its fast enough emptied.
+		events: make(chan *Event, 100),
+		buffer: newEventBuffer(eventsCountThreshold),
 	}
 
-	go c.timedUploadRoutine()
+	go c.start()
 
 	return c
 }
 
 type DefaultCollector struct {
-	enabled           bool
+	enabled bool
+
+	events      chan *Event
+	buffer      *eventBuffer
+	bufferMutex sync.Mutex
+
 	hostClient        client.Client
 	vclusterNamespace string
-	// eventsBuffer contains events that are going to be uploaded later
-	eventsBuffer []*Event
-	// bufferMutex controlls concurrent access to the data field
-	bufferMutex sync.Mutex
-	// eventsToUpload contains a slice of the Events that should be uploaded immediately.
-	// After the upload the slice length is set to 0, but it should not be released
-	// from the memory in order to avoid unnecessary (de)allocation of the underlying array.
-	eventsToUpload []*Event
+
 	// lastUploadTime contains the Time of the previous upload
 	lastUploadTime time.Time
-	// uploadMutex controlls access to the eventsToUpload slice and lastUploadTime
-	uploadMutex sync.Mutex
-	// nextUploadTime contains the Time of the next planned upload that should happen
-	// if the events count has not reached the eventsCountThreshold.
-	nextUploadTime time.Time
-	// uploadMutex controlls access to the nextUploadTime
-	nextUploadMutex sync.Mutex
 }
 
 func (d *DefaultCollector) IsEnabled() bool {
@@ -103,82 +97,55 @@ func (d *DefaultCollector) RecordEvent(e *Event) {
 	// if not, it means we are going to drop events if the threshold was reached before we sent previous batch
 
 	//TODO: ignore initial reconciling
-
-	if len(d.eventsBuffer) < eventsCountThreshold {
-		d.bufferMutex.Lock()
-		d.eventsBuffer = append(d.eventsBuffer, e)
-		// defer the Unlock in case the buffer is full - tryUpload requires Lock to be held by the caller
-		defer d.bufferMutex.Unlock()
-	}
-
-	if len(d.eventsBuffer) == eventsCountThreshold {
-		d.tryUpload()
-	}
+	d.events <- e
 }
 
-// StartUpload assumes that the caller holds the Lock for the bufferMutex
-func (d *DefaultCollector) tryUpload() {
-	// TryLock is used here to avoid blocking the callers in case another upload routine is
-	// currently in progress, in such case the
-	locked := d.uploadMutex.TryLock()
-	if locked {
-		// swap the eventsBuffer and eventsToUpload immediately
-		d.swapBuffer()
-
-		// execute upload without blocking
-		go func() {
-			d.executeUpload()
-			d.uploadMutex.Unlock()
-		}()
-	}
-}
-
-func (d *DefaultCollector) swapBuffer() {
-	tmp := d.eventsToUpload[:0] // keep the allocated memory, but set len=0
-	d.eventsToUpload = d.eventsBuffer
-	d.eventsBuffer = tmp
-}
-
-// timedUploadRoutine will run infinitely to ensure that the events are uploaded at least every minUploadInterval.
-// timedUploadRoutine should be executed in a dedicated goroutine after creating the collector.
-func (d *DefaultCollector) timedUploadRoutine() {
-	for {
-		fmt.Printf("timedUploadRoutine new loop iteration started\n") //dev
-		d.nextUploadMutex.Lock()
-		nt := d.nextUploadTime
-		d.nextUploadMutex.Unlock() // Unlock immediately so the executeUpload can Lock it
-
-		if time.Now().After(nt) {
-			// Try to acquire uploadMuttex first to avoid blocking buffer unnecessarily.
-			// TryLock is used to avoid executing timed upload if another upload is already in progress.
-			locked := d.uploadMutex.TryLock()
-			if locked {
-				d.bufferMutex.Lock()
-				d.swapBuffer()
-				d.bufferMutex.Unlock() // intentionally not defered because to unlock ASAP
-				d.executeUpload()
-				d.uploadMutex.Unlock()
-			}
+func (d *DefaultCollector) start() {
+	// constantly pull events into this buffer
+	go func() {
+		for event := range d.events {
+			d.bufferMutex.Lock()
+			d.buffer.Append(event)
+			d.bufferMutex.Unlock()
 		}
-		d.nextUploadMutex.Lock()
-		// Update the time of the next regular upload regardless of the update in executeUpload,
-		// in case executeUpload is running in parallel and has not updated the nextUploadTime yet.
-		nt = time.Now().Add(minUploadInterval)
-		d.nextUploadTime = nt
-		d.nextUploadMutex.Unlock() // intentionally not defered because this function never returns
-		time.Sleep(time.Until(nt))
+	}()
+
+	// constantly loop
+	for {
+		// either wait until buffer is full or up to 5 minutes
+		startWait := time.Now()
+		select {
+		// we don't need to lock here for the buffer, because its only
+		// exchanged below and this method can only run once at the same time
+		// so this is safe.
+		case <-d.buffer.Full():
+			timeSinceStart := time.Since(startWait)
+			if timeSinceStart < minWait {
+				// wait the rest of the time here before proceeding
+				time.Sleep(minWait - timeSinceStart)
+			}
+		case <-time.After(time.Minute * 5):
+		}
+
+		// get the currently stored events
+		events := d.exchangeBuffer()
+		d.executeUpload(events)
 	}
+}
+
+func (d *DefaultCollector) exchangeBuffer() []*Event {
+	d.bufferMutex.Lock()
+	defer d.bufferMutex.Unlock()
+
+	events := d.buffer.Get()
+	d.buffer = newEventBuffer(eventsCountThreshold)
+	return events
 }
 
 // executeUpload assumes that the caller holds the Lock for the uploadMutex
-func (d *DefaultCollector) executeUpload() {
-	// update the time of the next regular upload
-	d.nextUploadMutex.Lock()
-	d.nextUploadTime = time.Now().Add(minUploadInterval)
-	d.nextUploadMutex.Unlock()
-
+func (d *DefaultCollector) executeUpload(buffer []*Event) {
 	r := SyncerTelemetryRequest{
-		Events: d.eventsToUpload,
+		Events: buffer,
 	}
 	// set TimeSinceLastUpload if this is not the first upload
 	if !d.lastUploadTime.IsZero() {
