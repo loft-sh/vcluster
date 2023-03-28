@@ -59,7 +59,7 @@ func EnsureServiceCIDRConfigmap(ctx context.Context, c kubernetes.Interface, cur
 	// find out correct cidr
 	cidr, warning := GetServiceCIDR(c, currentNamespace)
 	if warning != "" {
-		klog.Warning(warning)
+		klog.Info(warning)
 	}
 
 	if !exists {
@@ -98,7 +98,7 @@ func EnsureServiceCIDRInK0sSecret(ctx context.Context, c kubernetes.Interface, c
 	// find out correct cidr
 	cidr, warning := GetServiceCIDR(c, currentNamespace)
 	if warning != "" {
-		klog.Warning(warning)
+		klog.Info(warning)
 	}
 	newData := strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, cidr)
 

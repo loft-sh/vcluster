@@ -446,7 +446,7 @@ func (cmd *CreateCmd) prepare(vClusterName string) error {
 	if cmd.CIDR == "" {
 		cidr, warning := servicecidr.GetServiceCIDR(cmd.kubeClient, cmd.Namespace)
 		if warning != "" {
-			cmd.log.Warn(warning)
+			cmd.log.Info(warning)
 		}
 		cmd.CIDR = cidr
 	}
