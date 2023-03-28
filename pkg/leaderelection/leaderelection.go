@@ -2,7 +2,11 @@ package leaderelection
 
 import (
 	"context"
+	"os"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -14,8 +18,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
-	"os"
-	"time"
 )
 
 func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme, run func() error) error {
@@ -68,6 +70,9 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				klog.Info("Acquired leadership and run vcluster in leader mode")
+				if telemetry.Collector.IsEnabled() {
+					telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetry.EventLeadershipStarted))
+				}
 
 				// start vcluster in leader mode
 				err = run()

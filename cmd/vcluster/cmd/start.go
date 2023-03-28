@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 
@@ -305,6 +306,9 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 			return startControllers(ctx, &rawConfig, serverVersion)
 		})
 	} else {
+		if telemetry.Collector.IsEnabled() {
+			telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetry.EventLeadershipStarted))
+		}
 		err = startControllers(ctx, &rawConfig, serverVersion)
 	}
 	if err != nil {
