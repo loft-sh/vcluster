@@ -43,7 +43,7 @@ spec:
           {{- if .Values.syncer.image }}
           image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
           {{- else }}
-          image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+          image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
           {{- end }}
           imagePullPolicy: IfNotPresent
           command:

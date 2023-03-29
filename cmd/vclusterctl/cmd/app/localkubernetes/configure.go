@@ -3,13 +3,14 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -296,7 +297,7 @@ func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawC
 	// check if the background proxy container for this vcluster is running and then remove it.
 	_ = CleanupBackgroundProxy(proxyName, log)
 
-	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config loftsh/vcluster-cli vcluster connect vcluster -n vcluster --local-port 13300
+	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config ghcr.io/loft-sh/vcluster-cli vcluster connect vcluster -n vcluster --local-port 13300
 	cmd := exec.Command(
 		"docker",
 		"run",
@@ -305,7 +306,7 @@ func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawC
 		fmt.Sprintf("%v:%v", kubeConfigPath, "/root/.kube/config"),
 		fmt.Sprintf("--name=%s", proxyName),
 		fmt.Sprintf("--network=%s", "host"),
-		"loftsh/vcluster-cli"+upgrade.GetVersion(),
+		"ghcr.io/loft-sh/vcluster-cli"+upgrade.GetVersion(),
 		"vcluster",
 		"connect",
 		vClusterName,

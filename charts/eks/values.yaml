@@ -124,7 +124,7 @@ hostpathMapper:
 # Syncer configuration
 syncer:
   # Image to use for the syncer
-  # image: loftsh/vcluster
+  # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
   volumeMounts:
     - mountPath: /manifests/coredns
