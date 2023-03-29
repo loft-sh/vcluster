@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       id-token: write   # This is the key for OIDC!
-      packages: read|write
+      packages: write
     steps:
       - uses: actions/checkout@v2
       - uses: sigstore/cosign-installer@bd2d1189b064bcddc3903176a807dcdba72d7fd0
@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       id-token: write   # This is the key for OIDC!
-      packages: read|write
+      packages: write
     steps:
       - uses: actions/checkout@v2
       - uses: sigstore/cosign-installer@bd2d1189b064bcddc3903176a807dcdba72d7fd0
