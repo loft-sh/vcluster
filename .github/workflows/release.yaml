@@ -63,6 +63,7 @@ jobs:
         with:
           images: |
             loftsh/vcluster
+            ghcr.io/loft-sh/vcluster
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
@@ -75,6 +76,12 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to ghcr.io
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push the image
         id: docker_build
         uses: docker/build-push-action@v2
@@ -86,9 +93,12 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
       - name: Images digests
         run: echo ${{ steps.docker_build.outputs.digest }}
-      - name: Sign Container Image
+      - name: Sign Container DockerHub Image
         run: |
           cosign sign --yes loftsh/vcluster@${{ steps.docker_build.outputs.digest }}
+      - name: Sign Container ghcr.io Image
+        run: |
+          cosign sign --yes ghcr.io/loft-sh/vcluster@${{ steps.docker_build.outputs.digest }}
   publish-vcluster-cli-image:
     if: startsWith(github.ref, 'refs/tags/v') == true
     runs-on: ubuntu-22.04
@@ -109,6 +119,7 @@ jobs:
         with:
           images: |
             loftsh/vcluster-cli
+            ghcr.io/loft-sh/vcluster-cli
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
@@ -121,6 +132,12 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to ghcr.io
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push the image
         id: docker_build
         uses: docker/build-push-action@v2
@@ -132,9 +149,12 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
       - name: Images digests
         run: echo ${{ steps.docker_build.outputs.digest }}
-      - name: Sign Container Image
+      - name: Sign Container DockerHub Image
         run: |
           cosign sign --yes loftsh/vcluster-cli@${{ steps.docker_build.outputs.digest }}
+      - name: Sign Container ghcr.io Image
+        run: |
+          cosign sign --yes ghcr.io/loft-sh/vcluster-cli@${{ steps.docker_build.outputs.digest }}
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [publish-vcluster-image, publish-vcluster-cli-image]
