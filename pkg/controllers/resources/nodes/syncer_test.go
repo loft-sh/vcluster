@@ -30,7 +30,7 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 	assert.NilError(t, err)
 
 	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-		return NewSyncer(ctx)
+		return NewSyncer(ctx, &fakeNodeServiceProvider{})
 	})
 	return syncContext, object.(*nodeSyncer)
 }

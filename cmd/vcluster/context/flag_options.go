@@ -39,6 +39,7 @@ type VirtualClusterOptions struct {
 	SyncAllNodes        bool     `json:"syncAllNodes,omitempty"`
 	EnableScheduler     bool     `json:"enableScheduler,omitempty"`
 	DisableFakeKubelets bool     `json:"disableFakeKubelets,omitempty"`
+	FakeKubeletIPs      bool     `json:"fakeKubeletIPs,omitempty"`
 	ClearNodeImages     bool     `json:"clearNodeImages,omitempty"`
 	TranslateImages     []string `json:"translateImages,omitempty"`
 
@@ -121,6 +122,7 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
 	flags.BoolVar(&options.EnableScheduler, "enable-scheduler", false, "If enabled, will expect a scheduler running in the virtual cluster")
 	flags.BoolVar(&options.DisableFakeKubelets, "disable-fake-kubelets", false, "If disabled, the virtual cluster will not create fake kubelet endpoints to support metrics-servers")
+	flags.BoolVar(&options.FakeKubeletIPs, "fake-kubelet-ips", true, "If enabled, virtual cluster will assign fake ips of type NodeInternalIP to fake the kubelets")
 	flags.BoolVar(&options.ClearNodeImages, "node-clear-image-status", false, "If enabled, when syncing real nodes, the status.images data will be removed from the vcluster nodes")
 
 	flags.StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")

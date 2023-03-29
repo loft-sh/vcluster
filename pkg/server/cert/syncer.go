@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -35,6 +36,8 @@ func NewSyncer(currentNamespace string, currentNamespaceClient client.Client, op
 		serverCaKey:  options.ServerCaKey,
 		serverCaCert: options.ServerCaCert,
 
+		fakeKubeletIPs: options.FakeKubeletIPs,
+
 		addSANs:   options.TLSSANs,
 		listeners: []dynamiccertificates.Listener{},
 
@@ -55,6 +58,8 @@ type syncer struct {
 	serviceName           string
 	currentNamespace      string
 	currentNamespaceCient client.Client
+
+	fakeKubeletIPs bool
 
 	listeners []dynamiccertificates.Listener
 
@@ -150,6 +155,22 @@ func (s *syncer) getSANs() ([]string, error) {
 			lbSVCName,
 			lbSVCName+"."+s.currentNamespace, "*."+translate.Suffix+"."+s.currentNamespace+"."+constants.NodeSuffix,
 		)
+	}
+
+	if s.fakeKubeletIPs {
+		// get cluster ips of node services
+		svcs := &corev1.ServiceList{}
+		err = s.currentNamespaceCient.List(context.TODO(), svcs, client.InNamespace(s.currentNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
+		if err != nil {
+			return nil, err
+		}
+		for _, svc := range svcs.Items {
+			if svc.Spec.ClusterIP == "" {
+				continue
+			}
+
+			retSANs = append(retSANs, svc.Spec.ClusterIP)
+		}
 	}
 
 	// make sure other sans are there as well

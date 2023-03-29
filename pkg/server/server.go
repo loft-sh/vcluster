@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
@@ -56,7 +57,10 @@ type Server struct {
 	uncachedVirtualClient client.Client
 	cachedVirtualClient   client.Client
 
-	currentNamespace string
+	currentNamespace       string
+	currentNamespaceClient client.Client
+
+	fakeKubeletIPs bool
 
 	certSyncer cert.Syncer
 	handler    *http.ServeMux
@@ -86,7 +90,24 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		return nil, err
 	}
 
-	cachedLocalClient, err := createCachedClient(ctx.Context, localConfig, ctx.CurrentNamespace, uncachedLocalClient.RESTMapper(), uncachedLocalClient.Scheme(), nil)
+	cachedLocalClient, err := createCachedClient(ctx.Context, localConfig, ctx.CurrentNamespace, uncachedLocalClient.RESTMapper(), uncachedLocalClient.Scheme(), func(cache cache.Cache) error {
+		if ctx.Options.FakeKubeletIPs {
+			err := cache.IndexField(ctx.Context, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
+				svc := object.(*corev1.Service)
+				if len(svc.Labels) == 0 || svc.Labels[nodeservice.ServiceClusterLabel] != translate.Suffix {
+					return nil
+				}
+
+				return []string{svc.Spec.ClusterIP}
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +156,10 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		certSyncer:            certSyncer,
 		handler:               http.NewServeMux(),
 
-		currentNamespace: ctx.CurrentNamespace,
+		fakeKubeletIPs: ctx.Options.FakeKubeletIPs,
+
+		currentNamespace:       ctx.CurrentNamespace,
+		currentNamespaceClient: cachedLocalClient,
 
 		requestHeaderCaFile: requestHeaderCaFile,
 		clientCaFile:        clientCaFile,
@@ -297,7 +321,7 @@ func createCachedClient(ctx context.Context, config *rest.Config, namespace stri
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
-	defaultHandler = filters.WithNodeName(defaultHandler, s.cachedVirtualClient)
+	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.fakeKubeletIPs, s.cachedVirtualClient, s.currentNamespaceClient)
 	return defaultHandler
 }
 
