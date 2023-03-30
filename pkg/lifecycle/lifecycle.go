@@ -132,6 +132,7 @@ func scaleDownDeployment(kubeClient kubernetes.Interface, labelSelector, namespa
 
 		item.Annotations[constants.PausedAnnotation] = "true"
 		item.Annotations[constants.PausedReplicasAnnotation] = strconv.Itoa(replicas)
+		item.Annotations[constants.PausedDateAnnotation] = time.Now().Format("2006-01-02T15:04:05.000Z")
 		item.Spec.Replicas = &zero
 
 		patch := client.MergeFrom(originalObject)
@@ -193,6 +194,7 @@ func scaleDownStatefulSet(kubeClient kubernetes.Interface, labelSelector, namesp
 
 		item.Annotations[constants.PausedAnnotation] = "true"
 		item.Annotations[constants.PausedReplicasAnnotation] = strconv.Itoa(replicas)
+		item.Annotations[constants.PausedDateAnnotation] = time.Now().Format("2006-01-02T15:04:05.000Z")
 		item.Spec.Replicas = &zero
 
 		patch := client.MergeFrom(originalObject)
@@ -289,6 +291,7 @@ func scaleUpDeployment(kubeClient kubernetes.Interface, labelSelector string, na
 		replicas32 := int32(replicas)
 		delete(item.Annotations, constants.PausedAnnotation)
 		delete(item.Annotations, constants.PausedReplicasAnnotation)
+		delete(item.Annotations, constants.PausedDateAnnotation)
 		item.Spec.Replicas = &replicas32
 
 		patch := client.MergeFrom(originalObject)
@@ -334,6 +337,7 @@ func scaleUpStatefulSet(kubeClient kubernetes.Interface, labelSelector string, n
 		replicas32 := int32(replicas)
 		delete(item.Annotations, constants.PausedAnnotation)
 		delete(item.Annotations, constants.PausedReplicasAnnotation)
+		delete(item.Annotations, constants.PausedDateAnnotation)
 		item.Spec.Replicas = &replicas32
 
 		patch := client.MergeFrom(originalObject)
