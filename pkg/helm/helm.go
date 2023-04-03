@@ -220,13 +220,21 @@ func (c *client) Delete(name, namespace string) error {
 	output, err := exec.Command(c.helmPath, args...).CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(output), "release: not found") {
-			return fmt.Errorf("release '%s' was not found in namespace '%s'", name, namespace)
+			return &ErrorNotFoundHelm{Name: name, Namespace: namespace}
 		}
-
 		return fmt.Errorf("error executing helm delete: %s", string(output))
 	}
 
 	return nil
+}
+
+type ErrorNotFoundHelm struct {
+	Name      string
+	Namespace string
+}
+
+func (e *ErrorNotFoundHelm) Error() string {
+	return fmt.Sprintf("release '%s' was not found in namespace '%s'", e.Name, e.Namespace)
 }
 
 func (c *client) Exists(name, namespace string) (bool, error) {

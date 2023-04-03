@@ -3,9 +3,10 @@ package find
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"strings"
 	"time"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
@@ -57,12 +58,20 @@ func GetVCluster(context, name, namespace string) (*VCluster, error) {
 	if err != nil {
 		return nil, err
 	} else if len(vclusters) == 0 {
-		return nil, fmt.Errorf("couldn't find vcluster %s", name)
+		return nil, &ErrorNotFoundVcluster{Name: name}
 	} else if len(vclusters) == 1 {
 		return &vclusters[0], nil
 	}
 
 	return nil, fmt.Errorf("multiple vclusters with name %s found, please specify a namespace via -n", name)
+}
+
+type ErrorNotFoundVcluster struct {
+	Name string
+}
+
+func (e *ErrorNotFoundVcluster) Error() string {
+	return fmt.Sprintf("couldn't find vcluster %s", e.Name)
 }
 
 func ListVClusters(context, name, namespace string) ([]VCluster, error) {
