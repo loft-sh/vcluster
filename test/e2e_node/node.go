@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,5 +30,21 @@ var _ = ginkgo.Describe("Node sync", func() {
 		}
 
 		framework.ExpectEqual(true, reflect.DeepEqual(hostNodeLabels, virtualNodeLabels))
+	})
+
+	ginkgo.It("fake nodes have fake kubelet service IPs", func() {
+		virtualNodes, err := f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
+		framework.ExpectNoError(err)
+
+		for _, nodes := range virtualNodes.Items {
+			var foundInternalIPAddress bool
+			for _, address := range nodes.Status.Addresses {
+				if address.Type == corev1.NodeInternalIP {
+					foundInternalIPAddress = true
+				}
+			}
+
+			framework.ExpectEqual(foundInternalIPAddress, true)
+		}
 	})
 })

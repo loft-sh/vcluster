@@ -203,6 +203,9 @@ spec:
           {{- if .Values.sync.secrets.all }}
           - --sync-all-secrets=true
           {{- end }}
+          {{- if not .Values.sync.nodes.fakeKubeletIPs }}
+          - --fake-kubelet-ips=false
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
