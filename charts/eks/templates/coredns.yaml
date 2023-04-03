@@ -69,7 +69,7 @@ data:
             errors
             health
             ready
-            rewrite name regex .*\.{{ .Release.Name }}\.{{ .Release.Namespace }}\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
+            rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
             kubernetes cluster.local in-addr.arpa ip6.arpa { 
               pods insecure
               {{- if .Values.fallbackHostDns }}
