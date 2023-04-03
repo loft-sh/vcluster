@@ -321,8 +321,17 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 }
 
 func GetNodeHost(nodeName, currentNamespace string) string {
-	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
+	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + constants.NodeSuffix
 	log := loghelper.New("GetNodeHost()")
+	log.Debugf("translating nodename %q into hostname: %q", nodeName, hostname)
+	return hostname
+}
+
+// GetNodeHostLegacy returns Node hostname in a format used in 0.14.x release.
+// This function is added for backwards compatibility and may be removed in a future release.
+func GetNodeHostLegacy(nodeName, currentNamespace string) string {
+	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
+	log := loghelper.New("GetNodeHostLegacy()")
 	log.Debugf("translating nodename %q into hostname: %q", nodeName, hostname)
 	return hostname
 }
