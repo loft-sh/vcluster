@@ -71,7 +71,7 @@ data:
             health
             ready
             rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
-            kubernetes cluster.local in-addr.arpa ip6.arpa { 
+            kubernetes cluster.local in-addr.arpa ip6.arpa {
               pods insecure
               {{- if .Values.fallbackHostDns }}
               fallthrough cluster.local in-addr.arpa ip6.arpa
@@ -190,6 +190,8 @@ data:
                 drop:
                 - all
               readOnlyRootFilesystem: true
+              seccompProfile:
+                type: RuntimeDefault
             livenessProbe:
               httpGet:
                 path: /health

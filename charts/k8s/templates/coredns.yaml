@@ -191,6 +191,8 @@ data:
                   drop:
                     - ALL
                 readOnlyRootFilesystem: true
+                seccompProfile:
+                  type: RuntimeDefault
               livenessProbe:
                 httpGet:
                   path: /health
