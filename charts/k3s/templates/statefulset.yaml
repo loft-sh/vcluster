@@ -114,7 +114,7 @@ spec:
       {{- end }}
       automountServiceAccountToken: true
       volumes:
-      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot .Values.securityContext.readOnlyRootFilesystem }}
+      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
         - name: helm-cache
           emptyDir: {}
         - name: tmp
