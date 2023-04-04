@@ -238,6 +238,12 @@ spec:
             value: |-
               {{- .Values.sync.generic.config | nindent 14 }}
         {{- end }}
+          - name: VCLUSTER_TELEMETRY_DISABLED
+            value: {{ .Values.telemetry.disabled | quote }}
+          - name: VCLUSTER_INSTANCE_CREATOR_TYPE
+            value: {{ .Values.telemetry.instanceCreatorType | quote }}
+          - name: VCLUSTER_INSTANCE_CREATOR_UID
+            value: {{ .Values.telemetry.instanceCreatorUID | quote }}
         volumeMounts:
         {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
           - name: helm-cache

@@ -82,6 +82,10 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 			},
 			OnStoppedLeading: func() {
 				klog.Info("leader election lost")
+				if telemetry.Collector.IsEnabled() {
+					telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetry.EventLeadershipStopped))
+				}
+				//TODO: force telemetry upload
 				os.Exit(1)
 			},
 		},

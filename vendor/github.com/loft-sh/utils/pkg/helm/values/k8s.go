@@ -47,7 +47,7 @@ var K8SEtcdVersionMap = map[string]string{
 	"1.20": "registry.k8s.io/etcd:3.4.13-0",
 }
 
-func getDefaultK8SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
+func getDefaultK8SReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleLogger) (string, error) {
 	serverVersionString := GetKubernetesVersion(chartOptions.KubernetesVersion)
 	serverMinorInt, err := GetKubernetesMinorVersion(chartOptions.KubernetesVersion)
 	if err != nil {

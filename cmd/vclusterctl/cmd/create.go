@@ -354,6 +354,8 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 		cmd.localCluster = true
 	}
 
+	//TODO: check if we should disable telemetry
+
 	return &helmUtils.ChartOptions{
 		ChartName:          cmd.ChartName,
 		ChartRepo:          cmd.ChartRepo,
@@ -370,6 +372,9 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 			Major: kubernetesVersion.Major,
 			Minor: kubernetesVersion.Minor,
 		},
+		DisableTelemetry:    true, //TODO: flip this to false once we have opt-out mechanism
+		InstanceCreatorType: "vclusterctl",
+		InstanceCreatorUID:  "", //TODO: add code that will capture the instance creator UID
 	}, nil
 }
 

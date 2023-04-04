@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd"
-	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/log"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog"
@@ -21,13 +20,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Enable cloud provider auth
 )
 
-var (
-	version string = "dev"
-)
-
 func main() {
-	telemetry.SetVersion(version)
-
 	// set global logger
 	if os.Getenv("DEBUG") == "true" {
 		ctrl.SetLogger(log.NewLog(0))

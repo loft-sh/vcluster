@@ -1,11 +1,15 @@
 package telemetry
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -18,20 +22,27 @@ func init() {
 	if os.Getenv(DisabledEnvVar) != "true" {
 		Collector = NewDefaulCollector()
 	}
+
+	// temporary test code for testing release workflow changes
+	//TODO: remove this code
+	endpointOverride := os.Getenv("SYNCER_TELEMETRY_ENDPOINT")
+	if endpointOverride != "" {
+		SyncerTelemetryEndpoint = endpointOverride
+	}
 }
 
 var (
 	Collector EventCollector = &DefaultCollector{
 		enabled: false,
 	}
+	SyncerTelemetryEndpoint = "https://admin.loft.sh/analytics/v1/vcluster/v1/syncer"
 )
 
 const (
-	eventsCountThreshold = 10          //dev //TODO: replace with proper value - 1000 ?
-	minUploadInterval    = time.Minute //dev //TODO: replace with proper value - 60 * time.Minute
-
-	// time to wait at least before sending an event
-	minWait = time.Second * 30
+	eventsCountThreshold = 500
+	maxUploadInterval    = 5 * time.Minute
+	// minimum time between uploading events
+	minUploadInterval = time.Minute
 )
 
 type EventCollector interface {
@@ -92,10 +103,6 @@ func (d *DefaultCollector) NewEvent(t EventType) *Event {
 }
 
 func (d *DefaultCollector) RecordEvent(e *Event) {
-	//TODO: decide if we want to keep appending event if the threshold is already reached
-	// if yes, we should also decide if we are going to deallocate the buffer if capacity > threshold
-	// if not, it means we are going to drop events if the threshold was reached before we sent previous batch
-
 	//TODO: ignore initial reconciling
 	d.events <- e
 }
@@ -110,6 +117,11 @@ func (d *DefaultCollector) start() {
 		}
 	}()
 
+	// catch termination signal in order to force metrics upload
+	terminate := false
+	terminationChannel := make(chan os.Signal, 2)
+	signal.Notify(terminationChannel, os.Interrupt, syscall.SIGTERM)
+
 	// constantly loop
 	for {
 		// either wait until buffer is full or up to 5 minutes
@@ -120,16 +132,29 @@ func (d *DefaultCollector) start() {
 		// so this is safe.
 		case <-d.buffer.Full():
 			timeSinceStart := time.Since(startWait)
-			if timeSinceStart < minWait {
+			if timeSinceStart < minUploadInterval {
+				select {
 				// wait the rest of the time here before proceeding
-				time.Sleep(minWait - timeSinceStart)
+				case <-time.After(minUploadInterval - timeSinceStart):
+				case <-terminationChannel:
+					terminate = true
+					fmt.Println("Termination signal") //dev
+				}
 			}
-		case <-time.After(time.Minute * 5):
+		case <-time.After(maxUploadInterval):
+		case <-terminationChannel:
+			terminate = true
+			fmt.Println("Termination signal (2)") //dev
 		}
 
 		// get the currently stored events
 		events := d.exchangeBuffer()
 		d.executeUpload(events)
+
+		// Exit if the upload was caused by the SIGTERM
+		if terminate {
+			os.Exit(1)
+		}
 	}
 }
 
@@ -146,6 +171,7 @@ func (d *DefaultCollector) exchangeBuffer() []*Event {
 func (d *DefaultCollector) executeUpload(buffer []*Event) {
 	r := SyncerTelemetryRequest{
 		Events: buffer,
+		Token:  TelemetryToken,
 	}
 	// set TimeSinceLastUpload if this is not the first upload
 	if !d.lastUploadTime.IsZero() {
@@ -161,20 +187,26 @@ func (d *DefaultCollector) executeUpload(buffer []*Event) {
 	// handle potential Marshal errors
 	if err != nil {
 		l := loghelper.New("telemetry")
-		l.Debugf("failed to json.Marshal telemetry requests: %v", err)
+		l.Debugf("failed to json.Marshal telemetry request: %v", err)
 		return
 	}
-	fmt.Printf("\n\n%s\n\n", marshaled) //dev //TODO: remove this
-	//TODO: upload the data
+
+	// send the telemetry data and ignore the response
+	_, err = http.Post(SyncerTelemetryEndpoint, "application/json", bytes.NewBuffer(marshaled))
+	if err != nil {
+		l := loghelper.New("telemetry")
+		l.Debugf("failed to http.Post telemetry request: %v", err)
+	}
 }
 
 func (d *DefaultCollector) getSyncerInstanceProperties() SyncerInstanceProperties {
 	p := SyncerInstanceProperties{
-		UID:           getSyncerUID(d.hostClient, d.vclusterNamespace)(),
-		CreationType:  os.Getenv(InstanaceCreatorEnvVar),
-		Arch:          runtime.GOARCH,
-		OS:            runtime.GOOS,
-		SyncerVersion: SyncerVersion,
+		UID:                 getSyncerUID(d.hostClient, d.vclusterNamespace)(),
+		InstanceCreatorType: os.Getenv(InstanaceCreatorTypeEnvVar),
+		InstanceCreatorUID:  os.Getenv(InstanaceCreatorUIDEnvVar),
+		Arch:                runtime.GOARCH,
+		OS:                  runtime.GOOS,
+		SyncerVersion:       SyncerVersion,
 	}
 	// UID                      string
 	// CreationType             string

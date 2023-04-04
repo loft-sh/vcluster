@@ -92,6 +92,10 @@ func NewStartCommand() *cobra.Command {
 }
 
 func ExecuteStart(options *context2.VirtualClusterOptions) error {
+	if telemetry.Collector.IsEnabled() {
+		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetry.EventSyncerStarted))
+	}
+
 	// check the value of pod security standard
 	if options.EnforcePodSecurityStandard != "" && !allowedPodSecurityStandards[options.EnforcePodSecurityStandard] {
 		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", options.EnforcePodSecurityStandard)

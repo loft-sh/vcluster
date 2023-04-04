@@ -4,12 +4,14 @@ type SyncerTelemetryRequest struct {
 	InstanceProperties  SyncerInstanceProperties `json:"instanceProperties,omitempty"`
 	Events              []*Event                 `json:"events,omitempty"`
 	TimeSinceLastUpload *int                     `json:"timeSinceLastUpload,omitempty"`
+	Token               string                   `json:"token,omitempty"`
 }
 
 type SyncerInstanceProperties struct {
 	// vcluster instance UID
 	UID                      string `json:"uid,omitempty"`
-	CreationType             string `json:"creationType,omitempty"`
+	InstanceCreatorType      string `json:"instanceCreatorType,omitempty"`
+	InstanceCreatorUID       string `json:"instanceCreatorUID,omitempty"`
 	Arch                     string `json:"arch,omitempty"`
 	OS                       string `json:"os,omitempty"`
 	SyncerVersion            string `json:"syncerVersion,omitempty"`
@@ -31,11 +33,11 @@ type SyncerInstanceProperties struct {
 type EventType string
 
 const (
-	EventApiRequest        EventType = "ApiRequest"        // TODO: add code to record ApiRequest event
-	EventResourceSync      EventType = "ResourceSync"      // TODO: add code to record ResourceSync event
-	EventLeadershipStarted EventType = "LeadershipStarted" // TODO: add code to record LeadershipStarted event
-	EventLeadershipStopped EventType = "LeadershipStopped" // TODO: add code to record LeadershipStopped event
-	// TODO: add an event that is sent after startup immediately?
+	EventApiRequest        EventType = "ApiRequest" // TODO: add code to record ApiRequest event
+	EventResourceSync      EventType = "ResourceSync"
+	EventLeadershipStarted EventType = "LeadershipStarted"
+	EventLeadershipStopped EventType = "EventLeadershipStopped"
+	EventSyncerStarted     EventType = "SyncerStarted" // TODO: add code that will send this after startup immediately?
 )
 
 type Event struct {

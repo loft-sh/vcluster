@@ -20,11 +20,11 @@ type Downloader interface {
 type downloader struct {
 	httpGet        getRequest
 	command        commands.Command
-	log            log.Logger
+	log            log.SimpleLogger
 	toolHomeFolder string
 }
 
-func NewDownloader(command commands.Command, log log.Logger, toolHomeFolder string) Downloader {
+func NewDownloader(command commands.Command, log log.SimpleLogger, toolHomeFolder string) Downloader {
 	return &downloader{
 		httpGet:        http.Get,
 		command:        command,
@@ -79,7 +79,7 @@ func (d *downloader) downloadExecutable(command, installPath, installFromURL str
 type getRequest func(url string) (*http.Response, error)
 
 func (d *downloader) downloadFile(command, installPath, installFromURL string) error {
-	d.log.Info("Downloading " + command + "...")
+	d.log.Infof("Downloading %s ...", command)
 
 	t, err := os.MkdirTemp("", "")
 	if err != nil {

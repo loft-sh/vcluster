@@ -13,17 +13,15 @@ import (
 )
 
 var (
-	SyncerVersion = "dev"
+	SyncerVersion  = "dev"
+	TelemetryToken = "vAyMmhLjnNcPrQDXEpo9"
 )
 
 const (
-	DisabledEnvVar         = "VCLUSTER_TELEMETRY_DISABLED"
-	InstanaceCreatorEnvVar = "VCLUSTER_INSTANCE_CREATOR"
+	DisabledEnvVar             = "VCLUSTER_TELEMETRY_DISABLED"
+	InstanaceCreatorTypeEnvVar = "VCLUSTER_INSTANCE_CREATOR_TYPE"
+	InstanaceCreatorUIDEnvVar  = "VCLUSTER_INSTANCE_CREATOR_UID"
 )
-
-func SetVersion(version string) {
-	SyncerVersion = version
-}
 
 // getSyncerUID provides instance UID based on the UID of the PVC or SS/Deployment
 func getSyncerUID(c client.Client, vclusterNamespace string) func() string {
@@ -32,32 +30,36 @@ func getSyncerUID(c client.Client, vclusterNamespace string) func() string {
 		if cachedUID != "" {
 			return cachedUID
 		}
+
 		// we primarily use PVC as the source of vcluster instance UID
 		pvc := &corev1.PersistentVolumeClaim{}
 		err := c.Get(context.Background(), types.NamespacedName{Namespace: vclusterNamespace, Name: fmt.Sprintf("data-%s-0", translate.Suffix)}, pvc)
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				// If vcluster PVC doesn't exist we try to get UID from the vcluster StatefulSet or the vcluster syncer Deployment
-				ss := &appsv1.StatefulSet{}
-				err = c.Get(context.Background(), types.NamespacedName{Namespace: vclusterNamespace, Name: translate.Suffix}, ss)
-				if err != nil {
-					if kerrors.IsNotFound(err) {
-						d := &appsv1.Deployment{}
-						err = c.Get(context.Background(), types.NamespacedName{Namespace: vclusterNamespace, Name: translate.Suffix}, d)
-						if err != nil {
-							return ""
-						}
-						cachedUID = string(d.GetUID())
-						return cachedUID
-					}
-					return ""
-				}
-				cachedUID = string(ss.GetUID())
-				return cachedUID
-			}
+		if err == nil {
+			cachedUID = string(pvc.GetUID())
+			return cachedUID
+		}
+		if !kerrors.IsNotFound(err) {
 			return ""
 		}
-		cachedUID = string(pvc.GetUID())
-		return cachedUID
+
+		// If vcluster PVC doesn't exist we try to get UID from the vcluster StatefulSet (k3s or k0s distro)
+		ss := &appsv1.StatefulSet{}
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: vclusterNamespace, Name: translate.Suffix}, ss)
+		if err == nil {
+			cachedUID = string(ss.GetUID())
+			return cachedUID
+		}
+		if !kerrors.IsNotFound(err) {
+			return ""
+		}
+
+		// If vcluster StatefulSet doesn't exist we try to get UID from the vcluster Deployment (k3s or eks distro)
+		d := &appsv1.Deployment{}
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: vclusterNamespace, Name: translate.Suffix}, d)
+		if err == nil {
+			cachedUID = string(d.GetUID())
+			return cachedUID
+		}
+		return ""
 	}
 }

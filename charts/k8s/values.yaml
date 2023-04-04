@@ -466,3 +466,8 @@ init:
 
 multiNamespaceMode:
   enabled: false
+
+telemetry:
+  disabled: "false"
+  instanceCreatorType: "helm"
+  instanceCreatorUID: ""
