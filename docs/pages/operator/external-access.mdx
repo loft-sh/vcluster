@@ -27,6 +27,10 @@ kubectl get ns
 
 Thats it, your vcluster is now externally reachable through a LoadBalancer service.
 
+:::warning Check the costs first
+Even though using a LoadBalancer is the easiest option, if you use a cloud provider it will be costly to create one Loadbalancer per cluster. Check your cloud vendor about the cost of each LoadBalancer. In general using an Ingress is the most cost effective method.
+:::
+
 #### Manual LoadBalancer service creation
 
 Instead of using the built-in flag `--expose`, you can also create the following `load-balancer.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster` yourself:
