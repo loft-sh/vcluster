@@ -119,10 +119,10 @@ spec:
           emptyDir: {}
         - name: tmp
           emptyDir: {}
-        - name: kube
-          emptyDir: {}
       {{- end }}
         - name: config
+          emptyDir: {}
+        - name: kube
           emptyDir: {}
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
