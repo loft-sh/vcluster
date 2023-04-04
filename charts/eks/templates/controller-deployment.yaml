@@ -118,6 +118,16 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           failureThreshold: 8
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 10257
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          timeoutSeconds: 15
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 8
         startupProbe:
           httpGet:
             path: /healthz

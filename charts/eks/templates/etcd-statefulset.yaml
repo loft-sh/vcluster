@@ -146,6 +146,16 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           failureThreshold: 8
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 2381
+            scheme: HTTP
+          initialDelaySeconds: 10
+          timeoutSeconds: 15
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 8
         startupProbe:
           httpGet:
             path: /health
