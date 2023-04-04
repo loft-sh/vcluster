@@ -55,6 +55,7 @@ sync:
   fake-persistentvolumes:
     enabled: true # will be ignored if persistentvolumes.enabled = true
   nodes:
+    fakeKubeletIPs: true
     enabled: false
     # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
     # will sync all nodes instead of only the ones where some pods are running.
@@ -93,6 +94,11 @@ sync:
     config: |-
       ---
 
+# If enabled, will fallback to host dns for resolving domains. This
+# is useful if using istio or dapr in the host cluster and sidecar
+# containers cannot connect to the central instance. Its also useful
+# if you want to access host cluster services from within the vcluster.
+fallbackHostDns: false
 
 # Map Services between host and virtual cluster
 mapServices:
@@ -125,7 +131,7 @@ hostpathMapper:
 # Syncer configuration
 syncer:
   # Image to use for the syncer
-  # image: loftsh/vcluster
+  # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
   env: []
   livenessProbe:
@@ -146,6 +152,7 @@ syncer:
       cpu: 20m
       memory: 64Mi
   kubeConfigContextName: "my-vcluster"
+  serviceAnnotations: {}
 
 # Virtual Cluster (k3s) configuration
 vcluster:

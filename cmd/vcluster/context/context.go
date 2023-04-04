@@ -25,7 +25,7 @@ type ControllerContext struct {
 	StopChan    <-chan struct{}
 }
 
-func NewControllerContext(currentNamespace string, localManager ctrl.Manager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
+func NewControllerContext(currentNamespace string, localManager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
 	stopChan := make(<-chan struct{})
 	ctx := context.Background()
 

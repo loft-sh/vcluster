@@ -199,14 +199,12 @@ sync:
       import:
         - kind: Secret
           apiVersion: v1
+        - kind: IngressClass
+          apiVersion: networking.k8s.io/v1
 ```
 
 :::info
 The sync from Host to Virtual cluster is supported only in ["Multi-namespace mode"](#multi-namespace-mode)
-:::
-
-:::info
-Only the namespaced resources are supported at this time.
 :::
 
 #### Patch syntax

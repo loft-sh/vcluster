@@ -257,6 +257,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	if err != nil {
 		return err
 	}
+
 	virtualClusterManager, err := ctrl.NewManager(virtualClusterConfig, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: options.VirtualMetricsBindAddress,

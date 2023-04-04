@@ -27,6 +27,7 @@ var (
 func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewriteImage, fromHost, toHostname, toHostnameFQDN string) {
 	if pPod.Annotations == nil || pPod.Annotations[DisableSubdomainRewriteAnnotation] != "true" || pPod.Annotations[HostsRewrittenAnnotation] != "true" {
 		userID := coredns.GetUserID()
+		groupID := coredns.GetGroupID()
 		initContainer := corev1.Container{
 			Name:    HostsRewriteContainerName,
 			Image:   defaultImageRegistry + hostsRewriteImage,
@@ -34,6 +35,7 @@ func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewrite
 			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostnameFQDN + " " + toHostname + "/' /etc/hosts > /hosts/hosts"},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:                &userID,
+				RunAsGroup:               &groupID,
 				RunAsNonRoot:             &nonRoot,
 				Capabilities:             &capabilities,
 				AllowPrivilegeEscalation: &privilegeEscalation,

@@ -224,7 +224,7 @@ spec:
         {{- if .Values.syncer.image }}
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
-        image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
         {{- end }}
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
@@ -282,6 +282,9 @@ spec:
           {{- end }}
           {{- if .Values.sync.secrets.all }}
           - --sync-all-secrets=true
+          {{- end }}
+          {{- if not .Values.sync.nodes.fakeKubeletIPs }}
+          - --fake-kubelet-ips=false
           {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}

@@ -16,7 +16,7 @@ func main() {
 	images := []string{}
 
 	// loft
-	images = append(images, "loftsh/vcluster:"+cleanTag(os.Args[1]))
+	images = append(images, "ghcr.io/loft-sh/vcluster:"+cleanTag(os.Args[1]))
 	images = append(images, syncercontext.DefaultHostsRewriteImage)
 
 	// loop over k3s versions

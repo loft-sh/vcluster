@@ -7,8 +7,11 @@ import (
 
 	"github.com/loft-sh/utils/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,6 +74,35 @@ func DeleteVClusterWorkloads(kubeClient *kubernetes.Clientset, labelSelector, na
 	return nil
 }
 
+func DeleteMultiNamespaceVclusterWorkloads(ctx context.Context, client *kubernetes.Clientset, vclusterName, vclusterNamespace string, log log.Logger) error {
+	// get all host namespaces managed by this multinamespace mode enabled vcluster
+	namespaces, err := client.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{
+		LabelSelector: labels.FormatLabels(map[string]string{
+			translate.MarkerLabel: translate.SafeConcatName(vclusterNamespace, "x", vclusterName),
+		}),
+	})
+	if err != nil && !kerrors.IsForbidden(err) {
+		return errors.Wrap(err, "list namespaces")
+	}
+
+	// delete all pods inside the above returned namespaces
+	for _, ns := range namespaces.Items {
+		podList, podListErr := client.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
+		if podListErr != nil {
+			return errors.Wrapf(err, "error listing pods in namespace %s", ns.Name)
+		}
+
+		for _, pod := range podList.Items {
+			err := client.CoreV1().Pods(ns.Name).Delete(ctx, pod.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return errors.Wrapf(err, "error deleting pod %s/%s", ns.Name, pod.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
 func scaleDownDeployment(kubeClient kubernetes.Interface, labelSelector, namespace string, log log.Logger) (bool, error) {
 	list, err := kubeClient.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
@@ -100,6 +132,7 @@ func scaleDownDeployment(kubeClient kubernetes.Interface, labelSelector, namespa
 
 		item.Annotations[constants.PausedAnnotation] = "true"
 		item.Annotations[constants.PausedReplicasAnnotation] = strconv.Itoa(replicas)
+		item.Annotations[constants.PausedDateAnnotation] = time.Now().Format("2006-01-02T15:04:05.000Z")
 		item.Spec.Replicas = &zero
 
 		patch := client.MergeFrom(originalObject)
@@ -161,6 +194,7 @@ func scaleDownStatefulSet(kubeClient kubernetes.Interface, labelSelector, namesp
 
 		item.Annotations[constants.PausedAnnotation] = "true"
 		item.Annotations[constants.PausedReplicasAnnotation] = strconv.Itoa(replicas)
+		item.Annotations[constants.PausedDateAnnotation] = time.Now().Format("2006-01-02T15:04:05.000Z")
 		item.Spec.Replicas = &zero
 
 		patch := client.MergeFrom(originalObject)
@@ -257,6 +291,7 @@ func scaleUpDeployment(kubeClient kubernetes.Interface, labelSelector string, na
 		replicas32 := int32(replicas)
 		delete(item.Annotations, constants.PausedAnnotation)
 		delete(item.Annotations, constants.PausedReplicasAnnotation)
+		delete(item.Annotations, constants.PausedDateAnnotation)
 		item.Spec.Replicas = &replicas32
 
 		patch := client.MergeFrom(originalObject)
@@ -302,6 +337,7 @@ func scaleUpStatefulSet(kubeClient kubernetes.Interface, labelSelector string, n
 		replicas32 := int32(replicas)
 		delete(item.Annotations, constants.PausedAnnotation)
 		delete(item.Annotations, constants.PausedReplicasAnnotation)
+		delete(item.Annotations, constants.PausedDateAnnotation)
 		item.Spec.Replicas = &replicas32
 
 		patch := client.MergeFrom(originalObject)

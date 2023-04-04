@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/log"
@@ -40,18 +41,21 @@ func CreateExporters(ctx *context.ControllerContext, exporterConfig *config.Conf
 	for _, exportConfig := range exporterConfig.Exports {
 		gvk := schema.FromAPIVersionAndKind(exportConfig.APIVersion, exportConfig.Kind)
 		if !scheme.Recognizes(gvk) {
-			err := translate.EnsureCRDFromPhysicalCluster(
+			_, _, err := translate.EnsureCRDFromPhysicalCluster(
 				registerCtx.Context,
 				registerCtx.PhysicalManager.GetConfig(),
 				registerCtx.VirtualManager.GetConfig(),
 				gvk)
 			if err != nil {
+				if exportConfig.Optional {
+					klog.Infof("error ensuring CRD %s(%s) from host cluster: %v. Skipping exportSyncer as resource is optional", exportConfig.Kind, exportConfig.APIVersion, err)
+					continue
+				}
+
 				return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
 			}
 		}
-	}
 
-	for _, exportConfig := range exporterConfig.Exports {
 		reversePatches := []*config.Patch{
 			{
 				Operation: config.PatchTypeCopyFromObject,
@@ -63,11 +67,13 @@ func CreateExporters(ctx *context.ControllerContext, exporterConfig *config.Conf
 		exportConfig.ReversePatches = reversePatches
 
 		s, err := createExporter(registerCtx, exportConfig)
+		klog.Infof("creating exporter for %s/%s", exportConfig.APIVersion, exportConfig.Kind)
 		if err != nil {
 			return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
 		}
 
 		err = syncer.RegisterSyncer(registerCtx, s)
+		klog.Infof("registering export syncer for %s/%s", exportConfig.APIVersion, exportConfig.Kind)
 		if err != nil {
 			return fmt.Errorf("error registering syncer %v", err)
 		}

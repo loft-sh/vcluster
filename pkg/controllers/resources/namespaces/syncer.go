@@ -25,11 +25,19 @@ var excludedAnnotations = []string{
 	"scheduler.alpha.kubernetes.io/defaultTolerations",
 }
 
+const (
+	VclusterNameAnnotation      = "vcluster.loft.sh/vcluster-name"
+	VclusterNamespaceAnnotation = "vcluster.loft.sh/vcluster-namespace"
+)
+
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	namespaceLabels, err := parseNamespaceLabels(ctx.Options.NamespaceLabels)
 	if err != nil {
 		return nil, fmt.Errorf("invalid value of the namespace-labels flag: %v", err)
 	}
+
+	namespaceLabels[VclusterNameAnnotation] = ctx.Options.Name
+	namespaceLabels[VclusterNamespaceAnnotation] = ctx.CurrentNamespace
 
 	return &namespaceSyncer{
 		Translator:                 translator.NewClusterTranslator(ctx, "namespace", &corev1.Namespace{}, NamespaceNameTranslator, excludedAnnotations...),

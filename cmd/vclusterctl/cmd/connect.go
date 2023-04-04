@@ -437,13 +437,25 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *api.Config) error {
 	printedWaiting := false
 	err := wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
-		service, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), vClusterName, metav1.GetOptions{})
+		// first check for load balancer service, look for the other service if it's not there
+		loadBalancerMissing := false
+		service, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), translate.GetLoadBalancerSVCName(vClusterName), metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
+				loadBalancerMissing = true
+			} else {
+				return false, err
+
+			}
+		}
+		if loadBalancerMissing {
+			service, err = cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), vClusterName, metav1.GetOptions{})
+			if kerrors.IsNotFound(err) {
 				return true, nil
+			} else if err != nil {
+				return false, err
 			}
 
-			return false, err
 		}
 
 		// not a load balancer? Then don't wait

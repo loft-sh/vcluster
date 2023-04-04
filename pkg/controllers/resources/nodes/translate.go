@@ -6,8 +6,11 @@ import (
 	"os"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
@@ -120,7 +123,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	return updated
 }
 
-func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
+func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
 	if s.useFakeKubelets {
@@ -137,6 +140,22 @@ func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Nod
 				Type:    corev1.NodeHostName,
 			},
 		}
+
+		if s.fakeKubeletIPs {
+			// create new service for this node
+			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, types.NamespacedName{
+				Name: vNode.Name,
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "get vNode IP")
+			}
+
+			newAddresses = append(newAddresses, corev1.NodeAddress{
+				Address: nodeIP,
+				Type:    corev1.NodeInternalIP,
+			})
+		}
+
 		for _, oldAddress := range translatedStatus.Addresses {
 			if oldAddress.Type == corev1.NodeInternalIP || oldAddress.Type == corev1.NodeInternalDNS || oldAddress.Type == corev1.NodeHostName {
 				continue

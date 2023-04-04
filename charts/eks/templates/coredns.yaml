@@ -70,10 +70,14 @@ data:
             errors
             health
             ready
-            rewrite name regex .*\.{{ .Release.Name }}\.{{ .Release.Namespace }}\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
-            kubernetes cluster.local in-addr.arpa ip6.arpa {
+            rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
+            kubernetes cluster.local in-addr.arpa ip6.arpa { 
               pods insecure
+              {{- if .Values.fallbackHostDns }}
+              fallthrough cluster.local in-addr.arpa ip6.arpa
+              {{- else }}
               fallthrough in-addr.arpa ip6.arpa
+              {{- end }}
             }
             hosts /etc/coredns/NodeHosts {
               ttl 60
@@ -81,13 +85,15 @@ data:
               fallthrough
             }
             prometheus :9153
-  {{- if and .Values.isolation.enabled  .Values.isolation.networkPolicy.enabled }}
+            {{- if .Values.fallbackHostDns }}
+            forward . {{`{{.HOST_CLUSTER_DNS}}`}}
+            {{- else if and .Values.isolation.enabled  .Values.isolation.networkPolicy.enabled }}
             forward . /etc/resolv.conf 8.8.8.8 {
               policy sequential
             }
-  {{- else }}
+            {{- else }}
             forward . /etc/resolv.conf
-  {{- end }}
+            {{- end }}
             cache 30
             loop
             reload
@@ -227,6 +233,9 @@ data:
       annotations:
         prometheus.io/port: "9153"
         prometheus.io/scrape: "true"
+        {{- if .Values.coredns.service.annotations }}
+{{ toYaml .Values.coredns.service.annotations | indent 8 }}
+        {{- end }}
       labels:
         k8s-app: kube-dns
         kubernetes.io/cluster-service: "true"

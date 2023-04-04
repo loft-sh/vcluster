@@ -2,6 +2,8 @@
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""
 
+globalAnnotations: {}
+
 # If the control plane is deployed in high availability mode
 # Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
 enableHA: false
@@ -52,6 +54,7 @@ sync:
   fake-persistentvolumes:
     enabled: true # will be ignored if persistentvolumes.enabled = true
   nodes:
+    fakeKubeletIPs: true
     enabled: false
     # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
     # will sync all nodes instead of only the ones where some pods are running.
@@ -90,6 +93,12 @@ sync:
     config: |-
       ---
 
+# If enabled, will fallback to host dns for resolving domains. This
+# is useful if using istio or dapr in the host cluster and sidecar
+# containers cannot connect to the central instance. Its also useful
+# if you want to access host cluster services from within the vcluster.
+fallbackHostDns: false
+
 # Map Services between host and virtual cluster
 mapServices:
   # Services that should get mapped from the
@@ -121,7 +130,7 @@ hostpathMapper:
 # Syncer configuration
 syncer:
   # Image to use for the syncer
-  # image: loftsh/vcluster
+  # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
   volumeMounts:
     - mountPath: /pki
@@ -161,6 +170,7 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
+  serviceAnnotations: {}
 
 # Etcd settings
 etcd:
@@ -195,6 +205,8 @@ etcd:
     #className:
   priorityClassName: ""
   securityContext: {}
+  serviceAnnotations: {}
+  
 # Kubernetes Controller Manager settings
 controller:
   image: registry.k8s.io/kube-controller-manager:v1.26.1
@@ -263,6 +275,8 @@ api:
       memory: 300Mi
   priorityClassName: ""
   securityContext: {}
+  serviceAnnotations: {}
+  
 # Service account that should be used by the vcluster
 serviceAccount:
   create: true

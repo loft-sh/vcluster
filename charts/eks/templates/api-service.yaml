@@ -9,6 +9,11 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- $annotations := merge .Values.globalAnnotations .Values.api.serviceAnnotations }}
+  {{- if $annotations }}
+  annotations:
+  {{ toYaml $annotations | indent 4 }}
+  {{- end }}
 spec:
   type: ClusterIP
   ports:
