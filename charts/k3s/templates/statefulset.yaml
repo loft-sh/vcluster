@@ -269,6 +269,7 @@ spec:
           {{- end }}
           {{- if not .Values.sync.nodes.fakeKubeletIPs }}
           - --fake-kubelet-ips=false
+          {{- end }}
           {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
           - --proxy-metrics-server=true
           {{- end }}
