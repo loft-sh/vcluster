@@ -46,8 +46,6 @@ func WithMetricsServerProxy(h http.Handler, cacheHostClient, cachedVirtualClient
 		if isMetricsServerProxyRequest(info) {
 			splitted := strings.Split(req.URL.Path, "/")
 
-			scheme := cacheHostClient.Scheme()
-			metav1.AddMetaToScheme(scheme)
 			metricsServerProxy := &MetricsServerProxy{
 				codecFactory:   serializer.NewCodecFactory(cachedVirtualClient.Scheme()),
 				request:        req,
