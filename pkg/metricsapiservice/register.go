@@ -81,7 +81,7 @@ func createOperation(ctx context.Context, kubeAggClient *apiregclientv1.Apiregis
 			},
 		}, v1.CreateOptions{})
 		if err != nil {
-			if kerrors.IsNotFound(err) {
+			if kerrors.IsAlreadyExists(err) {
 				return true, nil
 			}
 

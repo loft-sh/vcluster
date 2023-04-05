@@ -119,7 +119,10 @@ mapServices:
 
 proxy:
   metricsServer:
-    enabled: false
+    nodes:
+      enabled: false
+    pods:
+      enabled: false
 
 hostpathMapper:
   enabled: false

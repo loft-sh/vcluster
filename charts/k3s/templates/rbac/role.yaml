@@ -85,7 +85,7 @@ rules:
     verbs: ["create"]
   {{- end }}
   {{- end }}
-  {{- if .Values.proxy.metricsServer.enabled }}
+  {{- if .Values.proxy.metricsServer.pods.enabled }}
   - apiGroups: ["metrics.k8s.io"]
     resources: ["pods"]
     verbs: ["get", "list"]

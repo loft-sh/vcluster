@@ -200,7 +200,7 @@ spec:
           {{- if .Values.sync.configmaps.all }}
           - --sync-all-configmaps=true
           {{- end }}
-          {{- if .Values.proxy.metricsServer.enabled }}
+          {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
           - --proxy-metrics-server=true
           {{- end }}
           {{- if .Values.sync.secrets.all }}
