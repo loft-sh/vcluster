@@ -911,6 +911,12 @@ func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) *corev1.PodSpec {
 		updatedPodSpec.InitContainers = updatedContainer
 	}
 
+	schedulingGatesVal, equal := isPodSpecSchedulingGatesDiff(pObj.Spec.SchedulingGates, vObj.Spec.SchedulingGates)
+	if !equal {
+		updatedPodSpec = pObj.Spec.DeepCopy()
+		updatedPodSpec.SchedulingGates = schedulingGatesVal
+	}
+
 	return updatedPodSpec
 }
 
@@ -958,4 +964,16 @@ func isInt64Different(i1, i2 *int64) (*int64, bool) {
 	}
 
 	return updated, false
+}
+
+func isPodSpecSchedulingGatesDiff(pGates, vGates []corev1.PodSchedulingGate) ([]corev1.PodSchedulingGate, bool) {
+	if len(vGates) != len(pGates) {
+		return vGates, false
+	}
+	for i, v := range vGates {
+		if v.Name != pGates[i].Name {
+			return vGates, false
+		}
+	}
+	return vGates, true
 }
