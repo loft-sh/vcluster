@@ -18,7 +18,9 @@ rules:
     resources: ["nodes", "nodes/status"]
     verbs: ["get", "watch", "list"]
   - apiGroups: [""]
-    resources: ["pods", "nodes/proxy", "nodes/metrics", "nodes/stats"]
+    resources: [ "pods",{{- if .Values.isolation.enabled }}
+      {{- if .Values.isolation.nodeProxyPermission.enabled}} "node/proxy",{{- end}}
+      {{- else}} "node/proxy",{{- end }} "nodes/metrics", "nodes/stats"]
     verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if or (and .Values.sync.nodes.enabled .Values.sync.nodes.syncNodeChanges) .Values.rbac.clusterRole.create }}
