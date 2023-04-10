@@ -338,6 +338,11 @@ isolation:
 
   podSecurityStandard: baseline
 
+  # If enabled will add node/proxy permission to the cluster role
+  # in isolation mode
+  nodeProxyPermission:
+    enabled: false
+
   resourceQuota:
     enabled: true
     quota:
