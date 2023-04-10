@@ -2,6 +2,9 @@ package pods
 
 import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+
+	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -33,6 +36,12 @@ func SecretNamesFromVolumes(pod *corev1.Pod) []string {
 			for j := range pod.Spec.Volumes[i].Projected.Sources {
 				if pod.Spec.Volumes[i].Projected.Sources[j].Secret != nil {
 					secrets = append(secrets, pod.Namespace+"/"+pod.Spec.Volumes[i].Projected.Sources[j].Secret.Name)
+				}
+
+				// check if projected volume source is a serviceaccount and in such a case
+				// we re-write it as a secret too, handle accordingly
+				if pod.Spec.Volumes[i].Projected.Sources[j].ServiceAccountToken != nil {
+					secrets = append(secrets, pod.Namespace+"/"+podtranslate.SecretNameFromPodName(pod.Name))
 				}
 			}
 		}
