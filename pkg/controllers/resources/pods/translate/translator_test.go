@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestPodAffinityTermsTranslation(t *testing.T) {
@@ -198,6 +199,7 @@ func TestVolumeTranslation(t *testing.T) {
 		tr := &translator{
 			eventRecorder: fakeRecorder,
 			log:           loghelper.New("pods-syncer-translator-test"),
+			vClient:       fake.NewClientBuilder().Build(),
 		}
 
 		pPod := testCase.vPod.DeepCopy()
