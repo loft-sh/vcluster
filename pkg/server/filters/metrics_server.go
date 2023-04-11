@@ -75,7 +75,11 @@ func WithMetricsServerProxy(h http.Handler, cacheHostClient, cachedVirtualClient
 
 			// request is for list pods
 			if info.Resource == PodResource && info.Verb == RequestVerbList {
-				namespace := translate.Default.PhysicalNamespace(info.Namespace)
+				// check if its a list request across all namespaces
+				if info.Namespace != "" {
+					namespace := translate.Default.PhysicalNamespace(info.Namespace)
+					splitted[5] = namespace
+				}
 
 				metricsServerProxy.resourceType = PodResource
 				metricsServerProxy.verb = RequestVerbList
@@ -87,7 +91,6 @@ func WithMetricsServerProxy(h http.Handler, cacheHostClient, cachedVirtualClient
 				}
 				metricsServerProxy.podsInNamespace = vPodList
 
-				splitted[5] = namespace
 				req.URL.Path = strings.Join(splitted, "/")
 			}
 
