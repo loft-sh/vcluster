@@ -4,6 +4,7 @@ type SyncerTelemetryRequest struct {
 	InstanceProperties  SyncerInstanceProperties `json:"instanceProperties,omitempty"`
 	Events              []*Event                 `json:"events,omitempty"`
 	TimeSinceLastUpload *int                     `json:"timeSinceLastUpload,omitempty"`
+	Token               string                   `json:"token"`
 }
 
 type SyncerInstanceProperties struct {

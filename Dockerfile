@@ -5,6 +5,7 @@ WORKDIR /vcluster-dev
 ARG TARGETOS
 ARG TARGETARCH
 ARG BUILD_VERSION=dev
+ARG TELEMETRY_PRIVATE_KEY=""
 
 # Install kubectl for development
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
@@ -46,7 +47,7 @@ RUN go generate ./...
 ENV HOME /
 
 # Build cmd
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -ldflags "-X main.Version=$BUILD_VERSION" -o /vcluster cmd/vcluster/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -ldflags "-X main.Version=${BUILD_VERSION} -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey=${TELEMETRY_PRIVATE_KEY}" -o /vcluster cmd/vcluster/main.go
 
 # RUN useradd -u 12345 nonroot
 # USER nonroot
