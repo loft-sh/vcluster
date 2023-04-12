@@ -27,6 +27,8 @@ const (
 	defaultGID            = int64(1001)
 )
 
+var ErrNoCoreDNSManifests = fmt.Errorf("no coredns manifests found")
+
 func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
 	vars := getManifestVariables(defaultImageRegistry, serverVersion)
 	output, err := processManifestTemplate(vars)
@@ -115,6 +117,10 @@ func GetUserID() int64 {
 
 func processManifestTemplate(vars map[string]interface{}) ([]byte, error) {
 	manifestInputPath := path.Join(constants.ContainerManifestsFolder, ManifestRelativePath)
+	// check if the manifestInputPath exists
+	if _, err := os.Stat(manifestInputPath); os.IsNotExist(err) {
+		return nil, ErrNoCoreDNSManifests
+	}
 	manifestTemplate, err := template.ParseFiles(manifestInputPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse %s: %v", manifestInputPath, err)
