@@ -59,6 +59,7 @@ Whether to create a cluster role or not
     .Values.sync.storageclasses.enabled
     .Values.sync.priorityclasses.enabled
     .Values.sync.volumesnapshots.enabled
+    .Values.proxy.metricsServer.nodes.enabled
     .Values.multiNamespaceMode.enabled -}}
     {{- true -}}
 {{- end -}}
