@@ -33,8 +33,6 @@ spec:
         accessModes: [ "ReadWriteOnce" ]
         {{- if .Values.storage.className }}
         storageClassName: {{ .Values.storage.className }}
-        {{- else }}
-        storageClassName: ""
         {{- end }}
         resources:
           requests:
