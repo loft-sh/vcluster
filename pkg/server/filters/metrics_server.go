@@ -94,6 +94,26 @@ func WithMetricsServerProxy(h http.Handler, cacheHostClient, cachedVirtualClient
 				req.URL.Path = strings.Join(splitted, "/")
 			}
 
+			acceptHeader := req.Header.Get("Accept")
+			if info.Resource == NodeResource {
+				if info.Verb == RequestVerbList &&
+					strings.Contains(acceptHeader, "as=Table;") {
+					// respond a 403 for now as we don't want to expose all host nodes with the table response
+					// TODO: rewrite node table response to only show nodes synced in the vcluster
+					requestpkg.FailWithStatus(w, req, http.StatusForbidden, fmt.Errorf("cannot list nodes in table response format"))
+					return
+				}
+
+				// fetch and fill vcluster synced nodes
+				nodeList, err := getVirtualNodes(req.Context(), cachedVirtualClient)
+				if err != nil {
+					requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
+					return
+				}
+
+				metricsServerProxy.nodesInVcluster = nodeList
+			}
+
 			proxyHandler, err := handler.Handler("", hostConfig, nil)
 			if err != nil {
 				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
@@ -191,6 +211,7 @@ type MetricsServerProxy struct {
 	podsInNamespace      []types.NamespacedName
 	verb                 string
 	tableFormatRequested bool
+	nodesInVcluster      []corev1.Node
 
 	client client.Client
 }
@@ -239,6 +260,13 @@ func (p *MetricsServerProxy) HandleRequest() {
 				return
 			}
 		}
+	} else if p.resourceType == NodeResource {
+		// filter nodes synced with vcluster
+		newData, err = p.filterVirtualNodes(data)
+		if err != nil {
+			requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+			return
+		}
 	}
 
 	p.responseWriter.Header().Set(HeaderContentType, header.Get(HeaderContentType))
@@ -247,6 +275,36 @@ func (p *MetricsServerProxy) HandleRequest() {
 		requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
 		return
 	}
+}
+
+func (p *MetricsServerProxy) filterVirtualNodes(data []byte) ([]byte, error) {
+	nodeMetricsList := &metricsv1beta1.NodeMetricsList{}
+	err := json.Unmarshal(data, nodeMetricsList)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredMetricsList := []metricsv1beta1.NodeMetrics{}
+
+	virtualNodeMap := make(map[string]bool)
+	for _, node := range p.nodesInVcluster {
+		virtualNodeMap[node.Name] = true
+	}
+
+	for _, nodeMetrics := range nodeMetricsList.Items {
+		if _, ok := virtualNodeMap[nodeMetrics.Name]; ok {
+			filteredMetricsList = append(filteredMetricsList, nodeMetrics)
+		}
+	}
+
+	nodeMetricsList.Items = filteredMetricsList
+	newData, err := json.Marshal(nodeMetricsList)
+	if err != nil {
+		klog.Errorf("error marshalling node metrics back to response %v", err)
+		return nil, err
+	}
+
+	return newData, nil
 }
 
 func (p *MetricsServerProxy) rewritePodMetricsGetData(data []byte) ([]byte, error) {
@@ -402,4 +460,15 @@ func getVirtualPodObjectsInNamespace(ctx context.Context, vClient client.Client,
 	}
 
 	return ret, nil
+}
+
+func getVirtualNodes(ctx context.Context, vClient client.Client) ([]corev1.Node, error) {
+	nodeList := &corev1.NodeList{}
+
+	err := vClient.List(ctx, nodeList)
+	if err != nil {
+		return nil, err
+	}
+
+	return nodeList.Items, nil
 }
