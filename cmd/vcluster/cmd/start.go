@@ -301,21 +301,22 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		}
 	}()
 
-	if ctx.Options.LeaderElect {
-		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
-			// check apiservice for metrics server
-			err := metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, virtualClusterConfig)
-			if err != nil {
-				klog.Errorf("Error registering metrics apiservice: %v", err)
-			}
-			return startControllers(ctx, &rawConfig, serverVersion)
-		})
-	} else {
+	registerOrDeregisterAPIService := func() {
 		// check apiservice for metrics server
-		err = metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, virtualClusterConfig)
+		err := metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, virtualClusterConfig)
 		if err != nil {
 			klog.Errorf("Error registering metrics apiservice: %v", err)
 		}
+	}
+
+	if ctx.Options.LeaderElect {
+		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
+			go registerOrDeregisterAPIService()
+
+			return startControllers(ctx, &rawConfig, serverVersion)
+		})
+	} else {
+		go registerOrDeregisterAPIService()
 
 		err = startControllers(ctx, &rawConfig, serverVersion)
 	}

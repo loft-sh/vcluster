@@ -23,7 +23,6 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
 	statsv1alpha1 "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -244,6 +243,5 @@ func IsKubeletStats(path string) bool {
 }
 
 func IsKubeletMetrics(path string) bool {
-	klog.Infof("checking if it is kubelet metrics %v", path)
 	return strings.HasSuffix(path, "/metrics") || strings.HasSuffix(path, "/metrics/cadvisor") || strings.HasSuffix(path, "/metrics/probes") || strings.HasSuffix(path, "/metrics/resource") || strings.HasSuffix(path, "/metrics/resource/v1alpha1") || strings.HasSuffix(path, "/metrics/resource/v1beta1")
 }

@@ -7,10 +7,14 @@ import (
 
 	vclustercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/metrics/pkg/apis/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	apiregclientv1 "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
@@ -67,24 +71,31 @@ func deleteOperation(ctx context.Context, kubeAggClient *apiregclientv1.Apiregis
 	}
 }
 
-func createOperation(ctx context.Context, kubeAggClient *apiregclientv1.ApiregistrationV1Client) wait.ConditionFunc {
+func createOperation(ctx context.Context, kubeAggClient *apiregclientv1.ApiregistrationV1Client, client client.Client) wait.ConditionFunc {
 	return func() (bool, error) {
-		_, err := kubeAggClient.APIServices().Create(ctx, &apiregistrationv1.APIService{
+		spec := apiregistrationv1.APIServiceSpec{
+			Group:                metrics.GroupName,
+			GroupPriorityMinimum: 100,
+			Version:              MetricsVersion,
+			VersionPriority:      100,
+		}
+
+		apiService := &apiregistrationv1.APIService{
 			ObjectMeta: v1.ObjectMeta{
 				Name: MetricsAPIService,
 			},
-			Spec: apiregistrationv1.APIServiceSpec{
-				Group:                metrics.GroupName,
-				GroupPriorityMinimum: 100,
-				Version:              MetricsVersion,
-				VersionPriority:      100,
-			},
-		}, v1.CreateOptions{})
+		}
+
+		_, err := controllerutil.CreateOrUpdate(ctx, client, apiService, func() error {
+			apiService.Spec = spec
+			return nil
+		})
 		if err != nil {
 			if kerrors.IsAlreadyExists(err) {
 				return true, nil
 			}
 
+			klog.Errorf("error creating api service %v", err)
 			return false, err
 		}
 
@@ -93,15 +104,25 @@ func createOperation(ctx context.Context, kubeAggClient *apiregclientv1.Apiregis
 }
 
 func RegisterOrDeregisterAPIService(ctx context.Context, options *vclustercontext.VirtualClusterOptions, vConfig *rest.Config) error {
+	scheme := runtime.NewScheme()
+	_ = apiregistrationv1.AddToScheme(scheme)
+
 	kubeAggClient, err := apiregclientv1.NewForConfig(vConfig)
 	if err != nil {
 		return err
 	}
 
+	client, err := client.New(vConfig, client.Options{
+		Scheme: scheme,
+	})
+	if err != nil {
+		return err
+	}
+
 	exists := checkExistingAPIService(ctx, kubeAggClient)
-	if options.ProxyMetricsServer && !exists {
+	if options.ProxyMetricsServer {
 		// register apiservice
-		return applyOperation(ctx, createOperation(ctx, kubeAggClient))
+		return applyOperation(ctx, createOperation(ctx, kubeAggClient, client))
 	}
 
 	if !options.ProxyMetricsServer && exists {
