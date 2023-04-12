@@ -17,9 +17,10 @@ metadata:
 {{- if .Values.labels }}
 {{ toYaml .Values.labels | indent 4 }}
 {{- end }}
-  {{- if .Values.annotations }}
+  {{- $annotations := merge .Values.globalAnnotations .Values.annotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   {{- if .Values.hostpathMapper.dev }}

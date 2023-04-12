@@ -3,6 +3,10 @@ kind: ConfigMap
 metadata:
   name: custom-deployments
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.globalAnnotations}}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4}}
+  {{- end}}  
 data:
 {{- if .Values.coredns.manifests }}
   coredns.yaml: |-
