@@ -13,10 +13,6 @@ To control how vcluster pods are scheduled on the host cluster, you may need to 
 
 ## Separate vcluster Scheduler
 
-:::info
-Version v0.8.0 or higher required
-:::
-
 By default, vcluster will reuse the scheduler of the host cluster to schedule workloads. This saves computing resources, but also has some limitations:
 1. Labeling nodes inside the virtual cluster has no effect on scheduling
 2. Draining or tainting nodes inside the virtual cluster has no effect on scheduling

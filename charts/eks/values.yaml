@@ -434,3 +434,8 @@ isolation:
 
 multiNamespaceMode:
   enabled: false
+
+telemetry:
+  disabled: "false"
+  instanceCreator: "helm"
+  instanceCreatorUID: ""

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
+	"github.com/loft-sh/vcluster/pkg/telemetry"
+	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 
@@ -87,10 +89,17 @@ func NewStartCommand() *cobra.Command {
 	}
 	context2.AddFlags(cmd.Flags(), options)
 
+	telemetry.Collector.SetStartCommand(cmd)
+
 	return cmd
 }
 
 func ExecuteStart(options *context2.VirtualClusterOptions) error {
+	if telemetry.Collector.IsEnabled() {
+		// TODO: add code that will force events upload immediately? (in case of panic/Fail/Exit initiated from the code)
+		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventSyncerStarted))
+	}
+
 	// check the value of pod security standard
 	if options.EnforcePodSecurityStandard != "" && !allowedPodSecurityStandards[options.EnforcePodSecurityStandard] {
 		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", options.EnforcePodSecurityStandard)
@@ -175,6 +184,8 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 			return false, nil
 		}
 
+		telemetry.Collector.SetVirtualClient(kubeClient)
+
 		return true, nil
 	})
 	if err != nil {
@@ -216,6 +227,8 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		}
 		translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
 	}
+
+	telemetry.Collector.SetOptions(options)
 
 	virtualClusterConfig, err := clientConfig.ClientConfig()
 	if err != nil {
@@ -318,6 +331,9 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	} else {
 		go registerOrDeregisterAPIService()
 
+		if telemetry.Collector.IsEnabled() {
+			telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
+		}
 		err = startControllers(ctx, &rawConfig, serverVersion)
 	}
 	if err != nil {
@@ -417,7 +433,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	// write the kube config to secret
 	go func() {
 		wait.Until(func() {
-			err = writeKubeConfigToSecret(ctx, rawConfig)
+			err := writeKubeConfigToSecret(ctx, rawConfig)
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
 			}

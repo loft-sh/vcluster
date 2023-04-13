@@ -30,3 +30,7 @@ type Logger interface {
 	SetLevel(level logrus.Level)
 	GetLevel() logrus.Level
 }
+
+type SimpleLogger interface {
+	Infof(format string, args ...interface{})
+}

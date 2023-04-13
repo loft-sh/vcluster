@@ -92,6 +92,9 @@ jobs:
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
+          build-args: |
+            BUILD_VERSION=${{ steps.get_version.outputs.release_version }}
+            TELEMETRY_PRIVATE_KEY=${{ secrets.VCLUSTER_TELEMETRY_PRIVATE_KEY }}
       - name: Images digests
         run: echo ${{ steps.docker_build.outputs.digest }}
       - name: Sign Container DockerHub Image

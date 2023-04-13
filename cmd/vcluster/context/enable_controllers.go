@@ -141,7 +141,7 @@ func parseControllers(options *VirtualClusterOptions) (sets.Set[string], error) 
 
 	// check if nodes controller needs to be enabled
 	if (options.SyncAllNodes || options.EnableScheduler) && !enabledControllers.Has("nodes") {
-		return nil, fmt.Errorf("you cannot use --sync-all-nodes and --enable-scheduler without enabling nodes sync")
+		return nil, fmt.Errorf("node sync needs to be enabled when using --sync-all-nodes OR --enable-scheduler flags")
 	}
 
 	// check if storage classes and host storage classes are enabled at the same time

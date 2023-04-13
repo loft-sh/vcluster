@@ -50,6 +50,9 @@ github.com/coreos/go-systemd/v22/journal
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/denisbrodbeck/machineid v1.0.1
+## explicit
+github.com/denisbrodbeck/machineid
 # github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960
 ## explicit; go 1.13
 github.com/dprotaso/go-yit
@@ -241,7 +244,7 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
-# github.com/loft-sh/utils v0.0.15
+# github.com/loft-sh/utils v0.0.18
 ## explicit; go 1.19
 github.com/loft-sh/utils/pkg/command
 github.com/loft-sh/utils/pkg/downloader

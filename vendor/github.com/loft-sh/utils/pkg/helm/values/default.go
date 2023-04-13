@@ -5,7 +5,7 @@ import (
 	"github.com/loft-sh/utils/pkg/log"
 )
 
-func GetDefaultReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
+func GetDefaultReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleLogger) (string, error) {
 	if chartOptions.ChartName == helm.K3SChart {
 		return getDefaultK3SReleaseValues(chartOptions, log)
 	} else if chartOptions.ChartName == helm.K0SChart {

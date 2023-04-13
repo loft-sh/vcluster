@@ -4,12 +4,15 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/telemetry"
+	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,6 +60,7 @@ type syncerController struct {
 }
 
 func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	reconcileStart := time.Now()
 	log := loghelper.NewFromExisting(r.log.Base(), req.Name)
 	syncContext := &synccontext.SyncContext{
 		Context:                ctx,
@@ -113,7 +117,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// check what function we should call
 	if vObj != nil && pObj == nil {
-		return r.syncer.SyncDown(syncContext, vObj)
+		return captureSyncTelemetry(r.syncer.SyncDown(syncContext, vObj))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 	} else if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
@@ -124,25 +128,18 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			}
 
 			// delete physical object
-			return DeleteObject(syncContext, pObj, "virtual object uid is different")
+			return captureSyncTelemetry(DeleteObject(syncContext, pObj, "virtual object uid is different"))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 		}
 
-		return r.syncer.Sync(syncContext, pObj, vObj)
+		return captureSyncTelemetry(r.syncer.Sync(syncContext, pObj, vObj))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 	} else if vObj == nil && pObj != nil {
 		// check if up syncer
 		upSyncer, ok := r.syncer.(UpSyncer)
 		if ok {
-			return upSyncer.SyncUp(syncContext, pObj)
+			return captureSyncTelemetry(upSyncer.SyncUp(syncContext, pObj))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 		}
 
-		managed, err := r.syncer.IsManaged(pObj)
-		if err != nil {
-			return ctrl.Result{}, err
-		} else if !managed {
-			return ctrl.Result{}, nil
-		}
-
-		return DeleteObject(syncContext, pObj, "virtual object was deleted")
+		return captureSyncTelemetry(DeleteObject(syncContext, pObj, "virtual object was deleted"))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 	}
 
 	return ctrl.Result{}, nil
@@ -271,4 +268,28 @@ func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object, reason strin
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func captureSyncTelemetry(result ctrl.Result, syncError error) func(schema.GroupVersionKind, time.Time) (ctrl.Result, error) {
+	return func(gvk schema.GroupVersionKind, reconcileStart time.Time) (ctrl.Result, error) {
+		if telemetry.Collector.IsEnabled() {
+			e := telemetry.Collector.NewEvent(telemetrytypes.EventResourceSync)
+			e.ProcessingTime = int(time.Since(reconcileStart).Milliseconds())
+			if syncError != nil {
+				e.Success = false
+				e.Errors = syncError.Error()
+			} else {
+				e.Success = true
+			}
+			e.Group = gvk.Group
+			if e.Group == "" {
+				e.Group = "core"
+			}
+			e.Version = gvk.Version
+			e.Kind = gvk.Kind
+
+			telemetry.Collector.RecordEvent(e)
+		}
+		return result, syncError
+	}
 }

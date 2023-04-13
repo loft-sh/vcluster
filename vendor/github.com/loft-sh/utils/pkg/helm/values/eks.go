@@ -39,7 +39,7 @@ var EKSCoreDNSVersionMap = map[string]string{
 	"1.20": "public.ecr.aws/eks-distro/coredns/coredns:v1.8.3-eks-1-20-22",
 }
 
-func getDefaultEKSReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
+func getDefaultEKSReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleLogger) (string, error) {
 	serverVersionString := GetKubernetesVersion(chartOptions.KubernetesVersion)
 	serverMinorInt, err := GetKubernetesMinorVersion(chartOptions.KubernetesVersion)
 	if err != nil {

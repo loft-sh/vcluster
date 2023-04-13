@@ -238,6 +238,8 @@ spec:
             value: |-
               {{- .Values.sync.generic.config | nindent 14 }}
         {{- end }}
+          - name: VCLUSTER_TELEMETRY_CONFIG
+            value: {{ .Values.telemetry | toJson | quote }}
         volumeMounts:
         {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
           - name: helm-cache

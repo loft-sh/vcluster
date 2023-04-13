@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -31,6 +32,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -354,6 +356,15 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 		cmd.localCluster = true
 	}
 
+	cliConf, err := cliconfig.GetConfig()
+	if err != nil {
+		cmd.log.Debugf("Failed to load local configuration file: %v", err.Error())
+	}
+	instanceCreatorUID := ""
+	if !cliConf.TelemetryDisabled {
+		instanceCreatorUID = telemetry.GetInstanceCreatorUID()
+	}
+
 	return &helmUtils.ChartOptions{
 		ChartName:          cmd.ChartName,
 		ChartRepo:          cmd.ChartRepo,
@@ -370,6 +381,9 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 			Major: kubernetesVersion.Major,
 			Minor: kubernetesVersion.Minor,
 		},
+		DisableTelemetry:    cliConf.TelemetryDisabled,
+		InstanceCreatorType: "vclusterctl",
+		InstanceCreatorUID:  instanceCreatorUID,
 	}, nil
 }
 

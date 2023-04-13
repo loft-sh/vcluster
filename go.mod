@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.2.3
 	github.com/go-openapi/loads v0.21.2
@@ -12,7 +13,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/utils v0.0.15
+	github.com/loft-sh/utils v0.0.18
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.0.0-20220808134915-39b0c02b01ae

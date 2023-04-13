@@ -6,8 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	helm "github.com/loft-sh/utils/pkg/helm"
-	kubernetes "github.com/loft-sh/utils/pkg/helm"
+	"github.com/loft-sh/utils/pkg/helm"
 	"github.com/loft-sh/utils/pkg/log"
 )
 
@@ -42,7 +41,7 @@ var baseArgsMap = map[string]string{
 
 var replaceRegEx = regexp.MustCompile("[^0-9]+")
 
-func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
+func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleLogger) (string, error) {
 	var (
 		image               = chartOptions.K3SImage
 		serverVersionString string
@@ -136,11 +135,25 @@ isolation:
   enabled: true`
 	}
 
+	if chartOptions.DisableTelemetry {
+		values += `
+telemetry:
+  disabled: "true"`
+	} else if chartOptions.InstanceCreatorType != "" || chartOptions.InstanceCreatorUID != "" {
+		values += `
+telemetry:
+  disabled: "false"
+  instanceCreator: "##INSTANCE_CREATOR##"
+  instanceCreatorUID: "##INSTANCE_CREATOR_UID##"`
+		values = strings.ReplaceAll(values, "##INSTANCE_CREATOR##", chartOptions.InstanceCreatorType)
+		values = strings.ReplaceAll(values, "##INSTANCE_CREATOR_UID##", chartOptions.InstanceCreatorUID)
+	}
+
 	values = strings.TrimSpace(values)
 	return values, nil
 }
 
-func ParseKubernetesVersionInfo(versionStr string) (*kubernetes.Version, error) {
+func ParseKubernetesVersionInfo(versionStr string) (*helm.Version, error) {
 	if versionStr[0] == 'v' {
 		versionStr = versionStr[1:]
 	}
@@ -153,16 +166,16 @@ func ParseKubernetesVersionInfo(versionStr string) (*kubernetes.Version, error) 
 	major := splittedVersion[0]
 	minor := splittedVersion[1]
 
-	return &kubernetes.Version{
+	return &helm.Version{
 		Major: major,
 		Minor: minor,
 	}, nil
 }
 
-func GetKubernetesVersion(serverVersion kubernetes.Version) string {
+func GetKubernetesVersion(serverVersion helm.Version) string {
 	return replaceRegEx.ReplaceAllString(serverVersion.Major, "") + "." + replaceRegEx.ReplaceAllString(serverVersion.Minor, "")
 }
 
-func GetKubernetesMinorVersion(serverVersion kubernetes.Version) (int, error) {
+func GetKubernetesMinorVersion(serverVersion helm.Version) (int, error) {
 	return strconv.Atoi(replaceRegEx.ReplaceAllString(serverVersion.Minor, ""))
 }

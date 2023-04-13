@@ -15,7 +15,7 @@ var K0SVersionMap = map[string]string{
 	"1.22": "k0sproject/k0s:v1.22.17-k0s.0",
 }
 
-func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
+func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleLogger) (string, error) {
 	serverVersionString := GetKubernetesVersion(chartOptions.KubernetesVersion)
 	serverMinorInt, err := GetKubernetesMinorVersion(chartOptions.KubernetesVersion)
 	if err != nil {
