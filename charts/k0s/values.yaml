@@ -404,5 +404,5 @@ multiNamespaceMode:
 
 telemetry:
   disabled: "false"
-  instanceCreatorType: "helm"
+  instanceCreator: "helm"
   instanceCreatorUID: ""

@@ -7,6 +7,7 @@ import (
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -71,7 +72,7 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 			OnStartedLeading: func(ctx context.Context) {
 				klog.Info("Acquired leadership and run vcluster in leader mode")
 				if telemetry.Collector.IsEnabled() {
-					telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetry.EventLeadershipStarted))
+					telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
 				}
 
 				// start vcluster in leader mode
@@ -83,7 +84,7 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 			OnStoppedLeading: func() {
 				klog.Info("leader election lost")
 				if telemetry.Collector.IsEnabled() {
-					telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetry.EventLeadershipStopped))
+					telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStopped))
 				}
 				//TODO: force telemetry upload
 				os.Exit(1)

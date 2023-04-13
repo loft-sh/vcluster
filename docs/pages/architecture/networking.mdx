@@ -26,10 +26,6 @@ However, this also means that you cannot directly access host services inside th
 
 ### Map Host Cluster Service to vcluster Service
 
-:::info
-Version v0.8.0 or higher required
-:::
-
 For example, to map a service `my-host-service` in the namespace `my-host-namespace` to the virtual cluster service `my-virtual-service` in the virtual cluster namespace `my-virtual-namespace`, you can use the following config in your `values.yaml`:
 
 ```yaml
@@ -42,10 +38,6 @@ mapServices:
 With this configuration, vcluster will manage a service called `my-virtual-service` inside the virtual cluster that points to the host service `my-host-service` in namespace `my-host-namespace`. So pods inside the vcluster will be able to access the host service via e.g. `curl http://my-virtual-service.my-virtual-namespace`.
 
 ### Map vcluster Service to Host Cluster Service
-
-:::info
-Version v0.8.0 or higher required
-:::
 
 It is also possible to map a virtual cluster service to an host cluster service. This is especially useful if you want to expose an application that runs inside the virtual cluster to other workloads running in the host cluster. This makes it also easier to share services across vcluster's.
 For example, to map a virtual service `my-virtual-service` in the namespace `my-virtual-namespace` to the vcluster host namespace service `my-host-service`, you can use the following config in your `values.yaml`:

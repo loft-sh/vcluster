@@ -49,7 +49,7 @@ deployments:
         telemetry:
           disabled: "false"
           instanceCreatorType: "devspace"
-          instanceCreatorUID: ""
+          instanceCreatorUID: "devspace"
         sync:
           generic:
             clusterRole:

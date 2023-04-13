@@ -1,11 +1,15 @@
 package telemetry
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/loft-sh/vcluster/pkg/telemetry/types"
+)
 
 func newEventBuffer(size int) *eventBuffer {
 	return &eventBuffer{
 		bufferSize: size,
-		buffer:     make([]*Event, 0, size),
+		buffer:     make([]*types.Event, 0, size),
 		fullChan:   make(chan struct{}),
 	}
 }
@@ -13,13 +17,13 @@ func newEventBuffer(size int) *eventBuffer {
 type eventBuffer struct {
 	m          sync.Mutex
 	bufferSize int
-	buffer     []*Event
+	buffer     []*types.Event
 
 	fullOnce sync.Once
 	fullChan chan struct{}
 }
 
-func (e *eventBuffer) Get() []*Event {
+func (e *eventBuffer) Get() []*types.Event {
 	e.m.Lock()
 	defer e.m.Unlock()
 
@@ -30,7 +34,7 @@ func (e *eventBuffer) Full() <-chan struct{} {
 	return e.fullChan
 }
 
-func (e *eventBuffer) Append(ev *Event) {
+func (e *eventBuffer) Append(ev *types.Event) {
 	e.m.Lock()
 	defer e.m.Unlock()
 

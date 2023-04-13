@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -272,7 +273,7 @@ func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object, reason strin
 func captureSyncTelemetry(result ctrl.Result, syncError error) func(schema.GroupVersionKind, time.Time) (ctrl.Result, error) {
 	return func(gvk schema.GroupVersionKind, reconcileStart time.Time) (ctrl.Result, error) {
 		if telemetry.Collector.IsEnabled() {
-			e := telemetry.Collector.NewEvent(telemetry.EventResourceSync)
+			e := telemetry.Collector.NewEvent(telemetrytypes.EventResourceSync)
 			e.ProcessingTime = int(time.Since(reconcileStart).Milliseconds())
 			if syncError != nil {
 				e.Success = false
@@ -280,7 +281,6 @@ func captureSyncTelemetry(result ctrl.Result, syncError error) func(schema.Group
 			} else {
 				e.Success = true
 			}
-			//TODO: optimize the GVK assignment? Use pointers in the event and cache GVK in the syncerController instance
 			e.Group = gvk.Group
 			if e.Group == "" {
 				e.Group = "core"

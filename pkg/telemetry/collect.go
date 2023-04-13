@@ -5,8 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/serviceaccount"
-	"gopkg.in/square/go-jose.v2/jwt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,84 +13,57 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/serviceaccount"
+	"github.com/spf13/cobra"
+	"gopkg.in/square/go-jose.v2/jwt"
+	"k8s.io/client-go/kubernetes"
+
+	vcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func init() {
-	if os.Getenv(DisabledEnvVar) != "true" {
-		Collector = NewDefaultCollector()
-	}
-
 	// temporary test code for testing release workflow changes
-	//TODO: remove this code
 	endpointOverride := os.Getenv("SYNCER_TELEMETRY_ENDPOINT")
 	if endpointOverride != "" {
 		syncerTelemetryEndpoint = endpointOverride
 	}
+	//TODO: remove the code above
+
+	c := types.SyncerTelemetryConfig{}
+	if os.Getenv(ConfigEnvVar) != "" {
+		err := json.Unmarshal([]byte(os.Getenv(ConfigEnvVar)), &c)
+		if err != nil {
+			loghelper.New("telemetry").Infof("failed to parse telemetry config from the %s environment variable: %v", ConfigEnvVar, err)
+		}
+	}
+	if c.Disabled == "true" {
+		Collector = &DefaultCollector{
+			enabled: false,
+		}
+		return
+	}
+	var err error
+	Collector, err = NewDefaultCollector(c)
+	if err != nil {
+		// Log the problem but don't fail - use disabled Collector instead
+		loghelper.New("telemetry").Infof("%s", err.Error())
+		Collector = &DefaultCollector{
+			enabled: false,
+		}
+	}
 }
 
 var (
-	Collector EventCollector = &DefaultCollector{
-		enabled: false,
-	}
+	Collector EventCollector
 
 	syncerTelemetryEndpoint = "https://admin.loft.sh/analytics/v1/vcluster/v1/syncer"
 
 	// a dummy key so this doesnt fail for dev/testing, this is set by build flag in release action
-	telemetryPrivateKey string = `-----BEGIN RSA PRIVATE KEY-----
- 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
- -----END RSA PRIVATE KEY-----`
+	telemetryPrivateKey string = `LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlKS1FJQkFBS0NBZ0VBdlE3cHhqYzEybzlJdXQyQkQ2TUtaWnhDY29hbXpJNVV0Wll6Wk5GZFVQYkJsSlI0ClBXOEM1STM3ZHk1cW1yMlU5UlJSbjNlOUpjSDRPS0QzenVHSkhDd0Z2TnpOYzJsYVQ0dlE5NjlVeVpmakdhT3AKVmxtSEhDaDJXajZvbHNUNmhldGJySTNpYzNvVm1XRHBhSHM4OGU3K2dzTnkyTUowNjNES0ZYM0VLV3pNQVVWZQprZUI1M29DWStCT0R0RExRcHd3eC9wQWp1bUFNS0dkNEc2a3FhcE1VZElpN1NKMzlyL2JxL2VUeWZwSUUzOW9ZCmoxanlhdkFpRFMxR1g0Mm5mU0lkck5NSDhERytSSzNVSHMycTFDOXI0Y1dzenVURktlOHprZ2ltdC9oY2sxS2sKZjZBTllyRE0vQmlrcWZoYXVDcHlMdDFhOTdHbUNNb0x1Z3NBWlB6TjhlTXk4eFlwZy9PZ3hjQ3d2a1E2SzVnTQo0Q3k5ZG5aOFVJTlBTVE02Z2xJUFR1cHpPUzYwVDlBb2VZREcwa245bEVYKzhHT1RyZ1NmaTBONEpxbzZ0YlU0Cjk0TXlvcTB2VmtaVjNGYWNKMDcwbFJQaUFxcm1BeDdMS1J0UUNoeiszY0hLcDhBUmNWS1RuT3VpSHdDNEk0SUYKUGhmbzZ4QWFQWUJ0RDRNQUtydFErS3pycVlwNHZaTVZZWUpWR1hzT2xFN1FGSUJjUk5FUTlPdmlTSHZpTEhsTApHbjhER1NxWVVBWEVPVVZBNWtkTUVwOGhYMXJkb2pyNk9FbEt5dnF1Wk9JMk9yekhDWmFCNS9nQVZwelRGcGhYCjlrN2oyU1FyNUcxbXI2TTE3VXJacnhBcUphSGo1ZnBuL2dCOW9ubkN1bmcvSTNDOEVzb0xVQnovd0xrQ0F3RUEKQVFLQ0FnRUFsMGVNcHBCZEpuTks5a1B5VnVuV2t2SVRkWUxyaTNsRXJUendDUGRDM1Z0bUVSY3drNi8xdDU4cApIZmZsVThicG42WlBuZlA1UlhKTnhqcC9zR3BtQlVYd25XeHRkYkZTazU1RWF6MC84a1A0Yy9heXRLYlU1eUkxCmVnYnpiaGxXZ2J5UDBhYURFbllaUEc4QXRoc083R1NhQVZhVjJuN1hnZUh4d25xdGNaeGVMWkl0bHpyeEthcnIKUEc2WkQ2TXR0TTJjWDU5RkI0aDlrZ01oWjdqWWVRa1I4Q0hOQXRGeFF0R292ZHJxYzM4eUtWRmlINnBENkhBWQpQMFVBTDh1d3Z2K0NrVjBYMkFwbHZwejl4Rnc4R3FlTGd0QmpjL1k1RWxJV2lQOGxNTWFxaFRRMjd1ekthVE1pCkE0TlFsN1ZrR2tQVXRFMXAwaE96MFFxamtZM21GSWpsTEhJYTBWN3QybmxrSXJNKzVLbVNqbFF4WjhMRHZGcnoKTkxFaUk5dnp1RWNHdVpPYXZHdjhzSmhXK2paQ3JQWVVyc3dPMTBsYnVsMkdnL2JBVFd2U3lVUGlyb1RsbEc5NApsVzFrMzl1MUk5d0tLaExSaE5TMlZQTW4xSE1CY0FFQXlTTWFudDdwbjQ4R1R1Q0VseUlEZTM4OW9KWHVOcXpNCjdrS2VaaG0wYzBJNmpvSThVcmNyMVZvTTErbmdtdzlxWldtOWJXekZpNW1IaTlCRXkyRGpjeHlOK1l3bFRVQW4Kd0EyblpoMVY0U1hUZUVWUzFOQ3J5dGNXSlZBdjJObWpTV3ZUQk4yaFdCZzEyVGpXZi9MSEF4eklyVzBaa0tKcgptVXdDQ0V3anhkM2JIMzluWnZkeG5xTXVISnZnUUpmM1NGQVRmZlZDWjI2OWdCZUtoZ0VDZ2dFQkFOc2IyTnZ5CmhxU2MwbW43VWtncHYvUjh0TVNsVVRId3g3cDNCZ21xR2tnU0JCR0t3cEI4Q1NzNWl4UHFGYzZaMFlBY0toL0wKZEFGTFNMN3NHRFFweGpleTFmWEtpeXdQUm5MZEZ2aTBac29UcXhsRUJweVBlQjlWSXZLckFuN3cyWVY0VnJIdQpsbGcwV0FmL2s3cTdsMXRGUmxnaFFSN084UVVtS1daUGNGRjhqR1lYZHZhWUdjZzRpSkM4djBBZ1VhQmxPMCt6CnEzaHBvQ0Q5NlRIUUNTdDQvT0E1Rmo2SzUweWk1N2FHd25vMTNBbVQ5eG9Qc0dqeldLMG1oUGp3M0NZQlYwbisKTit4OVBBcXBJdmhPbU1KZmpOWEQzYndoSFNjNUd4VjlpbUpBSk03MjhZazR5Nm9rVTdJNkJXZDNLV3pDaVRENwp5UHE4U1N3amxoaVk3WGtDZ2dFQkFOemp6NlFHZ1V5Zm5PZ1IwR2JEejAyMVQrOUkrdHZwSnVPQmZNWTVsTlo0CndHOGtoSkdFZk5CQUxqOXIzQXcxaDhEbEpSUmp2OVFFR2krYmFpRkJPWVB4VTlyczJnMmhIWkk5ZkdyRW1LUDMKRjJsNE1TNm1vVGx0RUxwZnM5R3FhQmxyRFlYODFYeEVSQTU0aUhQSmRoQjl0K0QxTFdxRXVLMVVaZ25NUlNQLwp2RHdZUEFXOHlvMGhiM0JDMTVvZ3BPRzMyMWl0QmpYVjhtN1pmN25rZjNyOEhWaG5BcytubW93bXg1dU8yanZ6CmtrajdxaC9WRmlHajcxc1ovV0NHQk9pQk0ySVVMNVhQUmpCM2lNQXMzNGtaTHdlOC9SL3NsaE81bzFucVhVeW4KLzV3UTFoYlNKOXpzNzdwYys0K2ROUHdJVzdHSnhEbENkQWZTd0RuNjNVRUNnZ0VBRnFhWFVZMk4yOENXZy94RwpNazJXbVhpMjIwbFh6bmpjdk9zSEJjSysrc3BaLzFJLzhOM1J1TlUzQ25UOWtpRVdwazdERUF4aFRxend0VVFFCjhJZU5CVDhJbldNMTVmVWlURWVNMDJNYTZUTUZVaFJWTnFRaVArTDJQTzN1MFI2bTdnUlZ1Z2szSTZFdHBJNEkKUUpxWitBWitVaWdGNm1Cc1RDTDR6cW5ScTZyYmZNWmFOdjNjVkhWN3NMTENkcWVncUpzdWVYdlNjeDFBUDRqZwpMWlViRFpKeFdlQ3M2d1JEQ3dvZ09COVFSWUFCNGorWW9Pb1VTNVUwaXBuYnp6eGZGZEszcWwrTWVuY3IyTkpKCldqQU4zTEl5QmZzOGxmRTZhVTZlL1NiQVFvM3RBRFJKSGUxd0tJT2UzMkxlSWljUWNqemVIK0Uza3F3YVNHVFoKWkd1U3lRS0NBUUVBbjREeGcyUWZJaEZ2NERSYzVKZ29yZGhyYkVLcXd2bk5WeU05MG5YcUFDVVo4Q2ZTZ3JIRQozeXc1T1JyTnZ4TTRnQlgzZkkyN0M0SWExcDNIT1ZROEVBYkhvcUs5b25IaFJLU1pudzl2bVpibmxRVnhubG84CnVaY0VLVkRLTEhCODB6MzJlZlprd21NWk1jbmYzcHh2WU9FblVvNDR5VjRsYlNRd3VvcUNzc2dNU09qSER1MlEKNWZCcTVBbWdYbStNSUdIL1JqMUs2cjBmWHVRMzB5Z28xY29QOXJJTDJaOFJmbnJTVUlZTEdKZDkzcTI3MzFpagpybzhPWEI2Y1ZJTHlNR0o3bENzM1lWcFhPTkJZTTAwejdXLytBZng2Vy84Zk1BY3c2ZERPcG5mNW45eVllOG90CmR0NnhEVVh2Y1hqM3RiYmpYNFEzNlpFTzhFZEMvNXNqQVFLQ0FRQkJSNHk5OTJyN05LOVZTZUh1TG1VSUZjd2kKS1dnMG0rVGk2TGxyeDFPS2k3b3cydDhubXlDQklNaDhGWTVJL0RsV1JpTTh0WWUrS2VBYTJCUFdpWmRVbUVQUgpKTHpBWVFjNXhYNVNSait3MDNHZjljdzBteFRNazNzbGxSUERYNEZ2bVpSRDkyRHBwWlFBbHdTU3haZHEyWERrCmMrZG9pVE9zTm04endNaFNXVTFiK2d6MjlabnVFamtMeU1HaXVlUll6bXNVdmdjL09KRzdSU2V5NzhmUWtZYm0KWnRIb3o3dFdJTFJxSVRYclFlZ2h6N2Jrc1lPMzM5QjE5bEI0blFPc2Y3MnBMVnMyTWdkRWlwUUp4VDlaVWRmaQpGZkQ1YzNlSkNINlNWQkRSdjFpV3Y5TzRSdWkvNThMcVRvYVE0bzdmRWxha2RoN3BrK3ZiWnRmNG41dlUKLS0tLS1FTkQgUlNBIFBSSVZBVEUgS0VZLS0tLS0K`
 )
 
 const (
@@ -100,51 +71,63 @@ const (
 	maxUploadInterval    = 5 * time.Minute
 	// minimum time between uploading events
 	minUploadInterval = time.Minute
+	// initialSyncIgnoreInterval after start we ignore EventResourceSync events
+	initialSyncIgnoreInterval = time.Minute
 )
 
 type EventCollector interface {
 	IsEnabled() bool
 	// RecordEvent adds the produced event to a buffer to eventually be sent to the telemetry backend
-	RecordEvent(e *Event)
+	RecordEvent(e *types.Event)
 	// NewEvent allocates a new Event struct to be populated by the caller.
-	NewEvent(t EventType) *Event
+	NewEvent(t types.EventType) *types.Event
+	SetOptions(options *vcontext.VirtualClusterOptions)
+	SetVirtualClient(virtualClient *kubernetes.Clientset)
+	// start command object is used to determine which flags were set by the user
+	SetStartCommand(startCommand *cobra.Command)
 }
 
-func NewDefaultCollector() *DefaultCollector {
-	hostClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
+func NewDefaultCollector(config types.SyncerTelemetryConfig) (*DefaultCollector, error) {
+	hostConfig, err := ctrl.GetConfig()
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to get host rest config: %v", err)
+	}
+	hostClient, err := kubernetes.NewForConfig(hostConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ClientSet from rest config: %v", err)
 	}
 
 	vclusterNamespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to create ClientSet from rest config: %v", err)
 	}
 
 	decodedCertificate, err := base64.RawStdEncoding.DecodeString(telemetryPrivateKey)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to decode telemetry key string: %v", err)
 	}
 
 	privateKey, err := parsePrivateKey(decodedCertificate)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to parse telemetry key: %v", err)
 	}
 
 	tokenGenerator, err := serviceaccount.JWTTokenGenerator("vcluster-telemetry", privateKey)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to create JWTTokenGenerator: %v", err)
 	}
 
 	c := &DefaultCollector{
+		config:            config,
 		log:               loghelper.New("telemetry"),
 		enabled:           true,
 		hostClient:        hostClient,
 		vclusterNamespace: vclusterNamespace,
+		startTime:         time.Now(),
 
 		// events doesn't need to match eventsCountThreshold, we just
 		// need to make sure its fast enough emptied.
-		events: make(chan *Event, 100),
+		events: make(chan *types.Event, 100),
 		buffer: newEventBuffer(eventsCountThreshold),
 
 		tokenGenerator: tokenGenerator,
@@ -152,20 +135,25 @@ func NewDefaultCollector() *DefaultCollector {
 
 	go c.start()
 
-	return c
+	return c, nil
 }
 
 type DefaultCollector struct {
+	config  types.SyncerTelemetryConfig
 	log     loghelper.Logger
 	enabled bool
 
-	events      chan *Event
+	events      chan *types.Event
 	buffer      *eventBuffer
 	bufferMutex sync.Mutex
 
-	hostClient        client.Client
+	hostClient        *kubernetes.Clientset
+	virtualClient     *kubernetes.Clientset
 	vclusterNamespace string
+	options           *vcontext.VirtualClusterOptions
+	startCommand      *cobra.Command
 
+	startTime time.Time
 	// lastUploadTime contains the Time of the previous upload
 	lastUploadTime time.Time
 
@@ -178,13 +166,29 @@ func (d *DefaultCollector) IsEnabled() bool {
 	return d.enabled
 }
 
-func (d *DefaultCollector) NewEvent(t EventType) *Event {
-	return &Event{Type: t}
+func (d *DefaultCollector) NewEvent(t types.EventType) *types.Event {
+	return &types.Event{Type: t}
 }
 
-func (d *DefaultCollector) RecordEvent(e *Event) {
-	//TODO: ignore initial reconciling
+func (d *DefaultCollector) RecordEvent(e *types.Event) {
+	// ignore initial reconciling events
+	if e.Type == types.EventResourceSync && time.Now().Before(d.startTime.Add(initialSyncIgnoreInterval)) {
+		return
+	}
+	e.Time = int(time.Now().UnixMicro())
 	d.events <- e
+}
+
+func (d *DefaultCollector) SetOptions(options *vcontext.VirtualClusterOptions) {
+	d.options = options
+}
+
+func (d *DefaultCollector) SetVirtualClient(virtualClient *kubernetes.Clientset) {
+	d.virtualClient = virtualClient
+}
+
+func (d *DefaultCollector) SetStartCommand(startCommand *cobra.Command) {
+	d.startCommand = startCommand
 }
 
 func (d *DefaultCollector) start() {
@@ -238,7 +242,7 @@ func (d *DefaultCollector) start() {
 	}
 }
 
-func (d *DefaultCollector) exchangeBuffer() []*Event {
+func (d *DefaultCollector) exchangeBuffer() []*types.Event {
 	d.bufferMutex.Lock()
 	defer d.bufferMutex.Unlock()
 
@@ -248,7 +252,7 @@ func (d *DefaultCollector) exchangeBuffer() []*Event {
 }
 
 // executeUpload assumes that the caller holds the Lock for the uploadMutex
-func (d *DefaultCollector) executeUpload(buffer []*Event) {
+func (d *DefaultCollector) executeUpload(buffer []*types.Event) {
 	if d.token == "" || d.tokenLastGeneratedAt.Before(time.Now().Add(-time.Hour)) {
 		token, err := d.tokenGenerator.GenerateToken(&jwt.Claims{}, &jwt.Claims{})
 		if err != nil {
@@ -260,7 +264,7 @@ func (d *DefaultCollector) executeUpload(buffer []*Event) {
 		d.token = token
 	}
 
-	r := SyncerTelemetryRequest{
+	r := types.SyncerTelemetryRequest{
 		Events: buffer,
 		Token:  d.token,
 	}
@@ -280,6 +284,7 @@ func (d *DefaultCollector) executeUpload(buffer []*Event) {
 		d.log.Debugf("failed to json.Marshal telemetry request: %v", err)
 		return
 	}
+	fmt.Printf("\n\nSending to:%s\n%s\n\n", syncerTelemetryEndpoint, marshaled) //dev //TODO: remove this
 
 	// send the telemetry data and ignore the response
 	resp, err := http.Post(
@@ -294,33 +299,36 @@ func (d *DefaultCollector) executeUpload(buffer []*Event) {
 	}
 }
 
-func (d *DefaultCollector) getSyncerInstanceProperties() SyncerInstanceProperties {
-	p := SyncerInstanceProperties{
-		UID:                 getSyncerUID(d.hostClient, d.vclusterNamespace)(),
-		InstanceCreatorType: os.Getenv(InstanaceCreatorTypeEnvVar),
-		InstanceCreatorUID:  os.Getenv(InstanaceCreatorUIDEnvVar),
-		Arch:                runtime.GOARCH,
-		OS:                  runtime.GOOS,
-		SyncerVersion:       SyncerVersion,
+func (d *DefaultCollector) getSyncerInstanceProperties() types.SyncerInstanceProperties {
+	p := types.SyncerInstanceProperties{
+		UID:                      getSyncerUID(d.hostClient, d.vclusterNamespace, d.options),
+		InstanceCreator:          d.config.InstanceCreator,
+		InstanceCreatorUID:       d.config.InstanceCreatorUID,
+		Arch:                     runtime.GOARCH,
+		OS:                       runtime.GOOS,
+		SyncerVersion:            SyncerVersion,
+		SyncerFlags:              getSyncerFlags(d.startCommand, d.options),
+		VirtualKubernetesVersion: getVirtualKubernetesVersion(d.virtualClient),
+		HostKubernetesVersion:    getHostKubernetesVersion(d.hostClient),
+		VclusterServiceType:      getVclusterServiceType(d.hostClient, d.vclusterNamespace, d.options),
 	}
 	// UID                      string
 	// CreationType             string
 	// Arch                     string
 	// OS                       string
 	// SyncerVersion            string
-	// VirtualKubernetesVersion string // TODO: helper function to get virtualKubernetesVersion - not cached
-	// HostKubernetesVersion    string // TODO: helper function to get hostKubernetesVersion - cached
+	// SyncerFlags              string
+	// VclusterServiceType      string
+	// VirtualKubernetesVersion string
+	// HostKubernetesVersion    string
 	// SyncerPodsReady          int    // TODO: helper function to get syncerPodsReady- not cached
 	// SyncerPodsFailing        int    // TODO: helper function to get syncerPodsFailing- not cached
 	// SyncerPodCreated         int    // TODO: helper function to get syncerPodCreated- not cached
 	// SyncerPodRestarts        int    // TODO: helper function to get syncerPodRestarts- not cached
-	// SyncerFlags              string // TODO: function to get syncerFlags - json formatted? - cached
-	// SyncerMemoryRequests     int    // TODO: use (q *Quantity) AsInt64() ? - cached
-	// SyncerMemoryLimits       int    // TODO: use (q *Quantity) AsInt64() ? - cached
-	// SyncerCpuRequests        int    // TODO: use (q *Quantity) AsInt64() ? - cached
-	// SyncerCpuLimits          int    // TODO: use (q *Quantity) AsInt64() ? - cached
-	// CachedObjectsCount       string // TODO: function to getCachedObjects - leader only, json formatted - not cached
-	// VclusterServiceType      string // TODO: function to getVclusterServiceType (LoadBalancer, NodePort, etc.)  - cached
+	// SyncerMemoryRequests     int    // TODO: use (q *Quantity) AsInt64() ? - not cached
+	// SyncerMemoryLimits       int    // TODO: use (q *Quantity) AsInt64() ? - not cached
+	// SyncerCpuRequests        int    // TODO: use (q *Quantity) AsInt64() ? - not cached
+	// SyncerCpuLimits          int    // TODO: use (q *Quantity) AsInt64() ? - not cached
 
 	return p
 }

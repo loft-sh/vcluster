@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -72,6 +73,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(NewDisconnectCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
+	rootCmd.AddCommand(telemetry.NewTelemetryCmd())
 	rootCmd.AddCommand(versionCmd)
 
 	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc())
