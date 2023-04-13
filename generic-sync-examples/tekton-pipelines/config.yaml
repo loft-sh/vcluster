@@ -1,3 +1,6 @@
+multiNamespaceMode:
+  enabled: true
+
 sync:
   generic:
     role:
