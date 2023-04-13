@@ -22,6 +22,9 @@ coredns:
 # Traffic to service.namespace.svc(.cluster.local) URLs will not be routed by Istio.
 #
 ---
+multiNamespaceMode:
+  enabled: true
+
 sync:
   generic:
     role:
