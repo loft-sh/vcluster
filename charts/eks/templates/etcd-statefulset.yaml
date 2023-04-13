@@ -33,7 +33,9 @@ spec:
         name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
+        {{- if .Values.etcd.storage.className }}
         storageClassName: {{ .Values.etcd.storage.className }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .Values.etcd.storage.size }}
