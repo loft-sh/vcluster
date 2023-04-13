@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,7 +55,7 @@ func SATokenSecret(ctx context.Context, vClient client.Client, vPod *corev1.Pod,
 				Namespace: vPod.Namespace,
 
 				Annotations: map[string]string{
-					SkipSATokenSecretBacksyncAnnotation: "true",
+					translate.SkipBacksyncInMultiNamespaceMode: "true",
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{

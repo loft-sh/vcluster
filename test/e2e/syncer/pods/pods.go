@@ -493,4 +493,55 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		})
 		framework.ExpectNoError(err)
 	})
+
+	ginkgo.It("Test if service account tokens are synced and mounted through secrets", func() {
+		podName := "test-nginx"
+
+		pod, err := f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: ns,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  podName,
+						Image: "nginx",
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+
+		framework.ExpectNoError(err)
+		err = f.WaitForPodRunning(podName, ns)
+
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		// get current physical Pod resource
+		pPod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(pod.Name, pod.Namespace), metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// make sure service account token annotation is not present
+		_, ok := pPod.GetAnnotations()[podtranslate.PodServiceAccountTokenSecretName]
+		framework.ExpectEqual(ok, false, "service account token annotation should not be present")
+
+		// make sure the secret is created in vcluster
+		secret, err := f.VclusterClient.CoreV1().Secrets(ns).Get(f.Context, fmt.Sprintf("%s-sa-token", podName), metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// check the secret is synced properly in the host cluster
+		_, err = f.HostClient.CoreV1().Secrets(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(secret.Name, ns), metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// make sure the project volume for path 'token' is now using a secret instead of service account
+		for _, volume := range pPod.Spec.Volumes {
+			if volume.Projected != nil {
+				for _, source := range volume.Projected.Sources {
+					if source.Secret != nil {
+						framework.ExpectEqual(source.Secret.Name, translate.Default.PhysicalName(fmt.Sprintf("%s-sa-token", podName), pod.Namespace))
+					}
+				}
+			}
+		}
+	})
 })

@@ -36,6 +36,10 @@ var (
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
 )
 
+const (
+	SkipBacksyncInMultiNamespaceMode = "vcluster.loft.sh/skip-backsync"
+)
+
 var Owner client.Object
 
 func GetOwnerReference(object client.Object) []metav1.OwnerReference {

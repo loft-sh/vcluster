@@ -15,7 +15,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -476,19 +475,6 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 				return errors.Wrap(err, "create token")
 			} else if token.Status.Token == "" {
 				return errors.New("received empty token")
-			}
-
-			// set the token as annotation
-			if pPod.Annotations == nil {
-				pPod.Annotations = map[string]string{}
-			}
-			var annotation string
-			for {
-				annotation = ServiceAccountTokenAnnotation + random.RandomString(8)
-				if pPod.Annotations[annotation] == "" {
-					pPod.Annotations[annotation] = token.Status.Token
-					break
-				}
 			}
 
 			// rewrite projected volume
