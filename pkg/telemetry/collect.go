@@ -284,7 +284,6 @@ func (d *DefaultCollector) executeUpload(buffer []*types.Event) {
 		d.log.Debugf("failed to json.Marshal telemetry request: %v", err)
 		return
 	}
-	fmt.Printf("\n\nSending to:%s\n%s\n\n", syncerTelemetryEndpoint, marshaled) //dev //TODO: remove this
 
 	// send the telemetry data and ignore the response
 	resp, err := http.Post(
@@ -312,15 +311,6 @@ func (d *DefaultCollector) getSyncerInstanceProperties() types.SyncerInstancePro
 		HostKubernetesVersion:    getHostKubernetesVersion(d.hostClient),
 		VclusterServiceType:      getVclusterServiceType(d.hostClient, d.vclusterNamespace, d.options),
 	}
-	// UID                      string
-	// CreationType             string
-	// Arch                     string
-	// OS                       string
-	// SyncerVersion            string
-	// SyncerFlags              string
-	// VclusterServiceType      string
-	// VirtualKubernetesVersion string
-	// HostKubernetesVersion    string
 	// SyncerPodsReady          int    // TODO: helper function to get syncerPodsReady- not cached
 	// SyncerPodsFailing        int    // TODO: helper function to get syncerPodsFailing- not cached
 	// SyncerPodCreated         int    // TODO: helper function to get syncerPodCreated- not cached
