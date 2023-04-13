@@ -57,7 +57,7 @@ func WithMetricsServerProxy(ctx *vclustercontext.ControllerContext, h http.Handl
 				requestInfo:    info,
 				responseWriter: w,
 				resourceType:   NodeResource,
-				verb:           RequestVerbGet,
+				verb:           info.Verb,
 
 				client: cacheHostClient,
 			}
@@ -90,7 +90,6 @@ func WithMetricsServerProxy(ctx *vclustercontext.ControllerContext, h http.Handl
 				}
 
 				metricsServerProxy.resourceType = PodResource
-				metricsServerProxy.verb = RequestVerbList
 				vPodList, err := getVirtualPodObjectsInNamespace(req.Context(), cachedVirtualClient, info.Namespace)
 				if err != nil {
 					klog.Infof("error getting vpods in namespace %v", err)
