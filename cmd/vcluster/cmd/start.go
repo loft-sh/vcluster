@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 
@@ -300,11 +301,23 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		}
 	}()
 
+	registerOrDeregisterAPIService := func() {
+		// check apiservice for metrics server
+		err := metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, virtualClusterConfig)
+		if err != nil {
+			klog.Errorf("Error registering metrics apiservice: %v", err)
+		}
+	}
+
 	if ctx.Options.LeaderElect {
 		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
+			go registerOrDeregisterAPIService()
+
 			return startControllers(ctx, &rawConfig, serverVersion)
 		})
 	} else {
+		go registerOrDeregisterAPIService()
+
 		err = startControllers(ctx, &rawConfig, serverVersion)
 	}
 	if err != nil {
