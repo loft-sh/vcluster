@@ -204,7 +204,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
 
 	if ctx.Options.ProxyMetricsServer {
-		h = filters.WithMetricsServerProxy(h, cachedLocalClient, cachedVirtualClient, localConfig)
+		h = filters.WithMetricsServerProxy(ctx, h, cachedLocalClient, cachedVirtualClient, localConfig)
 	}
 
 	if ctx.Options.DeprecatedSyncNodeChanges {

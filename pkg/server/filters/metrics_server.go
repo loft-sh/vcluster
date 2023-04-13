@@ -3,6 +3,7 @@ package filters
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -23,6 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	vclustercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 )
 
 const (
@@ -35,7 +38,9 @@ const (
 	HeaderContentType = "Content-Type"
 )
 
-func WithMetricsServerProxy(h http.Handler, cacheHostClient, cachedVirtualClient client.Client, hostConfig *rest.Config) http.Handler {
+var ErrorNodeNotInVcluster = errors.New("node not present in vcluster")
+
+func WithMetricsServerProxy(ctx *vclustercontext.ControllerContext, h http.Handler, cacheHostClient, cachedVirtualClient client.Client, hostConfig *rest.Config) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
@@ -79,6 +84,9 @@ func WithMetricsServerProxy(h http.Handler, cacheHostClient, cachedVirtualClient
 				if info.Namespace != "" {
 					namespace := translate.Default.PhysicalNamespace(info.Namespace)
 					splitted[5] = namespace
+				} else if !ctx.Options.MultiNamespaceMode {
+					// limit to current namespace in host cluster
+					splitted = append(splitted[:4], append([]string{"namespaces", ctx.CurrentNamespace}, splitted[4:]...)...)
 				}
 
 				metricsServerProxy.resourceType = PodResource
@@ -96,8 +104,7 @@ func WithMetricsServerProxy(h http.Handler, cacheHostClient, cachedVirtualClient
 
 			acceptHeader := req.Header.Get("Accept")
 			if info.Resource == NodeResource {
-				if info.Verb == RequestVerbList &&
-					strings.Contains(acceptHeader, "as=Table;") {
+				if strings.Contains(acceptHeader, "as=Table;") {
 					// respond a 403 for now as we don't want to expose all host nodes with the table response
 					// TODO: rewrite node table response to only show nodes synced in the vcluster
 					requestpkg.FailWithStatus(w, req, http.StatusForbidden, fmt.Errorf("cannot list nodes in table response format"))
@@ -208,7 +215,7 @@ type MetricsServerProxy struct {
 	responseWriter http.ResponseWriter
 	resourceType   string
 
-	podsInNamespace      []types.NamespacedName
+	podsInNamespace      []corev1.Pod
 	verb                 string
 	tableFormatRequested bool
 	nodesInVcluster      []corev1.Node
@@ -264,6 +271,11 @@ func (p *MetricsServerProxy) HandleRequest() {
 		// filter nodes synced with vcluster
 		newData, err = p.filterVirtualNodes(data)
 		if err != nil {
+			if errors.Is(err, ErrorNodeNotInVcluster) {
+				requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusNotFound, err)
+				return
+			}
+
 			requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
 			return
 		}
@@ -278,30 +290,56 @@ func (p *MetricsServerProxy) HandleRequest() {
 }
 
 func (p *MetricsServerProxy) filterVirtualNodes(data []byte) ([]byte, error) {
-	nodeMetricsList := &metricsv1beta1.NodeMetricsList{}
-	err := json.Unmarshal(data, nodeMetricsList)
-	if err != nil {
-		return nil, err
-	}
+	var newData []byte
 
-	filteredMetricsList := []metricsv1beta1.NodeMetrics{}
-
-	virtualNodeMap := make(map[string]bool)
+	virtualNodeMap := make(map[string]corev1.Node)
 	for _, node := range p.nodesInVcluster {
-		virtualNodeMap[node.Name] = true
+		virtualNodeMap[node.Name] = node
 	}
 
-	for _, nodeMetrics := range nodeMetricsList.Items {
-		if _, ok := virtualNodeMap[nodeMetrics.Name]; ok {
-			filteredMetricsList = append(filteredMetricsList, nodeMetrics)
+	if p.verb == RequestVerbList {
+		nodeMetricsList := &metricsv1beta1.NodeMetricsList{}
+		err := json.Unmarshal(data, nodeMetricsList)
+		if err != nil {
+			return nil, err
 		}
-	}
 
-	nodeMetricsList.Items = filteredMetricsList
-	newData, err := json.Marshal(nodeMetricsList)
-	if err != nil {
-		klog.Errorf("error marshalling node metrics back to response %v", err)
-		return nil, err
+		filteredNodeMetricsList := []metricsv1beta1.NodeMetrics{}
+
+		for _, nodeMetrics := range nodeMetricsList.Items {
+			if vNode, ok := virtualNodeMap[nodeMetrics.Name]; ok {
+				// reset node metrics labels
+				nodeMetrics.Labels = vNode.Labels
+				filteredNodeMetricsList = append(filteredNodeMetricsList, nodeMetrics)
+			}
+		}
+
+		nodeMetricsList.Items = filteredNodeMetricsList
+		newData, err = json.Marshal(nodeMetricsList)
+		if err != nil {
+			klog.Errorf("error marshalling node metrics back to response %v", err)
+			return nil, err
+		}
+	} else if p.verb == RequestVerbGet {
+		nodeMetric := &metricsv1beta1.NodeMetrics{}
+		err := json.Unmarshal(data, nodeMetric)
+		if err != nil {
+			return nil, err
+		}
+
+		if vNode, ok := virtualNodeMap[nodeMetric.Name]; ok {
+			nodeMetric.Labels = vNode.Labels
+
+			newData, err = json.Marshal(nodeMetric)
+			if err != nil {
+				klog.Errorf("error marshalling node metrics back to response %v", err)
+				return nil, err
+			}
+
+			return newData, nil
+		}
+
+		return newData, ErrorNodeNotInVcluster
 	}
 
 	return newData, nil
@@ -425,6 +463,9 @@ func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) ([]byte, err
 			podMetric.Name = vPod.Name
 			podMetric.Namespace = vPod.Namespace
 
+			// reset pod metadata labels
+			podMetric.Labels = vPod.Labels
+
 			// add to the filtered list
 			filteredBackTranslatedList.Items = append(filteredBackTranslatedList.Items, podMetric)
 		}
@@ -441,7 +482,7 @@ func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) ([]byte, err
 }
 
 // returns the types.NamespacedName list of pods for the given namespace
-func getVirtualPodObjectsInNamespace(ctx context.Context, vClient client.Client, namespace string) ([]types.NamespacedName, error) {
+func getVirtualPodObjectsInNamespace(ctx context.Context, vClient client.Client, namespace string) ([]corev1.Pod, error) {
 	podList := &corev1.PodList{}
 
 	err := vClient.List(ctx, podList, &client.ListOptions{
@@ -451,15 +492,7 @@ func getVirtualPodObjectsInNamespace(ctx context.Context, vClient client.Client,
 		return nil, err
 	}
 
-	ret := []types.NamespacedName{}
-	for _, pod := range podList.Items {
-		ret = append(ret, types.NamespacedName{
-			Name:      pod.Name,
-			Namespace: pod.Namespace,
-		})
-	}
-
-	return ret, nil
+	return podList.Items, nil
 }
 
 func getVirtualNodes(ctx context.Context, vClient client.Client) ([]corev1.Node, error) {
