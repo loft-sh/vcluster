@@ -11,6 +11,16 @@
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {}
   },
 
+  "postCreateCommand": "kind create cluster || true",
+
+  "mounts": [
+    {
+      "type": "volume",
+      "source": "vcluster",
+      "target": "/home/vscode"
+    }
+  ],
+
   "customizations": {
     "devpod": {
       "prebuildRepository": "fdog239/prebuilds"
