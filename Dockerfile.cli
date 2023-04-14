@@ -15,6 +15,7 @@ COPY vendor/ vendor/
 # Copy the go source
 COPY cmd/vclusterctl cmd/vclusterctl
 COPY pkg/ pkg/
+COPY cmd/ cmd/
 
 # Copy and embed the helm charts
 COPY charts/ charts/
