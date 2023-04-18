@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ template "vcluster.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
 {{- if .Values.labels }}
 {{ toYaml .Values.labels | indent 4 }}
@@ -16,12 +16,12 @@ metadata:
 {{ toYaml .Values.annotations | indent 4 }}
   {{- end }}
 spec:
-  serviceName: {{ .Release.Name }}-headless
+  serviceName: {{ template "vcluster.name" . }}-headless
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: vcluster
-      release: {{ .Release.Name }}
+      release: {{ template "vcluster.name" . }}
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
@@ -46,7 +46,7 @@ spec:
   {{- end }}
       labels:
         app: vcluster
-        release: {{ .Release.Name }}
+        release: {{ template "vcluster.name" . }}
       {{- range $k, $v := .Values.podLabels }}
         {{ $k }}: {{ $v | quote }}
       {{- end }}
@@ -61,7 +61,7 @@ spec:
       {{- if .Values.serviceAccount.name }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- else }}
-      serviceAccountName: vc-{{ .Release.Name }}
+      serviceAccountName: vc-{{ template "vcluster.name" . }}
       {{- end }}
       volumes:
       {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
@@ -74,11 +74,11 @@ spec:
       {{- end }}
         - name: k0s-config
           secret:
-            secretName: vc-{{ .Release.Name }}-config
+            secretName: vc-{{ template "vcluster.name" . }}-config
       {{- if .Values.coredns.enabled }}
         - name: coredns
           configMap:
-            name: {{ .Release.Name }}-coredns
+            name: {{ template "vcluster.name" . }}-coredns
       {{- end }}
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
@@ -126,7 +126,7 @@ spec:
           - name: CONFIG_READY
             valueFrom:
               secretKeyRef:
-                name: "vc-{{ .Release.Name }}-config"
+                name: "vc-{{ template "vcluster.name" . }}-config"
                 key: CONFIG_READY
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
@@ -157,8 +157,8 @@ spec:
         {{- end }}
         {{- if not .Values.syncer.noArgs }}
         args:
-          - --name={{ .Release.Name }}
-          - --service-account=vc-workload-{{ .Release.Name }}
+          - --name={{ template "vcluster.name" . }}
+          - --service-account=vc-workload-{{ template "vcluster.name" . }}
           - --request-header-ca-cert=/data/k0s/pki/ca.crt
           - --client-ca-cert=/data/k0s/pki/ca.crt
           - --server-ca-cert=/data/k0s/pki/ca.crt

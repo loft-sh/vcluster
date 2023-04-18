@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-job
+  name: {{ template "vcluster.name" . }}-job
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": pre-install
@@ -12,7 +12,7 @@ spec:
   backoffLimit: 3
   template:
     metadata:
-      name: {{ .Release.Name }}-job
+      name: {{ template "vcluster.name" . }}-job
       {{- if .Values.job.podAnnotations }}
       annotations:
 {{ toYaml .Values.job.podAnnotations | indent 8 }}
@@ -22,7 +22,7 @@ spec:
 {{ toYaml .Values.job.podLabels | indent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ .Release.Name }}-job
+      serviceAccountName: {{ template "vcluster.name" . }}-job
       restartPolicy: OnFailure
       nodeSelector:
 {{ toYaml .Values.job.nodeSelector | indent 8 }}
@@ -50,7 +50,7 @@ spec:
             - /vcluster
             - certs
           args:
-            - --prefix={{ .Release.Name }}
+            - --prefix={{ template "vcluster.name" . }}
             - --etcd-replicas={{ .Values.etcd.replicas }}
             {{- if .Values.serviceCIDR }}
             - --service-cidr={{ .Values.serviceCIDR }}

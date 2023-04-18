@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-coredns
+  name: {{ template "vcluster.name" . }}-coredns
   namespace: {{ .Release.Namespace }}
 data:
 {{- if .Values.coredns.manifests }}

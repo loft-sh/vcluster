@@ -1,6 +1,11 @@
 # These annotations will be applied to all objects created in this chart
 globalAnnotations: {}
 
+# By default, fullname uses '-. This
+# overrides that and uses the given string instead.
+nameOverride: ""
+fullnameOverride: ""
+
 # If the control plane is deployed in high availability mode
 # Make sure to scale up the replicas and use an external datastore
 enableHA: false

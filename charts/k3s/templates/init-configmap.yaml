@@ -2,12 +2,12 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-init-manifests
+  name: {{ template "vcluster.name" . }}-init-manifests
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.globalAnnotations }}
   annotations:
@@ -44,7 +44,7 @@ data:
       {{- end}}
       {{- if .release }}
       timeout: {{ .timeout | default "120s" | quote }}
-      releaseName: {{ .release.name }}
+      releaseName: {{ template "vcluster.name" . }}
       releaseNamespace: {{ .release.namespace }}
       {{- end }}
   {{- end }}

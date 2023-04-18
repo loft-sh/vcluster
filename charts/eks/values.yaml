@@ -4,6 +4,11 @@ defaultImageRegistry: ""
 
 globalAnnotations: {}
 
+# By default, fullname uses '-. This
+# overrides that and uses the given string instead.
+nameOverride: ""
+fullnameOverride: ""
+
 # If the control plane is deployed in high availability mode
 # Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
 enableHA: false

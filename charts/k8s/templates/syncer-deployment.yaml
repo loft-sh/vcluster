@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ template "vcluster.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
 {{- if .Values.syncer.labels }}
 {{ toYaml .Values.syncer.labels | indent 4 }}
@@ -29,7 +29,7 @@ spec:
   selector:
     matchLabels:
       app: vcluster
-      release: {{ .Release.Name }}
+      release: {{ template "vcluster.name" . }}
   template:
     metadata:
   {{- if .Values.syncer.podAnnotations }}
@@ -38,7 +38,7 @@ spec:
   {{- end }}
       labels:
         app: vcluster
-        release: {{ .Release.Name }}
+        release: {{ template "vcluster.name" . }}
       {{- range $k, $v := .Values.syncer.podLabels }}
         {{ $k }}: {{ $v | quote }}
       {{- end }}
@@ -63,7 +63,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ template "vcluster.name" . }}
               topologyKey: "kubernetes.io/hostname"
           # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
           - weight: 50
@@ -77,7 +77,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ template "vcluster.name" . }}
               topologyKey: topology.kubernetes.io/zone
       {{- end }}
       {{- if .Values.syncer.topologySpreadConstraints }}
@@ -91,16 +91,16 @@ spec:
       {{- if .Values.serviceAccount.name }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- else }}
-      serviceAccountName: vc-{{ .Release.Name }}
+      serviceAccountName: vc-{{ template "vcluster.name" . }}
       {{- end }}
       volumes:
         - name: certs
           secret:
-            secretName: {{ .Release.Name }}-certs
+            secretName: {{ template "vcluster.name" . }}-certs
       {{- if .Values.coredns.enabled }}
         - name: coredns
           configMap:
-            name: {{ .Release.Name }}-coredns
+            name: {{ template "vcluster.name" . }}-coredns
       {{- end }}
       {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
         - name: helm-cache
@@ -132,13 +132,13 @@ spec:
         {{- end }}
         {{- if not .Values.syncer.noArgs }}
         args:
-          - --name={{ .Release.Name }}
+          - --name={{ template "vcluster.name" . }}
           - --request-header-ca-cert=/pki/ca.crt
           - --client-ca-cert=/pki/ca.crt
           - --server-ca-cert=/pki/ca.crt
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
-          - --service-account=vc-workload-{{ .Release.Name }}
+          - --service-account=vc-workload-{{ template "vcluster.name" . }}
           {{- range $key, $container := .Values.plugin }}
           {{- if not $container.optional }}
           - --plugins={{ $key }}

@@ -2,12 +2,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ .Release.Name }}-etcd
+  name: {{ template "vcluster.name" . }}-etcd
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster-etcd
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
 {{- if .Values.etcd.labels }}
 {{ toYaml .Values.etcd.labels | indent 4 }}
@@ -17,13 +17,13 @@ metadata:
 {{ toYaml .Values.etcd.annotations | indent 4 }}
   {{- end }}
 spec:
-  serviceName: {{ .Release.Name }}-etcd-headless
+  serviceName: {{ template "vcluster.name" . }}-etcd-headless
   replicas: {{ .Values.etcd.replicas }}
   podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: vcluster-etcd
-      release: {{ .Release.Name }}
+      release: {{ template "vcluster.name" . }}
   {{- if (hasKey .Values.etcd "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.etcd.volumeClaimTemplates | indent 4 }}
@@ -48,7 +48,7 @@ spec:
   {{- end }}
       labels:
         app: vcluster-etcd
-        release: {{ .Release.Name }}
+        release: {{ template "vcluster.name" . }}
       {{- range $k, $v := .Values.etcd.podLabels }}
         {{ $k }}: {{ $v | quote }}
       {{- end }}
@@ -73,7 +73,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ template "vcluster.name" . }}
               topologyKey: "kubernetes.io/hostname"
           # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
           - weight: 50
@@ -87,7 +87,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ template "vcluster.name" . }}
               topologyKey: topology.kubernetes.io/zone
       {{- end }}
       {{- if .Values.etcd.topologySpreadConstraints }}
@@ -102,12 +102,12 @@ spec:
       {{- if .Values.serviceAccount.name }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- else }}
-      serviceAccountName: vc-{{ .Release.Name }}
+      serviceAccountName: vc-{{ template "vcluster.name" . }}
       {{- end }}
       volumes:
         - name: certs
           secret:
-            secretName: {{ .Release.Name }}-certs
+            secretName: {{ template "vcluster.name" . }}-certs
       {{- if .Values.volumes }}
 {{ toYaml .Values.etcd.volumes | indent 8 }}
       {{- end }}
@@ -130,12 +130,12 @@ spec:
           - '--cert-file=/run/config/pki/etcd-server.crt'
           - '--client-cert-auth=true'
           - '--data-dir=/var/lib/etcd'
-          - '--advertise-client-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2379'
-          - '--initial-advertise-peer-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2380'
+          - '--advertise-client-urls=https://$(NAME).{{ template "vcluster.name" . }}-etcd-headless.{{ .Release.Namespace }}:2379'
+          - '--initial-advertise-peer-urls=https://$(NAME).{{ template "vcluster.name" . }}-etcd-headless.{{ .Release.Namespace }}:2380'
           {{- $releaseName := .Release.Name -}}
           {{- $releaseNamespace := .Release.Namespace }}
           - '--initial-cluster={{ range $index := untilStep 0 (int .Values.etcd.replicas) 1 }}{{ if (ne (int $index) 0) }},{{ end }}{{ $releaseName }}-etcd-{{ $index }}=https://{{ $releaseName }}-etcd-{{ $index }}.{{ $releaseName }}-etcd-headless.{{ $releaseNamespace }}:2380{{ end }}'
-          - '--initial-cluster-token={{ .Release.Name }}'
+          - '--initial-cluster-token={{ template "vcluster.name" . }}'
           - '--initial-cluster-state=new'
           - '--listen-client-urls=https://0.0.0.0:2379'
           - '--listen-metrics-urls=http://0.0.0.0:2381'

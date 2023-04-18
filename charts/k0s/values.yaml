@@ -4,6 +4,11 @@ defaultImageRegistry: ""
 
 globalAnnotations: {}
 
+# By default, fullname uses '-. This
+# overrides that and uses the given string instead.
+nameOverride: ""
+fullnameOverride: ""
+
 # Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
 plugin: {}
 # Manually configure a plugin called test
