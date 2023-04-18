@@ -2,12 +2,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-api
+  name: {{ template "vcluster.name" . }}-api
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster-api
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
   {{- $annotations := merge .Values.globalAnnotations .Values.api.serviceAnnotations }}
   {{- if $annotations }}
@@ -23,5 +23,5 @@ spec:
       protocol: TCP
   selector:
     app: vcluster-api
-    release: {{ .Release.Name }}
+    release: {{ template "vcluster.name" . }}
 {{- end }}

@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: LimitRange
 metadata:
-  name: {{ .Release.Name }}-limit-range
+  name: {{ template "vcluster.name" . }}-limit-range
   namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
 spec:
   limits:

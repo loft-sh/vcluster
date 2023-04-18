@@ -9,13 +9,13 @@ metadata:
 {{- if .Values.multiNamespaceMode.enabled }}
   name: {{ template "vcluster.clusterRoleNameMultinamespace" . }}
 {{- else }}
-  name: {{ .Release.Name }}
+  name: {{ template "vcluster.name" . }}
 {{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.globalAnnotations }}
   annotations:

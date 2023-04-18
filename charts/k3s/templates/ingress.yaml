@@ -7,7 +7,7 @@ metadata:
   annotations:
   {{- toYaml $annotations | nindent 4 }}
   {{- end }}
-  name: {{ .Release.Name }}
+  name: {{ template "vcluster.name" . }}
   namespace: {{ .Release.Namespace }}
 spec:
   {{- if .Values.ingress.ingressClassName }}
@@ -19,7 +19,7 @@ spec:
         paths:
           - backend:
               service:
-                name: {{ .Release.Name }}
+                name: {{ template "vcluster.name" . }}
                 port:
                   name: https
             path: /

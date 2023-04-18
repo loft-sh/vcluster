@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name:  {{ .Release.Name }}-quota
+  name:  {{ template "vcluster.name" . }}-quota
   namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
   {{- if .Values.globalAnnotations }}
   annotations:

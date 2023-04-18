@@ -2,12 +2,12 @@
 apiVersion: apps/v1
 kind: {{ $kind }}
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ template "vcluster.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
 {{- if .Values.labels }}
 {{ toYaml .Values.labels | indent 4 }}
@@ -19,7 +19,7 @@ metadata:
   {{- end }}
 spec:
 {{- if (eq $kind "StatefulSet") }}
-  serviceName: {{ .Release.Name }}-headless
+  serviceName: {{ template "vcluster.name" . }}-headless
 {{- end }}
   replicas: {{ .Values.replicas }}
 {{- if (and (eq $kind "Deployment") (.Values.enableHA)) }}
@@ -36,7 +36,7 @@ spec:
   selector:
     matchLabels:
       app: vcluster
-      release: {{ .Release.Name }}
+      release: {{ template "vcluster.name" . }}
   {{- if (eq $kind "StatefulSet") }}
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
@@ -63,7 +63,7 @@ spec:
   {{- end }}
       labels:
         app: vcluster
-        release: {{ .Release.Name }}
+        release: {{ template "vcluster.name" . }}
       {{- range $k, $v := .Values.podLabels }}
         {{ $k }}: {{ $v | quote }}
       {{- end }}
@@ -90,7 +90,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ template "vcluster.name" . }}
               topologyKey: "kubernetes.io/hostname"
           # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
           - weight: 50
@@ -104,7 +104,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ template "vcluster.name" . }}
               topologyKey: topology.kubernetes.io/zone
       {{- end }}
       tolerations:
@@ -112,7 +112,7 @@ spec:
       {{- if .Values.serviceAccount.name }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- else }}
-      serviceAccountName: vc-{{ .Release.Name }}
+      serviceAccountName: vc-{{ template "vcluster.name" . }}
       {{- end }}
       volumes:
       {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
@@ -129,7 +129,7 @@ spec:
       {{- if .Values.coredns.enabled }}
         - name: coredns
           configMap:
-            name: {{ .Release.Name }}-coredns
+            name: {{ template "vcluster.name" . }}-coredns
       {{- end }}
       {{- if not .Values.storage.persistence }}
         - name: data
@@ -193,7 +193,7 @@ spec:
           - name: SERVICE_CIDR
             valueFrom:
               configMapKeyRef:
-                name: "vc-cidr-{{ .Release.Name }}"
+                name: "vc-cidr-{{ template "vcluster.name" . }}"
                 key: cidr
           {{- end }}
         securityContext:
@@ -223,8 +223,8 @@ spec:
         {{- end }}
         {{- if not .Values.syncer.noArgs }}
         args:
-          - --name={{ .Release.Name }}
-          - --service-account=vc-workload-{{ .Release.Name }}
+          - --name={{ template "vcluster.name" . }}
+          - --service-account=vc-workload-{{ template "vcluster.name" . }}
           {{- range $key, $container := .Values.plugin }}
           {{- if not $container.optional }}
           - --plugins={{ $key }}

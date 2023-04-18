@@ -86,7 +86,7 @@ Common labels
 {{- define "vcluster.labels" -}}
 app.kubernetes.io/name: {{ include "vcluster.name" . }}
 helm.sh/chart: {{ include "vcluster.chart" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/instance: {{ template "vcluster.name" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- else }}

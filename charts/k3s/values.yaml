@@ -420,7 +420,7 @@ init:
   manifests: |-
     ---
   # The contents of manifests-template will be templated using helm
-  # this allows you to use helm values inside, e.g.: {{ .Release.Name }}
+  # this allows you to use helm values inside, e.g.: {{ template "vcluster.name" . }}
   manifestsTemplate: ''
   helm: []
 

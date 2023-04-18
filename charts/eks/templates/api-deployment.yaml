@@ -2,12 +2,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-api
+  name: {{ template "vcluster.name" . }}-api
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster-api
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
 {{- if .Values.api.labels }}
 {{ toYaml .Values.api.labels | indent 4 }}
@@ -30,7 +30,7 @@ spec:
   selector:
     matchLabels:
       app: vcluster-api
-      release: {{ .Release.Name }}
+      release: {{ template "vcluster.name" . }}
   template:
     metadata:
   {{- if .Values.api.podAnnotations }}
@@ -39,7 +39,7 @@ spec:
   {{- end }}
       labels:
         app: vcluster-api
-        release: {{ .Release.Name }}
+        release: {{ template "vcluster.name" . }}
       {{- range $k, $v := .Values.api.podLabels }}
         {{ $k }}: {{ $v | quote }}
       {{- end }}
@@ -63,7 +63,7 @@ spec:
       volumes:
         - name: certs
           secret:
-            secretName: {{ .Release.Name }}-certs
+            secretName: {{ template "vcluster.name" . }}-certs
       {{- if .Values.api.volumes }}
 {{ toYaml .Values.api.volumes | indent 8 }}
       {{- end }}
@@ -88,7 +88,7 @@ spec:
           - '--etcd-cafile=/run/config/pki/etcd-ca.crt'
           - '--etcd-certfile=/run/config/pki/apiserver-etcd-client.crt'
           - '--etcd-keyfile=/run/config/pki/apiserver-etcd-client.key'
-          - '--etcd-servers=https://{{ .Release.Name }}-etcd:2379'
+          - '--etcd-servers=https://{{ template "vcluster.name" . }}-etcd:2379'
           - '--kubelet-client-certificate=/run/config/pki/apiserver-kubelet-client.crt'
           - '--kubelet-client-key=/run/config/pki/apiserver-kubelet-client.key'
           - '--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname'
@@ -145,7 +145,7 @@ spec:
           - name: SERVICE_CIDR
             valueFrom:
               configMapKeyRef:
-                name: "vc-cidr-{{ .Release.Name }}"
+                name: "vc-cidr-{{ template "vcluster.name" . }}"
                 key: cidr
           {{- end }}
         volumeMounts:

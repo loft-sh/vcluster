@@ -2,12 +2,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-controller
+  name: {{ template "vcluster.name" . }}-controller
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster-controller
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
 {{- if .Values.controller.labels }}
 {{ toYaml .Values.controller.labels | indent 4 }}
@@ -30,7 +30,7 @@ spec:
   selector:
     matchLabels:
       app: vcluster-controller
-      release: {{ .Release.Name }}
+      release: {{ template "vcluster.name" . }}
   template:
     metadata:
   {{- if .Values.controller.podAnnotations }}
@@ -39,7 +39,7 @@ spec:
   {{- end }}
       labels:
         app: vcluster-controller
-        release: {{ .Release.Name }}
+        release: {{ template "vcluster.name" . }}
       {{- range $k, $v := .Values.controller.podLabels }}
         {{ $k }}: {{ $v | quote }}
       {{- end }}
@@ -64,7 +64,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ template "vcluster.name" . }}
               topologyKey: "kubernetes.io/hostname"
           # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
           - weight: 50
@@ -78,7 +78,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ template "vcluster.name" . }}
               topologyKey: topology.kubernetes.io/zone
       {{- end }}
       {{- if .Values.controller.topologySpreadConstraints }}
@@ -93,12 +93,12 @@ spec:
       {{- if .Values.serviceAccount.name }}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       {{- else }}
-      serviceAccountName: vc-{{ .Release.Name }}
+      serviceAccountName: vc-{{ template "vcluster.name" . }}
       {{- end }}
       volumes:
         - name: certs
           secret:
-            secretName: {{ .Release.Name }}-certs
+            secretName: {{ template "vcluster.name" . }}-certs
       {{- if .Values.controller.volumes }}
 {{ toYaml .Values.controller.volumes | indent 8 }}
       {{- end }}
@@ -176,7 +176,7 @@ spec:
           - name: SERVICE_CIDR
             valueFrom:
               configMapKeyRef:
-                name: "vc-cidr-{{ .Release.Name }}"
+                name: "vc-cidr-{{ template "vcluster.name" . }}"
                 key: cidr
           {{- end }}
         volumeMounts:

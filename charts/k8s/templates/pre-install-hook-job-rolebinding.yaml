@@ -2,7 +2,7 @@
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: {{ .Release.Name }}-job
+  name: {{ template "vcluster.name" . }}-job
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": pre-install
@@ -10,10 +10,10 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 subjects:
   - kind: ServiceAccount
-    name: {{ .Release.Name }}-job
+    name: {{ template "vcluster.name" . }}-job
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
-  name: {{ .Release.Name }}-job
+  name: {{ template "vcluster.name" . }}-job
   apiGroup: rbac.authorization.k8s.io
 {{- end }}

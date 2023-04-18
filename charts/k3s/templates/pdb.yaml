@@ -2,12 +2,12 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ template "vcluster.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ template "vcluster.name" . }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.globalAnnotations }}
   annotations:
@@ -23,5 +23,5 @@ spec:
   selector:
     matchLabels:
       app: vcluster
-      release: {{ .Release.Name }}
+      release: {{ template "vcluster.name" . }}
 {{- end }}
