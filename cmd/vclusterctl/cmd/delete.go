@@ -3,8 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"os/exec"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
@@ -114,12 +115,24 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// try to delete the pvc
 	if !cmd.KeepPVC && !cmd.DeleteNamespace {
 		pvcName := fmt.Sprintf("data-%s-0", args[0])
+		pvcNameForK8sAndEks := fmt.Sprintf("data-%s-etcd-0", args[0])
+
 		client, err := kubernetes.NewForConfig(cmd.restConfig)
 		if err != nil {
 			return err
 		}
 
 		err = client.CoreV1().PersistentVolumeClaims(cmd.Namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+		if err != nil {
+			if !kerrors.IsNotFound(err) {
+				return errors.Wrap(err, "delete pvc")
+			}
+		} else {
+			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, cmd.Namespace)
+		}
+
+		// Deleting PVC for K8s and eks distro as well.
+		err = client.CoreV1().PersistentVolumeClaims(cmd.Namespace).Delete(context.Background(), pvcNameForK8sAndEks, metav1.DeleteOptions{})
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				return errors.Wrap(err, "delete pvc")
