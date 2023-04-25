@@ -157,7 +157,7 @@ kubectl get ns
 
 ## Ingress
 
-To use an [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/) , check first their documentation to see if SSL Passthrough is supported. Some popular ingress providers that have this feature are:
+An [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)  with SSL passthrough support will provide the best user experience, but there is a workaround if this feature is not natively supported.
 
 - [Kubernetes Nginx](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough)
 - [Traefik Proxy](https://doc.traefik.io/traefik/routing/routers/#passthrough)
