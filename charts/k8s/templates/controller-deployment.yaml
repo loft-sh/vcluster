@@ -12,9 +12,10 @@ metadata:
 {{- if .Values.controller.labels }}
 {{ toYaml .Values.controller.labels | indent 4 }}
 {{- end }}
-  {{- if .Values.controller.annotations }}
+  {{- $annotations := merge .Values.globalAnnotations .Values.controller.annotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.controller.annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   replicas: {{ .Values.controller.replicas }}

@@ -5,9 +5,12 @@ metadata:
   name: {{ .Release.Name }}-job
   namespace: {{ .Release.Namespace }}
   annotations:
+  {{- if .Values.globalAnnotations }}
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}    
     "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "3"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded    
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 rules:
   - apiGroups: [""]
     resources: ["secrets", "configmaps","services"]

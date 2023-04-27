@@ -11,9 +11,10 @@ metadata:
 {{- if .Values.syncer.labels }}
 {{ toYaml .Values.syncer.labels | indent 4 }}
 {{- end }}
-  {{- if .Values.syncer.annotations }}
+  {{- $annotations := merge .Values.globalAnnotations .Values.syncer.annotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.syncer.annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   replicas: {{ .Values.syncer.replicas }}

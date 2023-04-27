@@ -12,9 +12,10 @@ metadata:
 {{- if .Values.etcd.labels }}
 {{ toYaml .Values.etcd.labels | indent 4 }}
 {{- end }}
-  {{- if .Values.etcd.annotations }}
+  {{- $annotations := merge .Values.globalAnnotations .Values.etcd.annotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.etcd.annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   serviceName: {{ .Release.Name }}-etcd-headless

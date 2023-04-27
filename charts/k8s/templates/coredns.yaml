@@ -4,6 +4,10 @@ kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-coredns
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
 data:
 {{- if .Values.coredns.manifests }}
   coredns.yaml: |-
