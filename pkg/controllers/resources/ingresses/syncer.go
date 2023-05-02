@@ -95,12 +95,15 @@ func translateIngressAnnotations(annotations map[string]string, ingressNamespace
 		}
 
 		splitted := strings.Split(annotations[k], "/")
-		if len(splitted) == 1 {
-			foundSecrets = append(foundSecrets, ingressNamespace+"/"+splitted[0])
-			newAnnotations[k] = translate.Default.PhysicalName(splitted[0], ingressNamespace)
-		} else if len(splitted) == 2 {
-			foundSecrets = append(foundSecrets, splitted[0]+"/"+splitted[1])
-			newAnnotations[k] = translate.Default.PhysicalName(splitted[1], splitted[0])
+		if len(splitted) == 1 { // If value is only "secret"
+			secret := splitted[0]
+			foundSecrets = append(foundSecrets, ingressNamespace+"/"+secret)
+			newAnnotations[k] = translate.Default.PhysicalName(secret, ingressNamespace)
+		} else if len(splitted) == 2 { // If value is "namespace/secret"
+			namespace := splitted[0]
+			secret := splitted[1]
+			foundSecrets = append(foundSecrets, namespace+"/"+secret)
+			newAnnotations[k] = translate.Default.PhysicalNamespace(namespace)+"/"+translate.Default.PhysicalName(secret, namespace)
 		} else {
 			newAnnotations[k] = v
 		}
