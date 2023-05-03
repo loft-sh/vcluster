@@ -120,7 +120,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		}
 
 		err = cache.IndexField(ctx.Context, &corev1.Node{}, constants.IndexByHostName, func(rawObj client.Object) []string {
-			return []string{nodes.GetNodeHost(rawObj.GetName(), ctx.CurrentNamespace), nodes.GetNodeHostLegacy(rawObj.GetName(), ctx.CurrentNamespace)}
+			return []string{nodes.GetNodeHost(rawObj.GetName()), nodes.GetNodeHostLegacy(rawObj.GetName(), ctx.CurrentNamespace)}
 		})
 		if err != nil {
 			return err

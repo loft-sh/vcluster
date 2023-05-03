@@ -66,7 +66,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -92,7 +92,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -197,7 +197,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -222,7 +222,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -321,7 +321,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -342,7 +342,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -459,7 +459,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -480,7 +480,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},
@@ -524,7 +524,7 @@ func TestSync(t *testing.T) {
 		Status: corev1.NodeStatus{
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},

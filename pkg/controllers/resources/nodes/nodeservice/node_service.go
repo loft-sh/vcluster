@@ -35,7 +35,7 @@ type NodeServiceProvider interface {
 	// Start starts the node service garbage collector
 	Start(ctx context.Context)
 	// GetNodeIP returns a new fake node ip
-	GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error)
+	GetNodeIP(ctx context.Context, name string) (string, error)
 }
 
 func NewNodeServiceProvider(serviceName, currentNamespace string, currentNamespaceClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
@@ -122,8 +122,8 @@ func (n *nodeServiceProvider) Unlock() {
 	n.serviceMutex.Unlock()
 }
 
-func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
-	serviceName := translate.SafeConcatName(translate.Suffix, "node", strings.ReplaceAll(name.Name, ".", "-"))
+func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (string, error) {
+	serviceName := translate.SafeConcatName(translate.Suffix, "node", strings.ReplaceAll(name, ".", "-"))
 
 	service := &corev1.Service{}
 	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: n.currentNamespace}, service)
@@ -147,7 +147,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 			Name:      serviceName,
 			Labels: map[string]string{
 				ServiceClusterLabel: translate.Suffix,
-				ServiceNodeLabel:    name.Name,
+				ServiceNodeLabel:    name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -167,7 +167,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name types.Namespac
 	}
 
 	// create the service
-	klog.Infof("Generating kubelet service for node %s", name.Name)
+	klog.Infof("Generating kubelet service for node %s", name)
 	err = n.currentNamespaceClient.Create(ctx, nodeService)
 	if err != nil {
 		return "", errors.Wrap(err, "create node service")

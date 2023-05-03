@@ -34,14 +34,12 @@ var (
 func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
 		nodeServiceProvider: nodeService,
-		currentNamespace:    ctx.CurrentNamespace,
 		fakeKubeletIPs:      ctx.Options.FakeKubeletIPs,
 	}, nil
 }
 
 type fakeNodeSyncer struct {
 	nodeServiceProvider nodeservice.NodeServiceProvider
-	currentNamespace    string
 	fakeKubeletIPs      bool
 }
 
@@ -76,7 +74,7 @@ func (r *fakeNodeSyncer) FakeSyncUp(ctx *synccontext.SyncContext, name types.Nam
 	}
 
 	ctx.Log.Infof("Create fake node %s", name.Name)
-	return ctrl.Result{}, CreateFakeNode(ctx.Context, r.fakeKubeletIPs, r.nodeServiceProvider, r.currentNamespace, ctx.VirtualClient, name)
+	return ctrl.Result{}, CreateFakeNode(ctx.Context, r.fakeKubeletIPs, r.nodeServiceProvider, ctx.VirtualClient, name.Name)
 }
 
 func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -94,7 +92,7 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 	}
 
 	// check if we need to update node ips
-	updated := r.updateIfNeeded(ctx, node, types.NamespacedName{Name: node.Name, Namespace: r.currentNamespace})
+	updated := r.updateIfNeeded(ctx, node, node.Name)
 	if updated != nil {
 		ctx.Log.Infof("Update fake node %s", node.Name)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, updated)
@@ -106,12 +104,12 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 	return ctrl.Result{}, nil
 }
 
-func (r *fakeNodeSyncer) updateIfNeeded(ctx *synccontext.SyncContext, node *corev1.Node, name types.NamespacedName) *corev1.Node {
+func (r *fakeNodeSyncer) updateIfNeeded(ctx *synccontext.SyncContext, node *corev1.Node, name string) *corev1.Node {
 	var updated *corev1.Node
 
 	newAddresses := []corev1.NodeAddress{
 		{
-			Address: GetNodeHost(node.Name, r.currentNamespace),
+			Address: GetNodeHost(node.Name),
 			Type:    corev1.NodeHostName,
 		},
 	}
@@ -148,22 +146,21 @@ func newGUID() string {
 func CreateFakeNode(ctx context.Context,
 	fakeKubeletIPs bool,
 	nodeServiceProvider nodeservice.NodeServiceProvider,
-	currentNamespace string,
 	virtualClient client.Client,
-	name types.NamespacedName) error {
+	name string) error {
 
 	nodeServiceProvider.Lock()
 	defer nodeServiceProvider.Unlock()
 
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name.Name,
+			Name: name,
 			Labels: map[string]string{
 				"vcluster.loft.sh/fake-node": "true",
 				"beta.kubernetes.io/arch":    "amd64",
 				"beta.kubernetes.io/os":      "linux",
 				"kubernetes.io/arch":         "amd64",
-				"kubernetes.io/hostname":     translate.SafeConcatName("fake", name.Name),
+				"kubernetes.io/hostname":     translate.SafeConcatName("fake", name),
 				"kubernetes.io/os":           "linux",
 			},
 			Annotations: map[string]string{
@@ -232,7 +229,7 @@ func CreateFakeNode(ctx context.Context,
 		},
 		Addresses: []corev1.NodeAddress{
 			{
-				Address: GetNodeHost(node.Name, currentNamespace),
+				Address: GetNodeHost(node.Name),
 				Type:    corev1.NodeHostName,
 			},
 		},
@@ -320,7 +317,7 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 	return podsNoDaemonSets
 }
 
-func GetNodeHost(nodeName, currentNamespace string) string {
+func GetNodeHost(nodeName string) string {
 	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + constants.NodeSuffix
 	log := loghelper.New("GetNodeHost()")
 	log.Debugf("translating nodename %q into hostname: %q", nodeName, hostname)
