@@ -66,8 +66,6 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		nodeServiceProvider: nodeServiceProvider,
 		enforcedTolerations: tolerations,
-
-		currentNamespace: ctx.CurrentNamespace,
 	}, nil
 }
 
@@ -87,7 +85,6 @@ type nodeSyncer struct {
 	podCache            client.Reader
 	nodeServiceProvider nodeservice.NodeServiceProvider
 	enforcedTolerations []*corev1.Toleration
-	currentNamespace    string
 }
 
 func (s *nodeSyncer) Resource() client.Object {

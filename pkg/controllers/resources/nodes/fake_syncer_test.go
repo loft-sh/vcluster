@@ -40,7 +40,7 @@ type fakeNodeServiceProvider struct{}
 func (f *fakeNodeServiceProvider) Start(ctx context.Context) {}
 func (f *fakeNodeServiceProvider) Lock()                     {}
 func (f *fakeNodeServiceProvider) Unlock()                   {}
-func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name types.NamespacedName) (string, error) {
+func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name string) (string, error) {
 	return "127.0.0.1", nil
 }
 
@@ -119,7 +119,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: GetNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},

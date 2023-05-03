@@ -10,7 +10,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
@@ -136,16 +135,14 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		// translate addresses
 		newAddresses := []corev1.NodeAddress{
 			{
-				Address: GetNodeHost(vNode.Name, s.currentNamespace),
+				Address: GetNodeHost(vNode.Name),
 				Type:    corev1.NodeHostName,
 			},
 		}
 
 		if s.fakeKubeletIPs {
 			// create new service for this node
-			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, types.NamespacedName{
-				Name: vNode.Name,
-			})
+			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, vNode.Name)
 			if err != nil {
 				return nil, errors.Wrap(err, "get vNode IP")
 			}
