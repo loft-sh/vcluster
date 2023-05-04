@@ -293,6 +293,11 @@ serviceAccount:
   # imagePullSecrets:
   #   - name: my-pull-secret
 
+# Service account that should be used by the pods synced by vcluster
+workloadServiceAccount:
+  # This is not supported in multi-namespace mode
+  annotations: {}
+
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
