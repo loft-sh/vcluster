@@ -3,6 +3,9 @@ title: Telemetry
 sidebar_label: Telemetry
 ---
 
+import TelemetryOptOutSegment from './fragments/telemetry-opt-out.mdx'
+
+
 In this section, you will find a description of the vcluster telemetry - why we are collecting telemetry, what data points are we gathering, where we are sending the data, and how to opt-out.
 
 
@@ -80,3 +83,9 @@ Below you can find an example of the payload that vcluster syncer component woul
 - `instanceProperties.syncerFlags` - contains a JSON payload that can have two fields: `setFlags` - list of the non-default syncer flags that were set, but the values are not collected, we only set `true` as value for each key; `controllers` - list of the resource sync controllers that have been enabled in addition to the default one.
 - `events` - an array of events for which we want to track duration and outcome (success/failure). We are sending just the GVK of the resource, but never any content.
 - `token` - this is a token generated in memory from a static key that is part of the vcluster binary. It is used to validate that the payload is being received from a real vcluster binary.
+
+### Telemetry opt-out process
+
+Below, you can find the instructions for disabling the telemetry based on the tool that you use to install or upgrade your vcluster instances.
+
+<TelemetryOptOutSegment/>
