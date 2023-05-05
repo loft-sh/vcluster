@@ -314,7 +314,7 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 	var err error
 	podName := cmd.PodName
 	if podName == "" {
-		waitErr := wait.PollImmediate(time.Second, time.Second*6, func() (bool, error) {
+		waitErr := wait.PollImmediate(time.Second, time.Second*30, func() (bool, error) {
 			// get vcluster pod name
 			var pods *corev1.PodList
 			pods, err = cmd.kubeClient.CoreV1().Pods(cmd.Namespace).List(context.Background(), metav1.ListOptions{
