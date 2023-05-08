@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -72,22 +73,25 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 	virtualKubeletPath := path.Join(virtualPath, "kubelet")
 
 	return &translator{
-		vClientConfig:   ctx.VirtualManager.GetConfig(),
-		vClient:         ctx.VirtualManager.GetClient(),
+		vClientConfig: ctx.VirtualManager.GetConfig(),
+		vClient:       ctx.VirtualManager.GetClient(),
+
+		pClient:         ctx.PhysicalManager.GetClient(),
 		imageTranslator: imageTranslator,
 		eventRecorder:   eventRecorder,
 		log:             loghelper.New("pods-syncer-translator"),
 
 		defaultImageRegistry: ctx.Options.DefaultImageRegistry,
 
-		clusterDomain:          ctx.Options.ClusterDomain,
-		serviceAccount:         ctx.Options.ServiceAccount,
-		overrideHosts:          ctx.Options.OverrideHosts,
-		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
-		serviceAccountsEnabled: ctx.Controllers.Has("serviceaccounts"),
-		priorityClassesEnabled: ctx.Controllers.Has("priorityclasses"),
-		enableScheduler:        ctx.Options.EnableScheduler,
-		syncedLabels:           ctx.Options.SyncLabels,
+		serviceAccountSecretsEnabled: ctx.Options.ServiceAccountTokenSecrets,
+		clusterDomain:                ctx.Options.ClusterDomain,
+		serviceAccount:               ctx.Options.ServiceAccount,
+		overrideHosts:                ctx.Options.OverrideHosts,
+		overrideHostsImage:           ctx.Options.OverrideHostsContainerImage,
+		serviceAccountsEnabled:       ctx.Controllers.Has("serviceaccounts"),
+		priorityClassesEnabled:       ctx.Controllers.Has("priorityclasses"),
+		enableScheduler:              ctx.Options.EnableScheduler,
+		syncedLabels:                 ctx.Options.SyncLabels,
 
 		rewriteVirtualHostPaths: ctx.Options.RewriteHostPaths,
 		virtualLogsPath:         virtualLogsPath,
@@ -101,20 +105,22 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 type translator struct {
 	vClientConfig   *rest.Config
 	vClient         client.Client
+	pClient         client.Client
 	imageTranslator ImageTranslator
 	eventRecorder   record.EventRecorder
 	log             loghelper.Logger
 
 	defaultImageRegistry string
 
-	serviceAccountsEnabled bool
-	clusterDomain          string
-	serviceAccount         string
-	overrideHosts          bool
-	overrideHostsImage     string
-	priorityClassesEnabled bool
-	enableScheduler        bool
-	syncedLabels           []string
+	serviceAccountsEnabled       bool
+	serviceAccountSecretsEnabled bool
+	clusterDomain                string
+	serviceAccount               string
+	overrideHosts                bool
+	overrideHostsImage           string
+	priorityClassesEnabled       bool
+	enableScheduler              bool
+	syncedLabels                 []string
 
 	rewriteVirtualHostPaths bool
 	virtualLogsPath         string
@@ -409,10 +415,12 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 		}
 	}
 
-	// create the service account token holder secret
-	err := SATokenSecret(context.Background(), t.vClient, vPod, t.projectedVolumeSAToken)
-	if err != nil {
-		return nil
+	if t.shouldCreateTokenSecret(vPod) {
+		// create the service account token holder secret
+		err := SATokenSecret(context.Background(), t.pClient, vPod, t.projectedVolumeSAToken)
+		if err != nil {
+			return nil
+		}
 	}
 
 	// rewrite host paths if enabled
@@ -421,6 +429,21 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 	}
 
 	return nil
+}
+
+func (t *translator) shouldCreateTokenSecret(vPod *corev1.Pod) bool {
+	// if the automount field is not set at all (which means true by default)
+	// or if set, then should be true, skip otherwise
+	if vPod.Spec.AutomountServiceAccountToken != nil &&
+		!*vPod.Spec.AutomountServiceAccountToken {
+		return false
+	}
+
+	if !t.serviceAccountSecretsEnabled {
+		return false
+	}
+
+	return true
 }
 
 func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, volumeName string, pPod *corev1.Pod, vPod *corev1.Pod) error {
@@ -480,21 +503,53 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 			// rewrite projected volume
 			allRights := int32(0644)
 
-			// populate service account map
-			t.projectedVolumeSAToken[volumeName] = token.Status.Token
+			if t.shouldCreateTokenSecret(vPod) {
+				// populate service account map
+				t.projectedVolumeSAToken[volumeName] = token.Status.Token
 
-			// rewrite projected volume to use sources as secret
-			projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: translate.Default.PhysicalName(SecretNameFromPodName(vPod.Name), vPod.Namespace),
-				},
-				Items: []corev1.KeyToPath{
-					{
-						Key:  volumeName,
-						Path: projectedVolume.Sources[i].ServiceAccountToken.Path,
-						Mode: &allRights,
+				// rewrite projected volume to use sources as secret
+				projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: SecretNameFromPodName(vPod.Name, vPod.Namespace),
 					},
-				},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  volumeName,
+							Path: projectedVolume.Sources[i].ServiceAccountToken.Path,
+							Mode: &allRights,
+						},
+					},
+				}
+
+			} else {
+				// set annotation on physical pod
+				if pPod.Annotations == nil {
+					pPod.Annotations = map[string]string{}
+				}
+
+				var annotation string
+
+				for {
+					annotation = ServiceAccountTokenAnnotation + random.RandomString(8)
+					if pPod.Annotations[annotation] == "" {
+						pPod.Annotations[annotation] = token.Status.Token
+						break
+					}
+				}
+
+				// rewrite projected volume to use DownwardAPI as source
+				projectedVolume.Sources[i].DownwardAPI = &corev1.DownwardAPIProjection{
+					Items: []corev1.DownwardAPIVolumeFile{
+						{
+							Path: projectedVolume.Sources[i].ServiceAccountToken.Path,
+							FieldRef: &corev1.ObjectFieldSelector{
+								APIVersion: "v1",
+								FieldPath:  "metadata.annotations['" + annotation + "']",
+							},
+							Mode: &allRights,
+						},
+					},
+				}
 			}
 
 			projectedVolume.Sources[i].ServiceAccountToken = nil

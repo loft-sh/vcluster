@@ -173,3 +173,15 @@ vcluster is able to be ran as a non root user. Steps below show how to set the d
 ### Workload & Network Isolation within the vcluster
 
 The above mentioned methods also work for isolating workloads inside the vcluster itself, as you can just deploy resource quotas, limit ranges, admission controllers and network policies in there. To allow network policies to function correctly, you'll need to [enable this in vcluster](../architecture/networking.mdx) itself though.
+
+### Secret based Service Account tokens
+
+By default vcluster will create Service Account Tokens for each pod and inject them as an annotation in the respective pods
+metadata. This can be a security risk in certain senarios. To mitigate this there's a flag `--service-account-token-secrets` in vcluster
+which creates separate secrets for each pods Service Account Token and mounts it accordingly using projected volumes. This option
+is not enabled by default but can be enabled on demand. To enable this one can use the `extraArgs` options of the vcluster chart as follows
+
+```
+extraArgs:
+  - --service-account-token-secrets=true
+```

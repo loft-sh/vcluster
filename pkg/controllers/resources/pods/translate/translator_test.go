@@ -199,7 +199,7 @@ func TestVolumeTranslation(t *testing.T) {
 		tr := &translator{
 			eventRecorder: fakeRecorder,
 			log:           loghelper.New("pods-syncer-translator-test"),
-			vClient:       fake.NewClientBuilder().Build(),
+			pClient:       fake.NewClientBuilder().Build(),
 		}
 
 		pPod := testCase.vPod.DeepCopy()

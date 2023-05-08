@@ -9,40 +9,42 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	SkipSATokenSecretBacksyncAnnotation = "vcluster.loft.sh/skip-sa-secret-backsync"
+	PodKind string = "Pod"
 )
 
 var PodServiceAccountTokenSecretName string
 
-func SecretNameFromPodName(podName string) string {
-	return fmt.Sprintf("%s-sa-token", podName)
+func SecretNameFromPodName(podName, namespace string) string {
+	return translate.Default.PhysicalName(fmt.Sprintf("%s-sa-token", podName), namespace)
 }
 
-func checkIfSecretExists(ctx context.Context, vClient client.Client, podName, namespace string) (bool, error) {
+func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNamespace string) (*corev1.Secret, bool, error) {
 	secret := &corev1.Secret{}
 
-	err := vClient.Get(ctx, types.NamespacedName{
-		Name:      SecretNameFromPodName(podName),
-		Namespace: namespace,
+	err := pClient.Get(ctx, types.NamespacedName{
+		Name:      SecretNameFromPodName(vPodName, vNamespace),
+		Namespace: translate.Default.PhysicalNamespace(vNamespace),
 	}, secret)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return false, nil
+			return nil, false, nil
 		}
 
-		return false, err
+		return nil, false, err
 	}
 
-	return true, nil
+	return secret, true, nil
 }
 
-func SATokenSecret(ctx context.Context, vClient client.Client, vPod *corev1.Pod, tokens map[string]string) error {
-	exists, err := checkIfSecretExists(ctx, vClient, vPod.Name, vPod.Namespace)
+func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod, tokens map[string]string) error {
+	_, exists, err := GetSecretIfExists(ctx, pClient, vPod.Name, vPod.Namespace)
 	if err != nil {
 		return err
 	}
@@ -51,31 +53,75 @@ func SATokenSecret(ctx context.Context, vClient client.Client, vPod *corev1.Pod,
 		// create to secret with the given token
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      SecretNameFromPodName(vPod.Name),
-				Namespace: vPod.Namespace,
+				Name:      SecretNameFromPodName(vPod.Name, vPod.Namespace),
+				Namespace: translate.Default.PhysicalNamespace(vPod.Namespace),
 
 				Annotations: map[string]string{
 					translate.SkipBacksyncInMultiNamespaceMode: "true",
-				},
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: corev1.SchemeGroupVersion.Version,
-						Kind:       vPod.Kind,
-						Name:       vPod.Name,
-						UID:        vPod.UID,
-					},
 				},
 			},
 			Type:       corev1.SecretTypeOpaque,
 			StringData: tokens,
 		}
 
-		err := vClient.Create(ctx, secret)
+		typeAccessor, err := meta.TypeAccessor(translate.Owner)
+		if err != nil {
+			return err
+		}
+		secret.SetOwnerReferences([]metav1.OwnerReference{
+			{
+				APIVersion: typeAccessor.GetAPIVersion(),
+				Kind:       typeAccessor.GetKind(),
+				Name:       translate.Owner.GetName(),
+				UID:        translate.Owner.GetUID(),
+			},
+		})
+
+		err = pClient.Create(ctx, secret)
 		if err != nil {
 			return err
 		}
 
 		return nil
+	}
+
+	return nil
+}
+
+func SetPodAsOwner(ctx context.Context, pPod *corev1.Pod, pClient client.Client, secret *corev1.Secret) error {
+	// check if the current owner is the vcluster service
+	typeAccessor, err := meta.TypeAccessor(translate.Owner)
+	if err != nil {
+		return err
+	}
+
+	vclusterServiceOwnerReference := metav1.OwnerReference{
+		APIVersion: typeAccessor.GetAPIVersion(),
+		Kind:       typeAccessor.GetKind(),
+		Name:       translate.Owner.GetName(),
+		UID:        translate.Owner.GetUID(),
+	}
+
+	podOwnerReference := metav1.OwnerReference{
+		APIVersion: corev1.SchemeGroupVersion.Version,
+		Kind:       PodKind,
+		Name:       pPod.GetName(),
+		UID:        pPod.GetUID(),
+	}
+
+	owners := secret.GetOwnerReferences()
+	for i, owner := range owners {
+		if equality.Semantic.DeepEqual(owner, vclusterServiceOwnerReference) {
+			// path this with current pod as owner instead
+			secret.ObjectMeta.OwnerReferences[i] = podOwnerReference
+
+			err := pClient.Update(ctx, secret)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 	}
 
 	return nil

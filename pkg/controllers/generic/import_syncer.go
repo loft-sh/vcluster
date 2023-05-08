@@ -152,6 +152,12 @@ func (s *importer) ExcludePhysical(pObj client.Object) bool {
 }
 
 func (s *importer) excludeObject(obj client.Object) bool {
+	// check if back sync is disabled eg. for service account token secrets
+	if obj.GetAnnotations() != nil &&
+		obj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode] == "true" {
+		return true
+	}
+
 	if obj.GetLabels() != nil &&
 		obj.GetLabels()[translate.ControllerLabel] != "" {
 		return true
@@ -183,11 +189,6 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
-			return ctrl.Result{}, nil
-		}
-
-		// check if back sync is disabled eg. for service account token secrets
-		if pObj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode] == "true" {
 			return ctrl.Result{}, nil
 		}
 	}
@@ -270,9 +271,6 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !managed {
-		return ctrl.Result{}, nil
-	} else if pObj.GetAnnotations() != nil &&
-		pObj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode] == "true" {
 		return ctrl.Result{}, nil
 	}
 
