@@ -525,12 +525,8 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		_, ok := pPod.GetAnnotations()[podtranslate.PodServiceAccountTokenSecretName]
 		framework.ExpectEqual(ok, false, "service account token annotation should not be present")
 
-		// make sure the secret is created in vcluster
-		secret, err := f.VclusterClient.CoreV1().Secrets(ns).Get(f.Context, fmt.Sprintf("%s-sa-token", podName), metav1.GetOptions{})
-		framework.ExpectNoError(err)
-
-		// check the secret is synced properly in the host cluster
-		_, err = f.HostClient.CoreV1().Secrets(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(secret.Name, ns), metav1.GetOptions{})
+		// make sure the secret is created in host cluster
+		_, err = f.HostClient.CoreV1().Secrets(translate.Default.PhysicalNamespace(ns)).Get(f.Context, podtranslate.SecretNameFromPodName(pod.Name, ns), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		// make sure the project volume for path 'token' is now using a secret instead of service account
@@ -538,7 +534,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			if volume.Projected != nil {
 				for _, source := range volume.Projected.Sources {
 					if source.Secret != nil {
-						framework.ExpectEqual(source.Secret.Name, translate.Default.PhysicalName(fmt.Sprintf("%s-sa-token", podName), pod.Namespace))
+						framework.ExpectEqual(source.Secret.Name, podtranslate.SecretNameFromPodName(pod.Name, ns))
 					}
 				}
 			}

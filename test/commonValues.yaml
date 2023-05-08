@@ -1,4 +1,6 @@
 syncer:
+  extraArgs:
+    - --service-account-token-secrets=true
   image: REPLACE_IMAGE_NAME
   env:
   - name: DEBUG

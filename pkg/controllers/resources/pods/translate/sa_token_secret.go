@@ -64,18 +64,20 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 			StringData: tokens,
 		}
 
-		typeAccessor, err := meta.TypeAccessor(translate.Owner)
-		if err != nil {
-			return err
+		if translate.Owner != nil {
+			typeAccessor, err := meta.TypeAccessor(translate.Owner)
+			if err != nil {
+				return err
+			}
+			secret.SetOwnerReferences([]metav1.OwnerReference{
+				{
+					APIVersion: typeAccessor.GetAPIVersion(),
+					Kind:       typeAccessor.GetKind(),
+					Name:       translate.Owner.GetName(),
+					UID:        translate.Owner.GetUID(),
+				},
+			})
 		}
-		secret.SetOwnerReferences([]metav1.OwnerReference{
-			{
-				APIVersion: typeAccessor.GetAPIVersion(),
-				Kind:       typeAccessor.GetKind(),
-				Name:       translate.Owner.GetName(),
-				UID:        translate.Owner.GetUID(),
-			},
-		})
 
 		err = pClient.Create(ctx, secret)
 		if err != nil {
@@ -89,19 +91,6 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 }
 
 func SetPodAsOwner(ctx context.Context, pPod *corev1.Pod, pClient client.Client, secret *corev1.Secret) error {
-	// check if the current owner is the vcluster service
-	typeAccessor, err := meta.TypeAccessor(translate.Owner)
-	if err != nil {
-		return err
-	}
-
-	vclusterServiceOwnerReference := metav1.OwnerReference{
-		APIVersion: typeAccessor.GetAPIVersion(),
-		Kind:       typeAccessor.GetKind(),
-		Name:       translate.Owner.GetName(),
-		UID:        translate.Owner.GetUID(),
-	}
-
 	podOwnerReference := metav1.OwnerReference{
 		APIVersion: corev1.SchemeGroupVersion.Version,
 		Kind:       PodKind,
@@ -110,18 +99,45 @@ func SetPodAsOwner(ctx context.Context, pPod *corev1.Pod, pClient client.Client,
 	}
 
 	owners := secret.GetOwnerReferences()
-	for i, owner := range owners {
-		if equality.Semantic.DeepEqual(owner, vclusterServiceOwnerReference) {
-			// path this with current pod as owner instead
-			secret.ObjectMeta.OwnerReferences[i] = podOwnerReference
+	var vclusterServiceOwnerReference *metav1.OwnerReference
 
-			err := pClient.Update(ctx, secret)
-			if err != nil {
-				return err
-			}
-
-			return nil
+	if translate.Owner != nil {
+		// check if the current owner is the vcluster service
+		typeAccessor, err := meta.TypeAccessor(translate.Owner)
+		if err != nil {
+			return err
 		}
+
+		vclusterServiceOwnerReference = &metav1.OwnerReference{
+			APIVersion: typeAccessor.GetAPIVersion(),
+			Kind:       typeAccessor.GetKind(),
+			Name:       translate.Owner.GetName(),
+			UID:        translate.Owner.GetUID(),
+		}
+
+		for i, owner := range owners {
+			if equality.Semantic.DeepEqual(owner, vclusterServiceOwnerReference) {
+				// path this with current pod as owner instead
+				secret.ObjectMeta.OwnerReferences[i] = podOwnerReference
+				break
+			}
+		}
+	} else {
+		// check if pod is already correctly set as one of the owners
+		for _, owner := range owners {
+			if equality.Semantic.DeepEqual(owner, podOwnerReference) {
+				// no update needed
+				return nil
+			}
+		}
+
+		// pod not set as owner update accordingly
+		secret.ObjectMeta.OwnerReferences = append(secret.ObjectMeta.OwnerReferences, podOwnerReference)
+	}
+
+	err := pClient.Update(ctx, secret)
+	if err != nil {
+		return err
 	}
 
 	return nil
