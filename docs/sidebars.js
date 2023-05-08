@@ -80,6 +80,10 @@ module.exports = {
     },
     {
       type: 'doc',
+      id: 'telemetry',
+    },
+    {
+      type: 'doc',
       id: 'config-reference',
     },
     {
