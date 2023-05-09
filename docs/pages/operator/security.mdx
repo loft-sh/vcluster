@@ -182,6 +182,7 @@ which creates separate secrets for each pods Service Account Token and mounts it
 is not enabled by default but can be enabled on demand. To enable this one can use the `extraArgs` options of the vcluster chart as follows
 
 ```
-extraArgs:
-  - --service-account-token-secrets=true
+syncer:
+  extraArgs:
+    - --service-account-token-secrets=true
 ```
