@@ -340,7 +340,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	}
 
 	// update the virtual pod if the spec has changed
-	updatedPod, err := s.translateUpdate(pPod, vPod)
+	updatedPod, err := s.translateUpdate(ctx.PhysicalClient, pPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if updatedPod != nil {

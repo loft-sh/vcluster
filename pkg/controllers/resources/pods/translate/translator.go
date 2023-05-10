@@ -349,6 +349,8 @@ func translateLabelsAnnotation(obj client.Object) string {
 }
 
 func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error {
+	var shouldCreateTokenSecret bool
+
 	for i := range pPod.Spec.Volumes {
 		if pPod.Spec.Volumes[i].ConfigMap != nil {
 			pPod.Spec.Volumes[i].ConfigMap.Name = configmaps.ConfigMapNameTranslator(types.NamespacedName{Name: pPod.Spec.Volumes[i].ConfigMap.Name, Namespace: vPod.Namespace}, nil)
@@ -373,7 +375,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 			pPod.Spec.Volumes[i].Ephemeral = nil
 		}
 		if pPod.Spec.Volumes[i].Projected != nil {
-			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod)
+			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, &shouldCreateTokenSecret)
 			if err != nil {
 				return err
 			}
@@ -415,7 +417,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 		}
 	}
 
-	if t.shouldCreateTokenSecret(vPod) {
+	if shouldCreateTokenSecret {
 		// create the service account token holder secret
 		err := SATokenSecret(context.Background(), t.pClient, vPod, t.projectedVolumeSAToken)
 		if err != nil {
@@ -431,22 +433,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 	return nil
 }
 
-func (t *translator) shouldCreateTokenSecret(vPod *corev1.Pod) bool {
-	// if the automount field is not set at all (which means true by default)
-	// or if set, then should be true, skip otherwise
-	if vPod.Spec.AutomountServiceAccountToken != nil &&
-		!*vPod.Spec.AutomountServiceAccountToken {
-		return false
-	}
-
-	if !t.serviceAccountSecretsEnabled {
-		return false
-	}
-
-	return true
-}
-
-func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, volumeName string, pPod *corev1.Pod, vPod *corev1.Pod) error {
+func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, volumeName string, pPod *corev1.Pod, vPod *corev1.Pod, shouldCreateTokenSecret *bool) error {
 	for i := range projectedVolume.Sources {
 		if projectedVolume.Sources[i].Secret != nil {
 			projectedVolume.Sources[i].Secret.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace)
@@ -503,7 +490,7 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 			// rewrite projected volume
 			allRights := int32(0644)
 
-			if t.shouldCreateTokenSecret(vPod) {
+			if t.serviceAccountSecretsEnabled {
 				// populate service account map
 				t.projectedVolumeSAToken[volumeName] = token.Status.Token
 
@@ -521,6 +508,7 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 					},
 				}
 
+				*shouldCreateTokenSecret = true
 			} else {
 				// set annotation on physical pod
 				if pPod.Annotations == nil {

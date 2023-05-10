@@ -11,7 +11,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -65,18 +64,7 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 		}
 
 		if translate.Owner != nil {
-			typeAccessor, err := meta.TypeAccessor(translate.Owner)
-			if err != nil {
-				return err
-			}
-			secret.SetOwnerReferences([]metav1.OwnerReference{
-				{
-					APIVersion: typeAccessor.GetAPIVersion(),
-					Kind:       typeAccessor.GetKind(),
-					Name:       translate.Owner.GetName(),
-					UID:        translate.Owner.GetUID(),
-				},
-			})
+			secret.SetOwnerReferences(translate.GetOwnerReference(nil))
 		}
 
 		err = pClient.Create(ctx, secret)
@@ -99,24 +87,12 @@ func SetPodAsOwner(ctx context.Context, pPod *corev1.Pod, pClient client.Client,
 	}
 
 	owners := secret.GetOwnerReferences()
-	var vclusterServiceOwnerReference *metav1.OwnerReference
 
 	if translate.Owner != nil {
 		// check if the current owner is the vcluster service
-		typeAccessor, err := meta.TypeAccessor(translate.Owner)
-		if err != nil {
-			return err
-		}
-
-		vclusterServiceOwnerReference = &metav1.OwnerReference{
-			APIVersion: typeAccessor.GetAPIVersion(),
-			Kind:       typeAccessor.GetKind(),
-			Name:       translate.Owner.GetName(),
-			UID:        translate.Owner.GetUID(),
-		}
 
 		for i, owner := range owners {
-			if equality.Semantic.DeepEqual(owner, vclusterServiceOwnerReference) {
+			if owner.UID == translate.Owner.GetUID() {
 				// path this with current pod as owner instead
 				secret.ObjectMeta.OwnerReferences[i] = podOwnerReference
 				break
@@ -135,10 +111,5 @@ func SetPodAsOwner(ctx context.Context, pPod *corev1.Pod, pClient client.Client,
 		secret.ObjectMeta.OwnerReferences = append(secret.ObjectMeta.OwnerReferences, podOwnerReference)
 	}
 
-	err := pClient.Update(ctx, secret)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return pClient.Update(ctx, secret)
 }
