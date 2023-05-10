@@ -73,52 +73,61 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 	virtualKubeletPath := path.Join(virtualPath, "kubelet")
 
 	return &translator{
-		vClientConfig:   ctx.VirtualManager.GetConfig(),
-		vClient:         ctx.VirtualManager.GetClient(),
+		vClientConfig: ctx.VirtualManager.GetConfig(),
+		vClient:       ctx.VirtualManager.GetClient(),
+
+		pClient:         ctx.PhysicalManager.GetClient(),
 		imageTranslator: imageTranslator,
 		eventRecorder:   eventRecorder,
 		log:             loghelper.New("pods-syncer-translator"),
 
 		defaultImageRegistry: ctx.Options.DefaultImageRegistry,
 
-		clusterDomain:          ctx.Options.ClusterDomain,
-		serviceAccount:         ctx.Options.ServiceAccount,
-		overrideHosts:          ctx.Options.OverrideHosts,
-		overrideHostsImage:     ctx.Options.OverrideHostsContainerImage,
-		serviceAccountsEnabled: ctx.Controllers.Has("serviceaccounts"),
-		priorityClassesEnabled: ctx.Controllers.Has("priorityclasses"),
-		enableScheduler:        ctx.Options.EnableScheduler,
-		syncedLabels:           ctx.Options.SyncLabels,
+		serviceAccountSecretsEnabled: ctx.Options.ServiceAccountTokenSecrets,
+		clusterDomain:                ctx.Options.ClusterDomain,
+		serviceAccount:               ctx.Options.ServiceAccount,
+		overrideHosts:                ctx.Options.OverrideHosts,
+		overrideHostsImage:           ctx.Options.OverrideHostsContainerImage,
+		serviceAccountsEnabled:       ctx.Controllers.Has("serviceaccounts"),
+		priorityClassesEnabled:       ctx.Controllers.Has("priorityclasses"),
+		enableScheduler:              ctx.Options.EnableScheduler,
+		syncedLabels:                 ctx.Options.SyncLabels,
 
 		rewriteVirtualHostPaths: ctx.Options.RewriteHostPaths,
 		virtualLogsPath:         virtualLogsPath,
 		virtualPodLogsPath:      filepath.Join(virtualLogsPath, "pods"),
 		virtualKubeletPodPath:   filepath.Join(virtualKubeletPath, "pods"),
+
+		projectedVolumeSAToken: make(map[string]string),
 	}, nil
 }
 
 type translator struct {
 	vClientConfig   *rest.Config
 	vClient         client.Client
+	pClient         client.Client
 	imageTranslator ImageTranslator
 	eventRecorder   record.EventRecorder
 	log             loghelper.Logger
 
 	defaultImageRegistry string
 
-	serviceAccountsEnabled bool
-	clusterDomain          string
-	serviceAccount         string
-	overrideHosts          bool
-	overrideHostsImage     string
-	priorityClassesEnabled bool
-	enableScheduler        bool
-	syncedLabels           []string
+	serviceAccountsEnabled       bool
+	serviceAccountSecretsEnabled bool
+	clusterDomain                string
+	serviceAccount               string
+	overrideHosts                bool
+	overrideHostsImage           string
+	priorityClassesEnabled       bool
+	enableScheduler              bool
+	syncedLabels                 []string
 
 	rewriteVirtualHostPaths bool
 	virtualLogsPath         string
 	virtualPodLogsPath      string
 	virtualKubeletPodPath   string
+
+	projectedVolumeSAToken map[string]string
 }
 
 func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -340,6 +349,8 @@ func translateLabelsAnnotation(obj client.Object) string {
 }
 
 func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error {
+	var shouldCreateTokenSecret bool
+
 	for i := range pPod.Spec.Volumes {
 		if pPod.Spec.Volumes[i].ConfigMap != nil {
 			pPod.Spec.Volumes[i].ConfigMap.Name = configmaps.ConfigMapNameTranslator(types.NamespacedName{Name: pPod.Spec.Volumes[i].ConfigMap.Name, Namespace: vPod.Namespace}, nil)
@@ -364,7 +375,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 			pPod.Spec.Volumes[i].Ephemeral = nil
 		}
 		if pPod.Spec.Volumes[i].Projected != nil {
-			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod, vPod)
+			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, &shouldCreateTokenSecret)
 			if err != nil {
 				return err
 			}
@@ -406,6 +417,14 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 		}
 	}
 
+	if shouldCreateTokenSecret {
+		// create the service account token holder secret
+		err := SATokenSecret(context.Background(), t.pClient, vPod, t.projectedVolumeSAToken)
+		if err != nil {
+			return nil
+		}
+	}
+
 	// rewrite host paths if enabled
 	if t.rewriteVirtualHostPaths {
 		t.rewriteHostPaths(pPod)
@@ -414,7 +433,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 	return nil
 }
 
-func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, pPod *corev1.Pod, vPod *corev1.Pod) error {
+func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, volumeName string, pPod *corev1.Pod, vPod *corev1.Pod, shouldCreateTokenSecret *bool) error {
 	for i := range projectedVolume.Sources {
 		if projectedVolume.Sources[i].Secret != nil {
 			projectedVolume.Sources[i].Secret.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace)
@@ -468,33 +487,59 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 				return errors.New("received empty token")
 			}
 
-			// set the token as annotation
-			if pPod.Annotations == nil {
-				pPod.Annotations = map[string]string{}
-			}
-			var annotation string
-			for {
-				annotation = ServiceAccountTokenAnnotation + random.RandomString(8)
-				if pPod.Annotations[annotation] == "" {
-					pPod.Annotations[annotation] = token.Status.Token
-					break
+			// rewrite projected volume
+			allRights := int32(0644)
+
+			if t.serviceAccountSecretsEnabled {
+				// populate service account map
+				t.projectedVolumeSAToken[volumeName] = token.Status.Token
+
+				// rewrite projected volume to use sources as secret
+				projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: SecretNameFromPodName(vPod.Name, vPod.Namespace),
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  volumeName,
+							Path: projectedVolume.Sources[i].ServiceAccountToken.Path,
+							Mode: &allRights,
+						},
+					},
+				}
+
+				*shouldCreateTokenSecret = true
+			} else {
+				// set annotation on physical pod
+				if pPod.Annotations == nil {
+					pPod.Annotations = map[string]string{}
+				}
+
+				var annotation string
+
+				for {
+					annotation = ServiceAccountTokenAnnotation + random.RandomString(8)
+					if pPod.Annotations[annotation] == "" {
+						pPod.Annotations[annotation] = token.Status.Token
+						break
+					}
+				}
+
+				// rewrite projected volume to use DownwardAPI as source
+				projectedVolume.Sources[i].DownwardAPI = &corev1.DownwardAPIProjection{
+					Items: []corev1.DownwardAPIVolumeFile{
+						{
+							Path: projectedVolume.Sources[i].ServiceAccountToken.Path,
+							FieldRef: &corev1.ObjectFieldSelector{
+								APIVersion: "v1",
+								FieldPath:  "metadata.annotations['" + annotation + "']",
+							},
+							Mode: &allRights,
+						},
+					},
 				}
 			}
 
-			// rewrite projected volume
-			allRights := int32(0644)
-			projectedVolume.Sources[i].DownwardAPI = &corev1.DownwardAPIProjection{
-				Items: []corev1.DownwardAPIVolumeFile{
-					{
-						Path: projectedVolume.Sources[i].ServiceAccountToken.Path,
-						FieldRef: &corev1.ObjectFieldSelector{
-							APIVersion: "v1",
-							FieldPath:  "metadata.annotations['" + annotation + "']",
-						},
-						Mode: &allRights,
-					},
-				},
-			}
 			projectedVolume.Sources[i].ServiceAccountToken = nil
 		}
 	}

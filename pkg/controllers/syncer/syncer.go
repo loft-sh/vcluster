@@ -133,6 +133,13 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 		return captureSyncTelemetry(r.syncer.Sync(syncContext, pObj, vObj))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 	} else if vObj == nil && pObj != nil {
+		if pObj.GetAnnotations() != nil {
+			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
+				// do not delete
+				return ctrl.Result{}, nil
+			}
+		}
+
 		// check if up syncer
 		upSyncer, ok := r.syncer.(UpSyncer)
 		if ok {

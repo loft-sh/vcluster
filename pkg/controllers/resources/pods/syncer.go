@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -88,6 +89,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
+		physicalClusterConfig: ctx.PhysicalManager.GetConfig(),
 		podTranslator:         podTranslator,
 		nodeSelector:          nodeSelector,
 		tolerations:           tolerations,
@@ -105,6 +107,7 @@ type podSyncer struct {
 	podTranslator         translatepods.Translator
 	virtualClusterClient  kubernetes.Interface
 	physicalClusterClient kubernetes.Interface
+	physicalClusterConfig *rest.Config
 	nodeSelector          *metav1.LabelSelector
 	tolerations           []*corev1.Toleration
 
@@ -337,7 +340,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	}
 
 	// update the virtual pod if the spec has changed
-	updatedPod, err := s.translateUpdate(pPod, vPod)
+	updatedPod, err := s.translateUpdate(ctx.PhysicalClient, pPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if updatedPod != nil {

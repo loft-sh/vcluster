@@ -152,6 +152,12 @@ func (s *importer) ExcludePhysical(pObj client.Object) bool {
 }
 
 func (s *importer) excludeObject(obj client.Object) bool {
+	// check if back sync is disabled eg. for service account token secrets
+	if obj.GetAnnotations() != nil &&
+		obj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode] == "true" {
+		return true
+	}
+
 	if obj.GetLabels() != nil &&
 		obj.GetLabels()[translate.ControllerLabel] != "" {
 		return true
@@ -176,14 +182,15 @@ var _ syncer.UpSyncer = &importer{}
 
 func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// check if annotation is already present
-	if pObj.GetAnnotations() != nil &&
-		pObj.GetAnnotations()[translate.ControllerLabel] == s.Name() &&
-		!s.syncerOptions.IsClusterScopedCRD { // only delete pObj if its not cluster scoped
-		err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
-		if err != nil && !kerrors.IsNotFound(err) {
-			return ctrl.Result{}, err
+	if pObj.GetAnnotations() != nil {
+		if pObj.GetAnnotations()[translate.ControllerLabel] == s.Name() &&
+			!s.syncerOptions.IsClusterScopedCRD { // only delete pObj if its not cluster scoped
+			err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
+			if err != nil && !kerrors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, nil
 	}
 
 	// add annotation to physical resource to mark it as controlled by this syncer

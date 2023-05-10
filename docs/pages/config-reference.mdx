@@ -42,6 +42,7 @@ Before using any particular flag mentioned below, we recommend making yourself f
       --server-ca-key string                      The path to the server ca key (default "/data/server/tls/server-ca.key")
       --service-account string                    If set, will set this host service account on the synced pods
       --service-name string                       The service name where the vcluster proxy will be available
+      --service-account-token-secrets bool        Create secrets for pod service account tokens instead of injecting it as annotations
       --set-owner                                 If true, will set the same owner the currently running syncer pod has on the synced resources (default true)
       --sync strings                              A list of sync controllers to enable. 'foo' enables the sync controller named 'foo', '-foo' disables the sync controller named 'foo'
       --sync-all-nodes                            If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones
