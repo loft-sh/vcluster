@@ -9,8 +9,24 @@ You can monitor the vcluster either from the host cluster or directly from withi
 In order to get node metrics from within the vcluster, vcluster will need to have RBAC permissions to access them. These permissions are given to vcluster when synchronization of the real nodes is enabled. See [Nodes documentation page](../architecture/nodes.mdx) for more details.
 :::
 
-## Installing metrics server
+### Enabling the metrics server proxy (Recommended)
+:::info
+This feature requires a working installation of metrics server on the host cluster
+:::
 
+Its possible to proxy the metrics server in the underlying host cluster and get the `pod`/`node` metrics individually or both of them according to the use case. This can be enabled with the following values:
+```
+proxy:
+  metricsServer:
+    nodes:
+      enabled: true
+    pods:
+      enabled: true
+```
+
+### Installing metrics server (inside vcluster)
+
+In case the above recommended method of getting metrics in vcluster using the metrics server proxy does not fulfil your requirements and you need a dedicated metrics server installation in the vcluster you can follow this section.
 Make sure the vcluster has access to the host clusters nodes. [Enabling real nodes synchronization](../architecture/nodes.mdx) will create the required RBAC permissions. 
 
 Install the [metrics server](https://github.com/kubernetes-sigs/metrics-server#installation) via the official method into the vcluster.
@@ -49,17 +65,6 @@ kubectl patch deployment metrics-server --patch-file metrics_patch.yaml -n kube-
 ### How does it work?
 
 By default, vcluster will create a service for each node which redirects incoming traffic from within the vcluster to the node kubelet to vcluster itself. This means that if workloads within the vcluster try to scrape node metrics the traffic reaches vcluster first. Vcluster will redirect the incoming request to the host cluster and rewrite the response (pod names, pod namespaces etc) and return it to the requester.
-
-### Enabling the metrics server proxy
-Its possible to proxy the metrics server in the underlying host cluster and get the `pod`/`node` metrics individually or both of them according to the use case. This can be enabled with the following values:
-```
-proxy:
-  metricsServer:
-    nodes:
-      enabled: true
-    pods:
-      enabled: true
-```
 
 ## Monitoring the vcluster
 
