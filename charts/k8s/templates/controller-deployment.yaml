@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if not .Values.controller.disabled }}
 apiVersion: apps/v1
 kind: Deployment
@@ -189,4 +190,5 @@ spec:
         {{- end }}
         resources:
 {{ toYaml .Values.controller.resources | indent 10 }}
+{{- end }}
 {{- end }}

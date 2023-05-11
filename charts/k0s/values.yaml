@@ -4,6 +4,10 @@ defaultImageRegistry: ""
 
 globalAnnotations: {}
 
+# If true, will deploy vcluster in headless mode, which means no deployment
+# or statefulset is created.
+headless: false
+
 # Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
 plugin: {}
 # Manually configure a plugin called test
