@@ -37,7 +37,7 @@ rules:
     verbs: ["patch", "update"]
   {{- end }}
   {{- end }}
-  {{- if or .Values.sync.endpoints.enabled .Values.rbac.role.extended }}
+  {{- if or .Values.sync.endpoints.enabled .Values.rbac.role.extended .Values.headless }}
   - apiGroups: [""]
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]

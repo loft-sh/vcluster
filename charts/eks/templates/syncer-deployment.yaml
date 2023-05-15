@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -278,3 +279,4 @@ spec:
 {{ toYaml $container.resources | indent 10 }}
         {{- end }}
         {{- end }}
+{{- end }}

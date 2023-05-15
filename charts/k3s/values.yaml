@@ -5,6 +5,10 @@ globalAnnotations: {}
 # Make sure to scale up the replicas and use an external datastore
 enableHA: false
 
+# If true, will deploy vcluster in headless mode, which means no deployment
+# or statefulset is created.
+headless: false
+
 # DefaultImageRegistry will be prepended to all deployed vcluster images, such as the vcluster pod, coredns etc.. Deployed
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""

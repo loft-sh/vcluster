@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- $kind := include "vcluster.k3s.workloadKind" . -}}
 apiVersion: apps/v1
 kind: {{ $kind }}
@@ -408,3 +409,4 @@ spec:
 {{ toYaml $container.resources | indent 10 }}
         {{- end }}
         {{- end }}
+{{- end }}

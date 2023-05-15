@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if .Values.job.enabled }}
 apiVersion: batch/v1
 kind: Job
@@ -68,4 +69,5 @@ spec:
       volumes:
         - name: cert-storage
           emptyDir: {}
+{{- end }}
 {{- end }}

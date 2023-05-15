@@ -35,9 +35,11 @@ spec:
   externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
   {{- end }}
   {{- end }}
+  {{- if not .Values.headless }}
   selector:
     app: vcluster
     release: {{ .Release.Name }}
+  {{- end }}
 ---
 {{ if eq .Values.service.type "LoadBalancer" }}
 apiVersion: v1
@@ -64,9 +66,11 @@ spec:
   {{- if .Values.service.externalTrafficPolicy }}
   externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
   {{- end }}
+  {{- if not .Values.headless }}
   selector:
     app: vcluster
     release: {{ .Release.Name }}
+  {{- end }}
   {{- if .Values.service.loadBalancerIP }}
   loadBalancerIP: {{ .Values.service.loadBalancerIP }}
   {{- end }}

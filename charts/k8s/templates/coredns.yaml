@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if .Values.coredns.enabled }}
 apiVersion: v1
 kind: ConfigMap
@@ -270,5 +271,6 @@ data:
         - name: metrics
           port: 9153
           protocol: TCP
+{{- end }}
 {{- end }}
 {{- end }}

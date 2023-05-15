@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if not .Values.etcd.disabled }}
 apiVersion: v1
 kind: Service
@@ -28,4 +29,5 @@ spec:
   selector:
     app: vcluster-etcd
     release: {{ .Release.Name }}
+  {{- end }}
   {{- end }}
