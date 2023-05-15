@@ -74,7 +74,7 @@ spec:
       {{- end }}
         - name: coredns
           configMap:
-            name: custom-deployments
+            name: {{ .Release.Name }}-coredns
         - name: certs
           secret:
             secretName: {{ .Release.Name }}-certs
