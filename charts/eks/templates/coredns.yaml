@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: custom-deployments
+  name: {{ .Release.Name }}-coredns
   namespace: {{ .Release.Namespace }}
   {{- if .Values.globalAnnotations}}
   annotations:
