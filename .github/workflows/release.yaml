@@ -30,6 +30,11 @@ jobs:
       - name: Compile binaries
         run: |
           chmod +x ./hack/build-cli.sh
+          
+          # Generate necessary charts
+          go generate -tags embed_charts ./...
+          
+          # Build CLI
           ./hack/build-cli.sh
         env:
           RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}

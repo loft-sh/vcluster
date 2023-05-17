@@ -20,7 +20,7 @@ COPY cmd/ cmd/
 # Copy and embed the helm charts
 COPY charts/ charts/
 COPY hack/ hack/
-RUN go generate ./...
+RUN go generate -tags embed_charts ./...
 
 ENV GO111MODULE on
 ENV DEBUG true
@@ -31,7 +31,7 @@ ENV GOCACHE=/.cache
 
 
 # Build cmd
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -o /vcluster cmd/vclusterctl/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -tags embed_charts -o /vcluster cmd/vclusterctl/main.go
 
 # we use alpine for easier debugging
 FROM alpine:3.16
