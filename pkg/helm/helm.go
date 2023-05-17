@@ -37,6 +37,11 @@ type UpgradeOptions struct {
 	Force    bool
 }
 
+const (
+	errorExecutingHelm = "error executing helm %s: %s"
+	errorTimeout       = "error executing helm %s: %s operation timedout"
+)
+
 // Client defines the interface how to interact with helm
 type Client interface {
 	Install(ctx context.Context, name, namespace string, options UpgradeOptions) error
@@ -89,22 +94,6 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	args := []string{command, name}
 	if options.Path != "" {
 		args = append(args, options.Path)
-	} else if options.Chart != "" {
-		args = append(args, options.Chart)
-		if options.Repo == "" {
-			return fmt.Errorf("cannot deploy chart without repo")
-		}
-
-		args = append(args, "--repo", options.Repo)
-		if options.Version != "" {
-			args = append(args, "--version", options.Version)
-		}
-		if options.Username != "" {
-			args = append(args, "--username", options.Username)
-		}
-		if options.Password != "" {
-			args = append(args, "--password", options.Password)
-		}
 	}
 
 	if options.CreateNamespace {
@@ -194,17 +183,68 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 		cmd.Dir = options.WorkDir
 	}
 
+	return c.execute(ctx, args, command)
+}
+
+func (c *client) pull(ctx context.Context, name string, options UpgradeOptions) error {
+	kubeConfig, err := WriteKubeConfig(c.config)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(kubeConfig)
+
+	if options.Repo == "" {
+		return fmt.Errorf("cannot deploy chart without repo")
+	}
+
+	if options.Username != "" && options.Password != "" {
+		// login
+		err = c.login(ctx, options)
+		if err != nil {
+			return fmt.Errorf("error login to registry: %s", err)
+		}
+	}
+	args := []string{"pull"}
+	if isOCI(options.Repo) {
+		fullChart := options.Repo + "/" + options.Chart
+		args = append(args, fullChart)
+	} else {
+		args = append(args, name, options.Chart)
+		args = append(args, "--repo", options.Repo)
+	}
+
+	if options.Version != "" {
+		args = append(args, "--version", options.Version)
+	}
+
+	return c.execute(ctx, args, "pull")
+}
+
+func (c *client) login(ctx context.Context, options UpgradeOptions) error {
+	repo := strings.TrimPrefix(options.Repo, "oci://")
+	loginArgs := []string{"registry", "login", "--username", options.Username, "--password", options.Password, repo}
+	if options.Insecure {
+		loginArgs = append(loginArgs, "--insecure")
+	}
+	return c.execute(ctx, loginArgs, "login")
+}
+
+func (c *client) execute(ctx context.Context, args []string, operation string) error {
 	c.log.Info("execute command: helm " + strings.Join(args, " "))
+	cmd := exec.CommandContext(ctx, c.helmPath, args...)
 	output, err := cmd.CombinedOutput()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("error executing helm %s: %s operation timedout", string(output), command)
+		return fmt.Errorf(errorTimeout, string(output), operation)
 	}
 	if err != nil {
-		return fmt.Errorf("error executing helm %s: %s", strings.Join(args, " "), string(output))
+		return fmt.Errorf(errorExecutingHelm, strings.Join(args, " "), string(output))
 	}
-
 	return nil
+}
+
+func isOCI(repo string) bool {
+	return strings.HasPrefix(repo, "oci//")
 }
 
 func (c *client) Delete(name, namespace string) error {
