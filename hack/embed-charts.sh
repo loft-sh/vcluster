@@ -11,6 +11,8 @@ EMBED_DIR="${VCLUSTER_ROOT}/pkg/embed/charts"
 
 rm -rfv "${EMBED_DIR}"
 mkdir "${EMBED_DIR}"
+
+touch "${EMBED_DIR}/gitkeep.tgz"
 for CHART in k3s k8s k0s eks;
 do
     helm package --version "${RELEASE_VERSION}" "${VCLUSTER_ROOT}/charts/${CHART}" -d "${EMBED_DIR}";
