@@ -7,7 +7,7 @@ set -eu
 VCLUSTER_ROOT="$(dirname ${0})/.."
 RELEASE_VERSION="${RELEASE_VERSION:-0.0.1}"
 RELEASE_VERSION="${RELEASE_VERSION#"v"}" # remove "v" prefix
-EMBED_DIR="${VCLUSTER_ROOT}/cmd/vclusterctl/cmd/charts"
+EMBED_DIR="${VCLUSTER_ROOT}/pkg/embed/charts"
 
 rm -rfv "${EMBED_DIR}"
 mkdir "${EMBED_DIR}"
