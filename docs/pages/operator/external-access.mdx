@@ -161,8 +161,7 @@ An [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/
 
 - [Kubernetes Nginx](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough)
 - [Traefik Proxy](https://doc.traefik.io/traefik/routing/routers/#passthrough)
-- [AWS ALB](https://docs.giantswarm.io/advanced/ingress/configuration/#ssl-passthrough)
-- [Emissary ](https://www.getambassador.io/docs/emissary/latest/topics/using/tcpmappings#tls-termination)
+- [Emissary](https://www.getambassador.io/docs/emissary/latest/topics/using/tcpmappings#tls-termination)
 
 Make sure your ingress controller is installed and healthy on the cluster that will host your virtual clusters. Create the following `ingress.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
 
