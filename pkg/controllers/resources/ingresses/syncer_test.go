@@ -295,6 +295,7 @@ func TestSync(t *testing.T) {
 						Labels:    baseIngress.Labels,
 						Annotations: map[string]string{
 							"nginx.ingress.kubernetes.io/auth-secret": "my-secret",
+							"nginx.ingress.kubernetes.io/auth-tls-secret": baseIngress.Namespace+"/my-secret",
 						},
 					},
 				},
@@ -317,6 +318,7 @@ func TestSync(t *testing.T) {
 							Labels:    baseIngress.Labels,
 							Annotations: map[string]string{
 								"nginx.ingress.kubernetes.io/auth-secret": "my-secret",
+								"nginx.ingress.kubernetes.io/auth-tls-secret": baseIngress.Namespace+"/my-secret",
 							},
 						},
 					},
@@ -331,7 +333,8 @@ func TestSync(t *testing.T) {
 							Labels:    createdIngress.Labels,
 							Annotations: map[string]string{
 								"nginx.ingress.kubernetes.io/auth-secret": translate.Default.PhysicalName("my-secret", baseIngress.Namespace),
-								"vcluster.loft.sh/managed-annotations":    "nginx.ingress.kubernetes.io/auth-secret",
+								"nginx.ingress.kubernetes.io/auth-tls-secret": createdIngress.Namespace+"/"+translate.Default.PhysicalName("my-secret", baseIngress.Namespace),
+								"vcluster.loft.sh/managed-annotations":    "nginx.ingress.kubernetes.io/auth-secret\nnginx.ingress.kubernetes.io/auth-tls-secret",
 								"vcluster.loft.sh/object-name":            baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":       baseIngress.Namespace,
 								translate.UIDAnnotation:                   "",
