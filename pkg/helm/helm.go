@@ -3,6 +3,7 @@ package helm
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -36,6 +37,11 @@ type UpgradeOptions struct {
 	Atomic   bool
 	Force    bool
 }
+
+const (
+	errorExecutingHelm = "error executing helm %s: %s"
+	errorTimeout       = "error executing helm %s: %s operation timedout"
+)
 
 // Client defines the interface how to interact with helm
 type Client interface {
@@ -72,7 +78,7 @@ func (c *client) Upgrade(ctx context.Context, name, namespace string, options Up
 }
 
 func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) error {
-	return c.run(ctx, name, "", options, "pull", []string{})
+	return c.pull(ctx, name, options)
 }
 
 func (c *client) Rollback(ctx context.Context, name, namespace string) error {
@@ -89,22 +95,6 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	args := []string{command, name}
 	if options.Path != "" {
 		args = append(args, options.Path)
-	} else if options.Chart != "" {
-		args = append(args, options.Chart)
-		if options.Repo == "" {
-			return fmt.Errorf("cannot deploy chart without repo")
-		}
-
-		args = append(args, "--repo", options.Repo)
-		if options.Version != "" {
-			args = append(args, "--version", options.Version)
-		}
-		if options.Username != "" {
-			args = append(args, "--username", options.Username)
-		}
-		if options.Password != "" {
-			args = append(args, "--password", options.Password)
-		}
 	}
 
 	if options.CreateNamespace {
@@ -188,22 +178,95 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 		args = append(args, "--atomic")
 	}
 
-	cmd := exec.CommandContext(ctx, c.helmPath, args...)
+	return c.execute(ctx, args, command, options.WorkDir)
+}
 
-	if options.WorkDir != "" {
-		cmd.Dir = options.WorkDir
+func (c *client) pull(ctx context.Context, name string, options UpgradeOptions) error {
+	kubeConfig, err := WriteKubeConfig(c.config)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(kubeConfig)
+
+	if options.Repo == "" {
+		return fmt.Errorf("cannot deploy chart without repo")
 	}
 
+	if options.Username != "" && options.Password != "" {
+		// login
+		err = c.login(ctx, options)
+		if err != nil {
+			return fmt.Errorf("error login to registry: %s", err)
+		}
+	}
+	defer c.logout(ctx, options)
+
+	args := []string{"pull"}
+
+	if strings.HasPrefix(options.Repo, "oci://") {
+		fullChart := options.Repo + "/" + options.Chart
+		args = append(args, fullChart)
+	} else {
+		args = append(args, name, options.Chart)
+		args = append(args, "--repo", options.Repo)
+	}
+
+	if options.Version != "" {
+		args = append(args, "--version", options.Version)
+	}
+
+	if options.Insecure {
+		args = append(args, "--insecure-skip-tls-verify")
+	}
+
+	return c.execute(ctx, args, "pull", options.WorkDir)
+}
+
+func (c *client) login(ctx context.Context, options UpgradeOptions) error {
+
+	url, err := url.Parse(options.Repo)
+	if err != nil {
+		return fmt.Errorf("Error login in, repo is not a valid URL: %s", options.Repo)
+	}
+	host := url.Hostname()
+	loginArgs := []string{"registry", "login", "--username", options.Username, "--password", options.Password, host}
+	if options.Insecure {
+		loginArgs = append(loginArgs, "--insecure")
+	}
+	return c.execute(ctx, loginArgs, "login", options.WorkDir)
+}
+
+func (c *client) logout(ctx context.Context, options UpgradeOptions) {
+	url, err := url.Parse(options.Repo)
+	if err != nil {
+		return
+	}
+	host := url.Hostname()
+	logoutArgs := []string{"registry", "logout", host}
+	if options.Insecure {
+		logoutArgs = append(logoutArgs, "--insecure")
+	}
+	_ = c.execute(ctx, logoutArgs, "login", "")
+	// do not return error
+	return
+}
+
+func (c *client) execute(ctx context.Context, args []string, operation string, workdir string) error {
 	c.log.Info("execute command: helm " + strings.Join(args, " "))
+	cmd := exec.CommandContext(ctx, c.helmPath, args...)
+
+	if workdir != "" {
+		cmd.Dir = workdir
+	}
+
 	output, err := cmd.CombinedOutput()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("error executing helm %s: %s operation timedout", string(output), command)
+		return fmt.Errorf(errorTimeout, string(output), operation)
 	}
 	if err != nil {
-		return fmt.Errorf("error executing helm %s: %s", strings.Join(args, " "), string(output))
+		return fmt.Errorf(errorExecutingHelm, strings.Join(args, " "), string(output))
 	}
-
 	return nil
 }
 
