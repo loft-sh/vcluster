@@ -9,10 +9,11 @@
   ```sh
     vcluster create vcluster -f https://raw.githubusercontent.com/loft-sh/vcluster/main/generic-sync-examples/karpenter/config.yaml
   ```
-3. Connect to the vcluster and apply the crds. 
+3. Connect to the vcluster and apply the crds. Update lines 7 and 9 with the EKS cluster name for auto-discovery features to work
   ```sh
-    kubectl apply -f https://raw.githubusercontent.com/loft-sh/vcluster/main/generic-sync-examples/karpenter/karpenterCrds/provisioner-node.yaml
+    kubectl apply -f ./karpenterCrds/provisioner-node.yaml
   ```
+  
 4. Create a workload and set the nodeselector to match the labels set within the Provisioner. If not, the node will not be scheduled by karpenter. 
   ```yaml
   nodeSelector:
