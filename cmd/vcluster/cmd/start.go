@@ -314,22 +314,14 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		}
 	}()
 
-	registerOrDeregisterAPIService := func() {
-		// check apiservice for metrics server
-		err := metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, virtualClusterConfig)
-		if err != nil {
-			klog.Errorf("Error registering metrics apiservice: %v", err)
-		}
-	}
-
 	if ctx.Options.LeaderElect {
 		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
-			go registerOrDeregisterAPIService()
+			go registerOrDeregisterAPIService(ctx)
 
 			return startControllers(ctx, &rawConfig, serverVersion)
 		})
 	} else {
-		go registerOrDeregisterAPIService()
+		go registerOrDeregisterAPIService(ctx)
 
 		if telemetry.Collector.IsEnabled() {
 			telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
@@ -342,6 +334,14 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	<-ctx.StopChan
 	return nil
+}
+
+func registerOrDeregisterAPIService(ctx *context2.ControllerContext) {
+	// check api-service for metrics server
+	err := metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, ctx.VirtualManager.GetClient())
+	if err != nil {
+		klog.Errorf("Error registering metrics apiservice: %v", err)
+	}
 }
 
 func ensureServiceCIDR(c kubernetes.Interface, currentNamespace, vclusterName string) error {
