@@ -7,7 +7,7 @@
 1. Once you've followed the installation instructions for setting up and installing karpenter on the host cluster and verified that the installation works, proceed to the next step of creating the vcluster
 2. Create a vcluster with the above config as a values file
   ```sh
-    vcluster create vcluster -f https://raw.githubusercontent.com/loft-sh/vcluster/main/generic-sync-examples/karpenter/config.yaml
+    vcluster create vcluster -f config.yaml
   ```
 3. Connect to the vcluster and apply the crds. Update lines 7 and 9 with the EKS cluster name for auto-discovery features to work
   ```sh
@@ -19,4 +19,3 @@
   nodeSelector:
     project: vcluster
   ```
-  
