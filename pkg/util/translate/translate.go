@@ -258,7 +258,7 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 			version.Storage = true
 			newVersions = append(newVersions, version)
 
-			if version.Subresources.Status != nil {
+			if version.Subresources != nil && version.Subresources.Status != nil {
 				hasStatusSubresource = true
 			}
 			break
