@@ -110,7 +110,7 @@ func ExecuteCerts(options *CertsCmd) error {
 
 	cidr := options.ServiceCIDR
 	if cidr == "" {
-		cidr, err = servicecidr.EnsureServiceCIDRConfigmap(context.Background(), kubeClient, options.Namespace, options.Prefix)
+		cidr, err = servicecidr.EnsureServiceCIDRConfigmap(context.Background(), kubeClient, kubeClient, options.Namespace, options.Namespace, options.Prefix)
 		if err != nil {
 			klog.Errorf("Failed to retrieve service CIDR range")
 			return err

@@ -25,7 +25,7 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
-  {{- if or .Values.sync.pods.status .Values.rbac.role.extended .Values.headless }}
+  {{- if or .Values.sync.pods.status .Values.rbac.role.extended }}
   - apiGroups: [""]
     resources: ["pods/status"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
@@ -37,7 +37,7 @@ rules:
     verbs: ["patch", "update"]
   {{- end }}
   {{- end }}
-  {{- if or .Values.sync.endpoints.enabled .Values.rbac.role.extended }}
+  {{- if or .Values.sync.endpoints.enabled .Values.rbac.role.extended .Values.headless }}
   - apiGroups: [""]
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]
