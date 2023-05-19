@@ -22,6 +22,4 @@ sync:
           kind: Provisioner
         - apiVersion: karpenter.k8s.aws/v1alpha1
           kind: AWSNodeTemplate
-
-
-  
+          

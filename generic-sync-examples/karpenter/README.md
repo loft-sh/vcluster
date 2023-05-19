@@ -13,9 +13,10 @@
   ```sh
     kubectl apply -f ./karpenterCrds/provisioner-node.yaml
   ```
-  
+
 4. Create a workload and set the nodeselector to match the labels set within the Provisioner. If not, the node will not be scheduled by karpenter. 
   ```yaml
   nodeSelector:
     project: vcluster
   ```
+  
