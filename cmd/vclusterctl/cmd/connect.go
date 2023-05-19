@@ -500,6 +500,9 @@ func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *a
 	return nil
 }
 
+// exchangeContextName switches the context name specified in the remote kubeconfig with
+// the context name specified by the user. It cannot correctly handle kubeconfigs with multiple entries
+// for clusters, authInfos, contexts, but ideally this is pointed at a secret created by us.
 func (cmd *ConnectCmd) exchangeContextName(kubeConfig *api.Config, vclusterName string) error {
 	if cmd.KubeConfigContextName == "" {
 		if vclusterName != "" {
@@ -509,27 +512,36 @@ func (cmd *ConnectCmd) exchangeContextName(kubeConfig *api.Config, vclusterName 
 		}
 	}
 
-	// update cluster
+	// pick the last specified cluster (there should ideally be exactly one)
 	for k := range kubeConfig.Clusters {
 		kubeConfig.Clusters[cmd.KubeConfigContextName] = kubeConfig.Clusters[k]
-		delete(kubeConfig.Clusters, k)
+		// delete the rest
+		if k != cmd.KubeConfigContextName {
+			delete(kubeConfig.Clusters, k)
+		}
 		break
 	}
 
-	// update context
+	// pick the last specified context (there should ideally be exactly one)
 	for k := range kubeConfig.Contexts {
 		ctx := kubeConfig.Contexts[k]
 		ctx.Cluster = cmd.KubeConfigContextName
 		ctx.AuthInfo = cmd.KubeConfigContextName
 		kubeConfig.Contexts[cmd.KubeConfigContextName] = ctx
-		delete(kubeConfig.Contexts, k)
+		// delete the rest
+		if k != cmd.KubeConfigContextName {
+			delete(kubeConfig.Contexts, k)
+		}
 		break
 	}
 
-	// update authInfo
+	// pick the last specified authinfo (there should ideally be exactly one)
 	for k := range kubeConfig.AuthInfos {
 		kubeConfig.AuthInfos[cmd.KubeConfigContextName] = kubeConfig.AuthInfos[k]
-		delete(kubeConfig.AuthInfos, k)
+		// delete the rest
+		if k != cmd.KubeConfigContextName {
+			delete(kubeConfig.AuthInfos, k)
+		}
 		break
 	}
 
