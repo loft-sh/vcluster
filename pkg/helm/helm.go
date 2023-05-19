@@ -226,7 +226,7 @@ func (c *client) login(ctx context.Context, options UpgradeOptions) error {
 
 	url, err := url.Parse(options.Repo)
 	if err != nil {
-		return fmt.Errorf("Error login in, repo is not a valid URL: %s", options.Repo)
+		return fmt.Errorf("error login in, repo is not a valid URL: %s", options.Repo)
 	}
 	host := url.Hostname()
 	loginArgs := []string{"registry", "login", "--username", options.Username, "--password", options.Password, host}
@@ -247,8 +247,6 @@ func (c *client) logout(ctx context.Context, options UpgradeOptions) {
 		logoutArgs = append(logoutArgs, "--insecure")
 	}
 	_ = c.execute(ctx, logoutArgs, "login", "")
-	// do not return error
-	return
 }
 
 func (c *client) execute(ctx context.Context, args []string, operation string, workdir string) error {
