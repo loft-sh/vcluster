@@ -5,7 +5,9 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,8 +16,10 @@ import (
 type ControllerContext struct {
 	Context context.Context
 
-	LocalManager   ctrl.Manager
-	VirtualManager ctrl.Manager
+	LocalManager          ctrl.Manager
+	VirtualManager        ctrl.Manager
+	VirtualRawConfig      *clientcmdapi.Config
+	VirtualClusterVersion *version.Info
 
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
@@ -25,7 +29,14 @@ type ControllerContext struct {
 	StopChan    <-chan struct{}
 }
 
-func NewControllerContext(currentNamespace string, localManager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
+func NewControllerContext(
+	currentNamespace string,
+	localManager,
+	virtualManager ctrl.Manager,
+	virtualRawConfig *clientcmdapi.Config,
+	virtualClusterVersion *version.Info,
+	options *VirtualClusterOptions,
+) (*ControllerContext, error) {
 	stopChan := make(<-chan struct{})
 	ctx := context.Background()
 
@@ -52,10 +63,12 @@ func NewControllerContext(currentNamespace string, localManager, virtualManager 
 	}
 
 	return &ControllerContext{
-		Context:        ctx,
-		Controllers:    controllers,
-		LocalManager:   localManager,
-		VirtualManager: virtualManager,
+		Context:               ctx,
+		Controllers:           controllers,
+		LocalManager:          localManager,
+		VirtualManager:        virtualManager,
+		VirtualRawConfig:      virtualRawConfig,
+		VirtualClusterVersion: virtualClusterVersion,
 
 		CurrentNamespace:       currentNamespace,
 		CurrentNamespaceClient: currentNamespaceClient,

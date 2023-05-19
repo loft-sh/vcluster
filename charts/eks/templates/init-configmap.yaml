@@ -1,4 +1,3 @@
-{{- if not .Values.headless }}
 {{- if .Values.init.manifests }}
 apiVersion: v1
 kind: ConfigMap
@@ -50,5 +49,4 @@ data:
       {{- end }}
   {{- end }}
   {{- end }}
-{{- end }}
 {{- end }}

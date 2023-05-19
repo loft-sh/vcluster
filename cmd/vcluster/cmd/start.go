@@ -7,11 +7,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
+	"github.com/loft-sh/vcluster/pkg/server"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -26,8 +30,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
-	"github.com/loft-sh/vcluster/pkg/leaderelection"
-	"github.com/loft-sh/vcluster/pkg/server"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
@@ -42,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -114,6 +115,11 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		translate.Suffix = "vcluster"
 	}
 
+	// set service name
+	if options.ServiceName == "" {
+		options.ServiceName = translate.Suffix
+	}
+
 	// get current namespace
 	currentNamespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
@@ -133,7 +139,7 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 
 	// Ensure that service CIDR range is written into the expected location
 	err = wait.PollImmediate(5*time.Second, 2*time.Minute, func() (bool, error) {
-		err = ensureServiceCIDR(inClusterClient, currentNamespace, translate.Suffix)
+		err = EnsureServiceCIDR(inClusterClient, inClusterClient, currentNamespace, currentNamespace, translate.Suffix)
 		if err != nil {
 			klog.Errorf("failed to ensure that service CIDR range is written into the expected location: %v", err)
 			return false, nil
@@ -144,9 +150,181 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		return err
 	}
 
+	// build controller context
+	ctx, err := BuildControllerContext(options, currentNamespace, inClusterConfig)
+	if err != nil {
+		return err
+	}
+
+	// start proxy
+	err = StartProxy(ctx)
+	if err != nil {
+		return err
+	}
+
+	// start leader election + controllers
+	err = StartLeaderElection(ctx, func() error {
+		return StartControllers(ctx)
+	})
+	if err != nil {
+		return err
+	}
+
+	<-ctx.StopChan
+	return nil
+}
+
+func StartLeaderElection(ctx *context2.ControllerContext, startLeading func() error) error {
+	var err error
+	if ctx.Options.LeaderElect {
+		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
+			return startLeading()
+		})
+	} else {
+		err = startLeading()
+	}
+	if err != nil {
+		return errors.Wrap(err, "start controllers")
+	}
+
+	return nil
+}
+
+func StartProxy(ctx *context2.ControllerContext) error {
+	// start the proxy
+	proxyServer, err := server.NewServer(ctx, ctx.Options.RequestHeaderCaCert, ctx.Options.ClientCaCert)
+	if err != nil {
+		return err
+	}
+
+	// start the proxy server in secure mode
+	go func() {
+		err = proxyServer.ServeOnListenerTLS(ctx.Options.BindAddress, ctx.Options.Port, ctx.StopChan)
+		if err != nil {
+			klog.Fatalf("Error serving: %v", err)
+		}
+	}()
+
+	return nil
+}
+
+func BuildControllerContext(options *context2.VirtualClusterOptions, currentNamespace string, inClusterConfig *rest.Config) (*context2.ControllerContext, error) {
+	// parse tolerations
+	for _, t := range options.Tolerations {
+		_, err := toleration.ParseToleration(t)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// check if enable scheduler works correctly
+	if options.EnableScheduler && !options.SyncAllNodes && len(options.NodeSelector) == 0 {
+		options.SyncAllNodes = true
+	}
+
+	// migrate fake kubelet flag
+	if !options.DeprecatedUseFakeKubelets {
+		options.DisableFakeKubelets = true
+	}
+
+	// is multi namespace mode?
+	if options.MultiNamespaceMode {
+		// set options.TargetNamespace to empty because it will later be used in Manager
+		options.TargetNamespace = ""
+		translate.Default = translate.NewMultiNamespaceTranslator(currentNamespace)
+	} else {
+		// ensure target namespace
+		if options.TargetNamespace == "" {
+			options.TargetNamespace = currentNamespace
+		}
+		translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
+	}
+
+	telemetry.Collector.SetOptions(options)
+
+	// wait for client config
+	clientConfig, err := WaitForClientConfig(options)
+	if err != nil {
+		return nil, err
+	}
+
+	virtualClusterConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// We increase the limits here so that we don't get any problems
+	virtualClusterConfig.QPS = 1000
+	virtualClusterConfig.Burst = 2000
+	virtualClusterConfig.Timeout = 0
+
+	// start leader election for controllers
+	rawConfig, err := clientConfig.RawConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// start plugins
+	if !options.DisablePlugins {
+		klog.Infof("Start Plugins Manager...")
+		syncerConfig, err := CreateVClusterKubeConfig(&rawConfig, options)
+		if err != nil {
+			return nil, err
+		}
+
+		err = plugin.DefaultManager.Start(currentNamespace, options.TargetNamespace, virtualClusterConfig, inClusterConfig, syncerConfig, options)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	klog.Info("Using physical cluster at " + inClusterConfig.Host)
+	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
+		Scheme:             scheme,
+		MetricsBindAddress: options.HostMetricsBindAddress,
+		LeaderElection:     false,
+		Namespace:          options.TargetNamespace,
+		NewClient:          pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	virtualClusterManager, err := ctrl.NewManager(virtualClusterConfig, ctrl.Options{
+		Scheme:             scheme,
+		MetricsBindAddress: options.VirtualMetricsBindAddress,
+		LeaderElection:     false,
+		NewClient:          pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// get virtual cluster version
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(virtualClusterConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "create discovery client")
+	}
+	serverVersion, err := discoveryClient.ServerVersion()
+	if err != nil {
+		return nil, errors.Wrap(err, "get virtual cluster version")
+	}
+	nodes.FakeNodesVersion = serverVersion.GitVersion
+	klog.Infof("Can connect to virtual cluster with version " + serverVersion.GitVersion)
+
+	// create controller context
+	ctx, err := context2.NewControllerContext(currentNamespace, localManager, virtualClusterManager, &rawConfig, serverVersion, options)
+	if err != nil {
+		return nil, errors.Wrap(err, "create controller context")
+	}
+
+	return ctx, nil
+}
+
+func WaitForClientConfig(options *context2.VirtualClusterOptions) (clientcmd.ClientConfig, error) {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
-	err = wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
+	err := wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
 		out, err := os.ReadFile(options.KubeConfigPath)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -189,154 +367,13 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 		return true, nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// parse tolerations
-	for _, t := range options.Tolerations {
-		_, err := toleration.ParseToleration(t)
-		if err != nil {
-			return err
-		}
-	}
-
-	// check if enable scheduler works correctly
-	if options.EnableScheduler && !options.SyncAllNodes && len(options.NodeSelector) == 0 {
-		options.SyncAllNodes = true
-	}
-
-	// migrate fake kubelet flag
-	if !options.DeprecatedUseFakeKubelets {
-		options.DisableFakeKubelets = true
-	}
-
-	// set service name
-	if options.ServiceName == "" {
-		options.ServiceName = translate.Suffix
-	}
-
-	// is multi namespace mode?
-	if options.MultiNamespaceMode {
-		// set options.TargetNamespace to empty because it will later be used in Manager
-		options.TargetNamespace = ""
-		translate.Default = translate.NewMultiNamespaceTranslator(currentNamespace)
-	} else {
-		// ensure target namespace
-		if options.TargetNamespace == "" {
-			options.TargetNamespace = currentNamespace
-		}
-		translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
-	}
-
-	telemetry.Collector.SetOptions(options)
-
-	virtualClusterConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return err
-	}
-
-	// We increase the limits here so that we don't get any problems
-	virtualClusterConfig.QPS = 1000
-	virtualClusterConfig.Burst = 2000
-	virtualClusterConfig.Timeout = 0
-
-	// start leader election for controllers
-	rawConfig, err := clientConfig.RawConfig()
-	if err != nil {
-		return err
-	}
-
-	// start plugins
-	if !options.DisablePlugins {
-		klog.Infof("Start Plugins Manager...")
-		syncerConfig, err := createVClusterKubeConfig(&rawConfig, options)
-		if err != nil {
-			return err
-		}
-
-		err = plugin.DefaultManager.Start(currentNamespace, options.TargetNamespace, virtualClusterConfig, inClusterConfig, syncerConfig, options)
-		if err != nil {
-			return err
-		}
-	}
-
-	klog.Info("Using physical cluster at " + inClusterConfig.Host)
-	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: options.HostMetricsBindAddress,
-		LeaderElection:     false,
-		Namespace:          options.TargetNamespace,
-		NewClient:          pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
-	})
-	if err != nil {
-		return err
-	}
-
-	virtualClusterManager, err := ctrl.NewManager(virtualClusterConfig, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: options.VirtualMetricsBindAddress,
-		LeaderElection:     false,
-		NewClient:          pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
-	})
-	if err != nil {
-		return err
-	}
-
-	// get virtual cluster version
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(virtualClusterConfig)
-	if err != nil {
-		return errors.Wrap(err, "create discovery client")
-	}
-	serverVersion, err := discoveryClient.ServerVersion()
-	if err != nil {
-		return errors.Wrap(err, "get virtual cluster version")
-	}
-	nodes.FakeNodesVersion = serverVersion.GitVersion
-	klog.Infof("Can connect to virtual cluster with version " + serverVersion.GitVersion)
-
-	// create controller context
-	ctx, err := context2.NewControllerContext(currentNamespace, localManager, virtualClusterManager, options)
-	if err != nil {
-		return errors.Wrap(err, "create controller context")
-	}
-
-	// start the proxy
-	proxyServer, err := server.NewServer(ctx, options.RequestHeaderCaCert, options.ClientCaCert)
-	if err != nil {
-		return err
-	}
-
-	// start the proxy server in secure mode
-	go func() {
-		err = proxyServer.ServeOnListenerTLS(options.BindAddress, options.Port, ctx.StopChan)
-		if err != nil {
-			klog.Fatalf("Error serving: %v", err)
-		}
-	}()
-
-	if ctx.Options.LeaderElect {
-		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
-			go registerOrDeregisterAPIService(ctx)
-
-			return startControllers(ctx, &rawConfig, serverVersion)
-		})
-	} else {
-		go registerOrDeregisterAPIService(ctx)
-
-		if telemetry.Collector.IsEnabled() {
-			telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
-		}
-		err = startControllers(ctx, &rawConfig, serverVersion)
-	}
-	if err != nil {
-		return errors.Wrap(err, "start controllers")
-	}
-
-	<-ctx.StopChan
-	return nil
+	return clientConfig, nil
 }
 
-func registerOrDeregisterAPIService(ctx *context2.ControllerContext) {
+func RegisterOrDeregisterAPIService(ctx *context2.ControllerContext) {
 	// check api-service for metrics server
 	err := metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, ctx.VirtualManager.GetClient())
 	if err != nil {
@@ -344,9 +381,9 @@ func registerOrDeregisterAPIService(ctx *context2.ControllerContext) {
 	}
 }
 
-func ensureServiceCIDR(c kubernetes.Interface, currentNamespace, vclusterName string) error {
+func EnsureServiceCIDR(workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace, vClusterName string) error {
 	// check if k0s config Secret exists
-	_, err := c.CoreV1().Secrets(currentNamespace).Get(context.Background(), servicecidr.GetK0sSecretName(vclusterName), metav1.GetOptions{})
+	_, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(context.Background(), servicecidr.GetK0sSecretName(vClusterName), metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
@@ -354,19 +391,26 @@ func ensureServiceCIDR(c kubernetes.Interface, currentNamespace, vclusterName st
 	// if k0s secret was found ensure it contains service CIDR range
 	if err == nil {
 		klog.Info("k0s config secret detected, syncer will ensure that it contains service CIDR")
-		return servicecidr.EnsureServiceCIDRInK0sSecret(context.Background(), c, currentNamespace, vclusterName)
+		return servicecidr.EnsureServiceCIDRInK0sSecret(context.Background(), workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
 	}
 
 	// in all other cases ensure that a valid CIDR range is in the designated ConfigMap
-	_, err = servicecidr.EnsureServiceCIDRConfigmap(context.Background(), c, currentNamespace, vclusterName)
+	_, err = servicecidr.EnsureServiceCIDRConfigmap(context.Background(), workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
 	return err
 }
 
-func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, serverVersion *version.Info) error {
+func StartControllers(ctx *context2.ControllerContext) error {
+	if telemetry.Collector.IsEnabled() {
+		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
+	}
+
+	// register APIService
+	go RegisterOrDeregisterAPIService(ctx)
+
 	// setup CoreDNS according to the manifest file
 	go func() {
 		_ = wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
-			err := coredns.ApplyManifest(ctx.Options.DefaultImageRegistry, ctx.VirtualManager.GetConfig(), serverVersion)
+			err := coredns.ApplyManifest(ctx.Options.DefaultImageRegistry, ctx.VirtualManager.GetConfig(), ctx.VirtualClusterVersion)
 			if err != nil {
 				if errors.Is(err, coredns.ErrNoCoreDNSManifests) {
 					klog.Infof("No CoreDNS manifests found, skipping CoreDNS configuration")
@@ -419,13 +463,13 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	ctx.VirtualManager.GetCache().WaitForCacheSync(ctx.Context)
 
 	// make sure owner is set if it is there
-	err = findOwner(ctx)
+	err = FindOwner(ctx)
 	if err != nil {
 		return errors.Wrap(err, "finding vcluster pod owner")
 	}
 
 	// make sure the kubernetes service is synced
-	err = syncKubernetesService(ctx)
+	err = SyncKubernetesService(ctx)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service")
 	}
@@ -433,7 +477,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	// write the kube config to secret
 	go func() {
 		wait.Until(func() {
-			err := writeKubeConfigToSecret(ctx, rawConfig)
+			err := WriteKubeConfigToSecret(ctx.Context, ctx.CurrentNamespace, ctx.CurrentNamespaceClient, ctx.Options, ctx.VirtualRawConfig)
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
 			}
@@ -454,7 +498,7 @@ func startControllers(ctx *context2.ControllerContext, rawConfig *api.Config, se
 	return nil
 }
 
-func findOwner(ctx *context2.ControllerContext) error {
+func FindOwner(ctx *context2.ControllerContext) error {
 	if ctx.CurrentNamespace != ctx.Options.TargetNamespace {
 		if ctx.Options.SetOwner {
 			klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", ctx.CurrentNamespace, ctx.Options.TargetNamespace)
@@ -476,13 +520,13 @@ func findOwner(ctx *context2.ControllerContext) error {
 	return nil
 }
 
-func syncKubernetesService(ctx *context2.ControllerContext) error {
+func SyncKubernetesService(ctx *context2.ControllerContext) error {
 	err := services.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.CurrentNamespaceClient, ctx.CurrentNamespace, ctx.Options.ServiceName)
 	if err != nil {
 		if kerrors.IsConflict(err) {
 			klog.Errorf("Error syncing kubernetes service: %v", err)
 			time.Sleep(time.Second)
-			return syncKubernetesService(ctx)
+			return SyncKubernetesService(ctx)
 		}
 
 		return errors.Wrap(err, "sync kubernetes service")
@@ -490,7 +534,7 @@ func syncKubernetesService(ctx *context2.ControllerContext) error {
 	return nil
 }
 
-func createVClusterKubeConfig(config *api.Config, options *context2.VirtualClusterOptions) (*api.Config, error) {
+func CreateVClusterKubeConfig(config *api.Config, options *context2.VirtualClusterOptions) (*api.Config, error) {
 	config = config.DeepCopy()
 
 	// exchange kube config server & resolve certificate
@@ -539,54 +583,60 @@ func createVClusterKubeConfig(config *api.Config, options *context2.VirtualClust
 	return config, nil
 }
 
-func writeKubeConfigToSecret(ctx *context2.ControllerContext, config *api.Config) error {
-	config, err := createVClusterKubeConfig(config, ctx.Options)
+func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *context2.VirtualClusterOptions, config *api.Config) error {
+	config, err := CreateVClusterKubeConfig(config, options)
 	if err != nil {
 		return err
 	}
 
-	if ctx.Options.KubeConfigContextName != "" {
-		config.CurrentContext = ctx.Options.KubeConfigContextName
+	if options.KubeConfigContextName != "" {
+		config.CurrentContext = options.KubeConfigContextName
 		// update authInfo
 		for k := range config.AuthInfos {
-			config.AuthInfos[ctx.Options.KubeConfigContextName] = config.AuthInfos[k]
-			delete(config.AuthInfos, k)
+			config.AuthInfos[options.KubeConfigContextName] = config.AuthInfos[k]
+			if k != options.KubeConfigContextName {
+				delete(config.AuthInfos, k)
+			}
 			break
 		}
 
 		// update cluster
 		for k := range config.Clusters {
-			config.Clusters[ctx.Options.KubeConfigContextName] = config.Clusters[k]
-			delete(config.Clusters, k)
+			config.Clusters[options.KubeConfigContextName] = config.Clusters[k]
+			if k != options.KubeConfigContextName {
+				delete(config.Clusters, k)
+			}
 			break
 		}
 
 		// update context
 		for k := range config.Contexts {
 			tmpCtx := config.Contexts[k]
-			tmpCtx.Cluster = ctx.Options.KubeConfigContextName
-			tmpCtx.AuthInfo = ctx.Options.KubeConfigContextName
-			config.Contexts[ctx.Options.KubeConfigContextName] = tmpCtx
-			delete(config.Contexts, k)
+			tmpCtx.Cluster = options.KubeConfigContextName
+			tmpCtx.AuthInfo = options.KubeConfigContextName
+			config.Contexts[options.KubeConfigContextName] = tmpCtx
+			if k != options.KubeConfigContextName {
+				delete(config.Contexts, k)
+			}
 			break
 		}
 	}
 
 	// check if we need to write the kubeconfig secrete to the default location as well
-	if ctx.Options.KubeConfigSecret != "" {
+	if options.KubeConfigSecret != "" {
 		// which namespace should we create the additional secret in?
-		secretNamespace := ctx.Options.KubeConfigSecretNamespace
+		secretNamespace := options.KubeConfigSecretNamespace
 		if secretNamespace == "" {
-			secretNamespace = ctx.CurrentNamespace
+			secretNamespace = currentNamespace
 		}
 
 		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, ctx.Options.KubeConfigSecret, secretNamespace, config)
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.KubeConfigSecret, secretNamespace, config)
 		if err != nil {
-			return fmt.Errorf("creating %s secret in the %s ns failed: %v", ctx.Options.KubeConfigSecret, secretNamespace, err)
+			return fmt.Errorf("creating %s secret in the %s ns failed: %v", options.KubeConfigSecret, secretNamespace, err)
 		}
 	}
 
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx.Context, ctx.CurrentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), ctx.CurrentNamespace, config)
+	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), currentNamespace, config)
 }
