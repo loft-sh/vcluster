@@ -59,15 +59,24 @@ spec:
             {{- if .Values.serviceCIDR }}
             - --service-cidr={{ .Values.serviceCIDR }}
             {{- end }}
+            {{- if .Values.job.extraArgs }}
+{{ toYaml .Values.job.extraArgs | indent 12 }}
+            {{- end }}
           securityContext:
 {{ toYaml .Values.job.securityContext | indent 12 }}
           volumeMounts:
             - name: cert-storage
               mountPath: /certs
+          {{- if .Values.job.volumeMounts }}
+{{ toYaml .Values.job.volumeMounts | indent 12 }}
+          {{- end }}
           resources:
 {{ toYaml .Values.job.resources | indent 12 }}
       volumes:
         - name: cert-storage
           emptyDir: {}
+      {{- if .Values.job.volumes }}
+{{ toYaml .Values.job.volumes | indent 8 }}
+      {{- end }}
 {{- end }}
 {{- end }}
