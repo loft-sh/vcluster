@@ -149,6 +149,10 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	}
 
 	// create the new service
+	targetPort := intstr.FromInt(KubeletTargetPort)
+	if vclusterService.Spec.Selector == nil {
+		targetPort = intstr.IntOrString{}
+	}
 	nodeService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: n.currentNamespace,
@@ -161,8 +165,9 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
+					Name:       "kubelet",
 					Port:       int32(KubeletPort),
-					TargetPort: intstr.FromInt(KubeletTargetPort),
+					TargetPort: targetPort,
 				},
 			},
 			Selector: vclusterService.Spec.Selector,

@@ -18,11 +18,15 @@ spec:
   ports:
     - name: https
       port: 443
+      {{- if not .Values.headless }}
       targetPort: 8443
+      {{- end }}
       protocol: TCP
     - name: kubelet
       port: 10250
+      {{- if not .Values.headless }}
       targetPort: 8443
+      {{- end }}
       protocol: TCP
   {{- if .Values.service.externalIPs }}
   externalIPs:
