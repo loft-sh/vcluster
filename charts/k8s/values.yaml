@@ -147,6 +147,7 @@ syncer:
     - mountPath: /pki
       name: certs
       readOnly: true
+  extraVolumeMounts: []
   env: []
   livenessProbe:
     enabled: true
@@ -343,6 +344,9 @@ service:
 # job configuration
 job:
   enabled: true
+  volumes: []
+  volumeMounts: []
+  extraArgs: []
   priorityClassName: ""
   nodeSelector: {}
   affinity: {}

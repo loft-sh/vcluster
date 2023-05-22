@@ -148,6 +148,7 @@ syncer:
     - mountPath: /data
       name: data
       readOnly: true
+  extraVolumeMounts: []
   resources:
     limits:
       memory: 1Gi

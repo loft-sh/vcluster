@@ -215,6 +215,9 @@ spec:
             mountPath: /tmp
         {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
+        {{- if .Values.syncer.extraVolumeMounts }}
+{{ toYaml .Values.syncer.extraVolumeMounts | indent 10 }}
+        {{- end }}
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}
       {{- $counter := -1 -}}
