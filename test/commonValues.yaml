@@ -47,7 +47,15 @@ init:
       release:
         name: ingress-nginx
         namespace: ingress-nginx
-      timeout: '50s'
+      timeout: "50s"
+    - chart:
+        name: prometheus
+        repo: oci://ghcr.io/prometheus-community/charts
+        version: 19.0.2
+      release:
+        name: prometheus
+        namespace: prometheus
+      timeout: "50s"
 
 sync:
   pods:
