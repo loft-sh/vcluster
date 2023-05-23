@@ -203,7 +203,10 @@ func rewriteStats(ctx context.Context, data []byte, vClient client.Client) ([]by
 func executeRequest(req *http.Request, h http.Handler) (int, http.Header, []byte, error) {
 	clonedRequest := req.Clone(req.Context())
 	clonedRequest.Header.Set("Content-Type", "application/json")
-	clonedRequest.Header.Set("Accept", "application/json")
+	if strings.Contains(clonedRequest.Header.Get("Kubectl-Command"), "top") {
+		clonedRequest.Header.Set("Accept", "application/json, */*")
+	}
+
 	fakeWriter := httptest.NewRecorder()
 	h.ServeHTTP(fakeWriter, clonedRequest)
 
