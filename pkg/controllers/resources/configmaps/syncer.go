@@ -19,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
@@ -64,7 +63,7 @@ func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 var _ syncer.ControllerModifier = &configMapSyncer{}
 
 func (s *configMapSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
+	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
 }
 
 func (s *configMapSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -122,7 +121,7 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	return len(podList.Items) > 0, nil
 }
 
-func mapPods(obj client.Object) []reconcile.Request {
+func mapPods(_ context.Context, obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return nil

@@ -167,6 +167,8 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	var vclusterClient *kubernetes.Clientset
 	var vclusterCRClient client.Client
 
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
 		output, err := os.ReadFile(vKubeconfigFile.Name())
 		if err != nil {

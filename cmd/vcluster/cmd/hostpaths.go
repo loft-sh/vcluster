@@ -3,13 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
-	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
@@ -122,6 +123,8 @@ func MapHostPaths(options *context2.VirtualClusterOptions) error {
 	translate.Suffix = options.Name
 
 	var virtualClusterConfig *rest.Config
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
 		virtualClusterConfig = &rest.Config{
 			Host: options.Name,

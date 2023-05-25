@@ -77,6 +77,8 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		_, err = f.VclusterClient.CoreV1().Pods(nsName).Create(f.Context, pod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
 			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(f.Context, podName, metav1.GetOptions{})
 			if p.Status.Phase == v1.PodRunning {
@@ -109,6 +111,8 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		_, err = f.VclusterClient.CoreV1().Pods(nsName).Create(f.Context, pod1, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
 			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(f.Context, pod1Name, metav1.GetOptions{})
 			if p.Status.Phase == v1.PodRunning {

@@ -33,8 +33,13 @@ func NewScheme() *runtime.Scheme {
 
 // NewFakeClient creates a new fake client for the standard schema
 func NewFakeClient(scheme *runtime.Scheme, objs ...runtime.Object) *FakeIndexClient {
+	co := []client.Object{}
+	for _, o := range objs {
+		co = append(co, o.(client.Object))
+	}
+
 	return &FakeIndexClient{
-		Client:     fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(),
+		Client:     fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).WithStatusSubresource(co...).Build(),
 		scheme:     scheme,
 		indexFuncs: map[schema.GroupVersionKind]map[string]client.IndexerFunc{},
 		indexes:    map[schema.GroupVersionKind]map[string]map[string][]runtime.Object{},

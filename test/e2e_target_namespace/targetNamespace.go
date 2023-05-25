@@ -27,6 +27,8 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 		_, err := f.HostClient.CoreV1().Namespaces().Create(f.Context, ns, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.Poll(time.Second, time.Minute*1, func() (done bool, err error) {
 			namespace, _ := f.HostClient.CoreV1().Namespaces().Get(f.Context, ns.Name, metav1.GetOptions{})
 			if namespace.Status.Phase == corev1.NamespaceActive {
@@ -110,6 +112,8 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 		_, err = f.VclusterClient.CoreV1().Pods("default").Create(f.Context, pod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
 			p, _ := f.VclusterClient.CoreV1().Pods("default").Get(f.Context, "nginx", metav1.GetOptions{})
 			if p.Status.Phase == corev1.PodRunning {

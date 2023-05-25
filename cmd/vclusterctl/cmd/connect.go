@@ -314,6 +314,8 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 	var err error
 	podName := cmd.PodName
 	if podName == "" {
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		waitErr := wait.PollImmediate(time.Second, time.Second*30, func() (bool, error) {
 			// get vcluster pod name
 			var pods *corev1.PodList
@@ -436,6 +438,8 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 
 func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *api.Config) error {
 	printedWaiting := false
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err := wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
 		// first check for load balancer service, look for the other service if it's not there
 		loadBalancerMissing := false
@@ -650,6 +654,8 @@ func (cmd *ConnectCmd) waitForVCluster(vKubeConfig api.Config, errorChan chan er
 		return err
 	}
 
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.PollImmediate(time.Millisecond*200, time.Minute*3, func() (bool, error) {
 		select {
 		case err := <-errorChan:
@@ -694,6 +700,8 @@ func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string
 	}
 	token := ""
 	cmd.Log.Infof("Create service account token for %s/%s", serviceAccountNamespace, serviceAccount)
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.Poll(time.Second, time.Minute*3, func() (bool, error) {
 		// check if namespace exists
 		_, err := vKubeClient.CoreV1().Namespaces().Get(context.TODO(), serviceAccountNamespace, metav1.GetOptions{})

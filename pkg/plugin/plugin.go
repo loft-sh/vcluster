@@ -4,16 +4,17 @@ import (
 	context "context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"sync"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
-	"net"
-	"os"
-	"sync"
-	"time"
 
 	remote "github.com/loft-sh/vcluster/pkg/plugin/remote"
 	grpc "google.golang.org/grpc"
@@ -183,6 +184,8 @@ func (m *manager) Start(
 func (m *manager) waitForPlugins(options *context2.VirtualClusterOptions) error {
 	for _, plugin := range options.Plugins {
 		klog.Infof("Waiting for plugin %s to register...", plugin)
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err := wait.PollImmediate(time.Millisecond*100, time.Minute*10, func() (done bool, err error) {
 			m.pluginMutex.Lock()
 			defer m.pluginMutex.Unlock()

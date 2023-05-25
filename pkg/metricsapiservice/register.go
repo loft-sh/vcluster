@@ -25,7 +25,7 @@ const (
 
 func checkExistingAPIService(ctx context.Context, client client.Client) bool {
 	var exists bool
-	_ = applyOperation(ctx, func() (bool, error) {
+	_ = applyOperation(ctx, func(ctx context.Context) (bool, error) {
 		err := client.Get(ctx, types.NamespacedName{Name: MetricsAPIService}, &apiregistrationv1.APIService{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
@@ -42,7 +42,7 @@ func checkExistingAPIService(ctx context.Context, client client.Client) bool {
 	return exists
 }
 
-func applyOperation(ctx context.Context, operationFunc wait.ConditionFunc) error {
+func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContextFunc) error {
 	return wait.ExponentialBackoffWithContext(ctx, wait.Backoff{
 		Duration: time.Second,
 		Factor:   1.5,
@@ -51,8 +51,8 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionFunc) error
 	}, operationFunc)
 }
 
-func deleteOperation(ctx context.Context, client client.Client) wait.ConditionFunc {
-	return func() (bool, error) {
+func deleteOperation(ctx context.Context, client client.Client) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
 		err := client.Delete(ctx, &apiregistrationv1.APIService{
 			ObjectMeta: v1.ObjectMeta{
 				Name: MetricsAPIService,
@@ -70,8 +70,8 @@ func deleteOperation(ctx context.Context, client client.Client) wait.ConditionFu
 	}
 }
 
-func createOperation(ctx context.Context, client client.Client) wait.ConditionFunc {
-	return func() (bool, error) {
+func createOperation(ctx context.Context, client client.Client) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
 		spec := apiregistrationv1.APIServiceSpec{
 			Group:                metrics.GroupName,
 			GroupPriorityMinimum: 100,

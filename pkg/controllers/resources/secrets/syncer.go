@@ -8,7 +8,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
@@ -92,15 +91,13 @@ var _ syncer.ControllerModifier = &secretSyncer{}
 func (s *secretSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.includeIngresses {
 		if s.useLegacyIngress {
-			builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
+			builder = builder.Watches(&networkingv1beta1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
 		} else {
-			builder = builder.Watches(&source.Kind{Type: &networkingv1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
+			builder = builder.Watches(&networkingv1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
 		}
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-		return mapPods(object)
-	})), nil
+	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
 }
 
 func (s *secretSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -178,7 +175,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 	return false, nil
 }
 
-func mapIngresses(obj client.Object) []reconcile.Request {
+func mapIngresses(_ context.Context, obj client.Object) []reconcile.Request {
 	ingress, ok := obj.(*networkingv1.Ingress)
 	if !ok {
 		return nil
@@ -201,7 +198,7 @@ func mapIngresses(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func mapIngressesLegacy(obj client.Object) []reconcile.Request {
+func mapIngressesLegacy(_ context.Context, obj client.Object) []reconcile.Request {
 	ingress, ok := obj.(*networkingv1beta1.Ingress)
 	if !ok {
 		return nil
@@ -224,7 +221,7 @@ func mapIngressesLegacy(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func mapPods(obj client.Object) []reconcile.Request {
+func mapPods(_ context.Context, obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return nil

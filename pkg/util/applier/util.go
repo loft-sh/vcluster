@@ -19,7 +19,11 @@ func ApplyManifestFile(inClusterConfig *rest.Config, filename string) error {
 }
 
 func ApplyManifest(inClusterConfig *rest.Config, manifests []byte) error {
-	restMapper, err := apiutil.NewDynamicRESTMapper(inClusterConfig)
+	httpClient, err := rest.HTTPClientFor(inClusterConfig)
+	if err != nil {
+		return fmt.Errorf("unable to initialize HTTPClientFor")
+	}
+	restMapper, err := apiutil.NewDynamicRESTMapper(inClusterConfig, httpClient)
 	if err != nil {
 		return fmt.Errorf("unable to initialize NewDynamicRESTMapper")
 	}
