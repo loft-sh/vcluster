@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -249,7 +250,7 @@ func RegisterInitManifestsController(ctx *context.ControllerContext) error {
 		var err error
 		currentNamespaceManager, err = ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
 			Scheme: ctx.LocalManager.GetScheme(),
-			MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
+			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 				return ctx.LocalManager.GetRESTMapper(), nil
 			},
 			MetricsBindAddress: "0",
@@ -320,7 +321,7 @@ func RegisterServiceSyncControllers(ctx *context.ControllerContext) error {
 		// manager that listens on global services
 		globalLocalManager, err := ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
 			Scheme: ctx.LocalManager.GetScheme(),
-			MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
+			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 				return ctx.LocalManager.GetRESTMapper(), nil
 			},
 			MetricsBindAddress: "0",

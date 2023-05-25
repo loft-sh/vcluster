@@ -17,6 +17,8 @@ import (
 )
 
 func (f *Framework) WaitForPodRunning(podName string, ns string) error {
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Second*5, PollTimeout, func() (bool, error) {
 		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
 		if err != nil {
@@ -43,6 +45,8 @@ func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 }
 
 func (f *Framework) WaitForPodToComeUpWithReadinessConditions(podName string, ns string) error {
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
 		if err != nil {
@@ -62,6 +66,8 @@ func (f *Framework) WaitForPodToComeUpWithReadinessConditions(podName string, ns
 }
 
 func (f *Framework) WaitForPodToComeUpWithEphemeralContainers(podName string, ns string) error {
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
 		if err != nil {
@@ -82,6 +88,8 @@ func (f *Framework) WaitForPodToComeUpWithEphemeralContainers(podName string, ns
 }
 
 func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error {
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(pvcName, ns), metav1.GetOptions{})
 		if err != nil {
@@ -114,6 +122,8 @@ func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error 
 }
 
 func (f *Framework) WaitForInitManifestConfigMapCreation(configMapName, ns string) error {
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Millisecond*500, PollTimeout, func() (bool, error) {
 		_, err := f.VclusterClient.CoreV1().ConfigMaps(ns).Get(f.Context, configMapName, metav1.GetOptions{})
 		if err != nil {
@@ -128,6 +138,8 @@ func (f *Framework) WaitForInitManifestConfigMapCreation(configMapName, ns strin
 }
 
 func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		_, err := f.VclusterClient.CoreV1().ServiceAccounts(ns).Get(f.Context, saName, metav1.GetOptions{})
 		if err != nil {
@@ -141,6 +153,8 @@ func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 }
 
 func (f *Framework) WaitForService(serviceName string, ns string) error {
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		_, err := f.HostClient.CoreV1().Services(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(serviceName, ns), metav1.GetOptions{})
 		if err != nil {
@@ -160,6 +174,8 @@ func (f *Framework) WaitForService(serviceName string, ns string) error {
 func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) error {
 	annotationKey := "e2e-test-bump"
 	updated := false
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		vService, err := f.VclusterClient.CoreV1().Services(ns).Get(f.Context, serviceName, metav1.GetOptions{})
 		if err != nil {
@@ -208,6 +224,8 @@ func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error 
 	if !waitUntilDeleted {
 		return nil
 	}
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Second, PollTimeout, func() (bool, error) {
 		_, err = f.VclusterClient.CoreV1().Namespaces().Get(f.Context, ns, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
@@ -285,6 +303,8 @@ func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Se
 func (f *Framework) TestServiceIsEventuallyReachable(curlPod *corev1.Pod, service *corev1.Service) {
 	var stdoutBuffer []byte
 	var lastError error
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err := wait.PollImmediate(10*time.Second, PollTimeout, func() (bool, error) {
 		stdoutBuffer, _, lastError = f.curlService(curlPod, service)
 		if lastError == nil && string(stdoutBuffer) == "200" {
@@ -298,6 +318,8 @@ func (f *Framework) TestServiceIsEventuallyReachable(curlPod *corev1.Pod, servic
 func (f *Framework) TestServiceIsEventuallyUnreachable(curlPod *corev1.Pod, service *corev1.Service) {
 	var stdoutBuffer, stderrBuffer []byte
 	var lastError error
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err := wait.PollImmediate(10*time.Second, PollTimeout, func() (bool, error) {
 		stdoutBuffer, stderrBuffer, lastError = f.curlService(curlPod, service)
 		if lastError != nil && strings.Contains(string(stderrBuffer), "timed out") && string(stdoutBuffer) == "000" {

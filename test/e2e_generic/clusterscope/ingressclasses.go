@@ -37,6 +37,8 @@ var _ = ginkgo.Describe("Generic sync cluster scoped resources", func() {
 
 		var ingClass *networkingv1.IngressClass
 
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.PollImmediate(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
 			ingClass, err = f.VclusterClient.NetworkingV1().IngressClasses().Get(ctx, IngressClassName, metav1.GetOptions{})
 			if err != nil {
@@ -61,6 +63,8 @@ var _ = ginkgo.Describe("Generic sync cluster scoped resources", func() {
 		framework.ExpectNoError(err)
 
 		// should not delete the physical ingress class
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.PollImmediate(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
 			_, err = f.HostClient.NetworkingV1().IngressClasses().Get(ctx, IngressClassName, metav1.GetOptions{})
 			if err != nil {
@@ -83,6 +87,8 @@ var _ = ginkgo.Describe("Generic sync cluster scoped resources", func() {
 		err := f.HostClient.NetworkingV1().IngressClasses().Delete(ctx, IngressClassName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.PollImmediate(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
 			_, err = f.VclusterClient.NetworkingV1().IngressClasses().Get(ctx, IngressClassName, metav1.GetOptions{})
 			if kerrors.IsNotFound(err) {

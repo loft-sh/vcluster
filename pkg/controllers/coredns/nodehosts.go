@@ -18,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -99,7 +98,7 @@ func (r *CoreDNSNodeHostsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	funcs := predicate.NewPredicateFuncs(p)
 
 	// use modified handler to avoid triggering reconcile for each Node
-	eventHandler := handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+	eventHandler := handler.EnqueueRequestsFromMapFunc(func(_ context.Context, o client.Object) []reconcile.Request {
 		return []reconcile.Request{{
 			NamespacedName: types.NamespacedName{Namespace: Namespace, Name: ConfigMapName},
 		}}
@@ -108,6 +107,6 @@ func (r *CoreDNSNodeHostsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("coredns_nodehosts").
 		For(&corev1.ConfigMap{}, builder.WithPredicates(funcs, predicate.ResourceVersionChangedPredicate{})).
-		Watches(&source.Kind{Type: &corev1.Node{}}, eventHandler).
+		Watches(&corev1.Node{}, eventHandler).
 		Complete(r)
 }

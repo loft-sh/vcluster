@@ -90,9 +90,9 @@ func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, loc
 	currentNamespaceCache := localManager.GetCache()
 	if currentNamespace != options.TargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
-			Scheme:    localManager.GetScheme(),
-			Mapper:    localManager.GetRESTMapper(),
-			Namespace: currentNamespace,
+			Scheme:     localManager.GetScheme(),
+			Mapper:     localManager.GetRESTMapper(),
+			Namespaces: []string{currentNamespace},
 		})
 		if err != nil {
 			return nil, err
@@ -111,9 +111,12 @@ func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, loc
 	}
 
 	// create a current namespace client
-	currentNamespaceClient, err := blockingcacheclient.NewCacheClient(currentNamespaceCache, localManager.GetConfig(), client.Options{
+	currentNamespaceClient, err := blockingcacheclient.NewCacheClient(localManager.GetConfig(), client.Options{
 		Scheme: localManager.GetScheme(),
 		Mapper: localManager.GetRESTMapper(),
+		Cache: &client.CacheOptions{
+			Reader: currentNamespaceCache,
+		},
 	})
 	if err != nil {
 		return nil, err

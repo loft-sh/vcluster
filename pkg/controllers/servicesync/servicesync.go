@@ -45,7 +45,7 @@ func (e *ServiceSyncer) Register() error {
 	return ctrl.NewControllerManagedBy(e.From).
 		Named("servicesync").
 		For(&corev1.Service{}).
-		Watches(source.NewKindWithCache(&corev1.Service{}, e.To.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		WatchesRawSource(source.Kind(e.To.GetCache(), &corev1.Service{}), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
 			if object == nil {
 				return nil
 			}

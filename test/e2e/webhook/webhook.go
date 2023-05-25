@@ -312,6 +312,8 @@ func newValidatingIsReadyWebhookFixture(f *framework.Framework, certCtx *certCon
 // the webhook configuration.
 func waitWebhookConfigurationReady(f *framework.Framework, namespace string) error {
 	cmClient := f.VclusterClient.CoreV1().ConfigMaps(namespace + "-markers")
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(100*time.Millisecond, 30*time.Second, func() (bool, error) {
 		marker := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -435,6 +437,8 @@ func testWebhook(f *framework.Framework, namespace string) {
 }
 
 func createNamespace(f *framework.Framework, ns *corev1.Namespace) error {
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(100*time.Millisecond, 30*time.Second, func() (bool, error) {
 		_, err := f.VclusterClient.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
 		if err != nil {
@@ -508,6 +512,8 @@ type updateConfigMapFn func(cm *corev1.ConfigMap)
 
 func updateConfigMap(c *kubernetes.Clientset, ns, name string, update updateConfigMapFn) (*corev1.ConfigMap, error) {
 	var cm *corev1.ConfigMap
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	pollErr := wait.PollImmediate(2*time.Second, 1*time.Minute, func() (bool, error) {
 		var err error
 		if cm, err = c.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, metav1.GetOptions{}); err != nil {

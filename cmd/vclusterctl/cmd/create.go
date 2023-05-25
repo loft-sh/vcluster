@@ -486,6 +486,8 @@ func (cmd *CreateCmd) ensureNamespace(vClusterName string) error {
 		}
 	} else if namespace.DeletionTimestamp != nil {
 		cmd.log.Infof("Waiting until namespace is terminated...")
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err := wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
 			namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.Background(), cmd.Namespace, metav1.GetOptions{})
 			if err != nil {
