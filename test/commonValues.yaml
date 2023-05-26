@@ -55,6 +55,17 @@ init:
       release:
         name: prometheus
         namespace: prometheus
+      values: |-
+        alertmanager:
+          enabled: false
+        alertmanagerFiles:
+          alertmanager.yml: ""
+        kube-state-metrics:
+          enabled: false
+        prometheus-node-exporter:
+          enabled: false
+        prometheus-pushgateway:
+          enabled: false
       timeout: "50s"
 
 sync:
