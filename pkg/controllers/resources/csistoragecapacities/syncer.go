@@ -1,6 +1,7 @@
 package csistoragecapacities
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -82,20 +83,20 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to add allNSCache to physical manager: %w", err)
 	}
-	return builder.Watches(source.NewKindWithCache(s.Resource(), allNSCache), &handler.Funcs{
-		CreateFunc: func(ce event.CreateEvent, rli workqueue.RateLimitingInterface) {
+	return builder.WatchesRawSource(source.Kind(allNSCache, s.Resource()), &handler.Funcs{
+		CreateFunc: func(_ context.Context, ce event.CreateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ce.Object
 			s.enqueuePhysical(obj, rli)
 		},
-		UpdateFunc: func(ue event.UpdateEvent, rli workqueue.RateLimitingInterface) {
+		UpdateFunc: func(_ context.Context, ue event.UpdateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ue.ObjectNew
 			s.enqueuePhysical(obj, rli)
 		},
-		DeleteFunc: func(de event.DeleteEvent, rli workqueue.RateLimitingInterface) {
+		DeleteFunc: func(_ context.Context, de event.DeleteEvent, rli workqueue.RateLimitingInterface) {
 			obj := de.Object
 			s.enqueuePhysical(obj, rli)
 		},
-		GenericFunc: func(ge event.GenericEvent, rli workqueue.RateLimitingInterface) {
+		GenericFunc: func(_ context.Context, ge event.GenericEvent, rli workqueue.RateLimitingInterface) {
 			obj := ge.Object
 			s.enqueuePhysical(obj, rli)
 		},

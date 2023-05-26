@@ -149,6 +149,8 @@ func scaleDownDeployment(kubeClient kubernetes.Interface, labelSelector, namespa
 		}
 
 		// wait until deployment is scaled down
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.PollImmediate(time.Second, time.Minute*3, func() (done bool, err error) {
 			deployment, err := kubeClient.AppsV1().Deployments(namespace).Get(context.TODO(), item.Name, metav1.GetOptions{})
 			if err != nil {
@@ -211,6 +213,8 @@ func scaleDownStatefulSet(kubeClient kubernetes.Interface, labelSelector, namesp
 		}
 
 		// wait until deployment is scaled down
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.PollImmediate(time.Second, time.Minute*3, func() (done bool, err error) {
 			obj, err := kubeClient.AppsV1().StatefulSets(namespace).Get(context.TODO(), item.Name, metav1.GetOptions{})
 			if err != nil {

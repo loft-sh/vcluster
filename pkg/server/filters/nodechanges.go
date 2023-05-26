@@ -166,6 +166,8 @@ func updateNode(decoder encoding.Decoder, localClient client.Client, virtualClie
 	}
 
 	// now let's wait for the virtual node to update
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.PollImmediate(time.Second*4, time.Millisecond*200, func() (bool, error) {
 		updatedNode := &corev1.Node{}
 		err := virtualClient.Get(ctx, client.ObjectKey{Name: vNode.Name}, updatedNode)

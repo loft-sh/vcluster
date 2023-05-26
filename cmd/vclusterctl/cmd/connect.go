@@ -314,6 +314,8 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 	var err error
 	podName := cmd.PodName
 	if podName == "" {
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		waitErr := wait.PollImmediate(time.Second, time.Second*30, func() (bool, error) {
 			// get vcluster pod name
 			var pods *corev1.PodList
@@ -436,6 +438,8 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 
 func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *api.Config) error {
 	printedWaiting := false
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err := wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
 		// first check for load balancer service, look for the other service if it's not there
 		loadBalancerMissing := false
@@ -500,6 +504,9 @@ func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *a
 	return nil
 }
 
+// exchangeContextName switches the context name specified in the remote kubeconfig with
+// the context name specified by the user. It cannot correctly handle kubeconfigs with multiple entries
+// for clusters, authInfos, contexts, but ideally this is pointed at a secret created by us.
 func (cmd *ConnectCmd) exchangeContextName(kubeConfig *api.Config, vclusterName string) error {
 	if cmd.KubeConfigContextName == "" {
 		if vclusterName != "" {
@@ -509,27 +516,36 @@ func (cmd *ConnectCmd) exchangeContextName(kubeConfig *api.Config, vclusterName 
 		}
 	}
 
-	// update cluster
+	// pick the last specified cluster (there should ideally be exactly one)
 	for k := range kubeConfig.Clusters {
 		kubeConfig.Clusters[cmd.KubeConfigContextName] = kubeConfig.Clusters[k]
-		delete(kubeConfig.Clusters, k)
+		// delete the rest
+		if k != cmd.KubeConfigContextName {
+			delete(kubeConfig.Clusters, k)
+		}
 		break
 	}
 
-	// update context
+	// pick the last specified context (there should ideally be exactly one)
 	for k := range kubeConfig.Contexts {
 		ctx := kubeConfig.Contexts[k]
 		ctx.Cluster = cmd.KubeConfigContextName
 		ctx.AuthInfo = cmd.KubeConfigContextName
 		kubeConfig.Contexts[cmd.KubeConfigContextName] = ctx
-		delete(kubeConfig.Contexts, k)
+		// delete the rest
+		if k != cmd.KubeConfigContextName {
+			delete(kubeConfig.Contexts, k)
+		}
 		break
 	}
 
-	// update authInfo
+	// pick the last specified authinfo (there should ideally be exactly one)
 	for k := range kubeConfig.AuthInfos {
 		kubeConfig.AuthInfos[cmd.KubeConfigContextName] = kubeConfig.AuthInfos[k]
-		delete(kubeConfig.AuthInfos, k)
+		// delete the rest
+		if k != cmd.KubeConfigContextName {
+			delete(kubeConfig.AuthInfos, k)
+		}
 		break
 	}
 
@@ -638,6 +654,8 @@ func (cmd *ConnectCmd) waitForVCluster(vKubeConfig api.Config, errorChan chan er
 		return err
 	}
 
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.PollImmediate(time.Millisecond*200, time.Minute*3, func() (bool, error) {
 		select {
 		case err := <-errorChan:
@@ -682,6 +700,8 @@ func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string
 	}
 	token := ""
 	cmd.Log.Infof("Create service account token for %s/%s", serviceAccountNamespace, serviceAccount)
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.Poll(time.Second, time.Minute*3, func() (bool, error) {
 		// check if namespace exists
 		_, err := vKubeClient.CoreV1().Namespaces().Get(context.TODO(), serviceAccountNamespace, metav1.GetOptions{})

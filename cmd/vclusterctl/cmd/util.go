@@ -2,6 +2,13 @@ package cmd
 
 import (
 	"context"
+	"math/rand"
+	"net"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/podprinter"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -13,12 +20,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"math/rand"
-	"net"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // CriticalStatus container status
@@ -48,6 +49,8 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 
 	printedWaiting := false
 	podInfoPrinter := podprinter.PodInfoPrinter{LastWarning: time.Now().Add(time.Second * 6)}
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
 		podList, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=vcluster,release=" + vclusterName,
@@ -144,7 +147,6 @@ func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.Au
 }
 
 func randomPort() int {
-	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < 10; i++ {
 		port := 10000 + rand.Intn(3000)
 		s, err := checkPort(port)

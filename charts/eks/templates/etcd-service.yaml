@@ -13,7 +13,7 @@ metadata:
   {{- $annotations := merge .Values.globalAnnotations .Values.etcd.serviceAnnotations }}
   {{- if $annotations }}
   annotations:
-  {{ toYaml $annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   type: ClusterIP

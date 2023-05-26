@@ -474,6 +474,8 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		namespace.SetLabels(labels)
 
 		updated := false
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.PollImmediate(time.Second, framework.PollTimeout, func() (bool, error) {
 			if !updated {
 				namespace, err = f.VclusterClient.CoreV1().Namespaces().Update(f.Context, namespace, metav1.UpdateOptions{})

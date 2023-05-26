@@ -191,23 +191,23 @@ func (r *syncerController) excludeVirtual(vObj client.Object) bool {
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
-func (r *syncerController) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (r *syncerController) Create(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	r.enqueuePhysical(evt.Object, q)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
-func (r *syncerController) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (r *syncerController) Update(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	r.enqueuePhysical(evt.ObjectNew, q)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
-func (r *syncerController) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (r *syncerController) Delete(_ context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	r.enqueuePhysical(evt.Object, q)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile Autoscaling, or a Webhook.
-func (r *syncerController) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (r *syncerController) Generic(_ context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 	r.enqueuePhysical(evt.Object, q)
 }
 
@@ -236,7 +236,7 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 			MaxConcurrentReconciles: 10,
 		}).
 		Named(r.syncer.Name()).
-		Watches(source.NewKindWithCache(r.syncer.Resource(), ctx.PhysicalManager.GetCache()), r).
+		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource()), r).
 		For(r.syncer.Resource())
 	var err error
 	modifier, ok := r.syncer.(ControllerModifier)

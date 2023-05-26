@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"embed"
 	"encoding/base64"
 	"fmt"
 	"io/fs"
@@ -16,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,10 +41,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
-
-//go:generate ../../../hack/embed-charts.sh
-//go:embed charts/*.tgz
-var Charts embed.FS
 
 var (
 	AllowedDistros              = []string{"k3s", "k0s", "k8s", "eks"}
@@ -284,7 +280,7 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues, helmExecutablePath 
 			// not using filepath.Join because the embed.FS separator is not OS specific
 			embeddedChartPath := fmt.Sprintf("charts/%s", embeddedChartName)
 
-			embeddedChartFile, err := Charts.ReadFile(embeddedChartPath)
+			embeddedChartFile, err := embed.Charts.ReadFile(embeddedChartPath)
 			if err != nil && errors.Is(err, fs.ErrNotExist) {
 				cmd.log.Infof("Chart not embedded: %q, pulling from helm repository.", err)
 			} else if err != nil {
@@ -490,6 +486,8 @@ func (cmd *CreateCmd) ensureNamespace(vClusterName string) error {
 		}
 	} else if namespace.DeletionTimestamp != nil {
 		cmd.log.Infof("Waiting until namespace is terminated...")
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err := wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
 			namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.Background(), cmd.Namespace, metav1.GetOptions{})
 			if err != nil {

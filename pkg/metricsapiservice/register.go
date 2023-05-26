@@ -7,9 +7,8 @@ import (
 
 	vclustercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/metrics/pkg/apis/metrics"
@@ -17,21 +16,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	apiregclientv1 "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 )
 
 const (
 	MetricsVersion    = "v1beta1"
 	MetricsAPIService = MetricsVersion + "." + metrics.GroupName // "v1beta1.metrics.k8s.io"
-
-	KubernetesSvc = "kubernetes"
 )
 
-func checkExistingAPIService(ctx context.Context, kubeAggClient *apiregclientv1.ApiregistrationV1Client) bool {
+func checkExistingAPIService(ctx context.Context, client client.Client) bool {
 	var exists bool
-
-	_ = applyOperation(ctx, func() (bool, error) {
-		_, err := kubeAggClient.APIServices().Get(ctx, MetricsAPIService, v1.GetOptions{})
+	_ = applyOperation(ctx, func(ctx context.Context) (bool, error) {
+		err := client.Get(ctx, types.NamespacedName{Name: MetricsAPIService}, &apiregistrationv1.APIService{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return true, nil
@@ -47,7 +42,7 @@ func checkExistingAPIService(ctx context.Context, kubeAggClient *apiregclientv1.
 	return exists
 }
 
-func applyOperation(ctx context.Context, operationFunc wait.ConditionFunc) error {
+func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContextFunc) error {
 	return wait.ExponentialBackoffWithContext(ctx, wait.Backoff{
 		Duration: time.Second,
 		Factor:   1.5,
@@ -56,9 +51,13 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionFunc) error
 	}, operationFunc)
 }
 
-func deleteOperation(ctx context.Context, kubeAggClient *apiregclientv1.ApiregistrationV1Client) wait.ConditionFunc {
-	return func() (bool, error) {
-		err := kubeAggClient.APIServices().Delete(ctx, MetricsAPIService, v1.DeleteOptions{})
+func deleteOperation(ctx context.Context, client client.Client) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		err := client.Delete(ctx, &apiregistrationv1.APIService{
+			ObjectMeta: v1.ObjectMeta{
+				Name: MetricsAPIService,
+			},
+		})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return true, nil
@@ -71,8 +70,8 @@ func deleteOperation(ctx context.Context, kubeAggClient *apiregclientv1.Apiregis
 	}
 }
 
-func createOperation(ctx context.Context, kubeAggClient *apiregclientv1.ApiregistrationV1Client, client client.Client) wait.ConditionFunc {
-	return func() (bool, error) {
+func createOperation(ctx context.Context, client client.Client) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
 		spec := apiregistrationv1.APIServiceSpec{
 			Group:                metrics.GroupName,
 			GroupPriorityMinimum: 100,
@@ -103,31 +102,13 @@ func createOperation(ctx context.Context, kubeAggClient *apiregclientv1.Apiregis
 	}
 }
 
-func RegisterOrDeregisterAPIService(ctx context.Context, options *vclustercontext.VirtualClusterOptions, vConfig *rest.Config) error {
-	scheme := runtime.NewScheme()
-	_ = apiregistrationv1.AddToScheme(scheme)
-
-	kubeAggClient, err := apiregclientv1.NewForConfig(vConfig)
-	if err != nil {
-		return err
-	}
-
-	client, err := client.New(vConfig, client.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		return err
-	}
-
-	exists := checkExistingAPIService(ctx, kubeAggClient)
+func RegisterOrDeregisterAPIService(ctx context.Context, options *vclustercontext.VirtualClusterOptions, client client.Client) error {
+	// check if the api service should get created
+	exists := checkExistingAPIService(ctx, client)
 	if options.ProxyMetricsServer {
-		// register apiservice
-		return applyOperation(ctx, createOperation(ctx, kubeAggClient, client))
-	}
-
-	if !options.ProxyMetricsServer && exists {
-		// delete apiservice
-		return applyOperation(ctx, deleteOperation(ctx, kubeAggClient))
+		return applyOperation(ctx, createOperation(ctx, client))
+	} else if !options.ProxyMetricsServer && exists {
+		return applyOperation(ctx, deleteOperation(ctx, client))
 	}
 
 	return nil

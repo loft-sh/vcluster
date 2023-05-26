@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var (
@@ -130,6 +131,13 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	if err != nil && !kerrors.IsNotFound(err) {
 		return "", errors.Wrap(err, "list services")
 	} else if err == nil {
+		if service.Spec.Selector == nil {
+			err = n.updateNodeServiceEndpoints(ctx, serviceName)
+			if err != nil {
+				return "", errors.Wrap(err, "update node service endpoints")
+			}
+		}
+
 		return service.Spec.ClusterIP, nil
 	}
 
@@ -141,6 +149,10 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	}
 
 	// create the new service
+	targetPort := intstr.FromInt(KubeletTargetPort)
+	if vclusterService.Spec.Selector == nil {
+		targetPort = intstr.IntOrString{}
+	}
 	nodeService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: n.currentNamespace,
@@ -153,8 +165,9 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
+					Name:       "kubelet",
 					Port:       int32(KubeletPort),
-					TargetPort: intstr.FromInt(KubeletTargetPort),
+					TargetPort: targetPort,
 				},
 			},
 			Selector: vclusterService.Spec.Selector,
@@ -173,5 +186,74 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 		return "", errors.Wrap(err, "create node service")
 	}
 
+	// create endpoints if selector is empty
+	if vclusterService.Spec.Selector == nil {
+		err = n.updateNodeServiceEndpoints(ctx, serviceName)
+		if err != nil {
+			return "", errors.Wrap(err, "update node service endpoints")
+		}
+	}
+
 	return nodeService.Spec.ClusterIP, nil
+}
+
+func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, nodeServiceName string) error {
+	vclusterServiceEndpoints := &corev1.Endpoints{}
+	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vclusterServiceEndpoints)
+	if err != nil {
+		return errors.Wrap(err, "get vcluster service endpoints")
+	}
+
+	// filter subsets
+	nodeServiceEndpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: n.currentNamespace,
+			Name:      nodeServiceName,
+		},
+	}
+	result, err := controllerutil.CreateOrPatch(ctx, n.currentNamespaceClient, nodeServiceEndpoints, func() error {
+		// build new subsets
+		newSubsets := []corev1.EndpointSubset{}
+		for _, subset := range vclusterServiceEndpoints.Subsets {
+			newPorts := []corev1.EndpointPort{}
+			for _, p := range subset.Ports {
+				if p.Name != "kubelet" {
+					continue
+				}
+
+				newPorts = append(newPorts, p)
+			}
+
+			newAddresses := []corev1.EndpointAddress{}
+			for _, address := range subset.Addresses {
+				address.Hostname = ""
+				address.NodeName = nil
+				address.TargetRef = nil
+				newAddresses = append(newAddresses, address)
+			}
+			newNotReadyAddresses := []corev1.EndpointAddress{}
+			for _, address := range subset.NotReadyAddresses {
+				address.Hostname = ""
+				address.NodeName = nil
+				address.TargetRef = nil
+				newNotReadyAddresses = append(newNotReadyAddresses, address)
+			}
+
+			newSubsets = append(newSubsets, corev1.EndpointSubset{
+				Addresses:         newAddresses,
+				NotReadyAddresses: newNotReadyAddresses,
+				Ports:             newPorts,
+			})
+		}
+
+		nodeServiceEndpoints.Subsets = newSubsets
+		return nil
+	})
+	if err != nil {
+		return err
+	} else if result == controllerutil.OperationResultUpdated {
+		klog.Infof("Updated service endpoints for node %s", nodeServiceName)
+	}
+
+	return nil
 }

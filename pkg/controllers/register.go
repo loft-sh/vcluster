@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -156,31 +157,31 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 
 	// register controller that maintains pod security standard check
 	if ctx.Options.EnforcePodSecurityStandard != "" {
-		err := registerPodSecurityController(ctx)
+		err := RegisterPodSecurityController(ctx)
 		if err != nil {
 			return err
 		}
 	}
 
 	// register controller that keeps CoreDNS NodeHosts config up to date
-	err = registerCoreDNSController(ctx)
+	err = RegisterCoreDNSController(ctx)
 	if err != nil {
 		return err
 	}
 
 	// register init manifests configmap watcher controller
-	err = registerInitManifestsController(ctx)
+	err = RegisterInitManifestsController(ctx)
 	if err != nil {
 		return err
 	}
 
 	// register service syncer to map services between host and virtual cluster
-	err = registerServiceSyncControllers(ctx)
+	err = RegisterServiceSyncControllers(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = registerGenericSyncController(ctx)
+	err = RegisterGenericSyncController(ctx)
 	if err != nil {
 		return err
 	}
@@ -211,7 +212,7 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 	return nil
 }
 
-func registerGenericSyncController(ctx *context.ControllerContext) error {
+func RegisterGenericSyncController(ctx *context.ControllerContext) error {
 	// first check if a generic CRD config is provided and we actually need
 	// to create any of these syncer controllers
 	c := os.Getenv(context.GenericConfig)
@@ -243,13 +244,13 @@ func registerGenericSyncController(ctx *context.ControllerContext) error {
 	return nil
 }
 
-func registerInitManifestsController(ctx *context.ControllerContext) error {
+func RegisterInitManifestsController(ctx *context.ControllerContext) error {
 	currentNamespaceManager := ctx.LocalManager
 	if ctx.Options.TargetNamespace != ctx.CurrentNamespace {
 		var err error
 		currentNamespaceManager, err = ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
 			Scheme: ctx.LocalManager.GetScheme(),
-			MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
+			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 				return ctx.LocalManager.GetRESTMapper(), nil
 			},
 			MetricsBindAddress: "0",
@@ -304,7 +305,7 @@ func registerInitManifestsController(ctx *context.ControllerContext) error {
 	return nil
 }
 
-func registerServiceSyncControllers(ctx *context.ControllerContext) error {
+func RegisterServiceSyncControllers(ctx *context.ControllerContext) error {
 	hostNamespace := ctx.Options.TargetNamespace
 	if ctx.Options.MultiNamespaceMode {
 		hostNamespace = ctx.CurrentNamespace
@@ -320,7 +321,7 @@ func registerServiceSyncControllers(ctx *context.ControllerContext) error {
 		// manager that listens on global services
 		globalLocalManager, err := ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
 			Scheme: ctx.LocalManager.GetScheme(),
-			MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
+			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 				return ctx.LocalManager.GetRESTMapper(), nil
 			},
 			MetricsBindAddress: "0",
@@ -432,7 +433,7 @@ func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace st
 	return ret, nil
 }
 
-func registerCoreDNSController(ctx *context.ControllerContext) error {
+func RegisterCoreDNSController(ctx *context.ControllerContext) error {
 	controller := &coredns.CoreDNSNodeHostsReconciler{
 		Client: ctx.VirtualManager.GetClient(),
 		Log:    loghelper.New("corednsnodehosts-controller"),
@@ -444,7 +445,7 @@ func registerCoreDNSController(ctx *context.ControllerContext) error {
 	return nil
 }
 
-func registerPodSecurityController(ctx *context.ControllerContext) error {
+func RegisterPodSecurityController(ctx *context.ControllerContext) error {
 	controller := &podsecurity.PodSecurityReconciler{
 		Client:              ctx.VirtualManager.GetClient(),
 		PodSecurityStandard: ctx.Options.EnforcePodSecurityStandard,

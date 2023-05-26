@@ -54,6 +54,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              vObjectMeta.Name,
 			Namespace:         vObjectMeta.Namespace,
+			Finalizers:        []string{"kubernetes"},
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
 		},
 	}
