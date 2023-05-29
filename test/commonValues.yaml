@@ -49,23 +49,12 @@ init:
         namespace: ingress-nginx
       timeout: "50s"
     - chart:
-        name: prometheus
-        repo: oci://ghcr.io/prometheus-community/charts
-        version: 19.0.2
+        name: fluent-bit
+        repo: oci://registry-1.docker.io/bitnamicharts
+        version: 0.4.3
       release:
-        name: prometheus
-        namespace: prometheus
-      values: |-
-        alertmanager:
-          enabled: false
-        alertmanagerFiles:
-          alertmanager.yml: ""
-        kube-state-metrics:
-          enabled: false
-        prometheus-node-exporter:
-          enabled: false
-        prometheus-pushgateway:
-          enabled: false
+        name: fluent-bit
+        namespace: fluent-bit
       timeout: "50s"
 
 sync:

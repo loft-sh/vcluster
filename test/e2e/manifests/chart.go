@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	ChartName         = "ingress-nginx"
-	ChartNamespace    = "ingress-nginx"
-	ChartOCIName      = "prometheus"
-	ChartOCINamespace = "prometheus"
+	ChartName            = "ingress-nginx"
+	ChartNamespace       = "ingress-nginx"
+	ChartOCIName         = "fluent-bit"
+	ChartOCIInstanceName = "fluent-bit"
+	ChartOCINamespace    = "fluent-bit"
 )
 
 var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as expected", func() {
@@ -30,8 +31,8 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 			"name":  ChartName,
 		}
 		HelmOCIDeploymentLabels = map[string]string{
-			"app":     "prometheus",
-			"release": ChartOCIName,
+			"app.kubernetes.io/instance": ChartOCIInstanceName,
+			"app.kubernetes.io/name":     ChartOCIName,
 		}
 	)
 
@@ -102,7 +103,7 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 		framework.ExpectNoError(err)
 	})
 
-	ginkgo.It("Test prometheus release deployment existence in vcluster (OCI chart)", func() {
+	ginkgo.It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func() {
 		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
 		//nolint:staticcheck
 		err := wait.PollImmediate(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
