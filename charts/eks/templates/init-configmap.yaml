@@ -22,6 +22,7 @@ data:
   {{- range .Values.init.helm }}
   {{- /* only render this chart entry if either of chart or bundle is defined */}}
   {{- if or .chart .bundle }}
+    {{- if .chart }}
     - name: {{ .chart.name }}
       repo: {{ .chart.repo }}
       version: {{ .chart.version }}
@@ -31,9 +32,9 @@ data:
       {{- if .chart.password }}
       password: {{ .chart.password }}
       {{- end }}
-      {{- else if .bundle }}
-      bundle: {{ .bundle }}
-      {{- end }}
+    {{- else if .bundle }}
+    - bundle: {{ .bundle }}
+    {{- end }}
       {{- if .insecure }}
       insecure: true
       {{- end}}
