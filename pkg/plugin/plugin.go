@@ -14,7 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	remote "github.com/loft-sh/vcluster/pkg/plugin/remote"
 	grpc "google.golang.org/grpc"

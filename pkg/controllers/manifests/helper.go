@@ -2,6 +2,7 @@ package manifests
 
 import (
 	"context"
+
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/pkg/util/applier"
 	corev1 "k8s.io/api/core/v1"
@@ -9,7 +10,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/pkg/errors"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
