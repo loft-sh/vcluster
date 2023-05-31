@@ -7,22 +7,26 @@ on:
 jobs:
   publish-cli:
     if: startsWith(github.ref, 'refs/tags/v') == true
-    runs-on: macos-12
+    runs-on: ubuntu-22.04
+
     permissions:
       id-token: write
       contents: write
+
     steps:
       - name: Set up Go 1.20
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
           go-version: "1.20"
-      - name: Install Helm
-        run: brew install helm
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-      - uses: sigstore/cosign-installer@bd2d1189b064bcddc3903176a807dcdba72d7fd0
+          cache: false
+      - uses: azure/setup-helm@v3
         with:
-          cosign-release: ' v2.0.0'
+          version: "v3.0.2"
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+      - uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: "v2.0.2"
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
@@ -30,16 +34,16 @@ jobs:
       - name: Compile binaries
         run: |
           chmod +x ./hack/build-cli.sh
-          
+
           # Generate necessary charts
           go generate -tags embed_charts ./...
-          
+
           # Build CLI
           ./hack/build-cli.sh
         env:
           RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}
       - name: Save release assets
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: release-assets
           path: release/
@@ -48,24 +52,27 @@ jobs:
         with:
           pattern: "release/*"
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
   publish-vcluster-image:
     if: startsWith(github.ref, 'refs/tags/v') == true
     runs-on: ubuntu-22.04
+
     permissions:
-      id-token: write   # This is the key for OIDC!
+      id-token: write # This is the key for OIDC!
       packages: write
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: sigstore/cosign-installer@bd2d1189b064bcddc3903176a807dcdba72d7fd0
+      - uses: actions/checkout@v3
+      - uses: sigstore/cosign-installer@main
         with:
-          cosign-release: ' v2.0.0'
+          cosign-release: "v2.0.2"
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
           echo "::set-output name=release_version::$RELEASE_VERSION"
       - name: Get Docker tags
         id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v2
+        uses: docker/metadata-action@v4
         with:
           images: |
             loftsh/vcluster
@@ -74,23 +81,23 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Login to ghcr.io
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push the image
         id: docker_build
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
         with:
           file: Dockerfile
           platforms: linux/amd64,linux/arm64,linux/arm
@@ -108,24 +115,27 @@ jobs:
       - name: Sign Container ghcr.io Image
         run: |
           cosign sign --yes ghcr.io/loft-sh/vcluster@${{ steps.docker_build.outputs.digest }}
+
   publish-vcluster-cli-image:
     if: startsWith(github.ref, 'refs/tags/v') == true
     runs-on: ubuntu-22.04
+
     permissions:
-      id-token: write   # This is the key for OIDC!
+      id-token: write # This is the key for OIDC!
       packages: write
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: sigstore/cosign-installer@bd2d1189b064bcddc3903176a807dcdba72d7fd0
+      - uses: actions/checkout@v3
+      - uses: sigstore/cosign-installer@main
         with:
-          cosign-release: ' v2.0.0'
+          cosign-release: "v2.0.2"
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
           echo "::set-output name=release_version::$RELEASE_VERSION"
       - name: Get Docker tags
         id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v2
+        uses: docker/metadata-action@v4
         with:
           images: |
             loftsh/vcluster-cli
@@ -134,23 +144,23 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Login to ghcr.io
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push the image
         id: docker_build
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
         with:
           file: Dockerfile.cli
           platforms: linux/amd64,linux/arm64,linux/arm
@@ -165,16 +175,18 @@ jobs:
       - name: Sign Container ghcr.io Image
         run: |
           cosign sign --yes ghcr.io/loft-sh/vcluster-cli@${{ steps.docker_build.outputs.digest }}
+
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [publish-vcluster-image, publish-vcluster-cli-image]
     runs-on: ubuntu-22.04
+
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
-      - uses: azure/setup-helm@v1
+        uses: actions/checkout@v3
+      - uses: azure/setup-helm@v3
         with:
-          version: 'v3.0.2'
+          version: "v3.0.2"
       - run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/v!!p')
           helm plugin install https://github.com/chartmuseum/helm-push.git
@@ -187,13 +199,15 @@ jobs:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
           CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
+
   publish-release:
     if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [publish-chart]
     runs-on: ubuntu-22.04
+
     steps:
       - name: Check out repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 300
       - id: get_version

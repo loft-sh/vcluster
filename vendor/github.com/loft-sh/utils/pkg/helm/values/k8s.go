@@ -8,43 +8,31 @@ import (
 )
 
 var K8SAPIVersionMap = map[string]string{
-	"1.26": "registry.k8s.io/kube-apiserver:v1.26.1",
-	"1.25": "registry.k8s.io/kube-apiserver:v1.25.6",
-	"1.24": "registry.k8s.io/kube-apiserver:v1.24.10",
-	"1.23": "registry.k8s.io/kube-apiserver:v1.23.16",
-	"1.22": "registry.k8s.io/kube-apiserver:v1.22.17",
-	"1.21": "registry.k8s.io/kube-apiserver:v1.21.14",
-	"1.20": "registry.k8s.io/kube-apiserver:v1.20.15",
+	"1.27": "registry.k8s.io/kube-apiserver:v1.27.2",
+	"1.26": "registry.k8s.io/kube-apiserver:v1.26.5",
+	"1.25": "registry.k8s.io/kube-apiserver:v1.25.10",
+	"1.24": "registry.k8s.io/kube-apiserver:v1.24.14",
 }
 
 var K8SControllerVersionMap = map[string]string{
-	"1.26": "registry.k8s.io/kube-controller-manager:v1.26.1",
-	"1.25": "registry.k8s.io/kube-controller-manager:v1.25.6",
-	"1.24": "registry.k8s.io/kube-controller-manager:v1.24.10",
-	"1.23": "registry.k8s.io/kube-controller-manager:v1.23.16",
-	"1.22": "registry.k8s.io/kube-controller-manager:v1.22.17",
-	"1.21": "registry.k8s.io/kube-controller-manager:v1.21.14",
-	"1.20": "registry.k8s.io/kube-controller-manager:v1.20.15",
+	"1.27": "registry.k8s.io/kube-controller-manager:v1.27.2",
+	"1.26": "registry.k8s.io/kube-controller-manager:v1.26.5",
+	"1.25": "registry.k8s.io/kube-controller-manager:v1.25.10",
+	"1.24": "registry.k8s.io/kube-controller-manager:v1.24.14",
 }
 
 var K8SSchedulerVersionMap = map[string]string{
-	"1.26": "registry.k8s.io/kube-scheduler:v1.26.1",
-	"1.25": "registry.k8s.io/kube-scheduler:v1.25.6",
-	"1.24": "registry.k8s.io/kube-scheduler:v1.24.10",
-	"1.23": "registry.k8s.io/kube-scheduler:v1.23.16",
-	"1.22": "registry.k8s.io/kube-scheduler:v1.22.17",
-	"1.21": "registry.k8s.io/kube-scheduler:v1.21.14",
-	"1.20": "registry.k8s.io/kube-scheduler:v1.20.15",
+	"1.27": "registry.k8s.io/kube-scheduler:v1.27.2",
+	"1.26": "registry.k8s.io/kube-scheduler:v1.26.5",
+	"1.25": "registry.k8s.io/kube-scheduler:v1.25.10",
+	"1.24": "registry.k8s.io/kube-scheduler:v1.24.14",
 }
 
 var K8SEtcdVersionMap = map[string]string{
+	"1.27": "registry.k8s.io/etcd:3.5.7-0",
 	"1.26": "registry.k8s.io/etcd:3.5.6-0",
 	"1.25": "registry.k8s.io/etcd:3.5.6-0",
 	"1.24": "registry.k8s.io/etcd:3.5.6-0",
-	"1.23": "registry.k8s.io/etcd:3.5.6-0",
-	"1.22": "registry.k8s.io/etcd:3.5.6-0",
-	"1.21": "registry.k8s.io/etcd:3.4.13-0",
-	"1.20": "registry.k8s.io/etcd:3.4.13-0",
 }
 
 func getDefaultK8SReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleLogger) (string, error) {
@@ -59,18 +47,18 @@ func getDefaultK8SReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleL
 	schedulerImage := K8SSchedulerVersionMap[serverVersionString]
 	etcdImage, ok := K8SEtcdVersionMap[serverVersionString]
 	if !ok {
-		if serverMinorInt > 26 {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.26", serverVersionString)
-			apiImage = K8SAPIVersionMap["1.26"]
-			controllerImage = K8SControllerVersionMap["1.26"]
-			schedulerImage = K8SSchedulerVersionMap["1.26"]
-			etcdImage = K8SEtcdVersionMap["1.26"]
+		if serverMinorInt > 27 {
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.27", serverVersionString)
+			apiImage = K8SAPIVersionMap["1.27"]
+			controllerImage = K8SControllerVersionMap["1.27"]
+			schedulerImage = K8SSchedulerVersionMap["1.27"]
+			etcdImage = K8SEtcdVersionMap["1.27"]
 		} else {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.20", serverVersionString)
-			apiImage = K8SAPIVersionMap["1.20"]
-			controllerImage = K8SControllerVersionMap["1.20"]
-			schedulerImage = K8SSchedulerVersionMap["1.20"]
-			etcdImage = K8SEtcdVersionMap["1.20"]
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.24", serverVersionString)
+			apiImage = K8SAPIVersionMap["1.24"]
+			controllerImage = K8SControllerVersionMap["1.24"]
+			schedulerImage = K8SSchedulerVersionMap["1.24"]
+			etcdImage = K8SEtcdVersionMap["1.24"]
 		}
 	}
 

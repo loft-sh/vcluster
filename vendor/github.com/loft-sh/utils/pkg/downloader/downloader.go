@@ -2,6 +2,7 @@ package downloader
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -9,8 +10,6 @@ import (
 
 	"github.com/loft-sh/utils/pkg/downloader/commands"
 	"github.com/loft-sh/utils/pkg/log"
-
-	"github.com/pkg/errors"
 )
 
 type Downloader interface {
@@ -65,12 +64,12 @@ func (d *downloader) downloadExecutable(command, installPath, installFromURL str
 
 	err = d.downloadFile(command, installPath, installFromURL)
 	if err != nil {
-		return errors.Wrap(err, "download file")
+		return fmt.Errorf("download file: %w", err)
 	}
 
 	err = os.Chmod(installPath, 0755)
 	if err != nil {
-		return errors.Wrap(err, "cannot make file executable")
+		return fmt.Errorf("cannot make file executable: %w", err)
 	}
 
 	return nil
@@ -100,7 +99,7 @@ func (d *downloader) downloadFile(command, installPath, installFromURL string) e
 
 	resp, err := d.httpGet(installFromURL)
 	if err != nil {
-		return errors.Wrap(err, "get url")
+		return fmt.Errorf("get url: %w", err)
 	}
 
 	defer func(Body io.ReadCloser) {
@@ -109,7 +108,7 @@ func (d *downloader) downloadFile(command, installPath, installFromURL string) e
 
 	_, err = io.Copy(f, resp.Body)
 	if err != nil {
-		return errors.Wrap(err, "download file")
+		return fmt.Errorf("download file: %w", err)
 	}
 
 	err = f.Close()

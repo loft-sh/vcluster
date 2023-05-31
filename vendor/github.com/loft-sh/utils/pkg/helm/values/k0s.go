@@ -8,11 +8,11 @@ import (
 )
 
 var K0SVersionMap = map[string]string{
-	"1.26": "k0sproject/k0s:v1.26.0-k0s.0",
-	"1.25": "k0sproject/k0s:v1.25.5-k0s.0",
-	"1.24": "k0sproject/k0s:v1.24.9-k0s.0",
+	"1.27": "k0sproject/k0s:v1.27.1-k0s.0",
+	"1.26": "k0sproject/k0s:v1.26.4-k0s.0",
+	"1.25": "k0sproject/k0s:v1.25.8-k0s.1",
+	"1.24": "k0sproject/k0s:v1.24.12-k0s.1",
 	"1.23": "k0sproject/k0s:v1.23.15-k0s.0",
-	"1.22": "k0sproject/k0s:v1.22.17-k0s.0",
 }
 
 func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleLogger) (string, error) {
@@ -28,8 +28,8 @@ func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleL
 			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.26", serverVersionString)
 			image = K0SVersionMap["1.26"]
 		} else {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.22", serverVersionString)
-			image = K0SVersionMap["1.22"]
+			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.23", serverVersionString)
+			image = K0SVersionMap["1.23"]
 		}
 	}
 
