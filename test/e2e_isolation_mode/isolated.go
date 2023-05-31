@@ -47,6 +47,8 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 		}
 		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, nsName, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.Poll(time.Second, time.Minute, func() (done bool, err error) {
 			ns, _ := f.VclusterClient.CoreV1().Namespaces().Get(f.Context, nsName.Name, metav1.GetOptions{})
 			if ns.Status.Phase == corev1.NamespaceActive {
@@ -90,6 +92,8 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 		_, err := f.VclusterClient.CoreV1().Pods("default").Create(f.Context, pod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		err = wait.Poll(time.Second*2, time.Minute*1, func() (bool, error) {
 			p, _ := f.VclusterClient.CoreV1().Pods("default").Get(f.Context, "nginx", metav1.GetOptions{})
 			if p.Status.Phase == corev1.PodRunning {

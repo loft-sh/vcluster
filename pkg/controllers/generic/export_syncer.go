@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/log"
@@ -147,6 +147,8 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	}
 
 	// wait here for vObj to be created
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.PollImmediate(time.Millisecond*10, time.Second, func() (done bool, err error) {
 		err = ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{
 			Namespace: pObj.GetNamespace(),

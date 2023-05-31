@@ -1,10 +1,11 @@
 package volumesnapshots
 
 import (
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"gotest.tools/assert"
 	"testing"
 	"time"
+
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"gotest.tools/assert"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -37,6 +38,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 	vDeletingSnapshot := vPVSourceSnapshot.DeepCopy()
+	vDeletingSnapshot.Finalizers = []string{"kubernetes"}
 	deletionTime := metav1.NewTime(time.Now().Add(-5 * time.Second)).Rfc3339Copy()
 	vDeletingSnapshot.DeletionTimestamp = &deletionTime
 

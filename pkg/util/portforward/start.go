@@ -3,16 +3,17 @@ package portforward
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"io"
+	"net/http"
+	"time"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport/spdy"
-	"net/http"
-	"time"
 )
 
 func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace string, localPort, remotePort string, interrupt chan struct{}, stdout io.Writer, stderr io.Writer, log log.Logger) error {
@@ -36,6 +37,8 @@ func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace
 			log.Info("Restarting port forwarding")
 
 			// wait for loft pod to start
+			// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+			//nolint:staticcheck
 			err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
 				pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), pod, metav1.GetOptions{})
 				if err != nil {

@@ -2,9 +2,7 @@ package e2e
 
 import (
 	"context"
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/test/framework"
@@ -52,7 +50,6 @@ func init() {
 // generated in this directory, and cluster logs will also be saved.
 // This function is called on each Ginkgo node in parallel mode.
 func TestRunE2ETests(t *testing.T) {
-	rand.Seed(time.Now().UTC().UnixNano())
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	err := framework.CreateFramework(context.Background(), scheme)
 	if err != nil {

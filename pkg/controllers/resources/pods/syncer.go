@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var (
@@ -124,7 +123,7 @@ var _ syncer.ControllerModifier = &podSyncer{}
 
 func (s *podSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	eventHandler := handler.Funcs{
-		UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+		UpdateFunc: func(cont context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 			// no need to reconcile pods if namespace labels didn't change
 			if reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) {
 				return
@@ -132,7 +131,7 @@ func (s *podSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *
 
 			ns := e.ObjectNew.GetName()
 			pods := &corev1.PodList{}
-			err := ctx.VirtualManager.GetClient().List(context.TODO(), pods, client.InNamespace(ns))
+			err := ctx.VirtualManager.GetClient().List(cont, pods, client.InNamespace(ns))
 			if err != nil {
 				log := loghelper.New("pods-syncer-ns-watch-handler")
 				log.Infof("failed to list pods in the %s namespace when handling namespace update: %v", ns, err)
@@ -147,7 +146,7 @@ func (s *podSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Namespace{}}, eventHandler), nil
+	return builder.Watches(&corev1.Namespace{}, eventHandler), nil
 }
 
 var _ syncer.Syncer = &podSyncer{}
@@ -424,6 +423,8 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	}
 
 	// wait until cache is updated
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.PollImmediate(time.Millisecond*50, time.Second*2, func() (done bool, err error) {
 		vPod := &corev1.Pod{}
 		err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)

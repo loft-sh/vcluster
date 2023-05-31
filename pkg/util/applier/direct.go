@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -47,7 +48,7 @@ func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 		RESTConfig: opt.RESTConfig,
 	}
 
-	f := cmdutil.NewFactory(restClientGetter)
+	factory := cmdutil.NewFactory(restClientGetter)
 	res := resource.NewBuilder(restClientGetter).Unstructured().Stream(ioReader, "manifests").Do()
 	infos, resErr := res.Infos()
 
@@ -61,9 +62,9 @@ func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 		}
 	}
 
-	flags := apply.NewApplyFlags(f, ioStreams)
+	flags := apply.NewApplyFlags(ioStreams)
 	flags.AddFlags(&cobra.Command{})
-	applyOpts, err := newOptions(flags, opt.Namespace)
+	applyOpts, err := newOptions(factory, flags, opt.Namespace)
 	if err != nil {
 		return err
 	}
@@ -81,14 +82,13 @@ func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
 	return resErr
 }
 
-func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions, error) {
-	dynamicClient, err := flags.Factory.DynamicClient()
+func newOptions(factory cmdutil.Factory, flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions, error) {
+	dynamicClient, err := factory.DynamicClient()
 	if err != nil {
 		return nil, err
 	}
 
 	// allow for a success message operation to be specified at print time
-	dryRunVerifier := resource.NewQueryParamVerifier(dynamicClient, flags.Factory.OpenAPIGetter(), resource.QueryParamDryRun)
 	toPrinter := func(operation string) (printers.ResourcePrinter, error) {
 		flags.PrintFlags.NamePrintFlags.Operation = operation
 		cmdutil.PrintFlagsWithDryRunStrategy(flags.PrintFlags, cmdutil.DryRunNone)
@@ -101,8 +101,8 @@ func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions,
 		IOStreams:     flags.IOStreams,
 	}
 
-	builder := flags.Factory.NewBuilder()
-	mapper, err := flags.Factory.ToRESTMapper()
+	builder := factory.NewBuilder()
+	mapper, err := factory.ToRESTMapper()
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,6 @@ func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions,
 		FieldManager:    "vcluster",
 		Selector:        "",
 		DryRunStrategy:  cmdutil.DryRunNone,
-		DryRunVerifier:  dryRunVerifier,
 		Prune:           false,
 		PruneResources:  nil,
 		All:             flags.All,
@@ -132,8 +131,8 @@ func newOptions(flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions,
 		DynamicClient:    dynamicClient,
 
 		IOStreams:         flags.IOStreams,
-		VisitedUids:       sets.NewString(),
-		VisitedNamespaces: sets.NewString(),
+		VisitedUids:       sets.New[types.UID](),
+		VisitedNamespaces: sets.New[string](),
 	}
 
 	o.PostProcessorFn = o.PrintAndPrunePostProcessor()

@@ -142,7 +142,7 @@ func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider node
 		nodeServiceProvider.Start(ctx.Context)
 	}()
 
-	return builder.Watches(source.NewKindWithCache(&corev1.Pod{}, ctx.PhysicalManager.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+	return builder.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), &corev1.Pod{}), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
 		pod, ok := object.(*corev1.Pod)
 		if !ok || pod == nil || !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
 			return []reconcile.Request{}
@@ -155,7 +155,7 @@ func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider node
 				},
 			},
 		}
-	})).Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+	})).Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
 		pod, ok := object.(*corev1.Pod)
 		if !ok || pod == nil || pod.Spec.NodeName == "" {
 			return []reconcile.Request{}

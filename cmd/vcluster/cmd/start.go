@@ -49,7 +49,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -138,6 +138,8 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	// Ensure that service CIDR range is written into the expected location
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err = wait.PollImmediate(5*time.Second, 2*time.Minute, func() (bool, error) {
 		err = EnsureServiceCIDR(inClusterClient, inClusterClient, currentNamespace, currentNamespace, translate.Suffix)
 		if err != nil {
@@ -324,6 +326,8 @@ func BuildControllerContext(options *context2.VirtualClusterOptions, currentName
 func WaitForClientConfig(options *context2.VirtualClusterOptions) (clientcmd.ClientConfig, error) {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	err := wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
 		out, err := os.ReadFile(options.KubeConfigPath)
 		if err != nil {

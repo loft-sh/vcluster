@@ -74,6 +74,8 @@ func testMapping(fromClient kubernetes.Interface, fromNamespace, fromName string
 			toEndpoints *corev1.Endpoints
 			toService   *corev1.Service
 		)
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		waitErr := wait.PollImmediate(time.Millisecond*100, time.Second*10, func() (done bool, err error) {
 			toService, err = toClient.CoreV1().Services(toNamespace).Get(context.Background(), toName, metav1.GetOptions{})
 			if err != nil {
@@ -100,6 +102,8 @@ func testMapping(fromClient kubernetes.Interface, fromNamespace, fromName string
 	} else {
 		// wait for vcluster service
 		var toService *corev1.Service
+		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+		//nolint:staticcheck
 		waitErr := wait.PollImmediate(time.Millisecond*100, time.Second*10, func() (done bool, err error) {
 			toService, err = toClient.CoreV1().Services(toNamespace).Get(context.Background(), toName, metav1.GetOptions{})
 			if err != nil {
@@ -126,6 +130,8 @@ func testMapping(fromClient kubernetes.Interface, fromNamespace, fromName string
 	framework.ExpectNoError(err)
 
 	// verify service gets deleted in vcluster
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	waitErr := wait.PollImmediate(time.Millisecond*100, time.Second*10, func() (done bool, err error) {
 		_, err = toClient.CoreV1().Services(toNamespace).Get(context.Background(), toName, metav1.GetOptions{})
 		if err == nil {

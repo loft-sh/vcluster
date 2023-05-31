@@ -3,8 +3,9 @@ package k8sdefaultendpoint
 import (
 	"context"
 	"fmt"
-	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"time"
+
+	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
@@ -86,9 +87,9 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 		Named("kubernetes_default_endpoint").
 		For(&corev1.Endpoints{},
 			builder.WithPredicates(pfuncs, predicate.ResourceVersionChangedPredicate{})).
-		Watches(source.NewKindWithCache(&corev1.Endpoints{}, e.VirtualManagerCache),
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}),
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
-		Watches(source.NewKindWithCache(e.provider.createClientObject(), e.VirtualManagerCache),
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()),
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
 		Complete(e)
 }

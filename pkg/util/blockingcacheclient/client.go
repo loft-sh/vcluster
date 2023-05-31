@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -23,9 +22,9 @@ type CacheClient struct {
 	scheme *runtime.Scheme
 }
 
-func NewCacheClient(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
+func NewCacheClient(config *rest.Config, options client.Options) (client.Client, error) {
 	// create a normal manager cache client
-	cachedClient, err := defaultNewClient(cache, config, options)
+	cachedClient, err := defaultNewClient(config, options)
 	if err != nil {
 		return nil, err
 	}
@@ -37,18 +36,13 @@ func NewCacheClient(cache cache.Cache, config *rest.Config, options client.Optio
 }
 
 // defaultNewClient creates the default caching client
-func defaultNewClient(cache cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
-	// Create the Client for Write operations.
-	c, err := client.New(config, options)
-	if err != nil {
-		return nil, err
+func defaultNewClient(config *rest.Config, options client.Options) (client.Client, error) {
+	if options.Cache == nil {
+		options.Cache = &client.CacheOptions{}
 	}
+	options.Cache.Unstructured = true
 
-	return client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader:       cache,
-		Client:            c,
-		CacheUnstructured: true,
-	})
+	return client.New(config, options)
 }
 
 func (c *CacheClient) poll(obj runtime.Object, condition func(newObj client.Object, oldAccessor metav1.Object) (bool, error)) error {
@@ -72,6 +66,8 @@ func (c *CacheClient) poll(obj runtime.Object, condition func(newObj client.Obje
 		return nil
 	}
 
+	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
+	//nolint:staticcheck
 	return wait.PollImmediate(time.Millisecond*10, time.Second*2, func() (bool, error) {
 		return condition(newObj.(client.Object), accessor)
 	})

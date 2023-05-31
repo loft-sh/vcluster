@@ -66,15 +66,15 @@ func TestExchangeContextName(t *testing.T) {
 			config:         defaultContext.DeepCopy(),
 			expectedConfig: &api.Config{
 				Clusters: map[string]*api.Cluster{
-					defaultContextName: &api.Cluster{Server: "foo"},
+					defaultContextName: {Server: "foo"},
 				},
 				AuthInfos: map[string]*api.AuthInfo{
-					defaultContextName: &api.AuthInfo{
+					defaultContextName: {
 						Token: "foo",
 					},
 				},
 				Contexts: map[string]*api.Context{
-					defaultContextName: &api.Context{
+					defaultContextName: {
 						Cluster:  defaultContextName,
 						AuthInfo: defaultContextName,
 					},

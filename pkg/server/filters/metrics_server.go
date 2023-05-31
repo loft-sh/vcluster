@@ -12,13 +12,14 @@ import (
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,8 @@ const (
 	APIVersion      = "v1beta1"
 
 	HeaderContentType = "Content-Type"
+
+	LabelSelectorQueryParam = "labelSelector"
 )
 
 var ErrorNodeNotInVcluster = errors.New("node not present in vcluster")
@@ -50,6 +53,13 @@ func WithMetricsServerProxy(ctx *vclustercontext.ControllerContext, h http.Handl
 
 		if isMetricsServerProxyRequest(info) {
 			splitted := strings.Split(req.URL.Path, "/")
+
+			err := translateLabelSelectors(req)
+			if err != nil {
+				klog.Infof("error translating label selectors %v", err)
+				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
+				return
+			}
 
 			metricsServerProxy := &MetricsServerProxy{
 				codecFactory:   serializer.NewCodecFactory(cachedVirtualClient.Scheme()),
@@ -158,6 +168,31 @@ func WithMetricsServerProxy(ctx *vclustercontext.ControllerContext, h http.Handl
 
 		h.ServeHTTP(w, req)
 	})
+}
+
+func translateLabelSelectors(req *http.Request) error {
+	translatedSelectors := make(map[string]string)
+
+	query := req.URL.Query()
+	labelSelectors := query.Get(LabelSelectorQueryParam)
+
+	if labelSelectors != "" {
+		selectors, err := labels.ConvertSelectorToLabelsMap(labelSelectors)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range selectors {
+			translatedKey := translate.Default.ConvertLabelKey(k)
+			translatedSelectors[translatedKey] = v
+		}
+	}
+
+	translatedLabelSelectors := labels.SelectorFromSet(translatedSelectors)
+	query.Set(LabelSelectorQueryParam, translatedLabelSelectors.String())
+	req.URL.RawQuery = query.Encode()
+
+	return nil
 }
 
 func isAPIResourceListRequest(r *request.RequestInfo) bool {

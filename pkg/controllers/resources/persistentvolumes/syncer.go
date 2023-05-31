@@ -9,7 +9,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -38,7 +37,7 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	}, nil
 }
 
-func mapPVCs(obj client.Object) []reconcile.Request {
+func mapPVCs(_ context.Context, obj client.Object) []reconcile.Request {
 	pvc, ok := obj.(*corev1.PersistentVolumeClaim)
 	if !ok {
 		return nil
@@ -80,7 +79,7 @@ func (s *persistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterContex
 var _ syncer.ControllerModifier = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(mapPVCs)), nil
+	return builder.Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(mapPVCs)), nil
 }
 
 var _ syncer.Syncer = &persistentVolumeSyncer{}
