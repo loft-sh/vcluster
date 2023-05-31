@@ -2,7 +2,7 @@ run:
   timeout: 10m
 
 linters:
-  disable-all:  true
+  disable-all: true
   enable:
     - deadcode
     - gosimple
@@ -20,7 +20,7 @@ linters:
     # - gofmt
     # - golint
     # - structcheck
-  
+
 linters-settings:
   gofmt:
     simplify: true

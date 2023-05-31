@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/pkg/helm"
