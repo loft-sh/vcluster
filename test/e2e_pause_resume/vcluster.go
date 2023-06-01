@@ -1,6 +1,7 @@
 package e2epauseresume
 
 import (
+	"context"
 	"os/exec"
 	"time"
 
@@ -37,10 +38,8 @@ var _ = ginkgo.Describe("Pause Resume Vcluster", func() {
 		err = cmd.Run()
 		framework.ExpectNoError(err)
 
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		err = wait.Poll(time.Second, time.Minute*2, func() (done bool, err error) {
-			newPods, _ := f.HostClient.CoreV1().Pods(f.VclusterNamespace).List(f.Context, metav1.ListOptions{
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (done bool, err error) {
+			newPods, _ := f.HostClient.CoreV1().Pods(f.VclusterNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: "app=vcluster",
 			})
 			p := len(newPods.Items)

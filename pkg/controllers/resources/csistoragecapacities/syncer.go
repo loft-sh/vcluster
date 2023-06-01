@@ -24,6 +24,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		storageClassSyncEnabled:     ctx.Controllers.Has("storageclasses"),
 		hostStorageClassSyncEnabled: ctx.Controllers.Has("hoststorageclasses"),
 		physicalClient:              ctx.PhysicalManager.GetClient(),
+		ctx:                         ctx.Context,
 	}, nil
 }
 
@@ -31,6 +32,8 @@ type csistoragecapacitySyncer struct {
 	storageClassSyncEnabled     bool
 	hostStorageClassSyncEnabled bool
 	physicalClient              client.Client
+
+	ctx context.Context
 }
 
 var _ syncer.UpSyncer = &csistoragecapacitySyncer{}

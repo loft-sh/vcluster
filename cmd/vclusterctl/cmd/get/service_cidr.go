@@ -69,7 +69,7 @@ func (cmd *serviceCIDRCmd) Run(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	cidr, warning := servicecidr.GetServiceCIDR(client, cmd.Namespace)
+	cidr, warning := servicecidr.GetServiceCIDR(cobraCmd.Context(), client, cmd.Namespace)
 	if warning != "" {
 		cmd.log.Debugf(warning)
 	}

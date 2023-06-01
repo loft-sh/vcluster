@@ -110,6 +110,7 @@ func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvk
 		virtualClient: ctx.VirtualManager.GetClient(),
 		name:          controllerID,
 		syncerOptions: syncerOptions,
+		ctx:           ctx.Context,
 	}, nil
 }
 
@@ -122,6 +123,8 @@ type importer struct {
 	name          string
 
 	syncerOptions *syncer.Options
+
+	ctx context.Context
 }
 
 func (s *importer) Resource() client.Object {
@@ -203,7 +206,7 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	ctx.Log.Infof("Create virtual %s %s/%s, since it is missing, but physical object exists", s.config.Kind, pObj.GetNamespace(), pObj.GetName())
 	vObj, err := s.patcher.ApplyPatches(ctx.Context, pObj, nil, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return s.TranslateMetadata(vObj), nil
-	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient})
+	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
 		//TODO: add eventRecorder?
 		//s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
@@ -211,10 +214,8 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	}
 
 	// wait here for vObj to be created
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(time.Millisecond*10, time.Second, func() (done bool, err error) {
-		err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
+	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*10, time.Second, true, func(syncContext context.Context) (done bool, err error) {
+		err = ctx.VirtualClient.Get(syncContext, types.NamespacedName{
 			Namespace: vObj.GetNamespace(),
 			Name:      vObj.GetName(),
 		}, s.Resource())
@@ -313,7 +314,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	// apply patches
 	_, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return s.TranslateMetadata(vObj), nil
-	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient})
+	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
 		// on conflict, auto delete and recreate
 		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && s.config.ReplaceOnConflict {
@@ -366,7 +367,7 @@ func (s *importer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	}
 
 	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context.Background(), s.virtualClient, vNamespace, constants.IndexByPhysicalName, pObj.GetNamespace())
+	err := clienthelper.GetByIndex(s.ctx, s.virtualClient, vNamespace, constants.IndexByPhysicalName, pObj.GetNamespace())
 	if err != nil {
 		return types.NamespacedName{}
 	}
@@ -437,6 +438,7 @@ func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, 
 
 type hostToVirtualImportNameResolver struct {
 	virtualClient client.Client
+	ctx           context.Context
 }
 
 func (r *hostToVirtualImportNameResolver) TranslateName(name string, regex *regexp.Regexp, path string) (string, error) {
@@ -456,7 +458,7 @@ func (r *hostToVirtualImportNameResolver) TranslateLabelSelector(selector map[st
 }
 func (r *hostToVirtualImportNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
 	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context.Background(), r.virtualClient, vNamespace, constants.IndexByPhysicalName, namespace)
+	err := clienthelper.GetByIndex(r.ctx, r.virtualClient, vNamespace, constants.IndexByPhysicalName, namespace)
 	if err != nil {
 		return "", err
 	}

@@ -1,7 +1,6 @@
 package filters
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -107,6 +106,8 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 }
 
 func updateService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, oldVService *corev1.Service) (runtime.Object, error) {
+	ctx := req.Context()
+
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
 	rawObj, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -133,9 +134,6 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 		return newVService, nil
 	}
-
-	// we use a background context from now on as this is a critical operation
-	ctx := context.Background()
 
 	// okay now we have to change the physical service
 	pService := &corev1.Service{}
@@ -178,6 +176,8 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 }
 
 func createService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, fromNamespace string, syncedLabels []string) (runtime.Object, error) {
+	ctx := req.Context()
+
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
 	rawObj, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -230,7 +230,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 	if err != nil {
 		// try to cleanup the created physical service
 		klog.Infof("Error creating service in virtual cluster: %v", err)
-		_ = localClient.Delete(context.Background(), newService)
+		_ = localClient.Delete(ctx, newService)
 		return nil, err
 	}
 

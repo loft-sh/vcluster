@@ -44,6 +44,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, useLegacy bool) (syncer.Object,
 		includeIngresses: ctx.Controllers.Has("ingresses"),
 
 		syncAllSecrets: ctx.Options.SyncAllSecrets,
+
+		ctx: ctx.Context,
 	}, nil
 }
 
@@ -54,6 +56,8 @@ type secretSyncer struct {
 	includeIngresses bool
 
 	syncAllSecrets bool
+
+	ctx context.Context
 }
 
 var _ syncer.IndicesRegisterer = &secretSyncer{}
@@ -143,7 +147,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 		return true, nil
 	}
 
-	isUsed, err := isSecretUsedByPods(context.TODO(), ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
+	isUsed, err := isSecretUsedByPods(s.ctx, ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
 	if err != nil {
 		return false, errors.Wrap(err, "is secret used by pods")
 	}
@@ -160,7 +164,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 			ingressesList = &networkingv1.IngressList{}
 		}
 
-		err := ctx.VirtualClient.List(context.TODO(), ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
+		err := ctx.VirtualClient.List(s.ctx, ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
 			return false, err
 		}

@@ -45,7 +45,7 @@ func defaultNewClient(config *rest.Config, options client.Options) (client.Clien
 	return client.New(config, options)
 }
 
-func (c *CacheClient) poll(obj runtime.Object, condition func(newObj client.Object, oldAccessor metav1.Object) (bool, error)) error {
+func (c *CacheClient) poll(ctx context.Context, obj runtime.Object, condition func(newObj client.Object, oldAccessor metav1.Object) (bool, error)) error {
 	_, ok := obj.(*unstructured.Unstructured)
 	if ok {
 		return nil
@@ -66,15 +66,13 @@ func (c *CacheClient) poll(obj runtime.Object, condition func(newObj client.Obje
 		return nil
 	}
 
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	return wait.PollImmediate(time.Millisecond*10, time.Second*2, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*2, true, func(context.Context) (bool, error) {
 		return condition(newObj.(client.Object), accessor)
 	})
 }
 
 func (c *CacheClient) blockCreate(ctx context.Context, obj client.Object) error {
-	return c.poll(obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
+	return c.poll(ctx, obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
@@ -91,7 +89,7 @@ func (c *CacheClient) blockCreate(ctx context.Context, obj client.Object) error 
 }
 
 func (c *CacheClient) blockUpdate(ctx context.Context, obj client.Object) error {
-	return c.poll(obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
+	return c.poll(ctx, obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
@@ -113,7 +111,7 @@ func (c *CacheClient) blockUpdate(ctx context.Context, obj client.Object) error 
 }
 
 func (c *CacheClient) blockDelete(ctx context.Context, obj runtime.Object) error {
-	return c.poll(obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
+	return c.poll(ctx, obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {

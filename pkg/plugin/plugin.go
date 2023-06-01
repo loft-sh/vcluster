@@ -34,6 +34,7 @@ var DefaultManager Manager = &manager{
 
 type Manager interface {
 	Start(
+		ctx context.Context,
 		currentNamespace, targetNamespace string,
 		virtualKubeConfig *rest.Config,
 		physicalKubeConfig *rest.Config,
@@ -104,6 +105,7 @@ func (m *manager) SetLeader(isLeader bool) {
 }
 
 func (m *manager) Start(
+	ctx context.Context,
 	currentNamespace, targetNamespace string,
 	virtualKubeConfig *rest.Config,
 	physicalKubeConfig *rest.Config,
@@ -178,15 +180,13 @@ func (m *manager) Start(
 		}
 	}()
 
-	return m.waitForPlugins(options)
+	return m.waitForPlugins(ctx, options)
 }
 
-func (m *manager) waitForPlugins(options *context2.VirtualClusterOptions) error {
+func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualClusterOptions) error {
 	for _, plugin := range options.Plugins {
 		klog.Infof("Waiting for plugin %s to register...", plugin)
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		err := wait.PollImmediate(time.Millisecond*100, time.Minute*10, func() (done bool, err error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, time.Minute*10, true, func(context.Context) (done bool, err error) {
 			m.pluginMutex.Lock()
 			defer m.pluginMutex.Unlock()
 

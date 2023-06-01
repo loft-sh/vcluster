@@ -1,6 +1,7 @@
 package manifests
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -50,11 +51,9 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 	})
 
 	ginkgo.It("Test if configmap for both charts gets applied", func() {
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		err := wait.PollImmediate(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
 			cm, err := f.HostClient.CoreV1().ConfigMaps(f.VclusterNamespace).
-				Get(f.Context, hostConfigMapName, metav1.GetOptions{})
+				Get(ctx, hostConfigMapName, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
 					return false, nil
@@ -77,10 +76,8 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 	})
 
 	ginkgo.It("Test nginx release secret existence in vcluster (regular chart)", func() {
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		err := wait.PollImmediate(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
-			secList, err := f.VclusterClient.CoreV1().Secrets(ChartNamespace).List(f.Context, metav1.ListOptions{
+		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+			secList, err := f.VclusterClient.CoreV1().Secrets(ChartNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(HelmSecretLabels).String(),
 			})
 			if err != nil {
@@ -104,10 +101,8 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 	})
 
 	ginkgo.It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func() {
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		err := wait.PollImmediate(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
-			deployList, err := f.VclusterClient.AppsV1().Deployments(ChartOCINamespace).List(f.Context, metav1.ListOptions{
+		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+			deployList, err := f.VclusterClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(HelmOCIDeploymentLabels).String(),
 			})
 			if err != nil {

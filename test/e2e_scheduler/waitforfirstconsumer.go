@@ -1,6 +1,7 @@
 package e2escheduler
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -106,11 +107,9 @@ var _ = ginkgo.Describe("Schedule a Statefulset with WaitForFirstConsumer PVCs",
 		err = f.VclusterCRClient.Create(f.Context, workload)
 		framework.ExpectNoError(err)
 		// wait for it to start running
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		err = wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
 			ss := &appsv1.StatefulSet{}
-			err := f.VclusterCRClient.Get(f.Context, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, ss)
+			err := f.VclusterCRClient.Get(ctx, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, ss)
 			if err != nil {
 				fmt.Fprintf(ginkgo.GinkgoWriter, "failed to fetch statefulset %q with err err: %v\n", workload.Name, err)
 				return false, nil

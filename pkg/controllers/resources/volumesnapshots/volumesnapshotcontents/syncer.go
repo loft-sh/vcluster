@@ -35,6 +35,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}, NewVolumeSnapshotContentTranslator()),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
+
+		ctx: ctx.Context,
 	}, nil
 }
 
@@ -42,6 +44,8 @@ type volumeSnapshotContentSyncer struct {
 	translator.Translator
 
 	virtualClient client.Client
+
+	ctx context.Context
 }
 
 var _ syncer.Initializer = &volumeSnapshotContentSyncer{}
@@ -236,7 +240,7 @@ func (s *volumeSnapshotContentSyncer) IsManaged(pObj client.Object) (bool, error
 		return false, nil
 	}
 
-	sync, _, err := s.shouldSync(context.TODO(), pVSC)
+	sync, _, err := s.shouldSync(s.ctx, pVSC)
 	if err != nil {
 		return false, nil
 	}
@@ -257,7 +261,7 @@ func (s *volumeSnapshotContentSyncer) PhysicalToVirtual(pObj client.Object) type
 	}
 
 	vObj := &volumesnapshotv1.VolumeSnapshotContent{}
-	err := clienthelper.GetByIndex(context.Background(), s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
+	err := clienthelper.GetByIndex(s.ctx, s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return types.NamespacedName{}

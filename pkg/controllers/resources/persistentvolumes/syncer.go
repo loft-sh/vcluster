@@ -34,6 +34,8 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		Translator: translator.NewClusterTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, NewPersistentVolumeTranslator(), HostClusterPersistentVolumeAnnotation),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
+
+		ctx: ctx.Context,
 	}, nil
 }
 
@@ -66,6 +68,8 @@ type persistentVolumeSyncer struct {
 	translator.Translator
 
 	virtualClient client.Client
+
+	ctx context.Context
 }
 
 var _ syncer.IndicesRegisterer = &persistentVolumeSyncer{}
@@ -274,7 +278,7 @@ func (s *persistentVolumeSyncer) IsManaged(pObj client.Object) (bool, error) {
 		return false, nil
 	}
 
-	sync, _, err := s.shouldSync(context.TODO(), pPv)
+	sync, _, err := s.shouldSync(s.ctx, pPv)
 	if err != nil {
 		return false, nil
 	}
@@ -295,7 +299,7 @@ func (s *persistentVolumeSyncer) PhysicalToVirtual(pObj client.Object) types.Nam
 	}
 
 	vObj := &corev1.PersistentVolume{}
-	err := clienthelper.GetByIndex(context.Background(), s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
+	err := clienthelper.GetByIndex(s.ctx, s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return types.NamespacedName{}

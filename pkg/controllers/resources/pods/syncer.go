@@ -94,6 +94,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		tolerations:           tolerations,
 
 		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
+
+		ctx: ctx.Context,
 	}, nil
 }
 
@@ -111,6 +113,8 @@ type podSyncer struct {
 	tolerations           []*corev1.Toleration
 
 	podSecurityStandard string
+
+	ctx context.Context
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -423,11 +427,9 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	}
 
 	// wait until cache is updated
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(time.Millisecond*50, time.Second*2, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*50, time.Second*2, true, func(syncContext context.Context) (done bool, err error) {
 		vPod := &corev1.Pod{}
-		err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)
+		err = ctx.VirtualClient.Get(syncContext, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return true, nil

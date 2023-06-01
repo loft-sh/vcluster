@@ -85,7 +85,7 @@ func NewStartCommand() *cobra.Command {
 		Short: "Execute the vcluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return ExecuteStart(options)
+			return ExecuteStart(cobraCmd.Context(), options)
 		},
 	}
 	context2.AddFlags(cmd.Flags(), options)
@@ -95,7 +95,7 @@ func NewStartCommand() *cobra.Command {
 	return cmd
 }
 
-func ExecuteStart(options *context2.VirtualClusterOptions) error {
+func ExecuteStart(ctx context.Context, options *context2.VirtualClusterOptions) error {
 	if telemetry.Collector.IsEnabled() {
 		// TODO: add code that will force events upload immediately? (in case of panic/Fail/Exit initiated from the code)
 		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventSyncerStarted))
@@ -138,10 +138,8 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	// Ensure that service CIDR range is written into the expected location
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(5*time.Second, 2*time.Minute, func() (bool, error) {
-		err = EnsureServiceCIDR(inClusterClient, inClusterClient, currentNamespace, currentNamespace, translate.Suffix)
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		err = EnsureServiceCIDR(ctx, inClusterClient, inClusterClient, currentNamespace, currentNamespace, translate.Suffix)
 		if err != nil {
 			klog.Errorf("failed to ensure that service CIDR range is written into the expected location: %v", err)
 			return false, nil
@@ -153,26 +151,26 @@ func ExecuteStart(options *context2.VirtualClusterOptions) error {
 	}
 
 	// build controller context
-	ctx, err := BuildControllerContext(options, currentNamespace, inClusterConfig)
+	controllerCtx, err := BuildControllerContext(ctx, options, currentNamespace, inClusterConfig)
 	if err != nil {
 		return err
 	}
 
 	// start proxy
-	err = StartProxy(ctx)
+	err = StartProxy(controllerCtx)
 	if err != nil {
 		return err
 	}
 
 	// start leader election + controllers
-	err = StartLeaderElection(ctx, func() error {
-		return StartControllers(ctx)
+	err = StartLeaderElection(controllerCtx, func() error {
+		return StartControllers(controllerCtx)
 	})
 	if err != nil {
 		return err
 	}
 
-	<-ctx.StopChan
+	<-controllerCtx.StopChan
 	return nil
 }
 
@@ -210,7 +208,7 @@ func StartProxy(ctx *context2.ControllerContext) error {
 	return nil
 }
 
-func BuildControllerContext(options *context2.VirtualClusterOptions, currentNamespace string, inClusterConfig *rest.Config) (*context2.ControllerContext, error) {
+func BuildControllerContext(ctx context.Context, options *context2.VirtualClusterOptions, currentNamespace string, inClusterConfig *rest.Config) (*context2.ControllerContext, error) {
 	// parse tolerations
 	for _, t := range options.Tolerations {
 		_, err := toleration.ParseToleration(t)
@@ -245,7 +243,7 @@ func BuildControllerContext(options *context2.VirtualClusterOptions, currentName
 	telemetry.Collector.SetOptions(options)
 
 	// wait for client config
-	clientConfig, err := WaitForClientConfig(options)
+	clientConfig, err := WaitForClientConfig(ctx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +272,7 @@ func BuildControllerContext(options *context2.VirtualClusterOptions, currentName
 			return nil, err
 		}
 
-		err = plugin.DefaultManager.Start(currentNamespace, options.TargetNamespace, virtualClusterConfig, inClusterConfig, syncerConfig, options)
+		err = plugin.DefaultManager.Start(ctx, currentNamespace, options.TargetNamespace, virtualClusterConfig, inClusterConfig, syncerConfig, options)
 		if err != nil {
 			return nil, err
 		}
@@ -315,20 +313,18 @@ func BuildControllerContext(options *context2.VirtualClusterOptions, currentName
 	klog.Infof("Can connect to virtual cluster with version " + serverVersion.GitVersion)
 
 	// create controller context
-	ctx, err := context2.NewControllerContext(currentNamespace, localManager, virtualClusterManager, &rawConfig, serverVersion, options)
+	controllerCtx, err := context2.NewControllerContext(ctx, currentNamespace, localManager, virtualClusterManager, &rawConfig, serverVersion, options)
 	if err != nil {
 		return nil, errors.Wrap(err, "create controller context")
 	}
 
-	return ctx, nil
+	return controllerCtx, nil
 }
 
-func WaitForClientConfig(options *context2.VirtualClusterOptions) (clientcmd.ClientConfig, error) {
+func WaitForClientConfig(ctx context.Context, options *context2.VirtualClusterOptions) (clientcmd.ClientConfig, error) {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err := wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Hour, true, func(ctx context.Context) (bool, error) {
 		out, err := os.ReadFile(options.KubeConfigPath)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -360,7 +356,7 @@ func WaitForClientConfig(options *context2.VirtualClusterOptions) (clientcmd.Cli
 			klog.Infof("couldn't retrieve virtual cluster version (%v), will retry in 1 seconds", err)
 			return false, nil
 		}
-		_, err = kubeClient.CoreV1().ServiceAccounts("default").Get(context.Background(), "default", metav1.GetOptions{})
+		_, err = kubeClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
 			klog.Infof("default ServiceAccount is not available yet, will retry in 1 seconds")
 			return false, nil
@@ -385,9 +381,9 @@ func RegisterOrDeregisterAPIService(ctx *context2.ControllerContext) {
 	}
 }
 
-func EnsureServiceCIDR(workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace, vClusterName string) error {
+func EnsureServiceCIDR(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace, vClusterName string) error {
 	// check if k0s config Secret exists
-	_, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(context.Background(), servicecidr.GetK0sSecretName(vClusterName), metav1.GetOptions{})
+	_, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, servicecidr.GetK0sSecretName(vClusterName), metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
@@ -395,26 +391,26 @@ func EnsureServiceCIDR(workspaceNamespaceClient, currentNamespaceClient kubernet
 	// if k0s secret was found ensure it contains service CIDR range
 	if err == nil {
 		klog.Info("k0s config secret detected, syncer will ensure that it contains service CIDR")
-		return servicecidr.EnsureServiceCIDRInK0sSecret(context.Background(), workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+		return servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
 	}
 
 	// in all other cases ensure that a valid CIDR range is in the designated ConfigMap
-	_, err = servicecidr.EnsureServiceCIDRConfigmap(context.Background(), workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+	_, err = servicecidr.EnsureServiceCIDRConfigmap(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
 	return err
 }
 
-func StartControllers(ctx *context2.ControllerContext) error {
+func StartControllers(controllerContext *context2.ControllerContext) error {
 	if telemetry.Collector.IsEnabled() {
 		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
 	}
 
 	// register APIService
-	go RegisterOrDeregisterAPIService(ctx)
+	go RegisterOrDeregisterAPIService(controllerContext)
 
 	// setup CoreDNS according to the manifest file
 	go func() {
-		_ = wait.ExponentialBackoff(wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
-			err := coredns.ApplyManifest(ctx.Options.DefaultImageRegistry, ctx.VirtualManager.GetConfig(), ctx.VirtualClusterVersion)
+		_ = wait.ExponentialBackoffWithContext(controllerContext.Context, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
+			err := coredns.ApplyManifest(ctx, controllerContext.Options.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
 			if err != nil {
 				if errors.Is(err, coredns.ErrNoCoreDNSManifests) {
 					klog.Infof("No CoreDNS manifests found, skipping CoreDNS configuration")
@@ -429,26 +425,26 @@ func StartControllers(ctx *context2.ControllerContext) error {
 	}()
 
 	// instantiate controllers
-	syncers, err := controllers.Create(ctx)
+	syncers, err := controllers.Create(controllerContext)
 	if err != nil {
 		return errors.Wrap(err, "instantiate controllers")
 	}
 
 	// execute controller initializers to setup prereqs, etc.
-	err = controllers.ExecuteInitializers(ctx, syncers)
+	err = controllers.ExecuteInitializers(controllerContext, syncers)
 	if err != nil {
 		return errors.Wrap(err, "execute initializers")
 	}
 
 	// register indices
-	err = controllers.RegisterIndices(ctx, syncers)
+	err = controllers.RegisterIndices(controllerContext, syncers)
 	if err != nil {
 		return err
 	}
 
 	// start the local manager
 	go func() {
-		err := ctx.LocalManager.Start(ctx.Context)
+		err := controllerContext.LocalManager.Start(controllerContext.Context)
 		if err != nil {
 			panic(err)
 		}
@@ -456,24 +452,24 @@ func StartControllers(ctx *context2.ControllerContext) error {
 
 	// start the virtual cluster manager
 	go func() {
-		err := ctx.VirtualManager.Start(ctx.Context)
+		err := controllerContext.VirtualManager.Start(controllerContext.Context)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
 	// Wait for caches to be synced
-	ctx.LocalManager.GetCache().WaitForCacheSync(ctx.Context)
-	ctx.VirtualManager.GetCache().WaitForCacheSync(ctx.Context)
+	controllerContext.LocalManager.GetCache().WaitForCacheSync(controllerContext.Context)
+	controllerContext.VirtualManager.GetCache().WaitForCacheSync(controllerContext.Context)
 
 	// make sure owner is set if it is there
-	err = FindOwner(ctx)
+	err = FindOwner(controllerContext)
 	if err != nil {
 		return errors.Wrap(err, "finding vcluster pod owner")
 	}
 
 	// make sure the kubernetes service is synced
-	err = SyncKubernetesService(ctx)
+	err = SyncKubernetesService(controllerContext)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service")
 	}
@@ -481,21 +477,21 @@ func StartControllers(ctx *context2.ControllerContext) error {
 	// write the kube config to secret
 	go func() {
 		wait.Until(func() {
-			err := WriteKubeConfigToSecret(ctx.Context, ctx.CurrentNamespace, ctx.CurrentNamespaceClient, ctx.Options, ctx.VirtualRawConfig)
+			err := WriteKubeConfigToSecret(controllerContext.Context, controllerContext.CurrentNamespace, controllerContext.CurrentNamespaceClient, controllerContext.Options, controllerContext.VirtualRawConfig)
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
 			}
-		}, time.Minute, ctx.StopChan)
+		}, time.Minute, controllerContext.StopChan)
 	}()
 
 	// register controllers
-	err = controllers.RegisterControllers(ctx, syncers)
+	err = controllers.RegisterControllers(controllerContext, syncers)
 	if err != nil {
 		return err
 	}
 
 	// set leader
-	if !ctx.Options.DisablePlugins {
+	if !controllerContext.Options.DisablePlugins {
 		plugin.DefaultManager.SetLeader(true)
 	}
 

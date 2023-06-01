@@ -76,7 +76,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(telemetry.NewTelemetryCmd())
 	rootCmd.AddCommand(versionCmd)
 
-	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc())
+	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
 		return rootCmd, fmt.Errorf("failed to register completion for namespace: %w", err)
 	}

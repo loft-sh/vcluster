@@ -66,6 +66,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		nodeServiceProvider: nodeServiceProvider,
 		enforcedTolerations: tolerations,
+
+		ctx: ctx.Context,
 	}, nil
 }
 
@@ -85,6 +87,8 @@ type nodeSyncer struct {
 	podCache            client.Reader
 	nodeServiceProvider nodeservice.NodeServiceProvider
 	enforcedTolerations []*corev1.Toleration
+
+	ctx context.Context
 }
 
 func (s *nodeSyncer) Resource() client.Object {
@@ -207,7 +211,7 @@ func (s *nodeSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName 
 }
 
 func (s *nodeSyncer) IsManaged(pObj client.Object) (bool, error) {
-	shouldSync, err := s.shouldSync(context.TODO(), pObj.(*corev1.Node))
+	shouldSync, err := s.shouldSync(s.ctx, pObj.(*corev1.Node))
 	if err != nil {
 		return false, nil
 	}

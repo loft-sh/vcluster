@@ -63,6 +63,8 @@ type CreateCmd struct {
 	kubeClientConfig clientcmd.ClientConfig
 	kubeClient       *kubernetes.Clientset
 	rawConfig        clientcmdapi.Config
+
+	ctx context.Context
 }
 
 // NewCreateCmd creates a new command
@@ -87,6 +89,7 @@ vcluster create test --namespace test
 	`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			cmd.ctx = cobraCmd.Context()
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 			validateDeprecated(&cmd.CreateOptions, cmd.log)
@@ -131,7 +134,7 @@ func validateDeprecated(createOptions *create.CreateOptions, log log.Logger) {
 
 // Run executes the functionality
 func (cmd *CreateCmd) Run(args []string) error {
-	helmBinaryPath, err := GetHelmBinaryPath(cmd.log)
+	helmBinaryPath, err := GetHelmBinaryPath(cmd.ctx, cmd.log)
 	if err != nil {
 		return err
 	}
@@ -206,7 +209,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	// check if vcluster already exists
 	if !cmd.Upgrade {
-		release, err := helm.NewSecrets(cmd.kubeClient).Get(context.Background(), args[0], cmd.Namespace)
+		release, err := helm.NewSecrets(cmd.kubeClient).Get(cmd.ctx, args[0], cmd.Namespace)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get helm releases")
 		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") && release.Secret != nil && release.Secret.Labels != nil && release.Secret.Labels["status"] == "deployed" {
@@ -320,8 +323,7 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues, helmExecutablePath 
 	}
 
 	// we have to upgrade / install the chart
-	ctx := context.Background()
-	err = helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
+	err = helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath).Upgrade(cmd.ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
 		Path:        cmd.LocalChartDir,
 		Repo:        cmd.ChartRepo,
@@ -454,7 +456,7 @@ func (cmd *CreateCmd) prepare(vClusterName string) error {
 
 	// get service cidr
 	if cmd.CIDR == "" {
-		cidr, warning := servicecidr.GetServiceCIDR(cmd.kubeClient, cmd.Namespace)
+		cidr, warning := servicecidr.GetServiceCIDR(cmd.ctx, cmd.kubeClient, cmd.Namespace)
 		if warning != "" {
 			cmd.log.Info(warning)
 		}
@@ -477,7 +479,7 @@ func (cmd *CreateCmd) ensureNamespace(vClusterName string) error {
 	}
 
 	// make sure namespace exists
-	namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.Background(), cmd.Namespace, metav1.GetOptions{})
+	namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(cmd.ctx, cmd.Namespace, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return cmd.createNamespace()
@@ -486,10 +488,8 @@ func (cmd *CreateCmd) ensureNamespace(vClusterName string) error {
 		}
 	} else if namespace.DeletionTimestamp != nil {
 		cmd.log.Infof("Waiting until namespace is terminated...")
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		err := wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
-			namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.Background(), cmd.Namespace, metav1.GetOptions{})
+		err := wait.PollUntilContextTimeout(cmd.ctx, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
+			namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(ctx, cmd.Namespace, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
 					return true, nil
@@ -514,7 +514,7 @@ func (cmd *CreateCmd) ensureNamespace(vClusterName string) error {
 func (cmd *CreateCmd) createNamespace() error {
 	// try to create the namespace
 	cmd.log.Infof("Creating namespace %s", cmd.Namespace)
-	_, err := cmd.kubeClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+	_, err := cmd.kubeClient.CoreV1().Namespaces().Create(cmd.ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cmd.Namespace,
 			Annotations: map[string]string{

@@ -67,6 +67,8 @@ type ConnectCmd struct {
 	portForwarding bool
 	interruptChan  chan struct{}
 	errorChan      chan error
+
+	ctx context.Context
 }
 
 // NewConnectCmd creates a new command
@@ -97,6 +99,8 @@ vcluster connect test -n test -- kubectl get ns
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
+
+			cmd.ctx = cobraCmd.Context()
 
 			return cmd.Run(args)
 		},
@@ -147,7 +151,7 @@ func (cmd *ConnectCmd) Connect(vclusterName string, command []string) error {
 
 	if len(command) == 0 && cmd.ServiceAccount == "" && cmd.Server == "" && cmd.BackgroundProxy && localkubernetes.IsDockerInstalledAndUpAndRunning() {
 		// start background container
-		server, err := localkubernetes.CreateBackgroundProxyContainer(vclusterName, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
+		server, err := localkubernetes.CreateBackgroundProxyContainer(cmd.ctx, vclusterName, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
 		if err != nil {
 			cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
 			cmd.BackgroundProxy = false
@@ -257,7 +261,7 @@ func (cmd *ConnectCmd) prepare(vclusterName string) error {
 		err              error
 	)
 	if vclusterName != "" {
-		vCluster, err = find.GetVCluster(cmd.Context, vclusterName, cmd.Namespace)
+		vCluster, err = find.GetVCluster(cmd.ctx, cmd.Context, vclusterName, cmd.Namespace)
 		if err != nil {
 			return err
 		}
@@ -301,7 +305,7 @@ func (cmd *ConnectCmd) prepare(vclusterName string) error {
 	// resume vcluster if necessary
 	if vCluster != nil && vCluster.Status == find.StatusPaused {
 		cmd.Log.Infof("Resume vcluster %s...", vCluster.Name)
-		err = lifecycle.ResumeVCluster(cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
+		err = lifecycle.ResumeVCluster(cmd.ctx, cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
 		if err != nil {
 			return errors.Wrap(err, "resume vcluster")
 		}
@@ -314,12 +318,10 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 	var err error
 	podName := cmd.PodName
 	if podName == "" {
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		waitErr := wait.PollImmediate(time.Second, time.Second*30, func() (bool, error) {
+		waitErr := wait.PollUntilContextTimeout(cmd.ctx, time.Second, time.Second*30, true, func(ctx context.Context) (bool, error) {
 			// get vcluster pod name
 			var pods *corev1.PodList
-			pods, err = cmd.kubeClient.CoreV1().Pods(cmd.Namespace).List(context.Background(), metav1.ListOptions{
+			pods, err = cmd.kubeClient.CoreV1().Pods(cmd.Namespace).List(ctx, metav1.ListOptions{
 				LabelSelector: "app=vcluster,release=" + vclusterName,
 			})
 			if err != nil {
@@ -347,7 +349,7 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 	}
 
 	// get the kube config from the Secret
-	kubeConfig, err := GetKubeConfig(context.Background(), cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
+	kubeConfig, err := GetKubeConfig(cmd.ctx, cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse kube config")
 	}
@@ -412,7 +414,7 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 		}
 
 		go func() {
-			cmd.errorChan <- portforward.StartPortForwardingWithRestart(cmd.restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.interruptChan, stdout, stderr, cmd.Log)
+			cmd.errorChan <- portforward.StartPortForwardingWithRestart(cmd.ctx, cmd.restConfig, cmd.Address, podName, cmd.Namespace, strconv.Itoa(cmd.LocalPort), port, cmd.interruptChan, stdout, stderr, cmd.Log)
 		}()
 	}
 
@@ -438,12 +440,10 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(vclusterName string, command []stri
 
 func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *api.Config) error {
 	printedWaiting := false
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err := wait.PollImmediate(time.Second*2, time.Minute*5, func() (done bool, err error) {
+	err := wait.PollUntilContextTimeout(cmd.ctx, time.Second*2, time.Minute*5, true, func(ctx context.Context) (done bool, err error) {
 		// first check for load balancer service, look for the other service if it's not there
 		loadBalancerMissing := false
-		service, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), translate.GetLoadBalancerSVCName(vClusterName), metav1.GetOptions{})
+		service, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(ctx, translate.GetLoadBalancerSVCName(vClusterName), metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				loadBalancerMissing = true
@@ -453,7 +453,7 @@ func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *a
 			}
 		}
 		if loadBalancerMissing {
-			service, err = cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(context.TODO(), vClusterName, metav1.GetOptions{})
+			service, err = cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(ctx, vClusterName, metav1.GetOptions{})
 			if kerrors.IsNotFound(err) {
 				return true, nil
 			} else if err != nil {
@@ -464,7 +464,7 @@ func (cmd *ConnectCmd) setServerIfExposed(vClusterName string, vClusterConfig *a
 
 		// not a load balancer? Then don't wait
 		if service.Spec.Type == corev1.ServiceTypeNodePort {
-			server, err := localkubernetes.ExposeLocal(vClusterName, cmd.Namespace, &cmd.rawConfig, vClusterConfig, service, cmd.LocalPort, cmd.Log)
+			server, err := localkubernetes.ExposeLocal(cmd.ctx, vClusterName, cmd.Namespace, &cmd.rawConfig, vClusterConfig, service, cmd.LocalPort, cmd.Log)
 			if err != nil {
 				cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
 			}
@@ -654,15 +654,13 @@ func (cmd *ConnectCmd) waitForVCluster(vKubeConfig api.Config, errorChan chan er
 		return err
 	}
 
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(time.Millisecond*200, time.Minute*3, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(cmd.ctx, time.Millisecond*200, time.Minute*3, true, func(ctx context.Context) (bool, error) {
 		select {
 		case err := <-errorChan:
 			return false, err
 		default:
 			// check if service account exists
-			_, err = vKubeClient.CoreV1().ServiceAccounts("default").Get(context.TODO(), "default", metav1.GetOptions{})
+			_, err = vKubeClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 			return err == nil, nil
 		}
 	})
@@ -700,11 +698,9 @@ func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string
 	}
 	token := ""
 	cmd.Log.Infof("Create service account token for %s/%s", serviceAccountNamespace, serviceAccount)
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.Poll(time.Second, time.Minute*3, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(cmd.ctx, time.Second, time.Minute*3, false, func(ctx context.Context) (bool, error) {
 		// check if namespace exists
-		_, err := vKubeClient.CoreV1().Namespaces().Get(context.TODO(), serviceAccountNamespace, metav1.GetOptions{})
+		_, err := vKubeClient.CoreV1().Namespaces().Get(ctx, serviceAccountNamespace, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) || kerrors.IsForbidden(err) {
 				return false, err
@@ -714,7 +710,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string
 		}
 
 		// check if service account exists
-		_, err = vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).Get(context.TODO(), serviceAccount, metav1.GetOptions{})
+		_, err = vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).Get(ctx, serviceAccount, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				if serviceAccount == "default" {
@@ -723,7 +719,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string
 
 				if cmd.ServiceAccountClusterRole != "" {
 					// create service account
-					_, err = vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).Create(context.TODO(), &corev1.ServiceAccount{
+					_, err = vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).Create(ctx, &corev1.ServiceAccount{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      serviceAccount,
 							Namespace: serviceAccountNamespace,
@@ -747,11 +743,11 @@ func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string
 		// create service account cluster role binding
 		if cmd.ServiceAccountClusterRole != "" {
 			clusterRoleBindingName := translate.SafeConcatName("vcluster", "sa", serviceAccount, serviceAccountNamespace)
-			clusterRoleBinding, err := vKubeClient.RbacV1().ClusterRoleBindings().Get(context.TODO(), clusterRoleBindingName, metav1.GetOptions{})
+			clusterRoleBinding, err := vKubeClient.RbacV1().ClusterRoleBindings().Get(ctx, clusterRoleBindingName, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
 					// create cluster role binding
-					_, err = vKubeClient.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
+					_, err = vKubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: clusterRoleBindingName,
 						},
@@ -781,7 +777,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string
 			} else {
 				// if cluster role differs, recreate it
 				if clusterRoleBinding.RoleRef.Name != cmd.ServiceAccountClusterRole {
-					err = vKubeClient.RbacV1().ClusterRoleBindings().Delete(context.TODO(), clusterRoleBindingName, metav1.DeleteOptions{})
+					err = vKubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, clusterRoleBindingName, metav1.DeleteOptions{})
 					if err != nil {
 						return false, err
 					}
@@ -794,7 +790,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(vKubeConfig api.Config) (string
 		}
 
 		// create service account token
-		result, err := vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).CreateToken(context.TODO(), serviceAccount, &authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{
+		result, err := vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).CreateToken(ctx, serviceAccount, &authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{
 			Audiences:         audiences,
 			ExpirationSeconds: &expirationSeconds,
 		}}, metav1.CreateOptions{})

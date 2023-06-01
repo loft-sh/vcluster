@@ -57,7 +57,7 @@ func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, c
 	}
 
 	// find out correct cidr
-	cidr, warning := GetServiceCIDR(workspaceNamespaceClient, workspaceNamespace)
+	cidr, warning := GetServiceCIDR(ctx, workspaceNamespaceClient, workspaceNamespace)
 	if warning != "" {
 		klog.Info(warning)
 	}
@@ -86,7 +86,7 @@ func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, c
 }
 
 func EnsureServiceCIDRInK0sSecret(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace string, vclusterName string) error {
-	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(context.Background(), GetK0sSecretName(vclusterName), metav1.GetOptions{})
+	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, GetK0sSecretName(vclusterName), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read k0s configuration secret %s/%s: %v", currentNamespace, GetK0sSecretName(vclusterName), err)
 	}
@@ -96,7 +96,7 @@ func EnsureServiceCIDRInK0sSecret(ctx context.Context, workspaceNamespaceClient,
 	}
 
 	// find out correct cidr
-	cidr, warning := GetServiceCIDR(workspaceNamespaceClient, workspaceNamespace)
+	cidr, warning := GetServiceCIDR(ctx, workspaceNamespaceClient, workspaceNamespace)
 	if warning != "" {
 		klog.Info(warning)
 	}
@@ -117,9 +117,9 @@ func EnsureServiceCIDRInK0sSecret(ctx context.Context, workspaceNamespaceClient,
 	return nil
 }
 
-func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, string) {
-	ipv4CIDR, ipv4Err := getServiceCIDR(client, namespace, false)
-	ipv6CIDR, ipv6Err := getServiceCIDR(client, namespace, true)
+func GetServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace string) (string, string) {
+	ipv4CIDR, ipv4Err := getServiceCIDR(ctx, client, namespace, false)
+	ipv6CIDR, ipv6Err := getServiceCIDR(ctx, client, namespace, true)
 	if ipv4Err != nil && ipv6Err != nil {
 		return FallbackCIDR, fmt.Sprintf("failed to detect service CIDR, will fallback to %s, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match. Error details: failed to find IPv4 service CIDR: %v ; or IPv6 service CIDR: %v", FallbackCIDR, ipv4Err, ipv6Err)
 	}
@@ -132,7 +132,7 @@ func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, stri
 
 	// Both IPv4 and IPv6 are configured, we need to find out which one is the default
 	policy := corev1.IPFamilyPolicyPreferDualStack
-	testService, err := client.CoreV1().Services(namespace).Create(context.Background(), &corev1.Service{
+	testService, err := client.CoreV1().Services(namespace).Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "test-service-delete-me-",
 		},
@@ -148,7 +148,7 @@ func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, stri
 
 	if err == nil {
 		defer func() {
-			_ = client.CoreV1().Services(namespace).Delete(context.Background(), testService.GetName(), metav1.DeleteOptions{})
+			_ = client.CoreV1().Services(namespace).Delete(ctx, testService.GetName(), metav1.DeleteOptions{})
 		}()
 
 		// check if this is dual stack, and which family is default
@@ -168,13 +168,13 @@ func GetServiceCIDR(client kubernetes.Interface, namespace string) (string, stri
 	return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), "failed to find host cluster default Service IP family, defaulting to IPv4 family"
 }
 
-func getServiceCIDR(client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {
+func getServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {
 	clusterIP := "4.4.4.4"
 	if ipv6 {
 		// https://www.ietf.org/rfc/rfc3849.txt
 		clusterIP = "2001:DB8::1"
 	}
-	_, err := client.CoreV1().Services(namespace).Create(context.Background(), &corev1.Service{
+	_, err := client.CoreV1().Services(namespace).Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "test-service-",
 		},

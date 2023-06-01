@@ -70,7 +70,7 @@ var _ = ginkgo.Describe("NetworkPolicies are created as expected", func() {
 		framework.DefaultFramework.TestServiceIsEventuallyReachable(curlPod, nginxService)
 
 		// create a policy that will allow Egress to the coreDNS so we can use .svc urls
-		_, err := f.CreateEgressNetworkPolicyForDNS(nsA.GetName())
+		_, err := f.CreateEgressNetworkPolicyForDNS(f.Context, nsA.GetName())
 		framework.ExpectNoError(err)
 
 		f.Log.Info("deny all Egress from the Namespace that hosts curl pod")

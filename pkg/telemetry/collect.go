@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -47,7 +48,7 @@ func init() {
 		return
 	}
 	var err error
-	Collector, err = NewDefaultCollector(c)
+	Collector, err = NewDefaultCollector(context.Background(), c)
 	if err != nil {
 		// Log the problem but don't fail - use disabled Collector instead
 		loghelper.New("telemetry").Infof("%s", err.Error())
@@ -87,7 +88,7 @@ type EventCollector interface {
 	SetStartCommand(startCommand *cobra.Command)
 }
 
-func NewDefaultCollector(config types.SyncerTelemetryConfig) (*DefaultCollector, error) {
+func NewDefaultCollector(ctx context.Context, config types.SyncerTelemetryConfig) (*DefaultCollector, error) {
 	hostConfig, err := ctrl.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host rest config: %v", err)
@@ -131,6 +132,8 @@ func NewDefaultCollector(config types.SyncerTelemetryConfig) (*DefaultCollector,
 		buffer: newEventBuffer(eventsCountThreshold),
 
 		tokenGenerator: tokenGenerator,
+
+		ctx: ctx,
 	}
 
 	go c.start()
@@ -160,6 +163,8 @@ type DefaultCollector struct {
 	tokenGenerator       serviceaccount.TokenGenerator
 	token                string
 	tokenLastGeneratedAt time.Time
+
+	ctx context.Context
 }
 
 func (d *DefaultCollector) IsEnabled() bool {
@@ -300,7 +305,7 @@ func (d *DefaultCollector) executeUpload(buffer []*types.Event) {
 
 func (d *DefaultCollector) getSyncerInstanceProperties() types.SyncerInstanceProperties {
 	p := types.SyncerInstanceProperties{
-		UID:                      getSyncerUID(d.hostClient, d.vclusterNamespace, d.options),
+		UID:                      getSyncerUID(d.ctx, d.hostClient, d.vclusterNamespace, d.options),
 		InstanceCreator:          d.config.InstanceCreator,
 		InstanceCreatorUID:       d.config.InstanceCreatorUID,
 		Arch:                     runtime.GOARCH,
@@ -309,7 +314,7 @@ func (d *DefaultCollector) getSyncerInstanceProperties() types.SyncerInstancePro
 		SyncerFlags:              getSyncerFlags(d.startCommand, d.options),
 		VirtualKubernetesVersion: getVirtualKubernetesVersion(d.virtualClient),
 		HostKubernetesVersion:    getHostKubernetesVersion(d.hostClient),
-		VclusterServiceType:      getVclusterServiceType(d.hostClient, d.vclusterNamespace, d.options),
+		VclusterServiceType:      getVclusterServiceType(d.ctx, d.hostClient, d.vclusterNamespace, d.options),
 	}
 	// SyncerPodsReady          int    // TODO: helper function to get syncerPodsReady- not cached
 	// SyncerPodsFailing        int    // TODO: helper function to get syncerPodsFailing- not cached

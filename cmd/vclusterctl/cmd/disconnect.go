@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -16,9 +16,7 @@ import (
 type DisconnectCmd struct {
 	*flags.GlobalFlags
 
-	rawConfig  *clientcmdapi.Config // nolint:unused
-	restConfig *rest.Config         // nolint:unused
-	log        log.Logger
+	log log.Logger
 }
 
 // NewDisconnectCmd creates a new command

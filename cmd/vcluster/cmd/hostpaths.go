@@ -73,7 +73,7 @@ func NewHostpathMapperCommand() *cobra.Command {
 		Short: "Map host to virtual pod logs",
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return MapHostPaths(options)
+			return MapHostPaths(cobraCmd.Context(), options)
 		},
 	}
 
@@ -88,7 +88,7 @@ func NewHostpathMapperCommand() *cobra.Command {
 	return cmd
 }
 
-func MapHostPaths(options *context2.VirtualClusterOptions) error {
+func MapHostPaths(ctx context.Context, options *context2.VirtualClusterOptions) error {
 	// get current namespace
 	currentNamespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
@@ -123,9 +123,7 @@ func MapHostPaths(options *context2.VirtualClusterOptions) error {
 	translate.Suffix = options.Name
 
 	var virtualClusterConfig *rest.Config
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(time.Second, time.Hour, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Hour, true, func(context.Context) (bool, error) {
 		virtualClusterConfig = &rest.Config{
 			Host: options.Name,
 			TLSClientConfig: rest.TLSClientConfig{
@@ -146,7 +144,7 @@ func MapHostPaths(options *context2.VirtualClusterOptions) error {
 			klog.Infof("couldn't retrieve virtual cluster version (%v), will retry in 1 seconds", err)
 			return false, nil
 		}
-		_, err = kubeClient.CoreV1().ServiceAccounts("default").Get(context.Background(), "default", metav1.GetOptions{})
+		_, err = kubeClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
 			klog.Infof("default ServiceAccount is not available yet, will retry in 1 seconds")
 			return false, nil
@@ -179,7 +177,7 @@ func MapHostPaths(options *context2.VirtualClusterOptions) error {
 		return err
 	}
 
-	ctx := context.WithValue(context.Background(), optionsKey, options)
+	ctx = context.WithValue(ctx, optionsKey, options)
 
 	startManagers(ctx, localManager, virtualClusterManager)
 	mapHostPaths(ctx, localManager, virtualClusterManager)

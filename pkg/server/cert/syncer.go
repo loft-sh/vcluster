@@ -29,7 +29,7 @@ type Syncer interface {
 	dynamiccertificates.CertKeyContentProvider
 }
 
-func NewSyncer(currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
+func NewSyncer(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
 	return &syncer{
 		clusterDomain: options.ClusterDomain,
 
@@ -44,6 +44,8 @@ func NewSyncer(currentNamespace string, currentNamespaceClient client.Client, op
 		serviceName:           options.ServiceName,
 		currentNamespace:      currentNamespace,
 		currentNamespaceCient: currentNamespaceClient,
+
+		ctx: ctx,
 	}, nil
 }
 
@@ -67,6 +69,8 @@ type syncer struct {
 	currentCert      []byte
 	currentKey       []byte
 	currentSANs      []string
+
+	ctx context.Context
 }
 
 func (s *syncer) Name() string {
@@ -95,7 +99,7 @@ func (s *syncer) getSANs() ([]string, error) {
 
 	// get cluster ip of target service
 	svc := &corev1.Service{}
-	err := s.currentNamespaceCient.Get(context.TODO(), types.NamespacedName{
+	err := s.currentNamespaceCient.Get(s.ctx, types.NamespacedName{
 		Namespace: s.currentNamespace,
 		Name:      s.serviceName,
 	}, svc)
@@ -129,7 +133,7 @@ func (s *syncer) getSANs() ([]string, error) {
 	// get cluster ip of load balancer service
 	lbSVCName := translate.GetLoadBalancerSVCName(s.serviceName)
 	lbSVC := &corev1.Service{}
-	err = s.currentNamespaceCient.Get(context.TODO(), types.NamespacedName{
+	err = s.currentNamespaceCient.Get(s.ctx, types.NamespacedName{
 		Namespace: s.currentNamespace,
 		Name:      lbSVCName,
 	}, lbSVC)
@@ -159,7 +163,7 @@ func (s *syncer) getSANs() ([]string, error) {
 	if s.fakeKubeletIPs {
 		// get cluster ips of node services
 		svcs := &corev1.ServiceList{}
-		err = s.currentNamespaceCient.List(context.TODO(), svcs, client.InNamespace(s.currentNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
+		err = s.currentNamespaceCient.List(s.ctx, svcs, client.InNamespace(s.currentNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
 		if err != nil {
 			return nil, err
 		}

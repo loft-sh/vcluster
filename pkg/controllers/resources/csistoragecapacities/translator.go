@@ -1,7 +1,6 @@
 package csistoragecapacities
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -53,7 +52,7 @@ func (s *csistoragecapacitySyncer) VirtualToPhysical(req types.NamespacedName, v
 
 	sc := &storagev1.CSIStorageCapacity{}
 	pObj := sc.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context.Background(), s.physicalClient, pObj, constants.IndexByVirtualName, req.Name)
+	err := clienthelper.GetByIndex(s.ctx, s.physicalClient, pObj, constants.IndexByVirtualName, req.Name)
 	if err != nil {
 		return types.NamespacedName{}
 	}

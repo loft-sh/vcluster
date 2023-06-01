@@ -45,7 +45,7 @@ func ApplyGivenInitManifests(ctx context.Context, vClient client.Client, vConfig
 	// apply objects
 	if len(objs) > 0 {
 		klog.Infof("got %d objs to be applied", len(objs))
-		err = applier.ApplyManifest(vConfig, []byte(processedManifests))
+		err = applier.ApplyManifest(ctx, vConfig, []byte(processedManifests))
 		if err != nil {
 			klog.Errorf("error applying manifests: %v", err)
 			return errors.Wrap(err, "apply manifests")

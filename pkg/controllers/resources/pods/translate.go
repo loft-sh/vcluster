@@ -1,7 +1,6 @@
 package pods
 
 import (
-	"context"
 	"fmt"
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -39,7 +38,7 @@ func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod 
 
 	// get services for pod
 	serviceList := &corev1.ServiceList{}
-	err = ctx.VirtualClient.List(context.Background(), serviceList, client.InNamespace(vPod.Namespace))
+	err = ctx.VirtualClient.List(s.ctx, serviceList, client.InNamespace(vPod.Namespace))
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -53,14 +52,14 @@ func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod 
 }
 
 func (s *podSyncer) translateUpdate(pClient client.Client, pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
-	secret, exists, err := podtranslate.GetSecretIfExists(context.Background(), pClient, vObj.Name, vObj.Namespace)
+	secret, exists, err := podtranslate.GetSecretIfExists(s.ctx, pClient, vObj.Name, vObj.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	if exists {
 		// check if owner is vcluster service, if so, modify to pod as owner
-		err := podtranslate.SetPodAsOwner(context.Background(), pObj, pClient, secret)
+		err := podtranslate.SetPodAsOwner(s.ctx, pObj, pClient, secret)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +70,7 @@ func (s *podSyncer) translateUpdate(pClient client.Client, pObj, vObj *corev1.Po
 
 func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, error) {
 	pService := &corev1.Service{}
-	err := ctx.CurrentNamespaceClient.Get(context.TODO(), types.NamespacedName{
+	err := ctx.CurrentNamespaceClient.Get(s.ctx, types.NamespacedName{
 		Name:      s.serviceName,
 		Namespace: ctx.CurrentNamespace,
 	}, pService)
@@ -93,7 +92,7 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 
 func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, namespace, name string) string {
 	pService := &corev1.Service{}
-	err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{
+	err := ctx.PhysicalClient.Get(s.ctx, types.NamespacedName{
 		Name:      translate.Default.PhysicalName(name, namespace),
 		Namespace: translate.Default.PhysicalNamespace(namespace),
 	}, pService)

@@ -28,6 +28,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		NamespacedTranslator: t,
 
 		syncAllConfigMaps: ctx.Options.SyncAllConfigMaps,
+
+		ctx: ctx.Context,
 	}, nil
 }
 
@@ -35,6 +37,8 @@ type configMapSyncer struct {
 	translator.NamespacedTranslator
 
 	syncAllConfigMaps bool
+
+	ctx context.Context
 }
 
 func ConfigMapNameTranslator(vNN types.NamespacedName, _ client.Object) string {
@@ -113,7 +117,7 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	}
 
 	podList := &corev1.PodList{}
-	err := ctx.VirtualClient.List(context.TODO(), podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
+	err := ctx.VirtualClient.List(s.ctx, podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
 	if err != nil {
 		return false, err
 	}

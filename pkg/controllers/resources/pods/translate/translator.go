@@ -99,6 +99,8 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		virtualKubeletPodPath:   filepath.Join(virtualKubeletPath, "pods"),
 
 		projectedVolumeSAToken: make(map[string]string),
+
+		ctx: ctx.Context,
 	}, nil
 }
 
@@ -128,12 +130,14 @@ type translator struct {
 	virtualKubeletPodPath   string
 
 	projectedVolumeSAToken map[string]string
+
+	ctx context.Context
 }
 
 func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
-	err := t.vClient.Get(context.TODO(), client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
+	err := t.vClient.Get(t.ctx, client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +423,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 
 	if shouldCreateTokenSecret {
 		// create the service account token holder secret
-		err := SATokenSecret(context.Background(), t.pClient, vPod, t.projectedVolumeSAToken)
+		err := SATokenSecret(t.ctx, t.pClient, vPod, t.projectedVolumeSAToken)
 		if err != nil {
 			return nil
 		}
@@ -469,7 +473,7 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 			}
 
 			expirationSeconds := int64(10 * 365 * 24 * 60 * 60)
-			token, err := vClient.CoreV1().ServiceAccounts(vPod.Namespace).CreateToken(context.Background(), serviceAccountName, &authenticationv1.TokenRequest{
+			token, err := vClient.CoreV1().ServiceAccounts(vPod.Namespace).CreateToken(t.ctx, serviceAccountName, &authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
 					Audiences: audiences,
 					BoundObjectRef: &authenticationv1.BoundObjectReference{
@@ -845,7 +849,7 @@ func TranslateServicesToEnvironmentVariables(enableServiceLinks *bool, services 
 func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
-	err := t.vClient.Get(context.TODO(), client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
+	err := t.vClient.Get(t.ctx, client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
 	if err != nil {
 		return nil, err
 	}

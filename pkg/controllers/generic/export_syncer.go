@@ -1,6 +1,7 @@
 package generic
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -9,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/cmd/vcluster/context"
+	vcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/log"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -30,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateExporters(ctx *context.ControllerContext, exporterConfig *config.Config) error {
+func CreateExporters(ctx *vcontext.ControllerContext, exporterConfig *config.Config) error {
 	if len(exporterConfig.Exports) == 0 {
 		return nil
 	}
@@ -147,10 +148,8 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	}
 
 	// wait here for vObj to be created
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(time.Millisecond*10, time.Second, func() (done bool, err error) {
-		err = ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{
+	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*10, time.Second, true, func(pollContext context.Context) (done bool, err error) {
+		err = ctx.PhysicalClient.Get(pollContext, types.NamespacedName{
 			Namespace: pObj.GetNamespace(),
 			Name:      pObj.GetName(),
 		}, f.Resource())

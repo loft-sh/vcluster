@@ -2,6 +2,7 @@ package coredns
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -29,7 +30,7 @@ const (
 
 var ErrNoCoreDNSManifests = fmt.Errorf("no coredns manifests found")
 
-func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
+func ApplyManifest(ctx context.Context, defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
 	vars := getManifestVariables(defaultImageRegistry, serverVersion)
 	output, err := processManifestTemplate(vars)
 	if err != nil {
@@ -48,7 +49,7 @@ func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, se
 		_, _ = debugOutputFile.Write(output)
 	}
 
-	return applier.ApplyManifest(inClusterConfig, output)
+	return applier.ApplyManifest(ctx, inClusterConfig, output)
 }
 
 func prepareManifestOutput() (*os.File, error) {

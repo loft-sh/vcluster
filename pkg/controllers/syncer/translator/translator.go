@@ -1,7 +1,7 @@
 package translator
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncercontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -47,13 +47,13 @@ type NamespacedTranslator interface {
 	EventRecorder() record.EventRecorder
 
 	// RegisterIndices registers the default indices for the syncer
-	RegisterIndices(ctx *context.RegisterContext) error
+	RegisterIndices(ctx *syncercontext.RegisterContext) error
 
 	// SyncDownCreate creates the given pObj in the target namespace
-	SyncDownCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
+	SyncDownCreate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
 
 	// SyncDownUpdate updates the given pObj (if not nil) in the target namespace
-	SyncDownUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
+	SyncDownUpdate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
 
 	// Function to override default VirtualToPhysical name translation
 	SetNameTranslator(nameTranslator translate.PhysicalNamespacedNameTranslator)

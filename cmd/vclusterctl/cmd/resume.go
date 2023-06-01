@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,6 +19,8 @@ type ResumeCmd struct {
 	Log log.Logger
 
 	kubeClient *kubernetes.Clientset
+
+	ctx context.Context
 }
 
 // NewResumeCmd creates a new command
@@ -45,6 +48,7 @@ vcluster resume test --namespace test
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			cmd.ctx = cobraCmd.Context()
 			return cmd.Run(args)
 		},
 	}
@@ -58,7 +62,7 @@ func (cmd *ResumeCmd) Run(args []string) error {
 		return err
 	}
 
-	err = lifecycle.ResumeVCluster(cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
+	err = lifecycle.ResumeVCluster(cmd.ctx, cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -68,7 +72,7 @@ func (cmd *ResumeCmd) Run(args []string) error {
 }
 
 func (cmd *ResumeCmd) prepare(vClusterName string) error {
-	vCluster, err := find.GetVCluster(cmd.Context, vClusterName, cmd.Namespace)
+	vCluster, err := find.GetVCluster(cmd.ctx, cmd.Context, vClusterName, cmd.Namespace)
 	if err != nil {
 		return err
 	}
