@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
@@ -44,7 +45,7 @@ func Execute() {
 	}
 
 	// Execute command
-	err = rootCmd.Execute()
+	err = rootCmd.ExecuteContext(context.Background())
 	if err != nil {
 		if globalFlags.Debug {
 			log.Fatalf("%+v", err)
