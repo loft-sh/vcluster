@@ -157,6 +157,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		},
 		KubeConfig: vKubeconfigFile.Name(),
 		LocalPort:  14550, // choosing a port that usually should be unused
+		Ctx:        ctx,
 	}
 	err = connectCmd.Connect(name, nil)
 	if err != nil {
