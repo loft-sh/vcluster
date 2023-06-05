@@ -6,6 +6,7 @@ import (
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -83,7 +84,20 @@ func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, erro
 }
 
 func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, error) {
-	ip := s.translateAndFindService(ctx, "kube-system", "kube-dns")
+	serviceName := specialservices.DefaultKubeDNSServiceName
+	serviceNamespace := specialservices.DefaultKubeDNSServiceNamespace
+
+	var ip string
+	if dnsSvcSuffix := specialservices.Default.GetDNSServiceSuffix(); dnsSvcSuffix != nil {
+		// a dns service different from default is set, use it
+		serviceName = fmt.Sprintf("%s-%s", s.serviceName, *dnsSvcSuffix)
+		serviceNamespace = ctx.CurrentNamespace
+	} else {
+		serviceName = translate.Default.PhysicalName(serviceName, serviceNamespace)
+		serviceNamespace = translate.Default.PhysicalNamespace(serviceNamespace)
+	}
+
+	ip = s.translateAndFindService(ctx, serviceNamespace, serviceName)
 	if ip == "" {
 		return "", fmt.Errorf("waiting for DNS service IP")
 	}
@@ -94,8 +108,8 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, namespace, name string) string {
 	pService := &corev1.Service{}
 	err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{
-		Name:      translate.Default.PhysicalName(name, namespace),
-		Namespace: translate.Default.PhysicalNamespace(namespace),
+		Name:      name,
+		Namespace: namespace,
 	}, pService)
 	if err != nil {
 		return ""
