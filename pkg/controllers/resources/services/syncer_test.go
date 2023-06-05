@@ -3,8 +3,8 @@ package services
 import (
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/specialservices"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 

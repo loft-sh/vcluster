@@ -7,7 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/nameserver"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -155,7 +155,7 @@ var _ syncer.Starter = &serviceSyncer{}
 
 func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service
-	specialServices := nameserver.Default.SpecialServicesToSync()
+	specialServices := specialservices.Default.SpecialServicesToSync()
 
 	if svc, ok := specialServices[req.NamespacedName]; ok {
 		return true, svc(ctx.Context, ctx.VirtualClient, ctx.CurrentNamespaceClient, ctx.CurrentNamespace, s.serviceName, req.NamespacedName, TranslateServicePorts)

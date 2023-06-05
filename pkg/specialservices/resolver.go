@@ -1,9 +1,8 @@
-package nameserver
+package specialservices
 
 import (
 	"context"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/specialservices"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,7 +20,7 @@ type SpecialServiceSyncer func(ctx context.Context,
 	svcNamespace,
 	svcName string,
 	vSvcToSync types.NamespacedName,
-	servicePortTranslator specialservices.ServicePortTranslator) error
+	servicePortTranslator ServicePortTranslator) error
 
 type Interface interface {
 	GetDNSServiceSuffix() *string
@@ -45,9 +44,9 @@ func DefaultNameserverFinder() Interface {
 	return &NameserverFinder{
 		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
 			{
-				Name:      specialservices.DefaultKubernetesSVCName,
-				Namespace: specialservices.DefaultKubernetesSVCNamespace,
-			}: specialservices.SyncKubernetesService,
+				Name:      DefaultKubernetesSVCName,
+				Namespace: DefaultKubernetesSVCNamespace,
+			}: SyncKubernetesService,
 		},
 	}
 }
