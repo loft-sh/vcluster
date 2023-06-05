@@ -42,7 +42,7 @@ Then, install helm chart using `vcluster.yaml` for chart values:
 helm upgrade --install my-vcluster vcluster \
   --values vcluster.yaml \
   --repo https://charts.loft.sh \
-  --namespace host-namespace-1 \
+  --namespace vcluster-my-vcluster \
   --repository-config=''
 ```
 
@@ -50,8 +50,8 @@ helm upgrade --install my-vcluster vcluster \
 <TabItem value="kubectl">
 
 ```bash
-kubectl create namespace host-namespace-1
-helm template my-vcluster vcluster --repo https://charts.loft.sh -n host-namespace-1 | kubectl apply -f -
+kubectl create namespace vcluster-my-vcluster
+helm template my-vcluster vcluster --repo https://charts.loft.sh -n vcluster-my-vcluster | kubectl apply -f -
 ```
 
 </TabItem>

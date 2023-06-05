@@ -52,6 +52,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	AdditionalFilters []Filter = []Filter{}
+)
+
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
 type Server struct {
 	uncachedVirtualClient client.Client
@@ -199,6 +203,11 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	}
 
 	h := handler.ImpersonatingHandler("", virtualConfig)
+	for _, f := range AdditionalFilters {
+		h = f(h, FilterOptions{
+			LocalScheme: uncachedLocalClient.Scheme(),
+		})
+	}
 	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Options.SyncLabels)
 	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, s.redirectResources)
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
@@ -405,3 +414,9 @@ type emptyConfigProvider struct{}
 func (e *emptyConfigProvider) ConfigFor(pluginName string) (io.Reader, error) {
 	return nil, nil
 }
+
+type FilterOptions struct {
+	LocalScheme *runtime.Scheme
+}
+
+type Filter func(http.Handler, FilterOptions) http.Handler

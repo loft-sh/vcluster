@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -480,7 +481,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				err := specialservices.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes", types.NamespacedName{
+					Name:      specialservices.DefaultKubernetesSVCName,
+					Namespace: specialservices.DefaultKubernetesSVCNamespace,
+				}, TranslateServicePorts)
 				assert.NilError(t, err)
 			},
 		},
@@ -495,7 +499,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				err := specialservices.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes", types.NamespacedName{
+					Name:      specialservices.DefaultKubernetesSVCName,
+					Namespace: specialservices.DefaultKubernetesSVCNamespace,
+				}, TranslateServicePorts)
 				assert.NilError(t, err)
 			},
 		},
@@ -510,7 +517,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithClusterIPService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				err := specialservices.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes", types.NamespacedName{
+					Name:      specialservices.DefaultKubernetesSVCName,
+					Namespace: specialservices.DefaultKubernetesSVCNamespace,
+				}, TranslateServicePorts)
 				assert.NilError(t, err)
 			},
 		},
@@ -525,7 +535,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithPortsService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes")
+				err := specialservices.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes", types.NamespacedName{
+					Name:      specialservices.DefaultKubernetesSVCName,
+					Namespace: specialservices.DefaultKubernetesSVCNamespace,
+				}, TranslateServicePorts)
 				assert.NilError(t, err)
 			},
 		},

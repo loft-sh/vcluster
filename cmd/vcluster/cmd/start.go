@@ -30,6 +30,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
@@ -521,7 +522,16 @@ func FindOwner(ctx *context2.ControllerContext) error {
 }
 
 func SyncKubernetesService(ctx *context2.ControllerContext) error {
-	err := services.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.CurrentNamespaceClient, ctx.CurrentNamespace, ctx.Options.ServiceName)
+	err := specialservices.SyncKubernetesService(ctx.Context,
+		ctx.VirtualManager.GetClient(),
+		ctx.CurrentNamespaceClient,
+		ctx.CurrentNamespace,
+		ctx.Options.ServiceName,
+		types.NamespacedName{
+			Name:      specialservices.DefaultKubernetesSVCName,
+			Namespace: specialservices.DefaultKubernetesSVCNamespace,
+		},
+		services.TranslateServicePorts)
 	if err != nil {
 		if kerrors.IsConflict(err) {
 			klog.Errorf("Error syncing kubernetes service: %v", err)
