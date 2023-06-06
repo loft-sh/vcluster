@@ -107,6 +107,7 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 }
 
 func updateService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, oldVService *corev1.Service) (runtime.Object, error) {
+	// we use a background context from now on as this is a critical operation
 	ctx := context.Background()
 
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
@@ -177,7 +178,8 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 }
 
 func createService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, fromNamespace string, syncedLabels []string) (runtime.Object, error) {
-	ctx := req.Context()
+	// we use a background context from now on as this is a critical operation
+	ctx := context.Background()
 
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
 	rawObj, err := io.ReadAll(req.Body)
