@@ -100,7 +100,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// translate to physical name
 	pObj := r.syncer.Resource()
-	err = r.physicalClient.Get(ctx, r.syncer.VirtualToPhysical(req.NamespacedName, vObj), pObj)
+	err = r.physicalClient.Get(ctx, r.syncer.VirtualToPhysical(ctx, req.NamespacedName, vObj), pObj)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
@@ -191,32 +191,32 @@ func (r *syncerController) excludeVirtual(vObj client.Object) bool {
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
-func (r *syncerController) Create(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(evt.Object, q)
+func (r *syncerController) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+	r.enqueuePhysical(ctx, evt.Object, q)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
-func (r *syncerController) Update(_ context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(evt.ObjectNew, q)
+func (r *syncerController) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+	r.enqueuePhysical(ctx, evt.ObjectNew, q)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
-func (r *syncerController) Delete(_ context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(evt.Object, q)
+func (r *syncerController) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+	r.enqueuePhysical(ctx, evt.Object, q)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile Autoscaling, or a Webhook.
-func (r *syncerController) Generic(_ context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(evt.Object, q)
+func (r *syncerController) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+	r.enqueuePhysical(ctx, evt.Object, q)
 }
 
-func (r *syncerController) enqueuePhysical(obj client.Object, q workqueue.RateLimitingInterface) {
+func (r *syncerController) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
 	if obj == nil {
 		return
 	}
 
-	managed, err := r.syncer.IsManaged(obj)
+	managed, err := r.syncer.IsManaged(ctx, obj)
 	if err != nil {
 		klog.Errorf("error checking object %v if managed: %v", obj, err)
 		return
@@ -224,7 +224,7 @@ func (r *syncerController) enqueuePhysical(obj client.Object, q workqueue.RateLi
 		return
 	}
 
-	name := r.syncer.PhysicalToVirtual(obj)
+	name := r.syncer.PhysicalToVirtual(ctx, obj)
 	if name.Name != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}

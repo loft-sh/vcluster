@@ -43,8 +43,6 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		storageClassesEnabled:    storageClassesEnabled,
 		schedulerEnabled:         ctx.Options.EnableScheduler,
 		useFakePersistentVolumes: !ctx.Controllers.Has("persistentvolumes"),
-
-		ctx: ctx.Context,
 	}, nil
 }
 
@@ -54,8 +52,6 @@ type persistentVolumeClaimSyncer struct {
 	storageClassesEnabled    bool
 	schedulerEnabled         bool
 	useFakePersistentVolumes bool
-
-	ctx context.Context
 }
 
 var _ syncer.OptionsProvider = &persistentVolumeClaimSyncer{}
@@ -160,7 +156,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	// forward update
-	newPvc, err := s.translateUpdate(pPvc, vPvc)
+	newPvc, err := s.translateUpdate(ctx.Context, pPvc, vPvc)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if newPvc != nil {

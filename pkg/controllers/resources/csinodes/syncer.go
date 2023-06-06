@@ -36,7 +36,7 @@ func (s *csinodeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object)
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
-	vObj := s.translateBackwards(pObj.(*storagev1.CSINode))
+	vObj := s.translateBackwards(ctx.Context, pObj.(*storagev1.CSINode))
 	ctx.Log.Infof("create CSINode %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
@@ -52,7 +52,7 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		return ctrl.Result{}, err
 	}
 	// check if there is a change
-	updated := s.translateUpdateBackwards(pObj.(*storagev1.CSINode), vObj.(*storagev1.CSINode))
+	updated := s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.CSINode), vObj.(*storagev1.CSINode))
 	if updated != nil {
 		ctx.Log.Infof("update CSINode %s", vObj.GetName())
 		translator.PrintChanges(pObj, updated, ctx.Log)

@@ -44,7 +44,7 @@ func (s *serviceSyncer) WithOptions() *syncer.Options {
 }
 
 func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.Service)))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Service)))
 }
 
 func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -97,7 +97,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	}
 
 	// forward update
-	newService = s.translateUpdate(pService, vService)
+	newService = s.translateUpdate(ctx.Context, pService, vService)
 	if newService != nil {
 		translator.PrintChanges(pService, newService, ctx.Log)
 	}

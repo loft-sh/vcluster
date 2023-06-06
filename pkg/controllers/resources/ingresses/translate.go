@@ -1,6 +1,8 @@
 package ingresses
 
 import (
+	"context"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/util"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -9,22 +11,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *ingressSyncer) translate(vIngress *networkingv1.Ingress) *networkingv1.Ingress {
-	newIngress := s.TranslateMetadata(vIngress).(*networkingv1.Ingress)
+func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.Ingress) *networkingv1.Ingress {
+	newIngress := s.TranslateMetadata(ctx, vIngress).(*networkingv1.Ingress)
 	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
 	newIngress.Annotations, _ = translateIngressAnnotations(newIngress.Annotations, vIngress.Namespace)
 	return newIngress
 }
 
-func (s *ingressSyncer) TranslateMetadata(vObj client.Object) client.Object {
-	return s.NamespacedTranslator.TranslateMetadata(util.UpdateAnnotations(vObj))
+func (s *ingressSyncer) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
+	return s.NamespacedTranslator.TranslateMetadata(ctx, util.UpdateAnnotations(vObj))
 }
 
-func (s *ingressSyncer) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
-	return s.NamespacedTranslator.TranslateMetadataUpdate(util.UpdateAnnotations(vObj), pObj)
+func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+	return s.NamespacedTranslator.TranslateMetadataUpdate(ctx, util.UpdateAnnotations(vObj), pObj)
 }
 
-func (s *ingressSyncer) translateUpdate(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
+func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
 	var updated *networkingv1.Ingress
 
 	translatedSpec := *translateSpec(vObj.Namespace, &vObj.Spec)
@@ -33,7 +35,7 @@ func (s *ingressSyncer) translateUpdate(pObj, vObj *networkingv1.Ingress) *netwo
 		updated.Spec = translatedSpec
 	}
 
-	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	translatedAnnotations, _ = translateIngressAnnotations(translatedAnnotations, vObj.Namespace)
 	if !equality.Semantic.DeepEqual(translatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(translatedLabels, pObj.GetLabels()) {
 		updated = translator.NewIfNil(updated, pObj)

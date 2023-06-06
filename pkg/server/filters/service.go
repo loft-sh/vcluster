@@ -1,6 +1,7 @@
 package filters
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -106,7 +107,7 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 }
 
 func updateService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, oldVService *corev1.Service) (runtime.Object, error) {
-	ctx := req.Context()
+	ctx := context.Background()
 
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
 	rawObj, err := io.ReadAll(req.Body)

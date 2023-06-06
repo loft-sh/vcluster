@@ -173,7 +173,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 
 			var nonVClusterPods int64
 			podList := &corev1.PodList{}
-			err := s.podCache.List(s.ctx, podList, client.MatchingFields{indexPodByRunningNonVClusterNode: pNode.Name})
+			err := s.podCache.List(ctx.Context, podList, client.MatchingFields{indexPodByRunningNonVClusterNode: pNode.Name})
 			if err != nil {
 				klog.Errorf("Error listing pods: %v", err)
 			} else {

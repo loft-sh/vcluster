@@ -24,11 +24,11 @@ type endpointsSyncer struct {
 }
 
 func (s *endpointsSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj))
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	newEndpoints := s.translateUpdate(pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+	newEndpoints := s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
 	if newEndpoints != nil {
 		translator.PrintChanges(pObj, newEndpoints, ctx.Log)
 	}
@@ -57,7 +57,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 	} else if svc.Spec.Selector != nil {
 		// check if it was a managed endpoints object before and delete it
 		endpoints := &corev1.Endpoints{}
-		err := ctx.PhysicalClient.Get(ctx.Context, s.NamespacedTranslator.VirtualToPhysical(req.NamespacedName, nil), endpoints)
+		err := ctx.PhysicalClient.Get(ctx.Context, s.NamespacedTranslator.VirtualToPhysical(ctx.Context, req.NamespacedName, nil), endpoints)
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				klog.Infof("Error retrieving endpoints: %v", err)

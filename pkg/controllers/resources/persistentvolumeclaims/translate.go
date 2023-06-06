@@ -1,6 +1,7 @@
 package persistentvolumeclaims
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -19,7 +20,7 @@ var (
 )
 
 func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
-	newPvc := s.TranslateMetadata(vPvc).(*corev1.PersistentVolumeClaim)
+	newPvc := s.TranslateMetadata(ctx.Context, vPvc).(*corev1.PersistentVolumeClaim)
 	newPvc, err := s.translateSelector(ctx, newPvc)
 	if err != nil {
 		return nil, err
@@ -75,7 +76,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 			if !s.storageClassesEnabled && storageClassName != "" {
 				// Should the PVC be dynamically provisioned or not?
 				if vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
-					err := ctx.PhysicalClient.Get(s.ctx, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
+					err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
 					if err != nil && kerrors.IsNotFound(err) {
 						translated := translate.Default.PhysicalNameClusterScoped(storageClassName)
 						delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
@@ -92,7 +93,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	return vPvc, nil
 }
 
-func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
+func (s *persistentVolumeClaimSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
 	var updated *corev1.PersistentVolumeClaim
 
 	// allow storage size to be increased
@@ -104,7 +105,7 @@ func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.Persist
 		updated.Spec.Resources.Requests["storage"] = vObj.Spec.Resources.Requests["storage"]
 	}
 
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if changed {
 		updated = translator.NewIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations

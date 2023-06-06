@@ -1,6 +1,8 @@
 package translator
 
 import (
+	"context"
+
 	syncercontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,23 +22,23 @@ type Translator interface {
 // NameTranslator is used to convert virtual to physical names and vice versa
 type NameTranslator interface {
 	// IsManaged determines if a physical object is managed by the vcluster
-	IsManaged(pObj client.Object) (bool, error)
+	IsManaged(context.Context, client.Object) (bool, error)
 
 	// VirtualToPhysical translates a virtual name to a physical name
-	VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName
+	VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName
 
 	// PhysicalToVirtual translates a physical name to a virtual name
-	PhysicalToVirtual(pObj client.Object) types.NamespacedName
+	PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName
 }
 
 // MetadataTranslator is used to convert metadata between virtual and physical objects and vice versa
 type MetadataTranslator interface {
 	// TranslateMetadata translates the object's metadata
-	TranslateMetadata(vObj client.Object) client.Object
+	TranslateMetadata(ctx context.Context, vObj client.Object) client.Object
 
 	// TranslateMetadataUpdate translates the object's metadata annotations and labels and determines
 	// if they have changed between the physical and virtual object
-	TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string)
+	TranslateMetadataUpdate(ctx context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string)
 }
 
 // NamespacedTranslator provides some helper functions to ease sync down translation

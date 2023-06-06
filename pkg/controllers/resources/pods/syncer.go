@@ -94,8 +94,6 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		tolerations:           tolerations,
 
 		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
-
-		ctx: ctx.Context,
 	}, nil
 }
 
@@ -113,8 +111,6 @@ type podSyncer struct {
 	tolerations           []*corev1.Toleration
 
 	podSecurityStandard string
-
-	ctx context.Context
 }
 
 var _ syncer.IndicesRegisterer = &podSyncer{}
@@ -343,7 +339,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	}
 
 	// update the virtual pod if the spec has changed
-	updatedPod, err := s.translateUpdate(ctx.PhysicalClient, pPod, vPod)
+	updatedPod, err := s.translateUpdate(ctx.Context, ctx.PhysicalClient, pPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if updatedPod != nil {

@@ -63,7 +63,7 @@ func (s *namespaceSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 var _ syncer.Syncer = &namespaceSyncer{}
 
 func (s *namespaceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	newNamespace := s.translate(vObj.(*corev1.Namespace))
+	newNamespace := s.translate(ctx.Context, vObj.(*corev1.Namespace))
 	ctx.Log.Infof("create physical namespace %s", newNamespace.Name)
 	err := ctx.PhysicalClient.Create(ctx.Context, newNamespace)
 	if err != nil {
@@ -75,7 +75,7 @@ func (s *namespaceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Obj
 }
 
 func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	updated := s.translateUpdate(pObj.(*corev1.Namespace), vObj.(*corev1.Namespace))
+	updated := s.translateUpdate(ctx.Context, pObj.(*corev1.Namespace), vObj.(*corev1.Namespace))
 	if updated != nil {
 		ctx.Log.Infof("updating physical namespace %s, because virtual namespace has changed", updated.Name)
 		translator.PrintChanges(pObj, updated, ctx.Log)

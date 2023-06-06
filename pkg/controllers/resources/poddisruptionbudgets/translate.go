@@ -1,21 +1,23 @@
 package poddisruptionbudgets
 
 import (
+	"context"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (pdb *pdbSyncer) translate(vObj *policyv1.PodDisruptionBudget) *policyv1.PodDisruptionBudget {
-	newPDB := pdb.TranslateMetadata(vObj).(*policyv1.PodDisruptionBudget)
+func (pdb *pdbSyncer) translate(ctx context.Context, vObj *policyv1.PodDisruptionBudget) *policyv1.PodDisruptionBudget {
+	newPDB := pdb.TranslateMetadata(ctx, vObj).(*policyv1.PodDisruptionBudget)
 	if newPDB.Spec.Selector != nil {
 		newPDB.Spec.Selector = translate.Default.TranslateLabelSelector(newPDB.Spec.Selector)
 	}
 	return newPDB
 }
 
-func (pdb *pdbSyncer) translateUpdate(pObj, vObj *policyv1.PodDisruptionBudget) *policyv1.PodDisruptionBudget {
+func (pdb *pdbSyncer) translateUpdate(ctx context.Context, pObj, vObj *policyv1.PodDisruptionBudget) *policyv1.PodDisruptionBudget {
 	var updated *policyv1.PodDisruptionBudget
 
 	// check max available and min available in spec
@@ -27,7 +29,7 @@ func (pdb *pdbSyncer) translateUpdate(pObj, vObj *policyv1.PodDisruptionBudget) 
 	}
 
 	// check annotations
-	changed, updatedAnnotations, updatedLabels := pdb.TranslateMetadataUpdate(vObj, pObj)
+	changed, updatedAnnotations, updatedLabels := pdb.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if changed {
 		updated = translator.NewIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations

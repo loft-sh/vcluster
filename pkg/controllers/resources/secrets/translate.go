@@ -1,13 +1,15 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *secretSyncer) translate(vObj *corev1.Secret) *corev1.Secret {
-	newSecret := s.TranslateMetadata(vObj).(*corev1.Secret)
+func (s *secretSyncer) translate(ctx context.Context, vObj *corev1.Secret) *corev1.Secret {
+	newSecret := s.TranslateMetadata(ctx, vObj).(*corev1.Secret)
 	if newSecret.Type == corev1.SecretTypeServiceAccountToken {
 		newSecret.Type = corev1.SecretTypeOpaque
 	}
@@ -15,7 +17,7 @@ func (s *secretSyncer) translate(vObj *corev1.Secret) *corev1.Secret {
 	return newSecret
 }
 
-func (s *secretSyncer) translateUpdate(pObj, vObj *corev1.Secret) *corev1.Secret {
+func (s *secretSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Secret) *corev1.Secret {
 	var updated *corev1.Secret
 
 	// check data
@@ -31,7 +33,7 @@ func (s *secretSyncer) translateUpdate(pObj, vObj *corev1.Secret) *corev1.Secret
 	}
 
 	// check annotations
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if changed {
 		updated = translator.NewIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations

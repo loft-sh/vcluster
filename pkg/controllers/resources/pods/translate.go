@@ -1,6 +1,7 @@
 package pods
 
 import (
+	"context"
 	"fmt"
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -18,7 +19,7 @@ func (s *podSyncer) translate(ctx *synccontext.SyncContext, vPod *corev1.Pod) (*
 		return nil, err
 	}
 
-	pPod, err := s.podTranslator.Translate(vPod, ptrServiceList, dnsIP, kubeIP)
+	pPod, err := s.podTranslator.Translate(ctx.Context, vPod, ptrServiceList, dnsIP, kubeIP)
 	if err != nil {
 		return nil, err
 	}
@@ -52,21 +53,21 @@ func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod 
 	return kubeIP, dnsIP, ptrServiceList, nil
 }
 
-func (s *podSyncer) translateUpdate(pClient client.Client, pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
-	secret, exists, err := podtranslate.GetSecretIfExists(s.ctx, pClient, vObj.Name, vObj.Namespace)
+func (s *podSyncer) translateUpdate(ctx context.Context, pClient client.Client, pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
+	secret, exists, err := podtranslate.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	if exists {
 		// check if owner is vcluster service, if so, modify to pod as owner
-		err := podtranslate.SetPodAsOwner(s.ctx, pObj, pClient, secret)
+		err := podtranslate.SetPodAsOwner(ctx, pObj, pClient, secret)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return s.podTranslator.Diff(vObj, pObj)
+	return s.podTranslator.Diff(ctx, vObj, pObj)
 }
 
 func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, error) {

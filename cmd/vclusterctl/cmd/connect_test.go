@@ -83,6 +83,7 @@ func TestExchangeContextName(t *testing.T) {
 			},
 		},
 	}
+
 	for _, testCase := range testTable {
 		cmd := &ConnectCmd{
 			GlobalFlags: &flags.GlobalFlags{

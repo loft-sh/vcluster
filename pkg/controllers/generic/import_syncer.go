@@ -110,7 +110,6 @@ func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvk
 		virtualClient: ctx.VirtualManager.GetClient(),
 		name:          controllerID,
 		syncerOptions: syncerOptions,
-		ctx:           ctx.Context,
 	}, nil
 }
 
@@ -123,8 +122,6 @@ type importer struct {
 	name          string
 
 	syncerOptions *syncer.Options
-
-	ctx context.Context
 }
 
 func (s *importer) Resource() client.Object {
@@ -205,7 +202,7 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	// apply object to virtual cluster
 	ctx.Log.Infof("Create virtual %s %s/%s, since it is missing, but physical object exists", s.config.Kind, pObj.GetNamespace(), pObj.GetName())
 	vObj, err := s.patcher.ApplyPatches(ctx.Context, pObj, nil, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
-		return s.TranslateMetadata(vObj), nil
+		return s.TranslateMetadata(ctx.Context, vObj), nil
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
 		//TODO: add eventRecorder?
@@ -270,7 +267,7 @@ func (s *importer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 
 func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if physical object is managed by this import controller
-	managed, err := s.IsManaged(pObj)
+	managed, err := s.IsManaged(ctx.Context, pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !managed {
@@ -313,7 +310,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 	// apply patches
 	_, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
-		return s.TranslateMetadata(vObj), nil
+		return s.TranslateMetadata(ctx.Context, vObj), nil
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
 		// on conflict, auto delete and recreate
@@ -337,7 +334,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	return ctrl.Result{}, s.addAnnotationsToPhysicalObject(ctx, pObj)
 }
 
-func (s *importer) IsManaged(pObj client.Object) (bool, error) {
+func (s *importer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return true, nil
 	}
@@ -355,11 +352,11 @@ func (s *importer) IsVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *importer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
 }
 
-func (s *importer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (s *importer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return types.NamespacedName{
 			Name: pObj.GetName(),
@@ -367,7 +364,7 @@ func (s *importer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	}
 
 	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(s.ctx, s.virtualClient, vNamespace, constants.IndexByPhysicalName, pObj.GetNamespace())
+	err := clienthelper.GetByIndex(ctx, s.virtualClient, vNamespace, constants.IndexByPhysicalName, pObj.GetNamespace())
 	if err != nil {
 		return types.NamespacedName{}
 	}
@@ -375,7 +372,7 @@ func (s *importer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: pObj.GetName(), Namespace: vNamespace.GetName()}
 }
 
-func (s *importer) TranslateMetadata(pObj client.Object) client.Object {
+func (s *importer) TranslateMetadata(ctx context.Context, pObj client.Object) client.Object {
 	vObj := pObj.DeepCopyObject().(client.Object)
 	vObj.SetResourceVersion("")
 	vObj.SetUID("")
@@ -383,7 +380,7 @@ func (s *importer) TranslateMetadata(pObj client.Object) client.Object {
 	vObj.SetOwnerReferences(nil)
 	vObj.SetFinalizers(nil)
 	vObj.SetAnnotations(s.updateVirtualAnnotations(vObj.GetAnnotations()))
-	nn := s.PhysicalToVirtual(pObj)
+	nn := s.PhysicalToVirtual(ctx, pObj)
 	vObj.SetName(nn.Name)
 	vObj.SetNamespace(nn.Namespace)
 

@@ -24,7 +24,6 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		storageClassSyncEnabled:     ctx.Controllers.Has("storageclasses"),
 		hostStorageClassSyncEnabled: ctx.Controllers.Has("hoststorageclasses"),
 		physicalClient:              ctx.PhysicalManager.GetClient(),
-		ctx:                         ctx.Context,
 	}, nil
 }
 
@@ -32,8 +31,6 @@ type csistoragecapacitySyncer struct {
 	storageClassSyncEnabled     bool
 	hostStorageClassSyncEnabled bool
 	physicalClient              client.Client
-
-	ctx context.Context
 }
 
 var _ syncer.UpSyncer = &csistoragecapacitySyncer{}
@@ -89,29 +86,29 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 	return builder.WatchesRawSource(source.Kind(allNSCache, s.Resource()), &handler.Funcs{
 		CreateFunc: func(_ context.Context, ce event.CreateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ce.Object
-			s.enqueuePhysical(obj, rli)
+			s.enqueuePhysical(ctx.Context, obj, rli)
 		},
 		UpdateFunc: func(_ context.Context, ue event.UpdateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ue.ObjectNew
-			s.enqueuePhysical(obj, rli)
+			s.enqueuePhysical(ctx.Context, obj, rli)
 		},
 		DeleteFunc: func(_ context.Context, de event.DeleteEvent, rli workqueue.RateLimitingInterface) {
 			obj := de.Object
-			s.enqueuePhysical(obj, rli)
+			s.enqueuePhysical(ctx.Context, obj, rli)
 		},
 		GenericFunc: func(_ context.Context, ge event.GenericEvent, rli workqueue.RateLimitingInterface) {
 			obj := ge.Object
-			s.enqueuePhysical(obj, rli)
+			s.enqueuePhysical(ctx.Context, obj, rli)
 		},
 	}), nil
 }
 
-func (s *csistoragecapacitySyncer) enqueuePhysical(obj client.Object, q workqueue.RateLimitingInterface) {
+func (s *csistoragecapacitySyncer) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
 	if obj == nil {
 		return
 	}
 
-	name := s.PhysicalToVirtual(obj)
+	name := s.PhysicalToVirtual(ctx, obj)
 	if name.Name != "" && name.Namespace != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}

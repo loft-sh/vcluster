@@ -1,6 +1,8 @@
 package networkpolicies
 
 import (
+	"context"
+
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -8,13 +10,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *networkPolicySyncer) translate(vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
-	newNetworkPolicy := s.TranslateMetadata(vNetworkPolicy).(*networkingv1.NetworkPolicy)
+func (s *networkPolicySyncer) translate(ctx context.Context, vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+	newNetworkPolicy := s.TranslateMetadata(ctx, vNetworkPolicy).(*networkingv1.NetworkPolicy)
 	newNetworkPolicy.Spec = *translateSpec(&vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace())
 	return newNetworkPolicy
 }
 
-func (s *networkPolicySyncer) translateUpdate(pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+func (s *networkPolicySyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
 	var updated *networkingv1.NetworkPolicy
 
 	translatedSpec := *translateSpec(&vObj.Spec, vObj.GetNamespace())
@@ -23,7 +25,7 @@ func (s *networkPolicySyncer) translateUpdate(pObj, vObj *networkingv1.NetworkPo
 		updated.Spec = translatedSpec
 	}
 
-	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if changed {
 		updated = translator.NewIfNil(updated, pObj)
 		updated.Labels = translatedLabels

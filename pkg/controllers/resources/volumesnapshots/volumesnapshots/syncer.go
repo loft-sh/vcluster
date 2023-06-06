@@ -1,8 +1,9 @@
 package volumesnapshots
 
 import (
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"path"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -156,7 +157,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 	}
 
 	// forward update
-	updated = s.translateUpdate(pVS, vVS)
+	updated = s.translateUpdate(ctx.Context, pVS, vVS)
 	if updated != nil {
 		translator.PrintChanges(pVS, updated, ctx.Log)
 	}

@@ -140,7 +140,7 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	// apply object to physical cluster
 	ctx.Log.Infof("Create physical %s %s/%s, since it is missing, but virtual object exists", f.config.Kind, vObj.GetNamespace(), vObj.GetName())
 	pObj, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
-		return f.TranslateMetadata(vObj), nil
+		return f.TranslateMetadata(ctx.Context, vObj), nil
 	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -225,7 +225,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 	// apply patches
 	_, err = f.patcher.ApplyPatches(ctx.Context, vObj, pObj, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
-		return f.TranslateMetadata(vObj), nil
+		return f.TranslateMetadata(ctx.Context, vObj), nil
 	}, &virtualToHostNameResolver{
 		namespace:       vObj.GetNamespace(),
 		targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
@@ -267,8 +267,8 @@ func (f *exporter) Name() string {
 }
 
 // TranslateMetadata converts the virtual object into a physical object
-func (f *exporter) TranslateMetadata(vObj client.Object) client.Object {
-	pObj := f.NamespacedTranslator.TranslateMetadata(vObj)
+func (f *exporter) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
+	pObj := f.NamespacedTranslator.TranslateMetadata(ctx, vObj)
 	if pObj.GetAnnotations() == nil {
 		pObj.SetAnnotations(map[string]string{translate.ControllerLabel: f.Name()})
 	} else {
@@ -279,7 +279,7 @@ func (f *exporter) TranslateMetadata(vObj client.Object) client.Object {
 	return pObj
 }
 
-func (f *exporter) IsManaged(pObj client.Object) (bool, error) {
+func (f *exporter) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
 	return translate.Default.IsManaged(pObj), nil
 }
 
