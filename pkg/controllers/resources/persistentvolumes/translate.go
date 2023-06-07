@@ -1,15 +1,17 @@
 package persistentvolumes
 
 import (
+	"context"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *persistentVolumeSyncer) translate(vPv *corev1.PersistentVolume) *corev1.PersistentVolume {
+func (s *persistentVolumeSyncer) translate(ctx context.Context, vPv *corev1.PersistentVolume) *corev1.PersistentVolume {
 	// translate the persistent volume
-	pPV := s.TranslateMetadata(vPv).(*corev1.PersistentVolume)
+	pPV := s.TranslateMetadata(ctx, vPv).(*corev1.PersistentVolume)
 	pPV.Spec.ClaimRef = nil
 	pPV.Spec.StorageClassName = translateStorageClass(vPv.Spec.StorageClassName)
 
@@ -97,7 +99,7 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.Persistent
 	return updated
 }
 
-func (s *persistentVolumeSyncer) translateUpdate(vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) *corev1.PersistentVolume {
+func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) *corev1.PersistentVolume {
 	var updated *corev1.PersistentVolume
 
 	// TODO: translate the storage secrets
@@ -143,7 +145,7 @@ func (s *persistentVolumeSyncer) translateUpdate(vPv *corev1.PersistentVolume, p
 	}
 
 	// check labels & annotations
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vPv, pPv)
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vPv, pPv)
 	if changed {
 		updated = translator.NewIfNil(updated, pPv)
 		updated.Annotations = updatedAnnotations

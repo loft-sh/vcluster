@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -47,7 +48,7 @@ func init() {
 		return
 	}
 	var err error
-	Collector, err = NewDefaultCollector(c)
+	Collector, err = NewDefaultCollector(context.Background(), c)
 	if err != nil {
 		// Log the problem but don't fail - use disabled Collector instead
 		loghelper.New("telemetry").Infof("%s", err.Error())
@@ -87,7 +88,7 @@ type EventCollector interface {
 	SetStartCommand(startCommand *cobra.Command)
 }
 
-func NewDefaultCollector(config types.SyncerTelemetryConfig) (*DefaultCollector, error) {
+func NewDefaultCollector(ctx context.Context, config types.SyncerTelemetryConfig) (*DefaultCollector, error) {
 	hostConfig, err := ctrl.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host rest config: %v", err)
@@ -233,7 +234,7 @@ func (d *DefaultCollector) start() {
 
 		// get the currently stored events
 		events := d.exchangeBuffer()
-		d.executeUpload(events)
+		d.executeUpload(context.Background(), events)
 
 		// Exit if the upload was caused by the SIGTERM
 		if terminate {
@@ -252,7 +253,7 @@ func (d *DefaultCollector) exchangeBuffer() []*types.Event {
 }
 
 // executeUpload assumes that the caller holds the Lock for the uploadMutex
-func (d *DefaultCollector) executeUpload(buffer []*types.Event) {
+func (d *DefaultCollector) executeUpload(ctx context.Context, buffer []*types.Event) {
 	if d.token == "" || d.tokenLastGeneratedAt.Before(time.Now().Add(-time.Hour)) {
 		token, err := d.tokenGenerator.GenerateToken(&jwt.Claims{}, &jwt.Claims{})
 		if err != nil {
@@ -276,7 +277,7 @@ func (d *DefaultCollector) executeUpload(buffer []*types.Event) {
 	d.lastUploadTime = time.Now()
 
 	// call the function that will return all instance properties
-	r.InstanceProperties = d.getSyncerInstanceProperties()
+	r.InstanceProperties = d.getSyncerInstanceProperties(ctx)
 
 	marshaled, err := json.Marshal(r)
 	// handle potential Marshal errors
@@ -298,9 +299,9 @@ func (d *DefaultCollector) executeUpload(buffer []*types.Event) {
 	}
 }
 
-func (d *DefaultCollector) getSyncerInstanceProperties() types.SyncerInstanceProperties {
+func (d *DefaultCollector) getSyncerInstanceProperties(ctx context.Context) types.SyncerInstanceProperties {
 	p := types.SyncerInstanceProperties{
-		UID:                      getSyncerUID(d.hostClient, d.vclusterNamespace, d.options),
+		UID:                      getSyncerUID(ctx, d.hostClient, d.vclusterNamespace, d.options),
 		InstanceCreator:          d.config.InstanceCreator,
 		InstanceCreatorUID:       d.config.InstanceCreatorUID,
 		Arch:                     runtime.GOARCH,
@@ -309,7 +310,7 @@ func (d *DefaultCollector) getSyncerInstanceProperties() types.SyncerInstancePro
 		SyncerFlags:              getSyncerFlags(d.startCommand, d.options),
 		VirtualKubernetesVersion: getVirtualKubernetesVersion(d.virtualClient),
 		HostKubernetesVersion:    getHostKubernetesVersion(d.hostClient),
-		VclusterServiceType:      getVclusterServiceType(d.hostClient, d.vclusterNamespace, d.options),
+		VclusterServiceType:      getVclusterServiceType(ctx, d.hostClient, d.vclusterNamespace, d.options),
 	}
 	// SyncerPodsReady          int    // TODO: helper function to get syncerPodsReady- not cached
 	// SyncerPodsFailing        int    // TODO: helper function to get syncerPodsFailing- not cached

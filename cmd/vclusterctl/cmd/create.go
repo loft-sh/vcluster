@@ -90,7 +90,7 @@ vcluster create test --namespace test
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 			validateDeprecated(&cmd.CreateOptions, cmd.log)
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -130,8 +130,8 @@ func validateDeprecated(createOptions *create.CreateOptions, log log.Logger) {
 }
 
 // Run executes the functionality
-func (cmd *CreateCmd) Run(args []string) error {
-	helmBinaryPath, err := GetHelmBinaryPath(cmd.log)
+func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
+	helmBinaryPath, err := GetHelmBinaryPath(ctx, cmd.log)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 		return err
 	}
 
-	err = cmd.prepare(args[0])
+	err = cmd.prepare(ctx, args[0])
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 
 	// check if vcluster already exists
 	if !cmd.Upgrade {
-		release, err := helm.NewSecrets(cmd.kubeClient).Get(context.Background(), args[0], cmd.Namespace)
+		release, err := helm.NewSecrets(cmd.kubeClient).Get(ctx, args[0], cmd.Namespace)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get helm releases")
 		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") && release.Secret != nil && release.Secret.Labels != nil && release.Secret.Labels["status"] == "deployed" {
@@ -219,7 +219,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 					Log:                   cmd.log,
 				}
 
-				return connectCmd.Connect(args[0], nil)
+				return connectCmd.Connect(ctx, args[0], nil)
 			}
 
 			return fmt.Errorf("vcluster %s already exists in namespace %s\n- Use `vcluster create %s -n %s --upgrade` to upgrade the vcluster\n- Use `vcluster connect %s -n %s` to access the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
@@ -227,7 +227,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 	}
 
 	// we have to upgrade / install the chart
-	err = cmd.deployChart(args[0], chartValues, helmBinaryPath)
+	err = cmd.deployChart(ctx, args[0], chartValues, helmBinaryPath)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (cmd *CreateCmd) Run(args []string) error {
 			Log:                   cmd.log,
 		}
 
-		return connectCmd.Connect(args[0], nil)
+		return connectCmd.Connect(ctx, args[0], nil)
 	} else {
 		if cmd.localCluster {
 			cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", args[0], cmd.Namespace, args[0], cmd.Namespace)
@@ -263,7 +263,7 @@ func getBase64DecodedString(values string) (string, error) {
 	return string(strDecoded), nil
 }
 
-func (cmd *CreateCmd) deployChart(vClusterName, chartValues, helmExecutablePath string) error {
+func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues, helmExecutablePath string) error {
 	// check if there is a vcluster directory already
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -320,7 +320,6 @@ func (cmd *CreateCmd) deployChart(vClusterName, chartValues, helmExecutablePath 
 	}
 
 	// we have to upgrade / install the chart
-	ctx := context.Background()
 	err = helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
 		Path:        cmd.LocalChartDir,
@@ -383,7 +382,7 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 	}, nil
 }
 
-func (cmd *CreateCmd) prepare(vClusterName string) error {
+func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: cmd.Context,
@@ -447,14 +446,14 @@ func (cmd *CreateCmd) prepare(vClusterName string) error {
 	cmd.rawConfig = rawConfig
 
 	// ensure namespace
-	err = cmd.ensureNamespace(vClusterName)
+	err = cmd.ensureNamespace(ctx, vClusterName)
 	if err != nil {
 		return err
 	}
 
 	// get service cidr
 	if cmd.CIDR == "" {
-		cidr, warning := servicecidr.GetServiceCIDR(cmd.kubeClient, cmd.Namespace)
+		cidr, warning := servicecidr.GetServiceCIDR(ctx, cmd.kubeClient, cmd.Namespace)
 		if warning != "" {
 			cmd.log.Info(warning)
 		}
@@ -464,7 +463,7 @@ func (cmd *CreateCmd) prepare(vClusterName string) error {
 	return nil
 }
 
-func (cmd *CreateCmd) ensureNamespace(vClusterName string) error {
+func (cmd *CreateCmd) ensureNamespace(ctx context.Context, vClusterName string) error {
 	var err error
 	if cmd.Namespace == "" {
 		cmd.Namespace, _, err = cmd.kubeClientConfig.Namespace()
@@ -477,19 +476,17 @@ func (cmd *CreateCmd) ensureNamespace(vClusterName string) error {
 	}
 
 	// make sure namespace exists
-	namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.Background(), cmd.Namespace, metav1.GetOptions{})
+	namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(ctx, cmd.Namespace, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return cmd.createNamespace()
+			return cmd.createNamespace(ctx)
 		} else if !kerrors.IsForbidden(err) {
 			return err
 		}
 	} else if namespace.DeletionTimestamp != nil {
 		cmd.log.Infof("Waiting until namespace is terminated...")
-		// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-		//nolint:staticcheck
-		err := wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
-			namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.Background(), cmd.Namespace, metav1.GetOptions{})
+		err := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
+			namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(ctx, cmd.Namespace, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
 					return true, nil
@@ -505,16 +502,16 @@ func (cmd *CreateCmd) ensureNamespace(vClusterName string) error {
 		}
 
 		// create namespace
-		return cmd.createNamespace()
+		return cmd.createNamespace(ctx)
 	}
 
 	return nil
 }
 
-func (cmd *CreateCmd) createNamespace() error {
+func (cmd *CreateCmd) createNamespace(ctx context.Context) error {
 	// try to create the namespace
 	cmd.log.Infof("Creating namespace %s", cmd.Namespace)
-	_, err := cmd.kubeClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+	_, err := cmd.kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cmd.Namespace,
 			Annotations: map[string]string{

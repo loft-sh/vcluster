@@ -19,7 +19,7 @@ func (s *podSyncer) translate(ctx *synccontext.SyncContext, vPod *corev1.Pod) (*
 		return nil, err
 	}
 
-	pPod, err := s.podTranslator.Translate(vPod, ptrServiceList, dnsIP, kubeIP)
+	pPod, err := s.podTranslator.Translate(ctx.Context, vPod, ptrServiceList, dnsIP, kubeIP)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod 
 
 	// get services for pod
 	serviceList := &corev1.ServiceList{}
-	err = ctx.VirtualClient.List(context.Background(), serviceList, client.InNamespace(vPod.Namespace))
+	err = ctx.VirtualClient.List(ctx.Context, serviceList, client.InNamespace(vPod.Namespace))
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -53,26 +53,26 @@ func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod 
 	return kubeIP, dnsIP, ptrServiceList, nil
 }
 
-func (s *podSyncer) translateUpdate(pClient client.Client, pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
-	secret, exists, err := podtranslate.GetSecretIfExists(context.Background(), pClient, vObj.Name, vObj.Namespace)
+func (s *podSyncer) translateUpdate(ctx context.Context, pClient client.Client, pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
+	secret, exists, err := podtranslate.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	if exists {
 		// check if owner is vcluster service, if so, modify to pod as owner
-		err := podtranslate.SetPodAsOwner(context.Background(), pObj, pClient, secret)
+		err := podtranslate.SetPodAsOwner(ctx, pObj, pClient, secret)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return s.podTranslator.Diff(vObj, pObj)
+	return s.podTranslator.Diff(ctx, vObj, pObj)
 }
 
 func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, error) {
 	pService := &corev1.Service{}
-	err := ctx.CurrentNamespaceClient.Get(context.TODO(), types.NamespacedName{
+	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{
 		Name:      s.serviceName,
 		Namespace: ctx.CurrentNamespace,
 	}, pService)
@@ -107,7 +107,7 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 
 func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, namespace, name string) string {
 	pService := &corev1.Service{}
-	err := ctx.PhysicalClient.Get(context.TODO(), types.NamespacedName{
+	err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}, pService)

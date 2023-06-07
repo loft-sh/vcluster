@@ -30,6 +30,7 @@ type ControllerContext struct {
 }
 
 func NewControllerContext(
+	ctx context.Context,
 	currentNamespace string,
 	localManager,
 	virtualManager ctrl.Manager,
@@ -38,7 +39,6 @@ func NewControllerContext(
 	options *VirtualClusterOptions,
 ) (*ControllerContext, error) {
 	stopChan := make(<-chan struct{})
-	ctx := context.Background()
 
 	// create a new current namespace client
 	currentNamespaceClient, err := newCurrentNamespaceClient(ctx, currentNamespace, localManager, options)

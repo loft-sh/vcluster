@@ -9,16 +9,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func ApplyManifestFile(inClusterConfig *rest.Config, filename string) error {
+func ApplyManifestFile(ctx context.Context, inClusterConfig *rest.Config, filename string) error {
 	manifest, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("function ApplyManifestFile failed, unable to read %s file: %v", filename, err)
 	}
 
-	return ApplyManifest(inClusterConfig, manifest)
+	return ApplyManifest(ctx, inClusterConfig, manifest)
 }
 
-func ApplyManifest(inClusterConfig *rest.Config, manifests []byte) error {
+func ApplyManifest(ctx context.Context, inClusterConfig *rest.Config, manifests []byte) error {
 	httpClient, err := rest.HTTPClientFor(inClusterConfig)
 	if err != nil {
 		return fmt.Errorf("unable to initialize HTTPClientFor")
@@ -34,5 +34,5 @@ func ApplyManifest(inClusterConfig *rest.Config, manifests []byte) error {
 		RESTConfig: inClusterConfig,
 		Manifest:   string(manifests),
 	}
-	return a.Apply(context.Background(), opts)
+	return a.Apply(ctx, opts)
 }

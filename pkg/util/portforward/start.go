@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/transport/spdy"
 )
 
-func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace string, localPort, remotePort string, interrupt chan struct{}, stdout io.Writer, stderr io.Writer, log log.Logger) error {
+func StartPortForwardingWithRestart(ctx context.Context, config *rest.Config, address, pod, namespace string, localPort, remotePort string, interrupt chan struct{}, stdout io.Writer, stderr io.Writer, log log.Logger) error {
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -37,10 +37,8 @@ func StartPortForwardingWithRestart(config *rest.Config, address, pod, namespace
 			log.Info("Restarting port forwarding")
 
 			// wait for loft pod to start
-			// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-			//nolint:staticcheck
-			err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
-				pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), pod, metav1.GetOptions{})
+			err := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*10, true, func(ctx context.Context) (done bool, err error) {
+				pod, err := kubeClient.CoreV1().Pods(namespace).Get(ctx, pod, metav1.GetOptions{})
 				if err != nil {
 					return false, nil
 				}

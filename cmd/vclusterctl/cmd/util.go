@@ -49,9 +49,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 
 	printedWaiting := false
 	podInfoPrinter := podprinter.PodInfoPrinter{LastWarning: time.Now().Add(time.Second * 6)}
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err := wait.PollImmediate(time.Second, time.Minute*10, func() (done bool, err error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*10, true, func(ctx context.Context) (done bool, err error) {
 		podList, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=vcluster,release=" + vclusterName,
 		})

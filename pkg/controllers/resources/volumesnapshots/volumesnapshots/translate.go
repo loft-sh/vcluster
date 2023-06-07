@@ -1,6 +1,7 @@
 package volumesnapshots
 
 import (
+	"context"
 	"fmt"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -13,7 +14,7 @@ import (
 )
 
 func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volumesnapshotv1.VolumeSnapshot) (*volumesnapshotv1.VolumeSnapshot, error) {
-	pVS := s.TranslateMetadata(vVS).(*volumesnapshotv1.VolumeSnapshot)
+	pVS := s.TranslateMetadata(ctx.Context, vVS).(*volumesnapshotv1.VolumeSnapshot)
 	if vVS.Annotations != nil && vVS.Annotations[constants.SkipTranslationAnnotation] == "true" {
 		pVS.Spec.Source = vVS.Spec.Source
 	} else {
@@ -36,7 +37,7 @@ func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volu
 	return pVS, nil
 }
 
-func (s *volumeSnapshotSyncer) translateUpdate(pVS, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
+func (s *volumeSnapshotSyncer) translateUpdate(ctx context.Context, pVS, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
 	var updated *volumesnapshotv1.VolumeSnapshot
 
 	// snapshot class can be updated
@@ -46,7 +47,7 @@ func (s *volumeSnapshotSyncer) translateUpdate(pVS, vVS *volumesnapshotv1.Volume
 	}
 
 	// check if metadata changed
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vVS, pVS)
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vVS, pVS)
 	if changed {
 		updated = translator.NewIfNil(updated, pVS)
 		updated.Annotations = updatedAnnotations

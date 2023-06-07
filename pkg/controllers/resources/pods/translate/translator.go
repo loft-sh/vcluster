@@ -53,8 +53,8 @@ var (
 )
 
 type Translator interface {
-	Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
-	Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error)
+	Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
+	Diff(ctx context.Context, vPod, pPod *corev1.Pod) (*corev1.Pod, error)
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder) (Translator, error) {
@@ -130,10 +130,10 @@ type translator struct {
 	projectedVolumeSAToken map[string]string
 }
 
-func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
+func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
-	err := t.vClient.Get(context.TODO(), client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
+	err := t.vClient.Get(ctx, client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ func (t *translator) Translate(vPod *corev1.Pod, services []*corev1.Service, dns
 	}
 
 	// translate volumes
-	err = t.translateVolumes(pPod, vPod)
+	err = t.translateVolumes(ctx, pPod, vPod)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +348,7 @@ func translateLabelsAnnotation(obj client.Object) string {
 	return strings.Join(labelsString, "\n")
 }
 
-func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error {
+func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPod *corev1.Pod) error {
 	var shouldCreateTokenSecret bool
 
 	for i := range pPod.Spec.Volumes {
@@ -375,7 +375,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 			pPod.Spec.Volumes[i].Ephemeral = nil
 		}
 		if pPod.Spec.Volumes[i].Projected != nil {
-			err := t.translateProjectedVolume(pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, &shouldCreateTokenSecret)
+			err := t.translateProjectedVolume(ctx, pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, &shouldCreateTokenSecret)
 			if err != nil {
 				return err
 			}
@@ -419,7 +419,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 
 	if shouldCreateTokenSecret {
 		// create the service account token holder secret
-		err := SATokenSecret(context.Background(), t.pClient, vPod, t.projectedVolumeSAToken)
+		err := SATokenSecret(ctx, t.pClient, vPod, t.projectedVolumeSAToken)
 		if err != nil {
 			return nil
 		}
@@ -433,7 +433,7 @@ func (t *translator) translateVolumes(pPod *corev1.Pod, vPod *corev1.Pod) error 
 	return nil
 }
 
-func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedVolumeSource, volumeName string, pPod *corev1.Pod, vPod *corev1.Pod, shouldCreateTokenSecret *bool) error {
+func (t *translator) translateProjectedVolume(ctx context.Context, projectedVolume *corev1.ProjectedVolumeSource, volumeName string, pPod *corev1.Pod, vPod *corev1.Pod, shouldCreateTokenSecret *bool) error {
 	for i := range projectedVolume.Sources {
 		if projectedVolume.Sources[i].Secret != nil {
 			projectedVolume.Sources[i].Secret.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace)
@@ -469,7 +469,7 @@ func (t *translator) translateProjectedVolume(projectedVolume *corev1.ProjectedV
 			}
 
 			expirationSeconds := int64(10 * 365 * 24 * 60 * 60)
-			token, err := vClient.CoreV1().ServiceAccounts(vPod.Namespace).CreateToken(context.Background(), serviceAccountName, &authenticationv1.TokenRequest{
+			token, err := vClient.CoreV1().ServiceAccounts(vPod.Namespace).CreateToken(ctx, serviceAccountName, &authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
 					Audiences: audiences,
 					BoundObjectRef: &authenticationv1.BoundObjectReference{
@@ -842,10 +842,10 @@ func TranslateServicesToEnvironmentVariables(enableServiceLinks *bool, services 
 	return retMap
 }
 
-func (t *translator) Diff(vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
+func (t *translator) Diff(ctx context.Context, vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
-	err := t.vClient.Get(context.TODO(), client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
+	err := t.vClient.Get(ctx, client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
 	if err != nil {
 		return nil, err
 	}

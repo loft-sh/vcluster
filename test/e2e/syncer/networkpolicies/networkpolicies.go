@@ -6,7 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +70,7 @@ var _ = ginkgo.Describe("NetworkPolicies are created as expected", func() {
 		framework.DefaultFramework.TestServiceIsEventuallyReachable(curlPod, nginxService)
 
 		// create a policy that will allow Egress to the coreDNS so we can use .svc urls
-		_, err := f.CreateEgressNetworkPolicyForDNS(nsA.GetName())
+		_, err := f.CreateEgressNetworkPolicyForDNS(f.Context, nsA.GetName())
 		framework.ExpectNoError(err)
 
 		f.Log.Info("deny all Egress from the Namespace that hosts curl pod")

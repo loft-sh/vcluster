@@ -149,7 +149,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
 	cachedLocalClient = pluginhookclient.WrapPhysicalClient(cachedLocalClient)
 
-	certSyncer, err := cert.NewSyncer(ctx.CurrentNamespace, cachedLocalClient, ctx.Options)
+	certSyncer, err := cert.NewSyncer(ctx.Context, ctx.CurrentNamespace, cachedLocalClient, ctx.Options)
 	if err != nil {
 		return nil, errors.Wrap(err, "create cert syncer")
 	}
@@ -217,7 +217,7 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	}
 
 	if ctx.Options.DeprecatedSyncNodeChanges {
-		h = filters.WithNodeChanges(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
+		h = filters.WithNodeChanges(ctx.Context, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
 	h = filters.WithFakeKubelet(h, localConfig, cachedVirtualClient)
 	h = filters.WithK3sConnect(h)

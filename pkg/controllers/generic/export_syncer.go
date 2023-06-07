@@ -1,6 +1,7 @@
 package generic
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -9,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/cmd/vcluster/context"
+	vcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/log"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -30,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateExporters(ctx *context.ControllerContext, exporterConfig *config.Config) error {
+func CreateExporters(ctx *vcontext.ControllerContext, exporterConfig *config.Config) error {
 	if len(exporterConfig.Exports) == 0 {
 		return nil
 	}
@@ -139,7 +140,7 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	// apply object to physical cluster
 	ctx.Log.Infof("Create physical %s %s/%s, since it is missing, but virtual object exists", f.config.Kind, vObj.GetNamespace(), vObj.GetName())
 	pObj, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
-		return f.TranslateMetadata(vObj), nil
+		return f.TranslateMetadata(ctx.Context, vObj), nil
 	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
@@ -147,10 +148,8 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	}
 
 	// wait here for vObj to be created
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(time.Millisecond*10, time.Second, func() (done bool, err error) {
-		err = ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{
+	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*10, time.Second, true, func(pollContext context.Context) (done bool, err error) {
+		err = ctx.PhysicalClient.Get(pollContext, types.NamespacedName{
 			Namespace: pObj.GetNamespace(),
 			Name:      pObj.GetName(),
 		}, f.Resource())
@@ -226,7 +225,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 	// apply patches
 	_, err = f.patcher.ApplyPatches(ctx.Context, vObj, pObj, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
-		return f.TranslateMetadata(vObj), nil
+		return f.TranslateMetadata(ctx.Context, vObj), nil
 	}, &virtualToHostNameResolver{
 		namespace:       vObj.GetNamespace(),
 		targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
@@ -268,8 +267,8 @@ func (f *exporter) Name() string {
 }
 
 // TranslateMetadata converts the virtual object into a physical object
-func (f *exporter) TranslateMetadata(vObj client.Object) client.Object {
-	pObj := f.NamespacedTranslator.TranslateMetadata(vObj)
+func (f *exporter) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
+	pObj := f.NamespacedTranslator.TranslateMetadata(ctx, vObj)
 	if pObj.GetAnnotations() == nil {
 		pObj.SetAnnotations(map[string]string{translate.ControllerLabel: f.Name()})
 	} else {
@@ -280,7 +279,7 @@ func (f *exporter) TranslateMetadata(vObj client.Object) client.Object {
 	return pObj
 }
 
-func (f *exporter) IsManaged(pObj client.Object) (bool, error) {
+func (f *exporter) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
 	return translate.Default.IsManaged(pObj), nil
 }
 

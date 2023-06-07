@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd"
@@ -29,7 +30,7 @@ func main() {
 	}
 
 	// create a new command and execute
-	err := cmd.BuildRoot().Execute()
+	err := cmd.BuildRoot().ExecuteContext(context.Background())
 	if err != nil {
 		klog.Fatal(err)
 	}

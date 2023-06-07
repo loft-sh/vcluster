@@ -38,7 +38,7 @@ const (
 )
 
 // getSyncerUID provides instance UID based on the UID of the PVC or Service
-func getSyncerUID(c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) string {
+func getSyncerUID(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) string {
 	if cachedUID != "" {
 		return cachedUID
 	}
@@ -47,7 +47,7 @@ func getSyncerUID(c *kubernetes.Clientset, vclusterNamespace string, options *vc
 		return ""
 	}
 
-	o, err := getUniqueSyncerObject(c, vclusterNamespace, options)
+	o, err := getUniqueSyncerObject(ctx, c, vclusterNamespace, options)
 	if err == nil {
 		cachedUID = string(o.GetUID())
 		return cachedUID
@@ -57,9 +57,9 @@ func getSyncerUID(c *kubernetes.Clientset, vclusterNamespace string, options *vc
 }
 
 // returns a Kubernetes resource that can be used to uniquely identify this syncer instance - PVC or Service
-func getUniqueSyncerObject(c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) (client.Object, error) {
+func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) (client.Object, error) {
 	// we primarily use PVC as the source of vcluster instance UID
-	pvc, err := c.CoreV1().PersistentVolumeClaims(vclusterNamespace).Get(context.Background(), fmt.Sprintf("data-%s-0", translate.Suffix), metav1.GetOptions{})
+	pvc, err := c.CoreV1().PersistentVolumeClaims(vclusterNamespace).Get(ctx, fmt.Sprintf("data-%s-0", translate.Suffix), metav1.GetOptions{})
 	if err == nil {
 		return pvc, nil
 	}
@@ -71,7 +71,7 @@ func getUniqueSyncerObject(c *kubernetes.Clientset, vclusterNamespace string, op
 	if options.ServiceName == "" {
 		return nil, fmt.Errorf("getUniqueSyncerObject failed - PVC was not found and options.ServiceName is empty")
 	}
-	service, err := c.CoreV1().Services(vclusterNamespace).Get(context.Background(), options.ServiceName, metav1.GetOptions{})
+	service, err := c.CoreV1().Services(vclusterNamespace).Get(ctx, options.ServiceName, metav1.GetOptions{})
 	if err == nil {
 		return service, nil
 	}
@@ -142,7 +142,7 @@ func toKubernetesVersion(vi *version.Info) *types.KubernetesVersion {
 	}
 }
 
-func getVclusterServiceType(c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) string {
+func getVclusterServiceType(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) string {
 	if cachedVclusterServiceType != "" {
 		return cachedVclusterServiceType
 	}
@@ -152,14 +152,14 @@ func getVclusterServiceType(c *kubernetes.Clientset, vclusterNamespace string, o
 	}
 
 	// Let's first check if a separate LoadBalancer Service is created
-	service, err := c.CoreV1().Services(vclusterNamespace).Get(context.Background(), fmt.Sprintf("%s-lb", translate.Suffix), metav1.GetOptions{})
+	service, err := c.CoreV1().Services(vclusterNamespace).Get(ctx, fmt.Sprintf("%s-lb", translate.Suffix), metav1.GetOptions{})
 	if err == nil {
 		cachedVclusterServiceType = string(service.Spec.Type)
 		return cachedVclusterServiceType
 	}
 
 	// otherwise check the type of the usual vcluster Service
-	service, err = c.CoreV1().Services(vclusterNamespace).Get(context.Background(), options.ServiceName, metav1.GetOptions{})
+	service, err = c.CoreV1().Services(vclusterNamespace).Get(ctx, options.ServiceName, metav1.GetOptions{})
 	if err == nil {
 		cachedVclusterServiceType = string(service.Spec.Type)
 	}

@@ -74,7 +74,7 @@ func (s *configMapSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Obj
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.ConfigMap)))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ConfigMap)))
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -93,7 +93,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		return ctrl.Result{}, nil
 	}
 
-	newConfigMap := s.translateUpdate(pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
+	newConfigMap := s.translateUpdate(ctx.Context, pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
 	if newConfigMap != nil {
 		translator.PrintChanges(pObj, newConfigMap, ctx.Log)
 	}
@@ -113,7 +113,7 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	}
 
 	podList := &corev1.PodList{}
-	err := ctx.VirtualClient.List(context.TODO(), podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
+	err := ctx.VirtualClient.List(ctx.Context, podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
 	if err != nil {
 		return false, err
 	}

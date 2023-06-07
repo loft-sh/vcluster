@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	archivezip "archive/zip"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -41,7 +42,7 @@ func (e *extractor) UntarGz(src, dest string) error {
 	tarReader := tar.NewReader(uncompressedStream)
 	for {
 		header, err := tarReader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 

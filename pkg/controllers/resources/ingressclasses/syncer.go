@@ -23,13 +23,13 @@ var _ syncer.UpSyncer = &ingressClassSyncer{}
 var _ syncer.Syncer = &ingressClassSyncer{}
 
 func (i *ingressClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := i.translateBackwards(pObj.(*networkingv1.IngressClass))
+	vObj := i.translateBackwards(ctx.Context, pObj.(*networkingv1.IngressClass))
 	ctx.Log.Infof("create ingress class %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
 
 func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, pObj, vObj client.Object) (ctrl.Result, error) {
-	updated := i.translateUpdateBackwards(pObj.(*networkingv1.IngressClass), vObj.(*networkingv1.IngressClass))
+	updated := i.translateUpdateBackwards(ctx.Context, pObj.(*networkingv1.IngressClass), vObj.(*networkingv1.IngressClass))
 	if updated != nil {
 		ctx.Log.Infof("update ingress class %s", vObj.GetName())
 		translator.PrintChanges(pObj, updated, ctx.Log)

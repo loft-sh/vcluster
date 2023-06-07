@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"context"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -203,7 +204,7 @@ func TestVolumeTranslation(t *testing.T) {
 		}
 
 		pPod := testCase.vPod.DeepCopy()
-		err := tr.translateVolumes(pPod, &testCase.vPod)
+		err := tr.translateVolumes(context.Background(), pPod, &testCase.vPod)
 		assert.NilError(t, err)
 		assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
 	}

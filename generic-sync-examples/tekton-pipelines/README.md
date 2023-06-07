@@ -1,21 +1,28 @@
-#### Install tekton pipelines on host cluster
-```
+# Tekton Pipelines
+
+## Install tekton pipelines on host cluster
+
+```bash
 kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
 ```
 
 Optionally install tekton-dashboard on the host cluster
-```
+
+```bash
 kubectl apply --filename https://storage.googleapis.com/tekton-releases/dashboard/latest/tekton-dashboard-release.yaml
 ```
 
-#### Deploy vcluster with tekton config
-```
+## Deploy vcluster with tekton config
+
+```bash
 vcluster create vcluster -f https://raw.githubusercontent.com/loft-sh/vcluster/main/generic-sync-examples/tekton-pipelines/config.yaml
 ```
 
-#### Create some tekton Tasks and Pipelines in vcluster
+## Create some tekton Tasks and Pipelines in vcluster
+
 Some basic tasks
-```
+
+```bash
 cat << EOF | kubectl apply -f -
 apiVersion: tekton.dev/v1beta1
 kind: Task
@@ -68,7 +75,8 @@ EOF
 ```
 
 A pipeline that uses these tasks
-```
+
+```bash
 cat << EOF | kubectl apply -f -
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
@@ -101,8 +109,9 @@ spec:
 EOF
 ```
 
-#### Run the pipeline with a PipelineRun
-```
+## Run the pipeline with a PipelineRun
+
+```bash
 cat << EOF | kubectl apply -f -
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun

@@ -2,23 +2,23 @@ package podprinter
 
 import (
 	"context"
+	"sort"
+	"sync"
+	"time"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"sort"
-	"sync"
-	"time"
 )
 
 type PodInfoPrinter struct {
 	lastMutex   sync.Mutex
 	LastWarning time.Time
 
-	shownEvents           []string
-	printedInitContainers []string // nolint:unused
+	shownEvents []string
 }
 
 func (u *PodInfoPrinter) PrintPodInfo(pod *corev1.Pod, log log.Logger) {

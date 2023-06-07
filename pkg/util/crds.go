@@ -25,7 +25,7 @@ func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath str
 	}
 
 	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: 5 * time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
-		err := applier.ApplyManifestFile(config, crdFilePath)
+		err := applier.ApplyManifestFile(ctx, config, crdFilePath)
 		if err != nil {
 			loghelper.Infof("Failed to apply CRD %s from the manifest file %s: %v", groupVersionKind.String(), crdFilePath, err)
 			return false, nil

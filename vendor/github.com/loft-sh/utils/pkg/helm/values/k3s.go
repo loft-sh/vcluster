@@ -11,32 +11,11 @@ import (
 )
 
 var K3SVersionMap = map[string]string{
-	"1.26": "rancher/k3s:v1.26.0-k3s1",
-	"1.25": "rancher/k3s:v1.25.5-k3s1",
-	"1.24": "rancher/k3s:v1.24.9-k3s1",
-	"1.23": "rancher/k3s:v1.23.15-k3s1",
-	"1.22": "rancher/k3s:v1.22.17-k3s1",
-	"1.21": "rancher/k3s:v1.21.14-k3s1",
-	"1.20": "rancher/k3s:v1.20.15-k3s1",
-	"1.19": "rancher/k3s:v1.19.16-k3s1",
-	"1.18": "rancher/k3s:v1.18.20-k3s1",
-	"1.17": "rancher/k3s:v1.17.17-k3s1",
-	"1.16": "rancher/k3s:v1.16.15-k3s1",
-}
-
-const noDeployValues = `  baseArgs:
-    - server
-    - --write-kubeconfig=/k3s-config/kube-config.yaml
-    - --data-dir=/data
-    - --no-deploy=traefik,servicelb,metrics-server,local-storage
-    - --disable-network-policy
-    - --disable-agent
-    - --disable-cloud-controller
-    - --flannel-backend=none`
-
-var baseArgsMap = map[string]string{
-	"1.17": noDeployValues,
-	"1.16": noDeployValues,
+	"1.27": "rancher/k3s:v1.27.1-k3s1",
+	"1.26": "rancher/k3s:v1.26.4-k3s1",
+	"1.25": "rancher/k3s:v1.25.9-k3s1",
+	"1.24": "rancher/k3s:v1.24.13-k3s1",
+	"1.23": "rancher/k3s:v1.23.17-k3s1",
 }
 
 var replaceRegEx = regexp.MustCompile("[^0-9]+")
@@ -62,11 +41,9 @@ func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleL
 			if serverMinorInt > 26 {
 				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.26", serverVersionString)
 				image = K3SVersionMap["1.26"]
-				serverVersionString = "1.26"
 			} else {
-				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.16", serverVersionString)
-				image = K3SVersionMap["1.16"]
-				serverVersionString = "1.16"
+				log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.23", serverVersionString)
+				image = K3SVersionMap["1.23"]
 			}
 		}
 	}
@@ -84,10 +61,6 @@ securityContext:
 	}
 
 	values = strings.ReplaceAll(values, "##IMAGE##", image)
-	if chartOptions.K3SImage == "" {
-		baseArgs := baseArgsMap[serverVersionString]
-		values = strings.ReplaceAll(values, "##BASEARGS##", baseArgs)
-	}
 
 	return addCommonReleaseValues(values, chartOptions)
 }

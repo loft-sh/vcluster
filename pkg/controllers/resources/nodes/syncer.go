@@ -198,16 +198,16 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 	})
 }
 
-func (s *nodeSyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *nodeSyncer) VirtualToPhysical(_ context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return req
 }
 
-func (s *nodeSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (s *nodeSyncer) PhysicalToVirtual(_ context.Context, pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: pObj.GetName()}
 }
 
-func (s *nodeSyncer) IsManaged(pObj client.Object) (bool, error) {
-	shouldSync, err := s.shouldSync(context.TODO(), pObj.(*corev1.Node))
+func (s *nodeSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+	shouldSync, err := s.shouldSync(ctx, pObj.(*corev1.Node))
 	if err != nil {
 		return false, nil
 	}

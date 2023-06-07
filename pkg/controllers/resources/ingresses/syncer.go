@@ -1,6 +1,8 @@
 package ingresses
 
 import (
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -9,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
@@ -25,7 +26,7 @@ type ingressSyncer struct {
 var _ syncer.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*networkingv1.Ingress)))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1.Ingress)))
 }
 
 func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -59,7 +60,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		return ctrl.Result{}, nil
 	}
 
-	newIngress := s.translateUpdate(pIngress, vIngress)
+	newIngress := s.translateUpdate(ctx.Context, pIngress, vIngress)
 	if newIngress != nil {
 		translator.PrintChanges(pObj, newIngress, ctx.Log)
 	}
@@ -103,7 +104,7 @@ func translateIngressAnnotations(annotations map[string]string, ingressNamespace
 			namespace := splitted[0]
 			secret := splitted[1]
 			foundSecrets = append(foundSecrets, namespace+"/"+secret)
-			newAnnotations[k] = translate.Default.PhysicalNamespace(namespace)+"/"+translate.Default.PhysicalName(secret, namespace)
+			newAnnotations[k] = translate.Default.PhysicalNamespace(namespace) + "/" + translate.Default.PhysicalName(secret, namespace)
 		} else {
 			newAnnotations[k] = v
 		}

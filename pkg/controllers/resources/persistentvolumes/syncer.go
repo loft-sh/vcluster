@@ -98,7 +98,7 @@ func (s *persistentVolumeSyncer) SyncDown(ctx *synccontext.SyncContext, vObj cli
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vPv)
 	}
 
-	pPv := s.translate(vPv)
+	pPv := s.translate(ctx.Context, vPv)
 	ctx.Log.Infof("create physical persistent volume %s, because there is a virtual persistent volume", pPv.Name)
 	err := ctx.PhysicalClient.Create(ctx.Context, pPv)
 	if err != nil {
@@ -196,7 +196,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 			return ctrl.Result{}, err
 		}
 
-		updatedPv := s.translateUpdate(vPersistentVolume, pPersistentVolume)
+		updatedPv := s.translateUpdate(ctx.Context, vPersistentVolume, pPersistentVolume)
 		if updatedPv != nil {
 			ctx.Log.Infof("update physical persistent volume %s, because spec or annotations have changed", updatedPv.Name)
 			translator.PrintChanges(pPersistentVolume, updatedPv, ctx.Log)
@@ -268,13 +268,13 @@ func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.Pe
 	return true, vPvc, nil
 }
 
-func (s *persistentVolumeSyncer) IsManaged(pObj client.Object) (bool, error) {
+func (s *persistentVolumeSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
 	pPv, ok := pObj.(*corev1.PersistentVolume)
 	if !ok {
 		return false, nil
 	}
 
-	sync, _, err := s.shouldSync(context.TODO(), pPv)
+	sync, _, err := s.shouldSync(ctx, pPv)
 	if err != nil {
 		return false, nil
 	}
@@ -282,11 +282,11 @@ func (s *persistentVolumeSyncer) IsManaged(pObj client.Object) (bool, error) {
 	return sync, nil
 }
 
-func (s *persistentVolumeSyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *persistentVolumeSyncer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translatePersistentVolumeName(req.Name, vObj)}
 }
 
-func (s *persistentVolumeSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (s *persistentVolumeSyncer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
 	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
@@ -295,7 +295,7 @@ func (s *persistentVolumeSyncer) PhysicalToVirtual(pObj client.Object) types.Nam
 	}
 
 	vObj := &corev1.PersistentVolume{}
-	err := clienthelper.GetByIndex(context.Background(), s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
+	err := clienthelper.GetByIndex(ctx, s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return types.NamespacedName{}

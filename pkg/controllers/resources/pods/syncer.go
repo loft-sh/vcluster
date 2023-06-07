@@ -339,7 +339,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	}
 
 	// update the virtual pod if the spec has changed
-	updatedPod, err := s.translateUpdate(ctx.PhysicalClient, pPod, vPod)
+	updatedPod, err := s.translateUpdate(ctx.Context, ctx.PhysicalClient, pPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if updatedPod != nil {
@@ -423,11 +423,9 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	}
 
 	// wait until cache is updated
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(time.Millisecond*50, time.Second*2, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*50, time.Second*2, true, func(syncContext context.Context) (done bool, err error) {
 		vPod := &corev1.Pod{}
-		err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)
+		err = ctx.VirtualClient.Get(syncContext, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return true, nil

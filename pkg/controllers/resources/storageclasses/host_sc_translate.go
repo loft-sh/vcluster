@@ -1,19 +1,21 @@
 package storageclasses
 
 import (
+	"context"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *hostStorageClassSyncer) translateBackwards(pStorageClass *storagev1.StorageClass) *storagev1.StorageClass {
-	return s.TranslateMetadata(pStorageClass).(*storagev1.StorageClass)
+func (s *hostStorageClassSyncer) translateBackwards(ctx context.Context, pStorageClass *storagev1.StorageClass) *storagev1.StorageClass {
+	return s.TranslateMetadata(ctx, pStorageClass).(*storagev1.StorageClass)
 }
 
-func (s *hostStorageClassSyncer) translateUpdateBackwards(pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
+func (s *hostStorageClassSyncer) translateUpdateBackwards(ctx context.Context, pObj, vObj *storagev1.StorageClass) *storagev1.StorageClass {
 	var updated *storagev1.StorageClass
 
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if changed {
 		updated = translator.NewIfNil(updated, vObj)
 		updated.Labels = updatedLabels

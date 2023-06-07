@@ -32,7 +32,7 @@ func (s *priorityClassSyncer) RegisterIndices(ctx *synccontext.RegisterContext) 
 var _ syncer.Syncer = &priorityClassSyncer{}
 
 func (s *priorityClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	newPriorityClass := s.translate(vObj.(*schedulingv1.PriorityClass))
+	newPriorityClass := s.translate(ctx.Context, vObj.(*schedulingv1.PriorityClass))
 	ctx.Log.Infof("create physical priority class %s", newPriorityClass.Name)
 	err := ctx.PhysicalClient.Create(ctx.Context, newPriorityClass)
 	if err != nil {
@@ -45,7 +45,7 @@ func (s *priorityClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client
 
 func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// did the priority class change?
-	updated := s.translateUpdate(pObj.(*schedulingv1.PriorityClass), vObj.(*schedulingv1.PriorityClass))
+	updated := s.translateUpdate(ctx.Context, pObj.(*schedulingv1.PriorityClass), vObj.(*schedulingv1.PriorityClass))
 	if updated != nil {
 		ctx.Log.Infof("updating physical priority class %s, because virtual priority class has changed", updated.Name)
 		translator.PrintChanges(pObj, updated, ctx.Log)

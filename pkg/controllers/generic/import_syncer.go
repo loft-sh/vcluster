@@ -202,8 +202,8 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	// apply object to virtual cluster
 	ctx.Log.Infof("Create virtual %s %s/%s, since it is missing, but physical object exists", s.config.Kind, pObj.GetNamespace(), pObj.GetName())
 	vObj, err := s.patcher.ApplyPatches(ctx.Context, pObj, nil, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
-		return s.TranslateMetadata(vObj), nil
-	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient})
+		return s.TranslateMetadata(ctx.Context, vObj), nil
+	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
 		//TODO: add eventRecorder?
 		//s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
@@ -211,10 +211,8 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	}
 
 	// wait here for vObj to be created
-	// ignore deprecation notice due to https://github.com/kubernetes/kubernetes/issues/116712
-	//nolint:staticcheck
-	err = wait.PollImmediate(time.Millisecond*10, time.Second, func() (done bool, err error) {
-		err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
+	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*10, time.Second, true, func(syncContext context.Context) (done bool, err error) {
+		err = ctx.VirtualClient.Get(syncContext, types.NamespacedName{
 			Namespace: vObj.GetNamespace(),
 			Name:      vObj.GetName(),
 		}, s.Resource())
@@ -269,7 +267,7 @@ func (s *importer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 
 func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if physical object is managed by this import controller
-	managed, err := s.IsManaged(pObj)
+	managed, err := s.IsManaged(ctx.Context, pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !managed {
@@ -312,8 +310,8 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 	// apply patches
 	_, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s.config.Patches, s.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
-		return s.TranslateMetadata(vObj), nil
-	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient})
+		return s.TranslateMetadata(ctx.Context, vObj), nil
+	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
 		// on conflict, auto delete and recreate
 		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && s.config.ReplaceOnConflict {
@@ -336,7 +334,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	return ctrl.Result{}, s.addAnnotationsToPhysicalObject(ctx, pObj)
 }
 
-func (s *importer) IsManaged(pObj client.Object) (bool, error) {
+func (s *importer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return true, nil
 	}
@@ -354,11 +352,11 @@ func (s *importer) IsVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *importer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
 }
 
-func (s *importer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (s *importer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return types.NamespacedName{
 			Name: pObj.GetName(),
@@ -366,7 +364,7 @@ func (s *importer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	}
 
 	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context.Background(), s.virtualClient, vNamespace, constants.IndexByPhysicalName, pObj.GetNamespace())
+	err := clienthelper.GetByIndex(ctx, s.virtualClient, vNamespace, constants.IndexByPhysicalName, pObj.GetNamespace())
 	if err != nil {
 		return types.NamespacedName{}
 	}
@@ -374,7 +372,7 @@ func (s *importer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: pObj.GetName(), Namespace: vNamespace.GetName()}
 }
 
-func (s *importer) TranslateMetadata(pObj client.Object) client.Object {
+func (s *importer) TranslateMetadata(ctx context.Context, pObj client.Object) client.Object {
 	vObj := pObj.DeepCopyObject().(client.Object)
 	vObj.SetResourceVersion("")
 	vObj.SetUID("")
@@ -382,7 +380,7 @@ func (s *importer) TranslateMetadata(pObj client.Object) client.Object {
 	vObj.SetOwnerReferences(nil)
 	vObj.SetFinalizers(nil)
 	vObj.SetAnnotations(s.updateVirtualAnnotations(vObj.GetAnnotations()))
-	nn := s.PhysicalToVirtual(pObj)
+	nn := s.PhysicalToVirtual(ctx, pObj)
 	vObj.SetName(nn.Name)
 	vObj.SetNamespace(nn.Namespace)
 
@@ -437,6 +435,7 @@ func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, 
 
 type hostToVirtualImportNameResolver struct {
 	virtualClient client.Client
+	ctx           context.Context
 }
 
 func (r *hostToVirtualImportNameResolver) TranslateName(name string, regex *regexp.Regexp, path string) (string, error) {
@@ -456,7 +455,7 @@ func (r *hostToVirtualImportNameResolver) TranslateLabelSelector(selector map[st
 }
 func (r *hostToVirtualImportNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
 	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context.Background(), r.virtualClient, vNamespace, constants.IndexByPhysicalName, namespace)
+	err := clienthelper.GetByIndex(r.ctx, r.virtualClient, vNamespace, constants.IndexByPhysicalName, namespace)
 	if err != nil {
 		return "", err
 	}

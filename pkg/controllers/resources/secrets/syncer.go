@@ -108,7 +108,7 @@ func (s *secretSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.Secret)))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Secret)))
 }
 
 func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -127,7 +127,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 		return ctrl.Result{}, nil
 	}
 
-	newSecret := s.translateUpdate(pObj.(*corev1.Secret), vObj.(*corev1.Secret))
+	newSecret := s.translateUpdate(ctx.Context, pObj.(*corev1.Secret), vObj.(*corev1.Secret))
 	if newSecret != nil {
 		translator.PrintChanges(pObj, newSecret, ctx.Log)
 	}
@@ -143,7 +143,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 		return true, nil
 	}
 
-	isUsed, err := isSecretUsedByPods(context.TODO(), ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
+	isUsed, err := isSecretUsedByPods(ctx.Context, ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
 	if err != nil {
 		return false, errors.Wrap(err, "is secret used by pods")
 	}
@@ -160,7 +160,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 			ingressesList = &networkingv1.IngressList{}
 		}
 
-		err := ctx.VirtualClient.List(context.TODO(), ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
+		err := ctx.VirtualClient.List(ctx.Context, ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
 			return false, err
 		}

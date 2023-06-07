@@ -85,7 +85,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		namespace = cmd.Namespace
 	}
 
-	vClusters, err := find.ListVClusters(cmd.Context, "", namespace)
+	vClusters, err := find.ListVClusters(cobraCmd.Context(), cmd.Context, "", namespace)
 	if err != nil {
 		return err
 	}

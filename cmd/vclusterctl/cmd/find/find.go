@@ -3,9 +3,10 @@ package find
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"strings"
 	"time"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
@@ -48,12 +49,12 @@ func CurrentContext() (string, *api.Config, error) {
 	return rawConfig.CurrentContext, &rawConfig, nil
 }
 
-func GetVCluster(context, name, namespace string) (*VCluster, error) {
+func GetVCluster(ctx context.Context, context, name, namespace string) (*VCluster, error) {
 	if name == "" {
 		return nil, fmt.Errorf("please specify a name")
 	}
 
-	vclusters, err := ListVClusters(context, name, namespace)
+	vclusters, err := ListVClusters(ctx, context, name, namespace)
 	if err != nil {
 		return nil, err
 	} else if len(vclusters) == 0 {
@@ -65,7 +66,7 @@ func GetVCluster(context, name, namespace string) (*VCluster, error) {
 	return nil, fmt.Errorf("multiple vclusters with name %s found, please specify a namespace via -n", name)
 }
 
-func ListVClusters(context, name, namespace string) ([]VCluster, error) {
+func ListVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
 	if context == "" {
 		var err error
 		context, _, err = CurrentContext()
@@ -80,14 +81,14 @@ func ListVClusters(context, name, namespace string) ([]VCluster, error) {
 		timeout = time.Second * 5
 	}
 
-	vclusters, err := findInContext(context, name, namespace, timeout, false)
+	vclusters, err := findInContext(ctx, context, name, namespace, timeout, false)
 	// In case of error in vcluster listing in vcluster context, the below check will skip the error and try searching for parent context vclusters.
 	if err != nil && vClusterName == "" {
 		return nil, errors.Wrap(err, "find vcluster")
 	}
 
 	if vClusterName != "" {
-		parentContextVclusters, err := findInContext(vClusterContext, name, namespace, time.Minute, true)
+		parentContextVclusters, err := findInContext(ctx, vClusterContext, name, namespace, time.Minute, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "find vcluster")
 		}
@@ -119,7 +120,7 @@ func VClusterFromContext(originalContext string) (name string, namespace string,
 	return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
 }
 
-func findInContext(context, name, namespace string, timeout time.Duration, isParentContext bool) ([]VCluster, error) {
+func findInContext(ctx context.Context, context, name, namespace string, timeout time.Duration, isParentContext bool) ([]VCluster, error) {
 	vclusters := []VCluster{}
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: context,
@@ -140,7 +141,7 @@ func findInContext(context, name, namespace string, timeout time.Duration, isPar
 	}
 
 	// statefulset based vclusters
-	statefulSets, err := getStatefulSets(kubeClient, namespace, kubeClientConfig, timeout)
+	statefulSets, err := getStatefulSets(ctx, kubeClient, namespace, kubeClientConfig, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +167,7 @@ func findInContext(context, name, namespace string, timeout time.Duration, isPar
 				continue
 			}
 
-			vCluster, err := getVCluster(&p, context, release, kubeClient, kubeClientConfig)
+			vCluster, err := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -176,7 +177,7 @@ func findInContext(context, name, namespace string, timeout time.Duration, isPar
 	}
 
 	// deployment based vclusters
-	deployments, err := getDeployments(kubeClient, namespace, kubeClientConfig, timeout)
+	deployments, err := getDeployments(ctx, kubeClient, namespace, kubeClientConfig, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +187,7 @@ func findInContext(context, name, namespace string, timeout time.Duration, isPar
 				continue
 			}
 
-			vCluster, err2 := getVCluster(&p, context, release, kubeClient, kubeClientConfig)
+			vCluster, err2 := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
 			if err2 != nil {
 				return nil, err2
 			}
@@ -199,7 +200,7 @@ func findInContext(context, name, namespace string, timeout time.Duration, isPar
 	return vclusters, nil
 }
 
-func getVCluster(object client.Object, context, release string, client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig) (VCluster, error) {
+func getVCluster(ctx context.Context, object client.Object, context, release string, client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig) (VCluster, error) {
 	namespace := object.GetNamespace()
 	created := object.GetCreationTimestamp()
 	releaseName := ""
@@ -211,7 +212,7 @@ func getVCluster(object client.Object, context, release string, client *kubernet
 	}
 
 	if status == "" {
-		pods, err := getPods(client, kubeClientConfig, namespace, releaseName)
+		pods, err := getPods(ctx, client, kubeClientConfig, namespace, releaseName)
 		if err != nil {
 			return VCluster{}, err
 		}
@@ -233,8 +234,8 @@ func getVCluster(object client.Object, context, release string, client *kubernet
 	}, nil
 }
 
-func getPods(client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig, namespace, podSelector string) (*corev1.PodList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+func getPods(ctx context.Context, client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig, namespace, podSelector string) (*corev1.PodList, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
 	podList, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
@@ -255,8 +256,8 @@ func getPods(client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConf
 	return podList, nil
 }
 
-func getDeployments(client *kubernetes.Clientset, namespace string, kubeClientConfig clientcmd.ClientConfig, timeout time.Duration) (*appsv1.DeploymentList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func getDeployments(ctx context.Context, client *kubernetes.Clientset, namespace string, kubeClientConfig clientcmd.ClientConfig, timeout time.Duration) (*appsv1.DeploymentList, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	deploymentList, err := client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{
@@ -277,8 +278,8 @@ func getDeployments(client *kubernetes.Clientset, namespace string, kubeClientCo
 	return deploymentList, nil
 }
 
-func getStatefulSets(client *kubernetes.Clientset, namespace string, kubeClientConfig clientcmd.ClientConfig, timeout time.Duration) (*appsv1.StatefulSetList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func getStatefulSets(ctx context.Context, client *kubernetes.Clientset, namespace string, kubeClientConfig clientcmd.ClientConfig, timeout time.Duration) (*appsv1.StatefulSetList, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	statefulSetList, err := client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{
