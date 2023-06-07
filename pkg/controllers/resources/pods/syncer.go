@@ -281,6 +281,8 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
 
+	strippedPod = stripInjectedSidecarContainers(vPod, pPod, strippedPod)
+
 	// update readiness gates & sync status virtual -> physical
 	updated, err := UpdateConditions(ctx, strippedPod, vPod)
 	if err != nil {
@@ -456,4 +458,36 @@ func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {
 		newPod.Status.InitContainerStatuses = newInitContainerStatuses
 	}
 	return newPod
+}
+
+func stripInjectedSidecarContainers(vPod, pPod, strippedPod *corev1.Pod) *corev1.Pod {
+	vInitContainersMap := make(map[string]bool)
+	vContainersMap := make(map[string]bool)
+
+	for _, vInitContainer := range vPod.Spec.InitContainers {
+		vInitContainersMap[vInitContainer.Name] = true
+	}
+
+	for _, vContainer := range vPod.Spec.Containers {
+		vContainersMap[vContainer.Name] = true
+	}
+
+	newInitContainerStatuses := []corev1.ContainerStatus{}
+	for _, initContainerStatus := range pPod.Status.InitContainerStatuses {
+		if _, ok := vInitContainersMap[initContainerStatus.Name]; ok {
+			newInitContainerStatuses = append(newInitContainerStatuses, initContainerStatus)
+		}
+	}
+
+	newContainerStatuses := []corev1.ContainerStatus{}
+	for _, containerStatus := range pPod.Status.ContainerStatuses {
+		if _, ok := vContainersMap[containerStatus.Name]; ok {
+			newContainerStatuses = append(newContainerStatuses, containerStatus)
+		}
+	}
+
+	strippedPod.Status.InitContainerStatuses = newInitContainerStatuses
+	strippedPod.Status.ContainerStatuses = newContainerStatuses
+
+	return strippedPod
 }

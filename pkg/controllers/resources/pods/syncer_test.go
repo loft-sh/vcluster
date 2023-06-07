@@ -24,6 +24,7 @@ func TestSync(t *testing.T) {
 	LogsVolumeName := "logs"
 	KubeletPodVolumeName := "kubelet-pods"
 	HostpathPodName := "test-hostpaths"
+	NotInjectedPodName := "test-not-injected"
 
 	pPodContainerEnv := []corev1.EnvVar{
 		{
@@ -343,6 +344,58 @@ func TestSync(t *testing.T) {
 		},
 	}
 
+	vInjectedPodNamespace := vHostpathNamespace.DeepCopy()
+	vNotInjectedPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      NotInjectedPodName,
+			Namespace: generictesting.DefaultTestCurrentNamespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "nginx-not-injected",
+					Image: "nginx",
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name: "nginx-not-injected",
+				},
+			},
+		},
+	}
+
+	pInjectedPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.Default.PhysicalName(NotInjectedPodName, generictesting.DefaultTestCurrentNamespace),
+			Namespace: generictesting.DefaultTestTargetNamespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "nginx-not-injected",
+					Image: "nginx",
+				},
+				{
+					Name:  "nginx-injected",
+					Image: "nginx",
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name: "nginx-not-injected",
+				},
+				{
+					Name: "nginx-injected",
+				},
+			},
+		},
+	}
+
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Delete virtual pod",
@@ -446,6 +499,19 @@ func TestSync(t *testing.T) {
 				ctx.Options.RewriteHostPaths = true
 				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Check injected sidecars",
+			InitialVirtualState:  []runtime.Object{vNotInjectedPod, vInjectedPodNamespace},
+			InitialPhysicalState: []runtime.Object{pInjectedPod.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vNotInjectedPod},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).Sync(synccontext, pInjectedPod.DeepCopy(), vNotInjectedPod.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
