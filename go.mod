@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/utils v0.0.20
+	github.com/loft-sh/utils v0.0.21
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.0
