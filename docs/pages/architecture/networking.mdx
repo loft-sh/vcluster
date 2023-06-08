@@ -51,6 +51,12 @@ mapServices:
 
 With this configuration, vcluster will manage a service called `my-host-service` inside the namespace where the vcluster workloads are synced to, which points to the virtual service `my-virtual-service` in namespace `my-virtual-namespace` inside the vcluster. So pods in the host cluster will be able to access the virtual service via e.g. `curl http://my-host-service`.
 
+### Fallback to host DNS
+If enabled, will fallback to host dns for resolving domains. This is useful if using istio or dapr in the host cluster and sidecar containers cannot connect to the central instance. Its also useful if you want to access host cluster services from within the vcluster. We can enable this feature with
+```yaml
+fallbackHostDns: true
+```
+
 ## Ingress Controller Traffic
 The vcluster has the option to enable Ingress resources synchronization. That means that you can create an ingress in a vcluster to make a service in this vcluster available via a hostname/domain. However, instead of having to run a separate ingress controller in each vcluster, the ingress resource will be synchronized to the underlying cluster (when enabled) which means that the vcluster can use a shared ingress controller that is running in the host cluster. This helps to share resources across different vclusters and is easier for users of vclusters because otherwise, they would need to install an ingress controller and manually configure DNS for each vcluster.
 
