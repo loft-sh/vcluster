@@ -69,7 +69,7 @@ for OS in ${VCLUSTER_BUILD_PLATFORMS[@]}; do
     fi
 
     echo "Building for ${OS}/${ARCH}"
-    GOARCH=${ARCH} GOOS=${OS} ${GO_BUILD_CMD} -tags embed_charts -ldflags "${GO_BUILD_LDFLAGS}"\
+    CGO_ENABLED=0 GOARCH=${ARCH} GOOS=${OS} ${GO_BUILD_CMD} -tags embed_charts -ldflags "${GO_BUILD_LDFLAGS}"\
       -o "${VCLUSTER_ROOT}/release/${NAME}" cmd/vclusterctl/main.go
     shasum -a 256 "${VCLUSTER_ROOT}/release/${NAME}" | cut -d ' ' -f 1 > "${VCLUSTER_ROOT}/release/${NAME}".sha256
     cosign sign-blob --yes --output-signature "${VCLUSTER_ROOT}/release/${NAME}".sha256.sig --output-certificate "${VCLUSTER_ROOT}/release/${NAME}".sha256.pem "${VCLUSTER_ROOT}/release/${NAME}".sha256
