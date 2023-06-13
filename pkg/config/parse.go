@@ -3,7 +3,12 @@ package config
 import (
 	"fmt"
 
+	"github.com/samber/lo"
 	"sigs.k8s.io/yaml"
+)
+
+var (
+	verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
 )
 
 func Parse(rawConfig string) (*Config, error) {
@@ -92,6 +97,36 @@ func validate(config *Config) error {
 		}
 	}
 
+	// HostToVirtual validation
+	for idx, hook := range config.Hooks.HostToVirtual {
+		for idy, verb := range hook.Verbs {
+			if err := validateVerb(verb); err != nil {
+				return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %v", idx, idy, err)
+			}
+		}
+
+		for idy, patch := range hook.Patches {
+			if err := validatePatch(patch); err != nil {
+				return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %v", idx, idy, err)
+			}
+		}
+	}
+
+	// VirtualToHost validation
+	for idx, hook := range config.Hooks.VirtualToHost {
+		for idy, verb := range hook.Verbs {
+			if err := validateVerb(verb); err != nil {
+				return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %v", idx, idy, err)
+			}
+		}
+
+		for idy, patch := range hook.Patches {
+			if err := validatePatch(patch); err != nil {
+				return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %v", idx, idy, err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -114,6 +149,14 @@ func validatePatch(patch *Patch) error {
 	default:
 		return fmt.Errorf("unsupported patch type %s", patch.Operation)
 	}
+}
+
+func validateVerb(verb string) error {
+	if !lo.Contains(verbs, verb) {
+		return fmt.Errorf("invalid verb \"%s\"; expected on of %q", verb, verbs)
+	}
+
+	return nil
 }
 
 func validateExportDuplicates(exports []*Export) error {
