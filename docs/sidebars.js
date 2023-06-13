@@ -87,12 +87,6 @@ module.exports = {
       id: 'config-reference',
     },
     {
-      type: 'category',
-      label: 'CLI Reference',
-      items: [
-      ],
-    },
-    {
       type: 'link',
       label: 'Originally created by Loft',
       href: 'https://loft.sh/',
