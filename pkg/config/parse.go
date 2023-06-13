@@ -97,32 +97,34 @@ func validate(config *Config) error {
 		}
 	}
 
-	// HostToVirtual validation
-	for idx, hook := range config.Hooks.HostToVirtual {
-		for idy, verb := range hook.Verbs {
-			if err := validateVerb(verb); err != nil {
-				return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %v", idx, idy, err)
+	if config.Hooks != nil {
+		// HostToVirtual validation
+		for idx, hook := range config.Hooks.HostToVirtual {
+			for idy, verb := range hook.Verbs {
+				if err := validateVerb(verb); err != nil {
+					return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %v", idx, idy, err)
+				}
+			}
+
+			for idy, patch := range hook.Patches {
+				if err := validatePatch(patch); err != nil {
+					return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %v", idx, idy, err)
+				}
 			}
 		}
 
-		for idy, patch := range hook.Patches {
-			if err := validatePatch(patch); err != nil {
-				return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %v", idx, idy, err)
+		// VirtualToHost validation
+		for idx, hook := range config.Hooks.VirtualToHost {
+			for idy, verb := range hook.Verbs {
+				if err := validateVerb(verb); err != nil {
+					return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %v", idx, idy, err)
+				}
 			}
-		}
-	}
 
-	// VirtualToHost validation
-	for idx, hook := range config.Hooks.VirtualToHost {
-		for idy, verb := range hook.Verbs {
-			if err := validateVerb(verb); err != nil {
-				return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %v", idx, idy, err)
-			}
-		}
-
-		for idy, patch := range hook.Patches {
-			if err := validatePatch(patch); err != nil {
-				return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %v", idx, idy, err)
+			for idy, patch := range hook.Patches {
+				if err := validatePatch(patch); err != nil {
+					return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %v", idx, idy, err)
+				}
 			}
 		}
 	}
