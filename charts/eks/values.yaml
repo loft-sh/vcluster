@@ -124,6 +124,8 @@ proxy:
       enabled: false
 
 hostpathMapper:
+  # Image to use for the hostpathMapper
+  # image: ghcr.io/loft-sh/vcluster
   enabled: false
   resources: {}
     # limits:
@@ -157,7 +159,7 @@ syncer:
     requests:
       cpu: 10m
       memory: 64Mi
-  # Extra volumes 
+  # Extra volumes
   volumes: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -182,7 +184,7 @@ syncer:
 # Etcd settings
 etcd:
   image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.6-eks-1-24-7
-  # The amount of replicas to run 
+  # The amount of replicas to run
   replicas: 1
   # NodeSelector used
   nodeSelector: {}
@@ -190,7 +192,7 @@ etcd:
   affinity: {}
   # Tolerations to apply
   tolerations: []
-  # Extra Labels 
+  # Extra Labels
   labels: {}
   # Extra Annotations
   annotations: {}
@@ -219,13 +221,13 @@ controller:
   image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.24.9-eks-1-24-7
   # The amount of replicas to run the deployment with
   replicas: 1
-  # NodeSelector used 
+  # NodeSelector used
   nodeSelector: {}
-  # Affinity to apply 
+  # Affinity to apply
   affinity: {}
-  # Tolerations to apply 
+  # Tolerations to apply
   tolerations: []
-  # Extra Labels 
+  # Extra Labels
   labels: {}
   # Extra Annotations
   annotations: {}
@@ -304,7 +306,7 @@ workloadServiceAccount:
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Deprecated ! 
+    # Deprecated !
     # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     create: false
@@ -313,7 +315,7 @@ rbac:
     # Support for this value will be removed in a future version of the vcluster
     # and basic role will always be created
     create: true
-    # Deprecated ! 
+    # Deprecated !
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
@@ -378,11 +380,11 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 # Set "enable" to true when running vcluster in an OpenShift host
-# This will add an extra rule to the deployed role binding in order 
+# This will add an extra rule to the deployed role binding in order
 # to manage service endpoints
 openshift:
   enable: false
-  
+
 # manifests to setup when initializing a vcluster
 init:
   manifests: |-
