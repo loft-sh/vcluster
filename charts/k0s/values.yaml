@@ -56,12 +56,12 @@ sync:
   nodes:
     fakeKubeletIPs: true
     enabled: false
-    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
     # will sync all nodes instead of only the ones where some pods are running.
     syncAllNodes: false
     # nodeSelector is used to limit which nodes get synced to the vcluster,
     # and which nodes are used to run vcluster pods.
-    # A valid string representation of a label selector must be used. 
+    # A valid string representation of a label selector must be used.
     nodeSelector: ""
     # if true, vcluster will run with a scheduler and node changes are possible
     # from within the virtual cluster. This is useful if you would like to
@@ -125,6 +125,8 @@ proxy:
       enabled: false
 
 hostpathMapper:
+  # Image to use for the hostpathMapper
+  # image: ghcr.io/loft-sh/vcluster
   enabled: false
   resources: {}
     # limits:
@@ -195,7 +197,7 @@ storage:
   # Optional StorageClass used for the pvc
   # if empty default StorageClass defined in your host cluster will be used
   #className:
-  
+
 # Extra volumes that should be created for the StatefulSet
 volumes: []
 
@@ -216,7 +218,7 @@ workloadServiceAccount:
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Deprecated ! 
+    # Deprecated !
     # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     create: false
@@ -225,7 +227,7 @@ rbac:
     # Support for this value will be removed in a future version of the vcluster
     # and basic role will always be created
     create: true
-    # Deprecated ! 
+    # Deprecated !
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
@@ -310,7 +312,7 @@ securityContext:
 #  ...
 
 # Set "enable" to true when running vcluster in an OpenShift host
-# This will add an extra rule to the deployed role binding in order 
+# This will add an extra rule to the deployed role binding in order
 # to manage service endpoints
 openshift:
   enable: false

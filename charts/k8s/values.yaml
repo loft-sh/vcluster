@@ -60,12 +60,12 @@ sync:
   nodes:
     fakeKubeletIPs: true
     enabled: false
-    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
     # will sync all nodes instead of only the ones where some pods are running.
     syncAllNodes: false
     # nodeSelector is used to limit which nodes get synced to the vcluster,
     # and which nodes are used to run vcluster pods.
-    # A valid string representation of a label selector must be used. 
+    # A valid string representation of a label selector must be used.
     nodeSelector: ""
     # if true, vcluster will run with a scheduler and node changes are possible
     # from within the virtual cluster. This is useful if you would like to
@@ -129,6 +129,8 @@ proxy:
       enabled: false
 
 hostpathMapper:
+  # Image to use for the hostpathMapper
+  # image: ghcr.io/loft-sh/vcluster
   enabled: false
   resources: {}
     # limits:
@@ -162,7 +164,7 @@ syncer:
       # for example gke wants minimum 10m/32Mi here!
       cpu: 20m
       memory: 64Mi
-  # Extra volumes 
+  # Extra volumes
   volumes: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -187,7 +189,7 @@ syncer:
 # Etcd settings
 etcd:
   image: registry.k8s.io/etcd:3.5.6-0
-  # The amount of replicas to run 
+  # The amount of replicas to run
   replicas: 1
   # NodeSelector used
   nodeSelector: {}
@@ -195,7 +197,7 @@ etcd:
   affinity: {}
   # Tolerations to apply
   tolerations: []
-  # Extra Labels 
+  # Extra Labels
   labels: {}
   # Extra Annotations
   annotations: {}
@@ -218,19 +220,19 @@ etcd:
   priorityClassName: ""
   securityContext: {}
   serviceAnnotations: {}
-  
+
 # Kubernetes Controller Manager settings
 controller:
   image: registry.k8s.io/kube-controller-manager:v1.26.1
   # The amount of replicas to run the deployment with
   replicas: 1
-  # NodeSelector used 
+  # NodeSelector used
   nodeSelector: {}
-  # Affinity to apply 
+  # Affinity to apply
   affinity: {}
-  # Tolerations to apply 
+  # Tolerations to apply
   tolerations: []
-  # Extra Labels 
+  # Extra Labels
   labels: {}
   # Extra Annotations
   annotations: {}
@@ -288,7 +290,7 @@ api:
   priorityClassName: ""
   securityContext: {}
   serviceAnnotations: {}
-  
+
 # Service account that should be used by the vcluster
 serviceAccount:
   create: true
@@ -306,7 +308,7 @@ workloadServiceAccount:
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Deprecated ! 
+    # Deprecated !
     # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     create: false
@@ -315,7 +317,7 @@ rbac:
     # Support for this value will be removed in a future version of the vcluster
     # and basic role will always be created
     create: true
-    # Deprecated ! 
+    # Deprecated !
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
@@ -380,7 +382,7 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 # Set "enable" to true when running vcluster in an OpenShift host
-# This will add an extra rule to the deployed role binding in order 
+# This will add an extra rule to the deployed role binding in order
 # to manage service endpoints
 openshift:
   enable: false
