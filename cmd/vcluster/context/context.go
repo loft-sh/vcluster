@@ -3,6 +3,7 @@ package context
 import (
 	"context"
 
+	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
@@ -24,9 +25,10 @@ type ControllerContext struct {
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 
-	Controllers sets.Set[string]
-	Options     *VirtualClusterOptions
-	StopChan    <-chan struct{}
+	Controllers             sets.Set[string]
+	AdditionalServerFilters []servertypes.Filter
+	Options                 *VirtualClusterOptions
+	StopChan                <-chan struct{}
 }
 
 func NewControllerContext(

@@ -21,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
@@ -38,10 +39,15 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	unionauthentication "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/authorization/union"
+	"k8s.io/apiserver/pkg/endpoints/filterlatency"
+	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	genericfeatures "k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/server"
-	apifilters "k8s.io/apiserver/pkg/server/filters"
+	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	"k8s.io/apiserver/pkg/server/options"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	flowcontrolrequest "k8s.io/apiserver/pkg/util/flowcontrol/request"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -50,10 +56,6 @@ import (
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	AdditionalFilters []Filter = []Filter{}
 )
 
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
@@ -203,11 +205,6 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 	}
 
 	h := handler.ImpersonatingHandler("", virtualConfig)
-	for _, f := range AdditionalFilters {
-		h = f(h, FilterOptions{
-			LocalScheme: uncachedLocalClient.Scheme(),
-		})
-	}
 	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Options.SyncLabels)
 	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, s.redirectResources)
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
@@ -226,6 +223,12 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 		h = filters.WithPprof(h)
 	}
 
+	for _, f := range ctx.AdditionalServerFilters {
+		h = f(h, servertypes.FilterOptions{
+			LocalScheme: uncachedLocalClient.Scheme(),
+		})
+	}
+
 	serverhelper.HandleRoute(s.handler, "/", h)
 
 	return s, nil
@@ -239,7 +242,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 		APIPrefixes:          sets.NewString("api", "apis"),
 		GrouplessAPIPrefixes: sets.NewString("api"),
 	}
-	serverConfig.LongRunningFunc = apifilters.BasicLongRunningRequestCheck(
+	serverConfig.LongRunningFunc = genericfilters.BasicLongRunningRequestCheck(
 		sets.NewString("watch", "proxy"),
 		sets.NewString("attach", "exec", "proxy", "log", "portforward"),
 	)
@@ -337,9 +340,101 @@ func createCachedClient(ctx context.Context, config *rest.Config, namespace stri
 }
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
-	defaultHandler := server.DefaultBuildHandlerChain(s.handler, serverConfig)
+	defaultHandler := DefaultBuildHandlerChain(s.handler, serverConfig)
 	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.fakeKubeletIPs, s.cachedVirtualClient, s.currentNamespaceClient)
 	return defaultHandler
+}
+
+// Copied from "k8s.io/apiserver/pkg/server" package
+func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Handler {
+	handler := filterlatency.TrackCompleted(apiHandler)
+	handler = genericapifilters.WithAuthorization(handler, c.Authorization.Authorizer, c.Serializer)
+	handler = filterlatency.TrackStarted(handler, c.TracerProvider, "authorization")
+
+	if c.FlowControl != nil {
+		workEstimatorCfg := flowcontrolrequest.DefaultWorkEstimatorConfig()
+		requestWorkEstimator := flowcontrolrequest.NewWorkEstimator(
+			c.StorageObjectCountTracker.Get, c.FlowControl.GetInterestedWatchCount, workEstimatorCfg)
+		handler = filterlatency.TrackCompleted(handler)
+		handler = genericfilters.WithPriorityAndFairness(handler, c.LongRunningFunc, c.FlowControl, requestWorkEstimator)
+		handler = filterlatency.TrackStarted(handler, c.TracerProvider, "priorityandfairness")
+	} else {
+		handler = genericfilters.WithMaxInFlightLimit(handler, c.MaxRequestsInFlight, c.MaxMutatingRequestsInFlight, c.LongRunningFunc)
+	}
+
+	handler = filterlatency.TrackCompleted(handler)
+	handler = genericapifilters.WithImpersonation(handler, c.Authorization.Authorizer, c.Serializer)
+	// @matskiv: save the user.Info object before impersonation which might override it
+	handler = WithOriginalUser(handler)
+	handler = filterlatency.TrackStarted(handler, c.TracerProvider, "impersonation")
+
+	handler = filterlatency.TrackCompleted(handler)
+	handler = genericapifilters.WithAudit(handler, c.AuditBackend, c.AuditPolicyRuleEvaluator, c.LongRunningFunc)
+	handler = filterlatency.TrackStarted(handler, c.TracerProvider, "audit")
+
+	failedHandler := genericapifilters.Unauthorized(c.Serializer)
+	failedHandler = genericapifilters.WithFailedAuthenticationAudit(failedHandler, c.AuditBackend, c.AuditPolicyRuleEvaluator)
+
+	failedHandler = filterlatency.TrackCompleted(failedHandler)
+	handler = filterlatency.TrackCompleted(handler)
+	handler = genericapifilters.WithAuthentication(handler, c.Authentication.Authenticator, failedHandler, c.Authentication.APIAudiences, c.Authentication.RequestHeaderConfig)
+	handler = filterlatency.TrackStarted(handler, c.TracerProvider, "authentication")
+
+	handler = genericfilters.WithCORS(handler, c.CorsAllowedOriginList, nil, nil, nil, "true")
+
+	// WithTimeoutForNonLongRunningRequests will call the rest of the request handling in a go-routine with the
+	// context with deadline. The go-routine can keep running, while the timeout logic will return a timeout to the client.
+	handler = genericfilters.WithTimeoutForNonLongRunningRequests(handler, c.LongRunningFunc)
+
+	handler = genericapifilters.WithRequestDeadline(handler, c.AuditBackend, c.AuditPolicyRuleEvaluator,
+		c.LongRunningFunc, c.Serializer, c.RequestTimeout)
+	handler = genericfilters.WithWaitGroup(handler, c.LongRunningFunc, c.NonLongRunningRequestWaitGroup)
+
+	// @matskiv: In our case the c.ShutdownWatchTerminationGracePeriod is 0, so we will ignore this branch,
+	// otherwise the fact that c.lifecycleSignals is private would be a problem.
+	// if c.ShutdownWatchTerminationGracePeriod > 0 {
+	// 	handler = genericfilters.WithWatchTerminationDuringShutdown(handler, c.lifecycleSignals, c.WatchRequestWaitGroup)
+	// }
+	if c.SecureServing != nil && !c.SecureServing.DisableHTTP2 && c.GoawayChance > 0 {
+		handler = genericfilters.WithProbabilisticGoaway(handler, c.GoawayChance)
+	}
+	handler = genericapifilters.WithWarningRecorder(handler)
+	handler = genericapifilters.WithCacheControl(handler)
+	handler = genericfilters.WithHSTS(handler, c.HSTSDirectives)
+
+	// @matskiv: In our case the c.ShutdownSendRetryAfter is false, so we will ignore this branch,
+	// otherwise the fact that c.lifecycleSignals is private would be a problem.
+	// if c.ShutdownSendRetryAfter {
+	// 	handler = genericfilters.WithRetryAfter(handler, c.lifecycleSignals.NotAcceptingNewRequest.Signaled())
+	// }
+	handler = genericfilters.WithHTTPLogging(handler)
+	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.APIServerTracing) {
+		handler = genericapifilters.WithTracing(handler, c.TracerProvider)
+	}
+	handler = genericapifilters.WithLatencyTrackers(handler)
+	handler = genericapifilters.WithRequestInfo(handler, c.RequestInfoResolver)
+	handler = genericapifilters.WithRequestReceivedTimestamp(handler)
+
+	// @matskiv: In our case the channel returned by the c.lifecycleSignals.MuxAndDiscoveryComplete.Signaled()
+	// is never closed because we are not using the code that would usually close it. We will pass a dummy channel
+	// to get the same outcome.
+	// Original line:
+	// handler = genericapifilters.WithMuxAndDiscoveryComplete(handler, c.lifecycleSignals.MuxAndDiscoveryComplete.Signaled())
+	handler = genericapifilters.WithMuxAndDiscoveryComplete(handler, make(chan struct{}))
+	handler = genericfilters.WithPanicRecovery(handler, c.RequestInfoResolver)
+	handler = genericapifilters.WithAuditInit(handler)
+	return handler
+}
+
+func WithOriginalUser(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		user, ok := request.UserFrom(req.Context())
+		if ok {
+			req = req.WithContext(context.WithValue(req.Context(), servertypes.OriginalUserKey, user))
+		}
+
+		h.ServeHTTP(w, req)
+	})
 }
 
 func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interface, error) {
@@ -414,9 +509,3 @@ type emptyConfigProvider struct{}
 func (e *emptyConfigProvider) ConfigFor(pluginName string) (io.Reader, error) {
 	return nil, nil
 }
-
-type FilterOptions struct {
-	LocalScheme *runtime.Scheme
-}
-
-type Filter func(http.Handler, FilterOptions) http.Handler
