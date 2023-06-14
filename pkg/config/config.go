@@ -15,6 +15,27 @@ type Config struct {
 
 	// Imports syncs a resource from the host cluster to virtual cluster
 	Imports []*Import `yaml:"import,omitempty" json:"import,omitempty"`
+
+	// Hooks are hooks that can be used to inject custom patches before syncing
+	Hooks *Hooks `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+}
+
+type Hooks struct {
+	// HostToVirtual is a hook that is executed before syncing from the host to the virtual cluster
+	HostToVirtual []*Hook `yaml:"hostToVirtual,omitempty" json:"hostToVirtual,omitempty"`
+
+	// VirtualToHost is a hook that is executed before syncing from the virtual to the host cluster
+	VirtualToHost []*Hook `yaml:"virtualToHost,omitempty" json:"virtualToHost,omitempty"`
+}
+
+type Hook struct {
+	TypeInformation
+
+	// Verbs are the verbs that the hook should mutate
+	Verbs []string `yaml:"verbs,omitempty" json:"verbs,omitempty"`
+
+	// Patches are the patches to apply on the object to be synced
+	Patches []*Patch `yaml:"patches,omitempty" json:"patches,omitempty"`
 }
 
 type Import struct {

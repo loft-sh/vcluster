@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -23,5 +24,66 @@ export:  # Old from virtual cluster
 	if err != nil {
 		t.Fatalf("Error parsing config %v", err)
 	}
+}
 
+func TestConfigParsingHooks(t *testing.T) {
+	rawConfig := `version: v1beta1
+hooks:
+  hostToVirtual:
+    - apiVersion: v1
+      kind: Pod
+      verbs: ["create", "update", "patch"]
+      patches:
+        - op: add
+          path: metadata.annotations
+          value:
+            import-annotation: testing-annotation-import
+  virtualToHost:
+    - apiVersion: v1
+      kind: Pod
+      verbs: ["create", "update", "patch"]
+      patches:
+        - op: add
+          path: metadata.annotations
+          value:
+            export-annotation: testing-annotation-export
+`
+
+	_, err := Parse(rawConfig)
+	if err != nil {
+		t.Fatalf("Error parsing config %v", err)
+	}
+}
+
+func TestConfigParsingHooksUnknownVerb(t *testing.T) {
+	rawConfig := `version: v1beta1
+hooks:
+  hostToVirtual:
+    - apiVersion: v1
+      kind: Pod
+      verbs: ["create", "update", "patch", "unknown"]
+      patches:
+        - op: add
+          path: metadata.annotations
+          value:
+            import-annotation: testing-annotation-import
+  virtualToHost:
+    - apiVersion: v1
+      kind: Pod
+      verbs: ["create", "update", "patch"]
+      patches:
+        - op: add
+          path: metadata.annotations
+          value:
+            export-annotation: testing-annotation-export
+`
+
+	_, err := Parse(rawConfig)
+	if err == nil {
+		t.Fatalf("Error parsing config %v", err)
+	}
+
+	if !strings.Contains(err.Error(), "invalid verb \"unknown\";") {
+		t.Fatalf("Error parsing config %v", err)
+	}
 }
