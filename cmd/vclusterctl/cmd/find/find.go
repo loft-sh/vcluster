@@ -113,11 +113,13 @@ func VClusterFromContext(originalContext string) (name string, namespace string,
 	}
 
 	splitted := strings.Split(originalContext, "_")
-	if len(splitted) < 4 {
-		return "", "", ""
+	// vcluster_<name>_<namespace>_<context>
+	if len(splitted) >= 4 {
+		return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
 	}
 
-	return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
+	// we don't know for sure, but most likely specified custom vcluster context name
+	return originalContext, "", ""
 }
 
 func findInContext(ctx context.Context, context, name, namespace string, timeout time.Duration, isParentContext bool) ([]VCluster, error) {

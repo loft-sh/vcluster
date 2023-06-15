@@ -6,6 +6,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -65,10 +66,16 @@ func (cmd *DisconnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// get vcluster info from context
 	vClusterName, _, otherContext := find.VClusterFromContext(cmd.Context)
 	if vClusterName == "" {
-		return fmt.Errorf("current selected context is not a vcluster context")
+		return fmt.Errorf("current selected context \"%s\" is not a vcluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
 	}
 
-	// disconnect
+	if otherContext == "" {
+		otherContext, err = cmd.selectContext(&rawConfig, otherContext)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = switchContext(&rawConfig, otherContext)
 	if err != nil {
 		return errors.Wrap(err, "switch kube context")
@@ -81,4 +88,25 @@ func (cmd *DisconnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 func switchContext(kubeConfig *clientcmdapi.Config, otherContext string) error {
 	kubeConfig.CurrentContext = otherContext
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
+}
+
+func (cmd *DisconnectCmd) selectContext(kubeConfig *clientcmdapi.Config, currentContext string) (string, error) {
+	availableContexts := []string{}
+	for context := range kubeConfig.Contexts {
+		if context != currentContext {
+			availableContexts = append(availableContexts, context)
+		}
+	}
+
+	cmd.log.Warn("Unable to determine old context")
+	options := &survey.QuestionOptions{
+		Question: "Please select a new context to switch to:",
+		Options:  availableContexts,
+	}
+	answer, err := cmd.log.Question(options)
+	if err != nil {
+		return "", err
+	}
+
+	return answer, nil
 }
