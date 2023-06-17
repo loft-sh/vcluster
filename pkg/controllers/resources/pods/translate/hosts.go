@@ -47,8 +47,8 @@ func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewrite
 					corev1.ResourceMemory: resource.MustParse("64Mi"),
 				},
 				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("32Mi"),
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
 				},
 			},
 			VolumeMounts: []corev1.VolumeMount{
