@@ -132,6 +132,10 @@ spec:
           configMap:
             name: {{ .Release.Name }}-coredns
       {{- end }}
+        - name: custom-config-volume
+          configMap:
+            name: coredns-custom
+            optional: true
       {{- if not .Values.storage.persistence }}
         - name: data
           emptyDir: {}
@@ -338,9 +342,12 @@ spec:
           - name: tmp
             mountPath: /tmp
         {{- end }}
-        {{- if .Values.coredns.enabled }}
+        {{- if or .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns
+            readOnly: true
+          - name: custom-config-volume
+            mountPath: /etc/coredns/custom
             readOnly: true
         {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
