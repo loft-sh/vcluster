@@ -2,6 +2,7 @@ package blockingcacheclient
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,7 +39,7 @@ func NewCacheClient(config *rest.Config, options client.Options) (client.Client,
 // defaultNewClient creates the default caching client
 func defaultNewClient(config *rest.Config, options client.Options) (client.Client, error) {
 	if options.Cache == nil {
-		options.Cache = &client.CacheOptions{}
+		return nil, fmt.Errorf("blockingcacheclient should always be created with a cache (options.Cache)")
 	}
 	options.Cache.Unstructured = true
 
