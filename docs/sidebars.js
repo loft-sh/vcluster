@@ -71,7 +71,7 @@ module.exports = {
       collapsed: false,
       items: [
         'pro-features/central-hostpath-mapper',
-        'pro-features/integrated-coredns.mdx',
+        'pro-features/integrated-coredns',
       ],
     },
     {
