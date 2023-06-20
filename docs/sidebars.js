@@ -66,6 +66,15 @@ module.exports = {
       ],
     },
     {
+      type: 'category',
+      label: 'Advanced (Pro) features',
+      collapsed: false,
+      items: [
+        'pro-features/central-hostpath-mapper',
+        'pro-features/integrated-coredns.mdx',
+      ],
+    },
+    {
       type: "category",
       label: "Plugins",
       collapsed: false,
