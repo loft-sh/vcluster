@@ -264,6 +264,7 @@ spec:
           {{- end }}
           {{- if .Values.hostpathMapper.enabled }}
           - --rewrite-host-paths=true
+          - --tls-san={{ .Release.Name }}
           {{- end }}
           {{- if .Values.multiNamespaceMode.enabled }}
           - --multi-namespace-mode=true
