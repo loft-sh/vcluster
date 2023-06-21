@@ -160,7 +160,7 @@ data:
           containers:
             - name: coredns
               {{- if .Values.coredns.image }}
-              image: {{ .Values.coredns.image }}
+              image: {{ .Values.defaultImageRegistry }}{{ .Values.coredns.image }}
               {{- else }}
               image: {{`{{.IMAGE}}`}}
               {{- end }}
