@@ -480,6 +480,11 @@ func checkIfPathExists(path string) (bool, error) {
 }
 
 func startManagers(ctx context.Context, pManager, vManager manager.Manager) {
+	err := pManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, NodeIndexName, podNodeIndexer)
+	if err != nil {
+		panic(err)
+	}
+
 	go func() {
 		err := pManager.Start(ctx)
 		if err != nil {
@@ -487,22 +492,17 @@ func startManagers(ctx context.Context, pManager, vManager manager.Manager) {
 		}
 	}()
 
+	err = vManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, NodeIndexName, podNodeIndexer)
+	if err != nil {
+		panic(err)
+	}
+
 	go func() {
 		err := vManager.Start(ctx)
 		if err != nil {
 			panic(err)
 		}
 	}()
-
-	err := pManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, NodeIndexName, podNodeIndexer)
-	if err != nil {
-		panic(err)
-	}
-
-	err = vManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, NodeIndexName, podNodeIndexer)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func createPodLogSymlinkToPhysical(vPodDirName, pPodDirName string) (*string, error) {
