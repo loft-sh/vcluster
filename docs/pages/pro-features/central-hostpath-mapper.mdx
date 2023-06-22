@@ -18,9 +18,10 @@ hostpathMapper:
 
 A `daemonset` is spawned per node, per vcluster – which can be a resource hog as the number of `Nodes` and `vclusters` increase.
 
-To bypass this, the feature + component called Central Hostpath Mapper has been extended.
+The hostpath mapper feature was extended to a Central Hostpath Mapper to overcome this potential bottleneck.
 
-This is a loft integrated feature and the related docs can be found [here](https://loft.sh/docs/virtual-clusters/central-hostpath-mapper). Or you can follow the instructions below:
+This is a loft-integrated feature, and the related docs can be found [here](https://loft.sh/docs/virtual-clusters/central-hostpath-mapper).
+Alternatively, one can follow the instructions below:
 
 * Select the 'Projects' field on the left menu bar.
 * From the project drop-down menu, select the project you'd like to create the virtual cluster in.
