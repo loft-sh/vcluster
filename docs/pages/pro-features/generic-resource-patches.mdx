@@ -1,0 +1,109 @@
+---
+title: Generic Resource Patches
+sidebar_label: Generic Resource Patches
+---
+
+The Generic Resource Patch feature allows one to patch Kubernetes resources during sync and right before getting applied to the Kubernetes API server.
+
+## Hook Syntax
+
+One defines hooks as part of the [generic sync configuration](../architecture/synced-resources#configuration-syntax) in the hooks field.
+
+```yaml
+version: v1beta1
+hooks:
+  hostToVirtual: []
+  virtualToHost: []
+```
+
+The `apiVersion` field expects a "group/version" definition of both the resource group and API version.
+The `kind` field specifies which Kubernetes resources to patch.
+The `verbs` field defines the API calls to patch before application to the Kubernetes API.
+The `patches` reuse the same [syntax as the patches](../architecture/synced-resources#patch-syntax) utilized in [generic sync](../architecture/synced-resources#generic-sync).
+
+```yaml
+version: v1beta1
+hooks:
+  hostToVirtual:
+    - apiVersion: v1
+      kind: Pod
+
+      patches:
+        - op: add
+          path: metadata.annotations
+          value:
+            import-annotation: from-host-to-virtual
+
+  virtualToHost: []
+
+export: []
+import: []
+```
+
+## Example - Node Info Remover
+
+The example below removes all `.status.images` and all `.metadata.annotations` except the `node.alpha.kubernetes.io/ttl` annotation, all labels except some `kubernetes.io` labels.
+
+```yaml
+version: v1beta1
+hooks:
+  hostToVirtual:
+    - apiVersion: v1
+      kind: Node
+
+      verbs: ["update", "patch", "create", "get", "list"]
+
+      patches:
+        - op: remove
+          path: status.images
+        - op: replace
+          path: metadata.annotations
+          value: {}
+        - op: replace
+          path: metadata.labels
+          value: {}
+        - op: copyFromObject
+          fromPath: metadata.annotations["node.alpha.kubernetes.io/ttl"]
+          path: metadata.annotations["node.alpha.kubernetes.io/ttl"]
+
+        # Add arch labels
+        - op: copyFromObject
+          fromPath: metadata.labels["kubernetes.io/arch"]
+          path: metadata.labels["kubernetes.io/arch"]
+        - op: copyFromObject
+          fromPath: metadata.labels["kubernetes.io/hostname"]
+          path: metadata.labels["kubernetes.io/hostname"]
+        - op: copyFromObject
+          fromPath: metadata.labels["kubernetes.io/os"]
+          path: metadata.labels["kubernetes.io/os"]
+        - op: copyFromObject
+          fromPath: metadata.labels["beta.kubernetes.io/arch"]
+          path: metadata.labels["beta.kubernetes.io/arch"]
+        - op: copyFromObject
+          fromPath: metadata.labels["beta.kubernetes.io/hostname"]
+          path: metadata.labels["beta.kubernetes.io/hostname"]
+        - op: copyFromObject
+          fromPath: metadata.labels["beta.kubernetes.io/os"]
+          path: metadata.labels["beta.kubernetes.io/os"]
+
+  virtualToHost: []
+```
+
+## Usage in Pro Helm Chart
+
+When installing vcluster pro, make sure to set your generic sync configs in the `sync.generic.config` field as string.
+
+For example by either inlining it during helm install/upgrade
+
+```bash
+helm upgrade [RELEASE_NAME] loft-sh/vcluster-pro -n [RELEASE_NAMESPACE] --create-namespace --install --set sync.generic.config="..."
+```
+
+Or by specifying it in a dedicated values.yaml
+
+```yaml
+sync:
+  generic:
+   config: |–
+     ---
+```

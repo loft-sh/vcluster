@@ -73,6 +73,7 @@ module.exports = {
         'pro-features/central-hostpath-mapper',
         'pro-features/integrated-coredns',
         'pro-features/admission-checks',
+        'pro-features/generic-resource-patches',
       ],
     },
     {
