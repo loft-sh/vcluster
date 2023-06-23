@@ -2,8 +2,9 @@ package translate
 
 import (
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -75,41 +76,54 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 					pPod.Spec.Volumes[i].HostPath.Path = t.virtualPodLogsPath
 
 					t.log.Debugf("adding original hostPath to relevant containers")
-					pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
-						volume.Name,
-						volume.HostPath.Type,
-						PodLoggingHostPath,
-						PhysicalPodLogVolumeMountPath,
-						podLogMountPath,
-						pPod,
-					)
+
+					if t.skipPhysicalMounts {
+						pPod = t.ensureHostToContainerPropagation(volume.Name, pPod)
+					} else {
+						pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
+							volume.Name,
+							volume.HostPath.Type,
+							PodLoggingHostPath,
+							PhysicalPodLogVolumeMountPath,
+							podLogMountPath,
+							pPod,
+						)
+					}
 				}
 
-				if volume.HostPath.Path == KubeletPodPath &&
+				if strings.TrimSuffix(volume.HostPath.Path, "/") == KubeletPodPath &&
 					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
 					t.log.Debugf("rewriting hostPath for kubelet pods %s", pPod.Name)
 					pPod.Spec.Volumes[i].HostPath.Path = t.virtualKubeletPodPath
 					t.log.Debugf("adding original hostPath to relevant containers")
-					pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
-						volume.Name,
-						volume.HostPath.Type,
-						KubeletPodPath,
-						PhysicalKubeletVolumeMountPath,
-						kubeletMountPath,
-						pPod,
-					)
+					if t.skipPhysicalMounts {
+						pPod = t.ensureHostToContainerPropagation(volume.Name, pPod)
+					} else {
+						pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
+							volume.Name,
+							volume.HostPath.Type,
+							KubeletPodPath,
+							PhysicalKubeletVolumeMountPath,
+							kubeletMountPath,
+							pPod,
+						)
+					}
 				}
 
 				if volume.HostPath.Path == LogHostPath {
 					pPod.Spec.Volumes[i].HostPath.Path = t.virtualLogsPath
-					pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
-						volume.Name,
-						volume.HostPath.Type,
-						LogHostPath,
-						PhysicalLogVolumeMountPath,
-						logMountPath,
-						pPod,
-					)
+					if t.skipPhysicalMounts {
+						pPod = t.ensureHostToContainerPropagation(volume.Name, pPod)
+					} else {
+						pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
+							volume.Name,
+							volume.HostPath.Type,
+							LogHostPath,
+							PhysicalLogVolumeMountPath,
+							logMountPath,
+							pPod,
+						)
+					}
 				}
 			}
 		}
@@ -164,5 +178,22 @@ func (t *translator) addPhysicalPathToVolumesAndCorrectContainers(
 		}
 	}
 
+	return pPod
+}
+
+// ensureHostToContainerPropagation ensures that MountPropagation from the host is enabled for the given volume
+func (t *translator) ensureHostToContainerPropagation(volumeName string, pPod *corev1.Pod) *corev1.Pod {
+	for i, container := range pPod.Spec.Containers {
+		for j, volumeMount := range container.VolumeMounts {
+			if volumeMount.Name == volumeName {
+				// override only if it is not set to Bidirectional (already allows for HostToContainer and would result in a downgrade)
+				if volumeMount.MountPropagation == nil ||
+					(volumeMount.MountPropagation != nil && *volumeMount.MountPropagation != corev1.MountPropagationBidirectional) {
+					v := corev1.MountPropagationHostToContainer
+					pPod.Spec.Containers[i].VolumeMounts[j].MountPropagation = &v
+				}
+			}
+		}
+	}
 	return pPod
 }

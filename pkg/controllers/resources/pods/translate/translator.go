@@ -94,6 +94,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		syncedLabels:                 ctx.Options.SyncLabels,
 
 		rewriteVirtualHostPaths: ctx.Options.RewriteHostPaths,
+		skipPhysicalMounts:      ctx.Options.SkipPhysicalMounts,
 		virtualLogsPath:         virtualLogsPath,
 		virtualPodLogsPath:      filepath.Join(virtualLogsPath, "pods"),
 		virtualKubeletPodPath:   filepath.Join(virtualKubeletPath, "pods"),
@@ -123,6 +124,7 @@ type translator struct {
 	syncedLabels                 []string
 
 	rewriteVirtualHostPaths bool
+	skipPhysicalMounts      bool
 	virtualLogsPath         string
 	virtualPodLogsPath      string
 	virtualKubeletPodPath   string
