@@ -69,47 +69,7 @@ data:
       name: coredns
       namespace: kube-system
     data:
-      Corefile: |
-        {{- if .Values.coredns.config }}
-{{ .Values.coredns.config | indent 8 }}
-        {{- else }}
-        .:1053 {
-            {{`{{.LOG_IN_DEBUG}}`}}
-            errors
-            health
-            ready
-            rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
-            kubernetes {{- if .Values.vcluster.clusterDomain }} {{ .Values.vcluster.clusterDomain }} {{- end }} cluster.local in-addr.arpa ip6.arpa {
-              pods insecure
-              {{- if .Values.fallbackHostDns }}
-              fallthrough cluster.local in-addr.arpa ip6.arpa
-              {{- else }}
-              fallthrough in-addr.arpa ip6.arpa
-              {{- end }}
-            }
-            hosts /etc/coredns/NodeHosts {
-              ttl 60
-              reload 15s
-              fallthrough
-            }
-            prometheus :9153
-            {{- if .Values.fallbackHostDns }}
-            forward . {{`{{.HOST_CLUSTER_DNS}}`}}
-            {{- else if and .Values.isolation.enabled .Values.isolation.networkPolicy.enabled }}
-            forward . /etc/resolv.conf 8.8.8.8 {
-              policy sequential
-            }
-            {{- else }}
-            forward . /etc/resolv.conf
-            {{- end }}
-            cache 30
-            loop
-            reload
-            loadbalance
-        }
-
-        import /etc/coredns/custom/*.server
-        {{- end }}
+{{ include "vcluster.corefile" . | indent 6 }}
       NodeHosts: ""
     ---
     apiVersion: apps/v1
