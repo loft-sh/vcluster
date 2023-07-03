@@ -72,15 +72,21 @@ spec:
         - name: tmp
           emptyDir: {}
       {{- end }}
-        - name: coredns
-          configMap:
-            name: {{ .Release.Name }}-coredns
         - name: certs
           secret:
             secretName: {{ .Release.Name }}-certs
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
       {{- end }}
+      {{- if .Values.coredns.enabled }}
+        - name: coredns
+          configMap:
+            name: {{ .Release.Name }}-coredns
+      {{- end }}
+        - name: custom-config-volume
+          configMap:
+            name: coredns-custom
+            optional: true
       {{- if .Values.syncer.priorityClassName }}
       priorityClassName: {{ .Values.syncer.priorityClassName }}
       {{- end }}
