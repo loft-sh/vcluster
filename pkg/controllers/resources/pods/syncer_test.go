@@ -7,6 +7,7 @@ import (
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/util/maps"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -396,6 +397,22 @@ func TestSync(t *testing.T) {
 		},
 	}
 
+	syncLabelsWildcard := "test.sh/*"
+	testLabels := map[string]string{
+		"test.sh/label1": "true",
+		"test.sh/label2": "true",
+	}
+
+	vPodWithLabels := &corev1.Pod{
+		ObjectMeta: vObjectMeta,
+	}
+	vPodWithLabels.Labels = testLabels
+
+	pPodWithLabels := pPodBase.DeepCopy()
+	maps.Copy(pPodWithLabels.Labels, testLabels)
+	maps.Copy(pPodWithLabels.Labels, convertLabelKeyWithPrefix(testLabels))
+	pPodWithLabels.Annotations[podtranslate.LabelsAnnotation] = podtranslate.TranslateLabelsAnnotation(vPodWithLabels)
+
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Delete virtual pod",
@@ -515,5 +532,34 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name:                 "Check Syncer with sync labels wildcard",
+			InitialVirtualState:  []runtime.Object{vPodWithLabels.DeepCopy(), vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithLabels.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {
+					pPodWithLabels.DeepCopy(),
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.SyncLabels = []string{syncLabelsWildcard}
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodWithLabels.DeepCopy())
+				assert.NilError(t, err)
+			},
+		},
 	})
+}
+
+func convertLabelKeyWithPrefix(labels map[string]string) map[string]string {
+	ret := make(map[string]string, len(labels))
+
+	for k, v := range labels {
+		ret[translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, k)] = v
+	}
+
+	return ret
 }
