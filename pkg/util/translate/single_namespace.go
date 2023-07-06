@@ -3,6 +3,8 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"regexp"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -108,8 +110,18 @@ func (s *singleNamespace) TranslateLabelsCluster(vObj client.Object, pObj client
 		}
 		if vObjLabels != nil {
 			for _, k := range syncedLabels {
-				if value, ok := vObjLabels[k]; ok {
-					newLabels[k] = value
+				if strings.HasSuffix(k, "/*") {
+					r, _ := regexp.Compile(strings.ReplaceAll(k, "/*", "/.*"))
+
+					for key, val := range vObjLabels {
+						if r.MatchString(key) {
+							newLabels[key] = val
+						}
+					}
+				} else {
+					if value, ok := vObjLabels[k]; ok {
+						newLabels[k] = value
+					}
 				}
 			}
 		}
@@ -218,8 +230,18 @@ func (s *singleNamespace) TranslateLabels(fromLabels map[string]string, vNamespa
 		newLabels[s.ConvertLabelKey(k)] = v
 	}
 	for _, k := range syncedLabels {
-		if value, ok := fromLabels[k]; ok {
-			newLabels[k] = value
+		if strings.HasSuffix(k, "/*") {
+			r, _ := regexp.Compile(strings.ReplaceAll(k, "/*", "/.*"))
+
+			for key, val := range fromLabels {
+				if r.MatchString(key) {
+					newLabels[key] = val
+				}
+			}
+		} else {
+			if value, ok := fromLabels[k]; ok {
+				newLabels[k] = value
+			}
 		}
 	}
 
