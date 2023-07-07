@@ -195,7 +195,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Spec.ServiceAccountName
 	}
 	if _, ok := pPod.Annotations[LabelsAnnotation]; !ok {
-		pPod.Annotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
+		pPod.Annotations[LabelsAnnotation] = TranslateLabelsAnnotation(vPod)
 	}
 	if _, ok := pPod.Annotations[ClusterAutoScalerAnnotation]; !ok {
 		// check if the vPod would be evictable
@@ -332,7 +332,7 @@ func canAnnotateOwnerSetKind(kind string) bool {
 	return kind == "DaemonSet" || kind == "Job" || kind == "ReplicaSet" || kind == "StatefulSet"
 }
 
-func translateLabelsAnnotation(obj client.Object) string {
+func TranslateLabelsAnnotation(obj client.Object) string {
 	labelsString := []string{}
 	for k, v := range obj.GetLabels() {
 		// escape pod labels
@@ -866,7 +866,7 @@ func (t *translator) Diff(ctx context.Context, vPod, pPod *corev1.Pod) (*corev1.
 		updatedLabels = map[string]string{}
 	}
 
-	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
+	updatedAnnotations[LabelsAnnotation] = TranslateLabelsAnnotation(vPod)
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {
 			updatedPod = pPod.DeepCopy()
