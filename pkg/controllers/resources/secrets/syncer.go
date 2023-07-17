@@ -165,7 +165,10 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 			return false, err
 		}
 
-		return meta.LenList(ingressesList) > 0, nil
+		isUsed = meta.LenList(ingressesList) > 0
+		if isUsed {
+			return true, nil
+		}
 	}
 
 	if s.syncAllSecrets {

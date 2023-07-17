@@ -154,7 +154,7 @@ syncer:
   volumeMounts:
     - mountPath: /data
       name: data
-      readOnly: true
+      # readOnly: true
   extraVolumeMounts: []
   resources:
     limits:
