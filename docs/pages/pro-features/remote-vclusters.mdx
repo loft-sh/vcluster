@@ -1,0 +1,51 @@
+---
+title: Remote vclusters
+sidebar_label: Remote vclusters
+---
+
+This feature allows you to deploy the vcluster control plane in one cluster and the actual workloads into another cluster.
+
+:::
+Currently this feature only works through a LoadBalancer.
+Hence the user needs to make sure that their control plane
+is able to schedule LoadBalancers that fill the `status.Ingress` field
+correctly with either and IP or a hostname. Compatibility has been tested 
+in Google Cloud and AWS.
+
+Another requirement for this feature is that it expects a kube config to a headless vcluster installation,
+hence the target vcluster must be deployed as a headless vcluster.
+:::
+
+#### Deploy a headless vcluster
+The first step is to have a headless vcluster deployed. This will be used as the
+remote vcluster. One can deploy this with the `headless` option of the vcluster.
+Headless mode basically means – no deployment or statefulset will be created for the vcluster
+
+```
+headless: true
+```
+
+#### Create a vcluster with the headless cluster and the remote vcluster
+This requires the below three arguments to be present:
+- `remote-kube-config`: Will use the remote kube-config instead of the local in-cluster one. Expects a kube config to a headless vcluster installation. Path to the remote kubeconfig to load from. The kubeconfig should ideally be created into a secret and mounted at this path – to achieve this one can look into the `syncer.extraVolumeMounts` in conjunction with `volumes` option of the vclsuter helm chart values.
+- `remote-namespace`: Will use this as the remote namespace
+- `remote-service-name`: Will use this as the remote service name
+
+These above arguments go to the `extraArgs` flags of the syncer as shown below
+```yaml
+volumes:
+    - name: remote-kubeconfig
+      secret:
+        secretName: <secret-name>
+
+syncer:
+    extraVolumeMounts:
+        - name: remote-kubeconfig
+          mountPath: '<path>'
+
+    extraArgs:
+        - '--remote-kube-config=<path>'
+        - '--remote-namespace=<namespace_name>'
+        - '--remote-service-name=<service_name>'
+```
+
