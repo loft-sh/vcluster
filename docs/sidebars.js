@@ -72,6 +72,7 @@ module.exports = {
       items: [
         'pro-features/central-hostpath-mapper',
         'pro-features/integrated-coredns',
+        'pro-features/remote-vclusters',
         'pro-features/admission-checks',
         'pro-features/generic-resource-patches',
       ],
