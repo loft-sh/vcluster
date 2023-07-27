@@ -327,6 +327,10 @@ rbac:
     # Support for this value will be removed in a future version of the vcluster
     extended: false
 
+# Extra Annotations for the stateful set
+annotations: {}
+podAnnotations: {}
+
 # Syncer service configurations
 service:
   type: ClusterIP
