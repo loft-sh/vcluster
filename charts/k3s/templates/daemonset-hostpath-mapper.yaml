@@ -42,6 +42,18 @@ spec:
       {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
+      {{- if .Values.hostpathMapper.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.hostpathMapper.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.hostpathMapper.affinity }}
+      affinity:
+{{ toYaml .Values.hostpathMapper.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.hostpathMapper.tolerations }}
+      tolerations:
+{{ toYaml .Values.hostpathMapper.tolerations | indent 8 }}
+      {{- end }}
       containers:
       - name: hostpath-mapper
         {{- if .Values.hostpathMapper.image }}

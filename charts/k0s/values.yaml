@@ -135,6 +135,12 @@ hostpathMapper:
     # requests:
     #   cpu: 20m
     #   memory: 50Mi
+  # Node selectors to use for the hostpathMapper
+  nodeSelector: {}
+  # Affinity to use for the hostpathMapper
+  affinity: {}
+  # Tolerations to use for the hostpathMapper
+  tolerations: [] 
 
 # Syncer configuration
 syncer:
