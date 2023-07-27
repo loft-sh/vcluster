@@ -513,7 +513,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"): {pHostPathPod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.RewriteHostPaths = true
+				ctx.Options.MountPhysicalHostPaths = true
 				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
 				assert.NilError(t, err)

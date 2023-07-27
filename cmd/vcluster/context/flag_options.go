@@ -71,7 +71,11 @@ type VirtualClusterOptions struct {
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
 	// hostpath mapper options
-	RewriteHostPaths         bool `json:"rewriteHostPaths,omitempty"`
+	// this is only needed if using vcluster-hostpath-mapper component
+	// see: https://github.com/loft-sh/vcluster-hostpath-mapper
+	MountPhysicalHostPaths bool `json:"rewriteHostPaths,omitempty"`
+	// To enable FSMounts functionality
+	EnsureMountPropagation   bool `json:"ensureMountPropagation,omitempty"`
 	VirtualLogsPath          string
 	VirtualPodLogsPath       string
 	VirtualContainerLogsPath string
@@ -159,7 +163,8 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.StringVar(&options.HostMetricsBindAddress, "host-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the host cluster will be exposed at this address")
 	flags.StringVar(&options.VirtualMetricsBindAddress, "virtual-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the virtual cluster will be exposed at this address")
 
-	flags.BoolVar(&options.RewriteHostPaths, "rewrite-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
+	flags.BoolVar(&options.MountPhysicalHostPaths, "mount-physical-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
+	flags.BoolVar(&options.EnsureMountPropagation, "ensure-mount-propagation", false, "If enabled, syncer will check certain hostpaths in synced pod volumes for mount propagation and enable correctly")
 	flags.BoolVar(&options.MultiNamespaceMode, "multi-namespace-mode", false, "If enabled, syncer will create a namespace for each virtual namespace and use the original names for the synced namespaced resources")
 	flags.StringSliceVar(&options.NamespaceLabels, "namespace-labels", []string{}, "Defines one or more labels that will be added to the namespaces synced in the multi-namespace mode. Format: \"labelKey=labelValue\". Multiple values can be passed in a comma-separated string.")
 	flags.BoolVar(&options.SyncAllConfigMaps, "sync-all-configmaps", false, "Sync all configmaps from virtual to host cluster")

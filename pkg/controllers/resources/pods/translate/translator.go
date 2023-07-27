@@ -93,10 +93,11 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		enableScheduler:              ctx.Options.EnableScheduler,
 		syncedLabels:                 ctx.Options.SyncLabels,
 
-		rewriteVirtualHostPaths: ctx.Options.RewriteHostPaths,
-		virtualLogsPath:         virtualLogsPath,
-		virtualPodLogsPath:      filepath.Join(virtualLogsPath, "pods"),
-		virtualKubeletPodPath:   filepath.Join(virtualKubeletPath, "pods"),
+		mountPhysicalHostPaths:   ctx.Options.MountPhysicalHostPaths,
+		hostpathMountPropagation: ctx.Options.EnsureMountPropagation,
+		virtualLogsPath:          virtualLogsPath,
+		virtualPodLogsPath:       filepath.Join(virtualLogsPath, "pods"),
+		virtualKubeletPodPath:    filepath.Join(virtualKubeletPath, "pods"),
 
 		projectedVolumeSAToken: make(map[string]string),
 	}, nil
@@ -122,10 +123,11 @@ type translator struct {
 	enableScheduler              bool
 	syncedLabels                 []string
 
-	rewriteVirtualHostPaths bool
-	virtualLogsPath         string
-	virtualPodLogsPath      string
-	virtualKubeletPodPath   string
+	mountPhysicalHostPaths   bool
+	hostpathMountPropagation bool
+	virtualLogsPath          string
+	virtualPodLogsPath       string
+	virtualKubeletPodPath    string
 
 	projectedVolumeSAToken map[string]string
 }
@@ -426,7 +428,7 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 	}
 
 	// rewrite host paths if enabled
-	if t.rewriteVirtualHostPaths {
+	if t.mountPhysicalHostPaths || t.hostpathMountPropagation {
 		t.rewriteHostPaths(pPod)
 	}
 
