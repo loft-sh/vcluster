@@ -405,9 +405,6 @@ func StartControllers(controllerContext *context2.ControllerContext) error {
 		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
 	}
 
-	// register APIService
-	go RegisterOrDeregisterAPIService(controllerContext)
-
 	// setup CoreDNS according to the manifest file
 	go func() {
 		_ = wait.ExponentialBackoffWithContext(controllerContext.Context, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
@@ -462,6 +459,9 @@ func StartControllers(controllerContext *context2.ControllerContext) error {
 	// Wait for caches to be synced
 	controllerContext.LocalManager.GetCache().WaitForCacheSync(controllerContext.Context)
 	controllerContext.VirtualManager.GetCache().WaitForCacheSync(controllerContext.Context)
+
+	// register APIService
+	go RegisterOrDeregisterAPIService(controllerContext)
 
 	// make sure owner is set if it is there
 	err = FindOwner(controllerContext)
