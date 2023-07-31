@@ -15,6 +15,31 @@ export:  # Old from virtual cluster
   patches:
     - op: rewriteName
       path: spec.ca.secretName
+- apiVersion: monitoring.coreos.com/v1
+  kind: ServiceMonitor
+  patches:
+    - op: add
+      path: .metadata.labels
+      value:
+        prometheus-instance: default-instance
+    - op: copyFromObject
+      fromPath: .metadata.labels['prometheus-instance'] 
+      path: .metadata.labels['prometheus-instance']
+    - op: replace
+      path: .spec.namespaceSelector
+      value:
+        any: false
+        matchNames: []
+    - op: rewriteName
+      path: .spec.endpoints[*]
+    - op: rewriteLabelKey
+      path: .spec.jobLabel
+    - op: rewriteLabelKey
+      path: .spec.targetLabels[*]
+    - op: rewriteLabelKey
+      path: .spec.podTargetLabels[*]
+    - op: rewriteLabelExpressionsSelector
+      path: .spec.selector
   reversePatches:       
     - op: copyFromObject # Sync status back by default
       fromPath: status
