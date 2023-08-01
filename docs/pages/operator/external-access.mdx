@@ -278,7 +278,7 @@ kubectl get ns
 
 In order to access the virtual cluster from within the host cluster, you can directly connect to the vcluster service. Make sure you can access that service and then create a kube config in the following form:
 ```
-vcluster connect my-vcluster -n my-vcluster --server=my-vcluster.my-vcluster --insecure --update-current=false
+vcluster connect my-vcluster -n my-vcluster --update-current=false --server=my-vcluster.my-vcluster --insecure --update-current=false
 ```
 
 Now access the virtual cluster with:
