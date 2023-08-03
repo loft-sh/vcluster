@@ -567,7 +567,7 @@ docker_signs:
   - cmd: cosign
     env:
       - COSIGN_EXPERIMENTAL=1
-    artifacts: images
+    artifacts: all
     args:
       - "sign"
       - "${artifact}"
