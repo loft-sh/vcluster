@@ -50,7 +50,7 @@ jobs:
       - name: Build and save syncer image
         run: |
           set -x
-          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --clean --output ./vcluster
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
           docker build -t ${{ env.IMAGE_NAME }} -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
           docker save -o vcluster_syncer ${{ env.IMAGE_NAME }}
       - name: Upload syncer image to artifact
