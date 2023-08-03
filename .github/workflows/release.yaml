@@ -5,180 +5,66 @@ on:
     types: [created]
 
 jobs:
-  publish-cli:
+  publish:
     if: startsWith(github.ref, 'refs/tags/v') == true
+    name: Publish vcluster
     runs-on: ubuntu-22.04
 
     permissions:
-      id-token: write
+      id-token: write # This is the key for OIDC cosign!
+      packages: write
       contents: write
 
     steps:
-      - name: Set up Go 1.20
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.20"
           cache: false
+          go-version: "1.20"
+      - name: Setup Cosgin
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: "v2.0.2"
+      - name: Setup Syft
+        uses: anchore/sbom-action/download-syft@v0.14.3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       - uses: azure/setup-helm@v3
         with:
           version: "v3.0.2"
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
-      - uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: "v2.0.2"
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
           echo "::set-output name=release_version::$RELEASE_VERSION"
-      - name: Compile binaries
-        run: |
-          chmod +x ./hack/build-cli.sh
-
-          # Generate necessary charts
-          go generate -tags embed_charts ./...
-
-          # Build CLI
-          ./hack/build-cli.sh
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: "goreleaser/goreleaser-action@v4.3.0"
+        with:
+          version: latest
+          args: release --clean
         env:
-          RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}
-      - name: Save release assets
-        uses: actions/upload-artifact@v3
-        with:
-          name: release-assets
-          path: release/
-      - name: Attach assets to release
-        uses: FabianKramm/release-asset-action@v1
-        with:
-          pattern: "release/*"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  publish-vcluster-image:
-    if: startsWith(github.ref, 'refs/tags/v') == true
-    runs-on: ubuntu-22.04
-
-    permissions:
-      id-token: write # This is the key for OIDC!
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: "v2.0.2"
-      - id: get_version
-        run: |
-          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
-          echo "::set-output name=release_version::$RELEASE_VERSION"
-      - name: Get Docker tags
-        id: docker_meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            loftsh/vcluster
-            ghcr.io/loft-sh/vcluster
-          tags: |
-            type=semver,pattern={{version}}
-            type=raw,value=latest
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Login to ghcr.io
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push the image
-        id: docker_build
-        uses: docker/build-push-action@v4
-        with:
-          file: Dockerfile
-          platforms: linux/amd64,linux/arm64,linux/arm
-          push: true
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          labels: ${{ steps.docker_meta.outputs.labels }}
-          build-args: |
-            BUILD_VERSION=${{ steps.get_version.outputs.release_version }}
-            TELEMETRY_PRIVATE_KEY=${{ secrets.VCLUSTER_TELEMETRY_PRIVATE_KEY }}
-      - name: Images digests
-        run: echo ${{ steps.docker_build.outputs.digest }}
-      - name: Sign Container DockerHub Image
-        run: |
-          cosign sign --yes loftsh/vcluster@${{ steps.docker_build.outputs.digest }}
-      - name: Sign Container ghcr.io Image
-        run: |
-          cosign sign --yes ghcr.io/loft-sh/vcluster@${{ steps.docker_build.outputs.digest }}
-
-  publish-vcluster-cli-image:
-    if: startsWith(github.ref, 'refs/tags/v') == true
-    runs-on: ubuntu-22.04
-
-    permissions:
-      id-token: write # This is the key for OIDC!
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: "v2.0.2"
-      - id: get_version
-        run: |
-          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
-          echo "::set-output name=release_version::$RELEASE_VERSION"
-      - name: Get Docker tags
-        id: docker_meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            loftsh/vcluster-cli
-            ghcr.io/loft-sh/vcluster-cli
-          tags: |
-            type=semver,pattern={{version}}
-            type=raw,value=latest
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Login to ghcr.io
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push the image
-        id: docker_build
-        uses: docker/build-push-action@v4
-        with:
-          file: Dockerfile.cli
-          platforms: linux/amd64,linux/arm64,linux/arm
-          push: true
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          labels: ${{ steps.docker_meta.outputs.labels }}
-      - name: Images digests
-        run: echo ${{ steps.docker_build.outputs.digest }}
-      - name: Sign Container DockerHub Image
-        run: |
-          cosign sign --yes loftsh/vcluster-cli@${{ steps.docker_build.outputs.digest }}
-      - name: Sign Container ghcr.io Image
-        run: |
-          cosign sign --yes ghcr.io/loft-sh/vcluster-cli@${{ steps.docker_build.outputs.digest }}
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          TELEMETRY_PRIVATE_KEY: ${{ secrets.VCLUSTER_TELEMETRY_PRIVATE_KEY }}
+          GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.release_version }}
 
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
-    needs: [publish-vcluster-image, publish-vcluster-cli-image]
+    needs: [publish]
     runs-on: ubuntu-22.04
 
     steps:
@@ -199,38 +85,3 @@ jobs:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
           CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
-
-  publish-release:
-    if: startsWith(github.ref, 'refs/tags/v') == true
-    needs: [publish-chart]
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Check out repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 300
-      - id: get_version
-        run: |
-          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
-          echo "::set-output name=release_version::$RELEASE_VERSION"
-      - uses: geertvdc/setup-hub@v1.0.0
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      - run: |
-          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
-      - run: |
-          STATE=$(hub release show "$RELEASE_VERSION" --format="%S" | sed -En "s/-//p")
-
-          EXTRA_ARGS=""
-
-          if [ "$STATE" != "" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS --$STATE"
-          else
-            EXTRA_ARGS="$EXTRA_ARGS --prerelease=false --draft=false"
-          fi
-
-          hub release create -m "$RELEASE_VERSION" -m "" $EXTRA_ARGS "$RELEASE_VERSION" 2>/dev/null || hub release edit -m "$RELEASE_VERSION" -m "" $EXTRA_ARGS "$RELEASE_VERSION"
-        env:
-          RELEASE_VERSION: ${{ steps.get_version.outputs.release_version }}
-          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
