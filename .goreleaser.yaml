@@ -70,7 +70,7 @@ builds:
       - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{.Env.TELEMETRY_PRIVATE_KEY}}
 
 archives:
-  - id: vcluster_tar_archives
+  - id: vcluster_archives
     builds:
       - vcluster
     format: tar.gz
@@ -82,10 +82,16 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-  - id: vcluster_cli_tar_archives
+    format_overrides:
+      - goos: windows
+        format: zip
+    builds_info:
+      group: root
+      owner: root
+
+  - id: vcluster_cli_archives
     builds:
       - vcluster-cli
-    format: tar.gz
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
       {{ .ProjectName }}-cli_
@@ -94,6 +100,15 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    builds_info:
+      group: root
+      owner: root
+    files:
+      - README.md
+      - LICENSE
 
 sboms:
   - id: archive_sbom
@@ -134,7 +149,7 @@ release:
 brews:
   - name: vcluster
     ids:
-      - vcluster-cli
+      - vcluster_cli_archives
     dependencies:
       - name: helm
       - name: kubernetes-cli
