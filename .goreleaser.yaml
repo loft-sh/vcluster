@@ -82,9 +82,6 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    format_overrides:
-      - goos: windows
-        format: zip
     builds_info:
       group: root
       owner: root
@@ -159,6 +156,8 @@ brews:
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
+    extra_install: |
+      generate_completions_from_executable(bin/"vcluster", "completion")
     test: |
       help_output = "vcluster root command"
       assert_match help_output, shell_output("#{bin}/vcluster --help")
@@ -169,6 +168,9 @@ brews:
                       "please make sure you have access to a kubernetes cluster and the command " \
                       "`kubectl get namespaces` is working"
       assert_match create_output, shell_output("#{bin}/vcluster create vcluster -n vcluster --create-namespace", 1)
+    commit_author:
+      name: loft-bot
+      email: 73976634+loft-bot@users.noreply.github.com
 
 dockers:
   # --- Vcluster images ---
