@@ -94,7 +94,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		syncedLabels:                 ctx.Options.SyncLabels,
 
 		mountPhysicalHostPaths:   ctx.Options.MountPhysicalHostPaths,
-		hostpathMountPropagation: ctx.Options.EnsureMountPropagation,
+		hostpathMountPropagation: true,
 		virtualLogsPath:          virtualLogsPath,
 		virtualPodLogsPath:       filepath.Join(virtualLogsPath, "pods"),
 		virtualKubeletPodPath:    filepath.Join(virtualKubeletPath, "pods"),
