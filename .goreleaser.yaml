@@ -156,7 +156,8 @@ brews:
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
-    extra_install: |
+    install: |
+      bin.install "vcluster"
       generate_completions_from_executable(bin/"vcluster", "completion")
     test: |
       help_output = "vcluster root command"
