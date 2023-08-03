@@ -82,7 +82,7 @@ jobs:
       - name: Build vcluster cli
         run: |
           set -x
-          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --id vcluster-cli --clean --output ./vcluster
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
       - name: Upload vcluster cli to artifact
         uses: actions/upload-artifact@v3
         with:
