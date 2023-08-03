@@ -72,11 +72,25 @@ builds:
       - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{.Env.TELEMETRY_PRIVATE_KEY}}
 
 archives:
-  - id: tar_archives
+  - id: vcluster_tar_archives
+    builds:
+      - vcluster
     format: tar.gz
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
       {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+  - id: vcluster_cli_tar_archives
+    builds:
+      - vcluster-cli
+    format: tar.gz
+    # this name template makes the OS and Arch compatible with the results of uname.
+    name_template: >-
+      {{ .ProjectName }}_cli_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
