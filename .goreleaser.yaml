@@ -55,8 +55,6 @@ builds:
     ignore:
       - goos: darwin
         goarch: "386"
-      - goos: darwin
-        goarch: "arm"
     binary: vcluster
     main: ./cmd/vclusterctl
     dir: .
