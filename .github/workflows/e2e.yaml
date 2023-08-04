@@ -22,7 +22,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/${{ github.repository }}-ci:PR${{ github.event.number }}
   VCLUSTER_SUFFIX: vcluster
   VCLUSTER_NAME: vcluster
@@ -34,10 +33,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          cache: false
+          go-version: "1.20"
+      - name: Setup Syft
+        uses: anchore/sbom-action/download-syft@v0.14.3
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
       - name: Build and save syncer image
         run: |
           set -x
-          docker build -t ${{ env.IMAGE_NAME }} .
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build -t ${{ env.IMAGE_NAME }} -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
           docker save -o vcluster_syncer ${{ env.IMAGE_NAME }}
       - name: Upload syncer image to artifact
         uses: actions/upload-artifact@v3
@@ -51,15 +65,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: "1.20"
           cache: false
+      - name: Setup Syft
+        uses: anchore/sbom-action/download-syft@v0.14.3
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
       - name: Build vcluster cli
         run: |
           set -x
-          go generate ./... && GO111MODULE=on GOFLAGS=-mod=vendor go build -v -o ./vcluster ./cmd/vclusterctl/main.go
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
       - name: Upload vcluster cli to artifact
         uses: actions/upload-artifact@v3
         with:
@@ -145,7 +168,7 @@ jobs:
       - name: Create vcluster
         id: create-vcluster
         run: |
-          set -x 
+          set -x
 
           MULTINS_VALUES=""
           if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
@@ -182,7 +205,7 @@ jobs:
       - name: Collect deployment information in case vcluster fails to start
         if: steps.wait-until-vcluster-is-ready.outcome != 'success'
         run: |
-          set -x 
+          set -x
           kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
           echo "======================================================================================================================"
           kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
@@ -210,7 +233,7 @@ jobs:
       - name: Print logs if e2e tests fail
         if: steps.execute-e2e-tests.outcome == 'failure'
         run: |
-          set -x 
+          set -x
           kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
           echo "======================================================================================================================"
           kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
