@@ -1,0 +1,19 @@
+---
+title: Networking
+sidebar_label: Overview
+---
+
+<figure>
+  <img src="/docs/media/diagrams/vcluster-networking.svg" alt="vcluster Networking" />
+  <figcaption>vcluster - Networking</figcaption>
+</figure>
+
+By default, resources such as `Service` and `Ingress` are synced from the virtual cluster to the host cluster in order to enable correct network functionality for the vcluster.
+
+
+## Pod-To-Pod Traffic
+Since pods are synchronized by the [syncer component](../architecture/syncer) of the vcluster, they actually run inside the host namespace of the underlying cluster. That means that these pods have regular cluster-internal IP addresses and can communicate with each other via IP-based networking.
+
+## Pod-To-Service Traffic
+By default, the vcluster also synchronizes Services (while stripping away unnecessary information from the resource) to allow pods to communicate with services. However, instead of using the DNS names of the services inside the host cluster, the vcluster has its own DNS service which allows the vcluster pods to use much more intuitive DNS mappings just as in a regular cluster.
+
