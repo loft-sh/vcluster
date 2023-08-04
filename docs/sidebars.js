@@ -38,13 +38,54 @@ module.exports = {
       label: 'Architecture',
       collapsed: false,
       items: [
-        'architecture/basics',
+        'architecture/overview',
+        {
+          type: 'category',
+          label: 'Control Plane',
+          collapsed: false,
+          items: [
+            'architecture/control_plane/control_plane',
+            'architecture/control_plane/k8s_distros',
+            'architecture/control_plane/isolated_control_planes',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Syncer',
+          collapsed: false,
+          items: [
+            'architecture/syncer/syncer',
+            'architecture/syncer/single_vs_multins',
+
+          ],
+        },
         'architecture/scheduling',
         'architecture/networking',
-        'architecture/storage',
         'architecture/nodes',
         'architecture/synced-resources',
       ],
+    },
+    {
+      type: 'category',
+      label: 'Networking',
+      collapsed: false,
+      items: [
+        'networking/networking',
+        'networking/coreDNS',
+        {
+          type: 'category',
+          label: 'Internal Traffic',
+          collapsed: false,
+          items: [
+            'networking/internal_traffic/host_to_vcluster',
+            'networking/internal_traffic/vcluster_to_host',
+          ],
+        },
+      ],
+    },
+    {
+      type: 'doc',
+      id: 'storage',
     },
     {
       type: 'category',
