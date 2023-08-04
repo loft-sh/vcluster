@@ -179,9 +179,6 @@ spec:
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
           {{- end }}
-          {{- if .Values.hostpathMapper.enabled }}
-          - --rewrite-host-paths=true
-          {{- end }}
           {{- if .Values.multiNamespaceMode.enabled }}
           - --multi-namespace-mode=true
           {{- end }}

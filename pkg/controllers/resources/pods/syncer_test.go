@@ -227,6 +227,7 @@ func TestSync(t *testing.T) {
 
 	vHostPath := fmt.Sprintf(podtranslate.VirtualPathTemplate, generictesting.DefaultTestCurrentNamespace, generictesting.DefaultTestVclusterName)
 
+	hostToContainer := corev1.MountPropagationHostToContainer
 	pHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.Default.PhysicalName(vHostPathPod.Name, generictesting.DefaultTestCurrentNamespace),
@@ -265,16 +266,19 @@ func TestSync(t *testing.T) {
 					Env:   pPodContainerEnv,
 					VolumeMounts: []corev1.VolumeMount{
 						{
-							Name:      PodLogsVolumeName,
-							MountPath: podtranslate.PodLoggingHostPath,
+							Name:             PodLogsVolumeName,
+							MountPath:        podtranslate.PodLoggingHostPath,
+							MountPropagation: &hostToContainer,
 						},
 						{
-							Name:      LogsVolumeName,
-							MountPath: podtranslate.LogHostPath,
+							Name:             LogsVolumeName,
+							MountPath:        podtranslate.LogHostPath,
+							MountPropagation: &hostToContainer,
 						},
 						{
-							Name:      KubeletPodVolumeName,
-							MountPath: podtranslate.KubeletPodPath,
+							Name:             KubeletPodVolumeName,
+							MountPath:        podtranslate.KubeletPodPath,
+							MountPropagation: &hostToContainer,
 						},
 						{
 							Name:      fmt.Sprintf("%s-%s", PodLogsVolumeName, podtranslate.PhysicalVolumeNameSuffix),
@@ -513,7 +517,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"): {pHostPathPod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.RewriteHostPaths = true
+				ctx.Options.MountPhysicalHostPaths = true
 				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
 				assert.NilError(t, err)
