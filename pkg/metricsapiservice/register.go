@@ -63,7 +63,8 @@ func deleteOperation(ctx context.Context, client client.Client) wait.ConditionWi
 				return true, nil
 			}
 
-			return false, err
+			klog.Errorf("error creating api service %v", err)
+			return false, nil
 		}
 
 		return true, nil
@@ -95,7 +96,7 @@ func createOperation(ctx context.Context, client client.Client) wait.ConditionWi
 			}
 
 			klog.Errorf("error creating api service %v", err)
-			return false, err
+			return false, nil
 		}
 
 		return true, nil

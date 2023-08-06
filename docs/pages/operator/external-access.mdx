@@ -258,7 +258,8 @@ spec:
         path: /
         pathType: ImplementationSpecific
   tls:
-  - hosts: my-vcluster.example.com
+  - hosts:
+    - my-vcluster.example.com
 ```
 
 With this configuration you will need to use [service account authentication](./accessing-vcluster.mdx#connect-via-service-accounts) in order to connect as the ingress controller won't be able to resolve the client-cert and client-key which is used by default as authentication method. To create a kube config that uses a service account, please run the following command:

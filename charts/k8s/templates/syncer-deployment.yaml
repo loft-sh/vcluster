@@ -99,11 +99,6 @@ spec:
         - name: certs
           secret:
             secretName: {{ .Release.Name }}-certs
-      {{- if .Values.coredns.enabled }}
-        - name: coredns
-          configMap:
-            name: {{ .Release.Name }}-coredns
-      {{- end }}
       {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
         - name: helm-cache
           emptyDir: {}
@@ -113,6 +108,15 @@ spec:
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
       {{- end }}
+      {{- if .Values.coredns.enabled }}
+        - name: coredns
+          configMap:
+            name: {{ .Release.Name }}-coredns
+      {{- end }}
+        - name: custom-config-volume
+          configMap:
+            name: coredns-custom
+            optional: true
       {{- if .Values.syncer.priorityClassName }}
       priorityClassName: {{ .Values.syncer.priorityClassName }}
       {{- end }}
@@ -174,9 +178,6 @@ spec:
           {{- end }}
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
-          {{- end }}
-          {{- if .Values.hostpathMapper.enabled }}
-          - --rewrite-host-paths=true
           {{- end }}
           {{- if .Values.multiNamespaceMode.enabled }}
           - --multi-namespace-mode=true

@@ -77,14 +77,18 @@ spec:
         - name: k0s-config
           secret:
             secretName: vc-{{ .Release.Name }}-config
+      {{- if .Values.volumes }}
+{{ toYaml .Values.volumes | indent 8 }}
+      {{- end }}
       {{- if .Values.coredns.enabled }}
         - name: coredns
           configMap:
             name: {{ .Release.Name }}-coredns
       {{- end }}
-      {{- if .Values.volumes }}
-{{ toYaml .Values.volumes | indent 8 }}
-      {{- end }}
+        - name: custom-config-volume
+          configMap:
+            name: coredns-custom
+            optional: true
       {{- if not .Values.storage.persistence }}
         - name: data
           emptyDir: {}
@@ -194,9 +198,6 @@ spec:
           {{- end }}
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
-          {{- end }}
-          {{- if .Values.hostpathMapper.enabled }}
-          - --rewrite-host-paths=true
           {{- end }}
           {{- if .Values.multiNamespaceMode.enabled }}
           - --multi-namespace-mode=true

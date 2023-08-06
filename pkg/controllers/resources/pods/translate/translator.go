@@ -93,10 +93,11 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		enableScheduler:              ctx.Options.EnableScheduler,
 		syncedLabels:                 ctx.Options.SyncLabels,
 
-		rewriteVirtualHostPaths: ctx.Options.RewriteHostPaths,
-		virtualLogsPath:         virtualLogsPath,
-		virtualPodLogsPath:      filepath.Join(virtualLogsPath, "pods"),
-		virtualKubeletPodPath:   filepath.Join(virtualKubeletPath, "pods"),
+		mountPhysicalHostPaths:   ctx.Options.MountPhysicalHostPaths,
+		hostpathMountPropagation: true,
+		virtualLogsPath:          virtualLogsPath,
+		virtualPodLogsPath:       filepath.Join(virtualLogsPath, "pods"),
+		virtualKubeletPodPath:    filepath.Join(virtualKubeletPath, "pods"),
 
 		projectedVolumeSAToken: make(map[string]string),
 	}, nil
@@ -122,10 +123,11 @@ type translator struct {
 	enableScheduler              bool
 	syncedLabels                 []string
 
-	rewriteVirtualHostPaths bool
-	virtualLogsPath         string
-	virtualPodLogsPath      string
-	virtualKubeletPodPath   string
+	mountPhysicalHostPaths   bool
+	hostpathMountPropagation bool
+	virtualLogsPath          string
+	virtualPodLogsPath       string
+	virtualKubeletPodPath    string
 
 	projectedVolumeSAToken map[string]string
 }
@@ -195,7 +197,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Spec.ServiceAccountName
 	}
 	if _, ok := pPod.Annotations[LabelsAnnotation]; !ok {
-		pPod.Annotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
+		pPod.Annotations[LabelsAnnotation] = TranslateLabelsAnnotation(vPod)
 	}
 	if _, ok := pPod.Annotations[ClusterAutoScalerAnnotation]; !ok {
 		// check if the vPod would be evictable
@@ -332,7 +334,7 @@ func canAnnotateOwnerSetKind(kind string) bool {
 	return kind == "DaemonSet" || kind == "Job" || kind == "ReplicaSet" || kind == "StatefulSet"
 }
 
-func translateLabelsAnnotation(obj client.Object) string {
+func TranslateLabelsAnnotation(obj client.Object) string {
 	labelsString := []string{}
 	for k, v := range obj.GetLabels() {
 		// escape pod labels
@@ -426,7 +428,7 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 	}
 
 	// rewrite host paths if enabled
-	if t.rewriteVirtualHostPaths {
+	if t.mountPhysicalHostPaths || t.hostpathMountPropagation {
 		t.rewriteHostPaths(pPod)
 	}
 
@@ -866,7 +868,7 @@ func (t *translator) Diff(ctx context.Context, vPod, pPod *corev1.Pod) (*corev1.
 		updatedLabels = map[string]string{}
 	}
 
-	updatedAnnotations[LabelsAnnotation] = translateLabelsAnnotation(vPod)
+	updatedAnnotations[LabelsAnnotation] = TranslateLabelsAnnotation(vPod)
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
 		if updatedPod == nil {
 			updatedPod = pPod.DeepCopy()

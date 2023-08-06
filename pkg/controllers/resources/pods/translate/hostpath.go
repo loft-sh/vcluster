@@ -2,8 +2,9 @@ package translate
 
 import (
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -20,6 +21,21 @@ const (
 	PhysicalPodLogVolumeMountPath  = "/var/vcluster/physical/log/pods"
 	PhysicalKubeletVolumeMountPath = "/var/vcluster/physical/kubelet/pods"
 )
+
+func (t *translator) ensureMountPropagation(pPod *corev1.Pod) {
+	for i, container := range pPod.Spec.Containers {
+		for j, volumeMount := range container.VolumeMounts {
+			if volumeMount.MountPath == PodLoggingHostPath ||
+				volumeMount.MountPath == KubeletPodPath ||
+				volumeMount.MountPath == LogHostPath {
+
+				hostToContainer := corev1.MountPropagationHostToContainer
+				pPod.Spec.Containers[i].VolumeMounts[j].MountPropagation = &hostToContainer
+			}
+		}
+	}
+
+}
 
 func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 	if len(pPod.Spec.Volumes) > 0 {
@@ -113,9 +129,16 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 				}
 			}
 		}
+
+		if t.hostpathMountPropagation {
+			t.ensureMountPropagation(pPod)
+		}
 	}
 }
 
+// addPhysicalPathToVolumesAndCorrectContainers is only needed if deploying
+// along side the vcluster-hostpath-mapper component
+// see github.com/loft-sh/vcluster-hostpath-mapper
 func (t *translator) addPhysicalPathToVolumesAndCorrectContainers(
 	volName string,
 	hostPathType *corev1.HostPathType,
@@ -124,6 +147,11 @@ func (t *translator) addPhysicalPathToVolumesAndCorrectContainers(
 	registerToCheck map[string]bool,
 	pPod *corev1.Pod,
 ) *corev1.Pod {
+	if !t.mountPhysicalHostPaths {
+		// return without mounting extra physical mount
+		return pPod
+	}
+
 	// add another volume with the correct suffix
 	pPod.Spec.Volumes = append(pPod.Spec.Volumes, corev1.Volume{
 		Name: fmt.Sprintf("%s-%s", volName, PhysicalVolumeNameSuffix),
