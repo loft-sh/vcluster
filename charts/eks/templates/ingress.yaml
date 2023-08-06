@@ -24,4 +24,8 @@ spec:
                   name: https
             path: /
             pathType: {{ .Values.ingress.pathType }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end -}}
 {{- end }}
