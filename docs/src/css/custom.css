@@ -162,6 +162,15 @@ ul[role="tablist"] li:not([aria-selected="true"]):hover {
   border-radius: 5px;
 }
 
+[data-theme='dark'] [role="tabpanel"] {
+  background-color: #111522;
+  padding: 1.3em;
+  padding-bottom: 0em;
+  margin: 0 -1.3em 1.8em !important;
+  border: 1px solid #d2e8fd !important;
+  border-radius: 5px;
+}
+
 [role="tabpanel"] [role="tabpanel"] {
   background-color: #fff;
   margin-left: -5px !important;
