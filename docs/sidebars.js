@@ -74,13 +74,23 @@ module.exports = {
         'networking/coreDNS',
         {
           type: 'category',
-          label: 'Internal Traffic',
+          label: 'Mapping Traffic',
           collapsed: false,
           items: [
             'networking/internal_traffic/host_to_vcluster',
             'networking/internal_traffic/vcluster_to_host',
           ],
         },
+        'networking/ingress_traffic',
+        'networking/network_policies',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Syncer',
+      collapsed: false,
+      items: [
+        'syncer/core_resources',
       ],
     },
     {
