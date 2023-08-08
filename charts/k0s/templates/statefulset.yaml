@@ -96,9 +96,9 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
-      {{- if .Values.fsGroup }}
+      {{- if .Values.securityContext }}
       securityContext:
-        fsGroup: {{ .Values.fsGroup }}
+{{ toYaml .Values.securityContext | indent 8 }}
       {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
@@ -198,6 +198,9 @@ spec:
           {{- end }}
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
+          {{- end }}
+          {{- if .Values.hostpathMapper.enabled }}
+          - --rewrite-host-paths=true
           {{- end }}
           {{- if .Values.multiNamespaceMode.enabled }}
           - --multi-namespace-mode=true

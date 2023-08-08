@@ -129,6 +129,18 @@ proxy:
     pods:
       enabled: false
 
+hostpathMapper:
+  # Image to use for the hostpathMapper
+  # image: ghcr.io/loft-sh/vcluster
+  enabled: false
+  resources: {}
+    # limits:
+    #   cpu: 40m
+    #   memory: 100Mi
+    # requests:
+    #   cpu: 20m
+    #   memory: 50Mi
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer
@@ -159,7 +171,7 @@ syncer:
 # Virtual Cluster (k3s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: rancher/k3s:v1.26.0-k3s1
+  image: rancher/k3s:v1.27.3-k3s1
   command:
     - /bin/k3s
   baseArgs:
