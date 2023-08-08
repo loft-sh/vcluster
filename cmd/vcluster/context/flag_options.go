@@ -72,7 +72,6 @@ type VirtualClusterOptions struct {
 
 	// hostpath mapper options
 	RewriteHostPaths         bool `json:"rewriteHostPaths,omitempty"`
-	SkipPhysicalMounts       bool `json:"skipPhysicalMounts,omitempty"`
 	VirtualLogsPath          string
 	VirtualPodLogsPath       string
 	VirtualContainerLogsPath string
@@ -161,7 +160,6 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.StringVar(&options.VirtualMetricsBindAddress, "virtual-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the virtual cluster will be exposed at this address")
 
 	flags.BoolVar(&options.RewriteHostPaths, "rewrite-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
-	flags.BoolVar(&options.SkipPhysicalMounts, "skip-physical-mounts", false, "When this flag is enabled together with --rewrite-host-paths, syncer will rewite hostpaths in synced pod, but won't mount the \"/var/vcluster/physical/̈́*\" volumes which can compromise isolation. This breaks the \"Hostpath Mapper\" feature, unless the commercial option is used.")
 	flags.BoolVar(&options.MultiNamespaceMode, "multi-namespace-mode", false, "If enabled, syncer will create a namespace for each virtual namespace and use the original names for the synced namespaced resources")
 	flags.StringSliceVar(&options.NamespaceLabels, "namespace-labels", []string{}, "Defines one or more labels that will be added to the namespaces synced in the multi-namespace mode. Format: \"labelKey=labelValue\". Multiple values can be passed in a comma-separated string.")
 	flags.BoolVar(&options.SyncAllConfigMaps, "sync-all-configmaps", false, "Sync all configmaps from virtual to host cluster")
