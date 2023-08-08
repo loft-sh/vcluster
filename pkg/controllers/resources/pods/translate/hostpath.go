@@ -76,7 +76,7 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 
 		for i, volume := range pPod.Spec.Volumes {
 			if volume.HostPath != nil {
-				if volume.HostPath.Path == PodLoggingHostPath &&
+				if strings.TrimSuffix(volume.HostPath.Path, "/") == PodLoggingHostPath &&
 					// avoid recursive rewriting of HostPaths across reconciles
 					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
 					// we can't just mount the new hostpath to the virtual log path
@@ -101,7 +101,7 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 					)
 				}
 
-				if volume.HostPath.Path == KubeletPodPath &&
+				if strings.TrimSuffix(volume.HostPath.Path, "/") == KubeletPodPath &&
 					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
 					t.log.Debugf("rewriting hostPath for kubelet pods %s", pPod.Name)
 					pPod.Spec.Volumes[i].HostPath.Path = t.virtualKubeletPodPath
@@ -116,7 +116,7 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 					)
 				}
 
-				if volume.HostPath.Path == LogHostPath {
+				if strings.TrimSuffix(volume.HostPath.Path, "/") == LogHostPath {
 					pPod.Spec.Volumes[i].HostPath.Path = t.virtualLogsPath
 					pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
 						volume.Name,
