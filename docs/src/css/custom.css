@@ -35,6 +35,12 @@ ul ul .table-of-contents__link--active::before {
 	background-color: #fff !important;
 }
 
+[data-theme="dark"] .menu:not(:hover)::-webkit-scrollbar,
+[data-theme="dark"] .menu:not(:hover)::-webkit-scrollbar-thumb,
+[data-theme="dark"] .menu:not(:hover)::-webkit-scrollbar-track {
+	background-color: #1b1b1d !important;
+}
+
 .menu__list {
 	margin-right: 0;
 }
