@@ -120,6 +120,24 @@ module.exports = {
       ],
     },
     {
+      type: 'category',
+      label: 'Using vclusters',
+      collapsed: false,
+      items: [
+        {
+          type: 'category',
+          label: 'Accessing vcluster',
+          collapsed: false,
+          items: [
+            'using-vclusters/kube-context',
+            'using-vclusters/access',
+          ],
+        },
+        'using-vclusters/pausing-vcluster',
+        'using-vclusters/backup-restore',
+      ],
+    },
+    {
       type: 'doc',
       id: 'storage',
     },
