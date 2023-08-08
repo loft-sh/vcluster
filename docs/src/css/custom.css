@@ -169,7 +169,7 @@ ul[role="tablist"] li:not([aria-selected="true"]):hover {
 [role="tabpanel"] {
 	background-color: #f7f8fc;
 	padding: 1.3em;
-	padding-bottom: 0em;
+	padding-bottom: 1.3em;
 	margin: 0 -1.3em 1.8em !important;
 	border: 1px solid #d2e8fd !important;
 	border-radius: 5px;
@@ -178,7 +178,7 @@ ul[role="tablist"] li:not([aria-selected="true"]):hover {
 [data-theme="dark"] [role="tabpanel"] {
 	background-color: #111522;
 	padding: 1.3em;
-	padding-bottom: 0em;
+	padding-bottom: 1.3em;
 	margin: 0 -1.3em 1.8em !important;
 	border: 1px solid #d2e8fd !important;
 	border-radius: 5px;
@@ -568,6 +568,7 @@ body .markdown {
 .github-link:before {
 	content: "";
 	margin-left: 14px;
+	margin-right: 14px;
 	width: 24px;
 	height: 24px;
 	display: flex;
