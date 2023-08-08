@@ -100,7 +100,7 @@ jobs:
           set -x
           sudo apt-get install -y jq
           paths=$(ls -d ./test/e2e*)
-          echo "::set-output name=matrix::$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)"
+          echo "matrix=$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
     outputs:
       matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
 
