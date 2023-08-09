@@ -60,9 +60,7 @@ module.exports = {
           ],
         },
         'architecture/scheduling',
-        'architecture/networking',
         'architecture/nodes',
-        'architecture/synced-resources',
       ],
     },
     {
@@ -87,10 +85,38 @@ module.exports = {
     },
     {
       type: 'category',
-      label: 'Syncer',
+      label: 'Sync',
       collapsed: false,
       items: [
         'syncer/core_resources',
+        {
+          type: "category",
+          label: "Syncer",
+          collapsed: false,
+          items: [
+            'syncer/config',
+          ]
+        },
+        {
+          type: "category",
+          label: "Other resources",
+          collapsed: false,
+          items: [
+            'syncer/other_resources/overview',
+            'syncer/other_resources/generic_sync',
+            'syncer/other_resources/config_syntax',
+            'syncer/other_resources/multi_namespace_mode',
+          ]
+        },
+        {
+          type: "category",
+          label: "Plugins",
+          collapsed: false,
+          items: [
+              'plugins/overview',
+              'plugins/tutorial',
+          ]
+        },
       ],
     },
     {
@@ -115,15 +141,6 @@ module.exports = {
         'operator/security',
         'operator/cluster-api-provider',
       ],
-    },
-    {
-      type: "category",
-      label: "Plugins",
-      collapsed: false,
-      items: [
-          'plugins/overview',
-          'plugins/tutorial',
-      ]
     },
     {
       type: 'doc',
