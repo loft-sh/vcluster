@@ -65,12 +65,10 @@ jobs:
           GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.release_version }}
       - name: Save release assets
         uses: actions/upload-artifact@v3
-        continue-on-error: true
         with:
           name: release-assets
           path: release/
       - name: Attach assets to release
-        continue-on-error: true
         uses: FabianKramm/release-asset-action@v1
         with:
           pattern: "release/*"
