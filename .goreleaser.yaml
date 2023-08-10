@@ -3,7 +3,7 @@ project_name: vcluster
 before:
   hooks:
     - go mod tidy
-    - go generate -tags embed_charts ./...
+    - just embed-charts {{ .Version }}
     - just clean-release
     - just copy-assets
     - just generate-vcluster-images {{ .Version }}
