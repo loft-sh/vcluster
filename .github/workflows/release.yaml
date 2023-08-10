@@ -66,6 +66,8 @@ jobs:
       - name: Upload release assets
         run: |
           gh release upload $GITHUB_REF release/*
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
