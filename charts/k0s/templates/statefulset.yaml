@@ -96,9 +96,9 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
-      {{- if .Values.fsGroup }}
+      {{- if .Values.securityContext }}
       securityContext:
-        fsGroup: {{ .Values.fsGroup }}
+{{ toYaml .Values.securityContext | indent 8 }}
       {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
