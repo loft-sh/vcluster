@@ -30,3 +30,21 @@ create-kind:
 # Delete the local kind cluster
 delete-kind:
   kind delete cluster -n vcluster
+
+# --- Build ---
+
+# Clean the release folder
+[private]
+clean-release:
+  rm -rf ./release
+
+# Copy the assets to the release folder
+[private]
+copy-assets:
+  mkdir -p ./release
+  cp -a assets/. release/
+
+# Generate the vcluster images file
+[private]
+generate-vcluster-images version="0.0.0":
+  go run -mod vendor ./hack/assets/main.go {{ version }} > ./release/vcluster-images.txt

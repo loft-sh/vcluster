@@ -4,6 +4,9 @@ before:
   hooks:
     - go mod tidy
     - go generate -tags embed_charts ./...
+    - just clean-release
+    - just copy-assets
+    - just generate-vcluster-images {{ .Version }}
 
 source:
   format: tar.gz
@@ -31,6 +34,7 @@ builds:
       - -s -w
       - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
       - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{.Env.TELEMETRY_PRIVATE_KEY}}
+
   - id: vcluster-cli
     env:
       - CGO_ENABLED=0
@@ -63,40 +67,17 @@ builds:
       - embed_charts
     ldflags:
       - -s -w
+      - -X main.version={{.Version}}
       - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
       - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{.Env.TELEMETRY_PRIVATE_KEY}}
 
 archives:
-  - id: vcluster_archives
-    builds:
-      - vcluster
-    format: tar.gz
-    # this name template makes the OS and Arch compatible with the results of uname.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    builds_info:
-      group: root
-      owner: root
-
   - id: vcluster_cli_archives
+    format: binary
     builds:
       - vcluster-cli
     # this name template makes the OS and Arch compatible with the results of uname.
-    name_template: >-
-      {{ .ProjectName }}-cli_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    format_overrides:
-      - goos: windows
-        format: zip
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
     builds_info:
       group: root
       owner: root
