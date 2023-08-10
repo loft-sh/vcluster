@@ -91,6 +91,8 @@ sboms:
 
 checksum:
   name_template: "checksums.txt"
+  extra_files:
+    - glob: ./release/*
 
 signs:
   - cmd: cosign
