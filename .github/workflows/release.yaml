@@ -63,11 +63,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           TELEMETRY_PRIVATE_KEY: ${{ secrets.VCLUSTER_TELEMETRY_PRIVATE_KEY }}
           GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.release_version }}
-      - name: Upload release assets
-        run: |
-          gh release upload $GITHUB_REF release/*
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Save release assets
+        uses: actions/upload-artifact@v3
+        continue-on-error: true
+        with:
+          name: release-assets
+          path: release/
+      - name: Attach assets to release
+        continue-on-error: true
+        uses: FabianKramm/release-asset-action@v1
+        with:
+          pattern: "release/*"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
