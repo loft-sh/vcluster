@@ -156,8 +156,8 @@ data:
               runAsGroup: {{`{{.RUN_AS_GROUP}}`}}
               allowPrivilegeEscalation: false
               capabilities:
-                drop:
-                - all
+                add:
+                  - NET_BIND_SERVICE
               readOnlyRootFilesystem: true
             livenessProbe:
               httpGet:
