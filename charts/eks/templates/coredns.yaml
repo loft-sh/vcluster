@@ -1,8 +1,14 @@
+{{- if not .Values.headless }}
+{{- if .Values.coredns.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: custom-deployments
+  name: {{ .Release.Name }}-coredns
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.globalAnnotations}}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4}}
+  {{- end}}  
 data:
 {{- if .Values.coredns.manifests }}
   coredns.yaml: |-
@@ -63,36 +69,7 @@ data:
       name: coredns
       namespace: kube-system
     data:
-      Corefile: |
-        .:1053 {
-            {{.LOG_IN_DEBUG}}
-            errors
-            health
-            ready
-            rewrite name regex .*\.{{ .Release.Name }}\.{{ .Release.Namespace }}\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
-            kubernetes cluster.local in-addr.arpa ip6.arpa {
-              pods insecure
-              fallthrough in-addr.arpa ip6.arpa
-            }
-            hosts /etc/coredns/NodeHosts {
-              ttl 60
-              reload 15s
-              fallthrough
-            }
-            prometheus :9153
-  {{- if and .Values.isolation.enabled  .Values.isolation.networkPolicy.enabled }}
-            forward . /etc/resolv.conf 8.8.8.8 {
-              policy sequential
-            }
-  {{- else }}
-            forward . /etc/resolv.conf
-  {{- end }}
-            cache 30
-            loop
-            reload
-            loadbalance
-        }
-        import /etc/coredns/custom/*.server
+{{ include "vcluster.corefile" . | indent 6 }}
       NodeHosts: ""
     ---
     apiVersion: apps/v1
@@ -174,8 +151,9 @@ data:
               name: metrics
               protocol: TCP
             securityContext:
-              runAsUser: {{ .RUN_AS_USER }}
-              runAsNonRoot: {{ .RUN_AS_NON_ROOT }}
+              runAsNonRoot:  true
+              runAsUser:  {{`{{.RUN_AS_USER}}`}}
+              runAsGroup: {{`{{.RUN_AS_GROUP}}`}}
               allowPrivilegeEscalation: false
               capabilities:
                 drop:
@@ -224,6 +202,9 @@ data:
       annotations:
         prometheus.io/port: "9153"
         prometheus.io/scrape: "true"
+        {{- if .Values.coredns.service.annotations }}
+{{ toYaml .Values.coredns.service.annotations | indent 8 }}
+        {{- end }}
       labels:
         k8s-app: kube-dns
         kubernetes.io/cluster-service: "true"
@@ -243,4 +224,6 @@ data:
       - name: metrics
         port: 9153
         protocol: TCP
+{{- end }}
+{{- end }}
 {{- end }}

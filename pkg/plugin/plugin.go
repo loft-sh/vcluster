@@ -4,16 +4,17 @@ import (
 	context "context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"sync"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
-	"net"
-	"os"
-	"sync"
-	"time"
+	"k8s.io/klog/v2"
 
 	remote "github.com/loft-sh/vcluster/pkg/plugin/remote"
 	grpc "google.golang.org/grpc"
@@ -33,6 +34,7 @@ var DefaultManager Manager = &manager{
 
 type Manager interface {
 	Start(
+		ctx context.Context,
 		currentNamespace, targetNamespace string,
 		virtualKubeConfig *rest.Config,
 		physicalKubeConfig *rest.Config,
@@ -103,6 +105,7 @@ func (m *manager) SetLeader(isLeader bool) {
 }
 
 func (m *manager) Start(
+	ctx context.Context,
 	currentNamespace, targetNamespace string,
 	virtualKubeConfig *rest.Config,
 	physicalKubeConfig *rest.Config,
@@ -177,13 +180,13 @@ func (m *manager) Start(
 		}
 	}()
 
-	return m.waitForPlugins(options)
+	return m.waitForPlugins(ctx, options)
 }
 
-func (m *manager) waitForPlugins(options *context2.VirtualClusterOptions) error {
+func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualClusterOptions) error {
 	for _, plugin := range options.Plugins {
 		klog.Infof("Waiting for plugin %s to register...", plugin)
-		err := wait.PollImmediate(time.Millisecond*100, time.Minute*10, func() (done bool, err error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, time.Minute*10, true, func(context.Context) (done bool, err error) {
 			m.pluginMutex.Lock()
 			defer m.pluginMutex.Unlock()
 

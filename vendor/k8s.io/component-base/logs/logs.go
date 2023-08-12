@@ -23,20 +23,17 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/spf13/pflag"
 	logsapi "k8s.io/component-base/logs/api/v1"
+	"k8s.io/component-base/logs/internal/setverbositylevel"
+	"k8s.io/component-base/logs/klogflags"
 	"k8s.io/klog/v2"
 )
 
-const deprecated = "will be removed in a future release, see https://github.com/kubernetes/enhancements/tree/master/keps/sig-instrumentation/2845-deprecate-klog-specific-flags-in-k8s-components"
-
-// TODO (https://github.com/kubernetes/kubernetes/issues/105310): once klog
-// flags are removed, stop warning about "Non-default formats don't honor these
-// flags" in config.go and instead add this remark here.
-//
-// const vmoduleUsage = " (only works for the default text log format)"
+const vmoduleUsage = " (only works for the default text log format)"
 
 var (
 	packageFlags = flag.NewFlagSet("logging", flag.ContinueOnError)
@@ -47,7 +44,7 @@ var (
 )
 
 func init() {
-	klog.InitFlags(packageFlags)
+	klogflags.Init(packageFlags)
 	packageFlags.DurationVar(&logFlushFreq, logsapi.LogFlushFreqFlagName, logsapi.LogFlushFreqDefault, "Maximum number of seconds between log flushes")
 }
 
@@ -81,42 +78,29 @@ var NewOptions = logsapi.NewLoggingConfiguration
 //
 // May be called more than once.
 func AddFlags(fs *pflag.FlagSet, opts ...Option) {
-	// Determine whether the flags are already present by looking up one
-	// which always should exist.
-	if fs.Lookup("logtostderr") != nil {
-		return
-	}
-
 	o := addFlagsOptions{}
 	for _, opt := range opts {
 		opt(&o)
 	}
 
-	// Add flags with pflag deprecation remark for some klog flags.
+	// Add all supported flags.
 	packageFlags.VisitAll(func(f *flag.Flag) {
 		pf := pflag.PFlagFromGoFlag(f)
 		switch f.Name {
-		case "v":
-			// unchanged, potentially skip it
-			if o.skipLoggingConfigurationFlags {
-				return
-			}
-		case logsapi.LogFlushFreqFlagName:
+		case "v", logsapi.LogFlushFreqFlagName:
 			// unchanged, potentially skip it
 			if o.skipLoggingConfigurationFlags {
 				return
 			}
 		case "vmodule":
-			// TODO: see above
-			// pf.Usage += vmoduleUsage
 			if o.skipLoggingConfigurationFlags {
 				return
 			}
-		default:
-			// deprecated, but not hidden
-			pf.Deprecated = deprecated
+			pf.Usage += vmoduleUsage
 		}
-		fs.AddFlag(pf)
+		if fs.Lookup(pf.Name) == nil {
+			fs.AddFlag(pf)
+		}
 	})
 }
 
@@ -137,24 +121,16 @@ func AddGoFlags(fs *flag.FlagSet, opts ...Option) {
 	packageFlags.VisitAll(func(f *flag.Flag) {
 		usage := f.Usage
 		switch f.Name {
-		case "v":
-			// unchanged
-			if o.skipLoggingConfigurationFlags {
-				return
-			}
-		case logsapi.LogFlushFreqFlagName:
+		case "v", logsapi.LogFlushFreqFlagName:
 			// unchanged
 			if o.skipLoggingConfigurationFlags {
 				return
 			}
 		case "vmodule":
-			// TODO: see above
-			// usage += vmoduleUsage
 			if o.skipLoggingConfigurationFlags {
 				return
 			}
-		default:
-			usage += " (DEPRECATED: " + deprecated + ")"
+			usage += vmoduleUsage
 		}
 		fs.Var(f.Value, f.Name, usage)
 	})
@@ -208,11 +184,26 @@ func NewLogger(prefix string) *log.Logger {
 	return log.New(KlogWriter{}, prefix, 0)
 }
 
-// GlogSetter is a setter to set glog level.
+// GlogSetter modifies the verbosity threshold for the entire program.
+// Some components have HTTP-based APIs for invoking this at runtime.
 func GlogSetter(val string) (string, error) {
+	v, err := strconv.ParseUint(val, 10, 32)
+	if err != nil {
+		return "", err
+	}
+
 	var level klog.Level
 	if err := level.Set(val); err != nil {
 		return "", fmt.Errorf("failed set klog.logging.verbosity %s: %v", val, err)
 	}
+
+	setverbositylevel.Mutex.Lock()
+	defer setverbositylevel.Mutex.Unlock()
+	for _, cb := range setverbositylevel.Callbacks {
+		if err := cb(uint32(v)); err != nil {
+			return "", err
+		}
+	}
+
 	return fmt.Sprintf("successfully set klog.logging.verbosity to %s", val), nil
 }

@@ -29,13 +29,12 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/proxy"
 	auditinternal "k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	endpointmetrics "k8s.io/apiserver/pkg/endpoints/metrics"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/apiserver/pkg/server/egressselector"
 	utilflowcontrol "k8s.io/apiserver/pkg/util/flowcontrol"
 	"k8s.io/apiserver/pkg/util/x509metrics"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	apiregistrationv1api "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -58,16 +57,12 @@ type proxyHandler struct {
 
 	// proxyCurrentCertKeyContent holds the client cert used to identify this proxy. Backing APIServices use this to confirm the proxy's identity
 	proxyCurrentCertKeyContent certKeyFunc
-	proxyTransport             *http.Transport
+	proxyTransportDial         *transport.DialHolder
 
 	// Endpoints based routing to map from cluster IP to routable IP
 	serviceResolver ServiceResolver
 
 	handlingInfo atomic.Value
-
-	// egressSelector selects the proper egress dialer to communicate with the custom apiserver
-	// overwrites proxyTransport dialer if not nil
-	egressSelector *egressselector.EgressSelector
 
 	// reject to forward redirect response
 	rejectForwardingRedirects bool
@@ -79,8 +74,8 @@ type proxyHandlingInfo struct {
 
 	// name is the name of the APIService
 	name string
-	// restConfig holds the information for building a roundtripper
-	restConfig *restclient.Config
+	// transportConfig holds the information for building a roundtripper
+	transportConfig *transport.Config
 	// transportBuildingError is an error produced while building the transport.  If this
 	// is non-nil, it will be reported to clients.
 	transportBuildingError error
@@ -206,7 +201,7 @@ func newRequestForProxy(location *url.URL, req *http.Request) (*http.Request, co
 
 	// If the original request has an audit ID, let's make sure we propagate this
 	// to the aggregated server.
-	if auditID, found := genericapirequest.AuditIDFrom(req.Context()); found {
+	if auditID, found := audit.AuditIDFrom(req.Context()); found {
 		newReq.Header.Set(auditinternal.HeaderAuditID, string(auditID))
 	}
 
@@ -230,6 +225,14 @@ func (r *responder) Error(_ http.ResponseWriter, _ *http.Request, err error) {
 
 // these methods provide locked access to fields
 
+// Sets serviceAvailable value on proxyHandler
+// not thread safe
+func (r *proxyHandler) setServiceAvailable() {
+	info := r.handlingInfo.Load().(proxyHandlingInfo)
+	info.serviceAvailable = true
+	r.handlingInfo.Store(info)
+}
+
 func (r *proxyHandler) updateAPIService(apiService *apiregistrationv1api.APIService) {
 	if apiService.Spec.Service == nil {
 		r.handlingInfo.Store(proxyHandlingInfo{local: true})
@@ -238,41 +241,30 @@ func (r *proxyHandler) updateAPIService(apiService *apiregistrationv1api.APIServ
 
 	proxyClientCert, proxyClientKey := r.proxyCurrentCertKeyContent()
 
-	clientConfig := &restclient.Config{
-		TLSClientConfig: restclient.TLSClientConfig{
+	transportConfig := &transport.Config{
+		TLS: transport.TLSConfig{
 			Insecure:   apiService.Spec.InsecureSkipTLSVerify,
 			ServerName: apiService.Spec.Service.Name + "." + apiService.Spec.Service.Namespace + ".svc",
 			CertData:   proxyClientCert,
 			KeyData:    proxyClientKey,
 			CAData:     apiService.Spec.CABundle,
 		},
+		DialHolder: r.proxyTransportDial,
 	}
-	clientConfig.Wrap(x509metrics.NewDeprecatedCertificateRoundTripperWrapperConstructor(
+	transportConfig.Wrap(x509metrics.NewDeprecatedCertificateRoundTripperWrapperConstructor(
 		x509MissingSANCounter,
 		x509InsecureSHA1Counter,
 	))
 
 	newInfo := proxyHandlingInfo{
 		name:             apiService.Name,
-		restConfig:       clientConfig,
+		transportConfig:  transportConfig,
 		serviceName:      apiService.Spec.Service.Name,
 		serviceNamespace: apiService.Spec.Service.Namespace,
 		servicePort:      *apiService.Spec.Service.Port,
 		serviceAvailable: apiregistrationv1apihelper.IsAPIServiceConditionTrue(apiService, apiregistrationv1api.Available),
 	}
-	if r.egressSelector != nil {
-		networkContext := egressselector.Cluster.AsNetworkContext()
-		var egressDialer utilnet.DialFunc
-		egressDialer, err := r.egressSelector.Lookup(networkContext)
-		if err != nil {
-			klog.Warning(err.Error())
-		} else {
-			newInfo.restConfig.Dial = egressDialer
-		}
-	} else if r.proxyTransport != nil && r.proxyTransport.DialContext != nil {
-		newInfo.restConfig.Dial = r.proxyTransport.DialContext
-	}
-	newInfo.proxyRoundTripper, newInfo.transportBuildingError = restclient.TransportFor(newInfo.restConfig)
+	newInfo.proxyRoundTripper, newInfo.transportBuildingError = transport.New(newInfo.transportConfig)
 	if newInfo.transportBuildingError != nil {
 		klog.Warning(newInfo.transportBuildingError.Error())
 	}

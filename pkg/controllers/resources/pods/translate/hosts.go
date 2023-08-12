@@ -14,29 +14,41 @@ const (
 )
 
 var (
-	nonRoot = true
+	nonRoot             = true
+	privilegeEscalation = false
+	capabilities        = corev1.Capabilities{
+		Drop: []corev1.Capability{"ALL"},
+	}
+	seccompProfile = corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeRuntimeDefault,
+	}
 )
 
 func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewriteImage, fromHost, toHostname, toHostnameFQDN string) {
 	if pPod.Annotations == nil || pPod.Annotations[DisableSubdomainRewriteAnnotation] != "true" || pPod.Annotations[HostsRewrittenAnnotation] != "true" {
 		userID := coredns.GetUserID()
+		groupID := coredns.GetGroupID()
 		initContainer := corev1.Container{
 			Name:    HostsRewriteContainerName,
 			Image:   defaultImageRegistry + hostsRewriteImage,
 			Command: []string{"sh"},
 			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostnameFQDN + " " + toHostname + "/' /etc/hosts > /hosts/hosts"},
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:    &userID,
-				RunAsNonRoot: &nonRoot,
+				RunAsUser:                &userID,
+				RunAsGroup:               &groupID,
+				RunAsNonRoot:             &nonRoot,
+				Capabilities:             &capabilities,
+				AllowPrivilegeEscalation: &privilegeEscalation,
+				SeccompProfile:           &seccompProfile,
 			},
 			Resources: corev1.ResourceRequirements{
 				Limits: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceCPU:    resource.MustParse("30m"),
 					corev1.ResourceMemory: resource.MustParse("64Mi"),
 				},
 				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("32Mi"),
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
 				},
 			},
 			VolumeMounts: []corev1.VolumeMount{

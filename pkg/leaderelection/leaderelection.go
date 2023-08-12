@@ -2,7 +2,12 @@ package leaderelection
 
 import (
 	"context"
+	"os"
+	"time"
+
 	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/telemetry"
+	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -13,9 +18,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/klog"
-	"os"
-	"time"
+	"k8s.io/klog/v2"
 )
 
 func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme, run func() error) error {
@@ -68,6 +71,9 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				klog.Info("Acquired leadership and run vcluster in leader mode")
+				if telemetry.Collector.IsEnabled() {
+					telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
+				}
 
 				// start vcluster in leader mode
 				err = run()
@@ -77,6 +83,10 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 			},
 			OnStoppedLeading: func() {
 				klog.Info("leader election lost")
+				if telemetry.Collector.IsEnabled() {
+					telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStopped))
+				}
+				//TODO: force telemetry upload
 				os.Exit(1)
 			},
 		},

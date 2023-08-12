@@ -2,6 +2,7 @@ package coredns
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -14,17 +15,22 @@ import (
 )
 
 const (
-	DefaultImage          = "coredns/coredns"
+	DefaultImage          = "coredns/coredns:1.10.1"
 	ManifestRelativePath  = "coredns/coredns.yaml"
 	ManifestsOutputFolder = "/tmp/manifests-to-apply"
 	VarImage              = "IMAGE"
+	VarHostDNS            = "HOST_CLUSTER_DNS"
 	VarRunAsUser          = "RUN_AS_USER"
 	VarRunAsNonRoot       = "RUN_AS_NON_ROOT"
+	VarRunAsGroup         = "RUN_AS_GROUP"
 	VarLogInDebug         = "LOG_IN_DEBUG"
-	UID                   = int64(1001)
+	defaultUID            = int64(1001)
+	defaultGID            = int64(1001)
 )
 
-func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
+var ErrNoCoreDNSManifests = fmt.Errorf("no coredns manifests found")
+
+func ApplyManifest(ctx context.Context, defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
 	vars := getManifestVariables(defaultImageRegistry, serverVersion)
 	output, err := processManifestTemplate(vars)
 	if err != nil {
@@ -43,7 +49,7 @@ func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, se
 		_, _ = debugOutputFile.Write(output)
 	}
 
-	return applier.ApplyManifest(inClusterConfig, output)
+	return applier.ApplyManifest(ctx, inClusterConfig, output)
 }
 
 func prepareManifestOutput() (*os.File, error) {
@@ -64,13 +70,39 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 	}
 	vars[VarImage] = defaultImageRegistry + vars[VarImage].(string)
 	vars[VarRunAsUser] = fmt.Sprintf("%v", GetUserID())
-	vars[VarRunAsNonRoot] = "true"
+	vars[VarRunAsGroup] = fmt.Sprintf("%v", GetGroupID())
 	if os.Getenv("DEBUG") == "true" {
 		vars[VarLogInDebug] = "log"
 	} else {
 		vars[VarLogInDebug] = ""
 	}
+	vars[VarHostDNS] = getNameserver()
 	return vars
+}
+
+func getNameserver() string {
+	raw, err := os.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		return "/etc/resolv.conf"
+	}
+
+	nameservers := GetNameservers(raw)
+	if len(nameservers) == 0 {
+		return "/etc/resolv.conf"
+	}
+
+	return nameservers[0]
+}
+
+// GetGroupID retrieves the current group id and if the current process is running
+// as root we fallback to GID 1001
+func GetGroupID() int64 {
+	gid := os.Getgid()
+	if gid == 0 {
+		return defaultGID
+	}
+
+	return int64(gid)
 }
 
 // GetUserID retrieves the current user id and if the current process is running
@@ -78,7 +110,7 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 func GetUserID() int64 {
 	uid := os.Getuid()
 	if uid == 0 {
-		return UID
+		return defaultUID
 	}
 
 	return int64(uid)
@@ -86,6 +118,10 @@ func GetUserID() int64 {
 
 func processManifestTemplate(vars map[string]interface{}) ([]byte, error) {
 	manifestInputPath := path.Join(constants.ContainerManifestsFolder, ManifestRelativePath)
+	// check if the manifestInputPath exists
+	if _, err := os.Stat(manifestInputPath); os.IsNotExist(err) {
+		return nil, ErrNoCoreDNSManifests
+	}
 	manifestTemplate, err := template.ParseFiles(manifestInputPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse %s: %v", manifestInputPath, err)

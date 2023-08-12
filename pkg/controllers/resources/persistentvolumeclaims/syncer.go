@@ -7,7 +7,7 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/pkg/errors"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -156,7 +156,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	// forward update
-	newPvc, err := s.translateUpdate(pPvc, vPvc)
+	newPvc, err := s.translateUpdate(ctx.Context, pPvc, vPvc)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if newPvc != nil {

@@ -22,7 +22,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -63,7 +63,7 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 						return
 					}
 
-					responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusCreated, svc)
+					responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusCreated, svc, false)
 					return
 				}
 			} else if info.Verb == "update" {
@@ -95,7 +95,7 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 							return
 						}
 
-						responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, svc)
+						responsewriters.WriteObjectNegotiated(s, negotiation.DefaultEndpointRestrictions, corev1.SchemeGroupVersion, w, req, http.StatusOK, svc, false)
 						return
 					}
 				}
@@ -107,6 +107,9 @@ func WithServiceCreateRedirect(handler http.Handler, uncachedLocalClient, uncach
 }
 
 func updateService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, oldVService *corev1.Service) (runtime.Object, error) {
+	// we use a background context from now on as this is a critical operation
+	ctx := context.Background()
+
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
 	rawObj, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -133,9 +136,6 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 		return newVService, nil
 	}
-
-	// we use a background context from now on as this is a critical operation
-	ctx := context.Background()
 
 	// okay now we have to change the physical service
 	pService := &corev1.Service{}
@@ -178,6 +178,9 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 }
 
 func createService(req *http.Request, decoder encoding.Decoder, localClient client.Client, virtualClient client.Client, fromNamespace string, syncedLabels []string) (runtime.Object, error) {
+	// we use a background context from now on as this is a critical operation
+	ctx := context.Background()
+
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
 	rawObj, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -230,7 +233,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 	if err != nil {
 		// try to cleanup the created physical service
 		klog.Infof("Error creating service in virtual cluster: %v", err)
-		_ = localClient.Delete(context.Background(), newService)
+		_ = localClient.Delete(ctx, newService)
 		return nil, err
 	}
 

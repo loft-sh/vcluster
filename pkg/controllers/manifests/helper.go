@@ -2,6 +2,7 @@ package manifests
 
 import (
 	"context"
+
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/pkg/util/applier"
 	corev1 "k8s.io/api/core/v1"
@@ -9,7 +10,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/pkg/errors"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,7 +45,7 @@ func ApplyGivenInitManifests(ctx context.Context, vClient client.Client, vConfig
 	// apply objects
 	if len(objs) > 0 {
 		klog.Infof("got %d objs to be applied", len(objs))
-		err = applier.ApplyManifest(vConfig, []byte(processedManifests))
+		err = applier.ApplyManifest(ctx, vConfig, []byte(processedManifests))
 		if err != nil {
 			klog.Errorf("error applying manifests: %v", err)
 			return errors.Wrap(err, "apply manifests")

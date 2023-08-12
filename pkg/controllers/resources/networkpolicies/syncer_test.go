@@ -1,9 +1,10 @@
 package networkpolicies
 
 import (
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
-	"testing"
 
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -49,13 +50,13 @@ func TestSync(t *testing.T) {
 	pBaseSpec := networkingv1.NetworkPolicySpec{
 		PodSelector: metav1.LabelSelector{
 			MatchLabels: map[string]string{
-				translate.ConvertLabelKey("mykey"): "mylabel",
-				translate.NamespaceLabel:           vObjectMeta.Namespace,
-				translate.MarkerLabel:              translate.Suffix,
+				translate.Default.ConvertLabelKey("mykey"): "mylabel",
+				translate.NamespaceLabel:                   vObjectMeta.Namespace,
+				translate.MarkerLabel:                      translate.Suffix,
 			},
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
-					Key:      translate.ConvertLabelKey("secondkey"),
+					Key:      translate.Default.ConvertLabelKey("secondkey"),
 					Operator: metav1.LabelSelectorOpIn,
 					Values:   []string{"label-A", "label-B"},
 				},
@@ -123,9 +124,9 @@ func TestSync(t *testing.T) {
 			Ports: somePorts,
 			From: []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					translate.ConvertLabelKey("random-key"): "value",
-					translate.MarkerLabel:                   translate.Suffix,
-					translate.NamespaceLabel:                vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
+					translate.Default.ConvertLabelKey("random-key"): "value",
+					translate.MarkerLabel:                           translate.Suffix,
+					translate.NamespaceLabel:                        vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
 				},
 				MatchExpressions: []metav1.LabelSelectorRequirement{},
 			}}},
@@ -199,7 +200,7 @@ func TestSync(t *testing.T) {
 					},
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
-							Key:      translate.ConvertLabelKey("pod-expr-key"),
+							Key:      translate.Default.ConvertLabelKey("pod-expr-key"),
 							Operator: metav1.LabelSelectorOpExists,
 							Values:   []string{"some-pod-key"},
 						},

@@ -25,6 +25,9 @@ type Translator interface {
 	// IsManagedCluster checks if the cluster scoped object is managed by vcluster
 	IsManagedCluster(obj runtime.Object) bool
 
+	// IsTargetedNamespace checks if the provided namespace is a sync target for vcluster
+	IsTargetedNamespace(ns string) bool
+
 	// PhysicalNameClusterScoped returns the physical name for a cluster scoped
 	// virtual cluster object
 	PhysicalNameClusterScoped(vName string) string
@@ -65,6 +68,8 @@ type Translator interface {
 	// LegacyGetTargetNamespace returns in the case of a single namespace the target namespace, but fails
 	// if vcluster is syncing to multiple namespaces.
 	LegacyGetTargetNamespace() (string, error)
+
+	ConvertLabelKey(string) string
 }
 
 // PhysicalNameTranslator transforms a virtual cluster name to a physical name

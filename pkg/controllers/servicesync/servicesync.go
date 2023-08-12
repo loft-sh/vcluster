@@ -22,8 +22,9 @@ import (
 type ServiceSyncer struct {
 	SyncServices map[string]types.NamespacedName
 
-	CreateNamespace bool
-	CreateEndpoints bool
+	IsVirtualToHostSyncer bool
+	CreateNamespace       bool
+	CreateEndpoints       bool
 
 	From ctrl.Manager
 	To   ctrl.Manager
@@ -44,7 +45,7 @@ func (e *ServiceSyncer) Register() error {
 	return ctrl.NewControllerManagedBy(e.From).
 		Named("servicesync").
 		For(&corev1.Service{}).
-		Watches(source.NewKindWithCache(&corev1.Service{}, e.To.GetCache()), handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		WatchesRawSource(source.Kind(e.To.GetCache(), &corev1.Service{}), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
 			if object == nil {
 				return nil
 			}
@@ -123,6 +124,16 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 				Ports: fromService.Spec.Ports,
 			},
 		}
+
+		// case for a headless service
+		if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
+			toService.Spec.ClusterIP = corev1.ClusterIPNone
+		}
+
+		if e.IsVirtualToHostSyncer {
+			e.Log.Infof("Add owner reference to host target service %s", to.Name)
+			toService.OwnerReferences = translate.GetOwnerReference(nil)
+		}
 		toService.Spec.Selector = translate.Default.TranslateLabels(fromService.Spec.Selector, fromService.Namespace, nil)
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
@@ -189,6 +200,11 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 				ClusterIP: corev1.ClusterIPNone,
 			},
 		}
+
+		if e.IsVirtualToHostSyncer {
+			e.Log.Infof("Add owner reference to host target service %s", to.Name)
+			toService.OwnerReferences = translate.GetOwnerReference(nil)
+		}
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
 	} else if toService.Labels == nil || toService.Labels[translate.ControllerLabel] != "vcluster" {
@@ -217,6 +233,32 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 			return ctrl.Result{}, err
 		}
 
+		// copy subsets from endpoint
+		subsets := []corev1.EndpointSubset{}
+
+		if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
+			// fetch the corresponding endpoint and assign address from there to here
+			fromEndpoint := &corev1.Endpoints{}
+			err = e.From.GetClient().Get(ctx, types.NamespacedName{
+				Name:      fromService.GetName(),
+				Namespace: fromService.GetNamespace(),
+			}, fromEndpoint)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			subsets = fromEndpoint.Subsets
+		} else {
+			subsets = append(subsets, corev1.EndpointSubset{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: fromService.Spec.ClusterIP,
+					},
+				},
+				Ports: convertPorts(toService.Spec.Ports),
+			})
+		}
+
 		// create endpoints
 		toEndpoints = &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
@@ -226,17 +268,9 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 					translate.ControllerLabel: "vcluster",
 				},
 			},
-			Subsets: []corev1.EndpointSubset{
-				{
-					Addresses: []corev1.EndpointAddress{
-						{
-							IP: fromService.Spec.ClusterIP,
-						},
-					},
-					Ports: convertPorts(toService.Spec.Ports),
-				},
-			},
+			Subsets: subsets,
 		}
+
 		e.Log.Infof("Create target endpoints %s/%s because they are missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toEndpoints)
 	}

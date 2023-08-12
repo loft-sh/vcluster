@@ -3,20 +3,23 @@ package cert
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"os"
 	"reflect"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,12 +29,14 @@ type Syncer interface {
 	dynamiccertificates.CertKeyContentProvider
 }
 
-func NewSyncer(currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
+func NewSyncer(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
 	return &syncer{
 		clusterDomain: options.ClusterDomain,
 
 		serverCaKey:  options.ServerCaKey,
 		serverCaCert: options.ServerCaCert,
+
+		fakeKubeletIPs: options.FakeKubeletIPs,
 
 		addSANs:   options.TLSSANs,
 		listeners: []dynamiccertificates.Listener{},
@@ -53,6 +58,8 @@ type syncer struct {
 	serviceName           string
 	currentNamespace      string
 	currentNamespaceCient client.Client
+
+	fakeKubeletIPs bool
 
 	listeners []dynamiccertificates.Listener
 
@@ -80,12 +87,15 @@ func (s *syncer) AddListener(listener dynamiccertificates.Listener) {
 	s.listeners = append(s.listeners, listener)
 }
 
-func (s *syncer) getSANs() ([]string, error) {
-	retSANs := []string{s.serviceName, s.serviceName + "." + s.currentNamespace, "*." + translate.Suffix + "." + s.currentNamespace + "." + constants.NodeSuffix}
+func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
+	retSANs := []string{
+		s.serviceName,
+		s.serviceName + "." + s.currentNamespace, "*." + constants.NodeSuffix,
+	}
 
 	// get cluster ip of target service
 	svc := &corev1.Service{}
-	err := s.currentNamespaceCient.Get(context.TODO(), types.NamespacedName{
+	err := s.currentNamespaceCient.Get(ctx, types.NamespacedName{
 		Namespace: s.currentNamespace,
 		Name:      s.serviceName,
 	}, svc)
@@ -96,6 +106,9 @@ func (s *syncer) getSANs() ([]string, error) {
 	}
 
 	// get load balancer ip
+	// currently, the load balancer service is named <serviceName>-lb, but the syncer image might run in legacy environments
+	// where the load balancer service is the same service, the service is only updated if the helm template is rerun,
+	// so we are leaving this snippet in, but the load balancer ip will be read via the lbSVC var below
 	for _, ing := range svc.Status.LoadBalancer.Ingress {
 		if ing.IP != "" {
 			retSANs = append(retSANs, ing.IP)
@@ -113,6 +126,52 @@ func (s *syncer) getSANs() ([]string, error) {
 		retSANs = append(retSANs, podIP)
 	}
 
+	// get cluster ip of load balancer service
+	lbSVCName := translate.GetLoadBalancerSVCName(s.serviceName)
+	lbSVC := &corev1.Service{}
+	err = s.currentNamespaceCient.Get(ctx, types.NamespacedName{
+		Namespace: s.currentNamespace,
+		Name:      lbSVCName,
+	}, lbSVC)
+	// proceed only if load balancer service exists
+	if !errors.IsNotFound(err) {
+		if err != nil {
+			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %v", s.currentNamespace, lbSVCName, err)
+		} else if lbSVC.Spec.ClusterIP == "" {
+			return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, lbSVCName)
+		}
+
+		for _, ing := range lbSVC.Status.LoadBalancer.Ingress {
+			if ing.IP != "" {
+				retSANs = append(retSANs, ing.IP)
+			}
+			if ing.Hostname != "" {
+				retSANs = append(retSANs, ing.Hostname)
+			}
+		}
+		// append hostnames for load balancer service
+		retSANs = append(retSANs,
+			lbSVCName,
+			lbSVCName+"."+s.currentNamespace, "*."+translate.Suffix+"."+s.currentNamespace+"."+constants.NodeSuffix,
+		)
+	}
+
+	if s.fakeKubeletIPs {
+		// get cluster ips of node services
+		svcs := &corev1.ServiceList{}
+		err = s.currentNamespaceCient.List(ctx, svcs, client.InNamespace(s.currentNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
+		if err != nil {
+			return nil, err
+		}
+		for _, svc := range svcs.Items {
+			if svc.Spec.ClusterIP == "" {
+				continue
+			}
+
+			retSANs = append(retSANs, svc.Spec.ClusterIP)
+		}
+	}
+
 	// make sure other sans are there as well
 	retSANs = append(retSANs, s.addSANs...)
 	sort.Strings(retSANs)
@@ -124,7 +183,7 @@ func (s *syncer) RunOnce(ctx context.Context) error {
 	s.currentCertMutex.Lock()
 	defer s.currentCertMutex.Unlock()
 
-	extraSANs, err := s.getSANs()
+	extraSANs, err := s.getSANs(ctx)
 	if err != nil {
 		return err
 	}
@@ -149,7 +208,7 @@ func (s *syncer) regen(extraSANs []string) error {
 
 func (s *syncer) Run(ctx context.Context, workers int) {
 	wait.JitterUntil(func() {
-		extraSANs, err := s.getSANs()
+		extraSANs, err := s.getSANs(ctx)
 		if err != nil {
 			klog.Infof("Error retrieving SANs: %v", err)
 			return

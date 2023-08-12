@@ -25,6 +25,8 @@ This is how you can work with it:
 - Run \`${COLOR_CYAN}kubectl ...${COLOR_RESET}\` from within the container to access the vcluster if its started
 - ${COLOR_CYAN}Files will be synchronized${COLOR_RESET} between your local machine and this container
 
+${COLOR_CYAN}NOTE:${COLOR_RESET} you may need to provide additional flags through the command line, because the flags set from the chart are ignored in the dev mode.
+
 If you wish to run vcluster in the debug mode with delve, run:
   \`${COLOR_CYAN}${DEBUG_CMD}${COLOR_RESET}\`
   Wait until the \`${COLOR_CYAN}API server listening at: [::]:2345${COLOR_RESET}\` message appears

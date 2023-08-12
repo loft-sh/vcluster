@@ -2,6 +2,12 @@
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""
 
+globalAnnotations: {}
+
+# If true, will deploy vcluster in headless mode, which means no deployment
+# or statefulset is created.
+headless: false
+
 # If the control plane is deployed in high availability mode
 # Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
 enableHA: false
@@ -52,6 +58,7 @@ sync:
   fake-persistentvolumes:
     enabled: true # will be ignored if persistentvolumes.enabled = true
   nodes:
+    fakeKubeletIPs: true
     enabled: false
     # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
     # will sync all nodes instead of only the ones where some pods are running.
@@ -80,6 +87,16 @@ sync:
     enabled: false
   serviceaccounts:
     enabled: false
+  # generic CRD configuration
+  generic:
+    config: |-
+      ---
+
+# If enabled, will fallback to host dns for resolving domains. This
+# is useful if using istio or dapr in the host cluster and sidecar
+# containers cannot connect to the central instance. Its also useful
+# if you want to access host cluster services from within the vcluster.
+fallbackHostDns: false
 
 # Map Services between host and virtual cluster
 mapServices:
@@ -99,13 +116,17 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
-hostpathMapper:
-  enabled: false
+proxy:
+  metricsServer:
+    nodes:
+      enabled: false
+    pods:
+      enabled: false
 
 # Syncer configuration
 syncer:
   # Image to use for the syncer
-  # image: loftsh/vcluster
+  # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
   volumeMounts:
     - mountPath: /manifests/coredns
@@ -114,6 +135,7 @@ syncer:
     - mountPath: /pki
       name: certs
       readOnly: true
+  extraVolumeMounts: []
   env: []
   livenessProbe:
     enabled: true
@@ -125,7 +147,7 @@ syncer:
     requests:
       cpu: 10m
       memory: 64Mi
-  # Extra volumes 
+  # Extra volumes
   volumes: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -145,11 +167,12 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
+  serviceAnnotations: {}
 
 # Etcd settings
 etcd:
-  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.4-eks-1-24-3
-  # The amount of replicas to run 
+  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.6-eks-1-24-7
+  # The amount of replicas to run
   replicas: 1
   # NodeSelector used
   nodeSelector: {}
@@ -157,7 +180,7 @@ etcd:
   affinity: {}
   # Tolerations to apply
   tolerations: []
-  # Extra Labels 
+  # Extra Labels
   labels: {}
   # Extra Annotations
   annotations: {}
@@ -179,19 +202,20 @@ etcd:
     #className:
   priorityClassName: ""
   securityContext: {}
+  serviceAnnotations: {}
 
 # Kubernetes Controller Manager settings
 controller:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.23.7-eks-1-23-4
+  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.24.9-eks-1-24-7
   # The amount of replicas to run the deployment with
   replicas: 1
-  # NodeSelector used 
+  # NodeSelector used
   nodeSelector: {}
-  # Affinity to apply 
+  # Affinity to apply
   affinity: {}
-  # Tolerations to apply 
+  # Tolerations to apply
   tolerations: []
-  # Extra Labels 
+  # Extra Labels
   labels: {}
   # Extra Annotations
   annotations: {}
@@ -205,7 +229,7 @@ controller:
 
 # Kubernetes API Server settings
 api:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.24.6-eks-1-24-3
+  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.24.9-eks-1-24-7
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -227,11 +251,17 @@ api:
       memory: 300Mi
   priorityClassName: ""
   securityContext: {}
+  serviceAnnotations: {}
 
 # Core DNS settings
 coredns:
-  image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-24-3
+  enabled: true
+  image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-24-7
   replicas: 1
+  # CoreDNS service configurations
+  service:
+    # Extra Annotations
+    annotations: {}
   resources:
     limits:
       cpu: 1000m
@@ -257,10 +287,15 @@ serviceAccount:
   # imagePullSecrets:
   #   - name: my-pull-secret
 
+# Service account that should be used by the pods synced by vcluster
+workloadServiceAccount:
+  # This is not supported in multi-namespace mode
+  annotations: {}
+
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Deprecated ! 
+    # Deprecated !
     # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     create: false
@@ -269,7 +304,7 @@ rbac:
     # Support for this value will be removed in a future version of the vcluster
     # and basic role will always be created
     create: true
-    # Deprecated ! 
+    # Deprecated !
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
@@ -298,6 +333,9 @@ service:
 # job configuration
 job:
   enabled: true
+  volumes: []
+  volumeMounts: []
+  extraArgs: []
   priorityClassName: ""
   nodeSelector: {}
   affinity: {}
@@ -331,11 +369,11 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 # Set "enable" to true when running vcluster in an OpenShift host
-# This will add an extra rule to the deployed role binding in order 
+# This will add an extra rule to the deployed role binding in order
 # to manage service endpoints
 openshift:
   enable: false
-  
+
 # manifests to setup when initializing a vcluster
 init:
   manifests: |-
@@ -352,6 +390,11 @@ isolation:
   namespace: null
 
   podSecurityStandard: baseline
+
+  # If enabled will add node/proxy permission to the cluster role
+  # in isolation mode
+  nodeProxyPermission:
+    enabled: false
 
   resourceQuota:
     enabled: true
@@ -400,3 +443,8 @@ isolation:
 
 multiNamespaceMode:
   enabled: false
+
+telemetry:
+  disabled: "false"
+  instanceCreator: "helm"
+  instanceCreatorUID: ""

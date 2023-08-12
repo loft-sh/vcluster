@@ -10,7 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 )
 
 const (
@@ -105,7 +105,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 		vpvc, err := f.VclusterClient.CoreV1().PersistentVolumeClaims(ns).Get(f.Context, pvcName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(pvcName, ns), metav1.GetOptions{})
+		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(pvcName, ns), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		framework.ExpectEqual(vpvc.Status, pvc.Status)

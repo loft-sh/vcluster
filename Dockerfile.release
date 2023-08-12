@@ -1,0 +1,29 @@
+# Build the manager binary
+FROM alpine:3.18 as builder
+
+WORKDIR /vcluster-dev
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG BUILD_VERSION=dev
+ARG TELEMETRY_PRIVATE_KEY=""
+
+ARG HELM_VERSION="v3.11.0"
+
+# Add curl
+RUN apk add --no-cache curl
+
+# Install helm binary
+RUN curl -s https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz > helm3.tar.gz && tar -zxvf helm3.tar.gz linux-${TARGETARCH}/helm && chmod +x linux-${TARGETARCH}/helm && mv linux-${TARGETARCH}/helm /usr/local/bin/helm && rm helm3.tar.gz && rm -R linux-${TARGETARCH}
+
+# we use alpine for easier debugging
+FROM alpine:3.18
+
+# Set root path as working directory
+WORKDIR /
+
+COPY vcluster .
+COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
+COPY manifests/volumesnapshots /manifests/volumesnapshots
+
+ENTRYPOINT ["/vcluster", "start"]

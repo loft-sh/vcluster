@@ -1,24 +1,27 @@
-## vcluster (k8s)
 
-### **[GitHub](https://github.com/loft-sh/vcluster)** • **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/getting-started/setup)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
+# vcluster (k8s)
+
+## **[GitHub](https://github.com/loft-sh/vcluster)** • **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/getting-started/setup)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
 
 Create fully functional virtual Kubernetes clusters - Each vcluster runs inside a namespace of the underlying k8s cluster. It's cheaper than creating separate full-blown clusters and it offers better multi-tenancy and isolation than regular namespaces.
 
 ## Prerequisites
+
 - Kubernetes 1.18+
 - Helm 3+
 
 ## Get Helm Repository Info
 
-```
+```bash
 helm repo add loft-sh https://charts.loft.sh
 helm repo update
 ```
+
 See [helm repo](https://helm.sh/docs/helm/helm_repo/) for command documentation.
 
 ## Install Helm Chart
 
-```
+```bash
 helm upgrade [RELEASE_NAME] loft-sh/vcluster-k8s -n [RELEASE_NAMESPACE] --create-namespace --install
 ```
 
@@ -29,13 +32,14 @@ See [helm upgrade](https://helm.sh/docs/helm/helm_upgrade/) for command document
 ## Connect to the vcluster
 
 In order to connect to the installed vcluster, please install [vcluster cli](https://www.vcluster.com/docs/getting-started/setup) and run:
-```
+
+```bash
 vcluster connect [RELEASE_NAME] -n [RELEASE_NAMESPACE]
 ```
 
 ## Uninstall Helm Chart
 
-```
+```bash
 helm uninstall [RELEASE_NAME]
 ```
 

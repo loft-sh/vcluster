@@ -72,7 +72,6 @@ module.exports = {
       items: [
           'plugins/overview',
           'plugins/tutorial',
-          'plugins/generic-crd-sync',
       ]
     },
     {
@@ -81,13 +80,11 @@ module.exports = {
     },
     {
       type: 'doc',
-      id: 'config-reference',
+      id: 'telemetry',
     },
     {
-      type: 'category',
-      label: 'CLI Reference',
-      items: [
-      ],
+      type: 'doc',
+      id: 'config-reference',
     },
     {
       type: 'link',

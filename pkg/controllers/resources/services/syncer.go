@@ -7,13 +7,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -44,7 +44,7 @@ func (s *serviceSyncer) WithOptions() *syncer.Options {
 }
 
 func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.Service)))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Service)))
 }
 
 func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -97,7 +97,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	}
 
 	// forward update
-	newService = s.translateUpdate(pService, vService)
+	newService = s.translateUpdate(ctx.Context, pService, vService)
 	if newService != nil {
 		translator.PrintChanges(pService, newService, ctx.Log)
 	}
@@ -155,8 +155,10 @@ var _ syncer.Starter = &serviceSyncer{}
 
 func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service
-	if req.Name == "kubernetes" && req.Namespace == "default" {
-		return true, SyncKubernetesService(ctx.Context, ctx.VirtualClient, ctx.CurrentNamespaceClient, ctx.CurrentNamespace, s.serviceName)
+	specialServices := specialservices.Default.SpecialServicesToSync()
+
+	if svc, ok := specialServices[req.NamespacedName]; ok {
+		return true, svc(ctx.Context, ctx.VirtualClient, ctx.CurrentNamespaceClient, ctx.CurrentNamespace, s.serviceName, req.NamespacedName, TranslateServicePorts)
 	}
 
 	return false, nil
@@ -164,70 +166,7 @@ func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Re
 
 func (s *serviceSyncer) ReconcileEnd() {}
 
-func SyncKubernetesService(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceNamespace, serviceName string) error {
-	// get physical service
-	pObj := &corev1.Service{}
-	err := localClient.Get(ctx, types.NamespacedName{
-		Namespace: serviceNamespace,
-		Name:      serviceName,
-	}, pObj)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-
-		return err
-	}
-
-	// get virtual service
-	vObj := &corev1.Service{}
-	err = virtualClient.Get(ctx, types.NamespacedName{
-		Namespace: "default",
-		Name:      "kubernetes",
-	}, vObj)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-
-		return err
-	}
-
-	translatedPorts := translateKubernetesServicePorts(pObj.Spec.Ports)
-	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.Ports, translatedPorts) {
-		newService := vObj.DeepCopy()
-		newService.Spec.ClusterIP = pObj.Spec.ClusterIP
-		newService.Spec.Ports = translatedPorts
-		if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP {
-			newService.Spec.ClusterIPs = nil
-
-			// delete & create with correct ClusterIP
-			err = virtualClient.Delete(ctx, vObj)
-			if err != nil {
-				return err
-			}
-
-			// make sure we don't set the resource version during create
-			newService.ResourceVersion = ""
-
-			// create the new service with the correct cluster ip
-			err = virtualClient.Create(ctx, newService)
-			if err != nil {
-				return err
-			}
-		} else {
-			// delete & create with correct ClusterIP
-			err = virtualClient.Update(ctx, newService)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func translateKubernetesServicePorts(ports []corev1.ServicePort) []corev1.ServicePort {
+func TranslateServicePorts(ports []corev1.ServicePort) []corev1.ServicePort {
 	retPorts := []corev1.ServicePort{}
 	for _, p := range ports {
 		if p.Name == "kubelet" {

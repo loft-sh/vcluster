@@ -1,6 +1,9 @@
 package secrets
 
 import (
+	"context"
+	"testing"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -10,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
@@ -49,9 +51,9 @@ func TestSync(t *testing.T) {
 				translate.UIDAnnotation:       "",
 			},
 			Labels: map[string]string{
-				translate.NamespaceLabel:             baseSecret.Namespace,
-				testLabel:                            testLabelValue,
-				translate.ConvertLabelKey(testLabel): testLabelValue,
+				translate.NamespaceLabel: baseSecret.Namespace,
+				testLabel:                testLabelValue,
+				translate.Default.ConvertLabelKey(testLabel): testLabelValue,
 			},
 		},
 	}
@@ -172,7 +174,7 @@ func TestMapping(t *testing.T) {
 	}
 
 	// test ingress mapping
-	requests := mapIngresses(ingress)
+	requests := mapIngresses(context.Background(), ingress)
 	if len(requests) != 2 || requests[0].Name != "a" || requests[0].Namespace != "test" || requests[1].Name != "b" || requests[1].Namespace != "test" {
 		t.Fatalf("Wrong secret requests returned: %#+v", requests)
 	}
@@ -213,7 +215,7 @@ func TestMapping(t *testing.T) {
 			},
 		},
 	}
-	requests = mapPods(pod)
+	requests = mapPods(context.Background(), pod)
 	if len(requests) != 2 || requests[0].Name != "a" || requests[0].Namespace != "test" || requests[1].Name != "b" || requests[1].Namespace != "test" {
 		t.Fatalf("Wrong pod requests returned: %#+v", requests)
 	}

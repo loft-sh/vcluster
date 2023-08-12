@@ -3,10 +3,10 @@ package persistentvolumes
 import (
 	"context"
 	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -45,7 +45,7 @@ func (r *fakePersistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterCo
 var _ syncer.ControllerModifier = &fakePersistentVolumeSyncer{}
 
 func (r *fakePersistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return builder.Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+	return builder.Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
 		pvc, ok := object.(*corev1.PersistentVolumeClaim)
 		if !ok || pvc == nil || pvc.Spec.VolumeName == "" {
 			return []reconcile.Request{}

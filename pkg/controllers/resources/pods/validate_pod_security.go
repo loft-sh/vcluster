@@ -47,8 +47,9 @@ func (s *podSyncer) validatePodSecurityStandards(ctx context.Context, pod *corev
 	}
 
 	adm := &admission.Admission{
-		Evaluator: evaluator,
-		Metrics:   &FakeMetricsRecorder{},
+		Evaluator:     evaluator,
+		Metrics:       &FakeMetricsRecorder{},
+		Configuration: &admissionapi.PodSecurityConfiguration{},
 	}
 
 	nsPolicy, nsError := admissionapi.ToPolicy(podSecurityDefaults)

@@ -1,6 +1,7 @@
 package pods
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,7 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,7 +77,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		// get current status
 		vpod, err := f.VclusterClient.CoreV1().Pods(ns).Get(f.Context, podName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		pod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, podName+"-x-"+ns+"-x-"+f.Suffix, metav1.GetOptions{})
+		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		framework.ExpectEqual(vpod.Status, pod.Status)
@@ -134,7 +135,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		// get current status
 		vpod, err := f.VclusterClient.CoreV1().Pods(ns).Get(f.Context, podName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		pod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, podName+"-x-"+ns+"-x-"+f.Suffix, metav1.GetOptions{})
+		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(vpod.Status, pod.Status)
 
@@ -263,13 +264,13 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// execute a command in a pod to retrieve env var value
-		stdout, stderr, err := podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $" + envVarName}, nil)
+		stdout, stderr, err := podhelper.ExecBuffered(f.Context, f.HostConfig, translate.Default.PhysicalNamespace(ns), translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $" + envVarName}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), cmKeyValue+"\n") // echo adds \n in the end
 		framework.ExpectEqual(string(stderr), "")
 
 		// execute a command in a pod to retrieve file content
-		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"cat", filePath + "/" + fileName}, nil)
+		stdout, stderr, err = podhelper.ExecBuffered(f.Context, f.HostConfig, translate.Default.PhysicalNamespace(ns), translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"cat", filePath + "/" + fileName}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), cmKeyValue)
 		framework.ExpectEqual(string(stderr), "")
@@ -346,13 +347,13 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// execute a command in a pod to retrieve env var value
-		stdout, stderr, err := podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $" + envVarName}, nil)
+		stdout, stderr, err := podhelper.ExecBuffered(f.Context, f.HostConfig, translate.Default.PhysicalNamespace(ns), translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $" + envVarName}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), secretKeyValue+"\n") // echo adds \n in the end
 		framework.ExpectEqual(string(stderr), "")
 
 		// execute a command in a pod to retrieve file content
-		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"cat", filePath + "/" + fileName}, nil)
+		stdout, stderr, err = podhelper.ExecBuffered(f.Context, f.HostConfig, translate.Default.PhysicalNamespace(ns), translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"cat", filePath + "/" + fileName}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), secretKeyValue)
 		framework.ExpectEqual(string(stderr), "")
@@ -422,17 +423,17 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// execute a command in a pod to retrieve env var value
-		stdout, stderr, err := podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $HELLO_WORLD"}, nil)
+		stdout, stderr, err := podhelper.ExecBuffered(f.Context, f.HostConfig, translate.Default.PhysicalNamespace(ns), translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $HELLO_WORLD"}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), "Hello World\n", "Dependent environment variable is expected to have its value based on the referenced environment variable(s)") // echo adds \n in the end
 		framework.ExpectEqual(string(stderr), "")
 
-		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $ESCAPED_VAR"}, nil)
+		stdout, stderr, err = podhelper.ExecBuffered(f.Context, f.HostConfig, translate.Default.PhysicalNamespace(ns), translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $ESCAPED_VAR"}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(string(stdout), "$(FIRST)\n", "The double '$' symbol should be escaped") // echo adds \n in the end
 		framework.ExpectEqual(string(stderr), "")
 
-		stdout, stderr, err = podhelper.ExecBuffered(f.HostConfig, f.VclusterNamespace, translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $MY_SERVICE"}, nil)
+		stdout, stderr, err = podhelper.ExecBuffered(f.Context, f.HostConfig, translate.Default.PhysicalNamespace(ns), translate.Default.PhysicalName(pod.Name, pod.Namespace), testingContainerName, []string{"sh", "-c", "echo $MY_SERVICE"}, nil)
 		framework.ExpectNoError(err)
 		framework.ExpectMatchRegexp(string(stdout), fmt.Sprintf("^%s://%s:%d\n$", myProtocol, ipRegExp, svcPort), "Service host and port environment variables should be resolved in a dependent environment variable")
 		framework.ExpectEqual(string(stderr), "")
@@ -459,7 +460,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
 
 		// get current physical Pod resource
-		pPod, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(pod.Name, pod.Namespace), metav1.GetOptions{})
+		pPod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(pod.Name, pod.Namespace), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		pKey := translate.ConvertLabelKeyWithPrefix(podtranslate.NamespaceLabelPrefix, initialNsLabelKey)
 		framework.ExpectHaveKey(pPod.GetLabels(), pKey)
@@ -474,15 +475,15 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		namespace.SetLabels(labels)
 
 		updated := false
-		err = wait.PollImmediate(time.Second, framework.PollTimeout, func() (bool, error) {
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
 			if !updated {
-				namespace, err = f.VclusterClient.CoreV1().Namespaces().Update(f.Context, namespace, metav1.UpdateOptions{})
+				namespace, err = f.VclusterClient.CoreV1().Namespaces().Update(ctx, namespace, metav1.UpdateOptions{})
 				if err != nil && !kerrors.IsConflict(err) {
 					return false, err
 				}
 				updated = true
 			}
-			pPod, err = f.HostClient.CoreV1().Pods(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(pod.Name, pod.Namespace), metav1.GetOptions{})
+			pPod, err = f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(ctx, translate.Default.PhysicalName(pod.Name, pod.Namespace), metav1.GetOptions{})
 			framework.ExpectNoError(err)
 			pKey = translate.ConvertLabelKeyWithPrefix(podtranslate.NamespaceLabelPrefix, additionalLabelKey)
 			if value, ok := pPod.GetLabels()[pKey]; ok {
@@ -492,5 +493,52 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			return false, nil
 		})
 		framework.ExpectNoError(err)
+	})
+
+	ginkgo.It("Test if service account tokens are synced and mounted through secrets", func() {
+		podName := "test-nginx"
+
+		pod, err := f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: ns,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  podName,
+						Image: "nginx",
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+
+		framework.ExpectNoError(err)
+		err = f.WaitForPodRunning(podName, ns)
+
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		// get current physical Pod resource
+		pPod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(pod.Name, pod.Namespace), metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// make sure service account token annotation is not present
+		_, ok := pPod.GetAnnotations()[podtranslate.PodServiceAccountTokenSecretName]
+		framework.ExpectEqual(ok, false, "service account token annotation should not be present")
+
+		// make sure the secret is created in host cluster
+		_, err = f.HostClient.CoreV1().Secrets(translate.Default.PhysicalNamespace(ns)).Get(f.Context, podtranslate.SecretNameFromPodName(pod.Name, ns), metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// make sure the project volume for path 'token' is now using a secret instead of service account
+		for _, volume := range pPod.Spec.Volumes {
+			if volume.Projected != nil {
+				for _, source := range volume.Projected.Sources {
+					if source.Secret != nil {
+						framework.ExpectEqual(source.Secret.Name, podtranslate.SecretNameFromPodName(pod.Name, ns))
+					}
+				}
+			}
+		}
 	})
 })

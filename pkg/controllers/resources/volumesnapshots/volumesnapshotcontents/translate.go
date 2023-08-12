@@ -1,6 +1,8 @@
 package volumesnapshotcontents
 
 import (
+	"context"
+
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -9,8 +11,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (s *volumeSnapshotContentSyncer) translate(vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
-	pVSC := s.TranslateMetadata(vVSC).(*volumesnapshotv1.VolumeSnapshotContent)
+func (s *volumeSnapshotContentSyncer) translate(ctx context.Context, vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
+	pVSC := s.TranslateMetadata(ctx, vVSC).(*volumesnapshotv1.VolumeSnapshotContent)
 	pVSC.Spec.VolumeSnapshotRef = corev1.ObjectReference{
 		Namespace: translate.Default.PhysicalNamespace(vVSC.Spec.VolumeSnapshotRef.Namespace),
 		Name:      translate.Default.PhysicalName(vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace),
@@ -57,7 +59,7 @@ func (s *volumeSnapshotContentSyncer) translateUpdateBackwards(pVSC, vVSC *volum
 	return updated
 }
 
-func (s *volumeSnapshotContentSyncer) translateUpdate(vVSC *volumesnapshotv1.VolumeSnapshotContent, pVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
+func (s *volumeSnapshotContentSyncer) translateUpdate(ctx context.Context, vVSC *volumesnapshotv1.VolumeSnapshotContent, pVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
 	var updated *volumesnapshotv1.VolumeSnapshotContent
 
 	if !equality.Semantic.DeepEqual(pVSC.Spec.DeletionPolicy, vVSC.Spec.DeletionPolicy) {
@@ -70,7 +72,7 @@ func (s *volumeSnapshotContentSyncer) translateUpdate(vVSC *volumesnapshotv1.Vol
 		updated.Spec.VolumeSnapshotClassName = vVSC.Spec.VolumeSnapshotClassName
 	}
 
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vVSC, pVSC)
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vVSC, pVSC)
 	if changed {
 		updated = translator.NewIfNil(updated, pVSC)
 		updated.Annotations = updatedAnnotations

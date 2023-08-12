@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"context"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -10,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestPodAffinityTermsTranslation(t *testing.T) {
@@ -25,7 +27,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 	}
 	basicSelectorTranslatedWithMarker := &metav1.LabelSelector{MatchLabels: map[string]string{}}
 	for k, v := range basicSelector.MatchLabels {
-		basicSelectorTranslatedWithMarker.MatchLabels[translate.ConvertLabelKey(k)] = v
+		basicSelectorTranslatedWithMarker.MatchLabels[translate.Default.ConvertLabelKey(k)] = v
 	}
 	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.Suffix
 
@@ -198,10 +200,11 @@ func TestVolumeTranslation(t *testing.T) {
 		tr := &translator{
 			eventRecorder: fakeRecorder,
 			log:           loghelper.New("pods-syncer-translator-test"),
+			pClient:       fake.NewClientBuilder().Build(),
 		}
 
 		pPod := testCase.vPod.DeepCopy()
-		err := tr.translateVolumes(pPod, &testCase.vPod)
+		err := tr.translateVolumes(context.Background(), pPod, &testCase.vPod)
 		assert.NilError(t, err)
 		assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
 	}

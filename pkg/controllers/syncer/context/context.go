@@ -25,7 +25,7 @@ type RegisterContext struct {
 	Context context.Context
 
 	Options     *controllercontext.VirtualClusterOptions
-	Controllers sets.String
+	Controllers sets.Set[string]
 
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client

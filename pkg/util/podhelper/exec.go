@@ -2,6 +2,7 @@ package podhelper
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 
@@ -39,7 +40,7 @@ type ExecStreamWithTransportOptions struct {
 }
 
 // ExecStreamWithTransport executes a kubectl exec with given transport round tripper and upgrader
-func ExecStreamWithTransport(client kubernetes.Interface, options *ExecStreamWithTransportOptions) error {
+func ExecStreamWithTransport(ctx context.Context, client kubernetes.Interface, options *ExecStreamWithTransportOptions) error {
 	var (
 		t             term.TTY
 		sizeQueue     remotecommand.TerminalSizeQueue
@@ -109,7 +110,7 @@ func ExecStreamWithTransport(client kubernetes.Interface, options *ExecStreamWit
 	}
 
 	return t.Safe(func() error {
-		return exec.Stream(streamOptions)
+		return exec.StreamWithContext(ctx, streamOptions)
 	})
 }
 
@@ -130,7 +131,7 @@ type ExecStreamOptions struct {
 }
 
 // ExecStream executes a command and streams the output to the given streams
-func ExecStream(kubeConfig *rest.Config, options *ExecStreamOptions) error {
+func ExecStream(ctx context.Context, kubeConfig *rest.Config, options *ExecStreamOptions) error {
 	wrapper, upgradeRoundTripper, err := GetUpgraderWrapper(kubeConfig)
 	if err != nil {
 		return err
@@ -141,7 +142,7 @@ func ExecStream(kubeConfig *rest.Config, options *ExecStreamOptions) error {
 		return err
 	}
 
-	return ExecStreamWithTransport(kubeClient, &ExecStreamWithTransportOptions{
+	return ExecStreamWithTransport(ctx, kubeClient, &ExecStreamWithTransportOptions{
 		ExecStreamOptions: *options,
 		Transport:         wrapper,
 		Upgrader:          upgradeRoundTripper,
@@ -150,11 +151,11 @@ func ExecStream(kubeConfig *rest.Config, options *ExecStreamOptions) error {
 }
 
 // ExecBuffered executes a command for kubernetes and returns the output and error buffers
-func ExecBuffered(kubeConfig *rest.Config, namespace, pod, container string, command []string, stdin io.Reader) ([]byte, []byte, error) {
+func ExecBuffered(ctx context.Context, kubeConfig *rest.Config, namespace, pod, container string, command []string, stdin io.Reader) ([]byte, []byte, error) {
 	stdoutBuffer := &bytes.Buffer{}
 	stderrBuffer := &bytes.Buffer{}
 
-	kubeExecError := ExecStream(kubeConfig, &ExecStreamOptions{
+	kubeExecError := ExecStream(ctx, kubeConfig, &ExecStreamOptions{
 		Pod:       pod,
 		Namespace: namespace,
 		Container: container,

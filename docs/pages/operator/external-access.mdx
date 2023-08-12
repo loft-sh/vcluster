@@ -27,6 +27,10 @@ kubectl get ns
 
 Thats it, your vcluster is now externally reachable through a LoadBalancer service.
 
+:::warning Check the costs first
+Even though using a LoadBalancer is the easiest option, if you use a cloud provider it will be costly to create one Loadbalancer per cluster. Check your cloud vendor about the cost of each LoadBalancer. In general using an Ingress is the most cost effective method.
+:::
+
 #### Manual LoadBalancer service creation
 
 Instead of using the built-in flag `--expose`, you can also create the following `load-balancer.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster` yourself:
@@ -153,7 +157,14 @@ kubectl get ns
 
 ## Ingress
 
-Make sure you have an [ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/) installed into your cluster. Create the following `ingress.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
+An [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)  with SSL passthrough support will provide the best user experience, but there is a workaround if this feature is not natively supported.
+
+- [Kubernetes Nginx](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough)
+- [Traefik Proxy](https://doc.traefik.io/traefik/routing/routers/#passthrough)
+- [Emissary](https://www.getambassador.io/docs/emissary/latest/topics/using/tcpmappings#tls-termination)
+
+Make sure your ingress controller is installed and healthy on the cluster that will host your virtual clusters. Create the following `ingress.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -247,7 +258,8 @@ spec:
         path: /
         pathType: ImplementationSpecific
   tls:
-  - hosts: my-vcluster.example.com
+  - hosts:
+    - my-vcluster.example.com
 ```
 
 With this configuration you will need to use [service account authentication](./accessing-vcluster.mdx#connect-via-service-accounts) in order to connect as the ingress controller won't be able to resolve the client-cert and client-key which is used by default as authentication method. To create a kube config that uses a service account, please run the following command:

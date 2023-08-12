@@ -2,6 +2,7 @@ package blockingcacheclient
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -12,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -23,9 +23,9 @@ type CacheClient struct {
 	scheme *runtime.Scheme
 }
 
-func NewCacheClient(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
+func NewCacheClient(config *rest.Config, options client.Options) (client.Client, error) {
 	// create a normal manager cache client
-	cachedClient, err := defaultNewClient(cache, config, options)
+	cachedClient, err := defaultNewClient(config, options)
 	if err != nil {
 		return nil, err
 	}
@@ -37,20 +37,16 @@ func NewCacheClient(cache cache.Cache, config *rest.Config, options client.Optio
 }
 
 // defaultNewClient creates the default caching client
-func defaultNewClient(cache cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
-	// Create the Client for Write operations.
-	c, err := client.New(config, options)
-	if err != nil {
-		return nil, err
+func defaultNewClient(config *rest.Config, options client.Options) (client.Client, error) {
+	if options.Cache == nil {
+		return nil, fmt.Errorf("blockingcacheclient should always be created with a cache (options.Cache)")
 	}
+	options.Cache.Unstructured = true
 
-	return client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader: cache,
-		Client:      c,
-	})
+	return client.New(config, options)
 }
 
-func (c *CacheClient) poll(obj runtime.Object, condition func(newObj client.Object, oldAccessor metav1.Object) (bool, error)) error {
+func (c *CacheClient) poll(ctx context.Context, obj runtime.Object, condition func(newObj client.Object, oldAccessor metav1.Object) (bool, error)) error {
 	_, ok := obj.(*unstructured.Unstructured)
 	if ok {
 		return nil
@@ -71,13 +67,13 @@ func (c *CacheClient) poll(obj runtime.Object, condition func(newObj client.Obje
 		return nil
 	}
 
-	return wait.PollImmediate(time.Millisecond*10, time.Second*2, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*2, true, func(context.Context) (bool, error) {
 		return condition(newObj.(client.Object), accessor)
 	})
 }
 
 func (c *CacheClient) blockCreate(ctx context.Context, obj client.Object) error {
-	return c.poll(obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
+	return c.poll(ctx, obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
@@ -94,7 +90,7 @@ func (c *CacheClient) blockCreate(ctx context.Context, obj client.Object) error 
 }
 
 func (c *CacheClient) blockUpdate(ctx context.Context, obj client.Object) error {
-	return c.poll(obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
+	return c.poll(ctx, obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
@@ -116,7 +112,7 @@ func (c *CacheClient) blockUpdate(ctx context.Context, obj client.Object) error 
 }
 
 func (c *CacheClient) blockDelete(ctx context.Context, obj runtime.Object) error {
-	return c.poll(obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
+	return c.poll(ctx, obj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
@@ -185,7 +181,16 @@ type CacheStatusClient struct {
 	Cache *CacheClient
 }
 
-func (c *CacheStatusClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+func (c *CacheStatusClient) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	err := c.Cache.Client.Status().Create(ctx, obj, subResource, opts...)
+	if err != nil {
+		return err
+	}
+
+	return c.Cache.blockCreate(ctx, obj)
+}
+
+func (c *CacheStatusClient) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
 	err := c.Cache.Client.Status().Update(ctx, obj, opts...)
 	if err != nil {
 		return err
@@ -194,7 +199,7 @@ func (c *CacheStatusClient) Update(ctx context.Context, obj client.Object, opts 
 	return c.Cache.blockUpdate(ctx, obj)
 }
 
-func (c *CacheStatusClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+func (c *CacheStatusClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 	err := c.Cache.Client.Status().Patch(ctx, obj, patch, opts...)
 	if err != nil {
 		return err

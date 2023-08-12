@@ -24,13 +24,13 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/klog/v2"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"k8s.io/apiserver/pkg/storage/value/encrypt/envelope/util"
-	kmsapi "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/v1beta1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/klog/v2"
+	kmsapi "k8s.io/kms/apis/v1beta1"
+	"k8s.io/kms/pkg/util"
 )
 
 const (
@@ -52,8 +52,8 @@ type gRPCService struct {
 }
 
 // NewGRPCService returns an envelope.Service which use gRPC to communicate the remote KMS provider.
-func NewGRPCService(endpoint string, callTimeout time.Duration) (Service, error) {
-	klog.V(4).Infof("Configure KMS provider with endpoint: %s", endpoint)
+func NewGRPCService(ctx context.Context, endpoint string, callTimeout time.Duration) (Service, error) {
+	klog.V(4).InfoS("Configure KMS provider", "endpoint", endpoint)
 
 	addr, err := util.ParseEndpoint(endpoint)
 	if err != nil {
@@ -72,9 +72,9 @@ func NewGRPCService(endpoint string, callTimeout time.Duration) (Service, error)
 				// addr - comes from the closure
 				c, err := net.DialUnix(unixProtocol, nil, &net.UnixAddr{Name: addr})
 				if err != nil {
-					klog.Errorf("failed to create connection to unix socket: %s, error: %v", addr, err)
+					klog.ErrorS(err, "failed to create connection to unix socket", "addr", addr)
 				} else {
-					klog.V(4).Infof("Successfully dialed Unix socket %v", addr)
+					klog.V(4).InfoS("Successfully dialed Unix socket", "addr", addr)
 				}
 				return c, err
 			}))
@@ -84,6 +84,14 @@ func NewGRPCService(endpoint string, callTimeout time.Duration) (Service, error)
 	}
 
 	s.kmsClient = kmsapi.NewKeyManagementServiceClient(s.connection)
+
+	go func() {
+		defer utilruntime.HandleCrash()
+
+		<-ctx.Done()
+		_ = s.connection.Close()
+	}()
+
 	return s, nil
 }
 
@@ -105,7 +113,7 @@ func (g *gRPCService) checkAPIVersion(ctx context.Context) error {
 	}
 	g.versionChecked = true
 
-	klog.V(4).Infof("Version of KMS provider is %s", response.Version)
+	klog.V(4).InfoS("KMS provider api version verified", "version", response.Version)
 	return nil
 }
 

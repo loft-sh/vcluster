@@ -2,6 +2,12 @@
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""
 
+globalAnnotations: {}
+
+# If true, will deploy vcluster in headless mode, which means no deployment
+# or statefulset is created.
+headless: false
+
 # Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
 plugin: {}
 # Manually configure a plugin called test
@@ -48,13 +54,14 @@ sync:
   fake-persistentvolumes:
     enabled: true # will be ignored if persistentvolumes.enabled = true
   nodes:
+    fakeKubeletIPs: true
     enabled: false
-    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
     # will sync all nodes instead of only the ones where some pods are running.
     syncAllNodes: false
     # nodeSelector is used to limit which nodes get synced to the vcluster,
     # and which nodes are used to run vcluster pods.
-    # A valid string representation of a label selector must be used. 
+    # A valid string representation of a label selector must be used.
     nodeSelector: ""
     # if true, vcluster will run with a scheduler and node changes are possible
     # from within the virtual cluster. This is useful if you would like to
@@ -81,6 +88,16 @@ sync:
     enabled: false
   serviceaccounts:
     enabled: false
+  # generic CRD configuration
+  generic:
+    config: |-
+      ---
+
+# If enabled, will fallback to host dns for resolving domains. This
+# is useful if using istio or dapr in the host cluster and sidecar
+# containers cannot connect to the central instance. Its also useful
+# if you want to access host cluster services from within the vcluster.
+fallbackHostDns: false
 
 # Map Services between host and virtual cluster
 mapServices:
@@ -100,13 +117,17 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
-hostpathMapper:
-  enabled: false
+proxy:
+  metricsServer:
+    nodes:
+      enabled: false
+    pods:
+      enabled: false
 
 # Syncer configuration
 syncer:
   # Image to use for the syncer
-  # image: loftsh/vcluster
+  # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
   env: []
   livenessProbe:
@@ -117,6 +138,7 @@ syncer:
     - mountPath: /data
       name: data
       readOnly: true
+  extraVolumeMounts: []
   resources:
     limits:
       memory: 1Gi
@@ -124,11 +146,12 @@ syncer:
       cpu: 10m
       memory: 64Mi
   kubeConfigContextName: "my-vcluster"
+  serviceAnnotations: {}
 
 # Virtual Cluster (k0s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: k0sproject/k0s:v1.25.3-k0s.0
+  image: k0sproject/k0s:v1.26.0-k0s.0
   command:
     - k0s
   baseArgs:
@@ -162,7 +185,7 @@ storage:
   # Optional StorageClass used for the pvc
   # if empty default StorageClass defined in your host cluster will be used
   #className:
-  
+
 # Extra volumes that should be created for the StatefulSet
 volumes: []
 
@@ -175,10 +198,15 @@ serviceAccount:
   # imagePullSecrets:
   #   - name: my-pull-secret
 
+# Service account that should be used by the pods synced by vcluster
+workloadServiceAccount:
+  # This is not supported in multi-namespace mode
+  annotations: {}
+
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Deprecated ! 
+    # Deprecated !
     # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     create: false
@@ -187,7 +215,7 @@ rbac:
     # Support for this value will be removed in a future version of the vcluster
     # and basic role will always be created
     create: true
-    # Deprecated ! 
+    # Deprecated !
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
@@ -272,7 +300,7 @@ securityContext:
 #  ...
 
 # Set "enable" to true when running vcluster in an OpenShift host
-# This will add an extra rule to the deployed role binding in order 
+# This will add an extra rule to the deployed role binding in order
 # to manage service endpoints
 openshift:
   enable: false
@@ -316,6 +344,11 @@ isolation:
   namespace: null
 
   podSecurityStandard: baseline
+
+  # If enabled will add node/proxy permission to the cluster role
+  # in isolation mode
+  nodeProxyPermission:
+    enabled: false
 
   resourceQuota:
     enabled: true
@@ -373,3 +406,8 @@ init:
 
 multiNamespaceMode:
   enabled: false
+
+telemetry:
+  disabled: "false"
+  instanceCreator: "helm"
+  instanceCreatorUID: ""

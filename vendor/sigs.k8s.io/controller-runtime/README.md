@@ -16,8 +16,8 @@ Documentation:
 - [Basic controller using builder](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/builder#example-Builder)
 - [Creating a manager](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager#example-New)
 - [Creating a controller](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/controller#example-New)
-- [Examples](https://github.com/kubernetes-sigs/controller-runtime/blob/master/examples)
-- [Designs](https://github.com/kubernetes-sigs/controller-runtime/blob/master/designs)
+- [Examples](https://github.com/kubernetes-sigs/controller-runtime/blob/main/examples)
+- [Designs](https://github.com/kubernetes-sigs/controller-runtime/blob/main/designs)
 
 # Versioning, Maintenance, and Compatibility
 
@@ -27,7 +27,7 @@ Users:
 
 - We follow [Semantic Versioning (semver)](https://semver.org)
 - Use releases with your dependency management to ensure that you get compatible code
-- The master branch contains all the latest code, some of which may break compatibility (so "normal" `go get` is not recommended)
+- The main branch contains all the latest code, some of which may break compatibility (so "normal" `go get` is not recommended)
 
 Contributors:
 
@@ -53,7 +53,7 @@ in sig apimachinery.
 
 You can reach the maintainers of this project at:
 
-- Slack channel: [#kubebuilder](http://slack.k8s.io/#kubebuilder)
+- Slack channel: [#controller-runtime](https://kubernetes.slack.com/archives/C02MRBMN00Z)
 - Google Group: [kubebuilder@googlegroups.com](https://groups.google.com/forum/#!forum/kubebuilder)
 
 ## Contributing

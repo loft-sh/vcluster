@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -8,6 +9,11 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- $annotations := merge .Values.globalAnnotations .Values.syncer.serviceAnnotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
 spec:
   ports:
     - name: https
@@ -18,3 +24,4 @@ spec:
   selector:
     app: vcluster
     release: "{{ .Release.Name }}"
+{{- end }}

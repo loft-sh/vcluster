@@ -1,11 +1,10 @@
 package k8sdefaultendpoint
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,10 +19,12 @@ var _ = ginkgo.Describe("map default/kubernetes endpoint to physical vcluster en
 	})
 
 	ginkgo.It("Test default/kubernetes endpoints matches with vcluster service endpoint", func() {
-		hostClusterEndpoint, err := f.HostClient.CoreV1().Endpoints(f.VclusterNamespace).Get(context.Background(), "vcluster", v1.GetOptions{})
+		ctx := f.Context
+
+		hostClusterEndpoint, err := f.HostClient.CoreV1().Endpoints(f.VclusterNamespace).Get(ctx, "vcluster", v1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		vclusterEndpoint, err := f.VclusterClient.CoreV1().Endpoints("default").Get(context.Background(), "kubernetes", v1.GetOptions{})
+		vclusterEndpoint, err := f.VclusterClient.CoreV1().Endpoints("default").Get(ctx, "kubernetes", v1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		hostClusterIps := make([]string, 0)

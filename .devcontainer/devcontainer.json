@@ -1,0 +1,28 @@
+{
+  "name": "Go",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest"
+    }
+  },
+
+  "postCreateCommand": "kind create cluster || true",
+
+  "mounts": [
+    {
+      "type": "volume",
+      "source": "vcluster",
+      "target": "/home/vscode"
+    }
+  ],
+
+  "customizations": {
+    "devpod": {
+      "prebuildRepository": "fdog239/prebuilds"
+    }
+  }
+}

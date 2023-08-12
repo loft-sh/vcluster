@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if .Values.job.enabled }}
 apiVersion: batch/v1
 kind: Job
@@ -5,6 +6,9 @@ metadata:
   name: {{ .Release.Name }}-job
   namespace: {{ .Release.Namespace }}
   annotations:
+  {{- if .Values.globalAnnotations }}
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
     "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "3"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
@@ -43,7 +47,7 @@ spec:
           {{- if .Values.syncer.image }}
           image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
           {{- else }}
-          image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+          image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
           {{- end }}
           imagePullPolicy: IfNotPresent
           command:
@@ -55,14 +59,24 @@ spec:
             {{- if .Values.serviceCIDR }}
             - --service-cidr={{ .Values.serviceCIDR }}
             {{- end }}
+            {{- if .Values.job.extraArgs }}
+{{ toYaml .Values.job.extraArgs | indent 12 }}
+            {{- end }}
           securityContext:
 {{ toYaml .Values.job.securityContext | indent 12 }}
           volumeMounts:
             - name: cert-storage
               mountPath: /certs
+          {{- if .Values.job.volumeMounts }}
+{{ toYaml .Values.job.volumeMounts | indent 12 }}
+          {{- end }}
           resources:
 {{ toYaml .Values.job.resources | indent 12 }}
       volumes:
         - name: cert-storage
           emptyDir: {}
+      {{- if .Values.job.volumes }}
+{{ toYaml .Values.job.volumes | indent 8 }}
+      {{- end }}
+{{- end }}
 {{- end }}

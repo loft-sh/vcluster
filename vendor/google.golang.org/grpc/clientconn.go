@@ -146,6 +146,20 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 	cc.safeConfigSelector.UpdateConfigSelector(&defaultConfigSelector{nil})
 	cc.ctx, cc.cancel = context.WithCancel(context.Background())
 
+	disableGlobalOpts := false
+	for _, opt := range opts {
+		if _, ok := opt.(*disableGlobalDialOptions); ok {
+			disableGlobalOpts = true
+			break
+		}
+	}
+
+	if !disableGlobalOpts {
+		for _, opt := range globalDialOptions {
+			opt.apply(&cc.dopts)
+		}
+	}
+
 	for _, opt := range opts {
 		opt.apply(&cc.dopts)
 	}
@@ -230,19 +244,6 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 		}
 	}()
 
-	scSet := false
-	if cc.dopts.scChan != nil {
-		// Try to get an initial service config.
-		select {
-		case sc, ok := <-cc.dopts.scChan:
-			if ok {
-				cc.sc = &sc
-				cc.safeConfigSelector.UpdateConfigSelector(&defaultConfigSelector{&sc})
-				scSet = true
-			}
-		default:
-		}
-	}
 	if cc.dopts.bs == nil {
 		cc.dopts.bs = backoff.DefaultExponential
 	}
@@ -252,13 +253,13 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 	if err != nil {
 		return nil, err
 	}
-	cc.authority, err = determineAuthority(cc.parsedTarget.Endpoint, cc.target, cc.dopts)
+	cc.authority, err = determineAuthority(cc.parsedTarget.Endpoint(), cc.target, cc.dopts)
 	if err != nil {
 		return nil, err
 	}
 	channelz.Infof(logger, cc.channelzID, "Channel authority set to %q", cc.authority)
 
-	if cc.dopts.scChan != nil && !scSet {
+	if cc.dopts.scChan != nil {
 		// Blocking wait for the initial service config.
 		select {
 		case sc, ok := <-cc.dopts.scChan:
@@ -499,7 +500,7 @@ type ClientConn struct {
 // WaitForStateChange waits until the connectivity.State of ClientConn changes from sourceState or
 // ctx expires. A true value is returned in former case and false in latter.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This API is EXPERIMENTAL and may be changed or removed in a
 // later release.
@@ -518,7 +519,7 @@ func (cc *ClientConn) WaitForStateChange(ctx context.Context, sourceState connec
 
 // GetState returns the connectivity.State of ClientConn.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This API is EXPERIMENTAL and may be changed or removed in a later
 // release.
@@ -530,7 +531,7 @@ func (cc *ClientConn) GetState() connectivity.State {
 // the channel is idle.  Does not wait for the connection attempts to begin
 // before returning.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This API is EXPERIMENTAL and may be changed or removed in a later
 // release.
@@ -708,8 +709,8 @@ func (cc *ClientConn) newAddrConn(addrs []resolver.Address, opts balancer.NewSub
 	ac.ctx, ac.cancel = context.WithCancel(cc.ctx)
 	// Track ac in cc. This needs to be done before any getTransport(...) is called.
 	cc.mu.Lock()
+	defer cc.mu.Unlock()
 	if cc.conns == nil {
-		cc.mu.Unlock()
 		return nil, ErrClientConnClosing
 	}
 
@@ -728,7 +729,6 @@ func (cc *ClientConn) newAddrConn(addrs []resolver.Address, opts balancer.NewSub
 	})
 
 	cc.conns[ac] = struct{}{}
-	cc.mu.Unlock()
 	return ac, nil
 }
 
@@ -758,7 +758,7 @@ func (cc *ClientConn) channelzMetric() *channelz.ChannelInternalMetric {
 
 // Target returns the target string of the ClientConn.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This API is EXPERIMENTAL and may be changed or removed in a
 // later release.
@@ -785,10 +785,16 @@ func (cc *ClientConn) incrCallsFailed() {
 func (ac *addrConn) connect() error {
 	ac.mu.Lock()
 	if ac.state == connectivity.Shutdown {
+		if logger.V(2) {
+			logger.Infof("connect called on shutdown addrConn; ignoring.")
+		}
 		ac.mu.Unlock()
 		return errConnClosing
 	}
 	if ac.state != connectivity.Idle {
+		if logger.V(2) {
+			logger.Infof("connect called on addrConn in non-idle state (%v); ignoring.", ac.state)
+		}
 		ac.mu.Unlock()
 		return nil
 	}
@@ -828,9 +834,9 @@ func equalAddresses(a, b []resolver.Address) bool {
 //
 // If ac is Ready, it checks whether current connected address of ac is in the
 // new addrs list.
-//  - If true, it updates ac.addrs and returns true. The ac will keep using
-//    the existing connection.
-//  - If false, it does nothing and returns false.
+//   - If true, it updates ac.addrs and returns true. The ac will keep using
+//     the existing connection.
+//   - If false, it does nothing and returns false.
 func (ac *addrConn) tryUpdateAddrs(addrs []resolver.Address) bool {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
@@ -925,7 +931,7 @@ func (cc *ClientConn) healthCheckConfig() *healthCheckConfig {
 	return cc.sc.healthCheckConfig
 }
 
-func (cc *ClientConn) getTransport(ctx context.Context, failfast bool, method string) (transport.ClientTransport, func(balancer.DoneInfo), error) {
+func (cc *ClientConn) getTransport(ctx context.Context, failfast bool, method string) (transport.ClientTransport, balancer.PickResult, error) {
 	return cc.blockingpicker.pick(ctx, failfast, balancer.PickInfo{
 		Ctx:            ctx,
 		FullMethodName: method,
@@ -995,7 +1001,7 @@ func (cc *ClientConn) resolveNow(o resolver.ResolveNowOptions) {
 // However, if a previously unavailable network becomes available, this may be
 // used to trigger an immediate reconnect.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This API is EXPERIMENTAL and may be changed or removed in a
 // later release.
@@ -1094,7 +1100,11 @@ func (ac *addrConn) updateConnectivityState(s connectivity.State, lastErr error)
 		return
 	}
 	ac.state = s
-	channelz.Infof(logger, ac.channelzID, "Subchannel Connectivity change to %v", s)
+	if lastErr == nil {
+		channelz.Infof(logger, ac.channelzID, "Subchannel Connectivity change to %v", s)
+	} else {
+		channelz.Infof(logger, ac.channelzID, "Subchannel Connectivity change to %v, last error: %s", s, lastErr)
+	}
 	ac.cc.handleSubConnStateChange(ac.acbw, s, lastErr)
 }
 
@@ -1225,111 +1235,79 @@ func (ac *addrConn) tryAllAddrs(addrs []resolver.Address, connectDeadline time.T
 // address was not successfully connected, or updates ac appropriately with the
 // new transport.
 func (ac *addrConn) createTransport(addr resolver.Address, copts transport.ConnectOptions, connectDeadline time.Time) error {
-	// TODO: Delete prefaceReceived and move the logic to wait for it into the
-	// transport.
-	prefaceReceived := grpcsync.NewEvent()
-	connClosed := grpcsync.NewEvent()
-
 	addr.ServerName = ac.cc.getServerName(addr)
 	hctx, hcancel := context.WithCancel(ac.ctx)
-	hcStarted := false // protected by ac.mu
 
-	onClose := func() {
+	onClose := func(r transport.GoAwayReason) {
 		ac.mu.Lock()
 		defer ac.mu.Unlock()
-		defer connClosed.Fire()
-		defer hcancel()
-		if !hcStarted || hctx.Err() != nil {
-			// We didn't start the health check or set the state to READY, so
-			// no need to do anything else here.
-			//
-			// OR, we have already cancelled the health check context, meaning
-			// we have already called onClose once for this transport.  In this
-			// case it would be dangerous to clear the transport and update the
-			// state, since there may be a new transport in this addrConn.
+		// adjust params based on GoAwayReason
+		ac.adjustParams(r)
+		if ac.state == connectivity.Shutdown {
+			// Already shut down.  tearDown() already cleared the transport and
+			// canceled hctx via ac.ctx, and we expected this connection to be
+			// closed, so do nothing here.
+			return
+		}
+		hcancel()
+		if ac.transport == nil {
+			// We're still connecting to this address, which could error.  Do
+			// not update the connectivity state or resolve; these will happen
+			// at the end of the tryAllAddrs connection loop in the event of an
+			// error.
 			return
 		}
 		ac.transport = nil
-		// Refresh the name resolver
+		// Refresh the name resolver on any connection loss.
 		ac.cc.resolveNow(resolver.ResolveNowOptions{})
-		if ac.state != connectivity.Shutdown {
-			ac.updateConnectivityState(connectivity.Idle, nil)
-		}
-	}
-
-	onGoAway := func(r transport.GoAwayReason) {
-		ac.mu.Lock()
-		ac.adjustParams(r)
-		ac.mu.Unlock()
-		onClose()
+		// Always go idle and wait for the LB policy to initiate a new
+		// connection attempt.
+		ac.updateConnectivityState(connectivity.Idle, nil)
 	}
 
 	connectCtx, cancel := context.WithDeadline(ac.ctx, connectDeadline)
 	defer cancel()
 	copts.ChannelzParentID = ac.channelzID
 
-	newTr, err := transport.NewClientTransport(connectCtx, ac.cc.ctx, addr, copts, func() { prefaceReceived.Fire() }, onGoAway, onClose)
+	newTr, err := transport.NewClientTransport(connectCtx, ac.cc.ctx, addr, copts, onClose)
 	if err != nil {
+		if logger.V(2) {
+			logger.Infof("Creating new client transport to %q: %v", addr, err)
+		}
 		// newTr is either nil, or closed.
 		hcancel()
 		channelz.Warningf(logger, ac.channelzID, "grpc: addrConn.createTransport failed to connect to %s. Err: %v", addr, err)
 		return err
 	}
 
-	select {
-	case <-connectCtx.Done():
-		// We didn't get the preface in time.
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+	if ac.state == connectivity.Shutdown {
+		// This can happen if the subConn was removed while in `Connecting`
+		// state. tearDown() would have set the state to `Shutdown`, but
+		// would not have closed the transport since ac.transport would not
+		// have been set at that point.
+		//
+		// We run this in a goroutine because newTr.Close() calls onClose()
+		// inline, which requires locking ac.mu.
+		//
 		// The error we pass to Close() is immaterial since there are no open
 		// streams at this point, so no trailers with error details will be sent
 		// out. We just need to pass a non-nil error.
-		newTr.Close(transport.ErrConnClosing)
-		if connectCtx.Err() == context.DeadlineExceeded {
-			err := errors.New("failed to receive server preface within timeout")
-			channelz.Warningf(logger, ac.channelzID, "grpc: addrConn.createTransport failed to connect to %s: %v", addr, err)
-			return err
-		}
+		go newTr.Close(transport.ErrConnClosing)
 		return nil
-	case <-prefaceReceived.Done():
-		// We got the preface - huzzah! things are good.
-		ac.mu.Lock()
-		defer ac.mu.Unlock()
-		if connClosed.HasFired() {
-			// onClose called first; go idle but do nothing else.
-			if ac.state != connectivity.Shutdown {
-				ac.updateConnectivityState(connectivity.Idle, nil)
-			}
-			return nil
-		}
-		if ac.state == connectivity.Shutdown {
-			// This can happen if the subConn was removed while in `Connecting`
-			// state. tearDown() would have set the state to `Shutdown`, but
-			// would not have closed the transport since ac.transport would not
-			// been set at that point.
-			//
-			// We run this in a goroutine because newTr.Close() calls onClose()
-			// inline, which requires locking ac.mu.
-			//
-			// The error we pass to Close() is immaterial since there are no open
-			// streams at this point, so no trailers with error details will be sent
-			// out. We just need to pass a non-nil error.
-			go newTr.Close(transport.ErrConnClosing)
-			return nil
-		}
-		ac.curAddr = addr
-		ac.transport = newTr
-		hcStarted = true
-		ac.startHealthCheck(hctx) // Will set state to READY if appropriate.
-		return nil
-	case <-connClosed.Done():
-		// The transport has already closed.  If we received the preface, too,
-		// this is not an error.
-		select {
-		case <-prefaceReceived.Done():
-			return nil
-		default:
-			return errors.New("connection closed before server preface received")
-		}
 	}
+	if hctx.Err() != nil {
+		// onClose was already called for this connection, but the connection
+		// was successfully established first.  Consider it a success and set
+		// the new state to Idle.
+		ac.updateConnectivityState(connectivity.Idle, nil)
+		return nil
+	}
+	ac.curAddr = addr
+	ac.transport = newTr
+	ac.startHealthCheck(hctx) // Will set state to READY if appropriate.
+	return nil
 }
 
 // startHealthCheck starts the health checking stream (RPC) to watch the health
@@ -1399,7 +1377,7 @@ func (ac *addrConn) startHealthCheck(ctx context.Context) {
 			if status.Code(err) == codes.Unimplemented {
 				channelz.Error(logger, ac.channelzID, "Subchannel health check is unimplemented at server side, thus health check is disabled")
 			} else {
-				channelz.Errorf(logger, ac.channelzID, "HealthCheckFunc exits with unexpected error %v", err)
+				channelz.Errorf(logger, ac.channelzID, "Health checking failed: %v", err)
 			}
 		}
 	}()
@@ -1550,6 +1528,9 @@ func (c *channelzChannel) ChannelzMetric() *channelz.ChannelInternalMetric {
 // referenced by users.
 var ErrClientConnTimeout = errors.New("grpc: timed out when dialing")
 
+// getResolver finds the scheme in the cc's resolvers or the global registry.
+// scheme should always be lowercase (typically by virtue of url.Parse()
+// performing proper RFC3986 behavior).
 func (cc *ClientConn) getResolver(scheme string) resolver.Builder {
 	for _, rb := range cc.dopts.resolvers {
 		if scheme == rb.Scheme() {
@@ -1580,7 +1561,7 @@ func (cc *ClientConn) parseTargetAndFindResolver() (resolver.Builder, error) {
 		channelz.Infof(logger, cc.channelzID, "dial target %q parse failed: %v", cc.target, err)
 	} else {
 		channelz.Infof(logger, cc.channelzID, "parsed dial target is: %+v", parsedTarget)
-		rb = cc.getResolver(parsedTarget.Scheme)
+		rb = cc.getResolver(parsedTarget.URL.Scheme)
 		if rb != nil {
 			cc.parsedTarget = parsedTarget
 			return rb, nil
@@ -1601,39 +1582,26 @@ func (cc *ClientConn) parseTargetAndFindResolver() (resolver.Builder, error) {
 		return nil, err
 	}
 	channelz.Infof(logger, cc.channelzID, "parsed dial target is: %+v", parsedTarget)
-	rb = cc.getResolver(parsedTarget.Scheme)
+	rb = cc.getResolver(parsedTarget.URL.Scheme)
 	if rb == nil {
-		return nil, fmt.Errorf("could not get resolver for default scheme: %q", parsedTarget.Scheme)
+		return nil, fmt.Errorf("could not get resolver for default scheme: %q", parsedTarget.URL.Scheme)
 	}
 	cc.parsedTarget = parsedTarget
 	return rb, nil
 }
 
 // parseTarget uses RFC 3986 semantics to parse the given target into a
-// resolver.Target struct containing scheme, authority and endpoint. Query
+// resolver.Target struct containing scheme, authority and url. Query
 // params are stripped from the endpoint.
 func parseTarget(target string) (resolver.Target, error) {
 	u, err := url.Parse(target)
 	if err != nil {
 		return resolver.Target{}, err
 	}
-	// For targets of the form "[scheme]://[authority]/endpoint, the endpoint
-	// value returned from url.Parse() contains a leading "/". Although this is
-	// in accordance with RFC 3986, we do not want to break existing resolver
-	// implementations which expect the endpoint without the leading "/". So, we
-	// end up stripping the leading "/" here. But this will result in an
-	// incorrect parsing for something like "unix:///path/to/socket". Since we
-	// own the "unix" resolver, we can workaround in the unix resolver by using
-	// the `URL` field instead of the `Endpoint` field.
-	endpoint := u.Path
-	if endpoint == "" {
-		endpoint = u.Opaque
-	}
-	endpoint = strings.TrimPrefix(endpoint, "/")
+
 	return resolver.Target{
 		Scheme:    u.Scheme,
 		Authority: u.Host,
-		Endpoint:  endpoint,
 		URL:       *u,
 	}, nil
 }

@@ -8,6 +8,7 @@ import (
 	syncercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/coredns"
 
 	"github.com/loft-sh/utils/pkg/helm/values"
 )
@@ -16,7 +17,7 @@ func main() {
 	images := []string{}
 
 	// loft
-	images = append(images, "loftsh/vcluster:"+cleanTag(os.Args[1]))
+	images = append(images, "ghcr.io/loft-sh/vcluster:"+cleanTag(os.Args[1]))
 	images = append(images, syncercontext.DefaultHostsRewriteImage)
 
 	// loop over k3s versions
@@ -68,6 +69,8 @@ func main() {
 
 		images = append(images, image)
 	}
+
+	images = append(images, coredns.DefaultImage)
 
 	fmt.Print(strings.Join(images, "\n") + "\n")
 }

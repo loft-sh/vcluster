@@ -2,6 +2,7 @@ package translator
 
 import (
 	context2 "context"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -39,17 +40,17 @@ func (n *clusterTranslator) Resource() client.Object {
 	return n.obj.DeepCopyObject().(client.Object)
 }
 
-func (n *clusterTranslator) IsManaged(pObj client.Object) (bool, error) {
+func (n *clusterTranslator) IsManaged(ctx context2.Context, pObj client.Object) (bool, error) {
 	return translate.Default.IsManagedCluster(pObj), nil
 }
 
-func (n *clusterTranslator) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (n *clusterTranslator) VirtualToPhysical(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Name: n.nameTranslator(req.Name, vObj),
 	}
 }
 
-func (n *clusterTranslator) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (n *clusterTranslator) PhysicalToVirtual(ctx context2.Context, pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
 	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
@@ -59,7 +60,7 @@ func (n *clusterTranslator) PhysicalToVirtual(pObj client.Object) types.Namespac
 	}
 
 	vObj := n.obj.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(context2.Background(), n.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
+	err := clienthelper.GetByIndex(ctx, n.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
 	if err != nil {
 		return types.NamespacedName{}
 	}
@@ -70,7 +71,7 @@ func (n *clusterTranslator) PhysicalToVirtual(pObj client.Object) types.Namespac
 	}
 }
 
-func (n *clusterTranslator) TranslateMetadata(vObj client.Object) client.Object {
+func (n *clusterTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
 	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.nameTranslator)
 	if err != nil {
 		return nil
@@ -81,7 +82,7 @@ func (n *clusterTranslator) TranslateMetadata(vObj client.Object) client.Object 
 	return pObj
 }
 
-func (n *clusterTranslator) TranslateMetadataUpdate(vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+func (n *clusterTranslator) TranslateMetadataUpdate(ctx context2.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
 	updatedAnnotations := n.TranslateAnnotations(vObj, pObj)
 	updatedLabels := n.TranslateLabels(vObj, pObj)
 	return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels

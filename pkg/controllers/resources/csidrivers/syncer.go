@@ -23,14 +23,14 @@ var _ syncer.UpSyncer = &csidriverSyncer{}
 var _ syncer.Syncer = &csidriverSyncer{}
 
 func (s *csidriverSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := s.translateBackwards(pObj.(*storagev1.CSIDriver))
+	vObj := s.translateBackwards(ctx.Context, pObj.(*storagev1.CSIDriver))
 	ctx.Log.Infof("create CSIDriver %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
 
 func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if there is a change
-	updated := s.translateUpdateBackwards(pObj.(*storagev1.CSIDriver), vObj.(*storagev1.CSIDriver))
+	updated := s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.CSIDriver), vObj.(*storagev1.CSIDriver))
 	if updated != nil {
 		ctx.Log.Infof("update CSIDriver %s", vObj.GetName())
 		translator.PrintChanges(pObj, updated, ctx.Log)

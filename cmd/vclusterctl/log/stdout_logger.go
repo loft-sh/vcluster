@@ -6,12 +6,12 @@ import (
 	"os"
 	"sync"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
-
 	goansi "github.com/k0kubun/go-ansi"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 )
 
 var stdout = goansi.NewAnsiStdout()

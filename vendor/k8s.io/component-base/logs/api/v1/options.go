@@ -19,8 +19,9 @@ package v1
 import (
 	"flag"
 	"fmt"
+	"io"
 	"math"
-	"sort"
+	"os"
 	"strings"
 	"time"
 
@@ -32,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/featuregate"
+	"k8s.io/component-base/logs/internal/setverbositylevel"
+	"k8s.io/component-base/logs/klogflags"
 )
 
 const (
@@ -62,18 +65,41 @@ func NewLoggingConfiguration() *LoggingConfiguration {
 // The optional FeatureGate controls logging features. If nil, the default for
 // these features is used.
 func ValidateAndApply(c *LoggingConfiguration, featureGate featuregate.FeatureGate) error {
-	return ValidateAndApplyAsField(c, featureGate, nil)
+	return validateAndApply(c, nil, featureGate, nil)
+}
+
+// ValidateAndApplyWithOptions is a variant of ValidateAndApply which accepts
+// additional options beyond those that can be configured through the API. This
+// is meant for testing.
+func ValidateAndApplyWithOptions(c *LoggingConfiguration, options *LoggingOptions, featureGate featuregate.FeatureGate) error {
+	return validateAndApply(c, options, featureGate, nil)
+}
+
+// +k8s:deepcopy-gen=false
+
+// LoggingOptions can be used with ValidateAndApplyWithOptions to override
+// certain global defaults.
+type LoggingOptions struct {
+	// ErrorStream can be used to override the os.Stderr default.
+	ErrorStream io.Writer
+
+	// InfoStream can be used to override the os.Stdout default.
+	InfoStream io.Writer
 }
 
 // ValidateAndApplyAsField is a variant of ValidateAndApply that should be used
 // when the LoggingConfiguration is embedded in some larger configuration
 // structure.
 func ValidateAndApplyAsField(c *LoggingConfiguration, featureGate featuregate.FeatureGate, fldPath *field.Path) error {
+	return validateAndApply(c, nil, featureGate, fldPath)
+}
+
+func validateAndApply(c *LoggingConfiguration, options *LoggingOptions, featureGate featuregate.FeatureGate, fldPath *field.Path) error {
 	errs := Validate(c, featureGate, fldPath)
 	if len(errs) > 0 {
 		return errs.ToAggregate()
 	}
-	return apply(c, featureGate)
+	return apply(c, options, featureGate)
 }
 
 // Validate can be used to check for invalid settings without applying them.
@@ -156,7 +182,7 @@ func featureEnabled(featureGate featuregate.FeatureGate, feature featuregate.Fea
 	return enabled
 }
 
-func apply(c *LoggingConfiguration, featureGate featuregate.FeatureGate) error {
+func apply(c *LoggingConfiguration, options *LoggingOptions, featureGate featuregate.FeatureGate) error {
 	contextualLoggingEnabled := contextualLoggingDefault
 	if featureGate != nil {
 		contextualLoggingEnabled = featureGate.Enabled(ContextualLogging)
@@ -167,8 +193,19 @@ func apply(c *LoggingConfiguration, featureGate featuregate.FeatureGate) error {
 	if format.factory == nil {
 		klog.ClearLogger()
 	} else {
-		log, flush := format.factory.Create(*c)
-		klog.SetLoggerWithOptions(log, klog.ContextualLogger(contextualLoggingEnabled), klog.FlushLogger(flush))
+		if options == nil {
+			options = &LoggingOptions{
+				ErrorStream: os.Stderr,
+				InfoStream:  os.Stdout,
+			}
+		}
+		log, control := format.factory.Create(*c, *options)
+		if control.SetVerbosityLevel != nil {
+			setverbositylevel.Mutex.Lock()
+			defer setverbositylevel.Mutex.Unlock()
+			setverbositylevel.Callbacks = append(setverbositylevel.Callbacks, control.SetVerbosityLevel)
+		}
+		klog.SetLoggerWithOptions(log, klog.ContextualLogger(contextualLoggingEnabled), klog.FlushLogger(control.Flush))
 	}
 	if err := loggingFlags.Lookup("v").Value.Set(VerbosityLevelPflag(&c.Verbosity).String()); err != nil {
 		return fmt.Errorf("internal error while setting klog verbosity: %v", err)
@@ -183,12 +220,43 @@ func apply(c *LoggingConfiguration, featureGate featuregate.FeatureGate) error {
 
 // AddFlags adds command line flags for the configuration.
 func AddFlags(c *LoggingConfiguration, fs *pflag.FlagSet) {
-	// The help text is generated assuming that flags will eventually use
-	// hyphens, even if currently no normalization function is set for the
-	// flag set yet.
-	unsupportedFlags := strings.Join(unsupportedLoggingFlagNames(cliflag.WordSepNormalizeFunc), ", ")
+	addFlags(c, fs)
+}
+
+// AddGoFlags is a variant of AddFlags for a standard FlagSet.
+func AddGoFlags(c *LoggingConfiguration, fs *flag.FlagSet) {
+	addFlags(c, goFlagSet{FlagSet: fs})
+}
+
+// flagSet is the interface implemented by pflag.FlagSet, with
+// just those methods defined which are needed by addFlags.
+type flagSet interface {
+	BoolVar(p *bool, name string, value bool, usage string)
+	DurationVar(p *time.Duration, name string, value time.Duration, usage string)
+	StringVar(p *string, name string, value string, usage string)
+	Var(value pflag.Value, name string, usage string)
+	VarP(value pflag.Value, name, shorthand, usage string)
+}
+
+// goFlagSet implements flagSet for a stdlib flag.FlagSet.
+type goFlagSet struct {
+	*flag.FlagSet
+}
+
+func (fs goFlagSet) Var(value pflag.Value, name string, usage string) {
+	fs.FlagSet.Var(value, name, usage)
+}
+
+func (fs goFlagSet) VarP(value pflag.Value, name, shorthand, usage string) {
+	// Ignore shorthand, it's not needed and not supported.
+	fs.FlagSet.Var(value, name, usage)
+}
+
+// addFlags can be used with both flag.FlagSet and pflag.FlagSet. The internal
+// interface definition avoids duplicating this code.
+func addFlags(c *LoggingConfiguration, fs flagSet) {
 	formats := logRegistry.list()
-	fs.StringVar(&c.Format, "logging-format", c.Format, fmt.Sprintf("Sets the log format. Permitted formats: %s.\nNon-default formats don't honor these flags: %s.\nNon-default choices are currently alpha and subject to change without warning.", formats, unsupportedFlags))
+	fs.StringVar(&c.Format, "logging-format", c.Format, fmt.Sprintf("Sets the log format. Permitted formats: %s.", formats))
 	// No new log formats should be added after generation is of flag options
 	logRegistry.freeze()
 
@@ -236,14 +304,13 @@ var loggingFlags pflag.FlagSet
 
 func init() {
 	var fs flag.FlagSet
-	klog.InitFlags(&fs)
+	klogflags.Init(&fs)
 	loggingFlags.AddGoFlagSet(&fs)
 }
 
 // List of logs (k8s.io/klog + k8s.io/component-base/logs) flags supported by all logging formats
 var supportedLogsFlags = map[string]struct{}{
 	"v": {},
-	// TODO: support vmodule after 1.19 Alpha
 }
 
 // unsupportedLoggingFlags lists unsupported logging flags. The normalize
@@ -267,16 +334,4 @@ func unsupportedLoggingFlags(normalizeFunc func(f *pflag.FlagSet, name string) p
 		allFlags = append(allFlags, flag)
 	})
 	return allFlags
-}
-
-// unsupportedLoggingFlagNames lists unsupported logging flags by name, with
-// optional normalization and sorted.
-func unsupportedLoggingFlagNames(normalizeFunc func(f *pflag.FlagSet, name string) pflag.NormalizedName) []string {
-	unsupportedFlags := unsupportedLoggingFlags(normalizeFunc)
-	names := make([]string, 0, len(unsupportedFlags))
-	for _, f := range unsupportedFlags {
-		names = append(names, "--"+f.Name)
-	}
-	sort.Strings(names)
-	return names
 }

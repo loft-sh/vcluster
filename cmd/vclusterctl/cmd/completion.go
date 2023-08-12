@@ -51,7 +51,7 @@ func wrapCompletionFuncWithTimeout(defaultDirective cobra.ShellCompDirective, co
 // It takes into account the namespace if specified by the --namespace flag.
 func newValidVClusterNameFunc(globalFlags *flags.GlobalFlags) completionFunc {
 	fn := func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		vclusters, err := find.ListVClusters(globalFlags.Context, "", globalFlags.Namespace)
+		vclusters, err := find.ListVClusters(cmd.Context(), globalFlags.Context, "", globalFlags.Namespace)
 		if err != nil {
 			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 		}
@@ -65,7 +65,7 @@ func newValidVClusterNameFunc(globalFlags *flags.GlobalFlags) completionFunc {
 }
 
 // newNamespaceCompletionFunc handles shell completions for the namespace flag
-func newNamespaceCompletionFunc() completionFunc {
+func newNamespaceCompletionFunc(ctx context.Context) completionFunc {
 	fn := func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		restConfig, err := config.GetConfig()
 		if err != nil {
@@ -76,7 +76,7 @@ func newNamespaceCompletionFunc() completionFunc {
 			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 		}
 
-		namespaces, err := kubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+		namespaces, err := kubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 		}

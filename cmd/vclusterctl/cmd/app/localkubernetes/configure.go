@@ -3,13 +3,14 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -30,21 +31,21 @@ func (c ClusterType) LocalKubernetes() bool {
 		c == ClusterTypeK3D
 }
 
-func ExposeLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
+func ExposeLocal(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
 	// Timeout to wait for connection before falling back to port-forwarding
 	timeout := time.Second * 30
 	clusterType := DetectClusterType(rawConfig)
 	switch clusterType {
 	case ClusterTypeDockerDesktop:
-		return directConnection(vRawConfig, service, timeout)
+		return directConnection(ctx, vRawConfig, service, timeout)
 	case ClusterTypeRancherDesktop:
-		return directConnection(vRawConfig, service, timeout)
+		return directConnection(ctx, vRawConfig, service, timeout)
 	case ClusterTypeKIND:
-		return kindProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
+		return kindProxy(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
 	case ClusterTypeMinikube:
-		return minikubeProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
+		return minikubeProxy(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
 	case ClusterTypeK3D:
-		return k3dProxy(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
+		return k3dProxy(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
 	}
 
 	return "", nil
@@ -68,13 +69,13 @@ func CleanupLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 	return nil
 }
 
-func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
+func k3dProxy(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
 	// see if we already have a proxy container running
-	server, err := getServerFromExistingProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, log)
+	server, err := getServerFromExistingProxyContainer(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, log)
 	if err != nil {
 		return "", err
 	} else if server != "" {
@@ -82,10 +83,10 @@ func k3dProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Co
 	}
 
 	k3dName := strings.TrimPrefix(rawConfig.CurrentContext, "k3d-")
-	return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, "k3d-"+k3dName+"-server-0", "k3d-"+k3dName, log)
+	return createProxyContainer(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, "k3d-"+k3dName+"-server-0", "k3d-"+k3dName, log)
 }
 
-func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
+func minikubeProxy(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
@@ -94,7 +95,7 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 	minikubeName := rawConfig.CurrentContext
 	if containerExists(minikubeName) {
 		// see if we already have a proxy container running
-		server, err := getServerFromExistingProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, log)
+		server, err := getServerFromExistingProxyContainer(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, log)
 		if err != nil {
 			return "", err
 		} else if server != "" {
@@ -102,7 +103,7 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 		}
 
 		// create proxy container if missing
-		return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, minikubeName, minikubeName, log)
+		return createProxyContainer(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, minikubeName, minikubeName, log)
 	}
 
 	// in case other type of driver (e.g. VM on linux) is used
@@ -125,8 +126,8 @@ func minikubeProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmda
 				}
 
 				// test local connection
-				waitErr := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-					err = testConnectionWithServer(testvConfig, server)
+				waitErr := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+					err = testConnectionWithServer(ctx, testvConfig, server)
 					if err != nil {
 						return false, nil
 					}
@@ -183,13 +184,13 @@ func cleanupProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 	return nil
 }
 
-func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
+func kindProxy(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
 	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
 	// see if we already have a proxy container running
-	server, err := getServerFromExistingProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, log)
+	server, err := getServerFromExistingProxyContainer(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, log)
 	if err != nil {
 		return "", err
 	} else if server != "" {
@@ -198,18 +199,18 @@ func kindProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.C
 
 	// name is prefixed with kind- and suffixed with -control-plane
 	controlPlane := strings.TrimPrefix(rawConfig.CurrentContext, "kind-") + "-control-plane"
-	return createProxyContainer(vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, controlPlane, "kind", log)
+	return createProxyContainer(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, controlPlane, "kind", log)
 }
 
-func directConnection(vRawConfig *clientcmdapi.Config, service *corev1.Service, timeout time.Duration) (string, error) {
+func directConnection(ctx context.Context, vRawConfig *clientcmdapi.Config, service *corev1.Service, timeout time.Duration) (string, error) {
 	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
 
 	server := fmt.Sprintf("https://127.0.0.1:%v", service.Spec.Ports[0].NodePort)
 	var err error
-	waitErr := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-		err = testConnectionWithServer(vRawConfig, server)
+	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		err = testConnectionWithServer(ctx, vRawConfig, server)
 		if err != nil {
 			return false, nil
 		}
@@ -223,7 +224,7 @@ func directConnection(vRawConfig *clientcmdapi.Config, service *corev1.Service, 
 	return server, nil
 }
 
-func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, backendHost, network string, log log.Logger) (string, error) {
+func createProxyContainer(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, backendHost, network string, log log.Logger) (string, error) {
 	// construct proxy name
 	proxyName := find.VClusterContextName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
 
@@ -251,8 +252,8 @@ func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *cli
 	}
 
 	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
-	waitErr := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-		err = testConnectionWithServer(vRawConfig, server)
+	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		err = testConnectionWithServer(ctx, vRawConfig, server)
 		if err != nil {
 			return false, nil
 		}
@@ -266,7 +267,7 @@ func createProxyContainer(vClusterName, vClusterNamespace string, rawConfig *cli
 	return server, nil
 }
 
-func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawConfig, vRawConfig *clientcmdapi.Config, localPort int, log log.Logger) (string, error) {
+func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig, vRawConfig *clientcmdapi.Config, localPort int, log log.Logger) (string, error) {
 	// write kube config to buffer
 	physicalCluster, err := clientcmd.Write(*rawConfig)
 	if err != nil {
@@ -296,7 +297,7 @@ func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawC
 	// check if the background proxy container for this vcluster is running and then remove it.
 	_ = CleanupBackgroundProxy(proxyName, log)
 
-	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config loftsh/vcluster-cli vcluster connect vcluster -n vcluster --local-port 13300
+	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config ghcr.io/loft-sh/vcluster-cli vcluster connect vcluster -n vcluster --local-port 13300
 	cmd := exec.Command(
 		"docker",
 		"run",
@@ -305,7 +306,7 @@ func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawC
 		fmt.Sprintf("%v:%v", kubeConfigPath, "/root/.kube/config"),
 		fmt.Sprintf("--name=%s", proxyName),
 		fmt.Sprintf("--network=%s", "host"),
-		"loftsh/vcluster-cli"+upgrade.GetVersion(),
+		"ghcr.io/loft-sh/vcluster-cli"+upgrade.GetVersion(),
 		"vcluster",
 		"connect",
 		vClusterName,
@@ -320,8 +321,8 @@ func CreateBackgroundProxyContainer(vClusterName, vClusterNamespace string, rawC
 		return "", errors.Errorf("error starting background proxy : %s %v", string(out), err)
 	}
 	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
-	waitErr := wait.PollImmediate(time.Second, time.Second*60, func() (bool, error) {
-		err = testConnectionWithServer(vRawConfig, server)
+	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*60, true, func(ctx context.Context) (bool, error) {
+		err = testConnectionWithServer(ctx, vRawConfig, server)
 		if err != nil {
 			return false, nil
 		}
@@ -342,7 +343,7 @@ func IsDockerInstalledAndUpAndRunning() bool {
 	return err == nil
 }
 
-func testConnectionWithServer(vRawConfig *clientcmdapi.Config, server string) error {
+func testConnectionWithServer(ctx context.Context, vRawConfig *clientcmdapi.Config, server string) error {
 	vRawConfig = vRawConfig.DeepCopy()
 	for k := range vRawConfig.Clusters {
 		vRawConfig.Clusters[k].Server = server
@@ -358,7 +359,7 @@ func testConnectionWithServer(vRawConfig *clientcmdapi.Config, server string) er
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
 
 	_, err = kubeClient.CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
@@ -369,7 +370,7 @@ func testConnectionWithServer(vRawConfig *clientcmdapi.Config, server string) er
 	return nil
 }
 
-func getServerFromExistingProxyContainer(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, log log.Logger) (string, error) {
+func getServerFromExistingProxyContainer(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, log log.Logger) (string, error) {
 	// construct proxy name
 	proxyName := find.VClusterContextName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
 
@@ -386,8 +387,8 @@ func getServerFromExistingProxyContainer(vClusterName, vClusterNamespace string,
 		localPort, err := strconv.Atoi(strings.TrimSpace(string(out)))
 		if err == nil && localPort != 0 {
 			server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
-			waitErr := wait.PollImmediate(time.Second, time.Second*5, func() (bool, error) {
-				err = testConnectionWithServer(vRawConfig, server)
+			waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*5, true, func(ctx context.Context) (bool, error) {
+				err = testConnectionWithServer(ctx, vRawConfig, server)
 				if err != nil {
 					return false, nil
 				}

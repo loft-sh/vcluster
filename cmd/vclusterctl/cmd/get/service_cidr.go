@@ -69,7 +69,10 @@ func (cmd *serviceCIDRCmd) Run(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	cidr := servicecidr.GetServiceCIDR(client, cmd.Namespace)
+	cidr, warning := servicecidr.GetServiceCIDR(cobraCmd.Context(), client, cmd.Namespace)
+	if warning != "" {
+		cmd.log.Debugf(warning)
+	}
 
 	_, err = cmd.log.Write([]byte(cidr))
 	if err != nil {

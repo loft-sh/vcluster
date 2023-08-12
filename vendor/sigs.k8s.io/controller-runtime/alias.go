@@ -70,6 +70,10 @@ type TypeMeta = metav1.TypeMeta
 type ObjectMeta = metav1.ObjectMeta
 
 var (
+	// RegisterFlags registers flag variables to the given FlagSet if not already registered.
+	// It uses the default command line FlagSet, if none is provided. Currently, it only registers the kubeconfig flag.
+	RegisterFlags = config.RegisterFlags
+
 	// GetConfigOrDie creates a *rest.Config for talking to a Kubernetes apiserver.
 	// If --kubeconfig is set, will use the kubeconfig file at that location.  Otherwise will assume running
 	// in cluster and use the cluster provided kubeconfig.
@@ -95,6 +99,8 @@ var (
 	// ConfigFile returns the cfg.File function for deferred config file loading,
 	// this is passed into Options{}.From() to populate the Options fields for
 	// the manager.
+	//
+	// Deprecated: This is deprecated in favor of using Options directly.
 	ConfigFile = cfg.File
 
 	// NewControllerManagedBy returns a new controller builder that will be started by the provided Manager.
@@ -135,7 +141,7 @@ var (
 	// The logger, when used with controllers, can be expected to contain basic information about the object
 	// that's being reconciled like:
 	// - `reconciler group` and `reconciler kind` coming from the For(...) object passed in when building a controller.
-	// - `name` and `namespace` injected from the reconciliation request.
+	// - `name` and `namespace` from the reconciliation request.
 	//
 	// This is meant to be used with the context supplied in a struct that satisfies the Reconciler interface.
 	LoggerFrom = log.FromContext

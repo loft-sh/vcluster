@@ -8,7 +8,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
@@ -92,15 +91,13 @@ var _ syncer.ControllerModifier = &secretSyncer{}
 func (s *secretSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.includeIngresses {
 		if s.useLegacyIngress {
-			builder = builder.Watches(&source.Kind{Type: &networkingv1beta1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
+			builder = builder.Watches(&networkingv1beta1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
 		} else {
-			builder = builder.Watches(&source.Kind{Type: &networkingv1.Ingress{}}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
+			builder = builder.Watches(&networkingv1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
 		}
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-		return mapPods(object)
-	})), nil
+	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
 }
 
 func (s *secretSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -111,7 +108,7 @@ func (s *secretSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.Secret)))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Secret)))
 }
 
 func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -130,7 +127,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 		return ctrl.Result{}, nil
 	}
 
-	newSecret := s.translateUpdate(pObj.(*corev1.Secret), vObj.(*corev1.Secret))
+	newSecret := s.translateUpdate(ctx.Context, pObj.(*corev1.Secret), vObj.(*corev1.Secret))
 	if newSecret != nil {
 		translator.PrintChanges(pObj, newSecret, ctx.Log)
 	}
@@ -146,7 +143,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 		return true, nil
 	}
 
-	isUsed, err := isSecretUsedByPods(context.TODO(), ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
+	isUsed, err := isSecretUsedByPods(ctx.Context, ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
 	if err != nil {
 		return false, errors.Wrap(err, "is secret used by pods")
 	}
@@ -163,12 +160,15 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 			ingressesList = &networkingv1.IngressList{}
 		}
 
-		err := ctx.VirtualClient.List(context.TODO(), ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
+		err := ctx.VirtualClient.List(ctx.Context, ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
 			return false, err
 		}
 
-		return meta.LenList(ingressesList) > 0, nil
+		isUsed = meta.LenList(ingressesList) > 0
+		if isUsed {
+			return true, nil
+		}
 	}
 
 	if s.syncAllSecrets {
@@ -178,7 +178,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 	return false, nil
 }
 
-func mapIngresses(obj client.Object) []reconcile.Request {
+func mapIngresses(_ context.Context, obj client.Object) []reconcile.Request {
 	ingress, ok := obj.(*networkingv1.Ingress)
 	if !ok {
 		return nil
@@ -201,7 +201,7 @@ func mapIngresses(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func mapIngressesLegacy(obj client.Object) []reconcile.Request {
+func mapIngressesLegacy(_ context.Context, obj client.Object) []reconcile.Request {
 	ingress, ok := obj.(*networkingv1beta1.Ingress)
 	if !ok {
 		return nil
@@ -224,7 +224,7 @@ func mapIngressesLegacy(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func mapPods(obj client.Object) []reconcile.Request {
+func mapPods(_ context.Context, obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return nil

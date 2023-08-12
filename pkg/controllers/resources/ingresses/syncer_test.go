@@ -1,10 +1,11 @@
 package ingresses
 
 import (
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/types"
-	"testing"
 
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -88,8 +89,8 @@ func TestSync(t *testing.T) {
 		},
 	}
 	changedIngressStatus := networkingv1.IngressStatus{
-		LoadBalancer: corev1.LoadBalancerStatus{
-			Ingress: []corev1.LoadBalancerIngress{
+		LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+			Ingress: []networkingv1.IngressLoadBalancerIngress{
 				{
 					IP:       "123:123:123:123",
 					Hostname: "testhost",
@@ -294,6 +295,7 @@ func TestSync(t *testing.T) {
 						Labels:    baseIngress.Labels,
 						Annotations: map[string]string{
 							"nginx.ingress.kubernetes.io/auth-secret": "my-secret",
+							"nginx.ingress.kubernetes.io/auth-tls-secret": baseIngress.Namespace+"/my-secret",
 						},
 					},
 				},
@@ -316,6 +318,7 @@ func TestSync(t *testing.T) {
 							Labels:    baseIngress.Labels,
 							Annotations: map[string]string{
 								"nginx.ingress.kubernetes.io/auth-secret": "my-secret",
+								"nginx.ingress.kubernetes.io/auth-tls-secret": baseIngress.Namespace+"/my-secret",
 							},
 						},
 					},
@@ -330,7 +333,8 @@ func TestSync(t *testing.T) {
 							Labels:    createdIngress.Labels,
 							Annotations: map[string]string{
 								"nginx.ingress.kubernetes.io/auth-secret": translate.Default.PhysicalName("my-secret", baseIngress.Namespace),
-								"vcluster.loft.sh/managed-annotations":    "nginx.ingress.kubernetes.io/auth-secret",
+								"nginx.ingress.kubernetes.io/auth-tls-secret": createdIngress.Namespace+"/"+translate.Default.PhysicalName("my-secret", baseIngress.Namespace),
+								"vcluster.loft.sh/managed-annotations":    "nginx.ingress.kubernetes.io/auth-secret\nnginx.ingress.kubernetes.io/auth-tls-secret",
 								"vcluster.loft.sh/object-name":            baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":       baseIngress.Namespace,
 								translate.UIDAnnotation:                   "",

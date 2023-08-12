@@ -2,10 +2,15 @@ package filters
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"net/http"
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type nodeName int
@@ -15,13 +20,12 @@ type nodeName int
 // does not conflict with the keys defined in pkg/api.
 const nodeNameKey nodeName = iota
 
-func WithNodeName(h http.Handler, currentNamespace string) http.Handler {
+func WithNodeName(h http.Handler, currentNamespace string, fakeKubeletIPs bool, virtualClient, physicalClient client.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		nodeName := nodeNameFromHost(req.Host, currentNamespace)
+		nodeName := nodeNameFromHost(req, currentNamespace, fakeKubeletIPs, virtualClient, physicalClient)
 		if nodeName != "" {
 			req = req.WithContext(context.WithValue(req.Context(), nodeNameKey, nodeName))
 		}
-
 		h.ServeHTTP(w, req)
 	})
 }
@@ -32,14 +36,37 @@ func NodeNameFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-func nodeNameFromHost(host, currentNamespace string) string {
-	suffix := "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
+func nodeNameFromHost(req *http.Request, currentNamespace string, fakeKubeletIPs bool, virtualClient client.Client, physicalClient client.Client) string {
+	splitted := strings.Split(req.Host, ":")
+	if len(splitted) == 2 {
+		hostname := splitted[0]
+		nodeList := &corev1.NodeList{}
+		err := virtualClient.List(req.Context(), nodeList, client.MatchingFields{constants.IndexByHostName: hostname})
+		if err != nil && !errors.IsNotFound(err) {
+			klog.Error(err, "couldn't fetch nodename for hostname")
+		}
+		if len(nodeList.Items) == 1 {
+			nodeName := nodeList.Items[0].Name
+			return nodeName
+		}
 
-	// retrieve the node name
-	splitted := strings.Split(host, ":")
-	if len(splitted) == 2 && strings.HasSuffix(splitted[0], suffix) {
-		return strings.TrimSuffix(splitted[0], suffix)
+		if fakeKubeletIPs {
+			// try to fetch hostname by node service clusterIP
+			serviceList := &corev1.ServiceList{}
+			err = physicalClient.List(req.Context(), serviceList, client.InNamespace(currentNamespace), client.MatchingFields{constants.IndexByClusterIP: hostname})
+			if err != nil {
+				klog.Error(err, "couldn't fetch nodename from nodeservice")
+				return ""
+			}
+
+			// we found a service?
+			if len(serviceList.Items) > 0 {
+				serviceLabels := serviceList.Items[0].Labels
+				if len(serviceLabels) > 0 && serviceLabels[nodeservice.ServiceNodeLabel] != "" {
+					return serviceLabels[nodeservice.ServiceNodeLabel]
+				}
+			}
+		}
 	}
-
 	return ""
 }

@@ -3,6 +3,8 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"regexp"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -61,7 +63,14 @@ func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
 		return false
 	} else if metaAccessor.GetLabels() == nil {
 		return false
-	} else if metaAccessor.GetNamespace() != "" && metaAccessor.GetNamespace() != s.targetNamespace {
+	} else if metaAccessor.GetNamespace() != "" && !s.IsTargetedNamespace(metaAccessor.GetNamespace()) {
+		return false
+	}
+
+	// vcluster has not synced the object IF:
+	// If object-name annotation is not set OR
+	// If object-name annotation is different from actual name
+	if metaAccessor.GetAnnotations() == nil || metaAccessor.GetAnnotations()[NameAnnotation] == "" || metaAccessor.GetName() != s.PhysicalName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation]) {
 		return false
 	}
 
@@ -77,6 +86,10 @@ func (s *singleNamespace) IsManagedCluster(obj runtime.Object) bool {
 	}
 
 	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.targetNamespace, "x", Suffix)
+}
+
+func (s *singleNamespace) IsTargetedNamespace(ns string) bool {
+	return ns == s.targetNamespace
 }
 
 func (s *singleNamespace) convertNamespacedLabelKey(key string) string {
@@ -97,8 +110,18 @@ func (s *singleNamespace) TranslateLabelsCluster(vObj client.Object, pObj client
 		}
 		if vObjLabels != nil {
 			for _, k := range syncedLabels {
-				if value, ok := vObjLabels[k]; ok {
-					newLabels[k] = value
+				if strings.HasSuffix(k, "/*") {
+					r, _ := regexp.Compile(strings.ReplaceAll(k, "/*", "/.*"))
+
+					for key, val := range vObjLabels {
+						if r.MatchString(key) {
+							newLabels[key] = val
+						}
+					}
+				} else {
+					if value, ok := vObjLabels[k]; ok {
+						newLabels[k] = value
+					}
 				}
 			}
 		}
@@ -204,11 +227,21 @@ func (s *singleNamespace) TranslateLabels(fromLabels map[string]string, vNamespa
 
 	newLabels := map[string]string{}
 	for k, v := range fromLabels {
-		newLabels[ConvertLabelKey(k)] = v
+		newLabels[s.ConvertLabelKey(k)] = v
 	}
 	for _, k := range syncedLabels {
-		if value, ok := fromLabels[k]; ok {
-			newLabels[k] = value
+		if strings.HasSuffix(k, "/*") {
+			r, _ := regexp.Compile(strings.ReplaceAll(k, "/*", "/.*"))
+
+			for key, val := range fromLabels {
+				if r.MatchString(key) {
+					newLabels[key] = val
+				}
+			}
+		} else {
+			if value, ok := fromLabels[k]; ok {
+				newLabels[k] = value
+			}
 		}
 	}
 
@@ -274,7 +307,7 @@ func TranslateLabelSelectorWithPrefix(labelPrefix string, labelSelector *metav1.
 	return newLabelSelector
 }
 
-func ConvertLabelKey(key string) string {
+func (s *singleNamespace) ConvertLabelKey(key string) string {
 	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
 }
 

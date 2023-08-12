@@ -8,20 +8,25 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-  {{- if .Values.globalAnnotations }}
+  {{- $annotations := merge .Values.globalAnnotations .Values.syncer.serviceAnnotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.globalAnnotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ if eq .Values.service.type "LoadBalancer" -}}ClusterIP{{- else }} {{- .Values.service.type }}  {{- end }}
   ports:
     - name: https
       port: 443
+      {{- if not .Values.headless }}
       targetPort: 8443
+      {{- end }}
       protocol: TCP
     - name: kubelet
       port: 10250
+      {{- if not .Values.headless }}
       targetPort: 8443
+      {{- end }}
       protocol: TCP
   {{- if .Values.service.externalIPs }}
   externalIPs:
@@ -29,12 +34,48 @@ spec:
     - {{ $f }}
     {{- end }}
   {{- end }}
-  {{- if (or (eq (.Values.service.type) "LoadBalancer") (eq (.Values.service.type) "NodePort")) }}
+  {{- if eq .Values.service.type "NodePort" }}
   {{- if .Values.service.externalTrafficPolicy }}
   externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
   {{- end }}
   {{- end }}
-  {{- if (eq (.Values.service.type) "LoadBalancer") }}
+  {{- if not .Values.headless }}
+  selector:
+    app: vcluster
+    release: {{ .Release.Name }}
+  {{- end }}
+---
+{{ if eq .Values.service.type "LoadBalancer" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-lb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- $annotations := merge .Values.globalAnnotations .Values.syncer.serviceAnnotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  type: LoadBalancer
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP
+  {{- if .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
+  {{- if not .Values.headless }}
+  selector:
+    app: vcluster
+    release: {{ .Release.Name }}
+  {{- end }}
   {{- if .Values.service.loadBalancerIP }}
   loadBalancerIP: {{ .Values.service.loadBalancerIP }}
   {{- end }}
@@ -47,7 +88,4 @@ spec:
     - "{{ $f }}"
     {{- end }}
   {{- end }}
-  {{- end }}
-  selector:
-    app: vcluster
-    release: {{ .Release.Name }}
+{{- end }}

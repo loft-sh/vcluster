@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -43,7 +45,7 @@ func Execute() {
 	}
 
 	// Execute command
-	err = rootCmd.Execute()
+	err = rootCmd.ExecuteContext(context.Background())
 	if err != nil {
 		if globalFlags.Debug {
 			log.Fatalf("%+v", err)
@@ -72,9 +74,10 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(NewDisconnectCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
+	rootCmd.AddCommand(telemetry.NewTelemetryCmd())
 	rootCmd.AddCommand(versionCmd)
 
-	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc())
+	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
 		return rootCmd, fmt.Errorf("failed to register completion for namespace: %w", err)
 	}

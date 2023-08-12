@@ -75,7 +75,7 @@ for i in "${linux_images[@]}"; do
         image_name="${reg}/${i}"
         ;;
     *)
-        image_name="${reg}/loftsh/${i}"
+        image_name="${reg}/ghcr.io/loft-sh/${i}"
         ;;
     esac
 

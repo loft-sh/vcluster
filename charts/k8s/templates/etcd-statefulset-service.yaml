@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if not .Values.etcd.disabled }}
 apiVersion: v1
 kind: Service
@@ -9,6 +10,11 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- $annotations := merge .Values.globalAnnotations .Values.etcd.serviceAnnotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
 spec:
   publishNotReadyAddresses: true
   ports:
@@ -24,4 +30,5 @@ spec:
   selector:
     app: vcluster-etcd
     release: "{{ .Release.Name }}"
+{{- end }}
 {{- end }}

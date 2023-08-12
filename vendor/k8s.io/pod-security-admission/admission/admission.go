@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -250,7 +251,7 @@ func (a *Admission) ValidateNamespace(ctx context.Context, attrs api.Attributes)
 			return invalidResponse(attrs, newErrs)
 		}
 		if a.exemptNamespace(attrs.GetNamespace()) {
-			if warning := a.exemptNamespaceWarning(namespace.Name, newPolicy); warning != "" {
+			if warning := a.exemptNamespaceWarning(namespace.Name, newPolicy, namespace.Labels); warning != "" {
 				response := allowedResponse()
 				response.Warnings = append(response.Warnings, warning)
 				return response
@@ -293,7 +294,7 @@ func (a *Admission) ValidateNamespace(ctx context.Context, attrs api.Attributes)
 			return sharedAllowedResponse
 		}
 		if a.exemptNamespace(attrs.GetNamespace()) {
-			if warning := a.exemptNamespaceWarning(namespace.Name, newPolicy); warning != "" {
+			if warning := a.exemptNamespaceWarning(namespace.Name, newPolicy, namespace.Labels); warning != "" {
 				response := allowedResponse()
 				response.Warnings = append(response.Warnings, warning)
 				return response
@@ -375,7 +376,7 @@ func (a *Admission) ValidatePod(ctx context.Context, attrs api.Attributes) *admi
 		}
 		oldPod, ok := oldObj.(*corev1.Pod)
 		if !ok {
-			klog.InfoS("failed to assert old pod type", "type", reflect.TypeOf(oldObj))
+			klog.InfoS("Failed to assert old pod type", "type", reflect.TypeOf(oldObj))
 			a.Metrics.RecordError(true, attrs)
 			return errorResponse(nil, &apierrors.NewBadRequest("failed to decode old pod").ErrStatus)
 		}
@@ -637,12 +638,12 @@ func isSignificantPodUpdate(pod, oldPod *corev1.Pod) bool {
 		return true
 	}
 	for i := 0; i < len(pod.Spec.Containers); i++ {
-		if isSignificantContainerUpdate(&pod.Spec.Containers[i], &oldPod.Spec.Containers[i], pod.Annotations, oldPod.Annotations) {
+		if isSignificantContainerUpdate(&pod.Spec.Containers[i], &oldPod.Spec.Containers[i]) {
 			return true
 		}
 	}
 	for i := 0; i < len(pod.Spec.InitContainers); i++ {
-		if isSignificantContainerUpdate(&pod.Spec.InitContainers[i], &oldPod.Spec.InitContainers[i], pod.Annotations, oldPod.Annotations) {
+		if isSignificantContainerUpdate(&pod.Spec.InitContainers[i], &oldPod.Spec.InitContainers[i]) {
 			return true
 		}
 	}
@@ -657,7 +658,7 @@ func isSignificantPodUpdate(pod, oldPod *corev1.Pod) bool {
 		if oldC == nil {
 			return true // EphemeralContainer added
 		}
-		if isSignificantContainerUpdate((*corev1.Container)(&c.EphemeralContainerCommon), oldC, pod.Annotations, oldPod.Annotations) {
+		if isSignificantContainerUpdate((*corev1.Container)(&c.EphemeralContainerCommon), oldC) {
 			return true
 		}
 	}
@@ -665,13 +666,8 @@ func isSignificantPodUpdate(pod, oldPod *corev1.Pod) bool {
 }
 
 // isSignificantContainerUpdate determines whether a container update should trigger a policy evaluation.
-func isSignificantContainerUpdate(container, oldContainer *corev1.Container, annotations, oldAnnotations map[string]string) bool {
-	if container.Image != oldContainer.Image {
-		return true
-	}
-	// TODO(saschagrunert): Remove this logic in 1.27.
-	seccompKey := corev1.SeccompContainerAnnotationKeyPrefix + container.Name
-	return annotations[seccompKey] != oldAnnotations[seccompKey]
+func isSignificantContainerUpdate(container, oldContainer *corev1.Container) bool {
+	return container.Image != oldContainer.Image
 }
 
 func (a *Admission) exemptNamespace(namespace string) bool {
@@ -736,11 +732,39 @@ func containsString(needle string, haystack []string) bool {
 
 // exemptNamespaceWarning returns a non-empty warning message if the exempt namespace has a
 // non-privileged policy and sets pod security labels.
-func (a *Admission) exemptNamespaceWarning(exemptNamespace string, policy api.Policy) string {
+func (a *Admission) exemptNamespaceWarning(exemptNamespace string, policy api.Policy, nsLabels map[string]string) string {
 	if policy.FullyPrivileged() || policy.Equivalent(&a.defaultPolicy) {
 		return ""
 	}
 
+	// Build a compact representation of the policy, only printing non-privileged modes that have
+	// been explicitly set.
+	sb := strings.Builder{}
+	_, hasEnforceLevel := nsLabels[api.EnforceLevelLabel]
+	_, hasEnforceVersion := nsLabels[api.EnforceVersionLabel]
+	if policy.Enforce.Level != api.LevelPrivileged && (hasEnforceLevel || hasEnforceVersion) {
+		sb.WriteString("enforce=")
+		sb.WriteString(policy.Enforce.String())
+	}
+	_, hasAuditLevel := nsLabels[api.AuditLevelLabel]
+	_, hasAuditVersion := nsLabels[api.AuditVersionLabel]
+	if policy.Audit.Level != api.LevelPrivileged && (hasAuditLevel || hasAuditVersion) {
+		if sb.Len() > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("audit=")
+		sb.WriteString(policy.Audit.String())
+	}
+	_, hasWarnLevel := nsLabels[api.WarnLevelLabel]
+	_, hasWarnVersion := nsLabels[api.WarnVersionLabel]
+	if policy.Warn.Level != api.LevelPrivileged && (hasWarnLevel || hasWarnVersion) {
+		if sb.Len() > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("warn=")
+		sb.WriteString(policy.Warn.String())
+	}
+
 	return fmt.Sprintf("namespace %q is exempt from Pod Security, and the policy (%s) will be ignored",
-		exemptNamespace, policy.CompactString())
+		exemptNamespace, sb.String())
 }

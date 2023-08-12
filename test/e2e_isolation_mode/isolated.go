@@ -1,12 +1,13 @@
 package e2eisolatedmode
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +16,10 @@ import (
 
 var _ = ginkgo.Describe("Isolated mode", func() {
 	f := framework.DefaultFramework
+	if f.MultiNamespaceMode {
+		ginkgo.Skip("Isolated mode is not supported in Multi-Namespace mode")
+	}
+
 	ginkgo.It("Enforce isolated mode", func() {
 		ginkgo.By("Check if isolated mode creates resourcequota")
 		_, err := f.HostClient.CoreV1().ResourceQuotas(f.VclusterNamespace).Get(f.Context, "vcluster-quota", metav1.GetOptions{})
@@ -43,8 +48,8 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 		}
 		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, nsName, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
-		err = wait.Poll(time.Second, time.Minute, func() (done bool, err error) {
-			ns, _ := f.VclusterClient.CoreV1().Namespaces().Get(f.Context, nsName.Name, metav1.GetOptions{})
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute, false, func(ctx context.Context) (done bool, err error) {
+			ns, _ := f.VclusterClient.CoreV1().Namespaces().Get(ctx, nsName.Name, metav1.GetOptions{})
 			if ns.Status.Phase == corev1.NamespaceActive {
 				return true, nil
 			}
@@ -86,14 +91,16 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 		_, err := f.VclusterClient.CoreV1().Pods("default").Create(f.Context, pod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = wait.Poll(time.Second*2, time.Minute*1, func() (bool, error) {
-			p, _ := f.VclusterClient.CoreV1().Pods("default").Get(f.Context, "nginx", metav1.GetOptions{})
+		err = wait.PollUntilContextTimeout(f.Context, time.Second*2, time.Minute*1, false, func(ctx context.Context) (bool, error) {
+			p, _ := f.VclusterClient.CoreV1().Pods("default").Get(ctx, "nginx", metav1.GetOptions{})
 			if p.Status.Phase == corev1.PodRunning {
 				return true, nil
 			} else {
-				e, _ := f.VclusterClient.CoreV1().Events("default").List(f.Context, metav1.ListOptions{TypeMeta: p.TypeMeta})
-				if strings.Contains(e.Items[0].Message, `Invalid value: "2": must be less than or equal to cpu limit`) {
-					return true, fmt.Errorf(`invalid value: "2": must be less than or equal to cpu limit`)
+				e, _ := f.VclusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{TypeMeta: p.TypeMeta})
+				if len(e.Items) > 0 {
+					if strings.Contains(e.Items[0].Message, `Invalid value: "2": must be less than or equal to cpu limit`) {
+						return true, fmt.Errorf(`invalid value: "2": must be less than or equal to cpu limit`)
+					}
 				}
 			}
 			return false, nil

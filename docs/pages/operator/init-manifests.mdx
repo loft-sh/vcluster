@@ -18,12 +18,25 @@ init:
     apiVersion: v1
     kind: ConfigMap
     ...
+  manifestsTemplate: |-
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    data:
+      example: {{ .Release.Name }}
+    ...
 ```
+
+The contents of `init.manifests` will be applied as-is, while the contents of `init.manifestsTemplate` will be templated using helm to allow you to use helm values inside, e.g.: `{{ .Release.Name }}`. `init.manifests` and `init.manifestsTemplate` will be concatenated to form a single config map.
 
 ## Applying charts on vcluster initialization
 vcluster now supports applying helm charts while initializing a new vcluster. Currently 2 methods of applying charts are supported:
 1. [Upstream Mode](#upstream-mode)
 2. [Bundle Mode](#bundle-mode)
+
+:::info
+The `init.helm[].chart.version` scheme only supports absolute versions and not any constraints.
+:::
 
 ### Upstream Mode
 This is the most straight forward approach of applying a helm chart existing in and public/private upstream chart repository. The following examples demonstrate the usage:

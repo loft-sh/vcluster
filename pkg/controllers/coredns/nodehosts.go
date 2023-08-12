@@ -9,16 +9,15 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -44,19 +43,26 @@ func (r *CoreDNSNodeHostsReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Namespace: Namespace,
 		Name:      ConfigMapName,
 	}}
-	result, err := controllerutil.CreateOrPatch(ctx, r.Client, configmap, func() error {
-		if configmap.Data == nil {
-			configmap.Data = make(map[string]string)
-		}
-		configmap.Data[NodeHostsKey] = nodehosts
-		return nil
-	})
-	if err != nil {
-		return ctrl.Result{RequeueAfter: time.Second}, err
-	} else if result != controllerutil.OperationResultNone {
-		r.Log.Debugf("CoreDNS ConfigMap CreateOrPatch operation result: %s", result)
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(configmap), configmap)
+	if kerrors.IsNotFound(err) {
+		r.Log.Debugf("%s/%s Configmap not found, CoreDNS is not fully configured", ConfigMapName, Namespace)
+		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
+	beforeChanges := configmap.DeepCopy()
+	if configmap.Data == nil {
+		configmap.Data = map[string]string{}
+	}
+	if configmap.Data[NodeHostsKey] == nodehosts {
+		// no change => no patching is required
+		return ctrl.Result{}, nil
+	}
+
+	configmap.Data[NodeHostsKey] = nodehosts
+	err = r.Client.Patch(ctx, configmap, client.MergeFrom(beforeChanges))
+	if err != nil {
+		return ctrl.Result{RequeueAfter: time.Second}, err
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -92,7 +98,7 @@ func (r *CoreDNSNodeHostsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	funcs := predicate.NewPredicateFuncs(p)
 
 	// use modified handler to avoid triggering reconcile for each Node
-	eventHandler := handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+	eventHandler := handler.EnqueueRequestsFromMapFunc(func(_ context.Context, o client.Object) []reconcile.Request {
 		return []reconcile.Request{{
 			NamespacedName: types.NamespacedName{Namespace: Namespace, Name: ConfigMapName},
 		}}
@@ -101,6 +107,6 @@ func (r *CoreDNSNodeHostsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("coredns_nodehosts").
 		For(&corev1.ConfigMap{}, builder.WithPredicates(funcs, predicate.ResourceVersionChangedPredicate{})).
-		Watches(&source.Kind{Type: &corev1.Node{}}, eventHandler).
+		Watches(&corev1.Node{}, eventHandler).
 		Complete(r)
 }

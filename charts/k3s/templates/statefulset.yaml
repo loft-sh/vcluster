@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- $kind := include "vcluster.k3s.workloadKind" . -}}
 apiVersion: apps/v1
 kind: {{ $kind }}
@@ -47,7 +48,9 @@ spec:
         name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
+        {{- if .Values.storage.className }}
         storageClassName: {{ .Values.storage.className }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .Values.storage.size }}
@@ -129,6 +132,10 @@ spec:
           configMap:
             name: {{ .Release.Name }}-coredns
       {{- end }}
+        - name: custom-config-volume
+          configMap:
+            name: coredns-custom
+            optional: true
       {{- if not .Values.storage.persistence }}
         - name: data
           emptyDir: {}
@@ -208,7 +215,7 @@ spec:
         {{- if .Values.syncer.image }}
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
-        image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
         {{- end }}
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
@@ -255,9 +262,6 @@ spec:
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
           {{- end }}
-          {{- if .Values.hostpathMapper.enabled }}
-          - --rewrite-host-paths=true
-          {{- end }}
           {{- if .Values.multiNamespaceMode.enabled }}
           - --multi-namespace-mode=true
           {{- end }}
@@ -266,6 +270,12 @@ spec:
           {{- end }}
           {{- if .Values.sync.secrets.all }}
           - --sync-all-secrets=true
+          {{- end }}
+          {{- if not .Values.sync.nodes.fakeKubeletIPs }}
+          - --fake-kubelet-ips=false
+          {{- end }}
+          {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
+          - --proxy-metrics-server=true
           {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
@@ -315,6 +325,13 @@ spec:
               fieldRef:
                 fieldPath: spec.nodeName
           {{- end }}
+          {{- if .Values.sync.generic.config }}
+          - name: CONFIG
+            value: |-
+              {{- .Values.sync.generic.config | nindent 14 }}
+          {{- end }}
+          - name: VCLUSTER_TELEMETRY_CONFIG
+            value: {{ .Values.telemetry | toJson | quote }}
         volumeMounts:
         {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
           - name: helm-cache
@@ -322,12 +339,18 @@ spec:
           - name: tmp
             mountPath: /tmp
         {{- end }}
-        {{- if .Values.coredns.enabled }}
+        {{- if or .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns
             readOnly: true
+          - name: custom-config-volume
+            mountPath: /etc/coredns/custom
+            readOnly: true
         {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
+        {{- if .Values.syncer.extraVolumeMounts }}
+{{ toYaml .Values.syncer.extraVolumeMounts | indent 10 }}
+        {{- end }}
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}
       {{- end }}
@@ -393,3 +416,4 @@ spec:
 {{ toYaml $container.resources | indent 10 }}
         {{- end }}
         {{- end }}
+{{- end }}

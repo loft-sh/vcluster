@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type WithDepth interface {
@@ -64,7 +64,7 @@ func (l *logSink) Info(level int, msg string, keysAndValues ...interface{}) {
 // commandline flags might be used to set the logging verbosity and disable
 // some info logs.
 func (l *logSink) Enabled(level int) bool {
-	return true
+	return level >= l.level
 }
 
 // Error logs an error, with the given message and key/value pairs as context.

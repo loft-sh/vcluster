@@ -1,10 +1,12 @@
 package nodes
 
 import (
+	"context"
+	"testing"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
-	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -28,9 +30,18 @@ func newFakeFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccon
 	assert.NilError(t, err)
 
 	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-		return NewFakeSyncer(ctx)
+		return NewFakeSyncer(ctx, &fakeNodeServiceProvider{})
 	})
 	return syncContext, object.(*fakeNodeSyncer)
+}
+
+type fakeNodeServiceProvider struct{}
+
+func (f *fakeNodeServiceProvider) Start(ctx context.Context) {}
+func (f *fakeNodeServiceProvider) Lock()                     {}
+func (f *fakeNodeServiceProvider) Unlock()                   {}
+func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name string) (string, error) {
+	return "127.0.0.1", nil
 }
 
 func TestFakeSync(t *testing.T) {
@@ -108,7 +119,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			Addresses: []corev1.NodeAddress{
 				{
-					Address: getNodeHost(baseName.Name, generictesting.DefaultTestCurrentNamespace),
+					Address: GetNodeHost(baseName.Name),
 					Type:    corev1.NodeHostName,
 				},
 			},

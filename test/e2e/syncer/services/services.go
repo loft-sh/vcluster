@@ -10,7 +10,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -72,7 +72,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err)
 
 		// get physical service
-		pService, err := f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(vService.Name, vService.Namespace), metav1.GetOptions{})
+		pService, err := f.HostClient.CoreV1().Services(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(vService.Name, vService.Namespace), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		// check node ports are the same
@@ -108,7 +108,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		_, err = f.VclusterClient.CoreV1().Services(ns).Get(f.Context, service.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		_, err = f.HostClient.CoreV1().Services(f.VclusterNamespace).Get(f.Context, translate.Default.PhysicalName(service.Name, service.Namespace), metav1.GetOptions{})
+		_, err = f.HostClient.CoreV1().Services(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(service.Name, service.Namespace), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 	})
 
@@ -118,6 +118,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		testSvcName := "test-service-" + utilrand.String(5)
 		testSvcLabels := map[string]string{"test-service-static": "true"}
 		testSvcLabelsFlat := "test-service-static=true"
+		ctx := f.Context
 
 		svcList, err := f.VclusterClient.CoreV1().Services("").List(f.Context, metav1.ListOptions{LabelSelector: testSvcLabelsFlat})
 		framework.ExpectNoError(err, "failed to list Services")
@@ -150,7 +151,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("watching for the Service to be added")
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			if svc, ok := event.Object.(*corev1.Service); ok {
@@ -173,7 +174,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		ginkgo.By("Getting /status")
 		DynamicClient, err := dynamic.NewForConfig(f.VclusterConfig)
 		framework.ExpectNoError(err, "Failed to initialize the client", err)
-		svcStatusUnstructured, err := DynamicClient.Resource(svcResource).Namespace(ns).Get(context.TODO(), testSvcName, metav1.GetOptions{}, "status")
+		svcStatusUnstructured, err := DynamicClient.Resource(svcResource).Namespace(ns).Get(ctx, testSvcName, metav1.GetOptions{}, "status")
 		framework.ExpectNoError(err, "Failed to fetch ServiceStatus of Service %s in namespace %s", testSvcName, ns)
 		svcStatusBytes, err := json.Marshal(svcStatusUnstructured)
 		framework.ExpectNoError(err, "Failed to marshal unstructured response. %v", err)
@@ -195,7 +196,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err, "Could not patch service status", err)
 
 		ginkgo.By("watching for the Service to be patched")
-		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		ctx, cancel = context.WithTimeout(ctx, 1*time.Minute)
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			if svc, ok := event.Object.(*corev1.Service); ok {
@@ -218,7 +219,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 
 		var statusToUpdate, updatedStatus *corev1.Service
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			statusToUpdate, err = svcClient.Get(context.TODO(), testSvcName, metav1.GetOptions{})
+			statusToUpdate, err = svcClient.Get(ctx, testSvcName, metav1.GetOptions{})
 			framework.ExpectNoError(err, "Unable to retrieve service %s", testSvcName)
 
 			statusToUpdate.Status.Conditions = append(statusToUpdate.Status.Conditions, metav1.Condition{
@@ -228,14 +229,14 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 				Message: "Set from e2e test",
 			})
 
-			updatedStatus, err = svcClient.UpdateStatus(context.TODO(), statusToUpdate, metav1.UpdateOptions{})
+			updatedStatus, err = svcClient.UpdateStatus(ctx, statusToUpdate, metav1.UpdateOptions{})
 			return err
 		})
 		framework.ExpectNoError(err, "\n\n Failed to UpdateStatus. %v\n\n", err)
 		f.Log.Infof("updatedStatus.Conditions: %#v", updatedStatus.Status.Conditions)
 
 		ginkgo.By("watching for the Service to be updated")
-		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		ctx, cancel = context.WithTimeout(ctx, 1*time.Minute)
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			if svc, ok := event.Object.(*corev1.Service); ok {
@@ -273,11 +274,11 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			},
 		})
 
-		_, err = svcClient.Patch(context.TODO(), testSvcName, types.StrategicMergePatchType, []byte(servicePatchPayload), metav1.PatchOptions{})
+		_, err = svcClient.Patch(ctx, testSvcName, types.StrategicMergePatchType, []byte(servicePatchPayload), metav1.PatchOptions{})
 		framework.ExpectNoError(err, "failed to patch service. %v", err)
 
 		ginkgo.By("watching for the Service to be patched")
-		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		ctx, cancel = context.WithTimeout(ctx, 1*time.Minute)
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			if svc, ok := event.Object.(*corev1.Service); ok {
@@ -301,7 +302,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		err = f.VclusterClient.CoreV1().Services(ns).Delete(f.Context, testSvcName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err, "failed to delete the Service. %v", err)
 
-		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		ctx, cancel = context.WithTimeout(ctx, 1*time.Minute)
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			switch event.Type {

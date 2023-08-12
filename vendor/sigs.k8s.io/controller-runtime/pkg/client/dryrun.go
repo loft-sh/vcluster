@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // NewDryRunClient wraps an existing client and enforces DryRun mode
@@ -44,6 +45,16 @@ func (c *dryRunClient) Scheme() *runtime.Scheme {
 // RESTMapper returns the rest mapper this client is using.
 func (c *dryRunClient) RESTMapper() meta.RESTMapper {
 	return c.client.RESTMapper()
+}
+
+// GroupVersionKindFor returns the GroupVersionKind for the given object.
+func (c *dryRunClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return c.client.GroupVersionKindFor(obj)
+}
+
+// IsObjectNamespaced returns true if the GroupVersionKind of the object is namespaced.
+func (c *dryRunClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return c.client.IsObjectNamespaced(obj)
 }
 
 // Create implements client.Client.
@@ -82,25 +93,38 @@ func (c *dryRunClient) List(ctx context.Context, obj ObjectList, opts ...ListOpt
 }
 
 // Status implements client.StatusClient.
-func (c *dryRunClient) Status() StatusWriter {
-	return &dryRunStatusWriter{client: c.client.Status()}
+func (c *dryRunClient) Status() SubResourceWriter {
+	return c.SubResource("status")
 }
 
-// ensure dryRunStatusWriter implements client.StatusWriter.
-var _ StatusWriter = &dryRunStatusWriter{}
+// SubResource implements client.SubResourceClient.
+func (c *dryRunClient) SubResource(subResource string) SubResourceClient {
+	return &dryRunSubResourceClient{client: c.client.SubResource(subResource)}
+}
 
-// dryRunStatusWriter is client.StatusWriter that writes status subresource with dryRun mode
+// ensure dryRunSubResourceWriter implements client.SubResourceWriter.
+var _ SubResourceWriter = &dryRunSubResourceClient{}
+
+// dryRunSubResourceClient is client.SubResourceWriter that writes status subresource with dryRun mode
 // enforced.
-type dryRunStatusWriter struct {
-	client StatusWriter
+type dryRunSubResourceClient struct {
+	client SubResourceClient
 }
 
-// Update implements client.StatusWriter.
-func (sw *dryRunStatusWriter) Update(ctx context.Context, obj Object, opts ...UpdateOption) error {
+func (sw *dryRunSubResourceClient) Get(ctx context.Context, obj, subResource Object, opts ...SubResourceGetOption) error {
+	return sw.client.Get(ctx, obj, subResource, opts...)
+}
+
+func (sw *dryRunSubResourceClient) Create(ctx context.Context, obj, subResource Object, opts ...SubResourceCreateOption) error {
+	return sw.client.Create(ctx, obj, subResource, append(opts, DryRunAll)...)
+}
+
+// Update implements client.SubResourceWriter.
+func (sw *dryRunSubResourceClient) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
 	return sw.client.Update(ctx, obj, append(opts, DryRunAll)...)
 }
 
-// Patch implements client.StatusWriter.
-func (sw *dryRunStatusWriter) Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error {
+// Patch implements client.SubResourceWriter.
+func (sw *dryRunSubResourceClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
 	return sw.client.Patch(ctx, obj, patch, append(opts, DryRunAll)...)
 }

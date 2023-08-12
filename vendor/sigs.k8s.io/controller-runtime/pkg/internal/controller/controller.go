@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/util/workqueue"
@@ -32,11 +33,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-var _ inject.Injector = &Controller{}
 
 // Controller implements controller.Controller.
 type Controller struct {
@@ -59,10 +57,6 @@ type Controller struct {
 	// Queue is an listeningQueue that listens for events from Informers and adds object keys to
 	// the Queue for processing
 	Queue workqueue.RateLimitingInterface
-
-	// SetFields is used to inject dependencies into other objects such as Sources, EventHandlers and Predicates
-	// Deprecated: the caller should handle injected fields itself.
-	SetFields func(i interface{}) error
 
 	// mu is used to synchronize Controller setup
 	mu sync.Mutex
@@ -91,7 +85,10 @@ type Controller struct {
 	LogConstructor func(request *reconcile.Request) logr.Logger
 
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
-	RecoverPanic bool
+	RecoverPanic *bool
+
+	// LeaderElected indicates whether the controller is leader elected or always running.
+	LeaderElected *bool
 }
 
 // watchDescription contains all the information necessary to start a watch.
@@ -105,7 +102,7 @@ type watchDescription struct {
 func (c *Controller) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if c.RecoverPanic {
+			if c.RecoverPanic != nil && *c.RecoverPanic {
 				for _, fn := range utilruntime.PanicHandlers {
 					fn(r)
 				}
@@ -126,19 +123,6 @@ func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prc
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Inject Cache into arguments
-	if err := c.SetFields(src); err != nil {
-		return err
-	}
-	if err := c.SetFields(evthdler); err != nil {
-		return err
-	}
-	for _, pr := range prct {
-		if err := c.SetFields(pr); err != nil {
-			return err
-		}
-	}
-
 	// Controller hasn't started yet, store the watches locally and return.
 	//
 	// These watches are going to be held on the controller struct until the manager or user calls Start(...).
@@ -149,6 +133,14 @@ func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prc
 
 	c.LogConstructor(nil).Info("Starting EventSource", "source", src)
 	return src.Start(c.ctx, evthdler, c.Queue, prct...)
+}
+
+// NeedLeaderElection implements the manager.LeaderElectionRunnable interface.
+func (c *Controller) NeedLeaderElection() bool {
+	if c.LeaderElected == nil {
+		return true
+	}
+	return *c.LeaderElected
 }
 
 // Start implements controller.Controller.
@@ -311,16 +303,22 @@ func (c *Controller) reconcileHandler(ctx context.Context, obj interface{}) {
 	}
 
 	log := c.LogConstructor(&req)
+	reconcileID := uuid.NewUUID()
 
-	log = log.WithValues("reconcileID", uuid.NewUUID())
+	log = log.WithValues("reconcileID", reconcileID)
 	ctx = logf.IntoContext(ctx, log)
+	ctx = addReconcileID(ctx, reconcileID)
 
 	// RunInformersAndControllers the syncHandler, passing it the Namespace/Name string of the
 	// resource to be synced.
 	result, err := c.Reconcile(ctx, req)
 	switch {
 	case err != nil:
-		c.Queue.AddRateLimited(req)
+		if errors.Is(err, reconcile.TerminalError(nil)) {
+			ctrlmetrics.TerminalReconcileErrors.WithLabelValues(c.Name).Inc()
+		} else {
+			c.Queue.AddRateLimited(req)
+		}
 		ctrlmetrics.ReconcileErrors.WithLabelValues(c.Name).Inc()
 		ctrlmetrics.ReconcileTotal.WithLabelValues(c.Name, labelError).Inc()
 		log.Error(err, "Reconciler error")
@@ -348,13 +346,25 @@ func (c *Controller) GetLogger() logr.Logger {
 	return c.LogConstructor(nil)
 }
 
-// InjectFunc implement SetFields.Injector.
-func (c *Controller) InjectFunc(f inject.Func) error {
-	c.SetFields = f
-	return nil
-}
-
 // updateMetrics updates prometheus metrics within the controller.
 func (c *Controller) updateMetrics(reconcileTime time.Duration) {
 	ctrlmetrics.ReconcileTime.WithLabelValues(c.Name).Observe(reconcileTime.Seconds())
+}
+
+// ReconcileIDFromContext gets the reconcileID from the current context.
+func ReconcileIDFromContext(ctx context.Context) types.UID {
+	r, ok := ctx.Value(reconcileIDKey{}).(types.UID)
+	if !ok {
+		return ""
+	}
+
+	return r
+}
+
+// reconcileIDKey is a context.Context Value key. Its associated value should
+// be a types.UID.
+type reconcileIDKey struct{}
+
+func addReconcileID(ctx context.Context, reconcileID types.UID) context.Context {
+	return context.WithValue(ctx, reconcileIDKey{}, reconcileID)
 }
