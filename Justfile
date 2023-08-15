@@ -53,3 +53,7 @@ generate-vcluster-images version="0.0.0":
 [private]
 embed-charts version="0.0.0":
   RELEASE_VERSION={{ version }} go generate -tags embed_charts ./...
+
+cli version="0.0.0" *ARGS="":
+  RELEASE_VERSION={{ version }} go generate -tags embed_charts ./...
+  go run -tags embed_charts -mod vendor -ldflags "-X main.version={{ version }}" ./cmd/vclusterctl/main.go {{ ARGS }}
