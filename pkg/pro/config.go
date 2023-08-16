@@ -18,8 +18,9 @@ const (
 )
 
 type CLIConfig struct {
-	LatestVersion string    `json:"latestVersion,omitempty"`
-	LatestCheckAt time.Time `json:"latestCheck,omitempty"`
+	LatestVersion   string    `json:"latestVersion,omitempty"`
+	LatestCheckAt   time.Time `json:"latestCheck,omitempty"`
+	LastUsedVersion string    `json:"lastUsedVersion,omitempty"`
 }
 
 func getDefaultCLIConfig() *CLIConfig {

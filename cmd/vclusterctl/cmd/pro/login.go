@@ -91,5 +91,17 @@ func (lc *LoginCmd) RunE(cobraCmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to run vcluster pro login: %w", err)
 	}
 
+	config, err := pro.GetConfig()
+	if err != nil {
+		return fmt.Errorf("failed to get vcluster pro config: %w", err)
+	}
+
+	config.LastUsedVersion = version.Version
+
+	err = pro.WriteConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to write vcluster pro config: %w", err)
+	}
+
 	return nil
 }
