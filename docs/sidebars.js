@@ -211,6 +211,23 @@ module.exports = {
     },
     {
       type: 'category',
+      label: 'Advanced topics',
+      collapsed: false,
+      items: [
+        {
+          type: 'category',
+          label: 'Plugins',
+          collapsed: false,
+          items: [
+            'advanced-topics/plugins-overview',
+            'advanced-topics/plugins-development'
+          ],
+        },
+        'advanced-topics/telemetry',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Operator Guide',
       collapsed: false,
       items: [
