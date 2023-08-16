@@ -17,10 +17,10 @@ import (
 	"github.com/samber/lo"
 )
 
-// loftBinaryName returns the name of the loft binary for the given OS and ARCH
-func loftBinaryName() string {
-	return fmt.Sprintf("loft-%s-%s", runtime.GOOS, runtime.GOARCH)
-}
+var (
+	LoftBinaryName = "loft"
+	LoftConfigName = "config.json"
+)
 
 // LoftBinaryFilePath returns the path to the loft binary for the given version
 func LoftBinaryFilePath(version string) (string, error) {
@@ -29,7 +29,7 @@ func LoftBinaryFilePath(version string) (string, error) {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect working directory: %w", err)
 	}
 
-	return filepath.Join(dir, loftBinaryName()), nil
+	return filepath.Join(dir, LoftBinaryName), nil
 }
 
 // LoftConfigFilePath returns the path to the loft config file for the given version
@@ -39,7 +39,7 @@ func LoftConfigFilePath(version string) (string, error) {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect working directory: %w", err)
 	}
 
-	return filepath.Join(dir, "config.json"), nil
+	return filepath.Join(dir, LoftConfigName), nil
 }
 
 // LoftConfigFilePath returns the path to the loft config file for the given version
@@ -92,42 +92,42 @@ func downloadBinary(ctx context.Context, filePath, url string) error {
 // downloadLoftBinary downloads the loft binary for the given version if it does not exist yet.
 //
 // Returns the path to the loft binary and the version tag
-func downloadLoftBinary(ctx context.Context, version string) (string, string, error) {
+func downloadLoftBinary(ctx context.Context, version string) (string, error) {
 	filePath, err := LoftBinaryFilePath(version)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get loft binary file path: %v", err)
+		return "", fmt.Errorf("failed to get loft binary file path: %v", err)
 	}
 
 	_, err = os.Stat(filePath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", "", fmt.Errorf("failed to stat loft binary: %w", err)
+		return "", fmt.Errorf("failed to stat loft binary: %w", err)
 	}
 	if err == nil {
-		return filePath, version, nil
+		return filePath, nil
 	}
 
 	client := github.NewClient(nil)
 
 	release, _, err := client.Repositories.GetLatestRelease(ctx, "loft-sh", "loft")
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get latest release: %w", err)
+		return "", fmt.Errorf("failed to get latest release: %w", err)
 	}
 
 	asset, found := lo.Find(release.Assets, func(asset *github.ReleaseAsset) bool {
-		return loftBinaryName() == *asset.Name
+		return fmt.Sprintf("loft-%s-%s", runtime.GOOS, runtime.GOARCH) == *asset.Name
 	})
 
 	if !found {
-		return "", "", fmt.Errorf("failed to find loft binary for tag %s", version)
+		return "", fmt.Errorf("failed to find loft binary for tag %s", version)
 	}
 
 	// download binary
 	err = downloadBinary(ctx, filePath, asset.GetBrowserDownloadURL())
 	if err != nil {
-		return "", "", fmt.Errorf("failed to download loft binary: %w", err)
+		return "", fmt.Errorf("failed to download loft binary: %w", err)
 	}
 
-	return filePath, version, nil
+	return filePath, nil
 }
 
 // downloadLatestLoftBinary downloads the latest loft binary if it does not exist yet.
@@ -147,7 +147,12 @@ func downloadLatestLoftBinary(ctx context.Context) (string, string, error) {
 		return "", "", fmt.Errorf("failed to get latest release tag name")
 	}
 
-	return downloadLoftBinary(ctx, tagName)
+	binaryPath, err := downloadLoftBinary(ctx, tagName)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to download loft binary: %w", err)
+	}
+
+	return binaryPath, tagName, err
 }
 
 // LatestLoftBinary returns the path to the latest loft binary if it exists
@@ -187,6 +192,6 @@ func LatestLoftBinary(ctx context.Context) (string, string, error) {
 // LoftBinary returns the path to the loft binary for the given version
 //
 // Returns the path to the loft binary and the version tag
-func LoftBinary(ctx context.Context, version string) (string, string, error) {
+func LoftBinary(ctx context.Context, version string) (string, error) {
 	return downloadLoftBinary(ctx, version)
 }

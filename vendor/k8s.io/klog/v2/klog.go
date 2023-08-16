@@ -415,7 +415,7 @@ func init() {
 	logging.stderrThreshold = severityValue{
 		Severity: severity.ErrorLog, // Default stderrThreshold is ERROR.
 	}
-	commandLine.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=false)")
+	commandLine.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true)")
 	commandLine.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	commandLine.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
 
@@ -759,7 +759,7 @@ func (l *loggingT) printWithFileLine(s severity.Severity, logger *logWriter, fil
 	l.output(s, logger, buf, 2 /* depth */, file, line, alsoToStderr)
 }
 
-// if loggr is specified, will call loggr.Error, otherwise output with logging module.
+// if logger is specified, will call logger.Error, otherwise output with logging module.
 func (l *loggingT) errorS(err error, logger *logWriter, filter LogFilter, depth int, msg string, keysAndValues ...interface{}) {
 	if filter != nil {
 		msg, keysAndValues = filter.FilterS(msg, keysAndValues)
@@ -771,7 +771,7 @@ func (l *loggingT) errorS(err error, logger *logWriter, filter LogFilter, depth 
 	l.printS(err, severity.ErrorLog, depth+1, msg, keysAndValues...)
 }
 
-// if loggr is specified, will call loggr.Info, otherwise output with logging module.
+// if logger is specified, will call logger.Info, otherwise output with logging module.
 func (l *loggingT) infoS(logger *logWriter, filter LogFilter, depth int, msg string, keysAndValues ...interface{}) {
 	if filter != nil {
 		msg, keysAndValues = filter.FilterS(msg, keysAndValues)
@@ -783,7 +783,7 @@ func (l *loggingT) infoS(logger *logWriter, filter LogFilter, depth int, msg str
 	l.printS(nil, severity.InfoLog, depth+1, msg, keysAndValues...)
 }
 
-// printS is called from infoS and errorS if loggr is not specified.
+// printS is called from infoS and errorS if logger is not specified.
 // set log severity by s
 func (l *loggingT) printS(err error, s severity.Severity, depth int, msg string, keysAndValues ...interface{}) {
 	// Only create a new buffer if we don't have one cached.
@@ -873,6 +873,9 @@ func (l *loggingT) output(s severity.Severity, logger *logWriter, buf *buffer.Bu
 		if logger.writeKlogBuffer != nil {
 			logger.writeKlogBuffer(data)
 		} else {
+			if len(data) > 0 && data[len(data)-1] == '\n' {
+				data = data[:len(data)-1]
+			}
 			// TODO: set 'severity' and caller information as structured log info
 			// keysAndValues := []interface{}{"severity", severityName[s], "file", file, "line", line}
 			if s == severity.ErrorLog {
