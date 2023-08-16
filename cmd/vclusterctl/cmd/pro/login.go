@@ -56,16 +56,16 @@ func (lc *LoginCmd) RunE(cobraCmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	serverUrl, err := url.Parse(args[0])
+	serverURL, err := url.Parse(args[0])
 	if err != nil {
 		return fmt.Errorf("failed to parse vcluster pro server url: %w", err)
 	}
 
-	log.GetInstance().Info("Logging in to vcluster pro server %s", serverUrl.String())
+	log.GetInstance().Info("Logging in to vcluster pro server %s", serverURL.String())
 
-	serverUrl.Path = "/version"
+	serverURL.Path = "/version"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serverUrl.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serverURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
