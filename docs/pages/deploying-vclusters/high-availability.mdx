@@ -1,0 +1,228 @@
+---
+title: High Availability
+sidebar_label: High Availability
+---
+
+
+vcluster supports high-availability with k3s as well as the vanilla k8s distribution. k0s is currently not supported for high availability setup of vcluster.
+
+## k3s
+
+### Enabling High Availability
+
+In order to run vcluster with k3s as Kubernetes distribution in high availability mode, the following steps are required:
+
+* create and use an [external datastore](../operator/external-datastore.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
+* run two or more k3s pods that will serve the Kubernetes API and run other control plane services
+
+First create a `values.yaml` in the following form and make sure to change the connection string in `K3S_DATASTORE_ENDPOINT`:
+
+```
+# Enable HA mode
+enableHA: true
+
+# Scale up k3s replicas
+replicas: 2
+
+# Set external datastore endpoint
+vcluster:
+  env:
+    - name: K3S_DATASTORE_ENDPOINT
+      value: mysql://username:password@tcp(hostname:3306)/database-name
+
+# Disable persistent storage as all data (including bootstrap data) is stored in external datastore
+storage:
+  persistence: false
+
+# Scale up CoreDNS replicas
+coredns:
+  replicas: 2
+```
+
+Then create the vcluster with the following command:
+
+```
+vcluster create ... --connect=false -f values.yaml
+```
+
+Check that vcluster including the control plane is running correctly:
+
+```
+kubectl get pods -n vcluster
+NAME                                                READY   STATUS    RESTARTS   AGE
+coredns-66ffcc6b58-bhk4s-x-kube-system-x-vcluster   1/1     Running   0          21s
+coredns-66ffcc6b58-n7npd-x-kube-system-x-vcluster   1/1     Running   0          21s
+vcluster-54fb5dd76-92szq                            2/2     Running   0          3m1s
+vcluster-54fb5dd76-ntbrh                            2/2     Running   0          3m1s
+```
+
+Now connect to the vcluster:
+
+```
+vcluster connect vcluster -n vcluster
+
+# Then execute in a new terminal
+export KUBECONFIG=kubeconfig.yaml
+kubectl get ns
+...
+```
+
+
+Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/charts/k3s) for all available chart options.
+
+
+## Vanilla k8s
+
+### Enabling High Availability
+
+In order to run vcluster in high availability mode, create a `values.yaml` in the following form:
+
+```
+# Enable HA mode
+enableHA: true
+
+# Scale up syncer replicas
+syncer:
+  replicas: 3
+
+# Scale up etcd
+etcd:
+  replicas: 3
+
+# Scale up controller manager
+controller:
+  replicas: 3
+
+# Scale up api server
+api:
+  replicas: 3
+
+# Scale up DNS server
+coredns:
+  replicas: 3
+```
+
+Then create the vcluster with the following command:
+```
+vcluster create ... --connect=false --distro k8s -f values.yaml
+```
+
+Check that vcluster including the control plane are running correctly:
+```
+kubectl get po -n vcluster
+NAME                                                READY   STATUS    RESTARTS   AGE
+coredns-6ff7df994d-m5pcd-x-kube-system-x-vcluster   1/1     Running   0          23m
+coredns-6ff7df994d-dfgjb-x-kube-system-x-vcluster   1/1     Running   0          23m
+coredns-6ff7df994d-weuir-x-kube-system-x-vcluster   1/1     Running   0          23m
+vcluster-9d88f577-m55xf                             1/1     Running   0          30m
+vcluster-9d88f577-drsxz                             1/1     Running   0          30m
+vcluster-9d88f577-maslo                             1/1     Running   0          30m
+vcluster-api-66bfc4cf94-cp28t                       1/1     Running   0          30m
+vcluster-api-66bfc4cf94-drnll                       1/1     Running   0          30m
+vcluster-api-66bfc4cf94-jfbnn                       1/1     Running   0          30m
+vcluster-controller-b4cd55bb6-9mvc4                 1/1     Running   0          30m
+vcluster-controller-b4cd55bb6-bmfdj                 1/1     Running   0          30m
+vcluster-controller-b4cd55bb6-kcxr7                 1/1     Running   0          30m
+vcluster-etcd-0                                     1/1     Running   0          30m
+vcluster-etcd-1                                     1/1     Running   0          29m
+vcluster-etcd-2                                     1/1     Running   0          29m
+```
+
+Now connect to the vcluster:
+```
+vcluster connect vcluster-1 -n host-namespace-1
+
+# Then execute in a new terminal
+export KUBECONFIG=kubeconfig.yaml
+kubectl get ns
+...
+```
+
+### Enable HA in rootless mode
+Rootless mode means running vcluster without root user privileges in container, making host k8s cluster more secure.
+You can find more about rootless mode [here](../operator/restricted-hosts.mdx).
+
+Below is HA configuration for running rootless vcluster with vanilla Kubernetes distribution.
+```
+# Enable HA mode
+enableHA: true
+
+# Scale up syncer replicas
+syncer:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up etcd
+etcd:
+  replicas: 3
+  fsGroup: 12345
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up controller manager
+controller:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up api server
+api:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+
+# Scale up DNS server
+coredns:
+  replicas: 3
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsGroup: 12345
+    runAsNonRoot: true
+    runAsUser: 12345
+    seccompProfile:
+      type: RuntimeDefault
+```
+
+Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.
+

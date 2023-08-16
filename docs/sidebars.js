@@ -138,6 +138,47 @@ module.exports = {
       ],
     },
     {
+      type: 'category',
+      label: 'Deploying vclusters',
+      collapsed: false,
+      items: [
+        {
+          type: 'category',
+          label: 'Kubernetes Distros',
+          collapsed: false,
+          items: [
+            'deploying-vclusters/supported-distros',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Persistent vclusters',
+          collapsed: false,
+          items: [
+            'deploying-vclusters/persistence',
+          ],
+        },
+        'deploying-vclusters/high-availability',
+        {
+          type: 'category',
+          label: 'On Init',
+          collapsed: false,
+          items: [
+            'deploying-vclusters/init-manifests',
+            'deploying-vclusters/init-charts',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Integrations',
+          collapsed: false,
+          items: [
+            'deploying-vclusters/integrations-openshift',
+          ],
+        },
+      ],
+    },
+    {
       type: 'doc',
       id: 'storage',
     },
