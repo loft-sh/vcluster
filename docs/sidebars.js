@@ -143,6 +143,33 @@ module.exports = {
     },
     {
       type: 'category',
+      label: 'Observability',
+      collapsed: false,
+      items: [
+        {
+          type: 'category',
+          label: 'Collecting Metrics',
+          collapsed: false,
+          items: [
+            'o11y/metrics/metrics_server_proxy',
+            'o11y/metrics/metrics_server',
+            'o11y/metrics/monitoring_vcluster',
+          ]
+        },
+        {
+          type: 'category',
+          label: 'Logging',
+          collapsed: false,
+          items: [
+            'o11y/logging/hpm',
+            'o11y/logging/elk_stack',
+            'o11y/logging/grafana_loki',
+          ]
+        }
+      ]
+    },
+    {
+      type: 'category',
       label: 'Operator Guide',
       collapsed: false,
       items: [
@@ -150,7 +177,6 @@ module.exports = {
         'operator/external-datastore',
         'operator/accessing-vcluster',
         'operator/init-manifests',
-        'operator/monitoring-logging',
         'operator/high-availability',
         'operator/other-distributions',
         'operator/restricted-hosts',
