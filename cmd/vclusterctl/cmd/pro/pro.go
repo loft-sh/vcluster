@@ -11,7 +11,7 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Short: "vcluster.pro subcommands",
 		Long: `
 #######################################################
-#################### vcluster get #####################
+#################### vcluster pro #####################
 #######################################################
 		`,
 		Args: cobra.NoArgs,
@@ -19,10 +19,14 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	proCmd.AddCommand(NewStartCmd(globalFlags))
 	proCmd.AddCommand(NewLoginCmd(globalFlags))
-	proCmd.AddCommand(NewCreateCmd(globalFlags))
-	proCmd.AddCommand(NewImportCmd(globalFlags))
-	proCmd.AddCommand(NewDeleteCmd(globalFlags))
-	proCmd.AddCommand(NewListCmd(globalFlags))
+
+	proCmd.AddCommand(NewAliasCmd(globalFlags, "list"))
+	proCmd.AddCommand(NewAliasCmd(globalFlags, "create"))
+	proCmd.AddCommand(NewAliasCmd(globalFlags, "import"))
+	proCmd.AddCommand(NewAliasCmd(globalFlags, "delete"))
+	proCmd.AddCommand(NewAliasCmd(globalFlags, "use"))
+	proCmd.AddCommand(NewAliasCmd(globalFlags, "generate"))
+	proCmd.AddCommand(NewAliasCmd(globalFlags, "reset"))
 
 	return proCmd
 }

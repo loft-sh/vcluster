@@ -2,6 +2,7 @@ package pro
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,20 +18,29 @@ const (
 	BinariesFolder    = "bin"
 )
 
+var (
+	// ErrNoLastVersion is returned if no last version was found in the config
+	ErrNoLastVersion = errors.New("no vcluster pro version found, please run 'vcluster pro login' first")
+)
+
+// CLIConfig is the config of the CLI
 type CLIConfig struct {
 	LatestVersion   string    `json:"latestVersion,omitempty"`
 	LatestCheckAt   time.Time `json:"latestCheck,omitempty"`
 	LastUsedVersion string    `json:"lastUsedVersion,omitempty"`
 }
 
+// getDefaultCLIConfig returns the default config
 func getDefaultCLIConfig() *CLIConfig {
 	return &CLIConfig{}
 }
 
+// getConfigFilePath returns the path to the config file
 func getConfigFilePath(home string) string {
 	return filepath.Join(home, cliconfig.VclusterFolder, VclusterProFolder, cliconfig.ConfigFileName)
 }
 
+// GetConfig returns the config from the config file
 func GetConfig() (*CLIConfig, error) {
 	home, err := homedir.Dir()
 	if err != nil {
@@ -63,6 +73,7 @@ func GetConfig() (*CLIConfig, error) {
 	return c, nil
 }
 
+// WriteConfig writes the given config to the config file
 func WriteConfig(c *CLIConfig) error {
 	home, err := homedir.Dir()
 	if err != nil {
@@ -86,4 +97,18 @@ func WriteConfig(c *CLIConfig) error {
 	}
 
 	return nil
+}
+
+// LastUsedVersion returns the last used version of the loft cli
+func LastUsedVersion() (string, error) {
+	config, err := GetConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to get vcluster pro config: %w", err)
+	}
+
+	if config.LastUsedVersion == "" {
+		return "", ErrNoLastVersion
+	}
+
+	return config.LastUsedVersion, nil
 }

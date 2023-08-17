@@ -20,15 +20,8 @@ func NewLoginCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := LoginCmd{}
 
 	loginCmd := &cobra.Command{
-		Use:   "login",
-		Short: "Log in to the vcluster.pro server",
-		Long: `
-#######################################################
-#################### vcluster pro login #####################
-#######################################################
-Log in to the vcluster pro server
-#######################################################
-	`,
+		Use:                "login",
+		Short:              "Log in to the vcluster.pro server",
 		DisableFlagParsing: true,
 		RunE:               cmd.RunE,
 	}
@@ -36,7 +29,7 @@ Log in to the vcluster pro server
 	return loginCmd
 }
 
-func (lc *LoginCmd) RunE(cobraCmd *cobra.Command, args []string) error {
+func (*LoginCmd) RunE(cobraCmd *cobra.Command, args []string) error {
 	ctx := cobraCmd.Context()
 	cobraCmd.SilenceUsage = true
 

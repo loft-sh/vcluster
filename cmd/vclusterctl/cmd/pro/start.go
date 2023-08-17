@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/spf13/cobra"
 )
@@ -15,15 +14,8 @@ func NewStartCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := StartCmd{}
 
 	startCmd := &cobra.Command{
-		Use:   "start",
-		Short: "Starts the vcluster.pro server",
-		Long: `
-#######################################################
-#################### vcluster pro start #####################
-#######################################################
-Starts the vcluster pro server
-#######################################################
-	`,
+		Use:                "start",
+		Short:              "Starts the vcluster.pro server",
 		DisableFlagParsing: true,
 		RunE:               cmd.RunE,
 	}
@@ -31,12 +23,10 @@ Starts the vcluster pro server
 	return startCmd
 }
 
-func (sc *StartCmd) RunE(cobraCmd *cobra.Command, args []string) error {
+func (*StartCmd) RunE(cobraCmd *cobra.Command, args []string) error {
 	ctx := cobraCmd.Context()
 
 	cobraCmd.SilenceUsage = true
-
-	log.GetInstance().Info("Starting vcluster pro server ...")
 
 	args = append([]string{"start"}, args...)
 
