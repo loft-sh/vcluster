@@ -20,13 +20,21 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	proCmd.AddCommand(NewStartCmd(globalFlags))
 	proCmd.AddCommand(NewLoginCmd(globalFlags))
 
-	proCmd.AddCommand(NewAliasCmd(globalFlags, "list"))
-	proCmd.AddCommand(NewAliasCmd(globalFlags, "create"))
-	proCmd.AddCommand(NewAliasCmd(globalFlags, "import"))
-	proCmd.AddCommand(NewAliasCmd(globalFlags, "delete"))
-	proCmd.AddCommand(NewAliasCmd(globalFlags, "use"))
-	proCmd.AddCommand(NewAliasCmd(globalFlags, "generate"))
-	proCmd.AddCommand(NewAliasCmd(globalFlags, "reset"))
+	AddAliasCmd(globalFlags, "list")
+	AddAliasCmd(globalFlags, "import")
+	AddAliasCmd(globalFlags, "delete")
+
+	AddAliasCmd(globalFlags, "get secret")
+	AddAliasCmd(globalFlags, "set secret")
+
+	AddAliasCmd(globalFlags, "use space")
+	AddAliasCmd(globalFlags, "use vcluster")
+	AddAliasCmd(globalFlags, "create space")
+	AddAliasCmd(globalFlags, "create vcluster")
+	AddAliasCmd(globalFlags, "generate admin-kube-config")
+	AddAliasCmd(globalFlags, "reset password")
+
+	proCmd.AddCommand(GetRootCmds()...)
 
 	return proCmd
 }
