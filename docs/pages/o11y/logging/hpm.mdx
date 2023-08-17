@@ -1,0 +1,34 @@
+---
+title: Enabling the HostPath Mapper 
+sidebar_label: HostPath Mapper
+---
+
+Vcluster internal logging relies on separate component called the [Hostpath Mapper](https://github.com/loft-sh/vcluster-hostpath-mapper). This will make sure to resolve the correct virtual pod and container names to their physical counterparts.
+To deploy this component, its basically a 2 step process
+### Update the vcluster
+You would want to create the vcluster with the following `values.yaml`:
+```
+syncer:
+  extraArgs:
+    - --mount-physical-host-paths=true
+```
+
+* For new vcluster run `vcluster create <vcluster_name> -f values.yaml`
+* For existing vcluster run `vcluster create --upgrade <vcluster_name> -f values.yaml`
+
+### Deploy the Hostpath Mapper Daemonset
+Now that the vcluster itself is ready, we can deploy the hostpath mapper component. We need the following 2 pieces of information for this:
+* The Hostpath Mapper has to be deployed in the same namespace and the target vcluster
+* We need to set the `.Values.VclusterReleaseName` value when deploying this helm chart equal to the name of the target vcluster
+
+To sum up, if your vcluster is named `my-vcluster` and is deployed in namespace `my-namespace` then you should run
+```
+helm install vcluster-hpm vcluster-hostpath-mapper \
+    --repo https://charts.loft.sh \
+    -n my-namespace \
+    --set VclusterReleaseName=my-vcluster
+```
+
+Once deployed successfully a new Daemonset component of vcluster would start running on every node used by the vcluster workloads.
+
+We can now install our desired logging stack and start collecting the logs.
