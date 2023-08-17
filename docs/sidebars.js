@@ -70,6 +70,7 @@ module.exports = {
       items: [
         'networking/networking',
         'networking/coreDNS',
+        'networking/integrated_coredns',
         {
           type: 'category',
           label: 'Mapping Traffic',
@@ -108,6 +109,7 @@ module.exports = {
             'syncer/other_resources/multi_namespace_mode',
           ]
         },
+        'syncer/generic_resource_patches',
         {
           type: "category",
           label: "Plugins",
@@ -203,6 +205,7 @@ module.exports = {
           collapsed: false,
           items: [
             'o11y/logging/hpm',
+            'o11y/logging/central_hpm',
             'o11y/logging/elk_stack',
             'o11y/logging/grafana_loki',
           ]
