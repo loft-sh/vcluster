@@ -56,10 +56,10 @@ sync:
             - op: rewriteName
               path: .spec.http[*].route[*].destination.host
               regex: *svcHost
-                reversePatches:
-                  - op: copyFromObject
-                    fromPath: status
-                    path: status
+          reversePatches:
+            - op: copyFromObject
+              fromPath: status
+              path: status
         - apiVersion: networking.istio.io/v1alpha3
           kind: DestinationRule
           patches:
