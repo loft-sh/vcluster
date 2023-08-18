@@ -20,21 +20,34 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	proCmd.AddCommand(NewStartCmd(globalFlags))
 	proCmd.AddCommand(NewLoginCmd(globalFlags))
 
-	AddAliasCmd(globalFlags, "list")
-	AddAliasCmd(globalFlags, "import")
-	AddAliasCmd(globalFlags, "delete")
+	alias := NewAliasCmd(globalFlags)
 
-	AddAliasCmd(globalFlags, "get secret")
-	AddAliasCmd(globalFlags, "set secret")
+	alias.AddCmd("create", "TODO: Fill out this description")
+	alias.AddCmd("create space", "TODO: Fill out this description")
+	alias.AddCmd("create vcluster", "TODO: Fill out this description")
 
-	AddAliasCmd(globalFlags, "use space")
-	AddAliasCmd(globalFlags, "use vcluster")
-	AddAliasCmd(globalFlags, "create space")
-	AddAliasCmd(globalFlags, "create vcluster")
-	AddAliasCmd(globalFlags, "generate admin-kube-config")
-	AddAliasCmd(globalFlags, "reset password")
+	alias.AddCmd("delete", "TODO: Fill out this description")
 
-	proCmd.AddCommand(GetRootCmds()...)
+	alias.AddCmd("generate", "TODO: Fill out this description")
+	alias.AddCmd("generate admin-kube-config", "TODO: Fill out this description")
+
+	alias.AddCmd("get", "TODO: Fill out this description")
+	alias.AddCmd("get secret", "TODO: Fill out this description")
+
+	alias.AddCmd("import", "TODO: Fill out this description")
+	alias.AddCmd("list", "TODO: Fill out this description")
+
+	alias.AddCmd("reset", "TODO: Fill out this description")
+	alias.AddCmd("reset password", "TODO: Fill out this description")
+
+	alias.AddCmd("set", "TODO: Fill out this description")
+	alias.AddCmd("set secret", "TODO: Fill out this description")
+
+	alias.AddCmd("use", "TODO: Fill out this description")
+	alias.AddCmd("use space", "TODO: Fill out this description")
+	alias.AddCmd("use vcluster", "TODO: Fill out this description")
+
+	proCmd.AddCommand(alias.Commands()...)
 
 	return proCmd
 }
