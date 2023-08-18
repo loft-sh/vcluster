@@ -11,47 +11,47 @@ import (
 
 type aliasCmd struct {
 	added       map[string]bool
-	cmds        map[string]*cobra.Command
+	commands    map[string]*cobra.Command
 	globalFlags *flags.GlobalFlags
 }
 
 func NewAliasCmd(globalFlags *flags.GlobalFlags) aliasCmd {
 	return aliasCmd{
 		added:       map[string]bool{},
-		cmds:        map[string]*cobra.Command{},
+		commands:    map[string]*cobra.Command{},
 		globalFlags: globalFlags,
 	}
 }
 
 func (a *aliasCmd) AddCmd(use, description string) {
-	split := strings.Split(use, " ")
+	uses := strings.Split(use, " ")
 
-	for i, currentUse := range split {
-		concatted := strings.Join(split[:i+1], " ")
+	for i, currentUse := range uses {
+		currentCommand := strings.Join(uses[:i+1], " ")
 
-		if _, ok := a.cmds[concatted]; !ok {
-			a.cmds[concatted] = &cobra.Command{
+		if _, ok := a.commands[currentCommand]; !ok {
+			a.commands[currentCommand] = &cobra.Command{
 				Use:                currentUse,
 				DisableFlagParsing: true,
 			}
 
-			if i != 0 && !a.added[concatted] {
-				concattedPrev := strings.Join(split[:i], " ")
-				a.cmds[concattedPrev].AddCommand(a.cmds[concatted])
-				a.cmds[concattedPrev].RunE = nil
-				a.added[concatted] = true
+			if i != 0 && !a.added[currentCommand] {
+				previousCommand := strings.Join(uses[:i], " ")
+				a.commands[previousCommand].AddCommand(a.commands[currentCommand])
+				a.commands[previousCommand].RunE = nil
+				a.added[currentCommand] = true
 			}
 		}
 	}
 
-	a.cmds[use].Short = description
-	a.cmds[use].RunE = func(cmd *cobra.Command, args []string) error { return a.runE(cmd, split, args) }
+	a.commands[use].Short = description
+	a.commands[use].RunE = func(cmd *cobra.Command, args []string) error { return a.runE(cmd, uses, args) }
 }
 
 func (a *aliasCmd) Commands() []*cobra.Command {
 	cmds := []*cobra.Command{}
 
-	for key, cmd := range a.cmds {
+	for key, cmd := range a.commands {
 		if strings.Count(key, " ") == 0 {
 			cmds = append(cmds, cmd)
 		}
