@@ -199,9 +199,7 @@ Corefile: |-
 {{ .Values.coredns.config | indent 8 }}
   {{- else }}
   .:1053 {
-      errors {
-          stacktrace
-      }
+      errors
       health
       ready
       rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
