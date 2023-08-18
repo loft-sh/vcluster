@@ -211,6 +211,19 @@ module.exports = {
     },
     {
       type: 'category',
+      label: 'Security',
+      collapsed: false,
+      items: [
+        'security/rootless-mode',
+        'security/isolated-mode',
+        'security/quotas-limits',
+        'security/pod-security',
+        'security/network-isolation',
+        'security/other-topics',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Advanced topics',
       collapsed: false,
       items: [
