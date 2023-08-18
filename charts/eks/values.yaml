@@ -123,6 +123,7 @@ proxy:
     pods:
       enabled: false
 
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer
