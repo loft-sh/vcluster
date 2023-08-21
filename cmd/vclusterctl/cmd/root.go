@@ -77,7 +77,11 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
 	rootCmd.AddCommand(telemetry.NewTelemetryCmd())
 	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(pro.NewProCmd(globalFlags))
+
+	// add pro commands
+	if proCmd := pro.NewProCmd(globalFlags); proCmd != nil {
+		rootCmd.AddCommand(proCmd)
+	}
 
 	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
