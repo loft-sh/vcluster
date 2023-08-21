@@ -3,6 +3,9 @@ apiVersion: {{ .Values.ingress.apiVersion }}
 kind: Ingress
 metadata:
   {{- $annotations := merge .Values.ingress.annotations .Values.globalAnnotations }}
+  {{- if .Values.ingress.tls }}
+    {{- $annotations = omit $annotations "nginx.ingress.kubernetes.io/ssl-passthrough" }}
+  {{- end }}
   {{- if $annotations }}
   annotations:
   {{- toYaml $annotations | nindent 4 }}
