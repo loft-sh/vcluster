@@ -144,6 +144,12 @@ jobs:
           version: "v0.14.0"
           image: kindest/node:v1.25.0
 
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+          cache: false
+
       - name: Generate Embedded Helm Charts
         run: |
           go generate ./...
@@ -218,12 +224,6 @@ jobs:
           echo "======================================================================================================================"
           kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
           exit 1
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-          cache: false
 
       # Skips NetworkPolicy tests because they require network plugin with support (e.g. Calico)
       - name: Execute e2e tests

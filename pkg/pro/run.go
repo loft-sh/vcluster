@@ -43,7 +43,7 @@ func RunLoftCli(ctx context.Context, version string, args []string) error {
 
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, fmt.Sprintf("LOFT_CONFIG=%s", configFilePath))
-	cmd.Env = append(cmd.Env, "LOFT_VCLUSTER_PRO=true")
+	cmd.Env = append(cmd.Env, "LOFT_BRANDING=vcluster")
 
 	err = cmd.Run()
 	if err != nil {
