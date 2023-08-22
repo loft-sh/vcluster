@@ -1,0 +1,11 @@
+---
+title: Network Isolation
+sidebar_label: Network Isolation
+---
+
+Workloads created by vcluster will be able to communicate with other workloads in the host cluster through their cluster ips. This can be sometimes beneficial if you want to purposely access a host cluster service, which is a good method to share services between vclusters. However, you often want to isolate namespaces and do not want the pods running inside vcluster to have access to other workloads in the host cluster.
+This requirement can be accomplished by using [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) for the namespace where vcluster is installed in or using the [isolated mode](./isolated-mode) shown above.
+
+:::info
+Network policies do not work in all Kubernetes clusters and need to be supported by the underlying CNI plugin.
+:::
