@@ -245,8 +245,13 @@ module.exports = {
       ],
     },
     {
-      type: 'doc',
-      id: 'troubleshooting',
+      type: 'category',
+      label: 'Help and Troubleshooting',
+      collapsed: false,
+      items: [
+        'troubleshooting',
+        'community'
+      ]
     },
     {
       type: 'doc',
