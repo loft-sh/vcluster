@@ -304,6 +304,11 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Ingress TLS configuration
+  tls: []
+    # - secretName: tls-vcluster.local
+    #   hosts:
+    #     - vcluster.local
 
 # Configure SecurityContext of the containers in the VCluster pod
 securityContext:
