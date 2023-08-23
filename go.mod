@@ -3,7 +3,7 @@ module github.com/loft-sh/vcluster
 go 1.20
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.6
+	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/ghodss/yaml v1.0.0
@@ -13,8 +13,8 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/utils v0.0.21
-	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
+	github.com/loft-sh/utils v0.0.25
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.0
 	github.com/onsi/ginkgo/v2 v2.9.7
@@ -24,7 +24,7 @@ require (
 	github.com/prometheus/common v0.44.0
 	github.com/rhysd/go-github-selfupdate v1.2.3
 	github.com/samber/lo v1.38.1
-	github.com/sirupsen/logrus v1.9.2
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/vmware-labs/yaml-jsonpath v0.3.2
@@ -57,6 +57,7 @@ require (
 )
 
 require (
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
@@ -125,6 +126,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
+	github.com/loft-sh/log v0.0.0-20230802151259-7b546cf62355
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.8 // indirect
@@ -171,7 +173,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/component-base v0.27.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect

@@ -1,4 +1,4 @@
-# github.com/AlecAivazis/survey/v2 v2.3.6
+# github.com/AlecAivazis/survey/v2 v2.3.7
 ## explicit; go 1.13
 github.com/AlecAivazis/survey/v2
 github.com/AlecAivazis/survey/v2/core
@@ -13,6 +13,9 @@ github.com/MakeNowJust/heredoc
 # github.com/NYTimes/gziphandler v1.1.1
 ## explicit; go 1.11
 github.com/NYTimes/gziphandler
+# github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
+## explicit
+github.com/acarl005/stripansi
 # github.com/antlr/antlr4/runtime/Go/antlr v1.4.10
 ## explicit; go 1.16
 github.com/antlr/antlr4/runtime/Go/antlr
@@ -251,7 +254,14 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
-# github.com/loft-sh/utils v0.0.21
+# github.com/loft-sh/log v0.0.0-20230802151259-7b546cf62355
+## explicit; go 1.20
+github.com/loft-sh/log
+github.com/loft-sh/log/hash
+github.com/loft-sh/log/scanner
+github.com/loft-sh/log/survey
+github.com/loft-sh/log/terminal
+# github.com/loft-sh/utils v0.0.25
 ## explicit; go 1.20
 github.com/loft-sh/utils/pkg/command
 github.com/loft-sh/utils/pkg/downloader
@@ -259,7 +269,6 @@ github.com/loft-sh/utils/pkg/downloader/commands
 github.com/loft-sh/utils/pkg/extract
 github.com/loft-sh/utils/pkg/helm
 github.com/loft-sh/utils/pkg/helm/values
-github.com/loft-sh/utils/pkg/log
 # github.com/mailru/easyjson v0.7.7
 ## explicit; go 1.12
 github.com/mailru/easyjson/buffer
@@ -274,7 +283,7 @@ github.com/mattn/go-isatty
 # github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
+# github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 ## explicit
 github.com/mgutz/ansi
 # github.com/mitchellh/go-homedir v1.1.0
@@ -387,7 +396,7 @@ github.com/russross/blackfriday/v2
 # github.com/samber/lo v1.38.1
 ## explicit; go 1.18
 github.com/samber/lo
-# github.com/sirupsen/logrus v1.9.2
+# github.com/sirupsen/logrus v1.9.3
 ## explicit; go 1.13
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v1.7.0
@@ -587,6 +596,7 @@ golang.org/x/sys/windows/registry
 golang.org/x/term
 # golang.org/x/text v0.9.0
 ## explicit; go 1.17
+golang.org/x/text/cases
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
@@ -597,6 +607,7 @@ golang.org/x/text/encoding/korean
 golang.org/x/text/encoding/simplifiedchinese
 golang.org/x/text/encoding/traditionalchinese
 golang.org/x/text/encoding/unicode
+golang.org/x/text/internal
 golang.org/x/text/internal/language
 golang.org/x/text/internal/language/compact
 golang.org/x/text/internal/tag
@@ -730,8 +741,8 @@ google.golang.org/protobuf/types/known/wrapperspb
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0
-# gopkg.in/natefinch/lumberjack.v2 v2.0.0
-## explicit
+# gopkg.in/natefinch/lumberjack.v2 v2.2.1
+## explicit; go 1.13
 gopkg.in/natefinch/lumberjack.v2
 # gopkg.in/square/go-jose.v2 v2.6.0
 ## explicit

@@ -160,7 +160,8 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	chartValues, err := values.GetDefaultReleaseValues(chartOptions, cmd.log)
+	logger := log.NewBaseLogLogger(cmd.log)
+	chartValues, err := values.GetDefaultReleaseValues(chartOptions, logger)
 	if err != nil {
 		return err
 	}
