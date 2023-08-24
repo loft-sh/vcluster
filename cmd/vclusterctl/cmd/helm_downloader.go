@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/go-logr/logr"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/utils/pkg/downloader"
 	"github.com/loft-sh/utils/pkg/downloader/commands"
-	vclusterctllog "github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 )
 
 const DefaultHomeVClusterFolder = ".vcluster"
 
 // GetHelmBinaryPath checks for helm binary and downloads if it's not present.
 func GetHelmBinaryPath(ctx context.Context, log log.BaseLogger) (string, error) {
-	logger := vclusterctllog.NewBaseLogLogger(log)
+	logger := logr.New(log.LogrLogSink())
 
 	// test for helm
 	helmExecutablePath, err := exec.LookPath("helm")

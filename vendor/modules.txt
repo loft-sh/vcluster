@@ -254,7 +254,7 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
-# github.com/loft-sh/log v0.0.0-20230802151259-7b546cf62355
+# github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
 ## explicit; go 1.20
 github.com/loft-sh/log
 github.com/loft-sh/log/hash
