@@ -27,9 +27,9 @@ type VCluster struct {
 	Namespace string
 
 	Status        Status
-	Version       string
 	Created       metav1.Time
 	Context       string
+	Version       string
 	ClientFactory clientcmd.ClientConfig `json:"-"`
 }
 
@@ -208,6 +208,8 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	created := object.GetCreationTimestamp()
 	releaseName := ""
 	status := ""
+	version := ""
+
 	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation] == "true" {
 		status = string(StatusPaused)
 	} else {
@@ -227,19 +229,26 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 		status = string(StatusUnknown)
 	}
 
-	var version string
 	switch vclusterObject := object.(type) {
 	case *appsv1.StatefulSet:
-		image := vclusterObject.Spec.Template.Spec.Containers[0].Image
-		tag := strings.Split(image, ":")
-		if len(tag) == 2 {
-			version = tag[1]
+		for _, container := range vclusterObject.Spec.Template.Spec.Containers {
+			if container.Name == "syncer" {
+				tag := strings.Split(container.Image, ":")
+				if len(tag) == 2 {
+					version = tag[1]
+				}
+				break
+			}
 		}
 	case *appsv1.Deployment:
-		image := vclusterObject.Spec.Template.Spec.Containers[0].Image
-		tag := strings.Split(image, ":")
-		if len(tag) == 2 {
-			version = tag[1]
+		for _, container := range vclusterObject.Spec.Template.Spec.Containers {
+			if container.Name == "syncer" {
+				tag := strings.Split(container.Image, ":")
+				if len(tag) == 2 {
+					version = tag[1]
+				}
+				break
+			}
 		}
 	}
 
