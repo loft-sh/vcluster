@@ -183,8 +183,6 @@ brews:
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
-    extra_install: |
-      generate_completions_from_executable(bin/"vcluster", "completion")
     test: |
       help_output = "vcluster root command"
       assert_match help_output, shell_output("#{bin}/vcluster --help")
@@ -205,8 +203,6 @@ brews:
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
-    extra_install: |
-      generate_completions_from_executable(bin/"vcluster", "completion")
     test: |
       help_output = "vcluster root command"
       assert_match help_output, shell_output("#{bin}/vcluster --help")
