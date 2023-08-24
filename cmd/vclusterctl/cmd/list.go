@@ -20,6 +20,7 @@ type VCluster struct {
 	Name       string
 	Namespace  string
 	Created    time.Time
+	Version    string
 	AgeSeconds int
 	Context    string
 	Status     string
@@ -97,6 +98,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				Name:       vcluster.Name,
 				Namespace:  vcluster.Namespace,
 				Created:    vcluster.Created.Time,
+				Version:    vcluster.Version,
 				AgeSeconds: int(time.Since(vcluster.Created.Time).Round(time.Second).Seconds()),
 				Context:    vcluster.Context,
 				Status:     string(vcluster.Status),
@@ -114,7 +116,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 		cmd.log.WriteString(string(bytes) + "\n")
 	} else {
-		header := []string{"NAME", "NAMESPACE", "STATUS", "CONNECTED", "CREATED", "AGE", "CONTEXT"}
+		header := []string{"NAME", "NAMESPACE", "STATUS", "CONNECTED", "CREATED", "AGE", "CONTEXT", "VERSION"}
 		values := [][]string{}
 		for _, vcluster := range vClusters {
 			connected := ""
@@ -130,6 +132,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				vcluster.Created.String(),
 				time.Since(vcluster.Created.Time).Round(1 * time.Second).String(),
 				vcluster.Context,
+				vcluster.Version,
 			})
 		}
 
