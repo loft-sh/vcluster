@@ -143,9 +143,9 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
-      {{- if or .Values.securityContext .Values.fsGroup }}
+      {{- if or .Values.podSecurityContext .Values.fsGroup }}
       {{- $fsContext := dict "fsGroup" .Values.fsGroup }}
-      {{- with merge .Values.securityContext $fsContext }}
+      {{- with merge .Values.podSecurityContext $fsContext }}
       securityContext:
 {{ toYaml . | indent 8 }}
       {{- end }}

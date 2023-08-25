@@ -168,6 +168,7 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
+  podSecurityContext: {}
   serviceAnnotations: {}
 
 # Etcd settings

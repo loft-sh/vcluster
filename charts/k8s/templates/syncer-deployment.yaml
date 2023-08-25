@@ -95,6 +95,10 @@ spec:
       {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
+      {{- if .Values.syncer.podSecurityContext }}
+      securityContext:
+{{ toYaml .Values.syncer.podSecurityContext | indent 8 }}
+      {{- end }}
       volumes:
         - name: certs
           secret:
