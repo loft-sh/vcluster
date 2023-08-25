@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	DefaultImage          = "coredns/coredns:1.10.1"
+	DefaultImage          = "coredns/coredns:1.11.0"
 	ManifestRelativePath  = "coredns/coredns.yaml"
 	ManifestsOutputFolder = "/tmp/manifests-to-apply"
 	VarImage              = "IMAGE"

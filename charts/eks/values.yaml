@@ -60,12 +60,12 @@ sync:
   nodes:
     fakeKubeletIPs: true
     enabled: false
-    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
     # will sync all nodes instead of only the ones where some pods are running.
     syncAllNodes: false
     # nodeSelector is used to limit which nodes get synced to the vcluster,
     # and which nodes are used to run vcluster pods.
-    # A valid string representation of a label selector must be used. 
+    # A valid string representation of a label selector must be used.
     nodeSelector: ""
     # syncNodeChanges allows vcluster user edits of the nodes to be synced down to the host nodes.
     # Write permissions on node resource will be given to the vcluster.
@@ -123,6 +123,7 @@ proxy:
     pods:
       enabled: false
 
+
 # Syncer configuration
 syncer:
   # Image to use for the syncer
@@ -167,6 +168,7 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
+  podSecurityContext: {}
   serviceAnnotations: {}
 
 # Etcd settings
@@ -367,6 +369,11 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Ingress TLS configuration
+  tls: []
+    # - secretName: tls-vcluster.local
+    #   hosts:
+    #     - vcluster.local
 
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order

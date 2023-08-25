@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-logr/logr"
 	"github.com/loft-sh/utils/pkg/downloader/commands"
-	"github.com/loft-sh/utils/pkg/log"
 )
 
 type Downloader interface {
@@ -19,11 +19,11 @@ type Downloader interface {
 type downloader struct {
 	httpGet        getRequest
 	command        commands.Command
-	log            log.SimpleLogger
+	log            logr.Logger
 	toolHomeFolder string
 }
 
-func NewDownloader(command commands.Command, log log.SimpleLogger, toolHomeFolder string) Downloader {
+func NewDownloader(command commands.Command, log logr.Logger, toolHomeFolder string) Downloader {
 	return &downloader{
 		httpGet:        http.Get,
 		command:        command,
@@ -78,7 +78,7 @@ func (d *downloader) downloadExecutable(command, installPath, installFromURL str
 type getRequest func(url string) (*http.Response, error)
 
 func (d *downloader) downloadFile(command, installPath, installFromURL string) error {
-	d.log.Infof("Downloading %s ...", command)
+	d.log.Info("Downloading", "command", command)
 
 	t, err := os.MkdirTemp("", "")
 	if err != nil {

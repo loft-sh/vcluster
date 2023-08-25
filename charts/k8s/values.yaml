@@ -172,11 +172,12 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
+  podSecurityContext: {}
   serviceAnnotations: {}
 
 # Etcd settings
 etcd:
-  image: registry.k8s.io/etcd:3.5.6-0
+  image: registry.k8s.io/etcd:3.5.9-0
   # The amount of replicas to run
   replicas: 1
   # NodeSelector used
@@ -211,7 +212,7 @@ etcd:
 
 # Kubernetes Controller Manager settings
 controller:
-  image: registry.k8s.io/kube-controller-manager:v1.26.1
+  image: registry.k8s.io/kube-controller-manager:v1.28.0
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used
@@ -233,7 +234,7 @@ controller:
   securityContext: {}
 # Kubernetes Scheduler settings. Only enabled if sync.nodes.enableScheduler is true
 scheduler:
-  image: registry.k8s.io/kube-scheduler:v1.26.1
+  image: registry.k8s.io/kube-scheduler:v1.28.0
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used
@@ -255,7 +256,7 @@ scheduler:
 
 # Kubernetes API Server settings
 api:
-  image: registry.k8s.io/kube-apiserver:v1.26.1
+  image: registry.k8s.io/kube-apiserver:v1.28.0
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -368,6 +369,11 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Ingress TLS configuration
+  tls: []
+    # - secretName: tls-vcluster.local
+    #   hosts:
+    #     - vcluster.local
 
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order

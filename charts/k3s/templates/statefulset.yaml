@@ -143,9 +143,12 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
-      {{- if .Values.fsGroup }}
+      {{- if or .Values.podSecurityContext .Values.fsGroup }}
+      {{- $fsContext := dict "fsGroup" .Values.fsGroup }}
+      {{- with merge .Values.podSecurityContext $fsContext }}
       securityContext:
-        fsGroup: {{ .Values.fsGroup }}
+{{ toYaml . | indent 8 }}
+      {{- end }}
       {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
@@ -229,6 +232,7 @@ spec:
         {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
+          - --kube-config=/data/k3s-config/kube-config.yaml
           - --service-account=vc-workload-{{ .Release.Name }}
           {{- range $key, $container := .Values.plugin }}
           {{- if not $container.optional }}

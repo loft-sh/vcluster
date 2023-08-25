@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
@@ -160,7 +161,8 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	chartValues, err := values.GetDefaultReleaseValues(chartOptions, cmd.log)
+	logger := logr.New(cmd.log.LogrLogSink())
+	chartValues, err := values.GetDefaultReleaseValues(chartOptions, logger)
 	if err != nil {
 		return err
 	}
@@ -462,7 +464,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	if cmd.CIDR == "" {
 		cidr, warning := servicecidr.GetServiceCIDR(ctx, cmd.kubeClient, cmd.Namespace)
 		if warning != "" {
-			cmd.log.Info(warning)
+			cmd.log.Debug(warning)
 		}
 		cmd.CIDR = cidr
 	}

@@ -159,7 +159,7 @@ syncer:
 # Virtual Cluster (k3s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: rancher/k3s:v1.26.0-k3s1
+  image: rancher/k3s:v1.27.3-k3s1
   command:
     - /bin/k3s
   baseArgs:
@@ -304,6 +304,11 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Ingress TLS configuration
+  tls: []
+    # - secretName: tls-vcluster.local
+    #   hosts:
+    #     - vcluster.local
 
 # Configure SecurityContext of the containers in the VCluster pod
 securityContext:
@@ -320,6 +325,10 @@ securityContext:
   # For installation on OpenShift leave the runAsUser undefined (commented out).
   # runAsUser: 12345
   # runAsNonRoot: true
+
+# PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
+podSecurityContext:
+  {}
 
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order

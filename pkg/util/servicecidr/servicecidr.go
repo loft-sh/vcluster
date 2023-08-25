@@ -124,10 +124,10 @@ func GetServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace 
 		return FallbackCIDR, fmt.Sprintf("failed to detect service CIDR, will fallback to %s, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match. Error details: failed to find IPv4 service CIDR: %v ; or IPv6 service CIDR: %v", FallbackCIDR, ipv4Err, ipv6Err)
 	}
 	if ipv4Err != nil {
-		return ipv6CIDR, fmt.Sprintf("failed to find IPv4 service CIDR: %v", ipv4Err)
+		return ipv6CIDR, fmt.Sprintf("failed to find IPv4 service CIDR, will use IPv6 service CIDR. Error details: %v", ipv4Err)
 	}
 	if ipv6Err != nil {
-		return ipv4CIDR, fmt.Sprintf("failed to find IPv6 service CIDR: %v", ipv6Err)
+		return ipv4CIDR, fmt.Sprintf("failed to find IPv6 service CIDR, will use IPv4 service CIDR. Error details: %v", ipv6Err)
 	}
 
 	// Both IPv4 and IPv6 are configured, we need to find out which one is the default
