@@ -49,6 +49,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           install-only: true
+          version: nightly
       - name: Build and save syncer image
         run: |
           set -x
@@ -83,6 +84,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           install-only: true
+          version: nightly
       - name: Build vcluster cli
         run: |
           set -x
