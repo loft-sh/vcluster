@@ -16,7 +16,7 @@ By default, vclusters run as a single pod (scheduled by a StatefulSet) that cons
 - [**Control Plane**](control_plane)
 - [**Syncer**](syncer)
 
-### Host Cluster & Namespace
+## Host Cluster & Namespace
 Every vcluster runs on top of another Kubernetes cluster, called host cluster. Each vcluster runs as a regular StatefulSet inside a namespace of the host cluster. This namespace is called host namespace. Everything that you create inside the vcluster lives either inside the vcluster itself or inside the host namespace. 
 
 It is possible to run multiple vclusters inside the same namespace and you can even run vclusters inside another vcluster (vcluster nesting).
