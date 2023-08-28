@@ -240,34 +240,12 @@ module.exports = {
     },
     {
       type: 'category',
-      label: 'Operator Guide',
-      collapsed: true,
-      items: [
-        'operator/external-access',
-        'operator/external-datastore',
-        'operator/accessing-vcluster',
-        'operator/init-manifests',
-        'operator/high-availability',
-        'operator/other-distributions',
-        'operator/restricted-hosts',
-        'operator/pausing-vcluster',
-        'operator/backup',
-        'operator/security',
-        'operator/cluster-api-provider',
-      ],
-    },
-    {
-      type: 'category',
       label: 'Help and Troubleshooting',
       collapsed: true,
       items: [
         'troubleshooting',
         'community'
       ]
-    },
-    {
-      type: 'doc',
-      id: 'telemetry',
     },
     {
       type: 'doc',
