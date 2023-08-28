@@ -17,12 +17,8 @@ module.exports = {
       collapsed: false,
       items: [
         {
-          type: 'doc',
-          id: 'quickstart',
-        },
-        {
           type: 'category',
-          label: 'Full Guide',
+          label: 'Quickstart',
           collapsed: false,
           items: [
             'getting-started/setup',
