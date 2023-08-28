@@ -25,30 +25,38 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	proxy := NewAliasCmd(globalFlags)
 
-	proxy.AddCmd("create", "TODO: Fill out this description")
-	proxy.AddCmd("create space", "TODO: Fill out this description")
-	proxy.AddCmd("create vcluster", "TODO: Fill out this description")
+	proxy.AddCmd("create", "Create vcluster pro resources")
+	proxy.AddCmd("create space", "Creates a new space in the given cluster")
+	proxy.AddCmd("create vcluster", "Creates a new virtual cluster in the given parent cluster")
 
-	proxy.AddCmd("delete", "TODO: Fill out this description")
+	proxy.AddCmd("delete", "Deletes vcluster pro resources")
+	proxy.AddCmd("delete space", "Deletes a space from a cluster")
+	proxy.AddCmd("delete vcluster", "Deletes a virtual cluster from a cluster")
 
-	proxy.AddCmd("generate", "TODO: Fill out this description")
-	proxy.AddCmd("generate admin-kube-config", "TODO: Fill out this description")
+	proxy.AddCmd("generate", "Generates configuration")
+	proxy.AddCmd("generate admin-kube-config", "Generates a new kube config for connecting a cluster")
 
-	proxy.AddCmd("get", "TODO: Fill out this description")
-	proxy.AddCmd("get secret", "TODO: Fill out this description")
+	proxy.AddCmd("get", "Get configuration")
+	proxy.AddCmd("get secret", "Returns the key value of a project / shared secret")
 
-	proxy.AddCmd("import", "TODO: Fill out this description")
-	proxy.AddCmd("list", "TODO: Fill out this description")
+	proxy.AddCmd("import", "Import vcluster pro resources")
+	proxy.AddCmd("import space", "Imports a vcluster into a vcluster pro project")
+	proxy.AddCmd("import vcluster", "Imports a space into a vcluster pro project")
 
-	proxy.AddCmd("reset", "TODO: Fill out this description")
-	proxy.AddCmd("reset password", "TODO: Fill out this description")
+	proxy.AddCmd("list", "List configuration")
+	proxy.AddCmd("list spaces", "Lists the vcluster pro spaces you have access to")
+	proxy.AddCmd("list vclusters", "Lists the vcluster pro virtual clusters you have access to")
+	proxy.AddCmd("list secrets", "Lists all the shared secrets you have access to")
 
-	proxy.AddCmd("set", "TODO: Fill out this description")
-	proxy.AddCmd("set secret", "TODO: Fill out this description")
+	proxy.AddCmd("reset", "Reset configuration")
+	proxy.AddCmd("reset password", "Resets the password of a user")
 
-	proxy.AddCmd("use", "TODO: Fill out this description")
-	proxy.AddCmd("use space", "TODO: Fill out this description")
-	proxy.AddCmd("use vcluster", "TODO: Fill out this description")
+	proxy.AddCmd("set", "Set configuration")
+	proxy.AddCmd("set secret", "Sets the key value of a project / shared secret")
+
+	proxy.AddCmd("use", "Uses vcluster pro resources")
+	proxy.AddCmd("use space", "Creates a kube context for the given space")
+	proxy.AddCmd("use vcluster", "Creates a kube context for the given virtual cluster")
 
 	proCmd.AddCommand(proxy.Commands()...)
 

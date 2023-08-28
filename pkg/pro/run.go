@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+
+	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 )
 
 // RunLoftCli runs a loft cli command
@@ -34,6 +37,8 @@ func RunLoftCli(ctx context.Context, version string, args []string) error {
 		return fmt.Errorf("failed to get loft working directory: %w", err)
 	}
 
+	args = append([]string{"pro"}, args...)
+
 	cmd := exec.CommandContext(ctx, filePath, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -43,7 +48,8 @@ func RunLoftCli(ctx context.Context, version string, args []string) error {
 
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, fmt.Sprintf("LOFT_CONFIG=%s", configFilePath))
-	cmd.Env = append(cmd.Env, "LOFT_BRANDING=vcluster")
+	cmd.Env = append(cmd.Env, fmt.Sprintf("LOFT_CACHE_FOLDER=%s", filepath.Join(cliconfig.VclusterFolder, VclusterProFolder)))
+	cmd.Env = append(cmd.Env, "PRODUCT=vcluster-pro")
 
 	err = cmd.Run()
 	if err != nil {
