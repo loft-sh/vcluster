@@ -17,7 +17,7 @@ module.exports = {
     navbar: {
       logo: {
         alt: 'vcluster',
-        src: '/media/vcluster_Horizontal_MonoBranding.svg',
+        src: '/media/vCluster_horizontal-orange.svg',
         href: 'https://vcluster.com/',
         target: '_self',
       },
