@@ -17,12 +17,8 @@ module.exports = {
       collapsed: false,
       items: [
         {
-          type: 'doc',
-          id: 'quickstart',
-        },
-        {
           type: 'category',
-          label: 'Full Guide',
+          label: 'Quickstart',
           collapsed: false,
           items: [
             'getting-started/setup',
@@ -36,13 +32,13 @@ module.exports = {
     {
       type: 'category',
       label: 'Architecture',
-      collapsed: false,
+      collapsed: true,
       items: [
         'architecture/overview',
         {
           type: 'category',
           label: 'Control Plane',
-          collapsed: false,
+          collapsed: true,
           items: [
             'architecture/control_plane/control_plane',
             'architecture/control_plane/k8s_distros',
@@ -52,7 +48,7 @@ module.exports = {
         {
           type: 'category',
           label: 'Syncer',
-          collapsed: false,
+          collapsed: true,
           items: [
             'architecture/syncer/syncer',
             'architecture/syncer/single_vs_multins',
@@ -66,7 +62,7 @@ module.exports = {
     {
       type: 'category',
       label: 'Networking',
-      collapsed: false,
+      collapsed: true,
       items: [
         'networking/networking',
         'networking/coreDNS',
@@ -74,7 +70,7 @@ module.exports = {
         {
           type: 'category',
           label: 'Mapping Traffic',
-          collapsed: false,
+          collapsed: true,
           items: [
             'networking/internal_traffic/host_to_vcluster',
             'networking/internal_traffic/vcluster_to_host',
@@ -87,13 +83,13 @@ module.exports = {
     {
       type: 'category',
       label: 'Sync',
-      collapsed: false,
+      collapsed: true,
       items: [
         'syncer/core_resources',
         {
           type: "category",
           label: "Syncer",
-          collapsed: false,
+          collapsed: true,
           items: [
             'syncer/config',
           ]
@@ -101,7 +97,7 @@ module.exports = {
         {
           type: "category",
           label: "Other resources",
-          collapsed: false,
+          collapsed: true,
           items: [
             'syncer/other_resources/overview',
             'syncer/other_resources/generic_sync',
@@ -113,7 +109,7 @@ module.exports = {
         {
           type: "category",
           label: "Plugins",
-          collapsed: false,
+          collapsed: true,
           items: [
               'plugins/overview',
               'plugins/tutorial',
@@ -124,12 +120,12 @@ module.exports = {
     {
       type: 'category',
       label: 'Using vclusters',
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: 'category',
           label: 'Accessing vcluster',
-          collapsed: false,
+          collapsed: true,
           items: [
             'using-vclusters/kube-context',
             'using-vclusters/access',
@@ -142,12 +138,12 @@ module.exports = {
     {
       type: 'category',
       label: 'Deploying vclusters',
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: 'category',
           label: 'Kubernetes Distros',
-          collapsed: false,
+          collapsed: true,
           items: [
             'deploying-vclusters/supported-distros',
           ],
@@ -155,7 +151,7 @@ module.exports = {
         {
           type: 'category',
           label: 'Persistent vclusters',
-          collapsed: false,
+          collapsed: true,
           items: [
             'deploying-vclusters/persistence',
           ],
@@ -164,7 +160,7 @@ module.exports = {
         {
           type: 'category',
           label: 'On Init',
-          collapsed: false,
+          collapsed: true,
           items: [
             'deploying-vclusters/init-manifests',
             'deploying-vclusters/init-charts',
@@ -173,7 +169,7 @@ module.exports = {
         {
           type: 'category',
           label: 'Integrations',
-          collapsed: false,
+          collapsed: true,
           items: [
             'deploying-vclusters/integrations-openshift',
           ],
@@ -187,12 +183,12 @@ module.exports = {
     {
       type: 'category',
       label: 'Observability',
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: 'category',
           label: 'Collecting Metrics',
-          collapsed: false,
+          collapsed: true,
           items: [
             'o11y/metrics/metrics_server_proxy',
             'o11y/metrics/metrics_server',
@@ -202,7 +198,7 @@ module.exports = {
         {
           type: 'category',
           label: 'Logging',
-          collapsed: false,
+          collapsed: true,
           items: [
             'o11y/logging/hpm',
             'o11y/logging/central_hpm',
@@ -215,7 +211,7 @@ module.exports = {
     {
       type: 'category',
       label: 'Security',
-      collapsed: false,
+      collapsed: true,
       items: [
         'security/rootless-mode',
         'security/isolated-mode',
@@ -228,12 +224,12 @@ module.exports = {
     {
       type: 'category',
       label: 'Advanced topics',
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: 'category',
           label: 'Plugins',
-          collapsed: false,
+          collapsed: true,
           items: [
             'advanced-topics/plugins-overview',
             'advanced-topics/plugins-development'
@@ -244,34 +240,12 @@ module.exports = {
     },
     {
       type: 'category',
-      label: 'Operator Guide',
-      collapsed: false,
-      items: [
-        'operator/external-access',
-        'operator/external-datastore',
-        'operator/accessing-vcluster',
-        'operator/init-manifests',
-        'operator/high-availability',
-        'operator/other-distributions',
-        'operator/restricted-hosts',
-        'operator/pausing-vcluster',
-        'operator/backup',
-        'operator/security',
-        'operator/cluster-api-provider',
-      ],
-    },
-    {
-      type: 'category',
       label: 'Help and Troubleshooting',
-      collapsed: false,
+      collapsed: true,
       items: [
         'troubleshooting',
         'community'
       ]
-    },
-    {
-      type: 'doc',
-      id: 'telemetry',
     },
     {
       type: 'doc',
