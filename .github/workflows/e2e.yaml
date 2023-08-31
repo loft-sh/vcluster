@@ -4,15 +4,15 @@ on:
   release:
     types: [created]
   pull_request:
-    types: [opened,synchronize,reopened,edited]
+    types: [opened, synchronize, reopened, edited]
     branches:
-      - main 
+      - main
     paths:
       - "**.go"
-      - "!**_test.go" # exclude test files to ignore unit test changes      
+      - "!**_test.go" # exclude test files to ignore unit test changes
       - "test/**" # include test files in e2e again
       - "!**.md"
-      - "Dockerfile"
+      - "Dockerfile.release"
       - ".github/workflows/e2e.yaml"
       - "charts/**"
       - "manifests/**"
@@ -22,7 +22,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/${{ github.repository }}-ci:PR${{ github.event.number }}
   VCLUSTER_SUFFIX: vcluster
   VCLUSTER_NAME: vcluster
@@ -34,13 +33,31 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          cache: false
+          go-version: "1.21"
+      - name: Setup Just
+        uses: extractions/setup-just@v1
+      - name: Setup Syft
+        uses: anchore/sbom-action/download-syft@v0.14.3
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
+          version: nightly
       - name: Build and save syncer image
         run: |
           set -x
-          docker build -t ${{ env.IMAGE_NAME }} .
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build -t ${{ env.IMAGE_NAME }} -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
           docker save -o vcluster_syncer ${{ env.IMAGE_NAME }}
       - name: Upload syncer image to artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: vcluster_syncer
           path: ./vcluster_syncer
@@ -51,16 +68,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Set up Go
-        uses: actions/setup-go@v2
         with:
-          go-version: 1.19
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+          cache: false
+      - name: Setup Just
+        uses: extractions/setup-just@v1
+      - name: Setup Syft
+        uses: anchore/sbom-action/download-syft@v0.14.3
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
+          version: nightly
       - name: Build vcluster cli
         run: |
           set -x
-          go generate ./... && GO111MODULE=on GOFLAGS=-mod=vendor go build -v -o ./vcluster ./cmd/vclusterctl/main.go
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
       - name: Upload vcluster cli to artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: vcluster
           path: ./vcluster
@@ -76,7 +106,7 @@ jobs:
           set -x
           sudo apt-get install -y jq
           paths=$(ls -d ./test/e2e*)
-          echo "::set-output name=matrix::$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)"
+          echo "matrix=$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
     outputs:
       matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
 
@@ -91,129 +121,130 @@ jobs:
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
         multinamespace-mode: ["false", "true"]
         exclude:
-        - distribution: "eks"
-          test-suite-path: "./test/e2e_scheduler"
-        - distribution: "k8s"
-          multinamespace-mode: "true"
-        - distribution: "k0s"
-          multinamespace-mode: "true"
-        - distribution: "eks"
-          multinamespace-mode: "true"
-        - distribution: "k3s"
-          multinamespace-mode: "true"
-          test-suite-path: "./test/e2e_target_namespace"
-        - distribution: "k3s"
-          multinamespace-mode: "true"
-          test-suite-path: "./test/e2e_isolation_mode"
+          - distribution: "eks"
+            test-suite-path: "./test/e2e_scheduler"
+          - distribution: "k8s"
+            multinamespace-mode: "true"
+          - distribution: "k0s"
+            multinamespace-mode: "true"
+          - distribution: "eks"
+            multinamespace-mode: "true"
+          - distribution: "k3s"
+            multinamespace-mode: "true"
+            test-suite-path: "./test/e2e_target_namespace"
+          - distribution: "k3s"
+            multinamespace-mode: "true"
+            test-suite-path: "./test/e2e_isolation_mode"
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-    
-    - name: Set up kind k8s cluster
-      uses: engineerd/setup-kind@v0.5.0
-      with:
-        version: "v0.14.0"
-        image: kindest/node:v1.25.0
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Generate Embedded Helm Charts
-      run: |
-        go generate ./...
-    
-    - name: Testing kind cluster set-up
-      run: |
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+          cache: false
+
+      - name: Set up kind k8s cluster
+        uses: engineerd/setup-kind@v0.5.0
+        with:
+          version: "v0.20.0"
+          image: kindest/node:v1.27.3
+
+      - name: Generate Embedded Helm Charts
+        run: |
+          go generate ./...
+
+      - name: Testing kind cluster set-up
+        run: |
           set -x
           kubectl cluster-info
           kubectl get pods -n kube-system
           echo "kubectl config current-context:" $(kubectl config current-context)
           echo "KUBECONFIG env var:" ${KUBECONFIG}
-    
-    - name: Download vcluster cli
-      uses: actions/download-artifact@v2
-      with:
-        name: vcluster
-    
-    - name: Download syncer image
-      uses: actions/download-artifact@v2
-      with:
-        name: vcluster_syncer
 
-    # - name: Setup upterm session for debugging
-    #   uses: lhotari/action-upterm@v1
-    
-    - name: Create vcluster
-      id: create-vcluster
-      run: |
-        set -x 
+      - name: Download vcluster cli
+        uses: actions/download-artifact@v3
+        with:
+          name: vcluster
 
-        MULTINS_VALUES=""
-        if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
-            MULTINS_VALUES="-f ./test/multins_values.yaml"
-        fi
-        
-        sudo apt-get install -y sed
-        
-        sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
-        
-        kind load image-archive vcluster_syncer
+      - name: Download syncer image
+        uses: actions/download-artifact@v3
+        with:
+          name: vcluster_syncer
 
-        chmod +x vcluster && sudo mv vcluster /usr/bin
-        
-        vcluster create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
-        --create-namespace \
-        --debug \
-        --connect=false \
-        --distro=${{ matrix.distribution }} \
-        --local-chart-dir ./charts/${{ matrix.distribution }} \
-        -f ./test/commonValues.yaml \
-        -f ${{ matrix.test-suite-path }}/values.yaml \
-        $MULTINS_VALUES
-      continue-on-error: true
+      # - name: Setup upterm session for debugging
+      #   uses: lhotari/action-upterm@v1
 
-    - name: Wait until vcluster is ready
-      id: wait-until-vcluster-is-ready
-      if: steps.create-vcluster.outcome == 'success'
-      run: |
-        set -x
-        kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
-      continue-on-error: true
-    
-    - name: Collect deployment information in case vcluster fails to start
-      if: steps.wait-until-vcluster-is-ready.outcome != 'success'
-      run: |
-        set -x 
-        kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
-        echo "======================================================================================================================"
-        kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
-        echo "======================================================================================================================"
-        kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=500
-        echo "======================================================================================================================"
-        kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
-        exit 1
+      - name: Create vcluster
+        id: create-vcluster
+        run: |
+          set -x
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.19
-    
-    # Skips NetworkPolicy tests because they require network plugin with support (e.g. Calico)
-    - name: Execute e2e tests
-      id: execute-e2e-tests
-      working-directory: ${{ matrix.test-suite-path }}
-      run: |
-        set -x
-        VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
-      continue-on-error: true
+          MULTINS_VALUES=""
+          if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
+              MULTINS_VALUES="-f ./test/multins_values.yaml"
+          fi
 
-    - name: Print logs if e2e tests fail
-      if: steps.execute-e2e-tests.outcome == 'failure'
-      run: |
-        set -x 
-        kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
-        echo "======================================================================================================================"
-        kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
-        echo "======================================================================================================================"
-        kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=500
-        echo "======================================================================================================================"
-        kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
-        exit 1
+          sudo apt-get install -y sed
+
+          sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
+
+          kind load image-archive vcluster_syncer
+
+          chmod +x vcluster && sudo mv vcluster /usr/bin
+
+          vcluster create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
+          --create-namespace \
+          --debug \
+          --connect=false \
+          --distro=${{ matrix.distribution }} \
+          --local-chart-dir ./charts/${{ matrix.distribution }} \
+          -f ./test/commonValues.yaml \
+          -f ${{ matrix.test-suite-path }}/values.yaml \
+          $MULTINS_VALUES
+        continue-on-error: true
+
+      - name: Wait until vcluster is ready
+        id: wait-until-vcluster-is-ready
+        if: steps.create-vcluster.outcome == 'success'
+        run: |
+          set -x
+          kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
+        continue-on-error: true
+
+      - name: Collect deployment information in case vcluster fails to start
+        if: steps.wait-until-vcluster-is-ready.outcome != 'success'
+        run: |
+          set -x
+          kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
+          echo "======================================================================================================================"
+          kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
+          echo "======================================================================================================================"
+          kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=500
+          echo "======================================================================================================================"
+          kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
+          exit 1
+
+      # Skips NetworkPolicy tests because they require network plugin with support (e.g. Calico)
+      - name: Execute e2e tests
+        id: execute-e2e-tests
+        working-directory: ${{ matrix.test-suite-path }}
+        run: |
+          set -x
+          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
+        continue-on-error: true
+
+      - name: Print logs if e2e tests fail
+        if: steps.execute-e2e-tests.outcome == 'failure'
+        run: |
+          set -x
+          kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
+          echo "======================================================================================================================"
+          kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
+          echo "======================================================================================================================"
+          kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=500
+          echo "======================================================================================================================"
+          kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
+          exit 1

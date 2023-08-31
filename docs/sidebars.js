@@ -80,13 +80,11 @@ module.exports = {
     },
     {
       type: 'doc',
-      id: 'config-reference',
+      id: 'telemetry',
     },
     {
-      type: 'category',
-      label: 'CLI Reference',
-      items: [
-      ],
+      type: 'doc',
+      id: 'config-reference',
     },
     {
       type: 'link',

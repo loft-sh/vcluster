@@ -1,0 +1,10 @@
+# we use alpine for easier debugging
+FROM alpine:3.18
+
+# Set root path as working directory
+WORKDIR /
+
+ENV KUBECONFIG=/root/.kube/config
+COPY vcluster /usr/local/bin/vcluster
+
+CMD /usr/local/bin/vcluster

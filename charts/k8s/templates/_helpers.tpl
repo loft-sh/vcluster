@@ -2,9 +2,6 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "vcluster.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
 
 {{/*
 Create a default fully qualified app name.
@@ -59,6 +56,7 @@ Whether to create a cluster role or not
     .Values.sync.storageclasses.enabled
     .Values.sync.priorityclasses.enabled
     .Values.sync.volumesnapshots.enabled
+    .Values.proxy.metricsServer.nodes.enabled
     .Values.multiNamespaceMode.enabled -}}
     {{- true -}}
 {{- end -}}
@@ -77,21 +75,6 @@ Create chart name and version as used by the chart label.
 */}}
 {{- define "vcluster.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
-Common labels
-*/}}
-{{- define "vcluster.labels" -}}
-app.kubernetes.io/name: {{ include "vcluster.name" . }}
-helm.sh/chart: {{ include "vcluster.chart" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- else }}
-app.kubernetes.io/version: {{ .Chart.Version | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 
 {{/*
@@ -205,4 +188,49 @@ Host cluster service mapping
 {{- range $key, $value := .Values.mapServices.fromHost }}
 - '--map-host-service={{ $value.from }}={{ $value.to }}'
 {{- end }}
+{{- end -}}
+
+{{/*
+Define a common coredns config
+*/}}
+{{- define "vcluster.corefile" -}}
+Corefile: |-
+  {{- if .Values.coredns.config }}
+{{ .Values.coredns.config | indent 8 }}
+  {{- else }}
+  .:1053 {
+      errors
+      health
+      ready
+      rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
+      kubernetes cluster.local in-addr.arpa ip6.arpa {
+          pods insecure
+          {{- if .Values.fallbackHostDns }}
+          fallthrough cluster.local in-addr.arpa ip6.arpa
+          {{- else }}
+          fallthrough in-addr.arpa ip6.arpa
+          {{- end }}
+      }
+      hosts /etc/NodeHosts {
+          ttl 60
+          reload 15s
+          fallthrough
+      }
+      prometheus :9153
+      {{- if .Values.fallbackHostDns }}
+      forward . {{`{{.HOST_CLUSTER_DNS}}`}}
+      {{- else if and .Values.isolation.enabled  .Values.isolation.networkPolicy.enabled }}
+      forward . /etc/resolv.conf 8.8.8.8 {
+          policy sequential
+      }
+      {{- else }}
+      forward . /etc/resolv.conf
+      {{- end }}
+      cache 30
+      loop
+      loadbalance
+  }
+
+  import /etc/coredns/custom/*.server
+  {{- end }}
 {{- end -}}

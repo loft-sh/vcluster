@@ -1,17 +1,18 @@
 package handler
 
 import (
-	utilnet "k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/apimachinery/pkg/util/proxy"
-	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/transport"
-	"k8s.io/klog"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	utilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/apimachinery/pkg/util/proxy"
+	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/transport"
+	"k8s.io/klog/v2"
 )
 
 func ImpersonatingHandler(prefix string, cfg *rest.Config) http.Handler {

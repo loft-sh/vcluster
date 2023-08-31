@@ -1,6 +1,8 @@
 # Documentation
 
 This website is built using [Docusaurus 2](https://v2.docusaurus.io/), a modern static website generator.
+That means, for installing and developing this docusaurus documentation, you will need to have node@16 or higher. 
+
 
 ### Installation
 

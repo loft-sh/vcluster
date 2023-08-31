@@ -27,6 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	KubectlCommandHeader = "Kubectl-Command"
+)
+
 func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client) http.Handler {
 	s := serializer.NewCodecFactory(cachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -202,6 +206,11 @@ func rewriteStats(ctx context.Context, data []byte, vClient client.Client) ([]by
 
 func executeRequest(req *http.Request, h http.Handler) (int, http.Header, []byte, error) {
 	clonedRequest := req.Clone(req.Context())
+	clonedRequest.Header.Set("Content-Type", "application/json")
+	if strings.Contains(clonedRequest.Header.Get(KubectlCommandHeader), "top") {
+		clonedRequest.Header.Set("Accept", "application/json, */*")
+	}
+
 	fakeWriter := httptest.NewRecorder()
 	h.ServeHTTP(fakeWriter, clonedRequest)
 

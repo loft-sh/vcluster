@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if (eq (include "vcluster.k3s.workloadKind" .) "StatefulSet") }}
 apiVersion: v1
 kind: Service
@@ -12,7 +13,7 @@ metadata:
   {{- $annotations := merge .Values.globalAnnotations .Values.syncer.serviceAnnotations }}
   {{- if $annotations }}
   annotations:
-  {{ toYaml $annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   ports:
@@ -24,4 +25,5 @@ spec:
   selector:
     app: vcluster
     release: "{{ .Release.Name }}"
+{{- end }}
 {{- end }}

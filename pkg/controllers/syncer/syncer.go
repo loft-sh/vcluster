@@ -4,14 +4,17 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/telemetry"
+	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
@@ -57,6 +60,7 @@ type syncerController struct {
 }
 
 func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	reconcileStart := time.Now()
 	log := loghelper.NewFromExisting(r.log.Base(), req.Name)
 	syncContext := &synccontext.SyncContext{
 		Context:                ctx,
@@ -96,7 +100,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// translate to physical name
 	pObj := r.syncer.Resource()
-	err = r.physicalClient.Get(ctx, r.syncer.VirtualToPhysical(req.NamespacedName, vObj), pObj)
+	err = r.physicalClient.Get(ctx, r.syncer.VirtualToPhysical(ctx, req.NamespacedName, vObj), pObj)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
@@ -113,7 +117,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// check what function we should call
 	if vObj != nil && pObj == nil {
-		return r.syncer.SyncDown(syncContext, vObj)
+		return captureSyncTelemetry(r.syncer.SyncDown(syncContext, vObj))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 	} else if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
@@ -124,25 +128,25 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			}
 
 			// delete physical object
-			return DeleteObject(syncContext, pObj, "virtual object uid is different")
+			return captureSyncTelemetry(DeleteObject(syncContext, pObj, "virtual object uid is different"))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 		}
 
-		return r.syncer.Sync(syncContext, pObj, vObj)
+		return captureSyncTelemetry(r.syncer.Sync(syncContext, pObj, vObj))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 	} else if vObj == nil && pObj != nil {
+		if pObj.GetAnnotations() != nil {
+			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
+				// do not delete
+				return ctrl.Result{}, nil
+			}
+		}
+
 		// check if up syncer
 		upSyncer, ok := r.syncer.(UpSyncer)
 		if ok {
-			return upSyncer.SyncUp(syncContext, pObj)
+			return captureSyncTelemetry(upSyncer.SyncUp(syncContext, pObj))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 		}
 
-		managed, err := r.syncer.IsManaged(pObj)
-		if err != nil {
-			return ctrl.Result{}, err
-		} else if !managed {
-			return ctrl.Result{}, nil
-		}
-
-		return DeleteObject(syncContext, pObj, "virtual object was deleted")
+		return captureSyncTelemetry(DeleteObject(syncContext, pObj, "virtual object was deleted"))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 	}
 
 	return ctrl.Result{}, nil
@@ -187,32 +191,32 @@ func (r *syncerController) excludeVirtual(vObj client.Object) bool {
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
-func (r *syncerController) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(evt.Object, q)
+func (r *syncerController) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+	r.enqueuePhysical(ctx, evt.Object, q)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
-func (r *syncerController) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(evt.ObjectNew, q)
+func (r *syncerController) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+	r.enqueuePhysical(ctx, evt.ObjectNew, q)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
-func (r *syncerController) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(evt.Object, q)
+func (r *syncerController) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+	r.enqueuePhysical(ctx, evt.Object, q)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile Autoscaling, or a Webhook.
-func (r *syncerController) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(evt.Object, q)
+func (r *syncerController) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+	r.enqueuePhysical(ctx, evt.Object, q)
 }
 
-func (r *syncerController) enqueuePhysical(obj client.Object, q workqueue.RateLimitingInterface) {
+func (r *syncerController) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
 	if obj == nil {
 		return
 	}
 
-	managed, err := r.syncer.IsManaged(obj)
+	managed, err := r.syncer.IsManaged(ctx, obj)
 	if err != nil {
 		klog.Errorf("error checking object %v if managed: %v", obj, err)
 		return
@@ -220,7 +224,7 @@ func (r *syncerController) enqueuePhysical(obj client.Object, q workqueue.RateLi
 		return
 	}
 
-	name := r.syncer.PhysicalToVirtual(obj)
+	name := r.syncer.PhysicalToVirtual(ctx, obj)
 	if name.Name != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}
@@ -232,7 +236,7 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 			MaxConcurrentReconciles: 10,
 		}).
 		Named(r.syncer.Name()).
-		Watches(source.NewKindWithCache(r.syncer.Resource(), ctx.PhysicalManager.GetCache()), r).
+		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource()), r).
 		For(r.syncer.Resource())
 	var err error
 	modifier, ok := r.syncer.(ControllerModifier)
@@ -271,4 +275,28 @@ func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object, reason strin
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func captureSyncTelemetry(result ctrl.Result, syncError error) func(schema.GroupVersionKind, time.Time) (ctrl.Result, error) {
+	return func(gvk schema.GroupVersionKind, reconcileStart time.Time) (ctrl.Result, error) {
+		if telemetry.Collector.IsEnabled() {
+			e := telemetry.Collector.NewEvent(telemetrytypes.EventResourceSync)
+			e.ProcessingTime = int(time.Since(reconcileStart).Milliseconds())
+			if syncError != nil {
+				e.Success = false
+				e.Errors = syncError.Error()
+			} else {
+				e.Success = true
+			}
+			e.Group = gvk.Group
+			if e.Group == "" {
+				e.Group = "core"
+			}
+			e.Version = gvk.Version
+			e.Kind = gvk.Kind
+
+			telemetry.Collector.RecordEvent(e)
+		}
+		return result, syncError
+	}
 }

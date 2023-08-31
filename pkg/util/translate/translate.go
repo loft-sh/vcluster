@@ -36,6 +36,10 @@ var (
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
 )
 
+const (
+	SkipBacksyncInMultiNamespaceMode = "vcluster.loft.sh/skip-backsync"
+)
+
 var Owner client.Object
 
 func GetOwnerReference(object client.Object) []metav1.OwnerReference {
@@ -254,7 +258,7 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 			version.Storage = true
 			newVersions = append(newVersions, version)
 
-			if version.Subresources.Status != nil {
+			if version.Subresources != nil && version.Subresources.Status != nil {
 				hasStatusSubresource = true
 			}
 			break
@@ -276,7 +280,7 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 
 	// wait for crd to become ready
 	log.NewWithoutName().Infof("Wait for crd %s to become ready in virtual cluster", groupVersionKind.String())
-	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
+	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
 		crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, groupVersionResource.GroupResource().String(), metav1.GetOptions{})
 		if err != nil {
 			return false, errors.Wrap(err, "retrieve crd in virtual cluster")

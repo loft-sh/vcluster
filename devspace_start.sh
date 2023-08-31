@@ -4,11 +4,11 @@ set +e  # Continue on errors
 COLOR_CYAN="\033[0;36m"
 COLOR_RESET="\033[0m"
 
-RUN_CMD="CONFIG=\$(cat hack/test-config.yaml) go run -mod vendor cmd/vcluster/main.go start"
-RUN_CMD_K8S="echo \"Run syncer with k8s flags\" && CONFIG=\$(cat hack/test-config.yaml) go run -mod vendor cmd/vcluster/main.go start --request-header-ca-cert=/pki/ca.crt --client-ca-cert=/pki/ca.crt --server-ca-cert=/pki/ca.crt --server-ca-key=/pki/ca.key --kube-config=/pki/admin.conf"
-RUN_CMD_K0S="echo \"Run syncer with k0s flags\" && CONFIG=\$(cat hack/test-config.yaml) go run -mod vendor cmd/vcluster/main.go start --request-header-ca-cert=/data/k0s/pki/ca.crt --client-ca-cert=/data/k0s/pki/ca.crt --server-ca-cert=/data/k0s/pki/ca.crt --server-ca-key=/data/k0s/pki/ca.key --kube-config=/data/k0s/pki/admin.conf"
-RUN_CMD_EKS="echo \"Run syncer with eks flags\" && CONFIG=\$(cat hack/test-config.yaml) go run -mod vendor cmd/vcluster/main.go start  --request-header-ca-cert=/pki/ca.crt --client-ca-cert=/pki/ca.crt --server-ca-cert=/pki/ca.crt --server-ca-key=/pki/ca.key --kube-config=/pki/admin.conf"
-DEBUG_CMD="CONFIG=\$(cat hack/test-config.yaml) dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags=\"-mod=vendor\" -- start"
+RUN_CMD="go run -mod vendor cmd/vcluster/main.go start"
+RUN_CMD_K8S="echo \"Run syncer with k8s flags\" && go run -mod vendor cmd/vcluster/main.go start --request-header-ca-cert=/pki/ca.crt --client-ca-cert=/pki/ca.crt --server-ca-cert=/pki/ca.crt --server-ca-key=/pki/ca.key --kube-config=/pki/admin.conf"
+RUN_CMD_K0S="echo \"Run syncer with k0s flags\" && go run -mod vendor cmd/vcluster/main.go start --request-header-ca-cert=/data/k0s/pki/ca.crt --client-ca-cert=/data/k0s/pki/ca.crt --server-ca-cert=/data/k0s/pki/ca.crt --server-ca-key=/data/k0s/pki/ca.key --kube-config=/data/k0s/pki/admin.conf"
+RUN_CMD_EKS="echo \"Run syncer with eks flags\" && go run -mod vendor cmd/vcluster/main.go start  --request-header-ca-cert=/pki/ca.crt --client-ca-cert=/pki/ca.crt --server-ca-cert=/pki/ca.crt --server-ca-key=/pki/ca.key --kube-config=/pki/admin.conf"
+DEBUG_CMD="dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags=\"-mod=vendor\" -- start"
 
 echo -e "${COLOR_CYAN}
    ____              ____

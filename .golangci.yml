@@ -2,7 +2,7 @@ run:
   timeout: 10m
 
 linters:
-  disable-all:  true
+  disable-all: true
   enable:
     - deadcode
     - gosimple
@@ -20,10 +20,15 @@ linters:
     # - gofmt
     # - golint
     # - structcheck
-  
+
 linters-settings:
   gofmt:
     simplify: true
   dupl:
     threshold: 400
 
+issues:
+  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
+  max-issues-per-linter: 0
+  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
+  max-same-issues: 0

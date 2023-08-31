@@ -46,6 +46,10 @@ deployments:
           image: ${SYNCER_IMAGE}
         multiNamespaceMode:
           enabled: false
+        telemetry:
+          disabled: "false"
+          instanceCreatorType: "devspace"
+          instanceCreatorUID: "devspace"
         sync:
           generic:
             clusterRole:

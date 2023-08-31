@@ -216,7 +216,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		err = connPub.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(time.Second))
 		if err == websocket.ErrCloseSent {
 			return nil
-		} else if e, ok := err.(net.Error); ok && e.Temporary() { // nolint:staticcheck
+		} else if e, ok := err.(net.Error); ok && e.Timeout() {
 			return nil
 		}
 		return err

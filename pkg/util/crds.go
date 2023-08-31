@@ -3,10 +3,11 @@ package util
 import (
 	"context"
 	"fmt"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"math"
 	"time"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/loft-sh/vcluster/pkg/util/applier"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -23,8 +24,8 @@ func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath str
 		return nil
 	}
 
-	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: 5 * time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
-		err := applier.ApplyManifestFile(config, crdFilePath)
+	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: 5 * time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
+		err := applier.ApplyManifestFile(ctx, config, crdFilePath)
 		if err != nil {
 			loghelper.Infof("Failed to apply CRD %s from the manifest file %s: %v", groupVersionKind.String(), crdFilePath, err)
 			return false, nil
@@ -36,7 +37,7 @@ func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath str
 	}
 
 	var lastErr error
-	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func() (bool, error) {
+	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
 		var found bool
 		found, lastErr = KindExists(config, groupVersionKind)
 		return found, nil

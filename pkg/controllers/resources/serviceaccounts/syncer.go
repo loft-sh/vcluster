@@ -21,12 +21,12 @@ type serviceAccountSyncer struct {
 }
 
 func (s *serviceAccountSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.ServiceAccount)))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ServiceAccount)))
 }
 
 func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// did the service account change?
-	newServiceAccount := s.translateUpdate(pObj.(*corev1.ServiceAccount), vObj.(*corev1.ServiceAccount))
+	newServiceAccount := s.translateUpdate(ctx.Context, pObj.(*corev1.ServiceAccount), vObj.(*corev1.ServiceAccount))
 	if newServiceAccount != nil {
 		translator.PrintChanges(pObj, newServiceAccount, ctx.Log)
 	}

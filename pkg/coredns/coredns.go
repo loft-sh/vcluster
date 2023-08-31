@@ -2,6 +2,7 @@ package coredns
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	DefaultImage          = "coredns/coredns"
+	DefaultImage          = "coredns/coredns:1.11.0"
 	ManifestRelativePath  = "coredns/coredns.yaml"
 	ManifestsOutputFolder = "/tmp/manifests-to-apply"
 	VarImage              = "IMAGE"
@@ -27,7 +28,9 @@ const (
 	defaultGID            = int64(1001)
 )
 
-func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
+var ErrNoCoreDNSManifests = fmt.Errorf("no coredns manifests found")
+
+func ApplyManifest(ctx context.Context, defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
 	vars := getManifestVariables(defaultImageRegistry, serverVersion)
 	output, err := processManifestTemplate(vars)
 	if err != nil {
@@ -46,7 +49,7 @@ func ApplyManifest(defaultImageRegistry string, inClusterConfig *rest.Config, se
 		_, _ = debugOutputFile.Write(output)
 	}
 
-	return applier.ApplyManifest(inClusterConfig, output)
+	return applier.ApplyManifest(ctx, inClusterConfig, output)
 }
 
 func prepareManifestOutput() (*os.File, error) {
@@ -115,6 +118,10 @@ func GetUserID() int64 {
 
 func processManifestTemplate(vars map[string]interface{}) ([]byte, error) {
 	manifestInputPath := path.Join(constants.ContainerManifestsFolder, ManifestRelativePath)
+	// check if the manifestInputPath exists
+	if _, err := os.Stat(manifestInputPath); os.IsNotExist(err) {
+		return nil, ErrNoCoreDNSManifests
+	}
 	manifestTemplate, err := template.ParseFiles(manifestInputPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse %s: %v", manifestInputPath, err)

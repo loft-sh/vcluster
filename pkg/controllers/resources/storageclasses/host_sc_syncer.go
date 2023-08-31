@@ -22,7 +22,7 @@ type hostStorageClassSyncer struct {
 var _ syncer.UpSyncer = &hostStorageClassSyncer{}
 
 func (s *hostStorageClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := s.translateBackwards(pObj.(*storagev1.StorageClass))
+	vObj := s.translateBackwards(ctx.Context, pObj.(*storagev1.StorageClass))
 	ctx.Log.Infof("create storage class %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
@@ -31,7 +31,7 @@ var _ syncer.Syncer = &hostStorageClassSyncer{}
 
 func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if there is a change
-	updated := s.translateUpdateBackwards(pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
+	updated := s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
 	if updated != nil {
 		ctx.Log.Infof("update storage class %s", vObj.GetName())
 		translator.PrintChanges(pObj, updated, ctx.Log)

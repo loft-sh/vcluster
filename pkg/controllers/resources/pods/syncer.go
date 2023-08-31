@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -28,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var (
@@ -88,6 +88,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
+		physicalClusterConfig: ctx.PhysicalManager.GetConfig(),
 		podTranslator:         podTranslator,
 		nodeSelector:          nodeSelector,
 		tolerations:           tolerations,
@@ -105,6 +106,7 @@ type podSyncer struct {
 	podTranslator         translatepods.Translator
 	virtualClusterClient  kubernetes.Interface
 	physicalClusterClient kubernetes.Interface
+	physicalClusterConfig *rest.Config
 	nodeSelector          *metav1.LabelSelector
 	tolerations           []*corev1.Toleration
 
@@ -121,7 +123,7 @@ var _ syncer.ControllerModifier = &podSyncer{}
 
 func (s *podSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	eventHandler := handler.Funcs{
-		UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+		UpdateFunc: func(cont context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 			// no need to reconcile pods if namespace labels didn't change
 			if reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) {
 				return
@@ -129,7 +131,7 @@ func (s *podSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *
 
 			ns := e.ObjectNew.GetName()
 			pods := &corev1.PodList{}
-			err := ctx.VirtualManager.GetClient().List(context.TODO(), pods, client.InNamespace(ns))
+			err := ctx.VirtualManager.GetClient().List(cont, pods, client.InNamespace(ns))
 			if err != nil {
 				log := loghelper.New("pods-syncer-ns-watch-handler")
 				log.Infof("failed to list pods in the %s namespace when handling namespace update: %v", ns, err)
@@ -144,7 +146,7 @@ func (s *podSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *
 		},
 	}
 
-	return builder.Watches(&source.Kind{Type: &corev1.Namespace{}}, eventHandler), nil
+	return builder.Watches(&corev1.Namespace{}, eventHandler), nil
 }
 
 var _ syncer.Syncer = &podSyncer{}
@@ -279,6 +281,8 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
 
+	strippedPod = stripInjectedSidecarContainers(vPod, pPod, strippedPod)
+
 	// update readiness gates & sync status virtual -> physical
 	updated, err := UpdateConditions(ctx, strippedPod, vPod)
 	if err != nil {
@@ -337,7 +341,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	}
 
 	// update the virtual pod if the spec has changed
-	updatedPod, err := s.translateUpdate(pPod, vPod)
+	updatedPod, err := s.translateUpdate(ctx.Context, ctx.PhysicalClient, pPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if updatedPod != nil {
@@ -421,9 +425,9 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	}
 
 	// wait until cache is updated
-	err = wait.PollImmediate(time.Millisecond*50, time.Second*2, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*50, time.Second*2, true, func(syncContext context.Context) (done bool, err error) {
 		vPod := &corev1.Pod{}
-		err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)
+		err = ctx.VirtualClient.Get(syncContext, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return true, nil
@@ -454,4 +458,36 @@ func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {
 		newPod.Status.InitContainerStatuses = newInitContainerStatuses
 	}
 	return newPod
+}
+
+func stripInjectedSidecarContainers(vPod, pPod, strippedPod *corev1.Pod) *corev1.Pod {
+	vInitContainersMap := make(map[string]bool)
+	vContainersMap := make(map[string]bool)
+
+	for _, vInitContainer := range vPod.Spec.InitContainers {
+		vInitContainersMap[vInitContainer.Name] = true
+	}
+
+	for _, vContainer := range vPod.Spec.Containers {
+		vContainersMap[vContainer.Name] = true
+	}
+
+	newInitContainerStatuses := []corev1.ContainerStatus{}
+	for _, initContainerStatus := range pPod.Status.InitContainerStatuses {
+		if _, ok := vInitContainersMap[initContainerStatus.Name]; ok {
+			newInitContainerStatuses = append(newInitContainerStatuses, initContainerStatus)
+		}
+	}
+
+	newContainerStatuses := []corev1.ContainerStatus{}
+	for _, containerStatus := range pPod.Status.ContainerStatuses {
+		if _, ok := vContainersMap[containerStatus.Name]; ok {
+			newContainerStatuses = append(newContainerStatuses, containerStatus)
+		}
+	}
+
+	strippedPod.Status.InitContainerStatuses = newInitContainerStatuses
+	strippedPod.Status.ContainerStatuses = newContainerStatuses
+
+	return strippedPod
 }

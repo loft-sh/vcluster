@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if not .Values.api.disabled }}
 apiVersion: v1
 kind: Service
@@ -12,7 +13,7 @@ metadata:
   {{- $annotations := merge .Values.globalAnnotations .Values.api.serviceAnnotations }}
   {{- if $annotations }}
   annotations:
-  {{ toYaml $annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   type: ClusterIP
@@ -24,4 +25,5 @@ spec:
   selector:
     app: vcluster-api
     release: {{ .Release.Name }}
+{{- end }}
 {{- end }}

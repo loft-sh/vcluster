@@ -4,6 +4,10 @@ defaultImageRegistry: ""
 
 globalAnnotations: {}
 
+# If true, will deploy vcluster in headless mode, which means no deployment
+# or statefulset is created.
+headless: false
+
 # If the control plane is deployed in high availability mode
 # Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
 enableHA: false
@@ -54,13 +58,14 @@ sync:
   fake-persistentvolumes:
     enabled: true # will be ignored if persistentvolumes.enabled = true
   nodes:
+    fakeKubeletIPs: true
     enabled: false
-    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
     # will sync all nodes instead of only the ones where some pods are running.
     syncAllNodes: false
     # nodeSelector is used to limit which nodes get synced to the vcluster,
     # and which nodes are used to run vcluster pods.
-    # A valid string representation of a label selector must be used. 
+    # A valid string representation of a label selector must be used.
     nodeSelector: ""
     # syncNodeChanges allows vcluster user edits of the nodes to be synced down to the host nodes.
     # Write permissions on node resource will be given to the vcluster.
@@ -111,20 +116,18 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
-hostpathMapper:
-  enabled: false
-  resources: {}
-    # limits:
-    #   cpu: 40m
-    #   memory: 100Mi
-    # requests:
-    #   cpu: 20m
-    #   memory: 50Mi
+proxy:
+  metricsServer:
+    nodes:
+      enabled: false
+    pods:
+      enabled: false
+
 
 # Syncer configuration
 syncer:
   # Image to use for the syncer
-  # image: loftsh/vcluster
+  # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
   volumeMounts:
     - mountPath: /manifests/coredns
@@ -133,6 +136,7 @@ syncer:
     - mountPath: /pki
       name: certs
       readOnly: true
+  extraVolumeMounts: []
   env: []
   livenessProbe:
     enabled: true
@@ -144,7 +148,7 @@ syncer:
     requests:
       cpu: 10m
       memory: 64Mi
-  # Extra volumes 
+  # Extra volumes
   volumes: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -164,12 +168,13 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
+  podSecurityContext: {}
   serviceAnnotations: {}
 
 # Etcd settings
 etcd:
   image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.6-eks-1-24-7
-  # The amount of replicas to run 
+  # The amount of replicas to run
   replicas: 1
   # NodeSelector used
   nodeSelector: {}
@@ -177,7 +182,7 @@ etcd:
   affinity: {}
   # Tolerations to apply
   tolerations: []
-  # Extra Labels 
+  # Extra Labels
   labels: {}
   # Extra Annotations
   annotations: {}
@@ -206,13 +211,13 @@ controller:
   image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.24.9-eks-1-24-7
   # The amount of replicas to run the deployment with
   replicas: 1
-  # NodeSelector used 
+  # NodeSelector used
   nodeSelector: {}
-  # Affinity to apply 
+  # Affinity to apply
   affinity: {}
-  # Tolerations to apply 
+  # Tolerations to apply
   tolerations: []
-  # Extra Labels 
+  # Extra Labels
   labels: {}
   # Extra Annotations
   annotations: {}
@@ -252,6 +257,7 @@ api:
 
 # Core DNS settings
 coredns:
+  enabled: true
   image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-24-7
   replicas: 1
   # CoreDNS service configurations
@@ -283,10 +289,15 @@ serviceAccount:
   # imagePullSecrets:
   #   - name: my-pull-secret
 
+# Service account that should be used by the pods synced by vcluster
+workloadServiceAccount:
+  # This is not supported in multi-namespace mode
+  annotations: {}
+
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Deprecated ! 
+    # Deprecated !
     # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     create: false
@@ -295,7 +306,7 @@ rbac:
     # Support for this value will be removed in a future version of the vcluster
     # and basic role will always be created
     create: true
-    # Deprecated ! 
+    # Deprecated !
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
@@ -324,6 +335,9 @@ service:
 # job configuration
 job:
   enabled: true
+  volumes: []
+  volumeMounts: []
+  extraArgs: []
   priorityClassName: ""
   nodeSelector: {}
   affinity: {}
@@ -355,13 +369,18 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Ingress TLS configuration
+  tls: []
+    # - secretName: tls-vcluster.local
+    #   hosts:
+    #     - vcluster.local
 
 # Set "enable" to true when running vcluster in an OpenShift host
-# This will add an extra rule to the deployed role binding in order 
+# This will add an extra rule to the deployed role binding in order
 # to manage service endpoints
 openshift:
   enable: false
-  
+
 # manifests to setup when initializing a vcluster
 init:
   manifests: |-
@@ -378,6 +397,11 @@ isolation:
   namespace: null
 
   podSecurityStandard: baseline
+
+  # If enabled will add node/proxy permission to the cluster role
+  # in isolation mode
+  nodeProxyPermission:
+    enabled: false
 
   resourceQuota:
     enabled: true
@@ -426,3 +450,8 @@ isolation:
 
 multiNamespaceMode:
   enabled: false
+
+telemetry:
+  disabled: "false"
+  instanceCreator: "helm"
+  instanceCreatorUID: ""

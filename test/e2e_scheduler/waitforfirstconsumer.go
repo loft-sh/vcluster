@@ -1,12 +1,14 @@
 package e2escheduler
 
 import (
+	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -105,9 +107,9 @@ var _ = ginkgo.Describe("Schedule a Statefulset with WaitForFirstConsumer PVCs",
 		err = f.VclusterCRClient.Create(f.Context, workload)
 		framework.ExpectNoError(err)
 		// wait for it to start running
-		err = wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
 			ss := &appsv1.StatefulSet{}
-			err := f.VclusterCRClient.Get(f.Context, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, ss)
+			err := f.VclusterCRClient.Get(ctx, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, ss)
 			if err != nil {
 				fmt.Fprintf(ginkgo.GinkgoWriter, "failed to fetch statefulset %q with err err: %v\n", workload.Name, err)
 				return false, nil

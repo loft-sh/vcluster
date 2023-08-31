@@ -37,7 +37,7 @@ rules:
     verbs: ["patch", "update"]
   {{- end }}
   {{- end }}
-  {{- if or .Values.sync.endpoints.enabled .Values.rbac.role.extended }}
+  {{- if or .Values.sync.endpoints.enabled .Values.rbac.role.extended .Values.headless }}
   - apiGroups: [""]
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]
@@ -84,6 +84,11 @@ rules:
     resources: ["endpoints/restricted"]
     verbs: ["create"]
   {{- end }}
+  {{- end }}
+  {{- if .Values.proxy.metricsServer.pods.enabled }}
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
   {{- end }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}

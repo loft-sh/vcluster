@@ -1,14 +1,16 @@
 package services
 
 import (
+	"context"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *serviceSyncer) translate(vObj *corev1.Service) *corev1.Service {
-	newService := s.TranslateMetadata(vObj).(*corev1.Service)
+func (s *serviceSyncer) translate(ctx context.Context, vObj *corev1.Service) *corev1.Service {
+	newService := s.TranslateMetadata(ctx, vObj).(*corev1.Service)
 	newService.Spec.Selector = translate.Default.TranslateLabels(vObj.Spec.Selector, vObj.Namespace, nil)
 	if newService.Spec.ClusterIP != "None" {
 		newService.Spec.ClusterIP = ""
@@ -74,11 +76,11 @@ func (s *serviceSyncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *co
 	return updated
 }
 
-func (s *serviceSyncer) translateUpdate(pObj, vObj *corev1.Service) *corev1.Service {
+func (s *serviceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Service) *corev1.Service {
 	var updated *corev1.Service
 
 	// check annotations
-	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
+	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	// remove the ServiceBlockDeletion annotation if it's not needed
 	if vObj.Spec.ClusterIP == pObj.Spec.ClusterIP {
 		delete(updatedAnnotations, ServiceBlockDeletion)

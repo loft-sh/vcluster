@@ -2,8 +2,9 @@ package translate
 
 import (
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -20,6 +21,21 @@ const (
 	PhysicalPodLogVolumeMountPath  = "/var/vcluster/physical/log/pods"
 	PhysicalKubeletVolumeMountPath = "/var/vcluster/physical/kubelet/pods"
 )
+
+func (t *translator) ensureMountPropagation(pPod *corev1.Pod) {
+	for i, container := range pPod.Spec.Containers {
+		for j, volumeMount := range container.VolumeMounts {
+			if volumeMount.MountPath == PodLoggingHostPath ||
+				volumeMount.MountPath == KubeletPodPath ||
+				volumeMount.MountPath == LogHostPath {
+
+				hostToContainer := corev1.MountPropagationHostToContainer
+				pPod.Spec.Containers[i].VolumeMounts[j].MountPropagation = &hostToContainer
+			}
+		}
+	}
+
+}
 
 func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 	if len(pPod.Spec.Volumes) > 0 {
@@ -60,7 +76,7 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 
 		for i, volume := range pPod.Spec.Volumes {
 			if volume.HostPath != nil {
-				if volume.HostPath.Path == PodLoggingHostPath &&
+				if strings.TrimSuffix(volume.HostPath.Path, "/") == PodLoggingHostPath &&
 					// avoid recursive rewriting of HostPaths across reconciles
 					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
 					// we can't just mount the new hostpath to the virtual log path
@@ -85,7 +101,7 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 					)
 				}
 
-				if volume.HostPath.Path == KubeletPodPath &&
+				if strings.TrimSuffix(volume.HostPath.Path, "/") == KubeletPodPath &&
 					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
 					t.log.Debugf("rewriting hostPath for kubelet pods %s", pPod.Name)
 					pPod.Spec.Volumes[i].HostPath.Path = t.virtualKubeletPodPath
@@ -100,7 +116,7 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 					)
 				}
 
-				if volume.HostPath.Path == LogHostPath {
+				if strings.TrimSuffix(volume.HostPath.Path, "/") == LogHostPath {
 					pPod.Spec.Volumes[i].HostPath.Path = t.virtualLogsPath
 					pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
 						volume.Name,
@@ -113,9 +129,16 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 				}
 			}
 		}
+
+		if t.hostpathMountPropagation {
+			t.ensureMountPropagation(pPod)
+		}
 	}
 }
 
+// addPhysicalPathToVolumesAndCorrectContainers is only needed if deploying
+// along side the vcluster-hostpath-mapper component
+// see github.com/loft-sh/vcluster-hostpath-mapper
 func (t *translator) addPhysicalPathToVolumesAndCorrectContainers(
 	volName string,
 	hostPathType *corev1.HostPathType,
@@ -124,6 +147,11 @@ func (t *translator) addPhysicalPathToVolumesAndCorrectContainers(
 	registerToCheck map[string]bool,
 	pPod *corev1.Pod,
 ) *corev1.Pod {
+	if !t.mountPhysicalHostPaths {
+		// return without mounting extra physical mount
+		return pPod
+	}
+
 	// add another volume with the correct suffix
 	pPod.Spec.Volumes = append(pPod.Spec.Volumes, corev1.Volume{
 		Name: fmt.Sprintf("%s-%s", volName, PhysicalVolumeNameSuffix),

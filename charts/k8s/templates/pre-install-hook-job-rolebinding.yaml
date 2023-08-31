@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if .Values.job.enabled }}
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -5,6 +6,9 @@ metadata:
   name: {{ .Release.Name }}-job
   namespace: {{ .Release.Namespace }}
   annotations:
+  {{- if .Values.globalAnnotations }}
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }} 
     "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "3"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
@@ -16,4 +20,5 @@ roleRef:
   kind: Role
   name: {{ .Release.Name }}-job
   apiGroup: rbac.authorization.k8s.io
+{{- end }}
 {{- end }}

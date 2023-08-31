@@ -1,11 +1,12 @@
 package e2escheduler
 
 import (
+	"context"
 	"reflect"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -77,8 +78,8 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		_, err = f.VclusterClient.CoreV1().Pods(nsName).Create(f.Context, pod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
-			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(f.Context, podName, metav1.GetOptions{})
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
+			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(ctx, podName, metav1.GetOptions{})
 			if p.Status.Phase == v1.PodRunning {
 				return true, nil
 			}
@@ -109,8 +110,8 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		_, err = f.VclusterClient.CoreV1().Pods(nsName).Create(f.Context, pod1, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		err = wait.Poll(time.Second, time.Minute*2, func() (bool, error) {
-			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(f.Context, pod1Name, metav1.GetOptions{})
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
+			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(ctx, pod1Name, metav1.GetOptions{})
 			if p.Status.Phase == v1.PodRunning {
 				return true, nil
 			}

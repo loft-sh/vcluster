@@ -1,9 +1,11 @@
 package events
 
 import (
+	"context"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -46,15 +48,15 @@ func (s *eventSyncer) Name() string {
 	return "event"
 }
 
-func (s *eventSyncer) IsManaged(pObj client.Object) (bool, error) {
+func (s *eventSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
 	return true, nil
 }
 
-func (s *eventSyncer) VirtualToPhysical(req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *eventSyncer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{}
 }
 
-func (s *eventSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedName {
+func (s *eventSyncer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      pObj.GetName(),
 		Namespace: pObj.GetNamespace(),

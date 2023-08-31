@@ -1,7 +1,7 @@
 package log
 
 import (
-	"github.com/loft-sh/utils/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 )
 
@@ -21,7 +21,7 @@ const (
 
 // Logger defines the common logging interface
 type Logger interface {
-	log.Logger
+	log.BaseLogger
 
 	Panic(args ...interface{})
 	Panicf(format string, args ...interface{})

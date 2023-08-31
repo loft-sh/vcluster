@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -11,9 +12,10 @@ metadata:
 {{- if .Values.labels }}
 {{ toYaml .Values.labels | indent 4 }}
 {{- end }}
-  {{- if .Values.annotations }}
+{{- $annotations := merge .Values.annotations .Values.globalAnnotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   serviceName: {{ .Release.Name }}-headless
@@ -31,7 +33,9 @@ spec:
         name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
+        {{- if .Values.storage.className }}
         storageClassName: {{ .Values.storage.className }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .Values.storage.size }}
@@ -73,14 +77,18 @@ spec:
         - name: k0s-config
           secret:
             secretName: vc-{{ .Release.Name }}-config
+      {{- if .Values.volumes }}
+{{ toYaml .Values.volumes | indent 8 }}
+      {{- end }}
       {{- if .Values.coredns.enabled }}
         - name: coredns
           configMap:
             name: {{ .Release.Name }}-coredns
       {{- end }}
-      {{- if .Values.volumes }}
-{{ toYaml .Values.volumes | indent 8 }}
-      {{- end }}
+        - name: custom-config-volume
+          configMap:
+            name: coredns-custom
+            optional: true
       {{- if not .Values.storage.persistence }}
         - name: data
           emptyDir: {}
@@ -88,9 +96,12 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
-      {{- if .Values.fsGroup }}
+      {{- if or .Values.podSecurityContext .Values.fsGroup }}
+      {{- $fsContext := dict "fsGroup" .Values.fsGroup }}
+      {{- with merge .Values.podSecurityContext $fsContext }}
       securityContext:
-        fsGroup: {{ .Values.fsGroup }}
+{{ toYaml . | indent 8 }}
+      {{- end }}
       {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}
@@ -142,7 +153,7 @@ spec:
         {{- if .Values.syncer.image }}
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
-        image: "{{ .Values.defaultImageRegistry }}loftsh/vcluster:{{ .Chart.Version }}"
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
         {{- end }}
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
@@ -191,9 +202,6 @@ spec:
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
           {{- end }}
-          {{- if .Values.hostpathMapper.enabled }}
-          - --rewrite-host-paths=true
-          {{- end }}
           {{- if .Values.multiNamespaceMode.enabled }}
           - --multi-namespace-mode=true
           {{- end }}
@@ -202,6 +210,12 @@ spec:
           {{- end }}
           {{- if .Values.sync.secrets.all }}
           - --sync-all-secrets=true
+          {{- end }}
+          {{- if not .Values.sync.nodes.fakeKubeletIPs }}
+          - --fake-kubelet-ips=false
+          {{- end }}
+          {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
+          - --proxy-metrics-server=true
           {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
@@ -250,6 +264,8 @@ spec:
             value: |-
               {{- .Values.sync.generic.config | nindent 14 }}
         {{- end }}
+          - name: VCLUSTER_TELEMETRY_CONFIG
+            value: {{ .Values.telemetry | toJson | quote }}
         volumeMounts:
         {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
           - name: helm-cache
@@ -263,6 +279,9 @@ spec:
             readOnly: true
         {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
+        {{- if .Values.syncer.extraVolumeMounts }}
+{{ toYaml .Values.syncer.extraVolumeMounts | indent 10 }}
+        {{- end }}
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}
       {{- end }}
@@ -328,3 +347,4 @@ spec:
 {{ toYaml $container.resources | indent 10 }}
         {{- end }}
         {{- end }}
+{{- end }}

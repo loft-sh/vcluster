@@ -3,9 +3,12 @@ package context
 import (
 	"context"
 
+	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,20 +17,30 @@ import (
 type ControllerContext struct {
 	Context context.Context
 
-	LocalManager   ctrl.Manager
-	VirtualManager ctrl.Manager
+	LocalManager          ctrl.Manager
+	VirtualManager        ctrl.Manager
+	VirtualRawConfig      *clientcmdapi.Config
+	VirtualClusterVersion *version.Info
 
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 
-	Controllers sets.Set[string]
-	Options     *VirtualClusterOptions
-	StopChan    <-chan struct{}
+	Controllers             sets.Set[string]
+	AdditionalServerFilters []servertypes.Filter
+	Options                 *VirtualClusterOptions
+	StopChan                <-chan struct{}
 }
 
-func NewControllerContext(currentNamespace string, localManager, virtualManager ctrl.Manager, options *VirtualClusterOptions) (*ControllerContext, error) {
+func NewControllerContext(
+	ctx context.Context,
+	currentNamespace string,
+	localManager,
+	virtualManager ctrl.Manager,
+	virtualRawConfig *clientcmdapi.Config,
+	virtualClusterVersion *version.Info,
+	options *VirtualClusterOptions,
+) (*ControllerContext, error) {
 	stopChan := make(<-chan struct{})
-	ctx := context.Background()
 
 	// create a new current namespace client
 	currentNamespaceClient, err := newCurrentNamespaceClient(ctx, currentNamespace, localManager, options)
@@ -52,10 +65,12 @@ func NewControllerContext(currentNamespace string, localManager, virtualManager 
 	}
 
 	return &ControllerContext{
-		Context:        ctx,
-		Controllers:    controllers,
-		LocalManager:   localManager,
-		VirtualManager: virtualManager,
+		Context:               ctx,
+		Controllers:           controllers,
+		LocalManager:          localManager,
+		VirtualManager:        virtualManager,
+		VirtualRawConfig:      virtualRawConfig,
+		VirtualClusterVersion: virtualClusterVersion,
 
 		CurrentNamespace:       currentNamespace,
 		CurrentNamespaceClient: currentNamespaceClient,
@@ -77,9 +92,9 @@ func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, loc
 	currentNamespaceCache := localManager.GetCache()
 	if currentNamespace != options.TargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
-			Scheme:    localManager.GetScheme(),
-			Mapper:    localManager.GetRESTMapper(),
-			Namespace: currentNamespace,
+			Scheme:     localManager.GetScheme(),
+			Mapper:     localManager.GetRESTMapper(),
+			Namespaces: []string{currentNamespace},
 		})
 		if err != nil {
 			return nil, err
@@ -98,9 +113,12 @@ func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, loc
 	}
 
 	// create a current namespace client
-	currentNamespaceClient, err := blockingcacheclient.NewCacheClient(currentNamespaceCache, localManager.GetConfig(), client.Options{
+	currentNamespaceClient, err := blockingcacheclient.NewCacheClient(localManager.GetConfig(), client.Options{
 		Scheme: localManager.GetScheme(),
 		Mapper: localManager.GetRESTMapper(),
+		Cache: &client.CacheOptions{
+			Reader: currentNamespaceCache,
+		},
 	})
 	if err != nil {
 		return nil, err

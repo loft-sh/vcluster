@@ -3,8 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"os/exec"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
@@ -73,8 +74,10 @@ vcluster delete test --namespace test
 
 // Run executes the functionality
 func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
+	ctx := cobraCmd.Context()
+
 	// test for helm
-	helmBinaryPath, err := GetHelmBinaryPath(cmd.log)
+	helmBinaryPath, err := GetHelmBinaryPath(ctx, cmd.log)
 	if err != nil {
 		return err
 	}
@@ -88,14 +91,14 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// prepare client
-	err = cmd.prepare(args[0])
+	err = cmd.prepare(cobraCmd.Context(), args[0])
 	if err != nil {
 		return err
 	}
 
 	// check if namespace
 	if cmd.AutoDeleteNamespace {
-		namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(context.TODO(), cmd.Namespace, metav1.GetOptions{})
+		namespace, err := cmd.kubeClient.CoreV1().Namespaces().Get(ctx, cmd.Namespace, metav1.GetOptions{})
 		if err != nil {
 			cmd.log.Debugf("Error retrieving vcluster namespace: %v", err)
 		} else if namespace != nil && namespace.Annotations != nil && namespace.Annotations[CreatedByVClusterAnnotation] == "true" {
@@ -114,12 +117,24 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// try to delete the pvc
 	if !cmd.KeepPVC && !cmd.DeleteNamespace {
 		pvcName := fmt.Sprintf("data-%s-0", args[0])
+		pvcNameForK8sAndEks := fmt.Sprintf("data-%s-etcd-0", args[0])
+
 		client, err := kubernetes.NewForConfig(cmd.restConfig)
 		if err != nil {
 			return err
 		}
 
-		err = client.CoreV1().PersistentVolumeClaims(cmd.Namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+		err = client.CoreV1().PersistentVolumeClaims(cmd.Namespace).Delete(ctx, pvcName, metav1.DeleteOptions{})
+		if err != nil {
+			if !kerrors.IsNotFound(err) {
+				return errors.Wrap(err, "delete pvc")
+			}
+		} else {
+			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, cmd.Namespace)
+		}
+
+		// Deleting PVC for K8s and eks distro as well.
+		err = client.CoreV1().PersistentVolumeClaims(cmd.Namespace).Delete(ctx, pvcNameForK8sAndEks, metav1.DeleteOptions{})
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				return errors.Wrap(err, "delete pvc")
@@ -130,7 +145,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// check if there are any other vclusters in the namespace you are deleting vcluster in.
-	vClusters, err := find.ListVClusters(cmd.Context, "", cmd.Namespace)
+	vClusters, err := find.ListVClusters(cobraCmd.Context(), cmd.Context, "", cmd.Namespace)
 	if err != nil {
 		return err
 	}
@@ -146,7 +161,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		err = client.CoreV1().Namespaces().Delete(context.Background(), cmd.Namespace, metav1.DeleteOptions{})
+		err = client.CoreV1().Namespaces().Delete(ctx, cmd.Namespace, metav1.DeleteOptions{})
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				return errors.Wrap(err, "delete namespace")
@@ -156,7 +171,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 
 		// delete multi namespace mode namespaces
-		namespaces, err := client.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{
+		namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 			LabelSelector: translate.MarkerLabel + "=" + translate.SafeConcatName(cmd.Namespace, "x", args[0]),
 		})
 		if err != nil && !kerrors.IsForbidden(err) {
@@ -166,7 +181,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		// delete all namespaces
 		if namespaces != nil && len(namespaces.Items) > 0 {
 			for _, namespace := range namespaces.Items {
-				err = client.CoreV1().Namespaces().Delete(context.Background(), namespace.Name, metav1.DeleteOptions{})
+				err = client.CoreV1().Namespaces().Delete(ctx, namespace.Name, metav1.DeleteOptions{})
 				if err != nil {
 					if !kerrors.IsNotFound(err) {
 						return errors.Wrap(err, "delete namespace")
@@ -181,8 +196,8 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (cmd *DeleteCmd) prepare(vClusterName string) error {
-	vCluster, err := find.GetVCluster(cmd.Context, vClusterName, cmd.Namespace)
+func (cmd *DeleteCmd) prepare(ctx context.Context, vClusterName string) error {
+	vCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace)
 	if err != nil {
 		return err
 	}

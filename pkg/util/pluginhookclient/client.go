@@ -16,10 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/cluster"
 )
 
 func WrapPhysicalClient(delegate client.Client) client.Client {
@@ -30,21 +28,21 @@ func WrapVirtualClient(delegate client.Client) client.Client {
 	return wrapClient(true, delegate)
 }
 
-func NewPhysicalPluginClientFactory(delegate cluster.NewClientFunc) cluster.NewClientFunc {
+func NewPhysicalPluginClientFactory(delegate client.NewClientFunc) client.NewClientFunc {
 	return NewPluginClient(false, delegate)
 }
 
-func NewVirtualPluginClientFactory(delegate cluster.NewClientFunc) cluster.NewClientFunc {
+func NewVirtualPluginClientFactory(delegate client.NewClientFunc) client.NewClientFunc {
 	return NewPluginClient(true, delegate)
 }
 
-func NewPluginClient(virtual bool, delegate cluster.NewClientFunc) cluster.NewClientFunc {
+func NewPluginClient(virtual bool, delegate client.NewClientFunc) client.NewClientFunc {
 	if !plugin.DefaultManager.HasPlugins() {
 		return delegate
 	}
 
-	return func(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
-		innerClient, err := delegate(cache, config, options, uncachedObjects...)
+	return func(config *rest.Config, options client.Options) (client.Client, error) {
+		innerClient, err := delegate(config, options)
 		if err != nil {
 			return nil, err
 		}

@@ -39,7 +39,7 @@ var _ syncer.UpSyncer = &volumeSnapshotClassSyncer{}
 
 func (s *volumeSnapshotClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pVolumeSnapshotClass := pObj.(*volumesnapshotv1.VolumeSnapshotClass)
-	vObj := s.translateBackwards(pVolumeSnapshotClass)
+	vObj := s.translateBackwards(ctx.Context, pVolumeSnapshotClass)
 	ctx.Log.Infof("create VolumeSnapshotClass %s, because it does not exist in the virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
@@ -59,7 +59,7 @@ func (s *volumeSnapshotClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj 
 }
 
 func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	updated := s.translateUpdateBackwards(pObj.(*volumesnapshotv1.VolumeSnapshotClass), vObj.(*volumesnapshotv1.VolumeSnapshotClass))
+	updated := s.translateUpdateBackwards(ctx.Context, pObj.(*volumesnapshotv1.VolumeSnapshotClass), vObj.(*volumesnapshotv1.VolumeSnapshotClass))
 	if updated != nil {
 		ctx.Log.Infof("updating virtual VolumeSnapshotClass %s, because it differs from the physical one", updated.Name)
 		translator.PrintChanges(vObj, updated, ctx.Log)

@@ -4,6 +4,10 @@ defaultImageRegistry: ""
 
 globalAnnotations: {}
 
+# If true, will deploy vcluster in headless mode, which means no deployment
+# or statefulset is created.
+headless: false
+
 # Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
 plugin: {}
 # Manually configure a plugin called test
@@ -50,13 +54,14 @@ sync:
   fake-persistentvolumes:
     enabled: true # will be ignored if persistentvolumes.enabled = true
   nodes:
+    fakeKubeletIPs: true
     enabled: false
-    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
     # will sync all nodes instead of only the ones where some pods are running.
     syncAllNodes: false
     # nodeSelector is used to limit which nodes get synced to the vcluster,
     # and which nodes are used to run vcluster pods.
-    # A valid string representation of a label selector must be used. 
+    # A valid string representation of a label selector must be used.
     nodeSelector: ""
     # if true, vcluster will run with a scheduler and node changes are possible
     # from within the virtual cluster. This is useful if you would like to
@@ -112,20 +117,17 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
-hostpathMapper:
-  enabled: false
-  resources: {}
-    # limits:
-    #   cpu: 40m
-    #   memory: 100Mi
-    # requests:
-    #   cpu: 20m
-    #   memory: 50Mi
+proxy:
+  metricsServer:
+    nodes:
+      enabled: false
+    pods:
+      enabled: false
 
 # Syncer configuration
 syncer:
   # Image to use for the syncer
-  # image: loftsh/vcluster
+  # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
   env: []
   livenessProbe:
@@ -136,6 +138,7 @@ syncer:
     - mountPath: /data
       name: data
       readOnly: true
+  extraVolumeMounts: []
   resources:
     limits:
       memory: 1Gi
@@ -182,7 +185,7 @@ storage:
   # Optional StorageClass used for the pvc
   # if empty default StorageClass defined in your host cluster will be used
   #className:
-  
+
 # Extra volumes that should be created for the StatefulSet
 volumes: []
 
@@ -195,10 +198,15 @@ serviceAccount:
   # imagePullSecrets:
   #   - name: my-pull-secret
 
+# Service account that should be used by the pods synced by vcluster
+workloadServiceAccount:
+  # This is not supported in multi-namespace mode
+  annotations: {}
+
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Deprecated ! 
+    # Deprecated !
     # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     create: false
@@ -207,7 +215,7 @@ rbac:
     # Support for this value will be removed in a future version of the vcluster
     # and basic role will always be created
     create: true
-    # Deprecated ! 
+    # Deprecated !
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
@@ -269,6 +277,11 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Ingress TLS configuration
+  tls: []
+    # - secretName: tls-vcluster.local
+    #   hosts:
+    #     - vcluster.local
 
 # Configure SecurityContext of the containers in the VCluster pod
 securityContext:
@@ -286,13 +299,17 @@ securityContext:
   # runAsUser: 12345
   # runAsNonRoot: true
 
+# PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
+podSecurityContext:
+  {}
+
 # Custom k0s to deploy
 #config: |-
 #  apiVersion: k0s.k0sproject.io/v1beta1
 #  ...
 
 # Set "enable" to true when running vcluster in an OpenShift host
-# This will add an extra rule to the deployed role binding in order 
+# This will add an extra rule to the deployed role binding in order
 # to manage service endpoints
 openshift:
   enable: false
@@ -336,6 +353,11 @@ isolation:
   namespace: null
 
   podSecurityStandard: baseline
+
+  # If enabled will add node/proxy permission to the cluster role
+  # in isolation mode
+  nodeProxyPermission:
+    enabled: false
 
   resourceQuota:
     enabled: true
@@ -393,3 +415,8 @@ init:
 
 multiNamespaceMode:
   enabled: false
+
+telemetry:
+  disabled: "false"
+  instanceCreator: "helm"
+  instanceCreatorUID: ""

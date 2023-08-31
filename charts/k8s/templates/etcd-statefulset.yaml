@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if not .Values.etcd.disabled }}
 apiVersion: apps/v1
 kind: StatefulSet
@@ -12,9 +13,10 @@ metadata:
 {{- if .Values.etcd.labels }}
 {{ toYaml .Values.etcd.labels | indent 4 }}
 {{- end }}
-  {{- if .Values.etcd.annotations }}
+  {{- $annotations := merge .Values.globalAnnotations .Values.etcd.annotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.etcd.annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   serviceName: {{ .Release.Name }}-etcd-headless
@@ -33,7 +35,9 @@ spec:
         name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
+        {{- if .Values.etcd.storage.className}}
         storageClassName: {{ .Values.etcd.storage.className }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .Values.etcd.storage.size }}
@@ -170,7 +174,6 @@ spec:
         {{- end }}
         resources:
 {{ toYaml .Values.etcd.resources | indent 10 }}
-{{- end }}
         livenessProbe:
           httpGet:
             path: /health
@@ -191,3 +194,5 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           failureThreshold: 24
+{{- end }}
+{{- end }}

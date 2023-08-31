@@ -1,3 +1,4 @@
+{{- if not .Values.headless }}
 {{- if and .Values.sync.nodes.enableScheduler (not .Values.scheduler.disabled) }}
 apiVersion: apps/v1
 kind: Deployment
@@ -12,9 +13,10 @@ metadata:
 {{- if .Values.scheduler.labels }}
 {{ toYaml .Values.scheduler.labels | indent 4 }}
 {{- end }}
-  {{- if .Values.scheduler.annotations }}
+  {{- $annotations := merge .Values.globalAnnotations .Values.scheduler.annotations }}
+  {{- if $annotations }}
   annotations:
-{{ toYaml .Values.scheduler.annotations | indent 4 }}
+{{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
   replicas: {{ .Values.scheduler.replicas }}
@@ -155,4 +157,5 @@ spec:
         {{- end }}
         resources:
 {{ toYaml .Values.scheduler.resources | indent 10 }}
+{{- end }}
 {{- end }}

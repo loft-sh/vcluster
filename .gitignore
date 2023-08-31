@@ -11,3 +11,5 @@ profile.out
 /cmd/vclusterctl/__debug_bin
 /release
 /cmd/vclusterctl/cmd/charts/
+/pkg/embed/charts/vcluster-*
+/dist

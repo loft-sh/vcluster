@@ -51,30 +51,30 @@ vcluster pause test --namespace test
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 	return cobraCmd
 }
 
 // Run executes the functionality
-func (cmd *PauseCmd) Run(args []string) error {
-	err := cmd.prepare(args[0])
+func (cmd *PauseCmd) Run(ctx context.Context, args []string) error {
+	err := cmd.prepare(ctx, args[0])
 	if err != nil {
 		return err
 	}
 
-	err = lifecycle.PauseVCluster(cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
+	err = lifecycle.PauseVCluster(ctx, cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
 	if err != nil {
 		return err
 	}
 
-	err = lifecycle.DeleteVClusterWorkloads(cmd.kubeClient, "vcluster.loft.sh/managed-by="+args[0], cmd.Namespace, cmd.Log)
+	err = lifecycle.DeleteVClusterWorkloads(ctx, cmd.kubeClient, "vcluster.loft.sh/managed-by="+args[0], cmd.Namespace, cmd.Log)
 	if err != nil {
 		return errors.Wrap(err, "delete vcluster workloads")
 	}
 
-	err = lifecycle.DeleteMultiNamespaceVclusterWorkloads(context.TODO(), cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
+	err = lifecycle.DeleteMultiNamespaceVclusterWorkloads(ctx, cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
 	if err != nil {
 		return errors.Wrap(err, "delete vcluster multinamespace workloads")
 	}
@@ -83,8 +83,8 @@ func (cmd *PauseCmd) Run(args []string) error {
 	return nil
 }
 
-func (cmd *PauseCmd) prepare(vClusterName string) error {
-	vCluster, err := find.GetVCluster(cmd.Context, vClusterName, cmd.Namespace)
+func (cmd *PauseCmd) prepare(ctx context.Context, vClusterName string) error {
+	vCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace)
 	if err != nil {
 		return err
 	}

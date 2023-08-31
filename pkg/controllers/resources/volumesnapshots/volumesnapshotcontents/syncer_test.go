@@ -1,10 +1,11 @@
 package volumesnapshotcontents
 
 import (
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"gotest.tools/assert"
 	"testing"
 	"time"
+
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"gotest.tools/assert"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -142,10 +143,12 @@ func TestSync(t *testing.T) {
 	pModifiedDeletionPolicy.Spec.DeletionPolicy = vModifiedDeletionPolicy.Spec.DeletionPolicy
 
 	vDeleting := vPreProvisioned.DeepCopy()
+	vDeleting.Finalizers = []string{"kubernetes"}
 	deletionTime := metav1.NewTime(time.Now().Add(-5 * time.Second)).Rfc3339Copy()
 	vDeleting.DeletionTimestamp = &deletionTime
 
 	vDeletingWithGCFinalizer := vWithGCFinalizer.DeepCopy()
+	vDeletingWithGCFinalizer.Finalizers = []string{"kubernetes"}
 	vDeletingWithGCFinalizer.DeletionTimestamp = &deletionTime
 
 	pDeletingWithOneFinalizer := pDynamic.DeepCopy()
@@ -264,7 +267,7 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{vDeleting.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pPreProvisioned.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {vDeleting.DeepCopy()},
+				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {}},

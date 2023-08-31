@@ -18,7 +18,12 @@ rules:
     resources: ["nodes", "nodes/status"]
     verbs: ["get", "watch", "list"]
   - apiGroups: [""]
-    resources: ["pods", "nodes/proxy", "nodes/metrics", "nodes/stats"]
+    resources: [ "pods", "nodes/metrics", "nodes/stats"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if and (or .Values.sync.nodes.enabled .Values.rbac.clusterRole.create) (or (not .Values.isolation.enabled) (and .Values.isolation.nodeProxyPermission.enabled .Values.isolation.enabled)) }}
+  - apiGroups: [""]
+    resources: ["nodes/proxy"]
     verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if or (and .Values.sync.nodes.enabled .Values.sync.nodes.syncNodeChanges) .Values.rbac.clusterRole.create }}
@@ -78,5 +83,10 @@ rules:
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.proxy.metricsServer.nodes.enabled }}
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
   {{- end }}
 {{- end }}

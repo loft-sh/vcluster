@@ -9,6 +9,10 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
 data:
   manifests: |-
     {{ .Values.init.manifests | nindent 4 | trim }}
@@ -17,7 +21,7 @@ data:
   charts: |-
   {{- range .Values.init.helm }}
   {{- /* only render this chart entry if either of chart or bundle is defined */}}
-  {{- if or .chart .bundle }}
+  {{- if .chart }}
     - name: {{ .chart.name }}
       repo: {{ .chart.repo }}
       version: {{ .chart.version }}
@@ -27,12 +31,14 @@ data:
       {{- if .chart.password }}
       password: {{ .chart.password }}
       {{- end }}
-      {{- else if .bundle }}
-      bundle: {{ .bundle }}
-      {{- end }}
       {{- if .insecure }}
       insecure: true
       {{- end}}
+  {{- end }}
+  {{- if .bundle }}
+    - bundle: {{ .bundle }}
+  {{- end }}
+  {{- if or .chart .bundle }}
       {{- if or .values .valuesTemplate }}
       values: |-
         {{ (.values | default "") | nindent 8 | trim }}
@@ -43,6 +49,7 @@ data:
       releaseName: {{ .release.name }}
       releaseNamespace: {{ .release.namespace }}
       {{- end }}
+  {{- end }}
   {{- end }}
   {{- end }}
 {{- end }}

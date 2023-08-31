@@ -3,19 +3,18 @@ package values
 import (
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/loft-sh/utils/pkg/helm"
-	"github.com/loft-sh/utils/pkg/log"
 )
 
 var K0SVersionMap = map[string]string{
-	"1.26": "k0sproject/k0s:v1.26.0-k0s.0",
-	"1.25": "k0sproject/k0s:v1.25.5-k0s.0",
-	"1.24": "k0sproject/k0s:v1.24.9-k0s.0",
-	"1.23": "k0sproject/k0s:v1.23.15-k0s.0",
-	"1.22": "k0sproject/k0s:v1.22.17-k0s.0",
+	"1.27": "k0sproject/k0s:v1.27.3-k0s.0",
+	"1.26": "k0sproject/k0s:v1.26.6-k0s.0",
+	"1.25": "k0sproject/k0s:v1.25.11-k0s.0",
+	"1.24": "k0sproject/k0s:v1.24.15-k0s.0",
 }
 
-func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger) (string, error) {
+func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log logr.Logger) (string, error) {
 	serverVersionString := GetKubernetesVersion(chartOptions.KubernetesVersion)
 	serverMinorInt, err := GetKubernetesMinorVersion(chartOptions.KubernetesVersion)
 	if err != nil {
@@ -24,12 +23,12 @@ func getDefaultK0SReleaseValues(chartOptions *helm.ChartOptions, log log.Logger)
 
 	image, ok := K0SVersionMap[serverVersionString]
 	if !ok {
-		if serverMinorInt > 26 {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.26", serverVersionString)
-			image = K0SVersionMap["1.26"]
+		if serverMinorInt > 27 {
+			log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.27", "serverVersion", serverVersionString)
+			image = K0SVersionMap["1.27"]
 		} else {
-			log.Infof("officially unsupported host server version %s, will fallback to virtual cluster version v1.22", serverVersionString)
-			image = K0SVersionMap["1.22"]
+			log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.24", "serverVersion", serverVersionString)
+			image = K0SVersionMap["1.24"]
 		}
 	}
 

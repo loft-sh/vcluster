@@ -2,7 +2,7 @@ package commands
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -47,7 +47,7 @@ func (k *kubectlCommand) DownloadURL() string {
 	// try to fetch latest kubectl version if it fails use default version
 	res, err := http.Get("https://storage.googleapis.com/kubernetes-release/release/stable.txt")
 	if err == nil {
-		content, err := ioutil.ReadAll(res.Body)
+		content, err := io.ReadAll(res.Body)
 		res.Body.Close()
 		if err == nil {
 			kubectlVersion = string(content)

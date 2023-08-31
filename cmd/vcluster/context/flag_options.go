@@ -39,6 +39,7 @@ type VirtualClusterOptions struct {
 	SyncAllNodes        bool     `json:"syncAllNodes,omitempty"`
 	EnableScheduler     bool     `json:"enableScheduler,omitempty"`
 	DisableFakeKubelets bool     `json:"disableFakeKubelets,omitempty"`
+	FakeKubeletIPs      bool     `json:"fakeKubeletIPs,omitempty"`
 	ClearNodeImages     bool     `json:"clearNodeImages,omitempty"`
 	TranslateImages     []string `json:"translateImages,omitempty"`
 
@@ -70,7 +71,10 @@ type VirtualClusterOptions struct {
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
 	// hostpath mapper options
-	RewriteHostPaths         bool `json:"rewriteHostPaths,omitempty"`
+	// this is only needed if using vcluster-hostpath-mapper component
+	// see: https://github.com/loft-sh/vcluster-hostpath-mapper
+	MountPhysicalHostPaths bool `json:"mountPhysicalHostPaths,omitempty"`
+	// To enable FSMounts functionality
 	VirtualLogsPath          string
 	VirtualPodLogsPath       string
 	VirtualContainerLogsPath string
@@ -84,7 +88,11 @@ type VirtualClusterOptions struct {
 	SyncAllSecrets     bool     `json:"syncAllSecrets,omitempty"`
 	SyncAllConfigMaps  bool     `json:"syncAllConfigMaps,omitempty"`
 
+	ProxyMetricsServer         bool `json:"proxyMetricsServer,omitempty"`
+	ServiceAccountTokenSecrets bool `json:"serviceAccountTokenSecrets,omitempty"`
+
 	// DEPRECATED FLAGS
+	RewriteHostPaths                   bool `json:"rewriteHostPaths,omitempty"`
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
 	DeprecatedDisableSyncResources     string
 	DeprecatedOwningStatefulSet        string
@@ -121,6 +129,7 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
 	flags.BoolVar(&options.EnableScheduler, "enable-scheduler", false, "If enabled, will expect a scheduler running in the virtual cluster")
 	flags.BoolVar(&options.DisableFakeKubelets, "disable-fake-kubelets", false, "If disabled, the virtual cluster will not create fake kubelet endpoints to support metrics-servers")
+	flags.BoolVar(&options.FakeKubeletIPs, "fake-kubelet-ips", true, "If enabled, virtual cluster will assign fake ips of type NodeInternalIP to fake the kubelets")
 	flags.BoolVar(&options.ClearNodeImages, "node-clear-image-status", false, "If enabled, when syncing real nodes, the status.images data will be removed from the vcluster nodes")
 
 	flags.StringSliceVar(&options.TranslateImages, "translate-image", []string{}, "Translates image names from the virtual pod to the physical pod (e.g. coredns/coredns=mirror.io/coredns/coredns)")
@@ -154,13 +163,17 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.StringVar(&options.HostMetricsBindAddress, "host-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the host cluster will be exposed at this address")
 	flags.StringVar(&options.VirtualMetricsBindAddress, "virtual-metrics-bind-address", "0", "If set, metrics for the controller manager for the resources managed in the virtual cluster will be exposed at this address")
 
-	flags.BoolVar(&options.RewriteHostPaths, "rewrite-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
+	flags.BoolVar(&options.MountPhysicalHostPaths, "mount-physical-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
 	flags.BoolVar(&options.MultiNamespaceMode, "multi-namespace-mode", false, "If enabled, syncer will create a namespace for each virtual namespace and use the original names for the synced namespaced resources")
 	flags.StringSliceVar(&options.NamespaceLabels, "namespace-labels", []string{}, "Defines one or more labels that will be added to the namespaces synced in the multi-namespace mode. Format: \"labelKey=labelValue\". Multiple values can be passed in a comma-separated string.")
 	flags.BoolVar(&options.SyncAllConfigMaps, "sync-all-configmaps", false, "Sync all configmaps from virtual to host cluster")
 	flags.BoolVar(&options.SyncAllSecrets, "sync-all-secrets", false, "Sync all secrets from virtual to host cluster")
 
+	flags.BoolVar(&options.ProxyMetricsServer, "proxy-metrics-server", false, "Proxy the host cluster metrics server")
+	flags.BoolVar(&options.ServiceAccountTokenSecrets, "service-account-token-secrets", false, "Create secrets for pod service account tokens instead of injecting it as annotations")
+
 	// Deprecated Flags
+	flags.BoolVar(&options.RewriteHostPaths, "rewrite-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
 	flags.BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")
 	flags.BoolVar(&options.DeprecatedUseFakeKubelets, "fake-kubelets", true, "DEPRECATED: use --disable-fake-kubelets instead")
 	flags.BoolVar(&options.DeprecatedUseFakeNodes, "fake-nodes", true, "DEPRECATED: use --sync=-fake-nodes instead")

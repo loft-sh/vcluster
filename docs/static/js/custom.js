@@ -69,7 +69,7 @@ const highlightActiveOnPageLink = function() {
     setTimeout(function() {
         if (!activeHash) {
             const anchors = document.querySelectorAll("h2 > .anchor, h3 > .anchor");
-            
+
             if (anchors.length > 0) {
                 if (document.scrollingElement.scrollTop < 100) {
                     activeHash = anchors[0].attributes.id.value;
@@ -78,7 +78,7 @@ const highlightActiveOnPageLink = function() {
                 } else {
                     for (let i = 0; i < anchors.length; i++) {
                         const anchor = anchors[i];
-        
+
                         if (anchor.parentElement.getBoundingClientRect().top < window.screen.availHeight*0.5) {
                             activeHash = anchor.attributes.id.value;
                         } else {
@@ -87,33 +87,33 @@ const highlightActiveOnPageLink = function() {
                     }
                 }
             }
-    
+
             if (!activeHash) {
                 const firstOnPageNavLink = document.querySelectorAll(".toc-headings:first-child > li:first-child > a");
-    
+
                 if (firstOnPageNavLink.attributes) {
                     activeHash = firstOnPageNavLink.attributes.href.value.substr(1);
                 }
             }
         }
-    
+
         const allLinks = document.querySelectorAll("a");
-        
+
         for (let i = 0; i < allLinks.length; i++) {
             const link = allLinks[i];
             link.classList.remove("active");
-           
+
             if (link.parentElement && link.parentElement.parentElement && link.parentElement.parentElement.tagName == "UL") {
                 link.parentElement.parentElement.classList.remove("active")
             }
         }
-    
+
         const activeLinks = document.querySelectorAll("a[href='#" + activeHash + "'");
-    
+
         for (let i = 0; i < activeLinks.length; i++) {
             const link = activeLinks[i];
             link.classList.add("active");
-           
+
             if (link.parentElement && link.parentElement.parentElement && link.parentElement.parentElement.tagName == "UL") {
                 link.parentElement.parentElement.classList.add("active")
             }
@@ -126,7 +126,7 @@ const hashLinkClickSet = false;
 const allowHashLinkClick = function() {
     if (!hashLinkClickSet) {
         const hashLinkIcons = document.querySelectorAll(".hash-link-icon");
-        
+
         for (let i = 0; i < hashLinkIcons.length; i++) {
             const hashLinkIcon = hashLinkIcons[i];
             hashLinkIcon.addEventListener("mousedown", function() {
@@ -151,6 +151,7 @@ window.addEventListener("click", function (e) {
     }
 });
 
+/*
 const fixCopyButtons = function(e){
     if (e.target.nodeName == "A" || e.target == document) {
         setTimeout(function() {
@@ -163,13 +164,13 @@ const fixCopyButtons = function(e){
                     range.selectNodeContents(e.target.parentElement.querySelector(':scope > .prism-code'));
                     selection.removeAllRanges();
                     selection.addRange(range);
-                    
+
                     document.execCommand('copy');
                     selection.removeAllRanges();
-            
+
                     const original = e.target.textContent;
                     e.target.textContent = 'Copied';
-            
+
                     setTimeout(() => {
                         e.target.textContent = original;
                     }, 1200);
@@ -181,4 +182,4 @@ const fixCopyButtons = function(e){
 
 document.addEventListener("DOMContentLoaded", fixCopyButtons);
 window.addEventListener("popstate", fixCopyButtons);
-window.addEventListener("click", fixCopyButtons);
+window.addEventListener("click", fixCopyButtons);*/

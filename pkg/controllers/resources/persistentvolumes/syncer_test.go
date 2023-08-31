@@ -56,6 +56,7 @@ func TestSync(t *testing.T) {
 	}
 	basePvWithDelTSObjectMeta := metav1.ObjectMeta{
 		Name:              "testpv",
+		Finalizers:        []string{"kubernetes"},
 		DeletionTimestamp: &metav1.Time{Time: time.Now()},
 	}
 	basePPv := &corev1.PersistentVolume{

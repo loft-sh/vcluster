@@ -1,5 +1,7 @@
 isolation:
   enabled: true
+  nodeProxyPermission:
+    enabled: true
   resourceQuota:
     quota:
       services.nodeports: 3

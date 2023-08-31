@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,12 +12,11 @@ import (
 	"github.com/loft-sh/utils/pkg/extract"
 	"github.com/mitchellh/go-homedir"
 	"github.com/otiai10/copy"
-	"github.com/pkg/errors"
 	"mvdan.cc/sh/v3/expand"
 )
 
 var (
-	helmVersion  = "v3.9.4"
+	helmVersion  = "v3.11.1"
 	helmDownload = "https://get.helm.sh/helm-" + helmVersion + "-" + runtime.GOOS + "-" + runtime.GOARCH
 )
 
@@ -78,12 +78,12 @@ func installHelmBinary(extract extract.Extract, archiveFile, installPath, instal
 	if strings.HasSuffix(installFromURL, ".tar.gz") {
 		err := extract.UntarGz(archiveFile, t)
 		if err != nil {
-			return errors.Wrap(err, "extract tar.gz")
+			return fmt.Errorf("extract tar.gz: %w", err)
 		}
 	} else if strings.HasSuffix(installFromURL, ".zip") {
 		err := extract.Unzip(archiveFile, t)
 		if err != nil {
-			return errors.Wrap(err, "extract zip")
+			return fmt.Errorf("extract zip: %w", err)
 		}
 	}
 

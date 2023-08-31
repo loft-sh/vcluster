@@ -1,12 +1,13 @@
 package nodes
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -120,7 +121,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	return updated
 }
 
-func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
+func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
 	if s.useFakeKubelets {
@@ -133,10 +134,24 @@ func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Nod
 		// translate addresses
 		newAddresses := []corev1.NodeAddress{
 			{
-				Address: GetNodeHost(vNode.Name, s.currentNamespace),
+				Address: GetNodeHost(vNode.Name),
 				Type:    corev1.NodeHostName,
 			},
 		}
+
+		if s.fakeKubeletIPs {
+			// create new service for this node
+			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, vNode.Name)
+			if err != nil {
+				return nil, errors.Wrap(err, "get vNode IP")
+			}
+
+			newAddresses = append(newAddresses, corev1.NodeAddress{
+				Address: nodeIP,
+				Type:    corev1.NodeInternalIP,
+			})
+		}
+
 		for _, oldAddress := range translatedStatus.Addresses {
 			if oldAddress.Type == corev1.NodeInternalIP || oldAddress.Type == corev1.NodeInternalDNS || oldAddress.Type == corev1.NodeHostName {
 				continue
@@ -158,7 +173,7 @@ func (s *nodeSyncer) translateUpdateStatus(pNode *corev1.Node, vNode *corev1.Nod
 
 			var nonVClusterPods int64
 			podList := &corev1.PodList{}
-			err := s.podCache.List(context.TODO(), podList, client.MatchingFields{indexPodByRunningNonVClusterNode: pNode.Name})
+			err := s.podCache.List(ctx.Context, podList, client.MatchingFields{indexPodByRunningNonVClusterNode: pNode.Name})
 			if err != nil {
 				klog.Errorf("Error listing pods: %v", err)
 			} else {

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type WithDepth interface {

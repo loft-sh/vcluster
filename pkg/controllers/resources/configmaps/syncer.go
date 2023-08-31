@@ -19,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
@@ -64,7 +63,7 @@ func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 var _ syncer.ControllerModifier = &configMapSyncer{}
 
 func (s *configMapSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return builder.Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
+	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
 }
 
 func (s *configMapSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -75,7 +74,7 @@ func (s *configMapSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Obj
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.ConfigMap)))
+	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ConfigMap)))
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -94,7 +93,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		return ctrl.Result{}, nil
 	}
 
-	newConfigMap := s.translateUpdate(pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
+	newConfigMap := s.translateUpdate(ctx.Context, pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
 	if newConfigMap != nil {
 		translator.PrintChanges(pObj, newConfigMap, ctx.Log)
 	}
@@ -114,7 +113,7 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	}
 
 	podList := &corev1.PodList{}
-	err := ctx.VirtualClient.List(context.TODO(), podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
+	err := ctx.VirtualClient.List(ctx.Context, podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
 	if err != nil {
 		return false, err
 	}
@@ -122,7 +121,7 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	return len(podList.Items) > 0, nil
 }
 
-func mapPods(obj client.Object) []reconcile.Request {
+func mapPods(_ context.Context, obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return nil

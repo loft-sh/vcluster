@@ -21,7 +21,9 @@ type VCluster struct {
 	Namespace  string
 	Created    time.Time
 	AgeSeconds int
+	Context    string
 	Status     string
+	Connected  bool
 }
 
 // ListCmd holds the login cmd flags
@@ -68,13 +70,14 @@ vcluster list --namespace test
 
 // Run executes the functionality
 func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	if cmd.Context == "" {
-		rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
-		if err != nil {
-			return err
-		}
+	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
+	if err != nil {
+		return err
+	}
+	currentContext := rawConfig.CurrentContext
 
-		cmd.Context = rawConfig.CurrentContext
+	if cmd.Context == "" {
+		cmd.Context = currentContext
 	}
 
 	namespace := metav1.NamespaceAll
@@ -82,13 +85,30 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		namespace = cmd.Namespace
 	}
 
-	vClusters, err := find.ListVClusters(cmd.Context, "", namespace)
+	vClusters, err := find.ListVClusters(cobraCmd.Context(), cmd.Context, "", namespace)
 	if err != nil {
 		return err
 	}
 
 	if cmd.output == "json" {
-		bytes, err := json.MarshalIndent(&vClusters, "", "    ")
+		var output []VCluster
+		for _, vcluster := range vClusters {
+			vclusterOutput := VCluster{
+				Name:       vcluster.Name,
+				Namespace:  vcluster.Namespace,
+				Created:    vcluster.Created.Time,
+				AgeSeconds: int(time.Since(vcluster.Created.Time).Round(time.Second).Seconds()),
+				Context:    vcluster.Context,
+				Status:     string(vcluster.Status),
+			}
+			vclusterOutput.Connected = currentContext == find.VClusterContextName(
+				vcluster.Name,
+				vcluster.Namespace,
+				vcluster.Context,
+			)
+			output = append(output, vclusterOutput)
+		}
+		bytes, err := json.MarshalIndent(output, "", "    ")
 		if err != nil {
 			return errors.Wrap(err, "json marshal vclusters")
 		}
@@ -98,7 +118,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		values := [][]string{}
 		for _, vcluster := range vClusters {
 			connected := ""
-			if cmd.Context == find.VClusterContextName(vcluster.Name, vcluster.Namespace, vcluster.Context) {
+			if currentContext == find.VClusterContextName(vcluster.Name, vcluster.Namespace, vcluster.Context) {
 				connected = "True"
 			}
 

@@ -5,17 +5,19 @@ module.exports = {
   tagline: 'Virtual Clusters for Kubernetes',
   url: 'https://vcluster.com',
   baseUrl: __webpack_public_path__,
-  favicon: '/media/vcluster-favicon.png',
+  favicon: '/media/vcluster_symbol.svg',
   organizationName: 'loft-sh', // Usually your GitHub org/user name.
   projectName: 'vcluster', // Usually your repo name.
   themeConfig: {
     colorMode: {
-      disableSwitch: true,
+      defaultMode: 'light',
+      disableSwitch: false,
+      respectPrefersColorScheme: true,
     },
     navbar: {
       logo: {
         alt: 'vcluster',
-        src: '/media/vcluster-logo-dark.svg',
+        src: '/media/vcluster_Horizontal_MonoBranding.svg',
         href: 'https://vcluster.com/',
         target: '_self',
       },
@@ -52,7 +54,8 @@ module.exports = {
       ],
     },
     algolia: {
-      apiKey: "107aff89c55ec52fca3d15dbb824d91c",
+      appId: "K85RIQNFGF",
+      apiKey: "42375731adc726ebb99849e9051aa9b4",
       indexName: "vcluster",
       placeholder: "Search...",
       algoliaOptions: {}

@@ -57,7 +57,7 @@ func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncConte
 		return nil, shouldSkip, err
 	}
 
-	translated, err := s.TranslateMetadata(pObj.DeepCopy())
+	translated, err := s.TranslateMetadata(ctx.Context, pObj.DeepCopy())
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to translate metatdata backwards: %w", err)
 	}

@@ -16,7 +16,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -39,7 +39,7 @@ func NewCertsCommand() *cobra.Command {
 		Short: "Generates control plane certificates",
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return ExecuteCerts(options)
+			return ExecuteCerts(cobraCmd.Context(), options)
 		},
 	}
 
@@ -93,7 +93,7 @@ var certMap = map[string]string{
 	certs.EtcdServerKeyName:  strings.ReplaceAll(certs.EtcdServerKeyName, "/", "-"),
 }
 
-func ExecuteCerts(options *CertsCmd) error {
+func ExecuteCerts(ctx context.Context, options *CertsCmd) error {
 	inClusterConfig := ctrl.GetConfigOrDie()
 	kubeClient, err := kubernetes.NewForConfig(inClusterConfig)
 	if err != nil {
@@ -110,7 +110,7 @@ func ExecuteCerts(options *CertsCmd) error {
 
 	cidr := options.ServiceCIDR
 	if cidr == "" {
-		cidr, err = servicecidr.EnsureServiceCIDRConfigmap(context.Background(), kubeClient, options.Namespace, options.Prefix)
+		cidr, err = servicecidr.EnsureServiceCIDRConfigmap(ctx, kubeClient, kubeClient, options.Namespace, options.Namespace, options.Prefix)
 		if err != nil {
 			klog.Errorf("Failed to retrieve service CIDR range")
 			return err
@@ -118,7 +118,7 @@ func ExecuteCerts(options *CertsCmd) error {
 	}
 
 	secretName := options.Prefix + "-certs"
-	_, err = kubeClient.CoreV1().Secrets(options.Namespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	_, err = kubeClient.CoreV1().Secrets(options.Namespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err == nil {
 		klog.Infof("Certs secret already exists, skip generation")
 		return nil
@@ -177,7 +177,7 @@ func ExecuteCerts(options *CertsCmd) error {
 	}
 
 	// finally create the secret
-	_, err = kubeClient.CoreV1().Secrets(options.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	_, err = kubeClient.CoreV1().Secrets(options.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return errors.Wrap(err, "create certs secret")
 	}
