@@ -299,6 +299,10 @@ securityContext:
   # runAsUser: 12345
   # runAsNonRoot: true
 
+# PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
+podSecurityContext:
+  {}
+
 # Custom k0s to deploy
 #config: |-
 #  apiVersion: k0s.k0sproject.io/v1beta1

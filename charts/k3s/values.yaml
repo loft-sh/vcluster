@@ -326,6 +326,10 @@ securityContext:
   # runAsUser: 12345
   # runAsNonRoot: true
 
+# PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
+podSecurityContext:
+  {}
+
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order
 # to manage service endpoints

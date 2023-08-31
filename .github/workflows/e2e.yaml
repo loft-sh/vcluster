@@ -40,7 +40,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           cache: false
-          go-version: "1.20"
+          go-version: "1.21"
       - name: Setup Just
         uses: extractions/setup-just@v1
       - name: Setup Syft
@@ -49,6 +49,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           install-only: true
+          version: nightly
       - name: Build and save syncer image
         run: |
           set -x
@@ -73,7 +74,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.20"
+          go-version: "1.21"
           cache: false
       - name: Setup Just
         uses: extractions/setup-just@v1
@@ -83,6 +84,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           install-only: true
+          version: nightly
       - name: Build vcluster cli
         run: |
           set -x
@@ -137,6 +139,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+          cache: false
 
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
@@ -218,12 +226,6 @@ jobs:
           echo "======================================================================================================================"
           kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
           exit 1
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.20"
-          cache: false
 
       # Skips NetworkPolicy tests because they require network plugin with support (e.g. Calico)
       - name: Execute e2e tests
