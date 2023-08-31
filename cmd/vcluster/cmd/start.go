@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -53,6 +54,7 @@ import (
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var (
@@ -281,21 +283,21 @@ func BuildControllerContext(ctx context.Context, options *context2.VirtualCluste
 
 	klog.Info("Using physical cluster at " + inClusterConfig.Host)
 	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: options.HostMetricsBindAddress,
-		LeaderElection:     false,
-		Namespace:          options.TargetNamespace,
-		NewClient:          pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
+		Scheme:         scheme,
+		Metrics:        metricsserver.Options{BindAddress: options.HostMetricsBindAddress},
+		LeaderElection: false,
+		Cache:          cache.Options{DefaultNamespaces: map[string]cache.Config{options.TargetNamespace: {}}},
+		NewClient:      pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	virtualClusterManager, err := ctrl.NewManager(virtualClusterConfig, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: options.VirtualMetricsBindAddress,
-		LeaderElection:     false,
-		NewClient:          pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
+		Scheme:         scheme,
+		Metrics:        metricsserver.Options{BindAddress: options.VirtualMetricsBindAddress},
+		LeaderElection: false,
+		NewClient:      pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
 	})
 	if err != nil {
 		return nil, err

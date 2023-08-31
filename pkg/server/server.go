@@ -299,9 +299,11 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 func createCachedClient(ctx context.Context, config *rest.Config, namespace string, restMapper meta.RESTMapper, scheme *runtime.Scheme, registerIndices func(cache cache.Cache) error) (client.Client, error) {
 	// create the new cache
 	clientCache, err := cache.New(config, cache.Options{
-		Scheme:     scheme,
-		Mapper:     restMapper,
-		Namespaces: []string{namespace},
+		Scheme: scheme,
+		Mapper: restMapper,
+		DefaultNamespaces: map[string]cache.Config{
+			namespace: {},
+		},
 	})
 	if err != nil {
 		return nil, err
