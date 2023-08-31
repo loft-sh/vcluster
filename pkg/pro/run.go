@@ -10,7 +10,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 )
 
-// RunLoftCli runs a loft cli command
+// RunLoftCli executes a loft CLI command for the given version with the
+// provided arguments.
+//
+// It determines the loft binary path and sets the working directory, config
+// file, and env vars needed to run the command.
+//
+// The CLI arguments are appended to "pro" as the first arg. The command is
+// executed and any error returned.
 func RunLoftCli(ctx context.Context, version string, args []string) error {
 	var (
 		filePath string

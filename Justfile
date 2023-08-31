@@ -1,5 +1,8 @@
 set positional-arguments
 
+[private]
+alias align := check-structalign
+
 timestamp := `date +%s`
 
 _default:
@@ -20,6 +23,11 @@ release-snapshot:
 # Run golangci-lint for all packages
 lint:
   golangci-lint run $@
+
+# Check struct memory alignment and print potential improvements
+[no-exit-message]
+check-structalign *ARGS:
+  go run github.com/dkorunic/betteralign/cmd/betteralign@latest {{ARGS}} ./...
 
 # --- Kind ---
 
