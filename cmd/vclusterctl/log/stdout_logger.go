@@ -318,7 +318,6 @@ func (s *stdoutLogger) Done(args ...interface{}) {
 
 	s.writeMessage(doneFn, fmt.Sprintln(args...))
 	s.writeMessageToFileLogger(doneFn, args...)
-
 }
 
 func (s *stdoutLogger) Donef(format string, args ...interface{}) {

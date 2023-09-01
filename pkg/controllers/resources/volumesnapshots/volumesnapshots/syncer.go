@@ -118,7 +118,6 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			}
 		}
 		return ctrl.Result{}, nil
-
 	} else if vVS.DeletionTimestamp != nil {
 		if pVS.DeletionTimestamp == nil {
 			ctx.Log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", pVS.Namespace, pVS.Name)

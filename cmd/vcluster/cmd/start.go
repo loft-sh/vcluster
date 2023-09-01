@@ -230,6 +230,8 @@ func BuildControllerContext(ctx context.Context, options *context2.VirtualCluste
 		options.DisableFakeKubelets = true
 	}
 
+	var DefaultNamespaces map[string]cache.Config
+
 	// is multi namespace mode?
 	if options.MultiNamespaceMode {
 		// set options.TargetNamespace to empty because it will later be used in Manager
@@ -241,6 +243,7 @@ func BuildControllerContext(ctx context.Context, options *context2.VirtualCluste
 			options.TargetNamespace = currentNamespace
 		}
 		translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
+		DefaultNamespaces = map[string]cache.Config{options.TargetNamespace: {}}
 	}
 
 	telemetry.Collector.SetOptions(options)
@@ -286,7 +289,7 @@ func BuildControllerContext(ctx context.Context, options *context2.VirtualCluste
 		Scheme:         scheme,
 		Metrics:        metricsserver.Options{BindAddress: options.HostMetricsBindAddress},
 		LeaderElection: false,
-		Cache:          cache.Options{DefaultNamespaces: map[string]cache.Config{options.TargetNamespace: {}}},
+		Cache:          cache.Options{DefaultNamespaces: DefaultNamespaces},
 		NewClient:      pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
 	})
 	if err != nil {

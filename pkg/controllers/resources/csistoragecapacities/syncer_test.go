@@ -21,7 +21,6 @@ import (
 const kind = "CSIStorageCapacity"
 
 func TestSyncHostStorageClass(t *testing.T) {
-
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      "test-csistoragecapacity",
 		Namespace: "test",

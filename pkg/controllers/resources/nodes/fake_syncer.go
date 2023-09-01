@@ -148,7 +148,6 @@ func CreateFakeNode(ctx context.Context,
 	nodeServiceProvider nodeservice.NodeServiceProvider,
 	virtualClient client.Client,
 	name string) error {
-
 	nodeServiceProvider.Lock()
 	defer nodeServiceProvider.Unlock()
 

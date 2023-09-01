@@ -512,7 +512,6 @@ func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) ([]byte, err
 	}
 
 	return newData, nil
-
 }
 
 // returns the types.NamespacedName list of pods for the given namespace

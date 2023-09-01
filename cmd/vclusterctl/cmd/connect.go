@@ -445,7 +445,6 @@ func (cmd *ConnectCmd) setServerIfExposed(ctx context.Context, vClusterName stri
 				loadBalancerMissing = true
 			} else {
 				return false, err
-
 			}
 		}
 		if loadBalancerMissing {
@@ -455,7 +454,6 @@ func (cmd *ConnectCmd) setServerIfExposed(ctx context.Context, vClusterName stri
 			} else if err != nil {
 				return false, err
 			}
-
 		}
 
 		// not a load balancer? Then don't wait

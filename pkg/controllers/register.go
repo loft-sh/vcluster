@@ -256,11 +256,7 @@ func RegisterInitManifestsController(ctx *context.ControllerContext) error {
 			},
 			Metrics:        metricsserver.Options{BindAddress: "0"},
 			LeaderElection: false,
-			Cache: cache.Options{
-				DefaultNamespaces: map[string]cache.Config{
-					ctx.CurrentNamespace: {},
-				},
-			},
+			Cache:          cache.Options{DefaultNamespaces: map[string]cache.Config{ctx.CurrentNamespace: {}}},
 		})
 		if err != nil {
 			return err

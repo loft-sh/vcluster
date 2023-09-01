@@ -21,8 +21,8 @@ release-snapshot:
 # --- Code quality ---
 
 # Run golangci-lint for all packages
-lint:
-  golangci-lint run $@
+lint *ARGS:
+  golangci-lint run {{ARGS}}
 
 # --- Kind ---
 
