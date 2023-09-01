@@ -94,7 +94,6 @@ func relevantObjectsFromPod(pod *corev1.Pod) []relevantObject {
 				Name: v.PersistentVolumeClaim.ClaimName,
 			})
 		}
-
 	}
 	return objects
 }

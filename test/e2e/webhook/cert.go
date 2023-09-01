@@ -36,7 +36,6 @@ type certContext struct {
 func setupServerCert(f *framework.Framework, namespaceName, serviceName string) *certContext {
 	certDir, err := os.MkdirTemp("", "test-e2e-server-cert")
 	if err != nil {
-
 		f.Log.Failf("Failed to create a temp dir for cert generation %v", err)
 	}
 	defer func(path string) {

@@ -411,7 +411,6 @@ func (r *InitManifestsConfigMapReconciler) findChart(chart Chart) (string, error
 				return filepath.Join(tarballDir, f.Name()), nil
 			}
 		}
-
 	}
 
 	return "", nil

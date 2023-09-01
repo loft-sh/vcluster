@@ -40,7 +40,6 @@ func ProcessRegex(regex *regexp.Regexp, input string, translateFunc RegexTransla
 	replacements := []IndexBasedReplaceItem{}
 	allIndexes := regex.FindAllStringSubmatchIndex(input, -1)
 	for _, indexes := range allIndexes {
-
 		if namePos != -1 && indexes[2*namePos] != -1 && indexes[2*namePos+1] != -1 {
 			name := input[indexes[2*namePos]:indexes[2*namePos+1]]
 			namespace := ""

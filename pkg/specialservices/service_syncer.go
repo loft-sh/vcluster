@@ -57,7 +57,6 @@ func SyncKubernetesService(ctx context.Context,
 		newService.Spec.IPFamilies = pObj.Spec.IPFamilies
 		newService.Spec.Ports = translatedPorts
 		if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.ClusterIPs, pObj.Spec.ClusterIPs) {
-
 			// delete & create with correct ClusterIP
 			err = vClient.Delete(ctx, vObj)
 			if err != nil {
@@ -82,5 +81,4 @@ func SyncKubernetesService(ctx context.Context,
 	}
 
 	return nil
-
 }

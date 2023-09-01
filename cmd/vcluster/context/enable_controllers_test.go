@@ -131,9 +131,7 @@ func TestEnableControllers(t *testing.T) {
 
 		disabledFound := sets.New(tc.expectDisabled...).Intersection(foundControllers)
 		assert.Assert(t, is.Len(sets.List(disabledFound), 0), "should be disabled, but found enabled")
-
 	}
-
 }
 
 var csiStorageCapacityV1 = metav1.APIResource{
@@ -214,6 +212,5 @@ func TestDisableMissingAPIs(t *testing.T) {
 		// should be enabled
 		missing := testCase.expectedFound.Difference(actualControllers).UnsortedList()
 		assert.Assert(t, is.Len(missing, 0), "expected %q to be found, but found only: %q", testCase.expectedFound.UnsortedList(), actualControllers.Intersection(testCase.expectedFound).UnsortedList())
-
 	}
 }

@@ -43,7 +43,7 @@ COPY charts/ charts/
 COPY hack/ hack/
 RUN go generate -tags embed_charts ./...
 
-# Set home to "/" in order to for kubectl to automatically pick up vcluster kube config 
+# Set home to "/" in order to for kubectl to automatically pick up vcluster kube config
 ENV HOME /
 
 # Build cmd

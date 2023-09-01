@@ -17,7 +17,6 @@ import (
 const kind = "CSINode"
 
 func TestSync(t *testing.T) {
-
 	pObjectMeta := metav1.ObjectMeta{
 		Name: "test-node",
 	}

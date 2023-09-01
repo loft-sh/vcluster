@@ -302,7 +302,6 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 					chartEmbedded = true
 					cmd.log.Debugf("Using embedded chart: %q", embeddedChartName)
 				}
-
 			}
 		}
 		// rewrite chart location, this is an optimization to avoid
