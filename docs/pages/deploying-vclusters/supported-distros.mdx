@@ -3,13 +3,13 @@ title: Supported distributions
 sidebar_label: Supported distributions
 ---
 
-By default, vcluster will use [k3s](https://github.com/k3s-io/k3s) as the virtual Kubernetes cluster. However, it is not tied to a specific distribution and should work with all certified Kubernetes distributions. By default, we recommend to use k3s, because it has a small footprint and widely adopted, but if your use case requires a different k8s distribution, vcluster currently also supports k0s or vanilla k8s. If that is also not enough, you can also add your custom Kubernetes distribution as outlined below.
+By default, vCluster will use [k3s](https://github.com/k3s-io/k3s) as the virtual Kubernetes cluster. However, it is not tied to a specific distribution and should work with all certified Kubernetes distributions. By default, we recommend to use k3s, because it has a small footprint and widely adopted, but if your use case requires a different k8s distribution, vCluster currently also supports k0s or vanilla k8s. If that is also not enough, you can also add your custom Kubernetes distribution as outlined below.
 
 ## k3s
 
 [k3s](https://github.com/k3s-io/k3s) is a highly available, certified Kubernetes distribution designed for production workloads in unattended, resource-constrained, remote locations or inside IoT appliances.
 
-In order to use k3s as backing cluster, create a vcluster with the following command:
+In order to use k3s as backing cluster, create a vCluster with the following command:
 
 ```
 vcluster create my-vcluster
@@ -25,9 +25,9 @@ Behind the scenes the default helm chart will be deployed, that holds specific c
 
 ## k0s
 
-[k0s](https://github.com/k0sproject/k0s) is an all-inclusive Kubernetes distribution, which is configured with all of the features needed to build a Kubernetes cluster and packaged as a single binary for ease of use. vcluster supports k0s as backing virtual Kubernetes cluster.
+[k0s](https://github.com/k0sproject/k0s) is an all-inclusive Kubernetes distribution, which is configured with all of the features needed to build a Kubernetes cluster and packaged as a single binary for ease of use. vCluster supports k0s as backing virtual Kubernetes cluster.
 
-In order to use k0s as backing cluster, create a vcluster with the following command:
+In order to use k0s as backing cluster, create a vCluster with the following command:
 
 ```
 vcluster create my-vcluster --distro k0s
@@ -43,15 +43,15 @@ Behind the scenes a different helm chart will be deployed (`vcluster-k0s`), that
 
 ## Vanilla k8s
 
-When choosing this option, vcluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vcluster hypervisor.
+When choosing this option, vCluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vCluster hypervisor.
 
-In order to use vanilla k8s as backing cluster, create a vcluster with the following command:
+In order to use vanilla k8s as backing cluster, create a vCluster with the following command:
 
 ```
 vcluster create my-vcluster --distro k8s
 ```
 
-Connect to the vcluster and start using it:
+Connect to the vCluster and start using it:
 ```
 kubectl get ns
 ...
@@ -62,15 +62,15 @@ Behind the scenes a different helm chart will be deployed (`vcluster-k8s`), that
 
 ## eks
 
-When choosing this option, vcluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vcluster hypervisor based on eks images.
+When choosing this option, vCluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vCluster hypervisor based on eks images.
 
-In order to use eks as backing cluster, create a vcluster with the following command:
+In order to use eks as backing cluster, create a vCluster with the following command:
 
 ```
 vcluster create my-vcluster --distro eks
 ```
 
-Connect to the vcluster and start using it:
+Connect to the vCluster and start using it:
 ```
 kubectl get ns
 ...
@@ -81,8 +81,8 @@ Behind the scenes a different helm chart will be deployed (`vcluster-eks`), that
 
 ## Other Distributions
 
-vcluster has no dependencies on any specific Kubernetes distribution, so you should be able to run it with most certified Kubernetes distributions.
-One requirement vcluster has, is that the distribution can be deployed without a scheduler and kubelet, meaning that vcluster just requires the api server, controller manager and data storage of the distribution.
+vCluster has no dependencies on any specific Kubernetes distribution, so you should be able to run it with most certified Kubernetes distributions.
+One requirement vCluster has, is that the distribution can be deployed without a scheduler and kubelet, meaning that vCluster just requires the api server, controller manager and data storage of the distribution.
 
 For single binary distributions, such as k3s or k0s, extra bundled components can usually be disabled through flags, for multi binary distributions, such as vanilla k8s, you just need to deploy the virtual control plane with api server, controller manager and usually etcd.
 Most multi binary distributions work by just overriding the images of the k8s chart in a `values.yaml`, e.g.:
@@ -96,18 +96,18 @@ etcd:
   image: custom-domain.com/custom-etcd:v3.4.16
 ```
 
-And then deploy vcluster with:
+And then deploy vCluster with:
 
 ```
 vcluster create my-vcluster -n test --distro k8s -f values.yaml
 ```
 
 If you want to create a separate chart for the Kubernetes distribution, a good starting point is to copy one of [our distro charts](https://github.com/loft-sh/vcluster/tree/main/charts) and then modifying it to work with your distribution.
-vcluster only needs the following information from the virtual Kubernetes distribution to function properly:
+vCluster only needs the following information from the virtual Kubernetes distribution to function properly:
 1. The api server central authority certificate (usually found at `/pki/ca.crt`)
 2. The api server central authority key (usually found at `/pki/ca.key`)
 3. An admin kube config to contact the virtual Kubernetes control plane (usually found at `/pki/admin.conf`)
 
-For multi binary distributions, vcluster can even create those with a pre-install hook as found in the [k8s chart](https://github.com/loft-sh/vcluster/tree/main/charts/k8s/templates).
+For multi binary distributions, vCluster can even create those with a pre-install hook as found in the [k8s chart](https://github.com/loft-sh/vcluster/tree/main/charts/k8s/templates).
 
-In general, if you need vcluster to support another Kubernetes distribution, we are always happy to help you or accept a pull request in our github repository.
+In general, if you need vCluster to support another Kubernetes distribution, we are always happy to help you or accept a pull request in our github repository.

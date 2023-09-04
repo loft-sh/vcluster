@@ -1,12 +1,12 @@
 ---
-title: Persisting vcluster data
-sidebar_label: Persisting vcluster data
+title: Persisting vCluster data
+sidebar_label: Persisting vCluster data
 ---
 
 import Tabs from '@theme/Tabs'
 import TabItem from '@theme/TabItem'
 
-vcluster uses k3s as Kubernetes distribution for the virtual control plane. The ability to run Kubernetes using a datastore other than etcd sets K3s apart from other Kubernetes distributions. This feature provides flexibility to vcluster operators. The available datastore options allow you to select a datastore that best fits your use case.
+vCluster uses k3s as Kubernetes distribution for the virtual control plane. The ability to run Kubernetes using a datastore other than etcd sets K3s apart from other Kubernetes distributions. This feature provides flexibility to vCluster operators. The available datastore options allow you to select a datastore that best fits your use case.
 
 K3s supports the following datastore options:
 * [Embedded SQLite](https://www.sqlite.org/index.html) (default with Persistent Volume)
@@ -19,7 +19,7 @@ For more information, please take a look at the [k3s documentation](https://ranc
 
 ## Embedded SQLite without Persistent Volume
 
-By default vcluster will deploy k3s to use a persistent volume claim to store the data in. You can also instead use an [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) to store the virtual cluster data. 
+By default vCluster will deploy k3s to use a persistent volume claim to store the data in. You can also instead use an [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) to store the virtual cluster data. 
 
 In order to use an emptyDir to store the data instead of a persistent volume, please create a `values.yaml` with the following contents:
 
@@ -28,7 +28,7 @@ storage:
   persistence: false
 ```
 
-Then upgrade or recreate the vcluster with:
+Then upgrade or recreate the vCluster with:
 
 ```
 vcluster create my-vcluster -n my-vcluster --upgrade -f values.yaml
@@ -40,7 +40,7 @@ This method should only be used for testing purposes, as data will be lost upon 
 
 ## Datastore Options
 
-If you want to use an external datastore such as PostgreSQL, MySQL, or etcd you must set the `K3S_DATASTORE_ENDPOINT` environment variable of the vcluster container so that K3s knows how to connect to it. You may also specify environment variables to configure the authentication and encryption of the connection. The following environment variables are available:
+If you want to use an external datastore such as PostgreSQL, MySQL, or etcd you must set the `K3S_DATASTORE_ENDPOINT` environment variable of the vCluster container so that K3s knows how to connect to it. You may also specify environment variables to configure the authentication and encryption of the connection. The following environment variables are available:
 
 * **K3S_DATASTORE_ENDPOINT**: Specify a PostgresSQL, MySQL, or etcd connection string. This is a string used to describe the connection to the datastore. The structure of this string is specific to each backend and is detailed below.
 * **K3S_DATASTORE_CAFILE**: TLS Certificate Authority (CA) file used to help secure communication with the datastore. If your datastore serves requests over TLS using a certificate signed by a custom certificate authority, you can specify that CA using this parameter so that the K3s client can properly verify the certificate.
@@ -100,7 +100,7 @@ If you specify a database name and it does not exist, the server will attempt to
 
 ### Postgres Example
 
-The following example could be used to launch a vcluster that connects to a PostgresSQL database named k3s. Create a `values.yaml` with:
+The following example could be used to launch a vCluster that connects to a PostgresSQL database named k3s. Create a `values.yaml` with:
 
 ```yaml
 vcluster:
@@ -109,14 +109,14 @@ vcluster:
     value: postgres://username:password@hostname:5432/k3s
 ```
 
-Create the vcluster with:
+Create the vCluster with:
 ```
 vcluster create my-vcluster -n my-vcluster -f values.yaml
 ```
 
 ### MySQL Example
 
-The following example could be used to connect the vcluster to a MySQL database using client certificate authentication. Create a `values.yaml` with:
+The following example could be used to connect the vCluster to a MySQL database using client certificate authentication. Create a `values.yaml` with:
 
 ```yaml
 vcluster:
@@ -143,7 +143,7 @@ volumes:
       path: client.crt
 ```
 
-Create the vcluster with:
+Create the vCluster with:
 ```
 vcluster create my-vcluster -n my-vcluster -f values.yaml
 ```

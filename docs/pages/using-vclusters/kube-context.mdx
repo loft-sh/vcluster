@@ -1,16 +1,16 @@
 ---
-title: Accessing vcluster
+title: Accessing vCluster
 sidebar_label: Kube-Context
 ---
 
-There are multiple ways how you can access a vcluster with an external application like `kubectl`. 
+There are multiple ways how you can access a vCluster with an external application like `kubectl`. 
 
-## Using the vcluster CLI
+## Using the vCluster CLI
 
-Please make sure to [install the vcluster CLI](../getting-started/setup.mdx). Connect to the vcluster via:
+Please make sure to [install the vCluster CLI](../getting-started/setup.mdx). Connect to the vCluster via:
 
 ```
-# Connect and switch the current context to the vcluster
+# Connect and switch the current context to the vCluster
 vcluster connect my-vcluster -n my-vcluster
 
 # Switch back context
@@ -19,14 +19,14 @@ vcluster disconnect
 # Create a separate kube config to use instead of changing the current context
 vcluster connect my-vcluster --update-current=false
 
-# Execute a command directly with vcluster context without changing the current context
+# Execute a command directly with vCluster context without changing the current context
 vcluster connect my-vcluster -- kubectl get namespaces
 vcluster connect my-vcluster -- bash
 ```
 
-Depending on if the vcluster was created within a local Kubernetes cluster or with the `--expose` flag, the CLI will either start port-forwarding or create a context that can be used directly.
+Depending on if the vCluster was created within a local Kubernetes cluster or with the `--expose` flag, the CLI will either start port-forwarding or create a context that can be used directly.
 
-If you have manually [exposed the vcluster](./access.mdx), you can specify the domain where the vcluster is reachable via the `--server` flag:
+If you have manually [exposed the vCluster](./access.mdx), you can specify the domain where the vCluster is reachable via the `--server` flag:
 
 ```
 # Will create a kube context that uses https://my-domain.org as endpoint
@@ -35,11 +35,11 @@ vcluster connect my-vcluster -n my-vcluster --server my-domain.org
 
 ## Connect via Service Accounts
 
-By default, vcluster will update the current kube config to access the vcluster that contains the default admin client certificate and client key to authenticate to the vcluster. This means that all kube configs generated will have cluster admin access within the vcluster.
+By default, vCluster will update the current kube config to access the vCluster that contains the default admin client certificate and client key to authenticate to the vCluster. This means that all kube configs generated will have cluster admin access within the vCluster.
 
-Often this might not be desired. Instead of giving a user admin access to the virtual cluster, you can also use [service account authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens) to the virtual cluster. Let's say we want to create a kube config that only has view access in the virtual cluster. Then you would create a new service account inside the vcluster and assign it the cluster role `view` via a cluster role binding. Then we would generate a service account token and use that instead of the client-cert and client-key inside the kube config.
+Often this might not be desired. Instead of giving a user admin access to the virtual cluster, you can also use [service account authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens) to the virtual cluster. Let's say we want to create a kube config that only has view access in the virtual cluster. Then you would create a new service account inside the vCluster and assign it the cluster role `view` via a cluster role binding. Then we would generate a service account token and use that instead of the client-cert and client-key inside the kube config.
 
-With vcluster version `v0.6.0` and higher you can automatically do this via the CLI:
+With vCluster version `v0.6.0` and higher you can automatically do this via the CLI:
 
 ```
 vcluster connect my-vcluster -n my-vcluster --service-account kube-system/my-user --cluster-role view
@@ -87,13 +87,13 @@ kubectl create namespace test
 Error from server (Forbidden): namespaces is forbidden: User "system:serviceaccount:kube-system:my-user" cannot create resource "namespaces" in API group "" at the cluster scope
 ```
 
-You can replace the token field in the kube config with any other service account token from inside the vcluster to act as this service account against the vcluster. For more information about service accounts and tokens, please refer to the [official Kubernetes documentation](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens).
+You can replace the token field in the kube config with any other service account token from inside the vCluster to act as this service account against the vCluster. For more information about service accounts and tokens, please refer to the [official Kubernetes documentation](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens).
 
-## Retrieving the kube config from the vcluster secret
+## Retrieving the kube config from the vCluster secret
 
-There might be cases where connecting to a vcluster with the CLI is not feasible or the CLI cannot be installed. For such cases, you can retrieve the vcluster kube config from a secret that is created automatically in the vcluster namespace.
+There might be cases where connecting to a vCluster with the CLI is not feasible or the CLI cannot be installed. For such cases, you can retrieve the vCluster kube config from a secret that is created automatically in the vCluster namespace.
 
-The secret is prefixed with `vc-` and ends with the vcluster name, so a vcluster called `my-vcluster` in namespace `test` would create a secret called `vc-my-vcluster` in the namespace `test`. You can retrieve the kube config after the vcluster has started via:
+The secret is prefixed with `vc-` and ends with the vCluster name, so a vCluster called `my-vcluster` in namespace `test` would create a secret called `vc-my-vcluster` in the namespace `test`. You can retrieve the kube config after the vCluster has started via:
 
 ```
 kubectl get secret vc-my-vcluster -n test --template={{.data.config}} | base64 -D
@@ -123,23 +123,23 @@ users:
     client-key-data: LS0tLS...
 ```
 
-By default, the server `https://localhost:8443` is used that would work if you port forward the vcluster with:
+By default, the server `https://localhost:8443` is used that would work if you port forward the vCluster with:
 
 ```
 kubectl port-forward my-vcluster-0 -n test 8443
 ```
 
 :::tip
-With the syncer flag `--out-kube-config-secret-namespace` you can specify a different namespace where the kube config secret should be created in. Keep in mind that you have to manually apply RBAC permissions for the vcluster to allow creation and retrieving of secrets in that namespace.
+With the syncer flag `--out-kube-config-secret-namespace` you can specify a different namespace where the kube config secret should be created in. Keep in mind that you have to manually apply RBAC permissions for the vCluster to allow creation and retrieving of secrets in that namespace.
 :::
 
-### Externally accessible vclusters
+### Externally accessible vClusters
 
-If you have [exposed the vcluster](./access.mdx), you can also tell the vcluster to create the kube config secret with another server endpoint through the `--out-kube-config-server` flag.
+If you have [exposed the vCluster](./access.mdx), you can also tell the vCluster to create the kube config secret with another server endpoint through the `--out-kube-config-server` flag.
 
-For example, if you want to expose a vcluster at `https://my-domain.org`, you can create a `values.yaml` like this:
+For example, if you want to expose a vCluster at `https://my-domain.org`, you can create a `values.yaml` like this:
 ```yaml
-# Make sure vcluster will sign the server certs for my-domain.org
+# Make sure vCluster will sign the server certs for my-domain.org
 # and use it in the generated kube config secret.
 syncer:
   extraArgs:
@@ -147,13 +147,13 @@ syncer:
   - --out-kube-config-server=https://my-domain.org
 ```
 
-Then you can create or upgrade the vcluster with:
+Then you can create or upgrade the vCluster with:
 
 ```
 vcluster create my-vcluster -n my-vcluster --upgrade --connect=false -f values.yaml
 ```
 
-Wait until the vcluster has started and you can retrieve the kube config via:
+Wait until the vCluster has started and you can retrieve the kube config via:
 
 ```
 kubectl get secret vc-my-vcluster -n my-vcluster --template={{.data.config}} | base64 -D

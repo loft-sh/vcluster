@@ -3,14 +3,14 @@ title: Integrated CoreDNS
 sidebar_label: Integrated CoreDNS 
 ---
 
-Normal deployment of vcluster consists usually of two pods per vcluster:
+Normal deployment of vCluster consists usually of two pods per vCluster:
 - Vcluster Pod
     - `APIServer` container 
     - `syncer` container
 - `CoreDNS` Pod
 
-As part of the vcluster.pro offering we have added the functionality of integrating the
-CoreDNS as part of the vcluster syncer itself. As a result of this, when enabled there will only be
+As part of the vCluster.pro offering we have added the functionality of integrating the
+CoreDNS as part of the vCluster syncer itself. As a result of this, when enabled there will only be
 a single pod containing all 3 components 
 - Vcluster Pod
     - `APIServer` container
@@ -18,15 +18,15 @@ a single pod containing all 3 components
 
 ### Enabling Integrated CoreDNS
 
-To enable this feature, simply create the vcluster with the following values:
+To enable this feature, simply create the vCluster with the following values:
 
 ```yaml
 coredns:
   integrated: true
 ```
 
-This would apply sane defaults to get started with a vcluster deployed with an CoreDNS compilied into
-the vcluster syncer itself.
+This would apply sane defaults to get started with a vCluster deployed with an CoreDNS compilied into
+the vCluster syncer itself.
 
 ### Advanced Configuration
 
@@ -34,8 +34,8 @@ For more advanced configuration of the integrated CoreDNS itself follow the belo
 
 #### Custom CoreDNS Configuration
 
-vcluster.pro provides and option to pass in your custom CoreDNS configuration which can be passed to extend the default one used by vcluster.
-To utilize this, one needs to pass the `Corefile` configuration as part of a configmap named `coredns-custom` in the same namespace as the vcluster
+The platform provides an option to pass in your custom CoreDNS configuration which can be passed to extend the default one used by vCluster.
+To utilize this, one needs to pass the `Corefile` configuration as part of a configmap named `coredns-custom` in the same namespace as the vCluster
 
 ```yaml
 apiVersion: v1

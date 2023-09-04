@@ -6,24 +6,24 @@ sidebar_label: Telemetry
 import TelemetryOptOutSegment from '../fragments/telemetry-opt-out.mdx'
 
 
-In this section, you will find a description of the vcluster telemetry - why we are collecting telemetry, what data points are we gathering, where we are sending the data, and how to opt-out.
+In this section, you will find a description of the vCluster telemetry - why we are collecting telemetry, what data points are we gathering, where we are sending the data, and how to opt-out.
 
 
 ### Why do we collect telemetry
 
-Because vcluster is a freely available open source project, we as maintainers have a very limited idea of how the project is being used, and very limited possibilities to gather this information from the users. Without reliable information, it is difficult to make decisions about the prioritization of features, test automation or bug fixes. Deprecation of the flags and features turns into guesswork, and removal becomes nearly impossible.
+Because vCluster is a freely available open source project, we as maintainers have a very limited idea of how the project is being used, and very limited possibilities to gather this information from the users. Without reliable information, it is difficult to make decisions about the prioritization of features, test automation or bug fixes. Deprecation of the flags and features turns into guesswork, and removal becomes nearly impossible.
 To get to the next step in maturing the project, and ensure long-term maintainability, we will be making decisions about feature deprecation, prioritizing test coverage, etc., and we want these decisions to be data-driven.
 
 
 ### What are we collecting and how
 
-First of all, we want to emphasize that we are not interested in collecting data about individuals that are using vcluster, we are collecting data about how it is being used. This entails information about the configuration of vcluster, and the environment where it is deployed (e.g. Kubernetes version, CPU architecture, etc.).
+First of all, we want to emphasize that we are not interested in collecting data about individuals that are using vCluster, we are collecting data about how it is being used. This entails information about the configuration of vCluster, and the environment where it is deployed (e.g. Kubernetes version, CPU architecture, etc.).
 
-Each vcluster is deployed with a "syncer" component that contains all controllers that make a virtual cluster function. This component will be collecting the data and uploading it to our backend at regular intervals (once every 1-5 minutes). We provide a documented example of the telemetry payload that would be uploaded, and of course, the source code responsible for this is fully available in [our repo](https://github.com/loft-sh/vcluster). The telemetry backend is hosted at this address - "https://admin.loft.sh/analytics/v1/vcluster/". The ingestion service is written and maintained by the vcluster maintainers. The data is saved into a relational database with strict access control.
+Each vCluster is deployed with a "syncer" component that contains all controllers that make a virtual cluster function. This component will be collecting the data and uploading it to our backend at regular intervals (once every 1-5 minutes). We provide a documented example of the telemetry payload that would be uploaded, and of course, the source code responsible for this is fully available in [our repo](https://github.com/loft-sh/vcluster). The telemetry backend is hosted at this address - "https://admin.loft.sh/analytics/v1/vcluster/". The ingestion service is written and maintained by the vCluster maintainers. The data is saved into a relational database with strict access control.
 
 ### Telemetry payload example
 
-Below you can find an example of the payload that vcluster syncer component would send to our telemetry backend. Some fields are self-explanatory, and some are explained below the example.
+Below you can find an example of the payload that vCluster syncer component would send to our telemetry backend. Some fields are self-explanatory, and some are explained below the example.
 
 ```json
 {
@@ -78,14 +78,14 @@ Below you can find an example of the payload that vcluster syncer component woul
 }
 ```
 
-- `instanceProperties.uid` - is a unique identifier of a particular instance. It is used to deduplicate data sent over time. The `.metadata.uid` value of the vcluster PVC or Service resource is used as value.
-- `instanceProperties.instanceCreatorUID` - is a machine identifier attached by the vcluster CLI to an instance during creation. We use [machineid](https://github.com/denisbrodbeck/machineid) library to get the identifier, and then hash it for privacy.
+- `instanceProperties.uid` - is a unique identifier of a particular instance. It is used to deduplicate data sent over time. The `.metadata.uid` value of the vCluster PVC or Service resource is used as value.
+- `instanceProperties.instanceCreatorUID` - is a machine identifier attached by the vCluster CLI to an instance during creation. We use [machineid](https://github.com/denisbrodbeck/machineid) library to get the identifier, and then hash it for privacy.
 - `instanceProperties.syncerFlags` - contains a JSON payload that can have two fields: `setFlags` - list of the non-default syncer flags that were set, but the values are not collected, we only set `true` as value for each key; `controllers` - list of the resource sync controllers that have been enabled in addition to the default one.
 - `events` - an array of events for which we want to track duration and outcome (success/failure). We are sending just the GVK of the resource, but never any content.
-- `token` - this is a token generated in memory from a static key that is part of the vcluster binary. It is used to validate that the payload is being received from a real vcluster binary.
+- `token` - this is a token generated in memory from a static key that is part of the vCluster binary. It is used to validate that the payload is being received from a real vCluster binary.
 
 ### Telemetry opt-out process
 
-Below, you can find the instructions for disabling the telemetry based on the tool that you use to install or upgrade your vcluster instances.
+Below, you can find the instructions for disabling the telemetry based on the tool that you use to install or upgrade your vCluster instances.
 
 <TelemetryOptOutSegment/>

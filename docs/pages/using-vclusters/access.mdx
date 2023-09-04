@@ -1,12 +1,12 @@
 ---
-title: Accessing vcluster
+title: Accessing vCluster
 sidebar_label: Access
 ---
 
-By default, vcluster is only reachable via port-forwarding in remote clusters. However, this means that you need access to the host cluster, where the vcluster is running, in order to access it. To directly access vcluster without port-forwarding, you can use one of the following methods.
+By default, vCluster is only reachable via port-forwarding in remote clusters. However, this means that you need access to the host cluster, where the vCluster is running, in order to access it. To directly access vCluster without port-forwarding, you can use one of the following methods.
 
 :::info Local Kubernetes Clusters
-If you are using a local Kubernetes cluster, such as docker-desktop, rancher-desktop, KinD or minikube, vcluster will automatically connect to it without the need of port-forwarding.
+If you are using a local Kubernetes cluster, such as docker-desktop, rancher-desktop, KinD or minikube, vCluster will automatically connect to it without the need of port-forwarding.
 :::
 
 ### Via Ingress
@@ -17,14 +17,14 @@ An [Ingress Controller](https://kubernetes.io/docs/concepts/services-networking/
 - [Traefik Proxy](https://doc.traefik.io/traefik/routing/routers/#passthrough)
 - [Emissary](https://www.getambassador.io/docs/emissary/latest/topics/using/tcpmappings#tls-termination)
 
-Make sure your ingress controller is installed and healthy on the cluster that will host your virtual clusters. Create the following `ingress.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
+Make sure your ingress controller is installed and healthy on the cluster that will host your virtual clusters. Create the following `ingress.yaml` for a vCluster called `my-vcluster` in the namespace `my-vcluster`:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    # We need the ingress to pass through ssl traffic to the vcluster
+    # We need the ingress to pass through ssl traffic to the vCluster
     # This only works for the nginx-ingress (enable via --enable-ssl-passthrough
     # https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough )
     # for other ingress controllers please check their respective documentation.
@@ -58,10 +58,10 @@ If you are using the ingress nginx controller, please make sure you have [enable
 :::
 
 :::warning SSL Passthrough required
-In order for this ingress to work correctly, you will need to enable SSL passthrough as TLS termination has to happen at the vcluster level and not ingress controller level. If you cannot do that, please take a look below for using an ingress without ssl passthrough.
+In order for this ingress to work correctly, you will need to enable SSL passthrough as TLS termination has to happen at the vCluster level and not ingress controller level. If you cannot do that, please take a look below for using an ingress without ssl passthrough.
 :::
 
-Now create a `values.yaml` to create the vcluster with:
+Now create a `values.yaml` to create the vCluster with:
 ```yaml
 syncer:
   extraArgs:
@@ -78,7 +78,7 @@ Retrieve the kube config via:
 vcluster connect my-vcluster -n my-vcluster --update-current=false --server=https://my-vcluster.example.com
 ```
 
-Access the vcluster:
+Access the vCluster:
 ```
 export KUBECONFIG=./kubeconfig.yaml
 
@@ -122,7 +122,7 @@ With this configuration you will need to use [service account authentication](./
 vcluster connect my-vcluster -n my-vcluster --server=https://my-vcluster.example.com --service-account admin --cluster-role cluster-admin --insecure
 ```
 
-Then access the vcluster:
+Then access the vCluster:
 ```
 # Run any kubectl command
 kubectl get ns
@@ -130,17 +130,17 @@ kubectl get ns
 
 ### Via LoadBalancer service
 
-The easiest way is to use the flag `--expose` in `vcluster create` to tell vcluster to use a LoadBalancer service:
+The easiest way is to use the flag `--expose` in `vcluster create` to tell vCluster to use a LoadBalancer service:
 
 ```bash
-# Create a new vcluster with a LoadBalancer
+# Create a new vCluster with a LoadBalancer
 vcluster create my-vcluster --expose
 
-# Run any kube command in the vcluster
+# Run any kube command in the vCluster
 kubectl get ns
 ```
 
-Thats it, your vcluster is now externally reachable through a LoadBalancer service.
+Thats it, your vCluster is now externally reachable through a LoadBalancer service.
 
 :::warning Check the costs first
 Even though using a LoadBalancer is the easiest option, if you use a cloud provider it will be costly to create one Loadbalancer per cluster. Check your cloud vendor about the cost of each LoadBalancer. In general using an Ingress is the most cost effective method.
@@ -148,7 +148,7 @@ Even though using a LoadBalancer is the easiest option, if you use a cloud provi
 
 #### Manual LoadBalancer service creation
 
-Instead of using the built-in flag `--expose`, you can also create the following `load-balancer.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster` yourself:
+Instead of using the built-in flag `--expose`, you can also create the following `load-balancer.yaml` for a vCluster called `my-vcluster` in the namespace `my-vcluster` yourself:
 ```yaml
 apiVersion: v1
 kind: Service
@@ -172,14 +172,14 @@ Create the resource in the namespace via:
 kubectl apply -f load-balancer.yaml
 ```
 
-Find out the external ip via `kubectl get svc vcluster-loadbalancer -n my-vcluster`:
+Find out the external ip via `kubectl get svc vCluster-loadbalancer -n my-vcluster`:
 ```
 kubectl get svc vcluster-loadbalancer -n my-vcluster
 NAME                    TYPE           CLUSTER-IP    EXTERNAL-IP    PORT(S)         AGE
 vcluster-loadbalancer   LoadBalancer   10.68.9.239   x.x.x.x        443:32678/TCP   7m15s
 ```
 
-Now create a `values.yaml` to create the vcluster with:
+Now create a `values.yaml` to create the vCluster with:
 ```yaml
 syncer:
   extraArgs:
@@ -197,7 +197,7 @@ Update the current kube config via:
 vcluster connect my-vcluster -n my-vcluster --server=https://x.x.x.x
 ```
 
-Access the vcluster:
+Access the vCluster:
 ```
 # Run any kube context command
 kubectl get ns
@@ -205,7 +205,7 @@ kubectl get ns
 
 ### Via NodePort service
 
-You can also expose the vcluster via a NodePort service. Create the following `nodeport.yaml` for a vcluster called `my-vcluster` in the namespace `my-vcluster`:
+You can also expose the vCluster via a NodePort service. Create the following `nodeport.yaml` for a vCluster called `my-vcluster` in the namespace `my-vcluster`:
 
 ```yaml
 apiVersion: v1
@@ -245,7 +245,7 @@ gke-cluster-1-default-pool-8f0bb8bb-vl79   Ready    <none>   6d    v1.20.6-gke.1
 gke-cluster-1-default-pool-8f0bb8bb-wpkp   Ready    <none>   6d    v1.20.6-gke.1000   10.156.0.16   z.z.z.z         Container-Optimized OS from Google   5.4.104+         containerd://1.4.3
 ```
 
-Now create a `values.yaml` to create the vcluster with:
+Now create a `values.yaml` to create the vCluster with:
 ```yaml
 syncer:
   extraArgs:
@@ -262,7 +262,7 @@ Retrieve the kube config via:
 vcluster connect my-vcluster -n my-vcluster --update-current=false --server=https://x.x.x.x
 ```
 
-Access the vcluster:
+Access the vCluster:
 ```
 export KUBECONFIG=./kubeconfig.yaml
 
@@ -272,7 +272,7 @@ kubectl get ns
 
 ### From Host Cluster
 
-In order to access the virtual cluster from within the host cluster, you can directly connect to the vcluster service. Make sure you can access that service and then create a kube config in the following form:
+In order to access the virtual cluster from within the host cluster, you can directly connect to the vCluster service. Make sure you can access that service and then create a kube config in the following form:
 ```
 vcluster connect my-vcluster -n my-vcluster --server=my-vcluster.my-vcluster --insecure --update-current=false
 ```

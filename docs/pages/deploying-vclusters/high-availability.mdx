@@ -4,13 +4,13 @@ sidebar_label: High Availability
 ---
 
 
-vcluster supports high-availability with k3s as well as the vanilla k8s distribution. k0s is currently not supported for high availability setup of vcluster.
+vCluster supports high-availability with k3s as well as the vanilla k8s distribution. k0s is currently not supported for high availability setup of vCluster.
 
 ## k3s
 
 ### Enabling High Availability
 
-In order to run vcluster with k3s as Kubernetes distribution in high availability mode, the following steps are required:
+In order to run vCluster with k3s as Kubernetes distribution in high availability mode, the following steps are required:
 
 * create and use an [external datastore](../operator/external-datastore.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
 * run two or more k3s pods that will serve the Kubernetes API and run other control plane services
@@ -39,13 +39,13 @@ coredns:
   replicas: 2
 ```
 
-Then create the vcluster with the following command:
+Then create the vCluster with the following command:
 
 ```
 vcluster create ... --connect=false -f values.yaml
 ```
 
-Check that vcluster including the control plane is running correctly:
+Check that vCluster including the control plane is running correctly:
 
 ```
 kubectl get pods -n vcluster
@@ -56,7 +56,7 @@ vcluster-54fb5dd76-92szq                            2/2     Running   0         
 vcluster-54fb5dd76-ntbrh                            2/2     Running   0          3m1s
 ```
 
-Now connect to the vcluster:
+Now connect to the vCluster:
 
 ```
 vcluster connect vcluster -n vcluster
@@ -75,7 +75,7 @@ Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/char
 
 ### Enabling High Availability
 
-In order to run vcluster in high availability mode, create a `values.yaml` in the following form:
+In order to run vCluster in high availability mode, create a `values.yaml` in the following form:
 
 ```
 # Enable HA mode
@@ -102,12 +102,12 @@ coredns:
   replicas: 3
 ```
 
-Then create the vcluster with the following command:
+Then create the vCluster with the following command:
 ```
 vcluster create ... --connect=false --distro k8s -f values.yaml
 ```
 
-Check that vcluster including the control plane are running correctly:
+Check that vCluster including the control plane are running correctly:
 ```
 kubectl get po -n vcluster
 NAME                                                READY   STATUS    RESTARTS   AGE
@@ -128,7 +128,7 @@ vcluster-etcd-1                                     1/1     Running   0         
 vcluster-etcd-2                                     1/1     Running   0          29m
 ```
 
-Now connect to the vcluster:
+Now connect to the vCluster:
 ```
 vcluster connect vcluster-1 -n host-namespace-1
 
@@ -139,10 +139,10 @@ kubectl get ns
 ```
 
 ### Enable HA in rootless mode
-Rootless mode means running vcluster without root user privileges in container, making host k8s cluster more secure.
+Rootless mode means running vCluster without root user privileges in container, making host k8s cluster more secure.
 You can find more about rootless mode [here](../operator/restricted-hosts.mdx).
 
-Below is HA configuration for running rootless vcluster with vanilla Kubernetes distribution.
+Below is HA configuration for running rootless vCluster with vanilla Kubernetes distribution.
 ```
 # Enable HA mode
 enableHA: true
