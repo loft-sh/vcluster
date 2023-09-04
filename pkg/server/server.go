@@ -139,7 +139,6 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 			return err
 		}
 		return nil
-
 	})
 	if err != nil {
 		return nil, err
@@ -299,9 +298,9 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 func createCachedClient(ctx context.Context, config *rest.Config, namespace string, restMapper meta.RESTMapper, scheme *runtime.Scheme, registerIndices func(cache cache.Cache) error) (client.Client, error) {
 	// create the new cache
 	clientCache, err := cache.New(config, cache.Options{
-		Scheme:     scheme,
-		Mapper:     restMapper,
-		Namespaces: []string{namespace},
+		Scheme:            scheme,
+		Mapper:            restMapper,
+		DefaultNamespaces: map[string]cache.Config{namespace: {}},
 	})
 	if err != nil {
 		return nil, err
@@ -354,7 +353,7 @@ func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Ha
 	if c.FlowControl != nil {
 		workEstimatorCfg := flowcontrolrequest.DefaultWorkEstimatorConfig()
 		requestWorkEstimator := flowcontrolrequest.NewWorkEstimator(
-			c.StorageObjectCountTracker.Get, c.FlowControl.GetInterestedWatchCount, workEstimatorCfg)
+			c.StorageObjectCountTracker.Get, c.FlowControl.GetInterestedWatchCount, workEstimatorCfg, c.FlowControl.GetMaxSeats)
 		handler = filterlatency.TrackCompleted(handler)
 		handler = genericfilters.WithPriorityAndFairness(handler, c.LongRunningFunc, c.FlowControl, requestWorkEstimator)
 		handler = filterlatency.TrackStarted(handler, c.TracerProvider, "priorityandfairness")

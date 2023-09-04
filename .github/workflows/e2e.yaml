@@ -152,16 +152,6 @@ jobs:
           version: "v0.20.0"
           image: kindest/node:v1.27.3
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-          cache: false
-
-      - name: Generate Embedded Helm Charts
-        run: |
-          go generate ./...
-
       - name: Testing kind cluster set-up
         run: |
           set -x
@@ -239,7 +229,7 @@ jobs:
         working-directory: ${{ matrix.test-suite-path }}
         run: |
           set -x
-          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
+          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
         continue-on-error: true
 
       - name: Print logs if e2e tests fail

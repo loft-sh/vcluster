@@ -223,7 +223,6 @@ func (c *client) pull(ctx context.Context, name string, options UpgradeOptions) 
 }
 
 func (c *client) login(ctx context.Context, options UpgradeOptions) error {
-
 	url, err := url.Parse(options.Repo)
 	if err != nil {
 		return fmt.Errorf("error login in, repo is not a valid URL: %s", options.Repo)

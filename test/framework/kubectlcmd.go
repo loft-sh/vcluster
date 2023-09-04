@@ -52,7 +52,6 @@ func (tk *TestKubeconfig) KubectlCmd(args ...string) *exec.Cmd {
 		if tk.KubeContext != "" {
 			defaultArgs = append(defaultArgs, "--"+clientcmd.FlagContext+"="+tk.KubeContext)
 		}
-
 	} else {
 		if tk.CertDir != "" {
 			defaultArgs = append(defaultArgs,

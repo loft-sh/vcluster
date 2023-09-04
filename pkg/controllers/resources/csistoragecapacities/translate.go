@@ -95,7 +95,6 @@ func (s *csistoragecapacitySyncer) translateUpdateBackwards(ctx *synccontext.Syn
 	if scName != vObj.StorageClassName {
 		updated = translator.NewIfNil(updated, vObj)
 		updated.StorageClassName = scName
-
 	}
 
 	if !equality.Semantic.DeepEqual(vObj.NodeTopology, pObj.NodeTopology) {

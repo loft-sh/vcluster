@@ -84,7 +84,6 @@ func CreateJoinControlPlaneKubeConfigFiles(outDir string, cfg *InitConfiguration
 // createKubeConfigFiles creates all the requested kubeconfig files.
 // If kubeconfig files already exists, they are used only if evaluated equal; otherwise an error is returned.
 func createKubeConfigFiles(outDir string, cfg *InitConfiguration, kubeConfigFileNames ...string) error {
-
 	// gets the KubeConfigSpecs, actualized for the current InitConfiguration
 	specs, err := getKubeConfigSpecs(cfg)
 	if err != nil {
@@ -136,7 +135,6 @@ func getKubeConfigSpecs(cfg *InitConfiguration) (map[string]*kubeConfigSpec, err
 
 // buildKubeConfigFromSpec creates a kubeconfig object for the given kubeConfigSpec
 func buildKubeConfigFromSpec(spec *kubeConfigSpec, clustername string, notAfter *time.Time) (*clientcmdapi.Config, error) {
-
 	// If this kubeconfig should use token
 	if spec.TokenAuth != nil {
 		// create a kubeconfig with a token
