@@ -26,7 +26,7 @@ It is possible to run multiple vClusters inside the same namespace and you can e
 The core idea of virtual clusters is to provision isolated Kubernetes control planes (e.g. API servers) that run on top of "real" Kubernetes clusters. When working with the virtual cluster's API server, resources first only exist in the virtual cluster. However, some low-level Kubernetes resources need to be synchronized to the underlying cluster.
 
 ### High-Level = Purely Virtual
-Generally, all Kubernetes resource objects that you create using the vCluster API server are stored in the data store of the vCluster (sqlite by default, see [external datastore](../operator/external-datastore.mdx) for more options). That applies in particular to all higher level Kubernetes resources, such as Deployments, StatefulSets, CRDs, etc. These objects only exist inside the virtual cluster and never reach the API server or data store (etcd) of the underlying host cluster.
+Generally, all Kubernetes resource objects that you create using the vCluster API server are stored in the data store of the vCluster (sqlite by default, see [external datastore](../deploying-vclusters/persistence.mdx) for more options). That applies in particular to all higher level Kubernetes resources, such as Deployments, StatefulSets, CRDs, etc. These objects only exist inside the virtual cluster and never reach the API server or data store (etcd) of the underlying host cluster.
 
 ### Low-Level = Sync'd Resources
 To be able to actually start containers, the vCluster synchronizes certain low-level resources (e.g. Pods, ConfigMaps mounted in Pods) to the underlying host namespace, so that the scheduler of the underlying host cluster can schedule these pods.

@@ -12,7 +12,7 @@ vCluster supports high-availability with k3s as well as the vanilla k8s distribu
 
 In order to run vCluster with k3s as Kubernetes distribution in high availability mode, the following steps are required:
 
-* create and use an [external datastore](../operator/external-datastore.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
+* create and use an [external datastore](./persistence.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
 * run two or more k3s pods that will serve the Kubernetes API and run other control plane services
 
 First create a `values.yaml` in the following form and make sure to change the connection string in `K3S_DATASTORE_ENDPOINT`:
@@ -140,7 +140,7 @@ kubectl get ns
 
 ### Enable HA in rootless mode
 Rootless mode means running vCluster without root user privileges in container, making host k8s cluster more secure.
-You can find more about rootless mode [here](../operator/restricted-hosts.mdx).
+You can find more about rootless mode [here](../security/rootless-mode.mdx).
 
 Below is HA configuration for running rootless vCluster with vanilla Kubernetes distribution.
 ```
