@@ -29,6 +29,7 @@ type VCluster struct {
 	Status        Status
 	Created       metav1.Time
 	Context       string
+	Version       string
 	ClientFactory clientcmd.ClientConfig `json:"-"`
 }
 
@@ -207,6 +208,8 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	created := object.GetCreationTimestamp()
 	releaseName := ""
 	status := ""
+	version := ""
+
 	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation] == "true" {
 		status = string(StatusPaused)
 	} else {
@@ -226,12 +229,36 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 		status = string(StatusUnknown)
 	}
 
+	switch vclusterObject := object.(type) {
+	case *appsv1.StatefulSet:
+		for _, container := range vclusterObject.Spec.Template.Spec.Containers {
+			if container.Name == "syncer" {
+				tag := strings.Split(container.Image, ":")
+				if len(tag) == 2 {
+					version = tag[1]
+				}
+				break
+			}
+		}
+	case *appsv1.Deployment:
+		for _, container := range vclusterObject.Spec.Template.Spec.Containers {
+			if container.Name == "syncer" {
+				tag := strings.Split(container.Image, ":")
+				if len(tag) == 2 {
+					version = tag[1]
+				}
+				break
+			}
+		}
+	}
+
 	return VCluster{
 		Name:          release,
 		Namespace:     namespace,
 		Status:        Status(status),
 		Created:       created,
 		Context:       context,
+		Version:       version,
 		ClientFactory: kubeClientConfig,
 	}, nil
 }
