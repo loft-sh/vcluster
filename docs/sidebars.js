@@ -215,6 +215,7 @@ module.exports = {
       items: [
         'security/rootless-mode',
         'security/isolated-mode',
+        'security/admission-control',
         'security/quotas-limits',
         'security/pod-security',
         'security/network-isolation',
