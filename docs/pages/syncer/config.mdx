@@ -11,7 +11,7 @@ sync:
   persistentvolumes:
     enabled: true
 ```
-then create or upgrade the vcluster with:
+then create or upgrade the vCluster with:
 
 ```
 vcluster create my-vcluster --upgrade -f values.yaml
@@ -23,7 +23,7 @@ sync:
   services:
     enabled: false
 ```
-then create or upgrade the vcluster with:
+then create or upgrade the vCluster with:
 
 ```
 vcluster create my-vcluster --upgrade -f values.yaml
@@ -34,8 +34,8 @@ Disabling certain resources such as services, endpoints or pods can lead to a no
 :::
 
 ## Sync all Secrets and Configmaps
-With the new generic sync, vcluster currently only knows about a couple of resources that actually use secrets / configmaps and will try to sync only those into the host cluster, but this allows syncing of all secrets and configmaps to avoid the problem that needed secrets / configmaps are not synced to the host cluster.
-To enable this, simply add the following values to the helm chart / vcluster cli options:
+With the new generic sync, vCluster currently only knows about a couple of resources that actually use secrets / configmaps and will try to sync only those into the host cluster, but this allows syncing of all secrets and configmaps to avoid the problem that needed secrets / configmaps are not synced to the host cluster.
+To enable this, simply add the following values to the helm chart / vCluster cli options:
 ```yaml
 sync:
   secrets:
@@ -46,7 +46,7 @@ sync:
 
 ## Extra Pod Options
 
-By default [ephemeral containers](https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/) and [readiness gates](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate) will not be synced by vcluster, as they require additional permissions. To enable those, please activate those within your values.yaml:
+By default [ephemeral containers](https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/) and [readiness gates](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate) will not be synced by vCluster, as they require additional permissions. To enable those, please activate those within your values.yaml:
 
 ```
 sync:

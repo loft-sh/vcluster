@@ -1,6 +1,6 @@
 ---
-title: Map Host Cluster Service to vcluster Service
-sidebar_label: From Host to vcluster
+title: Map Host Cluster Service to vCluster Service
+sidebar_label: From Host to vCluster
 ---
 
 For example, to map a service `my-host-service` in the namespace `my-host-namespace` to the virtual cluster service `my-virtual-service` in the virtual cluster namespace `my-virtual-namespace`, you can use the following config in your `values.yaml`:
@@ -12,4 +12,4 @@ mapServices:
     to: my-virtual-namespace/my-virtual-service
 ```
 
-With this configuration, vcluster will manage a service called `my-virtual-service` inside the virtual cluster that points to the host service `my-host-service` in namespace `my-host-namespace`. So pods inside the vcluster will be able to access the host service via e.g. `curl http://my-virtual-service.my-virtual-namespace`.
+With this configuration, vCluster will manage a service called `my-virtual-service` inside the virtual cluster that points to the host service `my-host-service` in namespace `my-host-namespace`. So pods inside the vCluster will be able to access the host service via e.g. `curl http://my-virtual-service.my-virtual-namespace`.

@@ -12,19 +12,19 @@ import TabItem from '@theme/TabItem'
 <TabItem value="vcluster">
 
 ```bash
-# Create a new vcluster in namespace vcluster-my-vcluster
+# Create a new vCluster in namespace vCluster-my-vcluster
 vcluster create my-vcluster
 
-# OR: Use --expose to create a vcluster in a remote cluster with an externally accessible LoadBalancer
+# OR: Use --expose to create a vCluster in a remote cluster with an externally accessible LoadBalancer
 vcluster create my-vcluster --expose
 
-# OR: Use -f to use an additional helm values.yaml with extra chart options to deploy vcluster
+# OR: Use -f to use an additional helm values.yaml with extra chart options to deploy vCluster
 vcluster create my-vcluster -f values.yaml
     
 # OR: Use --distro to specify either k0s or vanilla k8s as backing virtual cluster
 vcluster create my-vcluster --distro k8s
 
-# OR: Use --isolate to create an isolated environment for the vcluster workloads
+# OR: Use --isolate to create an isolated environment for the vCluster workloads
 vcluster create my-vcluster --isolate
 ```
 

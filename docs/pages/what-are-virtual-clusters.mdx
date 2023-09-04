@@ -7,10 +7,10 @@ Virtual clusters are fully working Kubernetes clusters that run on top of other 
 
 <figure>
   <img src="/docs/media/diagrams/vcluster-architecture.svg" alt="vcluster Architecture" />
-  <figcaption>vcluster - Architecture</figcaption>
+  <figcaption>vCluster - Architecture</figcaption>
 </figure>
 
-The virtual cluster itself only consists of the core Kubernetes components: API server, controller manager, storage backend (such as etcd, sqlite, mysql etc.) and optionally a scheduler. To reduce virtual cluster overhead, vcluster builds by default on [k3s](https://k3s.io/), which is a fully working, certified, lightweight Kubernetes distribution that compiles the Kubernetes components into a single binary and disables by default all not needed Kubernetes features, such as the pod scheduler or certain controllers.
+The virtual cluster itself only consists of the core Kubernetes components: API server, controller manager, storage backend (such as etcd, sqlite, mysql etc.) and optionally a scheduler. To reduce virtual cluster overhead, vCluster builds by default on [k3s](https://k3s.io/), which is a fully working, certified, lightweight Kubernetes distribution that compiles the Kubernetes components into a single binary and disables by default all not needed Kubernetes features, such as the pod scheduler or certain controllers.
 
 Besides k3s, other Kubernetes distributions such as [k0s and vanilla k8s are supported](./operator/other-distributions.mdx). In addition to the control plane, there is also a Kubernetes hypervisor that emulates networking and worker nodes inside the virtual cluster. This component syncs a handful of core resources that are essential for cluster functionality between the virtual and host cluster:
 
