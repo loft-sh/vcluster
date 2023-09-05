@@ -12,8 +12,7 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	proCmd := &cobra.Command{
 		Use:   "pro",
 		Short: "vcluster.pro subcommands",
-		Long: `
-#######################################################
+		Long: `#######################################################
 #################### vcluster pro #####################
 #######################################################
 		`,
@@ -25,38 +24,31 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	proxy := NewAliasCmd(globalFlags)
 
-	proxy.AddCmd("create", "Create vcluster pro resources")
-	proxy.AddCmd("create space", "Creates a new space in the given cluster")
-	proxy.AddCmd("create vcluster", "Creates a new virtual cluster in the given parent cluster")
+	proxy.AddCmd("connect", "Creates a kube context for the given virtual cluster")
+	proxy.AddCmd("create", "Creates a new virtual cluster in the given parent cluster")
+	proxy.AddCmd("delete", "Deletes a virtual cluster from a cluster")
+	proxy.AddCmd("import", "Imports a vCluster.Pro instance into a space")
+	proxy.AddCmd("list", "Lists the vCluster.Pro instances you have access to")
+	// Use is an alias to connect
+	proxy.AddCmd("use", "Creates a kube context for the given virtual cluster")
 
-	proxy.AddCmd("delete", "Deletes vcluster pro resources")
-	proxy.AddCmd("delete space", "Deletes a space from a cluster")
-	proxy.AddCmd("delete vcluster", "Deletes a virtual cluster from a cluster")
+	proxy.AddCmd("space", "Management operations on space resources")
+	proxy.AddCmd("space create", "Creates a new space in the given cluster")
+	proxy.AddCmd("space delete", "Deletes a space from a cluster")
+	proxy.AddCmd("space import", "Imports a vcluster into a vcluster pro project")
+	proxy.AddCmd("space list", "Lists the vcluster pro spaces you have access to")
+	proxy.AddCmd("space use", "Creates a kube context for the given space")
+
+	proxy.AddCmd("secret", "Management Operations on secret resources")
+	proxy.AddCmd("secret get", "Returns the key value of a project / shared secret")
+	proxy.AddCmd("secret list", "Lists all the shared secrets you have access to")
+	proxy.AddCmd("secret set", "Sets the key value of a project / shared secret")
 
 	proxy.AddCmd("generate", "Generates configuration")
 	proxy.AddCmd("generate admin-kube-config", "Generates a new kube config for connecting a cluster")
 
-	proxy.AddCmd("get", "Get configuration")
-	proxy.AddCmd("get secret", "Returns the key value of a project / shared secret")
-
-	proxy.AddCmd("import", "Import vcluster pro resources")
-	proxy.AddCmd("import space", "Imports a vcluster into a vcluster pro project")
-	proxy.AddCmd("import vcluster", "Imports a space into a vcluster pro project")
-
-	proxy.AddCmd("list", "List configuration")
-	proxy.AddCmd("list spaces", "Lists the vcluster pro spaces you have access to")
-	proxy.AddCmd("list vclusters", "Lists the vcluster pro virtual clusters you have access to")
-	proxy.AddCmd("list secrets", "Lists all the shared secrets you have access to")
-
 	proxy.AddCmd("reset", "Reset configuration")
 	proxy.AddCmd("reset password", "Resets the password of a user")
-
-	proxy.AddCmd("set", "Set configuration")
-	proxy.AddCmd("set secret", "Sets the key value of a project / shared secret")
-
-	proxy.AddCmd("use", "Uses vcluster pro resources")
-	proxy.AddCmd("use space", "Creates a kube context for the given space")
-	proxy.AddCmd("use vcluster", "Creates a kube context for the given virtual cluster")
 
 	proCmd.AddCommand(proxy.Commands()...)
 
