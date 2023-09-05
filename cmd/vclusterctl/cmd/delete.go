@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 
+	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
@@ -46,7 +47,7 @@ func NewDeleteCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "delete [flags] vcluster_name",
+		Use:   "delete" + loftctlUtil.VClusterNameOnlyUseLine,
 		Short: "Deletes a virtual cluster",
 		Long: `
 #######################################################
@@ -58,7 +59,7 @@ Example:
 vcluster delete test --namespace test
 #######################################################
 	`,
-		Args:              cobra.ExactArgs(1),
+		Args:              loftctlUtil.VClusterNameOnlyValidator,
 		Aliases:           []string{"rm"},
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {

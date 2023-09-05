@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
@@ -77,7 +78,7 @@ func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "connect [flags] vcluster_name",
+		Use:   "connect" + loftctlUtil.VClusterNameOnlyUseLine,
 		Short: "Connect to a virtual cluster",
 		Long: `
 #######################################################
@@ -92,7 +93,7 @@ vcluster connect test -n test -- bash
 vcluster connect test -n test -- kubectl get ns
 #######################################################
 	`,
-		Args:              cobra.MinimumNArgs(1),
+		Args:              loftctlUtil.VClusterNameOnlyValidator,
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
