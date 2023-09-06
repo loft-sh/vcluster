@@ -11,7 +11,7 @@ import (
 func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	proCmd := &cobra.Command{
 		Use:   "pro",
-		Short: "vcluster.pro subcommands",
+		Short: "vCluster.Pro subcommands",
 		Long: `#######################################################
 #################### vcluster pro #####################
 #######################################################
