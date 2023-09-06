@@ -73,7 +73,7 @@ func (aliasCmd) runE(cobraCmd *cobra.Command, split, args []string) error {
 
 	err = pro.RunLoftCli(ctx, lastUsedVersion, append(split, args...))
 	if err != nil {
-		return fmt.Errorf("failed to create vcluster pro: %w", err)
+		return fmt.Errorf("failed to run vcluster pro alias command: %w", err)
 	}
 
 	return nil

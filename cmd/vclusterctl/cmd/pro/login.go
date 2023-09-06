@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/loft-sh/api/v3/pkg/auth"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
@@ -82,10 +83,15 @@ func (*LoginCmd) RunE(cobraCmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	log.GetInstance().Infof("Detected server version: %s", version.Version)
+	loftVersion := version.Version
+	if !strings.HasPrefix(loftVersion, "v") {
+		loftVersion = "v" + loftVersion
+	}
+
+	log.GetInstance().Infof("Detected server version: %s", loftVersion)
 
 	args = append([]string{"login"}, args...)
-	err = pro.RunLoftCli(ctx, version.Version, args)
+	err = pro.RunLoftCli(ctx, loftVersion, args)
 	if err != nil {
 		return fmt.Errorf("failed to run vcluster pro login: %w", err)
 	}
@@ -95,7 +101,7 @@ func (*LoginCmd) RunE(cobraCmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get vcluster pro config: %w", err)
 	}
 
-	config.LastUsedVersion = version.Version
+	config.LastUsedVersion = loftVersion
 
 	err = pro.WriteConfig(config)
 	if err != nil {

@@ -24,7 +24,7 @@ var (
 
 // LoftBinaryFilePath returns the path to the loft binary for the given version
 func LoftBinaryFilePath(version string) (string, error) {
-	dir, err := LoftWorkingDirectory(version)
+	dir, err := LoftAbsoluteWorkingDirectory(version)
 	if err != nil {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect working directory: %w", err)
 	}
@@ -34,7 +34,7 @@ func LoftBinaryFilePath(version string) (string, error) {
 
 // LoftConfigFilePath returns the path to the loft config file for the given version
 func LoftConfigFilePath(version string) (string, error) {
-	dir, err := LoftWorkingDirectory(version)
+	dir, err := LoftAbsoluteWorkingDirectory(version)
 	if err != nil {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect working directory: %w", err)
 	}
@@ -42,14 +42,19 @@ func LoftConfigFilePath(version string) (string, error) {
 	return filepath.Join(dir, LoftConfigName), nil
 }
 
-// LoftConfigFilePath returns the path to the loft config file for the given version
-func LoftWorkingDirectory(version string) (string, error) {
+// LoftAbsoluteWorkingDirectory returns the absolute path to the loft working directory for the given version
+func LoftAbsoluteWorkingDirectory(version string) (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
-	return filepath.Join(home, cliconfig.VclusterFolder, VclusterProFolder, BinariesFolder, version), nil
+	return filepath.Join(home, LoftWorkingDirectory(version)), nil
+}
+
+// LoftWorkingDirectory returns the path to the loft working directory for the given version
+func LoftWorkingDirectory(version string) string {
+	return filepath.Join(cliconfig.VclusterFolder, VclusterProFolder, BinariesFolder, version)
 }
 
 // downloadBinary downloads the loft binary from the given url to the given file path
@@ -108,7 +113,12 @@ func downloadLoftBinary(ctx context.Context, version string) (string, error) {
 
 	client := github.NewClient(nil)
 
-	release, _, err := client.Repositories.GetLatestRelease(ctx, "loft-sh", "loft")
+	var release *github.RepositoryRelease
+	if version != "latest" {
+		release, _, err = client.Repositories.GetReleaseByTag(ctx, "loft-sh", "loft", version)
+	} else {
+		release, _, err = client.Repositories.GetLatestRelease(ctx, "loft-sh", "loft")
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to get latest release: %w", err)
 	}

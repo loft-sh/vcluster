@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 )
 
 // RunLoftCli executes a loft CLI command for the given version with the
@@ -24,6 +21,10 @@ func RunLoftCli(ctx context.Context, version string, args []string) error {
 		err      error
 	)
 
+	if devVersion, ok := os.LookupEnv("PRO_FORCE_VERSION"); ok {
+		version = devVersion
+	}
+
 	if version == "" || version == "latest" {
 		filePath, version, err = LatestLoftBinary(ctx)
 	} else {
@@ -39,7 +40,7 @@ func RunLoftCli(ctx context.Context, version string, args []string) error {
 		return fmt.Errorf("failed to get loft config file path: %w", err)
 	}
 
-	workingDir, err := LoftWorkingDirectory(version)
+	workingDir, err := LoftAbsoluteWorkingDirectory(version)
 	if err != nil {
 		return fmt.Errorf("failed to get loft working directory: %w", err)
 	}
@@ -55,12 +56,12 @@ func RunLoftCli(ctx context.Context, version string, args []string) error {
 
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, fmt.Sprintf("LOFT_CONFIG=%s", configFilePath))
-	cmd.Env = append(cmd.Env, fmt.Sprintf("LOFT_CACHE_FOLDER=%s", filepath.Join(cliconfig.VclusterFolder, VclusterProFolder)))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("LOFT_CACHE_FOLDER=%s", LoftWorkingDirectory(version)))
 	cmd.Env = append(cmd.Env, "PRODUCT=vcluster-pro")
 
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to start vcluster pro server: %w", err)
+		return fmt.Errorf("failed to run vcluster pro command: %w", err)
 	}
 
 	return nil
