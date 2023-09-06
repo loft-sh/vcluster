@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 
+	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
@@ -29,7 +30,7 @@ func NewResumeCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "resume [flags] vcluster_name",
+		Use:   "resume" + loftctlUtil.VClusterNameOnlyUseLine,
 		Short: "Resumes a virtual cluster",
 		Long: `
 #######################################################
@@ -43,7 +44,7 @@ Example:
 vcluster resume test --namespace test
 #######################################################
 	`,
-		Args:              cobra.ExactArgs(1),
+		Args:              loftctlUtil.VClusterNameOnlyValidator,
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
