@@ -2,7 +2,6 @@ package persistentvolumeclaims
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -50,17 +49,10 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	}
 
 	// translate storage class if we manage those in vcluster
-	if s.storageClassesEnabled {
-		if storageClassName == "" && vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
-			return nil, fmt.Errorf("no storage class defined for pvc %s/%s", vPvc.Namespace, vPvc.Name)
-		}
-
-		// translate storage class name if there is any
-		if storageClassName != "" {
-			translated := translate.Default.PhysicalNameClusterScoped(storageClassName)
-			delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
-			vPvc.Spec.StorageClassName = &translated
-		}
+	if s.storageClassesEnabled && storageClassName != "" {
+		translated := translate.Default.PhysicalNameClusterScoped(storageClassName)
+		delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
+		vPvc.Spec.StorageClassName = &translated
 	}
 
 	// translate selector & volume name

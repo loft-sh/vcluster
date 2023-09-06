@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/utils/pkg/helm/values"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -74,7 +75,7 @@ func NewCreateCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create" + loftctlUtil.VClusterNameOnlyUseLine,
 		Short: "Create a new virtual cluster",
 		Long: `
 #######################################################
@@ -86,7 +87,7 @@ Example:
 vcluster create test --namespace test
 #######################################################
 	`,
-		Args: cobra.ExactArgs(1),
+		Args: loftctlUtil.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
