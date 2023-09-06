@@ -124,7 +124,7 @@ archives:
     format: binary
     builds:
       - vcluster-cli-experimental
-    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    name_template: "{{ .ProjectName }}-experimental-{{ .Os }}-{{ .Arch }}"
     builds_info:
       group: root
       owner: root
