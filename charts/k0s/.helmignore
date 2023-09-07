@@ -2,6 +2,7 @@
 # This supports shell glob matching, relative path matching, and
 # negation (prefixed with !). Only one pattern per line.
 .DS_Store
+
 # Common VCS dirs
 .git/
 .gitignore
@@ -10,11 +11,13 @@
 .hg/
 .hgignore
 .svn/
+
 # Common backup files
 *.swp
 *.bak
 *.tmp
 *~
+
 # Various IDEs
 .project
 .idea/
