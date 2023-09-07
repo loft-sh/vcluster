@@ -51,7 +51,7 @@ jobs:
       #     install-only: true
       #     version: nightly
       - name: Setup GoReleaser nightly from source
-        run: go install github.com/goreleaser/goreleaser@main
+        run: go install github.com/goreleaser/goreleaser@962429de067b3f6cde8d377beaf3194b3b258075
       - name: Build and save syncer image
         run: |
           set -x
@@ -88,7 +88,7 @@ jobs:
       #     install-only: true
       #     version: nightly
       - name: Setup GoReleaser nightly from source
-        run: go install github.com/goreleaser/goreleaser@main
+        run: go install github.com/goreleaser/goreleaser@962429de067b3f6cde8d377beaf3194b3b258075
       - name: Build vcluster cli
         run: |
           set -x
