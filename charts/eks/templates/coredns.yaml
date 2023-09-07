@@ -8,7 +8,7 @@ metadata:
   {{- if .Values.globalAnnotations}}
   annotations:
 {{ toYaml .Values.globalAnnotations | indent 4}}
-  {{- end}}  
+  {{- end}}
 data:
 {{- if .Values.coredns.manifests }}
   coredns.yaml: |-
@@ -158,6 +158,8 @@ data:
               capabilities:
                 add:
                   - NET_BIND_SERVICE
+                drop:
+                  - ALL
               readOnlyRootFilesystem: true
             livenessProbe:
               httpGet:
