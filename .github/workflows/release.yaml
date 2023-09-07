@@ -56,7 +56,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup GoReleaser nightly from source
-        run: go install github.com/goreleaser/goreleaser@main
+        run: go install github.com/goreleaser/goreleaser@962429de067b3f6cde8d377beaf3194b3b258075
       - name: Run GoReleaser
         run: goreleaser release --clean --timeout 60m
         env:
