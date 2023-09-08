@@ -1,5 +1,8 @@
 set positional-arguments
 
+[private]
+alias align := check-structalign
+
 timestamp := `date +%s`
 
 alias c := create
@@ -23,6 +26,11 @@ release-snapshot:
 # Run golangci-lint for all packages
 lint *ARGS:
   golangci-lint run {{ARGS}}
+
+# Check struct memory alignment and print potential improvements
+[no-exit-message]
+check-structalign *ARGS:
+  go run github.com/dkorunic/betteralign/cmd/betteralign@latest {{ARGS}} ./...
 
 # --- Kind ---
 
@@ -104,3 +112,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     MULTINAMESPACE_MODE={{ multinamespace }} \
     KIND_NAME=vcluster \
     go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
+
+cli version="0.0.0" *ARGS="":
+  RELEASE_VERSION={{ version }} go generate -tags embed_charts ./...
+  go run -tags embed_charts -mod vendor -ldflags "-X main.version={{ version }}" ./cmd/vclusterctl/main.go {{ ARGS }}
