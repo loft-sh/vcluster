@@ -73,7 +73,7 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 	pObj := s.Resource()
 	err := ctx.PhysicalClient.Get(ctx.Context, req.NamespacedName, pObj)
 	if err != nil {
-		if !kerrors.IsNotFound(err) {
+		if !kerrors.IsNotFound(err) && !strings.Contains(err.Error(), "because of unknown namespace for the cache") {
 			return err
 		}
 
