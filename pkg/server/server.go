@@ -282,7 +282,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 	}
 
 	// make sure the tokens are correctly authenticated
-	serverConfig.Authentication.Authenticator = unionauthentication.New(delegatingauthenticator.New(s.uncachedVirtualClient), serverConfig.Authentication.Authenticator)
+	serverConfig.Authentication.Authenticator = unionauthentication.NewFailOnError(delegatingauthenticator.New(s.uncachedVirtualClient), serverConfig.Authentication.Authenticator)
 
 	// create server
 	klog.Info("Starting tls proxy server at " + address + ":" + strconv.Itoa(port))
