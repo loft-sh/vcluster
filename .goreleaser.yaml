@@ -183,18 +183,9 @@ brews:
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
-    install: |
-      existing_version = `vcluster --version`.chomp rescue nil
-      if existing_version
-        matched = existing_version.match(/vcluster version (\S+)/)
-        existing_version = matched[1] if matched
-
-        if version <= Version.new(existing_version)
-          odie "Another binary named `vcluster` (version #{existing_version}) already exists on the system. Please remove it before installing this formula."
-        end
-      end
-
-      bin.install "{{.ArtifactName}}" => "vcluster"
+    conflicts:
+      - vcluster
+      - loft-sh/tap/vcluster-experimental
     test: |
       help_output = "vcluster root command"
       assert_match help_output, shell_output("#{bin}/vcluster --help")
@@ -215,18 +206,9 @@ brews:
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
-    install: |
-      existing_version = `vcluster --version`.chomp rescue nil
-      if existing_version
-        matched = existing_version.match(/vcluster version (\S+)/)
-        existing_version = matched[1] if matched
-
-        if version <= Version.new(existing_version)
-          odie "Another binary named `vcluster` (version #{existing_version}) already exists on the system. Please remove it before installing this formula."
-        end
-      end
-
-      bin.install "{{.ArtifactName}}" => "vcluster"
+    conflicts:
+      - vcluster
+      - loft-sh/tap/vcluster
     test: |
       help_output = "vcluster root command"
       assert_match help_output, shell_output("#{bin}/vcluster --help")
