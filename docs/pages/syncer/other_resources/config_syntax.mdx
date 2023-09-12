@@ -6,7 +6,7 @@ sidebar_label: Configuration Syntax
 ## Permissions
 
 The helm values snippet below shows an example of the generic sync configuration and related RBAC roles. There you can notice some key fields nested under `.sync.generic` value:
-- the RBAC namespaced `role` and cluster scoped `clusterRole` required for the plugin - these would be adjusted to fit the needs of your use case and the configuration that you define. Note that when the ["Multi-namespace mode"](./multi_namespace_mode) is used, the namespaced role will become ClusterRole.
+- the RBAC namespaced `role` and cluster scoped `clusterRole` required for the plugin - these would be adjusted to fit the needs of your use case and the configuration that you define. Note that when the ["Multi-namespace mode"](./multi_namespace_mode.mdx) is used, the namespaced role will become ClusterRole.
 - the `config` field, which will populate the `CONFIG` environment variable of the vCluster syncer container - this must be a string with valid YAML formatting. It uses a custom syntax to define the behavior of the plugin. 
 
 ```yaml 
