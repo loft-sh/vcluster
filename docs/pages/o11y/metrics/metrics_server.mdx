@@ -1,16 +1,16 @@
 ---
-title: Metrics Server (in vcluster)
-sidebar_label: Metrics Server in vcluster
+title: Metrics Server (in vCluster)
+sidebar_label: Metrics Server in vCluster
 ---
 
-### Installing metrics server (inside vcluster)
+### Installing metrics server (inside vCluster)
 
-In case the above recommended method of getting metrics in vcluster using the metrics server proxy does not fulfil your requirements and you need a dedicated metrics server installation in the vcluster you can follow this section.
-Make sure the vcluster has access to the host clusters nodes. [Enabling real nodes synchronization](/architecture/nodes.mdx) will create the required RBAC permissions. 
+In case the above recommended method of getting metrics in vCluster using the metrics server proxy does not fulfil your requirements and you need a dedicated metrics server installation in the vCluster you can follow this section.
+Make sure the vCluster has access to the host clusters nodes. [Enabling real nodes synchronization](/architecture/nodes.mdx) will create the required RBAC permissions. 
 
-Install the [metrics server](https://github.com/kubernetes-sigs/metrics-server#installation) via the official method into the vcluster.
+Install the [metrics server](https://github.com/kubernetes-sigs/metrics-server#installation) via the official method into the vCluster.
 
-Wait until the metrics server has started. You should be now able to use `kubectl top pods` and `kubectl top nodes` within the vcluster:
+Wait until the metrics server has started. You should be now able to use `kubectl top pods` and `kubectl top nodes` within the vCluster:
 ```
 kubectl top pods --all-namespaces
 NAMESPACE     NAME                              CPU(cores)   MEMORY(bytes)   
@@ -43,4 +43,4 @@ kubectl patch deployment metrics-server --patch-file metrics_patch.yaml -n kube-
 
 ### How does it work?
 
-By default, vcluster will create a service for each node which redirects incoming traffic from within the vcluster to the node kubelet to vcluster itself. This means that if workloads within the vcluster try to scrape node metrics the traffic reaches vcluster first. Vcluster will redirect the incoming request to the host cluster and rewrite the response (pod names, pod namespaces etc) and return it to the requester.
+By default, vCluster will create a service for each node which redirects incoming traffic from within the vCluster to the node kubelet to vCluster itself. This means that if workloads within the vCluster try to scrape node metrics the traffic reaches vCluster first. Vcluster will redirect the incoming request to the host cluster and rewrite the response (pod names, pod namespaces etc) and return it to the requester.

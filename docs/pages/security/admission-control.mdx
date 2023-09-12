@@ -1,0 +1,67 @@
+---
+title: Admission Control
+sidebar_label: Admission control
+---
+
+Admission control is a feature added to the vCluster API server proxy to block certain API requests despite users having cluster-admin permissions. It can deny requests that match any rule defined in the declarative configuration. In a future iteration of this feature, we plan to add an option for calling external webhooks for deciding on blocking, or allowing, the request.
+
+### Configuration
+
+This feature requires input configuration in the YAML format, provided via an environment variable. You will find an example of the configuration below.
+
+On the top level, you define a list of checks, where each check is defined by the following fields:
+
+- optional `name` field - it will be displayed in the user-facing error message when the check fails
+
+- a list of `namespaces` that will be affected by the check. The list may contain a single "\*" value, to apply the check to all namespaces. The list of namespace is ignored for the ClusterScoped rules, except for the Update/Patch/Delete requests on the Namespace resource, which will be affected by the values in this list.
+
+- `excludedUsers` - list of users(or ServiceAccounts) for which this check is ignored. User impersonation is ignored when evaluating this parameter - impersonated user is ignored, and the original caller is evaluated.
+
+- `rules` - list of rules with the following sub.fields:
+  - `apiGroups` - list of API groups, can be "\*"
+  - `apiVersions` - list of API resource versions, can be "\*"
+  - `resources` - list of resource kinds, and optionally the sub-resources. This field can use a wildcard for the resources "\*", or for sub-resources of a specific resource, e.g. "resource/\*"
+  - `operations` - list of operations that will be blocked. Valid values are - "\*", "create", "get", "update", "patch", "delete".
+  - `scope` - the scope of the affected resource - "Cluster", "Namespaced" or "\*" for all scopes (default)
+
+Example of helm value with the config that prevents users from messing with the namespace named "protected".
+
+``` yaml
+syncer:
+  env:
+    - name: PROXY_WEBHOOK_CONFIG
+      value: |-
+        ---
+        version: v1alphav1
+        checks:
+        - name: "Deny \"protected\" namespace"
+          namespaces:
+          - protected
+          excludedUsers:
+          - system:admin
+          rules:
+          - operations:
+            # - create # is not supported for namespaces because we are not doing any parsing of the request body to achieve the best performance
+            - delete
+            - update
+            - patch
+            apiGroups:
+            - ''
+            apiVersions:
+            - "*"
+            resources:
+            - "namespaces/*" # using a wildcard to cover subresources, primarily "namespaces/finalize" which could cause deletion via PUT (update operation) with namespace resource without finalizers in the body of the request 
+            scope: Cluster
+          - operations:
+            - create
+            - delete
+            - update
+            - patch
+            apiGroups:
+            - "*"
+            apiVersions:
+            - "*"
+            resources:
+            - "*"
+            scope: Namespaced
+```

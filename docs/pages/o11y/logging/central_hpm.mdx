@@ -3,11 +3,11 @@ title: Centralized Hostpath Mapper
 sidebar_label: Centralized Hostpath Mapper 
 ---
 
-This feature is an extention to the existing [hostpath mapper](/docs/o11y/logging/hpm) component of vcluster.
+This feature is an extention to the existing [hostpath mapper](/docs/o11y/logging/hpm) component of vCluster.
 Currently when enabled, hostpath mapper can support the following usecases:
-1. [Enabling container based logging used by tools like fluentd, logstash etc.](/docs/o11y/logging/elk_stack) inside vcluster
-2. [Enabling pod based logging used by loki](/docs/o11y/logging/grafana_loki) inside vcluster
-3. [Velero restic backups] inside vcluster
+1. [Enabling container based logging used by tools like fluentd, logstash etc.](/docs/o11y/logging/elk_stack) inside vCluster
+2. [Enabling pod based logging used by loki](/docs/o11y/logging/grafana_loki) inside vCluster
+3. [Velero restic backups] inside vCluster
 4. Support for kubevirt workloads.
 
 In the normal deployment of hostpath mapper which can be enabled by:
@@ -16,7 +16,7 @@ hostpathMapper:
   enabled: true
 ```
 
-A `daemonset` is spawned per node, per vcluster – which can be a resource hog as the number of `Nodes` and `vclusters` increase.
+A `daemonset` is spawned per node, per vCluster – which can be a resource hog as the number of `Nodes` and `vclusters` increase.
 
 The hostpath mapper feature was extended to a Central Hostpath Mapper to overcome this potential bottleneck.
 

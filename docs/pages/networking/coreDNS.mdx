@@ -5,14 +5,14 @@ sidebar_label: DNS
 
 ## CoreDNS
 
-Each vcluster has its own DNS service (CoreDNS by default) which allows pods in the vcluster to get the IP addresses of services that are also running in this vcluster.
-The vcluster syncer ensures that the intuitive naming logic of Kubernetes DNS names for services applies and users can connect to these DNS names which in fact map to the IP address of the synchronized services that are present in the underlying host cluster.
+Each vCluster has its own DNS service (CoreDNS by default) which allows pods in the vCluster to get the IP addresses of services that are also running in this vCluster.
+The vCluster syncer ensures that the intuitive naming logic of Kubernetes DNS names for services applies and users can connect to these DNS names which in fact map to the IP address of the synchronized services that are present in the underlying host cluster.
 
-However, this also means that you cannot directly access host services inside the virtual cluster via DNS as well as host pods can only access virtual cluster services by their synced name. vcluster offers a feature to map services from the virtual cluster to the host cluster and vice versa.
+However, this also means that you cannot directly access host services inside the virtual cluster via DNS as well as host pods can only access virtual cluster services by their synced name. vCluster offers a feature to map services from the virtual cluster to the host cluster and vice versa.
 
 
 ### Fallback to host DNS
-If enabled, will fallback to host dns for resolving domains. This is useful if using istio or dapr in the host cluster and sidecar containers cannot connect to the central instance. Its also useful if you want to access host cluster services from within the vcluster. We can enable this feature with
+If enabled, will fallback to host dns for resolving domains. This is useful if using istio or dapr in the host cluster and sidecar containers cannot connect to the central instance. Its also useful if you want to access host cluster services from within the vCluster. We can enable this feature with
 ```yaml
 fallbackHostDns: true
 ```

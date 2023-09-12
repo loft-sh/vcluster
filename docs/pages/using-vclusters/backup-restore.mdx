@@ -3,8 +3,8 @@ title: Backup & Restore
 sidebar_label: Backup & Restore
 ---
 
-Backing up and restoring a virtual cluster usually means to backup the namespace where vcluster is installed in.
-If you are using an external datastore like MySQL or Postgresql that is **not** running inside the same namespace as vcluster, you will need to create a separate backup for the datastore as well. Please refer to the [appropriate docs](https://rancher.com/docs/k3s/latest/en/backup-restore/) for doing that.
+Backing up and restoring a virtual cluster usually means to backup the namespace where vCluster is installed in.
+If you are using an external datastore like MySQL or Postgresql that is **not** running inside the same namespace as vCluster, you will need to create a separate backup for the datastore as well. Please refer to the [appropriate docs](https://rancher.com/docs/k3s/latest/en/backup-restore/) for doing that.
 
 ## Using velero
 
@@ -12,7 +12,7 @@ We recommend [velero](https://velero.io/) to backup virtual clusters, as it supp
 
 Make sure your cluster supports [volume snapshots](https://kubernetes.io/docs/concepts/storage/volume-snapshots/) to allow velero to backup persistent volumes and persistent volume claims that save the virtual cluster state. Alternatively, you can use [velero's restic integration](https://velero.io/docs/main/restic/) to backup the virtual cluster state.
 
-### Backing up a vcluster
+### Backing up a vCluster
 
 Make sure to install the [velero cli](https://velero.io/docs/main/basic-install/), [velero server components](https://velero.io/docs/v1.8/supported-providers/) and run the following command:
 ```
@@ -50,9 +50,9 @@ Resources:
 ...
 ```
 
-### Restoring a vcluster
+### Restoring a vCluster
 
-After you have created a backup through either the velero cli or a schedule, you can restore a vcluster from the created backup via the velero cli:
+After you have created a backup through either the velero cli or a schedule, you can restore a vCluster from the created backup via the velero cli:
 ```
 velero restore create <restore-name> --from-backup <backup-name>
 ```
@@ -62,21 +62,21 @@ Verify the restore process via:
 velero restore logs <restore-name>
 ```
 
-This should recreate the vcluster workloads, configurations as well as vcluster state in the virtual cluster namespace.
+This should recreate the vCluster workloads, configurations as well as vCluster state in the virtual cluster namespace.
 
-:::warning Moving vclusters
-Currently its quite difficult to move a vcluster from one namespace to another as there are objects that include a namespace reference such as the cluster role bindings or persistent volumes. velero supports namespace mapping that should work in most cases, but caution is still required as this might not work for every vcluster setup.
+:::warning Moving vClusters
+Currently its quite difficult to move a vCluster from one namespace to another as there are objects that include a namespace reference such as the cluster role bindings or persistent volumes. velero supports namespace mapping that should work in most cases, but caution is still required as this might not work for every vCluster setup.
 :::
 
-## Using velero inside vcluster
-To use velero for making backups you need to enable the `hostpath-mapper` component of vcluster. You can do this by adding this to your values.yaml file when creating or upgrading the vcluster
+## Using velero inside vCluster
+To use velero for making backups you need to enable the `hostpath-mapper` component of vCluster. You can do this by adding this to your values.yaml file when creating or upgrading the vCluster
 ```yaml
 hostpathMapper:
   enabled: true
 ```
-This will start a the vcluster component for mapping the correct hostpaths as a `Daemonset`.
+This will start a the vCluster component for mapping the correct hostpaths as a `Daemonset`.
 
-Once done you need to install velero cli as explained above and then connect to your vcluster, and install velero:
+Once done you need to install velero cli as explained above and then connect to your vCluster, and install velero:
 ```
 velero install --provider <provider> --bucket <bucket_name>  --secret-file <your_secret_file> --plugins velero/velero-plugin-for-<provider>:<semver> --use-restic
 ```

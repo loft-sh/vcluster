@@ -1,10 +1,10 @@
 ---
-title: Map vcluster Service to Host Cluster Service
-sidebar_label: From vcluster to Host
+title: Map vCluster Service to Host Cluster Service
+sidebar_label: From vCluster to Host
 ---
 
-It is also possible to map a virtual cluster service to an host cluster service. This is especially useful if you want to expose an application that runs inside the virtual cluster to other workloads running in the host cluster. This makes it also easier to share services across vcluster's.
-For example, to map a virtual service `my-virtual-service` in the namespace `my-virtual-namespace` to the vcluster host namespace service `my-host-service`, you can use the following config in your `values.yaml`:
+It is also possible to map a virtual cluster service to an host cluster service. This is especially useful if you want to expose an application that runs inside the virtual cluster to other workloads running in the host cluster. This makes it also easier to share services across vCluster's.
+For example, to map a virtual service `my-virtual-service` in the namespace `my-virtual-namespace` to the vCluster host namespace service `my-host-service`, you can use the following config in your `values.yaml`:
 
 ```yaml
 mapServices:
@@ -13,4 +13,4 @@ mapServices:
     to: my-host-service
 ```
 
-With this configuration, vcluster will manage a service called `my-host-service` inside the namespace where the vcluster workloads are synced to, which points to the virtual service `my-virtual-service` in namespace `my-virtual-namespace` inside the vcluster. So pods in the host cluster will be able to access the virtual service via e.g. `curl http://my-host-service`.
+With this configuration, vCluster will manage a service called `my-host-service` inside the namespace where the vCluster workloads are synced to, which points to the virtual service `my-virtual-service` in namespace `my-virtual-namespace` inside the vCluster. So pods in the host cluster will be able to access the virtual service via e.g. `curl http://my-host-service`.

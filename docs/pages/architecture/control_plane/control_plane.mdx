@@ -1,12 +1,12 @@
 ---
-title: vcluster Control Plane
-sidebar_label: vcluster Control Plane
+title: vCluster Control Plane
+sidebar_label: vCluster Control Plane
 ---
 
-This container contains API server, controller manager and a connection (or mount) of the data store. By default, vclusters use sqlite as data store and run the API server and controller manager of k3s, which is a certified Kubernetes distribution and CNCF sandbox project. You can also use a [different data store, such as etcd, mysql or postgresql](../../operator/external-datastore.mdx). You are also able to use another Kubernetes distribution as backing virtual cluster, such as [k0s or vanilla k8s](../../operator/other-distributions.mdx).
+This container contains API server, controller manager and a connection (or mount) of the data store. By default, vClusters use sqlite as data store and run the API server and controller manager of k3s, which is a certified Kubernetes distribution and CNCF sandbox project. You can also use a [different data store, such as etcd, mysql or postgresql](../../deploying-vclusters/persistence.mdx). You are also able to use another Kubernetes distribution as backing virtual cluster, such as [k0s or vanilla k8s](../../using-vclusters/access.mdx).
 
-Each vcluster has its own control plane consisting of:
-- **Kubernetes API** server (point your kubectl requests to this vcluster API server)
+Each vCluster has its own control plane consisting of:
+- **Kubernetes API** server (point your kubectl requests to this vCluster API server)
 - **Data store** (where the API stores all resources, real clusters run with etcd)
 - **Controller Manager** (creates pods objects in the data store according to replica number in ReplicaSets etc.)
 - **(Optional) Scheduler** (schedules workloads inside the virtual cluster. See [scheduling](../scheduling.mdx) for more info

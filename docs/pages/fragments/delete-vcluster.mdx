@@ -15,7 +15,7 @@ import TabItem from '@theme/TabItem'
 # switch the kube context back
 vcluster disconnect
 
-# OR: switch context back and delete vcluster
+# OR: switch context back and delete vCluster
 vcluster delete my-vcluster
 ```
 
@@ -34,7 +34,7 @@ The easiest option to delete a virtual cluster using `kubectl` is to delete the 
 kubectl delete namespace vcluster-my-vcluster
 ```
 
-In case you have multiple vclusters or any other resources in this namespace, you can also just delete the vcluster-related resources:
+In case you have multiple vClusters or any other resources in this namespace, you can also just delete the vCluster-related resources:
 ```bash
 kubectl delete -n vcluster-my-vcluster serviceaccount vcluster-1
 kubectl delete -n vcluster-my-vcluster role vcluster-1
