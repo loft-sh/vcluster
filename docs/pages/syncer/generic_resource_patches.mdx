@@ -7,7 +7,7 @@ The Generic Resource Patch feature allows one to patch Kubernetes resources duri
 
 ## Hook Syntax
 
-One defines hooks as part of the [generic sync configuration](/docs/syncer/other_resources/config_syntax) in the hooks field.
+One defines hooks as part of the [generic sync configuration](./other_resources/config_syntax.mdx) in the hooks field.
 
 ```yaml
 version: v1beta1
@@ -23,7 +23,7 @@ import: []
 The `apiVersion` field expects a "group/version" definition of both the resource group and API version.
 The `kind` field specifies which Kubernetes resources to patch.
 The `verbs` field defines the API calls to patch before application to the Kubernetes API.
-The `patches` reuse the same [syntax as the patches](/syncer/other_resources/config_syntax#patch-syntax) utilized in [generic sync](/docs/syncer/other_resources/generic_sync).
+The `patches` reuse the same [syntax as the patches](/syncer/other_resources/config_syntax.mdx#patch-syntax) utilized in [generic sync](./other_resources/generic_sync.mdx).
 
 ```yaml
 version: v1beta1

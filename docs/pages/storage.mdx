@@ -8,7 +8,7 @@ sidebar_label: Storage
   <figcaption>vcluster - Persistent Volume Provisioning</figcaption>
 </figure>
 
-Since the vCluster's syncer synchronizes pods to the underlying host cluster to schedule them, vCluster users can use the storage classes of the underlying host cluster to create persistent volume claims and to mount persistent volumes. By default, the host's storage classes can be used without the need to create it in the vCluster, but this can be configured by [enabling sync of "storageclasses" or "hoststorageclasses"](./syncer/core_resources).
+Since the vCluster's syncer synchronizes pods to the underlying host cluster to schedule them, vCluster users can use the storage classes of the underlying host cluster to create persistent volume claims and to mount persistent volumes. By default, the host's storage classes can be used without the need to create it in the vCluster, but this can be configured by [enabling sync of "storageclasses" or "hoststorageclasses"](./syncer/core_resources.mdx).
 
 
 vCluster provides helm values to adjust this behavior during vCluster installation or upgrade. Find out more below. 
