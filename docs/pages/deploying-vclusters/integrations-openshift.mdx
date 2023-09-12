@@ -7,7 +7,7 @@ import NonRootSegment from '../fragments/non-root-vcluster.mdx'
 import OpenshiftSegment from '../fragments/deploy-to-openshift.mdx'
 
 
-By default, OpenShift doesn't allow running containers with the root user, but it assigns a random UID from the allowed range automatically, which means that you can skip the steps described in the [Running as non-root user](#running-as-non-root-user) section of this document and your vCluster should run as non-root user by default.
+By default, OpenShift doesn't allow running containers with the root user, but it assigns a random UID from the allowed range automatically, which means that you can skip the steps described in the [Running as non-root user](../security/rootless-mode.mdx) section of this document and your vCluster should run as non-root user by default.
 
 OpenShift also imposes some restrictions that are not common to other Kubernetes distributions.  
 When deploying vCluster to OpenShift you will need to follow these additional steps:

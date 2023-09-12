@@ -13,8 +13,8 @@ Virtual clusters are Kubernetes clusters that run on top of other Kubernetes clu
 ## Components
 
 By default, vClusters run as a single pod (scheduled by a StatefulSet) that consists of 2 containers:
-- [**Control Plane**](control_plane)
-- [**Syncer**](syncer)
+- [**Control Plane**](./control_plane/control_plane.mdx)
+- [**Syncer**](./syncer/syncer.mdx)
 
 ## Host Cluster & Namespace
 Every vCluster runs on top of another Kubernetes cluster, called host cluster. Each vCluster runs as a regular StatefulSet inside a namespace of the host cluster. This namespace is called host namespace. Everything that you create inside the vCluster lives either inside the vCluster itself or inside the host namespace. 
