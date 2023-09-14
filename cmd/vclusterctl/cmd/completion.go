@@ -44,7 +44,6 @@ func wrapCompletionFuncWithTimeout(defaultDirective cobra.ShellCompDirective, co
 			return []string{}, defaultDirective | cobra.ShellCompDirectiveError
 		}
 	}
-
 }
 
 // newValidVClusterNameFunc returns a function that handles shell completion when the argument is vcluster_name

@@ -1,11 +1,11 @@
 package values
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/loft-sh/utils/pkg/helm"
-	"github.com/loft-sh/utils/pkg/log"
 )
 
-func GetDefaultReleaseValues(chartOptions *helm.ChartOptions, log log.SimpleLogger) (string, error) {
+func GetDefaultReleaseValues(chartOptions *helm.ChartOptions, log logr.Logger) (string, error) {
 	switch chartOptions.ChartName {
 	case helm.K3SChart, helm.K3SProChart:
 		return getDefaultK3SReleaseValues(chartOptions, log)

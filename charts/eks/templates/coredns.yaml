@@ -8,7 +8,7 @@ metadata:
   {{- if .Values.globalAnnotations}}
   annotations:
 {{ toYaml .Values.globalAnnotations | indent 4}}
-  {{- end}}  
+  {{- end}}
 data:
 {{- if .Values.coredns.manifests }}
   coredns.yaml: |-
@@ -103,15 +103,6 @@ data:
         spec:
           priorityClassName: "system-cluster-critical"
           serviceAccountName: coredns
-          tolerations:
-            - key: "CriticalAddonsOnly"
-              operator: "Exists"
-            - key: "node-role.kubernetes.io/control-plane"
-              operator: "Exists"
-              effect: "NoSchedule"
-            - key: "node-role.kubernetes.io/master"
-              operator: "Exists"
-              effect: "NoSchedule"
           nodeSelector:
             kubernetes.io/os: linux
           topologySpreadConstraints:
@@ -156,8 +147,10 @@ data:
               runAsGroup: {{`{{.RUN_AS_GROUP}}`}}
               allowPrivilegeEscalation: false
               capabilities:
+                add:
+                  - NET_BIND_SERVICE
                 drop:
-                - all
+                  - ALL
               readOnlyRootFilesystem: true
             livenessProbe:
               httpGet:

@@ -231,7 +231,6 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		message = "websocketproxy: Error when copying from backend to client: %v"
 	case err = <-errBackend:
 		message = "websocketproxy: Error when copying from client to backend: %v"
-
 	}
 	if e, ok := err.(*websocket.CloseError); !ok || e.Code == websocket.CloseAbnormalClosure {
 		log.Printf(message, err)

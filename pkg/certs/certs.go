@@ -100,10 +100,8 @@ func CreateServiceAccountKeyAndPublicKeyFiles(certsDir string, keyType x509.Publ
 // existing and the expected certificate equals. If they do; kubeadm will just skip writing the file as it's up-to-date,
 // otherwise this function returns an error.
 func writeCertificateAuthorityFilesIfNotExist(pkiDir string, baseName string, caCert *x509.Certificate, caKey crypto.Signer) error {
-
 	// If cert or key exists, we should try to load them
 	if CertOrKeyExist(pkiDir, baseName) {
-
 		// Try to load .crt and .key from the PKI directory
 		caCert, _, err := TryLoadCertAndKeyFromDisk(pkiDir, baseName)
 		if err != nil {
@@ -137,7 +135,6 @@ func writeCertificateAuthorityFilesIfNotExist(pkiDir string, baseName string, ca
 // existing and the expected certificate equals. If they do; kubeadm will just skip writing the file as it's up-to-date,
 // otherwise this function returns an error.
 func writeCertificateFilesIfNotExist(pkiDir string, baseName string, signingCert *x509.Certificate, cert *x509.Certificate, key crypto.Signer, cfg *CertConfig) error {
-
 	// Checks if the signed certificate exists in the PKI directory
 	if CertOrKeyExist(pkiDir, baseName) {
 		// Try to load key from the PKI directory

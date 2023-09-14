@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/loft-sh/utils/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -18,7 +18,7 @@ import (
 )
 
 // PauseVCluster pauses a running vcluster
-func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, namespace string, log log.Logger) error {
+func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, namespace string, log log.BaseLogger) error {
 	// scale down vcluster itself
 	labelSelector := "app=vcluster,release=" + name
 	found, err := scaleDownStatefulSet(ctx, kubeClient, labelSelector, namespace, log)
@@ -55,7 +55,7 @@ func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, 
 }
 
 // DeleteVClusterWorkloads deletes all pods associated with a running vcluster
-func DeleteVClusterWorkloads(ctx context.Context, kubeClient *kubernetes.Clientset, labelSelector, namespace string, log log.Logger) error {
+func DeleteVClusterWorkloads(ctx context.Context, kubeClient *kubernetes.Clientset, labelSelector, namespace string, log log.BaseLogger) error {
 	list, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func DeleteVClusterWorkloads(ctx context.Context, kubeClient *kubernetes.Clients
 	return nil
 }
 
-func DeleteMultiNamespaceVclusterWorkloads(ctx context.Context, client *kubernetes.Clientset, vclusterName, vclusterNamespace string, log log.Logger) error {
+func DeleteMultiNamespaceVclusterWorkloads(ctx context.Context, client *kubernetes.Clientset, vclusterName, vclusterNamespace string, log log.BaseLogger) error {
 	// get all host namespaces managed by this multinamespace mode enabled vcluster
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 		LabelSelector: labels.FormatLabels(map[string]string{
@@ -103,7 +103,7 @@ func DeleteMultiNamespaceVclusterWorkloads(ctx context.Context, client *kubernet
 	return nil
 }
 
-func scaleDownDeployment(ctx context.Context, kubeClient kubernetes.Interface, labelSelector, namespace string, log log.Logger) (bool, error) {
+func scaleDownDeployment(ctx context.Context, kubeClient kubernetes.Interface, labelSelector, namespace string, log log.BaseLogger) (bool, error) {
 	list, err := kubeClient.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return false, err
@@ -165,7 +165,7 @@ func scaleDownDeployment(ctx context.Context, kubeClient kubernetes.Interface, l
 	return true, nil
 }
 
-func scaleDownStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, labelSelector, namespace string, log log.Logger) (bool, error) {
+func scaleDownStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, labelSelector, namespace string, log log.BaseLogger) (bool, error) {
 	list, err := kubeClient.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return false, err
@@ -228,7 +228,7 @@ func scaleDownStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, 
 }
 
 // ResumeVCluster resumes a paused vcluster
-func ResumeVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, namespace string, log log.Logger) error {
+func ResumeVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, namespace string, log log.BaseLogger) error {
 	// scale up vcluster itself
 	labelSelector := "app=vcluster,release=" + name
 	found, err := scaleUpStatefulSet(ctx, kubeClient, labelSelector, namespace, log)
@@ -264,7 +264,7 @@ func ResumeVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name,
 	return nil
 }
 
-func scaleUpDeployment(ctx context.Context, kubeClient kubernetes.Interface, labelSelector string, namespace string, log log.Logger) (bool, error) {
+func scaleUpDeployment(ctx context.Context, kubeClient kubernetes.Interface, labelSelector string, namespace string, log log.BaseLogger) (bool, error) {
 	list, err := kubeClient.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return false, err
@@ -310,7 +310,7 @@ func scaleUpDeployment(ctx context.Context, kubeClient kubernetes.Interface, lab
 	return true, nil
 }
 
-func scaleUpStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, labelSelector string, namespace string, log log.Logger) (bool, error) {
+func scaleUpStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, labelSelector string, namespace string, log log.BaseLogger) (bool, error) {
 	list, err := kubeClient.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return false, err

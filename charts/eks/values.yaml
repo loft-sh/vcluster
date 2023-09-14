@@ -60,12 +60,12 @@ sync:
   nodes:
     fakeKubeletIPs: true
     enabled: false
-    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster 
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
     # will sync all nodes instead of only the ones where some pods are running.
     syncAllNodes: false
     # nodeSelector is used to limit which nodes get synced to the vcluster,
     # and which nodes are used to run vcluster pods.
-    # A valid string representation of a label selector must be used. 
+    # A valid string representation of a label selector must be used.
     nodeSelector: ""
     # syncNodeChanges allows vcluster user edits of the nodes to be synced down to the host nodes.
     # Write permissions on node resource will be given to the vcluster.
@@ -107,8 +107,8 @@ mapServices:
   # as the service exists.
   # For example:
   # fromVirtual:
-  #   from: my-namespace/name
-  #   to: host-service
+  #   - from: my-namespace/name
+  #     to: host-service
   fromVirtual: []
   # Same as from virtual, but instead sync services
   # from the host cluster into the virtual cluster.
@@ -122,6 +122,7 @@ proxy:
       enabled: false
     pods:
       enabled: false
+
 
 # Syncer configuration
 syncer:
@@ -167,11 +168,12 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
+  podSecurityContext: {}
   serviceAnnotations: {}
 
 # Etcd settings
 etcd:
-  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.6-eks-1-24-7
+  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.8-eks-1-27-11
   # The amount of replicas to run
   replicas: 1
   # NodeSelector used
@@ -206,7 +208,7 @@ etcd:
 
 # Kubernetes Controller Manager settings
 controller:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.24.9-eks-1-24-7
+  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.27.4-eks-1-27-11
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used
@@ -229,7 +231,7 @@ controller:
 
 # Kubernetes API Server settings
 api:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.24.9-eks-1-24-7
+  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.27.4-eks-1-27-11
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -256,7 +258,7 @@ api:
 # Core DNS settings
 coredns:
   enabled: true
-  image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-24-7
+  image: public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-27-11
   replicas: 1
   # CoreDNS service configurations
   service:
@@ -367,6 +369,11 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Ingress TLS configuration
+  tls: []
+    # - secretName: tls-vcluster.local
+    #   hosts:
+    #     - vcluster.local
 
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order

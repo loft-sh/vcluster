@@ -96,9 +96,12 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
-      {{- if .Values.fsGroup }}
+      {{- if or .Values.podSecurityContext .Values.fsGroup }}
+      {{- $fsContext := dict "fsGroup" .Values.fsGroup }}
+      {{- with merge .Values.podSecurityContext $fsContext }}
       securityContext:
-        fsGroup: {{ .Values.fsGroup }}
+{{ toYaml . | indent 8 }}
+      {{- end }}
       {{- end }}
       containers:
       {{- if not .Values.vcluster.disabled }}

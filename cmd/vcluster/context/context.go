@@ -92,9 +92,9 @@ func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, loc
 	currentNamespaceCache := localManager.GetCache()
 	if currentNamespace != options.TargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
-			Scheme:     localManager.GetScheme(),
-			Mapper:     localManager.GetRESTMapper(),
-			Namespaces: []string{currentNamespace},
+			Scheme:            localManager.GetScheme(),
+			Mapper:            localManager.GetRESTMapper(),
+			DefaultNamespaces: map[string]cache.Config{currentNamespace: {}},
 		})
 		if err != nil {
 			return nil, err

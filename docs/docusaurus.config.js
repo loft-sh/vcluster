@@ -10,7 +10,9 @@ module.exports = {
   projectName: 'vcluster', // Usually your repo name.
   themeConfig: {
     colorMode: {
-      disableSwitch: true,
+      defaultMode: 'light',
+      disableSwitch: false,
+      respectPrefersColorScheme: true,
     },
     navbar: {
       logo: {

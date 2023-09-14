@@ -65,6 +65,10 @@ spec:
       {{- else }}
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
+      {{- if .Values.syncer.podSecurityContext }}
+      securityContext:
+{{ toYaml .Values.syncer.podSecurityContext | indent 8 }}
+      {{- end }}
       volumes:
       {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
         - name: helm-cache

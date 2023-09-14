@@ -198,7 +198,6 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 				if err != nil {
 					log.Infof("error recreating virtual persistent volume claim: %v", err)
 					return false, err
-
 				}
 
 				return true, nil

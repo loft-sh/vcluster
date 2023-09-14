@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
@@ -21,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/utils/pkg/helm/values"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -73,7 +75,7 @@ func NewCreateCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create" + loftctlUtil.VClusterNameOnlyUseLine,
 		Short: "Create a new virtual cluster",
 		Long: `
 #######################################################
@@ -85,7 +87,7 @@ Example:
 vcluster create test --namespace test
 #######################################################
 	`,
-		Args: cobra.ExactArgs(1),
+		Args: loftctlUtil.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
@@ -109,7 +111,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", true, "If true updates the current kube config")
 	cobraCmd.Flags().BoolVar(&cmd.CreateClusterRole, "create-cluster-role", false, "DEPRECATED: cluster role is now automatically created if it is required by one of the resource syncers that are enabled by the .sync.RESOURCE.enabled=true helm value, which is set in a file that is passed via --extra-values argument.")
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
-	cobraCmd.Flags().BoolVar(&cmd.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service")
+	cobraCmd.Flags().BoolVar(&cmd.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service. Will be set to false and the passed value will be ignored if --expose is set to true.")
 
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", true, "If true will run vcluster connect directly after the vcluster was created")
 	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
@@ -160,7 +162,8 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	chartValues, err := values.GetDefaultReleaseValues(chartOptions, cmd.log)
+	logger := logr.New(cmd.log.LogrLogSink())
+	chartValues, err := values.GetDefaultReleaseValues(chartOptions, logger)
 	if err != nil {
 		return err
 	}
@@ -300,7 +303,6 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 					chartEmbedded = true
 					cmd.log.Debugf("Using embedded chart: %q", embeddedChartName)
 				}
-
 			}
 		}
 		// rewrite chart location, this is an optimization to avoid
@@ -342,6 +344,13 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 
 	if cmd.ChartName == "vcluster" && cmd.Distro != "k3s" {
 		cmd.ChartName += "-" + cmd.Distro
+	}
+
+	// check if we're running in isolated mode
+	if cmd.Isolate {
+		// In this case, default the ExposeLocal variable to false
+		// as it will always fail creating a vcluster in isolated mode
+		cmd.ExposeLocal = false
 	}
 
 	// check if we should create with node port
@@ -455,7 +464,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	if cmd.CIDR == "" {
 		cidr, warning := servicecidr.GetServiceCIDR(ctx, cmd.kubeClient, cmd.Namespace)
 		if warning != "" {
-			cmd.log.Info(warning)
+			cmd.log.Debug(warning)
 		}
 		cmd.CIDR = cidr
 	}

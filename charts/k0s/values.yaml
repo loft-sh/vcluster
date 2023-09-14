@@ -108,8 +108,8 @@ mapServices:
   # as the service exists.
   # For example:
   # fromVirtual:
-  #   from: my-namespace/name
-  #   to: host-service
+  #   - from: my-namespace/name
+  #     to: host-service
   fromVirtual: []
   # Same as from virtual, but instead sync services
   # from the host cluster into the virtual cluster.
@@ -277,6 +277,11 @@ ingress:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Ingress TLS configuration
+  tls: []
+    # - secretName: tls-vcluster.local
+    #   hosts:
+    #     - vcluster.local
 
 # Configure SecurityContext of the containers in the VCluster pod
 securityContext:
@@ -293,6 +298,10 @@ securityContext:
   # For installation on OpenShift leave the runAsUser undefined (commented out).
   # runAsUser: 12345
   # runAsNonRoot: true
+
+# PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
+podSecurityContext:
+  {}
 
 # Custom k0s to deploy
 #config: |-

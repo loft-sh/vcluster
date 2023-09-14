@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/go-logr/logr"
 	goansi "github.com/k0kubun/go-ansi"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
@@ -317,7 +318,6 @@ func (s *stdoutLogger) Done(args ...interface{}) {
 
 	s.writeMessage(doneFn, fmt.Sprintln(args...))
 	s.writeMessageToFileLogger(doneFn, args...)
-
 }
 
 func (s *stdoutLogger) Donef(format string, args ...interface{}) {
@@ -441,4 +441,69 @@ func (s *stdoutLogger) Question(params *survey.QuestionOptions) (string, error) 
 
 	s.WriteString("\n")
 	return s.survey.Question(params)
+}
+
+// --- Logr LogSink ---
+
+var _ Logger = &stdoutLogger{}
+
+type stdoutLogSink struct {
+	logger        *stdoutLogger
+	keysAndValues []interface{}
+}
+
+// LogrLogSink implements Logger.
+func (s *stdoutLogger) LogrLogSink() logr.LogSink {
+	return &stdoutLogSink{
+		logger:        s,
+		keysAndValues: []interface{}{},
+	}
+}
+
+// --- Logr LogSink ---
+
+var _ logr.LogSink = &stdoutLogSink{}
+
+// Enabled implements logr.LogSink.
+func (s *stdoutLogSink) Enabled(level int) bool {
+	// if the logrus level is debug or trace, we always log
+	if s.logger.level > logrus.InfoLevel {
+		return true
+	}
+
+	// if the logr level is 0, we log if the logrus level is info or higher
+	return s.logger.level <= logrus.InfoLevel && level == 0
+}
+
+// Error implements logr.LogSink.
+func (s *stdoutLogSink) Error(err error, msg string, keysAndValues ...interface{}) {
+	s.logger.Error(err, msg, append(s.keysAndValues, keysAndValues...))
+}
+
+// Info implements logr.LogSink.
+func (s *stdoutLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
+	if level == 0 {
+		s.logger.Info(msg, append(s.keysAndValues, keysAndValues...))
+	} else {
+		s.logger.Debug(msg, append(s.keysAndValues, keysAndValues...))
+	}
+}
+
+// Init implements logr.LogSink.
+func (*stdoutLogSink) Init(info logr.RuntimeInfo) {}
+
+// WithName implements logr.LogSink.
+func (s *stdoutLogSink) WithName(name string) logr.LogSink {
+	return &stdoutLogSink{
+		logger:        s.logger,
+		keysAndValues: s.keysAndValues,
+	}
+}
+
+// WithValues implements logr.LogSink.
+func (s *stdoutLogSink) WithValues(keysAndValues ...interface{}) logr.LogSink {
+	return &stdoutLogSink{
+		logger:        s.logger,
+		keysAndValues: append(s.keysAndValues, keysAndValues...),
+	}
 }

@@ -15,11 +15,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
-	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
@@ -253,10 +254,9 @@ func RegisterInitManifestsController(ctx *context.ControllerContext) error {
 			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 				return ctx.LocalManager.GetRESTMapper(), nil
 			},
-			MetricsBindAddress: "0",
-			LeaderElection:     false,
-			Namespace:          ctx.CurrentNamespace,
-			NewClient:          pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
+			Metrics:        metricsserver.Options{BindAddress: "0"},
+			LeaderElection: false,
+			Cache:          cache.Options{DefaultNamespaces: map[string]cache.Config{ctx.CurrentNamespace: {}}},
 		})
 		if err != nil {
 			return err
@@ -324,9 +324,9 @@ func RegisterServiceSyncControllers(ctx *context.ControllerContext) error {
 			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 				return ctx.LocalManager.GetRESTMapper(), nil
 			},
-			MetricsBindAddress: "0",
-			LeaderElection:     false,
-			NewClient:          blockingcacheclient.NewCacheClient,
+			Metrics:        metricsserver.Options{BindAddress: "0"},
+			LeaderElection: false,
+			NewClient:      blockingcacheclient.NewCacheClient,
 		})
 		if err != nil {
 			return err

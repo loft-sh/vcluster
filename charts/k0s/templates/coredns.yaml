@@ -151,6 +151,8 @@ data:
                 runAsGroup: {{`{{.RUN_AS_GROUP}}`}}
                 allowPrivilegeEscalation: false
                 capabilities:
+                  add:
+                    - NET_BIND_SERVICE
                   drop:
                     - ALL
                 readOnlyRootFilesystem: true
