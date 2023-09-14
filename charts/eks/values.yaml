@@ -107,8 +107,8 @@ mapServices:
   # as the service exists.
   # For example:
   # fromVirtual:
-  #   from: my-namespace/name
-  #   to: host-service
+  #   - from: my-namespace/name
+  #     to: host-service
   fromVirtual: []
   # Same as from virtual, but instead sync services
   # from the host cluster into the virtual cluster.
