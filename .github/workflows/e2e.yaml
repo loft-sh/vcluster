@@ -150,6 +150,11 @@ jobs:
           go-version: "1.21"
           cache: false
 
+      - uses: azure/setup-helm@v3
+        name: Setup Helm
+        with:
+          version: "v3.11.0"
+
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:

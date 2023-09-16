@@ -1,23 +1,27 @@
 [build]
-  base = "docs/"
-  publish = "public/"
-  command = """
+base = "docs/"
+publish = "public/"
+command = """
     set -e
-    
+
     yarn build
     mkdir public/
     mv build/ public/docs/
   """
 
 [build.processing]
-  skip_processing = false
+skip_processing = false
+
 [build.processing.html]
-  pretty_urls = true
+pretty_urls = true
+
 [build.processing.css]
-  bundle = false
-  minify = false
+bundle = false
+minify = false
+
 [build.processing.js]
-  bundle = false
-  minify = false
+bundle = false
+minify = false
+
 [build.processing.images]
-  compress = true
+compress = true
