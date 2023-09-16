@@ -116,3 +116,9 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
 cli version="0.0.0" *ARGS="":
   RELEASE_VERSION={{ version }} go generate -tags embed_charts ./...
   go run -tags embed_charts -mod vendor -ldflags "-X main.version={{ version }}" ./cmd/vclusterctl/main.go {{ ARGS }}
+
+# --- Docs ---
+
+# Version the docs for the given version
+docs-version id="pro" version="1.0.0":
+  yarn docusaurus docs:version {{version}}
