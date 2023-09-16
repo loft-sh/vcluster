@@ -12,7 +12,7 @@ module.exports = {
       value: `
         <div class="pro-flex-container">
 
-            <a href="/doc/" class="selected">
+            <a href="/docs/" class="selected">
               Open Source
             </a>
 
