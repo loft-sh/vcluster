@@ -11,7 +11,6 @@ module.exports = {
       type: "html",
       value: `
         <div class="pro-flex-container">
-
             <a href="/docs/" class="selected">
               Open Source
             </a>
@@ -31,17 +30,10 @@ module.exports = {
       label: "Getting Started",
       collapsed: false,
       items: [
-        {
-          type: "category",
-          label: "Quickstart",
-          collapsed: false,
-          items: [
-            "getting-started/setup",
-            "getting-started/deployment",
-            "getting-started/connect",
-            "getting-started/cleanup",
-          ],
-        },
+        "getting-started/setup",
+        "getting-started/deployment",
+        "getting-started/connect",
+        "getting-started/cleanup",
       ],
     },
     {
@@ -58,9 +50,9 @@ module.exports = {
             "architecture/control_plane/control_plane",
             "architecture/control_plane/k8s_distros",
             {
-              type: "link",
-              label: "Isolated control planes",
-              href: "https://vcluster.com/pro/docs/features/isolated_control_planes",
+              type: "html",
+              value: `<a href="/pro/docs/features/isolated_control_planes" class="menu__link">Isolated control planes <div class="pro-feature">p</div><div class="pro-feature pro-feature-link">l</div></a>`,
+              defaultStyle: true,
             },
           ],
         },
@@ -85,9 +77,9 @@ module.exports = {
         "networking/networking",
         "networking/coreDNS",
         {
-          type: "link",
-          label: "Integrated CoreDNS",
-          href: "https://vcluster.com/pro/docs/features/integrated_coredns",
+          type: "html",
+          value: `<a href="/pro/docs/features/integrated_coredns" class="menu__link">Integrated CoreDNS <div class="pro-feature">p</div><div class="pro-feature pro-feature-link">l</div></a>`,
+          defaultStyle: true,
         },
         {
           type: "category",
@@ -126,9 +118,9 @@ module.exports = {
           ],
         },
         {
-          type: "link",
-          label: "Generic Resource Patches",
-          href: "https://vcluster.com/pro/docs/features/generic_resource_patches",
+          type: "html",
+          value: `<a href="/pro/docs/features/generic_resource_patches" class="menu__link">Generic Resource Patches <div class="pro-feature">p</div><div class="pro-feature pro-feature-link">l</div></a>`,
+          defaultStyle: true,
         },
         {
           type: "category",
@@ -227,11 +219,6 @@ module.exports = {
       items: [
         "security/rootless-mode",
         "security/isolated-mode",
-        {
-          type: "link",
-          label: "Admission Control",
-          href: "https://vcluster.com/pro/docs/features/admission-control",
-        },
         "security/quotas-limits",
         "security/pod-security",
         "security/network-isolation",
