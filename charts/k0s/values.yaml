@@ -2,7 +2,11 @@
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""
 
+# Global annotations to add to all objects
 globalAnnotations: {}
+
+# If vCluster.Pro is enabled
+pro: false
 
 # If true, will deploy vcluster in headless mode, which means no deployment
 # or statefulset is created.
@@ -219,6 +223,9 @@ rbac:
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
+    # all entries in excludedApiResources will be excluded from the Role created for vcluster
+    excludedApiResources:
+      # - pods/exec
 
 # The amount of replicas to run the statefulset with
 replicas: 1
@@ -298,10 +305,11 @@ securityContext:
   # For installation on OpenShift leave the runAsUser undefined (commented out).
   # runAsUser: 12345
   # runAsNonRoot: true
+  runAsUser: 0
+  runAsGroup: 0
 
 # PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
-podSecurityContext:
-  {}
+podSecurityContext: {}
 
 # Custom k0s to deploy
 #config: |-
@@ -316,6 +324,9 @@ openshift:
 
 # If enabled will deploy the coredns configmap
 coredns:
+  # Pro only feature
+  integrated: false
+  # If CoreDns is enabled
   enabled: true
   replicas: 1
   # image: my-core-dns-image:latest

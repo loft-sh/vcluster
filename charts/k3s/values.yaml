@@ -1,6 +1,9 @@
 # These annotations will be applied to all objects created in this chart
 globalAnnotations: {}
 
+# If vCluster.Pro is enabled
+pro: false
+
 # If the control plane is deployed in high availability mode
 # Make sure to scale up the replicas and use an external datastore
 enableHA: false
@@ -227,6 +230,9 @@ rbac:
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
+    # all entries in excludedApiResources will be excluded from the Role created for vcluster
+    excludedApiResources:
+      # - pods/exec
 
 # The amount of replicas to run the statefulset with
 replicas: 1
@@ -325,10 +331,11 @@ securityContext:
   # For installation on OpenShift leave the runAsUser undefined (commented out).
   # runAsUser: 12345
   # runAsNonRoot: true
+  runAsUser: 0
+  runAsGroup: 0
 
 # PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
-podSecurityContext:
-  {}
+podSecurityContext: {}
 
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order
@@ -338,6 +345,7 @@ openshift:
 
 # If enabled will deploy the coredns configmap
 coredns:
+  integrated: false
   enabled: true
   replicas: 1
   # image: my-core-dns-image:latest
@@ -440,3 +448,18 @@ telemetry:
   disabled: "false"
   instanceCreator: "helm"
   instanceCreatorUID: ""
+
+noopSyncer:
+  enabled: false
+  synck8sService: false
+
+  # Secret containing remote cluster configuration
+  # (should have the following keys defined)
+  #   serverCaCert: <server-ca-cert of the remote cluster>
+  #   serverCaKey: <server-ca-key of the remote cluster>
+  #   clientCaCert: <client-ca-cert of the remote cluster>
+  #   requestHeaderCaCert: <request-header-ca-cert of the remote cluster>
+  #   kubeConfig: <kubeconfig of the remote cluster>
+  #
+  #secret: ""
+

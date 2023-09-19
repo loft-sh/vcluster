@@ -1,5 +1,5 @@
 {{- if not .Values.headless }}
-{{- if .Values.coredns.enabled }}
+{{- if and .Values.coredns.enabled (not .Values.coredns.integrated) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
