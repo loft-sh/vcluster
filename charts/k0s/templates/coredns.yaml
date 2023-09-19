@@ -105,6 +105,7 @@ data:
           serviceAccountName: coredns
           nodeSelector:
             kubernetes.io/os: linux
+{{ toYaml .Values.nodeSelector | indent 6 }}
           topologySpreadConstraints:
             - maxSkew: 1
               topologyKey: kubernetes.io/hostname
