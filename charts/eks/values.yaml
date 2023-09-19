@@ -2,7 +2,11 @@
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""
 
+# Global annotations to add to all objects
 globalAnnotations: {}
+
+# If vCluster.Pro is enabled
+pro: false
 
 # If true, will deploy vcluster in headless mode, which means no deployment
 # or statefulset is created.
@@ -257,6 +261,7 @@ api:
 
 # Core DNS settings
 coredns:
+  integrated: false
   enabled: true
   image: public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-27-11
   replicas: 1
@@ -310,6 +315,9 @@ rbac:
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
+    # all entries in excludedApiResources will be excluded from the Role created for vcluster
+    excludedApiResources:
+      # - pods/exec
 
 # Syncer service configurations
 service:

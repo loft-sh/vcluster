@@ -22,9 +22,19 @@ metadata:
 {{ toYaml .Values.globalAnnotations | indent 4 }}
   {{- end }}
 rules:
+  {{- if .Values.pro }}
+  - apiGroups: [""]
+    {{- $resources := list "configmaps" "secrets" "services" "pods" "pods/attach" "pods/portforward" "pods/exec" "persistentvolumeclaims" }}
+    {{- range $excluded := .Values.rbac.role.excludedApiResources }}
+      {{- $resources = without $resources $excluded }}
+    {{- end}}
+    resources: {{ $resources | toJson }}
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- else }}
   - apiGroups: [""]
     resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   {{- if or .Values.sync.pods.status .Values.rbac.role.extended }}
   - apiGroups: [""]
     resources: ["pods/status"]
