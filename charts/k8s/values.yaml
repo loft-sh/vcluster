@@ -485,6 +485,22 @@ init:
   # this allows you to use helm values inside, e.g.: {{ .Release.Name }}
   manifestsTemplate: ''
   helm: []
+    # - bundle: <string> - base64-encoded .tar.gz file content (optional - overrides chart.repo)
+    #   chart:
+    #     name: <string>  REQUIRED
+    #     version: <string>  REQUIRED
+    #     repo: <string>  (optional when bundle is used)
+    #     username: <string>   (if required for repo)
+    #     password: <string>   (if required for repo)
+    #     insecure: boolean    (if required for repo)
+    #   release:
+    #     releaseName: <string> REQUIRED
+    #     releaseNamespace: <string> REQUIRED
+    #     timeout: number
+    #   values: |-  string YAML object
+    #     foo: bar
+    #   valuesTemplate: |-  string YAML object
+    #     foo: {{ .Release.Name }}
 
 multiNamespaceMode:
   enabled: false
