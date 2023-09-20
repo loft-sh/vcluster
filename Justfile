@@ -68,6 +68,9 @@ copy-assets:
 generate-vcluster-images version="0.0.0":
   go run -mod vendor ./hack/assets/main.go {{ version }} > ./release/vcluster-images.txt
 
+generate-cli-docs version="0.0.0":
+  go run -mod vendor ./hack/docs/main.go
+
 # Embed the charts into the vcluster binary
 [private]
 embed-charts version="0.0.0":
