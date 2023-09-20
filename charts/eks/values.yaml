@@ -265,6 +265,9 @@ coredns:
   enabled: true
   image: public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-27-11
   replicas: 1
+  # The nodeSelector example below specifices that coredns shoudl only be scheduled to nodes with the arm64 label
+  # nodeSelector:
+  #   kubernetes.io/arch: arm64
   # CoreDNS service configurations
   service:
     # Extra Annotations
