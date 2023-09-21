@@ -25,7 +25,7 @@ func getActionOrConditionValue(annotation, actionOrCondition string) string {
 // ref https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/pkg/ingress/config_types.go
 type actionPayload struct {
 	Type                string                 `json:"type,omitempty"`
-	TargetGroupARN      *string                `json:"targetGroupARN"`
+	TargetGroupARN      *string                `json:"targetGroupARN,omitempty"`
 	FixedResponseConfig map[string]interface{} `json:"fixedResponseConfig,omitempty"`
 	ForwardConfig       struct {
 		TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
