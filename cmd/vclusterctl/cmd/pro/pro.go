@@ -4,11 +4,17 @@
 package pro
 
 import (
+	"fmt"
+
+	loftctl "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
+	loftctlflags "github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/spf13/cobra"
 )
 
-func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	proCmd := &cobra.Command{
 		Use:   "pro",
 		Short: "vCluster.Pro subcommands",
@@ -19,38 +25,48 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 
-	proCmd.AddCommand(NewStartCmd(globalFlags))
-	proCmd.AddCommand(NewLoginCmd(globalFlags))
+	loftctlGlobalFlags := &loftctlflags.GlobalFlags{
+		Silent:    globalFlags.Silent,
+		Debug:     globalFlags.Debug,
+		Config:    globalFlags.Config,
+		LogOutput: globalFlags.LogOutput,
+	}
 
-	proxy := NewAliasCmd(globalFlags)
+	startCmd, err := NewStartCmd(loftctlGlobalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vcluster pro start command: %w", err)
+	}
 
-	proxy.AddCmd("connect", "Creates a kube context for the given virtual cluster")
-	proxy.AddCmd("create", "Creates a new virtual cluster in the given parent cluster")
-	proxy.AddCmd("delete", "Deletes a virtual cluster from a cluster")
-	proxy.AddCmd("import", "Imports a vCluster.Pro instance into a space")
-	proxy.AddCmd("list", "Lists the vCluster.Pro instances you have access to")
-	// Use is an alias to connect
-	proxy.AddCmd("use", "Creates a kube context for the given virtual cluster")
+	proCmd.AddCommand(startCmd)
 
-	proxy.AddCmd("space", "Management operations on space resources")
-	proxy.AddCmd("space create", "Creates a new space in the given cluster")
-	proxy.AddCmd("space delete", "Deletes a space from a cluster")
-	proxy.AddCmd("space import", "Imports a vcluster into a vcluster pro project")
-	proxy.AddCmd("space list", "Lists the vcluster pro spaces you have access to")
-	proxy.AddCmd("space use", "Creates a kube context for the given space")
+	return proCmd, nil
+}
 
-	proxy.AddCmd("secret", "Management Operations on secret resources")
-	proxy.AddCmd("secret get", "Returns the key value of a project / shared secret")
-	proxy.AddCmd("secret list", "Lists all the shared secrets you have access to")
-	proxy.AddCmd("secret set", "Sets the key value of a project / shared secret")
+func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, error) {
+	starCmd := loftctl.NewStartCmd(loftctlGlobalFlags)
 
-	proxy.AddCmd("generate", "Generates configuration")
-	proxy.AddCmd("generate admin-kube-config", "Generates a new kube config for connecting a cluster")
+	configPath, err := pro.GetConfigFilePath()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
+	}
 
-	proxy.AddCmd("reset", "Reset configuration")
-	proxy.AddCmd("reset password", "Resets the password of a user")
+	starCmd.Flags().Set("config", configPath)
 
-	proCmd.AddCommand(proxy.Commands()...)
+	starCmd.Flags().Set("product", "vcluster-pro")
+	starCmd.Flags().Set("chart-name", "vcluster-control-plane")
 
-	return proCmd
+	starCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		version := pro.MinimumVersionTag
+
+		latestVersion, err := pro.LatestCompatibleVersion(cmd.Context())
+		if err != nil {
+			log.GetInstance().Warnf("failed to get latest compatible version: %v", err)
+		} else {
+			version = latestVersion
+		}
+
+		starCmd.Flags().Set("version", version)
+	}
+
+	return starCmd, nil
 }
