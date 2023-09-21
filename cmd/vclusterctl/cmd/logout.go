@@ -1,7 +1,4 @@
-//go:build pro
-// +build pro
-
-package login
+package cmd
 
 import (
 	"fmt"
@@ -13,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewLoginCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
+func NewLogoutCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	loftctlGlobalFlags := &loftctlflags.GlobalFlags{
 		Silent:    globalFlags.Silent,
 		Debug:     globalFlags.Debug,
@@ -30,17 +27,16 @@ func NewLoginCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 		}
 	}
 
-	loginCmd := loftctl.NewLoginCmd(loftctlGlobalFlags)
+	logoutCmd := loftctl.NewLogoutCmd(loftctlGlobalFlags)
 
-	loginCmd.Use = "login [VCLUSTER_PRO_HOST]"
-	loginCmd.Long = `########################################################
-Login into vCluster.Pro
+	logoutCmd.Use = "logout"
+	logoutCmd.Long = `########################################################
+Log out of vCluster.Pro
 
 Example:
-vcluster login https://my-vcluster-pro.com
-vcluster login https://my-vcluster-pro.com --access-key myaccesskey
+vcluster logout
 ########################################################
 	`
 
-	return loginCmd, nil
+	return logoutCmd, nil
 }

@@ -2,18 +2,14 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/login"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/logout"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -90,23 +86,23 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 
 	// add pro commands
 	proCmd, err := pro.NewProCmd(globalFlags)
-	if err != nil && !errors.Is(err, constants.ErrOnlyInPro) {
+	if err != nil {
 		return nil, fmt.Errorf("failed to create pro command: %w", err)
 	}
 	if proCmd != nil {
 		rootCmd.AddCommand(proCmd)
 	}
 
-	loginCmd, err := login.NewLoginCmd(globalFlags)
-	if err != nil && !errors.Is(err, constants.ErrOnlyInPro) {
+	loginCmd, err := NewLoginCmd(globalFlags)
+	if err != nil {
 		return nil, fmt.Errorf("failed to create login command: %w", err)
 	}
 	if loginCmd != nil {
 		rootCmd.AddCommand(loginCmd)
 	}
 
-	logoutCmd, err := logout.NewLogoutCmd(globalFlags)
-	if err != nil && !errors.Is(err, constants.ErrOnlyInPro) {
+	logoutCmd, err := NewLogoutCmd(globalFlags)
+	if err != nil {
 		return nil, fmt.Errorf("failed to create logout command: %w", err)
 	}
 	if logoutCmd != nil {

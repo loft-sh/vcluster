@@ -1,6 +1,3 @@
-//go:build pro
-// +build pro
-
 package pro
 
 import (
