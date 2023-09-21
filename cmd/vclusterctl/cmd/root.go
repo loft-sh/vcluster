@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro"
@@ -39,6 +40,11 @@ var globalFlags *flags.GlobalFlags
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	err := os.Setenv("PRODUCT", "vcluster-pro")
+	if err != nil {
+		panic(err)
+	}
+
 	log := log.GetInstance()
 	rootCmd, err := BuildRoot(log)
 	if err != nil {
@@ -79,11 +85,15 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(versionCmd)
 
 	// add pro commands
-	if proCmd := pro.NewProCmd(globalFlags); proCmd != nil {
+	proCmd, err := pro.NewProCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pro command: %w", err)
+	}
+	if proCmd != nil {
 		rootCmd.AddCommand(proCmd)
 	}
 
-	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
+	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
 		return rootCmd, fmt.Errorf("failed to register completion for namespace: %w", err)
 	}

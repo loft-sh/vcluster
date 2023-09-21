@@ -8,6 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	return nil
+func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
+	return nil, nil
 }

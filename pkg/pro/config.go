@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
 const (
 	VclusterProFolder = "pro"
-	BinariesFolder    = "bin"
 )
 
 var (
@@ -25,9 +25,10 @@ var (
 
 // CLIConfig is the config of the CLI
 type CLIConfig struct {
-	LatestVersion   string    `json:"latestVersion,omitempty"`
-	LatestCheckAt   time.Time `json:"latestCheck,omitempty"`
-	LastUsedVersion string    `json:"lastUsedVersion,omitempty"`
+	*client.Config `json:",inline"`
+
+	LatestVersion string    `json:"latestVersion,omitempty"`
+	LatestCheckAt time.Time `json:"latestCheck,omitempty"`
 }
 
 // getDefaultCLIConfig returns the default config
@@ -36,18 +37,22 @@ func getDefaultCLIConfig() *CLIConfig {
 }
 
 // getConfigFilePath returns the path to the config file
-func getConfigFilePath(home string) string {
-	return filepath.Join(home, cliconfig.VclusterFolder, VclusterProFolder, cliconfig.ConfigFileName)
+func GetConfigFilePath() (string, error) {
+	home, err := homedir.Dir()
+	if err != nil {
+		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+	}
+
+	return filepath.Join(home, cliconfig.VclusterFolder, VclusterProFolder, cliconfig.ConfigFileName), nil
 }
 
 // GetConfig returns the config from the config file
 func GetConfig() (*CLIConfig, error) {
-	home, err := homedir.Dir()
+	path, err := GetConfigFilePath()
 	if err != nil {
-		return getDefaultCLIConfig(), fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+		return getDefaultCLIConfig(), fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
 	}
 
-	path := getConfigFilePath(home)
 	// check if the file exists
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -75,11 +80,10 @@ func GetConfig() (*CLIConfig, error) {
 
 // WriteConfig writes the given config to the config file
 func WriteConfig(c *CLIConfig) error {
-	home, err := homedir.Dir()
+	path, err := GetConfigFilePath()
 	if err != nil {
-		return fmt.Errorf("failed to write vcluster configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+		return fmt.Errorf("failed to get vcluster configuration file path: %w", err)
 	}
-	path := getConfigFilePath(home)
 
 	err = os.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
@@ -97,18 +101,4 @@ func WriteConfig(c *CLIConfig) error {
 	}
 
 	return nil
-}
-
-// LastUsedVersion returns the last used version of the loft cli
-func LastUsedVersion() (string, error) {
-	config, err := GetConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to get vcluster pro config: %w", err)
-	}
-
-	if config.LastUsedVersion == "" {
-		return "", ErrNoLastVersion
-	}
-
-	return config.LastUsedVersion, nil
 }
