@@ -29,7 +29,7 @@ func ApplyManifest(ctx context.Context, inClusterConfig *rest.Config, manifests 
 	}
 
 	a := DirectApplier{}
-	opts := ApplierOptions{
+	opts := Options{
 		RESTMapper: restMapper,
 		RESTConfig: inClusterConfig,
 		Manifest:   string(manifests),

@@ -434,7 +434,7 @@ func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace st
 }
 
 func RegisterCoreDNSController(ctx *context.ControllerContext) error {
-	controller := &coredns.CoreDNSNodeHostsReconciler{
+	controller := &coredns.NodeHostsReconciler{
 		Client: ctx.VirtualManager.GetClient(),
 		Log:    loghelper.New("corednsnodehosts-controller"),
 	}
@@ -446,7 +446,7 @@ func RegisterCoreDNSController(ctx *context.ControllerContext) error {
 }
 
 func RegisterPodSecurityController(ctx *context.ControllerContext) error {
-	controller := &podsecurity.PodSecurityReconciler{
+	controller := &podsecurity.Reconciler{
 		Client:              ctx.VirtualManager.GetClient(),
 		PodSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
 		Log:                 loghelper.New("podSecurity-controller"),

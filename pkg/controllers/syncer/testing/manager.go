@@ -40,7 +40,7 @@ func (f *fakeManager) GetFieldIndexer() client.FieldIndexer { return f.client }
 
 func (f *fakeManager) GetCache() cache.Cache { return nil }
 
-func (f *fakeManager) GetEventRecorderFor(name string) record.EventRecorder {
+func (f *fakeManager) GetEventRecorderFor(string) record.EventRecorder {
 	return &fakeEventBroadcaster{}
 }
 
@@ -48,17 +48,17 @@ func (f *fakeManager) GetRESTMapper() meta.RESTMapper { return nil }
 
 func (f *fakeManager) GetAPIReader() client.Reader { return f.client }
 
-func (f *fakeManager) Start(ctx context.Context) error { return nil }
+func (f *fakeManager) Start(context.Context) error { return nil }
 
 func (f *fakeManager) Add(manager.Runnable) error { return nil }
 
 func (f *fakeManager) Elected() <-chan struct{} { return make(chan struct{}) }
 
-func (f *fakeManager) AddMetricsExtraHandler(path string, handler http.Handler) error { return nil }
+func (f *fakeManager) AddMetricsExtraHandler(string, http.Handler) error { return nil }
 
-func (f *fakeManager) AddHealthzCheck(name string, check healthz.Checker) error { return nil }
+func (f *fakeManager) AddHealthzCheck(string, healthz.Checker) error { return nil }
 
-func (f *fakeManager) AddReadyzCheck(name string, check healthz.Checker) error { return nil }
+func (f *fakeManager) AddReadyzCheck(string, healthz.Checker) error { return nil }
 
 func (f *fakeManager) GetWebhookServer() webhook.Server { return webhook.NewServer(webhook.Options{}) }
 

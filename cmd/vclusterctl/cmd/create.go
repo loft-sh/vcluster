@@ -57,7 +57,7 @@ const LoftChartRepo = "https://charts.loft.sh"
 // CreateCmd holds the login cmd flags
 type CreateCmd struct {
 	*flags.GlobalFlags
-	create.CreateOptions
+	create.Options
 
 	log log.Logger
 
@@ -91,7 +91,7 @@ vcluster create test --namespace test
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
-			validateDeprecated(&cmd.CreateOptions, cmd.log)
+			validateDeprecated(&cmd.Options, cmd.log)
 			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
@@ -119,7 +119,7 @@ vcluster create test --namespace test
 	return cobraCmd
 }
 
-func validateDeprecated(createOptions *create.CreateOptions, log log.Logger) {
+func validateDeprecated(createOptions *create.Options, log log.Logger) {
 	if createOptions.ReleaseValues != "" {
 		log.Warn("Flag --release-values is deprecated, please use --extra-values instead. This flag will be removed in future!")
 	}
@@ -247,12 +247,12 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		}
 
 		return connectCmd.Connect(ctx, args[0], nil)
+	}
+
+	if cmd.localCluster {
+		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", args[0], cmd.Namespace, args[0], cmd.Namespace)
 	} else {
-		if cmd.localCluster {
-			cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", args[0], cmd.Namespace, args[0], cmd.Namespace)
-		} else {
-			cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
-		}
+		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
 	}
 
 	return nil

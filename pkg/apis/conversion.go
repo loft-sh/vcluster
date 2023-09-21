@@ -58,12 +58,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*url.Values)(nil), (*corev1.ServiceProxyOptions)(nil), func(a, b interface{}, scope conversion.Scope) error {
+	err := s.AddGeneratedConversionFunc((*url.Values)(nil), (*corev1.ServiceProxyOptions)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return ConvertURLValuesToV1ServiceProxyOptions(a.(*url.Values), b.(*corev1.ServiceProxyOptions), scope)
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
+
+	return err
 }
 
 func autoConvertURLValuesToV1NodeProxyOptions(in *url.Values, out *corev1.NodeProxyOptions, s conversion.Scope) error {

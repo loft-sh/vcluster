@@ -509,7 +509,7 @@ func isSequenceChild(path string) bool {
 	return err == nil
 }
 
-func createSequenceNode(path string, child *yaml.Node) *yaml.Node {
+func createSequenceNode(_ string, child *yaml.Node) *yaml.Node {
 	childNode := &yaml.Node{
 		Kind: yaml.SequenceNode,
 		Tag:  "!!seq",

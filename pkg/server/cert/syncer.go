@@ -29,7 +29,7 @@ type Syncer interface {
 	dynamiccertificates.CertKeyContentProvider
 }
 
-func NewSyncer(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
+func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
 	return &syncer{
 		clusterDomain: options.ClusterDomain,
 
@@ -206,8 +206,8 @@ func (s *syncer) regen(extraSANs []string) error {
 	return nil
 }
 
-func (s *syncer) Run(ctx context.Context, workers int) {
-	wait.JitterUntil(func() {
+func (s *syncer) Run(ctx context.Context, _ int) {
+	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
 		extraSANs, err := s.getSANs(ctx)
 		if err != nil {
 			klog.Infof("Error retrieving SANs: %v", err)
@@ -228,5 +228,5 @@ func (s *syncer) Run(ctx context.Context, workers int) {
 				l.Enqueue()
 			}
 		}
-	}, time.Second*2, 1.25, true, ctx.Done())
+	}, time.Second*2, 1.25, true)
 }

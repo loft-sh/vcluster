@@ -35,8 +35,8 @@ import (
 	apiserverserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 )
 
-// ServiceAccountTokenGetter defines functions to retrieve a named service account and secret
-type ServiceAccountTokenGetter interface {
+// TokenGetter defines functions to retrieve a named service account and secret
+type TokenGetter interface {
 	GetServiceAccount(namespace, name string) (*corev1.ServiceAccount, error)
 	GetPod(namespace, name string) (*corev1.Pod, error)
 	GetSecret(namespace, name string) (*corev1.Secret, error)

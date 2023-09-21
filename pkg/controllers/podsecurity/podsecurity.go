@@ -12,13 +12,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type PodSecurityReconciler struct {
+type Reconciler struct {
 	client.Client
 	PodSecurityStandard string
 	Log                 loghelper.Logger
 }
 
-func (r *PodSecurityReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	client := r.Client
 	ns := &corev1.Namespace{}
 	err := client.Get(ctx, req.NamespacedName, ns)
@@ -51,7 +51,7 @@ func (r *PodSecurityReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 // SetupWithManager adds the controller to the manager
-func (r *PodSecurityReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("pod_security").
 		For(&corev1.Namespace{}).

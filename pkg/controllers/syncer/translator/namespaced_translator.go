@@ -96,11 +96,11 @@ func (n *namespacedTranslator) SyncDownUpdate(ctx *context.SyncContext, vObj, pO
 	return ctrl.Result{}, nil
 }
 
-func (n *namespacedTranslator) IsManaged(ctx context2.Context, pObj client.Object) (bool, error) {
+func (n *namespacedTranslator) IsManaged(_ context2.Context, pObj client.Object) (bool, error) {
 	return translate.Default.IsManaged(pObj), nil
 }
 
-func (n *namespacedTranslator) VirtualToPhysical(ctx context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (n *namespacedTranslator) VirtualToPhysical(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	name := translate.Default.PhysicalName(req.Name, req.Namespace)
 	if n.nameTranslator != nil {
 		name = n.nameTranslator(req, vObj)
@@ -112,7 +112,7 @@ func (n *namespacedTranslator) VirtualToPhysical(ctx context2.Context, req types
 	}
 }
 
-func (n *namespacedTranslator) PhysicalToVirtual(ctx context2.Context, pObj client.Object) types.NamespacedName {
+func (n *namespacedTranslator) PhysicalToVirtual(_ context2.Context, pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
 	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
@@ -157,6 +157,6 @@ func (n *namespacedTranslator) TranslateMetadata(ctx context2.Context, vObj clie
 	return pObj
 }
 
-func (n *namespacedTranslator) TranslateMetadataUpdate(ctx context2.Context, vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
+func (n *namespacedTranslator) TranslateMetadataUpdate(_ context2.Context, vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
 	return translate.Default.ApplyMetadataUpdate(vObj, pObj, n.syncedLabels, n.excludedAnnotations...)
 }

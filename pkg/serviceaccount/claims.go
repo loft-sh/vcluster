@@ -94,14 +94,14 @@ func Claims(sa corev1.ServiceAccount, pod *corev1.Pod, secret *corev1.Secret, ex
 	return sc, pc
 }
 
-func NewValidator(getter ServiceAccountTokenGetter) Validator {
+func NewValidator(getter TokenGetter) Validator {
 	return &validator{
 		getter: getter,
 	}
 }
 
 type validator struct {
-	getter ServiceAccountTokenGetter
+	getter TokenGetter
 }
 
 var _ = Validator(&validator{})

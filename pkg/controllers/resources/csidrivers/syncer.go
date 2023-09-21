@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &csidriverSyncer{
 		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}),
 	}, nil

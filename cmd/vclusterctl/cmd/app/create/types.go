@@ -1,7 +1,7 @@
 package create
 
-// CreateOptions holds the create cmd options
-type CreateOptions struct {
+// Options holds the create cmd options
+type Options struct {
 	KubeConfigContextName string
 	ChartVersion          string
 	ChartName             string

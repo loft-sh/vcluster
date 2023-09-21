@@ -36,7 +36,7 @@ docs: https://www.vcluster.com/docs/telemetry
 	return cobraCmd
 }
 
-func (cmd *DisableCmd) Run(cobraCmd *cobra.Command) error {
+func (cmd *DisableCmd) Run(*cobra.Command) error {
 	c, err := cliconfig.GetConfig()
 	if err != nil {
 		return err

@@ -156,13 +156,13 @@ func GetServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace 
 			if testService.Spec.IPFamilies[0] == corev1.IPv4Protocol {
 				// IPv4 is the default
 				return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), ""
-			} else {
-				// IPv6 is the default
-				return fmt.Sprintf("%s,%s", ipv6CIDR, ipv4CIDR), ""
 			}
-		} else {
-			return ipv4CIDR, fmt.Sprintf("unexpected number of entries in .Spec.IPFamilies - %d, defaulting to IPv4 CIDR only", len(testService.Spec.IPFamilies))
+
+			// IPv6 is the default
+			return fmt.Sprintf("%s,%s", ipv6CIDR, ipv4CIDR), ""
 		}
+
+		return ipv4CIDR, fmt.Sprintf("unexpected number of entries in .Spec.IPFamilies - %d, defaulting to IPv4 CIDR only", len(testService.Spec.IPFamilies))
 	}
 
 	return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), "failed to find host cluster default Service IP family, defaulting to IPv4 family"

@@ -22,11 +22,11 @@ import (
 )
 
 var (
-	SyncerVersion                                        = "dev"
-	cachedUID                                            = ""
-	cachedSyncerFlags                                    = ""
-	cachedHostKubernetesVersion *types.KubernetesVersion = nil
-	cachedVclusterServiceType                            = ""
+	SyncerVersion               = "dev"
+	cachedUID                   = ""
+	cachedSyncerFlags           = ""
+	cachedVclusterServiceType   = ""
+	cachedHostKubernetesVersion *types.KubernetesVersion
 )
 
 const (

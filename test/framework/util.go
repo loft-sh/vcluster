@@ -309,7 +309,7 @@ func (f *Framework) TestServiceIsEventuallyUnreachable(curlPod *corev1.Pod, serv
 	ExpectNoError(err, "Nginx service is expected to be unreachable. On the last attempt got %s http code and following error:", string(stdoutBuffer), lastError)
 }
 
-func (f *Framework) curlService(ctx context.Context, curlPod *corev1.Pod, service *corev1.Service) ([]byte, []byte, error) {
+func (f *Framework) curlService(_ context.Context, curlPod *corev1.Pod, service *corev1.Service) ([]byte, []byte, error) {
 	url := fmt.Sprintf("http://%s.%s.svc:%d/", service.GetName(), service.GetNamespace(), service.Spec.Ports[0].Port)
 	cmd := []string{"curl", "-s", "--show-error", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", url}
 	return podhelper.ExecBuffered(f.Context, f.VclusterConfig, curlPod.GetNamespace(), curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)

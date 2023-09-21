@@ -206,7 +206,7 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
 		//TODO: add eventRecorder?
-		//s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
+		// s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
@@ -334,7 +334,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	return ctrl.Result{}, s.addAnnotationsToPhysicalObject(ctx, pObj)
 }
 
-func (s *importer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+func (s *importer) IsManaged(_ context.Context, pObj client.Object) (bool, error) {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return true, nil
 	}
@@ -352,7 +352,7 @@ func (s *importer) IsVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *importer) VirtualToPhysical(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
 }
 
@@ -398,13 +398,13 @@ func (s *importer) TranslateMetadataUpdate(vObj client.Object, pObj client.Objec
 func (s *importer) updateVirtualAnnotations(a map[string]string) map[string]string {
 	if a == nil {
 		return map[string]string{translate.ControllerLabel: s.Name()}
-	} else {
-		a[translate.ControllerLabel] = s.Name()
-		delete(a, translate.NameAnnotation)
-		delete(a, translate.UIDAnnotation)
-		delete(a, corev1.LastAppliedConfigAnnotation)
-		return a
 	}
+
+	a[translate.ControllerLabel] = s.Name()
+	delete(a, translate.NameAnnotation)
+	delete(a, translate.UIDAnnotation)
+	delete(a, corev1.LastAppliedConfigAnnotation)
+	return a
 }
 
 func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, pObj client.Object) error {
@@ -438,10 +438,10 @@ type hostToVirtualImportNameResolver struct {
 	ctx           context.Context
 }
 
-func (r *hostToVirtualImportNameResolver) TranslateName(name string, regex *regexp.Regexp, path string) (string, error) {
+func (r *hostToVirtualImportNameResolver) TranslateName(name string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
-func (r *hostToVirtualImportNameResolver) TranslateNameWithNamespace(name string, namespace string, regex *regexp.Regexp, path string) (string, error) {
+func (r *hostToVirtualImportNameResolver) TranslateNameWithNamespace(name string, _ string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
 func (r *hostToVirtualImportNameResolver) TranslateLabelKey(key string) (string, error) {

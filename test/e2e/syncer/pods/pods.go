@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		ns = fmt.Sprintf("e2e-syncer-pods-%d-%s", iteration, random.RandomString(5))
+		ns = fmt.Sprintf("e2e-syncer-pods-%d-%s", iteration, random.String(5))
 
 		// create test namespace
 		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{

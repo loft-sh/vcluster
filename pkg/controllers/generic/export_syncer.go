@@ -279,7 +279,7 @@ func (f *exporter) TranslateMetadata(ctx context.Context, vObj client.Object) cl
 	return pObj
 }
 
-func (f *exporter) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+func (f *exporter) IsManaged(_ context.Context, pObj client.Object) (bool, error) {
 	return translate.Default.IsManaged(pObj), nil
 }
 
@@ -308,9 +308,9 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 				Namespace: translate.Default.PhysicalNamespace(namespace),
 				Name:      translate.Default.PhysicalName(name, ns)}
 		}), nil
-	} else {
-		return translate.Default.PhysicalName(name, namespace), nil
 	}
+
+	return translate.Default.PhysicalName(name, namespace), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
@@ -352,21 +352,21 @@ type hostToVirtualNameResolver struct {
 	pObj client.Object
 }
 
-func (r *hostToVirtualNameResolver) TranslateName(name string, regex *regexp.Regexp, path string) (string, error) {
+func (r *hostToVirtualNameResolver) TranslateName(string, *regexp.Regexp, string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateNameWithNamespace(name string, namespace string, regex *regexp.Regexp, path string) (string, error) {
+func (r *hostToVirtualNameResolver) TranslateNameWithNamespace(string, string, *regexp.Regexp, string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateLabelKey(key string) (string, error) {
+func (r *hostToVirtualNameResolver) TranslateLabelKey(string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
+func (r *hostToVirtualNameResolver) TranslateLabelExpressionsSelector(*metav1.LabelSelector) (*metav1.LabelSelector, error) {
 	return nil, fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
+func (r *hostToVirtualNameResolver) TranslateLabelSelector(map[string]string) (map[string]string, error) {
 	return nil, fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
+func (r *hostToVirtualNameResolver) TranslateNamespaceRef(string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }

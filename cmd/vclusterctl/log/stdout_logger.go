@@ -494,10 +494,10 @@ func (s *stdoutLogSink) Info(level int, msg string, keysAndValues ...interface{}
 }
 
 // Init implements logr.LogSink.
-func (*stdoutLogSink) Init(info logr.RuntimeInfo) {}
+func (*stdoutLogSink) Init(logr.RuntimeInfo) {}
 
 // WithName implements logr.LogSink.
-func (s *stdoutLogSink) WithName(name string) logr.LogSink {
+func (s *stdoutLogSink) WithName(string) logr.LogSink {
 	return &stdoutLogSink{
 		logger:        s.logger,
 		keysAndValues: s.keysAndValues,

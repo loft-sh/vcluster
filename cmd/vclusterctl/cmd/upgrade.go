@@ -38,7 +38,7 @@ Upgrades the vcluster CLI to the newest version
 }
 
 // Run executes the command logic
-func (cmd *UpgradeCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *UpgradeCmd) Run(*cobra.Command, []string) error {
 	err := upgrade.Upgrade(cmd.Version, cmd.log)
 	if err != nil {
 		return errors.Errorf("Couldn't upgrade: %v", err)

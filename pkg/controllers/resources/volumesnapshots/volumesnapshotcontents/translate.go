@@ -37,7 +37,7 @@ func (s *volumeSnapshotContentSyncer) translateBackwards(pVSC *volumesnapshotv1.
 	return vObj
 }
 
-func (s *volumeSnapshotContentSyncer) translateUpdateBackwards(pVSC, vVSC *volumesnapshotv1.VolumeSnapshotContent, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshotContent {
+func (s *volumeSnapshotContentSyncer) translateUpdateBackwards(pVSC, vVSC *volumesnapshotv1.VolumeSnapshotContent, _ *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshotContent {
 	var updated *volumesnapshotv1.VolumeSnapshotContent
 
 	// add a finalizer to ensure that we delete the physical VolumeSnapshotContent object when virtual is being deleted

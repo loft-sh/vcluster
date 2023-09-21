@@ -32,7 +32,7 @@ func (s *multiNamespace) SingleNamespaceTarget() bool {
 }
 
 // PhysicalName returns the physical name of the name / namespace resource
-func (s *multiNamespace) PhysicalName(name, namespace string) string {
+func (s *multiNamespace) PhysicalName(name, _ string) string {
 	return name
 }
 
@@ -213,7 +213,7 @@ func (s *multiNamespace) ApplyAnnotations(src client.Object, to client.Object, e
 	return retMap
 }
 
-func (s *multiNamespace) ApplyLabels(src client.Object, dest client.Object, syncedLabels []string) map[string]string {
+func (s *multiNamespace) ApplyLabels(src client.Object, _ client.Object, syncedLabels []string) map[string]string {
 	fromLabels := src.GetLabels()
 	if fromLabels == nil {
 		fromLabels = map[string]string{}
@@ -221,7 +221,7 @@ func (s *multiNamespace) ApplyLabels(src client.Object, dest client.Object, sync
 	return s.TranslateLabels(fromLabels, src.GetNamespace(), syncedLabels)
 }
 
-func (s *multiNamespace) TranslateLabels(fromLabels map[string]string, vNamespace string, syncedLabels []string) map[string]string {
+func (s *multiNamespace) TranslateLabels(fromLabels map[string]string, _ string, _ []string) map[string]string {
 	return fromLabels
 }
 

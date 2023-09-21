@@ -62,7 +62,7 @@ func (e *EndpointController) Register(mgr ctrl.Manager) error {
 	return nil
 }
 
-func (e *EndpointController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
 	err := e.syncKubernetesServiceEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: time.Second}, err

@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var Default Interface = DefaultNameserverFinder()
+var Default = DefaultNameserverFinder()
 
 const (
 	DefaultKubeDNSServiceName      = "kube-dns"

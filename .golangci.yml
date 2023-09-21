@@ -28,21 +28,21 @@ linters:
     - misspell
     - nakedret
     - promlinter
+    - revive
     - staticcheck
     - stylecheck
     - tagalign
     - typecheck
     - unconvert
     - unused
-    - whitespace
     - usestdlibvars
+    - whitespace
 
     # next linters to be enabled:
-    # - revive
     # - prealloc
-    # - gocritic
     # - nilnil
     # - errchkjson
+    # - gocritic
 
     # linters to be enabled in the distant future:
     # - cyclop

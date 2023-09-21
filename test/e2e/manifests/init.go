@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("Init manifests are synced and applied as expected", fun
 	ginkgo.JustBeforeEach(func() {
 		f = framework.DefaultFramework
 		iteration++
-		ns = fmt.Sprintf("e2e-init-manifests-%d-%s", iteration, random.RandomString(5))
+		ns = fmt.Sprintf("e2e-init-manifests-%d-%s", iteration, random.String(5))
 
 		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{

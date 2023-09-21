@@ -23,7 +23,7 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		ns = fmt.Sprintf("e2e-coredns-%d-%s", iteration, random.RandomString(5))
+		ns = fmt.Sprintf("e2e-coredns-%d-%s", iteration, random.String(5))
 
 		// create test namespace
 		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})

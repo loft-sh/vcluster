@@ -57,7 +57,7 @@ var _ = ginkgo.Describe("AdmissionWebhook", func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		ns = fmt.Sprintf("e2e-webhook-%d-%s", iteration, random.RandomString(5))
+		ns = fmt.Sprintf("e2e-webhook-%d-%s", iteration, random.String(5))
 
 		// create test namespace
 		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{uniqueName: "true"}}}, metav1.CreateOptions{})
@@ -377,7 +377,7 @@ func testWebhook(f *framework.Framework, namespace string) {
 
 	ginkgo.By("create a configmap that should be denied by the webhook")
 	// Creating the configmap, the request should be rejected
-	configmap := nonCompliantConfigMap(f)
+	configmap := nonCompliantConfigMap()
 	_, err = client.CoreV1().ConfigMaps(namespace).Create(ctx, configmap, metav1.CreateOptions{})
 	framework.ExpectError(err, "create configmap %s in namespace %s should have been denied by the webhook", configmap.Name, namespace)
 	expectedErrMsg := "the configmap contains unwanted key and value"
@@ -433,7 +433,7 @@ func testWebhook(f *framework.Framework, namespace string) {
 		_ = client.CoreV1().Namespaces().Delete(ctx, skippedNamespaceName, metav1.DeleteOptions{})
 	}()
 	ginkgo.By("create a configmap that violates the webhook policy but is in a whitelisted namespace")
-	configmap = nonCompliantConfigMap(f)
+	configmap = nonCompliantConfigMap()
 	_, err = client.CoreV1().ConfigMaps(skippedNamespaceName).Create(ctx, configmap, metav1.CreateOptions{})
 	framework.ExpectNoError(err, "failed to create configmap %s in namespace: %s", configmap.Name, skippedNamespaceName)
 }
@@ -489,7 +489,7 @@ func hangingPod() *corev1.Pod {
 	}
 }
 
-func nonCompliantConfigMap(f *framework.Framework) *corev1.ConfigMap {
+func nonCompliantConfigMap() *corev1.ConfigMap {
 	return namedNonCompliantConfigMap(disallowedConfigMapName)
 }
 
