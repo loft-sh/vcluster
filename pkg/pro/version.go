@@ -10,7 +10,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/google/go-github/v53/github"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 )
 
 var (

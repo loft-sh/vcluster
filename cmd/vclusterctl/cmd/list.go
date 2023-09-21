@@ -6,10 +6,12 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,7 +88,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 		namespace = cmd.Namespace
 	}
 
-	vClusters, err := find.ListVClusters(cobraCmd.Context(), cmd.Context, "", namespace)
+	vClusters, _, err := find.ListVClusters(cobraCmd.Context(), nil, cmd.Context, "", namespace, "", cmd.log.ErrorStreamOnly())
 	if err != nil {
 		return err
 	}
@@ -114,7 +116,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return errors.Wrap(err, "json marshal vclusters")
 		}
-		cmd.log.WriteString(string(bytes) + "\n")
+		cmd.log.WriteString(logrus.InfoLevel, string(bytes)+"\n")
 	} else {
 		header := []string{"NAME", "NAMESPACE", "STATUS", "VERSION", "CONNECTED", "CREATED", "AGE", "CONTEXT"}
 		values := [][]string{}
@@ -136,7 +138,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 			})
 		}
 
-		log.PrintTable(cmd.log, header, values)
+		table.PrintTable(cmd.log, header, values)
 		if strings.HasPrefix(cmd.Context, "vcluster_") {
 			cmd.log.Infof("Run `vcluster disconnect` to switch back to the parent context")
 		}

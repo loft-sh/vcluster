@@ -19,8 +19,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/spf13/cobra"
 )
@@ -146,7 +146,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// check if there are any other vclusters in the namespace you are deleting vcluster in.
-	vClusters, err := find.ListVClusters(cobraCmd.Context(), cmd.Context, "", cmd.Namespace)
+	vClusters, _, err := find.ListVClusters(cobraCmd.Context(), nil, cmd.Context, "", cmd.Namespace, "", cmd.log)
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 }
 
 func (cmd *DeleteCmd) prepare(ctx context.Context, vClusterName string) error {
-	vCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace)
+	vCluster, _, err := find.GetVCluster(ctx, nil, cmd.Context, vClusterName, cmd.Namespace, "", cmd.log)
 	if err != nil {
 		return err
 	}

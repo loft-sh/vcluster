@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/mitchellh/go-homedir"
 	"gotest.tools/assert"

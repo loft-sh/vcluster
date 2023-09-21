@@ -15,6 +15,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,10 +30,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
@@ -207,11 +208,11 @@ func (cmd *ConnectCmd) Connect(ctx context.Context, vclusterName string, command
 			defer func() {
 				signal.Stop(c)
 			}()
-			cmd.Log.WriteString("- Use CTRL+C to return to your previous kube context\n")
-			cmd.Log.WriteString("- Use `kubectl get namespaces` in another terminal to access the vcluster\n")
+			cmd.Log.WriteString(logrus.InfoLevel, "- Use CTRL+C to return to your previous kube context\n")
+			cmd.Log.WriteString(logrus.InfoLevel, "- Use `kubectl get namespaces` in another terminal to access the vcluster\n")
 		} else {
-			cmd.Log.WriteString("- Use `vcluster disconnect` to return to your previous kube context\n")
-			cmd.Log.WriteString("- Use `kubectl get namespaces` to access the vcluster\n")
+			cmd.Log.WriteString(logrus.InfoLevel, "- Use `vcluster disconnect` to return to your previous kube context\n")
+			cmd.Log.WriteString(logrus.InfoLevel, "- Use `kubectl get namespaces` to access the vcluster\n")
 		}
 	} else if cmd.Print {
 		_, err = os.Stdout.Write(out)
@@ -226,9 +227,9 @@ func (cmd *ConnectCmd) Connect(ctx context.Context, vclusterName string, command
 
 		cmd.Log.Donef("Virtual cluster kube config written to: %s", cmd.KubeConfig)
 		if cmd.Server == "" {
-			cmd.Log.WriteString(fmt.Sprintf("- Use `vcluster connect %s -n %s -- kubectl get ns` to execute a command directly within this terminal\n", vclusterName, cmd.Namespace))
+			cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("- Use `vcluster connect %s -n %s -- kubectl get ns` to execute a command directly within this terminal\n", vclusterName, cmd.Namespace))
 		}
-		cmd.Log.WriteString(fmt.Sprintf("- Use `kubectl --kubeconfig %s get namespaces` to access the vcluster\n", cmd.KubeConfig))
+		cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("- Use `kubectl --kubeconfig %s get namespaces` to access the vcluster\n", cmd.KubeConfig))
 	}
 
 	// wait for port-forwarding if necessary
@@ -259,7 +260,7 @@ func (cmd *ConnectCmd) prepare(ctx context.Context, vclusterName string) error {
 		err              error
 	)
 	if vclusterName != "" {
-		vCluster, err = find.GetVCluster(ctx, cmd.Context, vclusterName, cmd.Namespace)
+		vCluster, _, err = find.GetVCluster(ctx, nil, cmd.Context, vclusterName, cmd.Namespace, "", cmd.Log)
 		if err != nil {
 			return err
 		}

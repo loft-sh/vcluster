@@ -3,9 +3,10 @@ package get
 import (
 	"fmt"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -74,10 +75,6 @@ func (cmd *serviceCIDRCmd) Run(cobraCmd *cobra.Command) error {
 		cmd.log.Debugf(warning)
 	}
 
-	_, err = cmd.log.Write([]byte(cidr))
-	if err != nil {
-		return err
-	}
-
+	cmd.log.WriteString(logrus.InfoLevel, cidr)
 	return nil
 }

@@ -8,9 +8,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 )
 
@@ -70,7 +70,7 @@ func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
 }
 
 func (cmd *ResumeCmd) prepare(ctx context.Context, vClusterName string) error {
-	vCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace)
+	vCluster, _, err := find.GetVCluster(ctx, nil, cmd.Context, vClusterName, cmd.Namespace, "", cmd.Log)
 	if err != nil {
 		return err
 	}

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 
@@ -124,9 +124,8 @@ func Upgrade(flagVersion string, log log.Logger) error {
 			return err
 		}
 
-		log.StartWait(fmt.Sprintf("Downloading version %s...", flagVersion))
+		log.Infof("Downloading version %s...", flagVersion)
 		err = selfupdate.DefaultUpdater().UpdateTo(release, cmdPath)
-		log.StopWait()
 		if err != nil {
 			return err
 		}
@@ -146,9 +145,8 @@ func Upgrade(flagVersion string, log log.Logger) error {
 
 	v := semver.MustParse(version)
 
-	log.StartWait("Downloading newest version...")
+	log.Info("Downloading newest version...")
 	latest, err := selfupdate.UpdateSelf(v, githubSlug)
-	log.StopWait()
 	if err != nil {
 		return err
 	}

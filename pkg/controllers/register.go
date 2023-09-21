@@ -31,8 +31,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"

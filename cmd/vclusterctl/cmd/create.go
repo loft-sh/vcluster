@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/terminal"
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	corev1 "k8s.io/api/core/v1"
@@ -30,9 +30,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"golang.org/x/mod/semver"
 
+	"github.com/loft-sh/log"
 	helmUtils "github.com/loft-sh/utils/pkg/helm"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/pkg/errors"
@@ -48,9 +48,6 @@ var (
 	AllowedDistros              = []string{"k3s", "k0s", "k8s", "eks"}
 	CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
 )
-
-var tty = terminal.SetupTTY(os.Stdin, os.Stdout)
-var isTerminalIn = tty.IsTerminalIn()
 
 const LoftChartRepo = "https://charts.loft.sh"
 
@@ -409,7 +406,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	// check if vcluster in vcluster
 	_, _, previousContext := find.VClusterFromContext(rawConfig.CurrentContext)
 	if previousContext != "" {
-		if isTerminalIn {
+		if terminal.IsTerminalIn {
 			switchBackOption := "No, switch back to context " + previousContext
 			out, err := cmd.log.Question(&survey.QuestionOptions{
 				Question:     "You are creating a vcluster inside another vcluster, is this desired?",

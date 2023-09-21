@@ -8,8 +8,8 @@ import (
 
 	loftctl "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
 	loftctlflags "github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/spf13/cobra"
 )

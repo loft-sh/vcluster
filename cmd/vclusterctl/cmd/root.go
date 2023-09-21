@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

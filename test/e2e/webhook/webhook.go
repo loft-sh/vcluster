@@ -199,7 +199,7 @@ func createValidatingWebhookConfiguration(f *framework.Framework, config *admiss
 		if webhook.ObjectSelector != nil && webhook.ObjectSelector.MatchLabels[uniqueName] == "true" {
 			continue
 		}
-		f.Log.Failf(`webhook %s in config %s has no namespace or object selector with %s="true", and can interfere with other tests`, webhook.Name, config.Name, uniqueName)
+		f.Log.Fatalf(`webhook %s in config %s has no namespace or object selector with %s="true", and can interfere with other tests`, webhook.Name, config.Name, uniqueName)
 	}
 	return f.VclusterClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, config, metav1.CreateOptions{})
 }
@@ -349,11 +349,11 @@ func testWebhook(f *framework.Framework, namespace string) {
 	framework.ExpectError(err, "create pod %s in namespace %s should have been denied by webhook", pod.Name, namespace)
 	expectedErrMsg1 := "the pod contains unwanted container name"
 	if !strings.Contains(err.Error(), expectedErrMsg1) {
-		f.Log.Failf("expect error contains %q, got %q", expectedErrMsg1, err.Error())
+		f.Log.Fatalf("expect error contains %q, got %q", expectedErrMsg1, err.Error())
 	}
 	expectedErrMsg2 := "the pod contains unwanted label"
 	if !strings.Contains(err.Error(), expectedErrMsg2) {
-		f.Log.Failf("expect error contains %q, got %q", expectedErrMsg2, err.Error())
+		f.Log.Fatalf("expect error contains %q, got %q", expectedErrMsg2, err.Error())
 	}
 
 	ginkgo.By("create a pod that causes the webhook to hang")
@@ -364,15 +364,15 @@ func testWebhook(f *framework.Framework, namespace string) {
 	framework.ExpectError(err, "create pod %s in namespace %s should have caused webhook to hang", pod.Name, namespace)
 	// ensure the error is webhook-related, not client-side
 	if !strings.Contains(err.Error(), "webhook") {
-		f.Log.Failf("expect error %q, got %q", "webhook", err.Error())
+		f.Log.Fatalf("expect error %q, got %q", "webhook", err.Error())
 	}
 	// ensure the error is a timeout
 	if !strings.Contains(err.Error(), "deadline") {
-		f.Log.Failf("expect error %q, got %q", "deadline", err.Error())
+		f.Log.Fatalf("expect error %q, got %q", "deadline", err.Error())
 	}
 	// ensure the pod was not actually created
 	if _, err := client.CoreV1().Pods(namespace).Get(ctx, pod.Name, metav1.GetOptions{}); !kerrors.IsNotFound(err) {
-		f.Log.Failf("expect notfound error looking for rejected pod, got %v", err)
+		f.Log.Fatalf("expect notfound error looking for rejected pod, got %v", err)
 	}
 
 	ginkgo.By("create a configmap that should be denied by the webhook")
@@ -382,7 +382,7 @@ func testWebhook(f *framework.Framework, namespace string) {
 	framework.ExpectError(err, "create configmap %s in namespace %s should have been denied by the webhook", configmap.Name, namespace)
 	expectedErrMsg := "the configmap contains unwanted key and value"
 	if !strings.Contains(err.Error(), expectedErrMsg) {
-		f.Log.Failf("expect error contains %q, got %q", expectedErrMsg, err.Error())
+		f.Log.Fatalf("expect error contains %q, got %q", expectedErrMsg, err.Error())
 	}
 
 	ginkgo.By("create a configmap that should be admitted by the webhook")
@@ -408,7 +408,7 @@ func testWebhook(f *framework.Framework, namespace string) {
 	_, err = updateConfigMap(ctx, client, namespace, allowedConfigMapName, toNonCompliantFn)
 	framework.ExpectError(err, "update (PUT) admitted configmap %s in namespace %s to a non-compliant one should be rejected by webhook", allowedConfigMapName, namespace)
 	if !strings.Contains(err.Error(), expectedErrMsg) {
-		f.Log.Failf("expect error contains %q, got %q", expectedErrMsg, err.Error())
+		f.Log.Fatalf("expect error contains %q, got %q", expectedErrMsg, err.Error())
 	}
 
 	ginkgo.By("update (PATCH) the admitted configmap to a non-compliant one should be rejected by the webhook")
@@ -416,7 +416,7 @@ func testWebhook(f *framework.Framework, namespace string) {
 	_, err = client.CoreV1().ConfigMaps(namespace).Patch(ctx, allowedConfigMapName, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
 	framework.ExpectError(err, "update admitted configmap %s in namespace %s by strategic merge patch to a non-compliant one should be rejected by webhook. Patch: %+v", allowedConfigMapName, namespace, patch)
 	if !strings.Contains(err.Error(), expectedErrMsg) {
-		f.Log.Failf("expect error contains %q, got %q", expectedErrMsg, err.Error())
+		f.Log.Fatalf("expect error contains %q, got %q", expectedErrMsg, err.Error())
 	}
 
 	ginkgo.By("create a namespace that bypass the webhook")
