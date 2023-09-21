@@ -53,17 +53,7 @@ func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, error) {
 	starCmd := loftctl.NewStartCmd(loftctlGlobalFlags)
 
-	configPath, err := pro.GetLoftConfigFilePath()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
-	}
-
-	err = starCmd.Flags().Set("config", configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set config flag: %w", err)
-	}
-
-	err = starCmd.Flags().Set("product", "vcluster-pro")
+	err := starCmd.Flags().Set("product", "vcluster-pro")
 	if err != nil {
 		return nil, fmt.Errorf("failed to set product flag: %w", err)
 	}
