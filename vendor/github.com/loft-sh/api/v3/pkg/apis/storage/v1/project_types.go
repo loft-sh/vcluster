@@ -96,6 +96,10 @@ type ProjectSpec struct {
 	// +optional
 	AllowedTemplates []AllowedTemplate `json:"allowedTemplates,omitempty"`
 
+	// RequireTemplate configures if a template is required for instance creation.
+	// +optional
+	RequireTemplate RequireTemplate `json:"requireTemplate,omitempty"`
+
 	// Members are the users and teams that are part of this project
 	// +optional
 	Members []Member `json:"members,omitempty"`
@@ -115,6 +119,13 @@ type ProjectSpec struct {
 	// VaultIntegration holds information about Vault Integration
 	// +optional
 	VaultIntegration *VaultIntegrationSpec `json:"vault,omitempty"`
+}
+
+type RequireTemplate struct {
+	// If true, all users within the project will be allowed to create a new instance without a template.
+	// By default, only admins are allowed to create a new instance without a template.
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 type NamespacePattern struct {

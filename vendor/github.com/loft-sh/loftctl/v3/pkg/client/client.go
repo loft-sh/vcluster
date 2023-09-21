@@ -82,6 +82,8 @@ type Client interface {
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
 	LoginRaw(host, accessKey string, insecure bool) error
 
+	Logout(ctx context.Context) error
+
 	Version() (*auth.Version, error)
 	Config() *Config
 	DirectClusterEndpointToken(forceRefresh bool) (string, error)
@@ -112,6 +114,28 @@ type client struct {
 	configOnce sync.Once
 	configPath string
 	config     *Config
+}
+
+// Logout implements Client.
+func (c *client) Logout(ctx context.Context) error {
+	managementClient, err := c.Management()
+	if err != nil {
+		return fmt.Errorf("create management client: %w", err)
+	}
+
+	self, err := managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("get self: %w", err)
+	}
+
+	if self.Status.AccessKey != "" && self.Status.AccessKeyType == storagev1.AccessKeyTypeLogin {
+		err = managementClient.Loft().ManagementV1().OwnedAccessKeys().Delete(ctx, self.Status.AccessKey, metav1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("delete access key: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (c *client) initConfig() error {

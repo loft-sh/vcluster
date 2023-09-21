@@ -313,8 +313,8 @@ github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/scheme
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/cluster/v1
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/storage/v1
-# github.com/loft-sh/api/v3 v3.3.0-alpha.21
-## explicit; go 1.21.0
+# github.com/loft-sh/api/v3 v3.0.0-20230921143328-114580f85fdd
+## explicit; go 1.21.1
 github.com/loft-sh/api/v3/pkg/apis/audit/v1
 github.com/loft-sh/api/v3/pkg/apis/management
 github.com/loft-sh/api/v3/pkg/apis/management/install
@@ -340,7 +340,7 @@ github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server
 # github.com/loft-sh/jspolicy v0.1.0
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v3 v3.0.0-20230921095454-4a09cdaacca3
+# github.com/loft-sh/loftctl/v3 v3.0.0-20230921143437-669b265e3ecf
 ## explicit; go 1.21.1
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect
@@ -359,9 +359,6 @@ github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/share
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/sleep
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vars
-github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vcluster-pro
-github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vcluster-pro/secret
-github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vcluster-pro/space
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/wakeup
 github.com/loft-sh/loftctl/v3/cmd/loftctl/flags
 github.com/loft-sh/loftctl/v3/pkg/client

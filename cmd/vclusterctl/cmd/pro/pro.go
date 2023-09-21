@@ -45,7 +45,7 @@ func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, error) {
 	starCmd := loftctl.NewStartCmd(loftctlGlobalFlags)
 
-	configPath, err := pro.GetConfigFilePath()
+	configPath, err := pro.GetLoftConfigFilePath()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
 	}
