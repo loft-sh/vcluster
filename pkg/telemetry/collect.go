@@ -91,31 +91,31 @@ type EventCollector interface {
 func NewDefaultCollector(ctx context.Context, config types.SyncerTelemetryConfig) (*DefaultCollector, error) {
 	hostConfig, err := ctrl.GetConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get host rest config: %v", err)
+		return nil, fmt.Errorf("failed to get host rest config: %w", err)
 	}
 	hostClient, err := kubernetes.NewForConfig(hostConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ClientSet from rest config: %v", err)
+		return nil, fmt.Errorf("failed to create ClientSet from rest config: %w", err)
 	}
 
 	vclusterNamespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ClientSet from rest config: %v", err)
+		return nil, fmt.Errorf("failed to create ClientSet from rest config: %w", err)
 	}
 
 	decodedCertificate, err := base64.RawStdEncoding.DecodeString(telemetryPrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode telemetry key string: %v", err)
+		return nil, fmt.Errorf("failed to decode telemetry key string: %w", err)
 	}
 
 	privateKey, err := parsePrivateKey(decodedCertificate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse telemetry key: %v", err)
+		return nil, fmt.Errorf("failed to parse telemetry key: %w", err)
 	}
 
 	tokenGenerator, err := serviceaccount.JWTTokenGenerator("vcluster-telemetry", privateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create JWTTokenGenerator: %v", err)
+		return nil, fmt.Errorf("failed to create JWTTokenGenerator: %w", err)
 	}
 
 	c := &DefaultCollector{
@@ -294,7 +294,7 @@ func (d *DefaultCollector) executeUpload(ctx context.Context, buffer []*types.Ev
 	)
 	if err != nil {
 		d.log.Debugf("error sending telemetry request: %v", err)
-	} else if resp.StatusCode != 200 {
+	} else if resp.StatusCode != http.StatusOK {
 		d.log.Debugf("telemetry request returned non 200 status code: %v", err)
 	}
 }

@@ -28,7 +28,7 @@ import (
 	jose "gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -37,9 +37,9 @@ import (
 
 // ServiceAccountTokenGetter defines functions to retrieve a named service account and secret
 type ServiceAccountTokenGetter interface {
-	GetServiceAccount(namespace, name string) (*v1.ServiceAccount, error)
-	GetPod(namespace, name string) (*v1.Pod, error)
-	GetSecret(namespace, name string) (*v1.Secret, error)
+	GetServiceAccount(namespace, name string) (*corev1.ServiceAccount, error)
+	GetPod(namespace, name string) (*corev1.Pod, error)
+	GetSecret(namespace, name string) (*corev1.Secret, error)
 }
 
 type TokenGenerator interface {
@@ -61,17 +61,17 @@ func JWTTokenGenerator(iss string, privateKey interface{}) (TokenGenerator, erro
 	case *rsa.PrivateKey:
 		signer, err = signerFromRSAPrivateKey(pk)
 		if err != nil {
-			return nil, fmt.Errorf("could not generate signer for RSA keypair: %v", err)
+			return nil, fmt.Errorf("could not generate signer for RSA keypair: %w", err)
 		}
 	case *ecdsa.PrivateKey:
 		signer, err = signerFromECDSAPrivateKey(pk)
 		if err != nil {
-			return nil, fmt.Errorf("could not generate signer for ECDSA keypair: %v", err)
+			return nil, fmt.Errorf("could not generate signer for ECDSA keypair: %w", err)
 		}
 	case jose.OpaqueSigner:
 		signer, err = signerFromOpaqueSigner(pk)
 		if err != nil {
-			return nil, fmt.Errorf("could not generate signer for OpaqueSigner: %v", err)
+			return nil, fmt.Errorf("could not generate signer for OpaqueSigner: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unknown private key type %T, must be *rsa.PrivateKey, *ecdsa.PrivateKey, or jose.OpaqueSigner", privateKey)
@@ -95,7 +95,7 @@ func JWTTokenGenerator(iss string, privateKey interface{}) (TokenGenerator, erro
 func keyIDFromPublicKey(publicKey interface{}) (string, error) {
 	publicKeyDERBytes, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to serialize public key to DER format: %v", err)
+		return "", fmt.Errorf("failed to serialize public key to DER format: %w", err)
 	}
 
 	hasher := crypto.SHA256.New()
@@ -110,7 +110,7 @@ func keyIDFromPublicKey(publicKey interface{}) (string, error) {
 func signerFromRSAPrivateKey(keyPair *rsa.PrivateKey) (jose.Signer, error) {
 	keyID, err := keyIDFromPublicKey(&keyPair.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to derive keyID: %v", err)
+		return nil, fmt.Errorf("failed to derive keyID: %w", err)
 	}
 
 	// IMPORTANT: If this function is updated to support additional key sizes,
@@ -134,7 +134,7 @@ func signerFromRSAPrivateKey(keyPair *rsa.PrivateKey) (jose.Signer, error) {
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create signer: %v", err)
+		return nil, fmt.Errorf("failed to create signer: %w", err)
 	}
 
 	return signer, nil
@@ -155,7 +155,7 @@ func signerFromECDSAPrivateKey(keyPair *ecdsa.PrivateKey) (jose.Signer, error) {
 
 	keyID, err := keyIDFromPublicKey(&keyPair.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to derive keyID: %v", err)
+		return nil, fmt.Errorf("failed to derive keyID: %w", err)
 	}
 
 	// Wrap the ECDSA keypair in a JOSE JWK with the designated key ID.
@@ -174,7 +174,7 @@ func signerFromECDSAPrivateKey(keyPair *ecdsa.PrivateKey) (jose.Signer, error) {
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create signer: %v", err)
+		return nil, fmt.Errorf("failed to create signer: %w", err)
 	}
 
 	return signer, nil
@@ -196,7 +196,7 @@ func signerFromOpaqueSigner(opaqueSigner jose.OpaqueSigner) (jose.Signer, error)
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create signer: %v", err)
+		return nil, fmt.Errorf("failed to create signer: %w", err)
 	}
 
 	return signer, nil
@@ -300,7 +300,7 @@ func (j *jwtTokenAuthenticator) AuthenticateToken(ctx context.Context, tokenData
 		requestedAudiences = j.implicitAuds
 	}
 
-	auds := authenticator.Audiences(tokenAudiences).Intersect(requestedAudiences)
+	auds := tokenAudiences.Intersect(requestedAudiences)
 	if len(auds) == 0 && len(j.implicitAuds) != 0 {
 		return nil, false, fmt.Errorf("token audiences %q is invalid for the target audiences %q", tokenAudiences, requestedAudiences)
 	}

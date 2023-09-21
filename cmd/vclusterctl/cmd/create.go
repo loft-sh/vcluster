@@ -270,7 +270,7 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 	// check if there is a vcluster directory already
 	workDir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("unable to get current work directory: %v", err)
+		return fmt.Errorf("unable to get current work directory: %w", err)
 	}
 	if _, err := os.Stat(filepath.Join(workDir, cmd.ChartName)); err == nil {
 		return fmt.Errorf("aborting vcluster creation. Current working directory contains a file or a directory with the name equal to the vcluster chart name - \"%s\". Please execute vcluster create command from a directory that doesn't contain a file or directory named \"%s\"", cmd.ChartName, cmd.ChartName)
@@ -400,7 +400,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	// load the raw config
 	rawConfig, err := kubeClientConfig.RawConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 	if cmd.Context != "" {
 		rawConfig.CurrentContext = cmd.Context
@@ -427,7 +427,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 				})
 				rawConfig, err = kubeClientConfig.RawConfig()
 				if err != nil {
-					return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+					return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 				}
 				err = switchContext(&rawConfig, cmd.Context)
 				if err != nil {
@@ -442,7 +442,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	// load the rest config
 	kubeConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	client, err := kubernetes.NewForConfig(kubeConfig)

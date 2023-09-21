@@ -817,7 +817,7 @@ func TranslateServicesToEnvironmentVariables(enableServiceLinks *bool, services 
 	}
 
 	// TODO: figure out if this is an issue because services are now not ordered anymore
-	var mappedServices []*corev1.Service
+	var mappedServices = make([]*corev1.Service, 0, len(serviceMap))
 	for key := range serviceMap {
 		mappedServices = append(mappedServices, serviceMap[key])
 	}

@@ -1,13 +1,12 @@
 package upgrade
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
-
 	"gotest.tools/assert"
 )
 

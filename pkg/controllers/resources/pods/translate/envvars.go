@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // buildEnvironmentVariables creates an array of environment variables that should be set on the pod
 // by the provided services
-func buildEnvironmentVariables(services []*v1.Service) []v1.EnvVar {
-	var result []v1.EnvVar
+func buildEnvironmentVariables(services []*corev1.Service) []corev1.EnvVar {
+	var result []corev1.EnvVar
 	for i := range services {
 		service := services[i]
 
@@ -25,16 +25,16 @@ func buildEnvironmentVariables(services []*v1.Service) []v1.EnvVar {
 
 		// Host
 		name := serviceNameToEnv(service.Name) + "_SERVICE_HOST"
-		result = append(result, v1.EnvVar{Name: name, Value: service.Spec.ClusterIP})
+		result = append(result, corev1.EnvVar{Name: name, Value: service.Spec.ClusterIP})
 		// First port - give it the backwards-compatible name
 		name = serviceNameToEnv(service.Name) + "_SERVICE_PORT"
-		result = append(result, v1.EnvVar{Name: name, Value: strconv.Itoa(int(service.Spec.Ports[0].Port))})
+		result = append(result, corev1.EnvVar{Name: name, Value: strconv.Itoa(int(service.Spec.Ports[0].Port))})
 		// All named ports (only the first may be unnamed, checked in validation)
 		for i := range service.Spec.Ports {
 			sp := &service.Spec.Ports[i]
 			if sp.Name != "" {
 				pn := name + "_" + serviceNameToEnv(sp.Name)
-				result = append(result, v1.EnvVar{Name: pn, Value: strconv.Itoa(int(sp.Port))})
+				result = append(result, corev1.EnvVar{Name: pn, Value: strconv.Itoa(int(sp.Port))})
 			}
 		}
 		// Docker-compatible vars.
@@ -47,13 +47,13 @@ func serviceNameToEnv(str string) string {
 	return strings.ToUpper(strings.ReplaceAll(str, "-", "_"))
 }
 
-func makeLinkVariables(service *v1.Service) []v1.EnvVar {
+func makeLinkVariables(service *corev1.Service) []corev1.EnvVar {
 	prefix := serviceNameToEnv(service.Name)
-	all := []v1.EnvVar{}
+	all := []corev1.EnvVar{}
 	for i := range service.Spec.Ports {
 		sp := &service.Spec.Ports[i]
 
-		protocol := string(v1.ProtocolTCP)
+		protocol := string(corev1.ProtocolTCP)
 		if sp.Protocol != "" {
 			protocol = string(sp.Protocol)
 		}
@@ -62,13 +62,13 @@ func makeLinkVariables(service *v1.Service) []v1.EnvVar {
 
 		if i == 0 {
 			// Docker special-cases the first port.
-			all = append(all, v1.EnvVar{
+			all = append(all, corev1.EnvVar{
 				Name:  prefix + "_PORT",
 				Value: fmt.Sprintf("%s://%s", strings.ToLower(protocol), hostPort),
 			})
 		}
 		portPrefix := fmt.Sprintf("%s_PORT_%d_%s", prefix, sp.Port, strings.ToUpper(protocol))
-		all = append(all, []v1.EnvVar{
+		all = append(all, []corev1.EnvVar{
 			{
 				Name:  portPrefix,
 				Value: fmt.Sprintf("%s://%s", strings.ToLower(protocol), hostPort),

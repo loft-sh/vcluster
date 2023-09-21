@@ -25,7 +25,7 @@ func StartPortForwardingWithRestart(ctx context.Context, config *rest.Config, ad
 	// restart port forwarding
 	stopChan, err := StartPortForwarding(config, kubeClient, address, pod, namespace, localPort, remotePort, stdout, stderr, log)
 	if err != nil {
-		return fmt.Errorf("error starting port forwarding: %v", err)
+		return fmt.Errorf("error starting port forwarding: %w", err)
 	}
 
 	for {

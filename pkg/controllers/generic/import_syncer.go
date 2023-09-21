@@ -57,11 +57,11 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 			gvk)
 		if err != nil {
 			if importConfig.Optional {
-				klog.Infof("error ensuring CRD %s(%s) from host cluster: %v. Skipping importSyncer as resource is optional", importConfig.Kind, importConfig.APIVersion, err)
+				klog.Infof("error ensuring CRD %s(%s) from host cluster: %w. Skipping importSyncer as resource is optional", importConfig.Kind, importConfig.APIVersion, err)
 				continue
 			}
 
-			return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", importConfig.Kind, importConfig.APIVersion, err)
+			return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %w", importConfig.Kind, importConfig.APIVersion, err)
 		}
 
 		gvkRegister[gvk] = &GVKScopeAndSubresource{
@@ -72,13 +72,13 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 		s, err := createImporter(registerCtx, importConfig, gvkRegister)
 		klog.Infof("creating importer for %s/%s", importConfig.APIVersion, importConfig.Kind)
 		if err != nil {
-			return fmt.Errorf("error creating %s(%s) syncer: %v", importConfig.Kind, importConfig.APIVersion, err)
+			return fmt.Errorf("error creating %s(%s) syncer: %w", importConfig.Kind, importConfig.APIVersion, err)
 		}
 
 		err = syncer.RegisterSyncer(registerCtx, s)
 		klog.Infof("registering import syncer for %s/%s", importConfig.APIVersion, importConfig.Kind)
 		if err != nil {
-			return fmt.Errorf("error registering syncer %v", err)
+			return fmt.Errorf("error registering syncer %w", err)
 		}
 	}
 
@@ -207,7 +207,7 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	if err != nil {
 		//TODO: add eventRecorder?
 		//s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	// wait here for vObj to be created
@@ -301,7 +301,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		return ctrl.Result{}, fmt.Errorf("failed to apply reverse patch on physical %s %s/%s: %v", s.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+		return ctrl.Result{}, fmt.Errorf("failed to apply reverse patch on physical %s %s/%s: %w", s.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
 	} else if result == controllerutil.OperationResultUpdated || result == controllerutil.OperationResultUpdatedStatus || result == controllerutil.OperationResultUpdatedStatusOnly {
 		// a change will trigger reconciliation anyway, and at that point we can make
 		// a more accurate updates(reverse patches) to the virtual resource
@@ -327,7 +327,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 			return ctrl.Result{}, nil
 		}
 
-		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	// ensure that annotation on physical resource to mark it as controlled by this syncer is present

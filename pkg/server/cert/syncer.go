@@ -15,7 +15,7 @@ import (
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
@@ -100,7 +100,7 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 		Name:      s.serviceName,
 	}, svc)
 	if err != nil {
-		return nil, fmt.Errorf("error getting vcluster service %s/%s: %v", s.currentNamespace, s.serviceName, err)
+		return nil, fmt.Errorf("error getting vcluster service %s/%s: %w", s.currentNamespace, s.serviceName, err)
 	} else if svc.Spec.ClusterIP == "" {
 		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, s.serviceName)
 	}
@@ -134,9 +134,9 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 		Name:      lbSVCName,
 	}, lbSVC)
 	// proceed only if load balancer service exists
-	if !errors.IsNotFound(err) {
+	if !kerrors.IsNotFound(err) {
 		if err != nil {
-			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %v", s.currentNamespace, lbSVCName, err)
+			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %w", s.currentNamespace, lbSVCName, err)
 		} else if lbSVC.Spec.ClusterIP == "" {
 			return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, lbSVCName)
 		}

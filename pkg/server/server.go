@@ -505,6 +505,6 @@ func setGlobalDefaults(config *rest.Config) *rest.Config {
 
 type emptyConfigProvider struct{}
 
-func (e *emptyConfigProvider) ConfigFor(pluginName string) (io.Reader, error) {
+func (e *emptyConfigProvider) ConfigFor(_ string) (io.Reader, error) {
 	return nil, nil
 }

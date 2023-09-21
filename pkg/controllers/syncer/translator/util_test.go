@@ -1,9 +1,10 @@
 package translator
 
 import (
+	"testing"
+
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
-	"testing"
 )
 
 func TestNewIfNil(t *testing.T) {

@@ -2,6 +2,7 @@ package allowall
 
 import (
 	"context"
+
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 )
 

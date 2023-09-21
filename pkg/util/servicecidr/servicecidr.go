@@ -79,7 +79,7 @@ func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, c
 	cm.Data[CIDRConfigMapKey] = cidr
 	data, err := patch.Data(cm)
 	if err != nil {
-		return "", fmt.Errorf("failed to create patch for the %s/%s Configmap: %v", cm.Namespace, cm.Name, err)
+		return "", fmt.Errorf("failed to create patch for the %s/%s Configmap: %w", cm.Namespace, cm.Name, err)
 	}
 	_, err = currentNamespaceClient.CoreV1().ConfigMaps(currentNamespace).Patch(ctx, cm.Name, patch.Type(), data, metav1.PatchOptions{})
 	return cidr, err
@@ -88,7 +88,7 @@ func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, c
 func EnsureServiceCIDRInK0sSecret(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace string, vclusterName string) error {
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, GetK0sSecretName(vclusterName), metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("could not read k0s configuration secret %s/%s: %v", currentNamespace, GetK0sSecretName(vclusterName), err)
+		return fmt.Errorf("could not read k0s configuration secret %s/%s: %w", currentNamespace, GetK0sSecretName(vclusterName), err)
 	}
 	configData, ok := secret.Data[K0sConfigKey]
 	if !ok {
@@ -108,11 +108,11 @@ func EnsureServiceCIDRInK0sSecret(ctx context.Context, workspaceNamespaceClient,
 	patch := client.MergeFrom(originalObject)
 	data, err := patch.Data(secret)
 	if err != nil {
-		return fmt.Errorf("failed to create patch for the %s/%s Secret: %v", secret.Namespace, secret.Name, err)
+		return fmt.Errorf("failed to create patch for the %s/%s Secret: %w", secret.Namespace, secret.Name, err)
 	}
 	_, err = currentNamespaceClient.CoreV1().Secrets(secret.Namespace).Patch(ctx, secret.Name, patch.Type(), data, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to patch k0s configuration secret %s/%s: %v", secret.Namespace, secret.Name, err)
+		return fmt.Errorf("failed to patch k0s configuration secret %s/%s: %w", secret.Namespace, secret.Name, err)
 	}
 	return nil
 }

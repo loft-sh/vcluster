@@ -88,6 +88,7 @@ func Remove(obj1 *yaml.Node, patch *config.Patch) error {
 			parent.Content = removeProperty(parent, m)
 		case yaml.SequenceNode:
 			parent.Content = removeChild(parent, m)
+		case yaml.DocumentNode, yaml.ScalarNode, yaml.AliasNode:
 		}
 	}
 
@@ -178,6 +179,7 @@ func RewriteName(obj1 *yaml.Node, patch *config.Patch, resolver NameResolver) er
 			}
 		case yaml.MappingNode:
 			err = ProcessRewrite(m, patch, resolver)
+		case yaml.DocumentNode, yaml.AliasNode:
 		}
 
 		if err != nil {
@@ -489,6 +491,8 @@ func createPath(obj1 *yaml.Node, path string, value *yaml.Node) error {
 				Tag:   "!!str",
 				Value: opPath.getChildName(),
 			}, value)
+		case yaml.AliasNode:
+			// TODO: Implement node aliases in the future
 		}
 	}
 
@@ -551,5 +555,7 @@ func AddNode(obj1 *yaml.Node, match *yaml.Node, value *yaml.Node) {
 		match.Content = append(match.Content, value.Content...)
 	case yaml.DocumentNode:
 		match.Content[0].Content = append(match.Content[0].Content, value.Content[0].Content...)
+	case yaml.AliasNode:
+		// TODO: Implement node aliases in the future
 	}
 }

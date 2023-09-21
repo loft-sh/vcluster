@@ -9,7 +9,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,7 +57,7 @@ func NewEndpointController(ctx *controllercontext.ControllerContext, provider pr
 func (e *EndpointController) Register(mgr ctrl.Manager) error {
 	err := e.SetupWithManager(mgr)
 	if err != nil {
-		return fmt.Errorf("unable to setup pod security controller: %v", err)
+		return fmt.Errorf("unable to setup pod security controller: %w", err)
 	}
 	return nil
 }
@@ -120,7 +120,7 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 		if vEndpoints.Labels == nil {
 			vEndpoints.Labels = map[string]string{}
 		}
-		vEndpoints.Labels[discovery.LabelSkipMirror] = "true"
+		vEndpoints.Labels[discoveryv1.LabelSkipMirror] = "true"
 
 		// build new subsets
 		newSubsets := []corev1.EndpointSubset{}

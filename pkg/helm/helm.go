@@ -196,7 +196,7 @@ func (c *client) pull(ctx context.Context, name string, options UpgradeOptions) 
 		// login
 		err = c.login(ctx, options)
 		if err != nil {
-			return fmt.Errorf("error login to registry: %s", err)
+			return fmt.Errorf("error login to registry: %w", err)
 		}
 	}
 	defer c.logout(ctx, options)
@@ -258,7 +258,7 @@ func (c *client) execute(ctx context.Context, args []string, operation string, w
 
 	output, err := cmd.CombinedOutput()
 
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return fmt.Errorf(errorTimeout, string(output), operation)
 	}
 	if err != nil {

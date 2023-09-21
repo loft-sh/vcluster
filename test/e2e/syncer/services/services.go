@@ -274,7 +274,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			},
 		})
 
-		_, err = svcClient.Patch(ctx, testSvcName, types.StrategicMergePatchType, []byte(servicePatchPayload), metav1.PatchOptions{})
+		_, err = svcClient.Patch(ctx, testSvcName, types.StrategicMergePatchType, servicePatchPayload, metav1.PatchOptions{})
 		framework.ExpectNoError(err, "failed to patch service. %v", err)
 
 		ginkgo.By("watching for the Service to be patched")

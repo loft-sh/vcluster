@@ -33,7 +33,7 @@ func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath str
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to apply CRD %s: %v", groupVersionKind.String(), err)
+		return fmt.Errorf("failed to apply CRD %s: %w", groupVersionKind.String(), err)
 	}
 
 	var lastErr error
@@ -43,7 +43,7 @@ func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath str
 		return found, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to find CRD %s: %v: %v", groupVersionKind.String(), err, lastErr)
+		return fmt.Errorf("failed to find CRD %s: %w: %w", groupVersionKind.String(), err, lastErr)
 	}
 
 	return nil

@@ -166,7 +166,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "kubelet",
-					Port:       int32(KubeletPort),
+					Port:       KubeletPort,
 					TargetPort: targetPort,
 				},
 			},

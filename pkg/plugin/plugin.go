@@ -167,7 +167,7 @@ func (m *manager) Start(
 	loghelper.Infof("Plugin server listening on %s", options.PluginListenAddress)
 	lis, err := net.Listen("tcp", options.PluginListenAddress)
 	if err != nil {
-		return fmt.Errorf("failed to listen: %v", err)
+		return fmt.Errorf("failed to listen: %w", err)
 	}
 
 	var opts []grpc.ServerOption
@@ -194,7 +194,7 @@ func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualC
 			return ok, nil
 		})
 		if err != nil {
-			return fmt.Errorf("error waiting for plugin %s: %v", plugin, err)
+			return fmt.Errorf("error waiting for plugin %s: %w", plugin, err)
 		}
 		klog.Infof("Plugin %s has successfully registered", plugin)
 	}

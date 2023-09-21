@@ -243,6 +243,8 @@ func (s *StreamLogger) Failf(format string, args ...interface{}) {
 // Print implements interface
 func (s *StreamLogger) Print(level logrus.Level, args ...interface{}) {
 	switch level {
+	case logrus.TraceLevel:
+		s.Info(args...)
 	case logrus.InfoLevel:
 		s.Info(args...)
 	case logrus.DebugLevel:
@@ -261,6 +263,8 @@ func (s *StreamLogger) Print(level logrus.Level, args ...interface{}) {
 // Printf implements interface
 func (s *StreamLogger) Printf(level logrus.Level, format string, args ...interface{}) {
 	switch level {
+	case logrus.TraceLevel:
+		s.Infof(format, args...)
 	case logrus.InfoLevel:
 		s.Infof(format, args...)
 	case logrus.DebugLevel:

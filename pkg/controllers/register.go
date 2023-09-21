@@ -299,7 +299,7 @@ func RegisterInitManifestsController(ctx *context.ControllerContext) error {
 
 	err = controller.SetupWithManager(currentNamespaceManager)
 	if err != nil {
-		return fmt.Errorf("unable to setup init manifests configmap controller: %v", err)
+		return fmt.Errorf("unable to setup init manifests configmap controller: %w", err)
 	}
 
 	return nil
@@ -440,7 +440,7 @@ func RegisterCoreDNSController(ctx *context.ControllerContext) error {
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
-		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
+		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %w", err)
 	}
 	return nil
 }
@@ -453,7 +453,7 @@ func RegisterPodSecurityController(ctx *context.ControllerContext) error {
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
-		return fmt.Errorf("unable to setup pod security controller: %v", err)
+		return fmt.Errorf("unable to setup pod security controller: %w", err)
 	}
 	return nil
 }

@@ -116,11 +116,11 @@ func (v *validator) Validate(ctx context.Context, _ string, public *jwt.Claims, 
 	err := public.Validate(jwt.Expected{
 		Time: nowTime,
 	})
-	switch {
-	case err == nil:
-	case err == jwt.ErrExpired:
-		return nil, errors.New("token has expired")
-	default:
+	if err != nil {
+		if errors.Is(err, jwt.ErrExpired) {
+			return nil, errors.New("token has expired")
+		}
+
 		klog.Errorf("unexpected validation error: %T", err)
 		return nil, errors.New("token could not be validated")
 	}

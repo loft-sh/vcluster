@@ -206,7 +206,7 @@ func (cmd *DeleteCmd) prepare(ctx context.Context, vClusterName string) error {
 	// load the raw config
 	rawConfig, err := vCluster.ClientFactory.RawConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 	err = deleteContext(&rawConfig, find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context), vCluster.Context)
 	if err != nil {

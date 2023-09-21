@@ -26,7 +26,7 @@ func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volu
 			vVSC := &volumesnapshotv1.VolumeSnapshotContent{}
 			err := ctx.VirtualClient.Get(ctx.Context, client.ObjectKey{Name: *vVS.Spec.Source.VolumeSnapshotContentName}, vVSC)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get virtual VolumeSnapshotContent resource referenced as source of the %s VolumeSnapshot: %v", vVS.Name, err)
+				return nil, fmt.Errorf("failed to get virtual VolumeSnapshotContent resource referenced as source of the %s VolumeSnapshot: %w", vVS.Name, err)
 			}
 			translatedName := s.volumeSnapshotContentNameTranslator(vVSC.Name, vVSC)
 			pVS.Spec.Source.VolumeSnapshotContentName = &translatedName

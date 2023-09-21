@@ -2,8 +2,9 @@ package log
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"os"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 
 	"github.com/sirupsen/logrus"
 )

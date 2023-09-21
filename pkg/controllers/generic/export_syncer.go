@@ -49,11 +49,11 @@ func CreateExporters(ctx *vcontext.ControllerContext, exporterConfig *config.Con
 				gvk)
 			if err != nil {
 				if exportConfig.Optional {
-					klog.Infof("error ensuring CRD %s(%s) from host cluster: %v. Skipping exportSyncer as resource is optional", exportConfig.Kind, exportConfig.APIVersion, err)
+					klog.Infof("error ensuring CRD %s(%s) from host cluster: %w. Skipping exportSyncer as resource is optional", exportConfig.Kind, exportConfig.APIVersion, err)
 					continue
 				}
 
-				return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
+				return fmt.Errorf("error creating %s(%s) syncer: %w", exportConfig.Kind, exportConfig.APIVersion, err)
 			}
 		}
 
@@ -70,13 +70,13 @@ func CreateExporters(ctx *vcontext.ControllerContext, exporterConfig *config.Con
 		s, err := createExporter(registerCtx, exportConfig)
 		klog.Infof("creating exporter for %s/%s", exportConfig.APIVersion, exportConfig.Kind)
 		if err != nil {
-			return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
+			return fmt.Errorf("error creating %s(%s) syncer: %w", exportConfig.Kind, exportConfig.APIVersion, err)
 		}
 
 		err = syncer.RegisterSyncer(registerCtx, s)
 		klog.Infof("registering export syncer for %s/%s", exportConfig.APIVersion, exportConfig.Kind)
 		if err != nil {
-			return fmt.Errorf("error registering syncer %v", err)
+			return fmt.Errorf("error registering syncer %w", err)
 		}
 	}
 
@@ -90,14 +90,14 @@ func createExporter(ctx *synccontext.RegisterContext, config *config.Export) (sy
 
 	err := validateExportConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("invalid configuration for %s(%s) mapping: %v", config.Kind, config.APIVersion, err)
+		return nil, fmt.Errorf("invalid configuration for %s(%s) mapping: %w", config.Kind, config.APIVersion, err)
 	}
 
 	var selector labels.Selector
 	if config.Selector != nil {
 		selector, err = metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(config.Selector.LabelSelector))
 		if err != nil {
-			return nil, fmt.Errorf("invalid selector in configuration for %s(%s) mapping: %v", config.Kind, config.APIVersion, err)
+			return nil, fmt.Errorf("invalid selector in configuration for %s(%s) mapping: %w", config.Kind, config.APIVersion, err)
 		}
 	}
 
@@ -144,7 +144,7 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	// wait here for vObj to be created
@@ -216,7 +216,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		}
 
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("failed to patch virtual %s %s/%s: %v", f.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+		return ctrl.Result{}, fmt.Errorf("failed to patch virtual %s %s/%s: %w", f.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
 	} else if result == controllerutil.OperationResultUpdated || result == controllerutil.OperationResultUpdatedStatus || result == controllerutil.OperationResultUpdatedStatusOnly {
 		// a change will trigger reconciliation anyway, and at that point we can make
 		// a more accurate updates(reverse patches) to the virtual resource
@@ -245,7 +245,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		}
 
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -339,7 +339,7 @@ func validateExportConfig(config *config.Export) error {
 		if p.Regex != "" {
 			parsed, err := patchesregex.PrepareRegex(p.Regex)
 			if err != nil {
-				return fmt.Errorf("invalid Regex: %v", err)
+				return fmt.Errorf("invalid Regex: %w", err)
 			}
 			p.ParsedRegex = parsed
 		}
