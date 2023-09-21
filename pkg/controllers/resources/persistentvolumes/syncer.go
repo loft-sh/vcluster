@@ -78,7 +78,7 @@ func (s *persistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterContex
 
 var _ syncer.ControllerModifier = &persistentVolumeSyncer{}
 
-func (s *persistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *persistentVolumeSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(mapPVCs)), nil
 }
 
@@ -282,7 +282,7 @@ func (s *persistentVolumeSyncer) IsManaged(ctx context.Context, pObj client.Obje
 	return sync, nil
 }
 
-func (s *persistentVolumeSyncer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *persistentVolumeSyncer) VirtualToPhysical(_ context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translatePersistentVolumeName(req.Name, vObj)}
 }
 

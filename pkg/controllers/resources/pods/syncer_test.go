@@ -91,7 +91,7 @@ func TestSync(t *testing.T) {
 		Namespace: "test",
 		Annotations: map[string]string{
 			podtranslate.ClusterAutoScalerAnnotation:  "false",
-			podtranslate.LabelsAnnotation:             "",
+			podtranslate.VclusterLabelsAnnotation:     "",
 			podtranslate.NameAnnotation:               vObjectMeta.Name,
 			podtranslate.NamespaceAnnotation:          vObjectMeta.Namespace,
 			translate.NameAnnotation:                  vObjectMeta.Name,
@@ -235,7 +235,7 @@ func TestSync(t *testing.T) {
 
 			Annotations: map[string]string{
 				podtranslate.ClusterAutoScalerAnnotation:  "false",
-				podtranslate.LabelsAnnotation:             "",
+				podtranslate.VclusterLabelsAnnotation:     "",
 				podtranslate.NameAnnotation:               vHostPathPod.Name,
 				podtranslate.NamespaceAnnotation:          vHostPathPod.Namespace,
 				translate.NameAnnotation:                  vHostPathPod.Name,
@@ -415,7 +415,7 @@ func TestSync(t *testing.T) {
 	pPodWithLabels := pPodBase.DeepCopy()
 	maps.Copy(pPodWithLabels.Labels, testLabels)
 	maps.Copy(pPodWithLabels.Labels, convertLabelKeyWithPrefix(testLabels))
-	pPodWithLabels.Annotations[podtranslate.LabelsAnnotation] = podtranslate.TranslateLabelsAnnotation(vPodWithLabels)
+	pPodWithLabels.Annotations[podtranslate.VclusterLabelsAnnotation] = podtranslate.LabelsAnnotation(vPodWithLabels)
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{

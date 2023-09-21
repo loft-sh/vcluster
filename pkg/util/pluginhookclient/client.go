@@ -272,7 +272,7 @@ func executeClientHooksFor(ctx context.Context, obj client.Object, hookType stri
 func mutateObject(ctx context.Context, versionKindType plugin.VersionKindType, obj []byte, plugin *plugin.Plugin) ([]byte, error) {
 	conn, err := grpc.Dial(plugin.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("error dialing plugin %s: %v", plugin.Name, err)
+		return nil, fmt.Errorf("error dialing plugin %s: %w", plugin.Name, err)
 	}
 	defer func(conn *grpc.ClientConn) {
 		_ = conn.Close()

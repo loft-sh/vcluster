@@ -30,9 +30,9 @@ func ValidateCondition(obj *yaml.Node, match *yaml.Node, condition *config.Patch
 		if match == nil {
 			if (condition.Empty != nil && *condition.Empty) || condition.NotEqual != nil {
 				return true, nil
-			} else {
-				return false, nil
 			}
+
+			return false, nil
 		}
 
 		path, err := yamlpath.NewPath(condition.SubPath)

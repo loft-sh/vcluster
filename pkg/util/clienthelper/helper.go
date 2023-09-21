@@ -3,13 +3,14 @@ package clienthelper
 import (
 	"context"
 	"fmt"
-	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/client-go/rest"
 	"os"
 	"reflect"
 
+	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/rest"
+
 	authenticationv1 "k8s.io/api/authentication/v1"
-	authv1 "k8s.io/api/authorization/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -48,8 +49,8 @@ func CurrentNamespace() (string, error) {
 }
 
 // ConvertExtra converts a string array map into the correct kubernetes auth extra value type
-func ConvertExtra(orig map[string][]string) map[string]authv1.ExtraValue {
-	retMap := map[string]authv1.ExtraValue{}
+func ConvertExtra(orig map[string][]string) map[string]authorizationv1.ExtraValue {
+	retMap := map[string]authorizationv1.ExtraValue{}
 	for k, v := range orig {
 		retMap[k] = v
 	}

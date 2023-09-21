@@ -99,8 +99,8 @@ test2: {}`,
 				Path:      "test.test2",
 				Value:     "abc",
 			},
-			obj1: `test: 
-    test2: 
+			obj1: `test:
+    test2:
         - test`,
 			expected: `test:
     test2:
@@ -114,8 +114,8 @@ test2: {}`,
 				Path:      "test..abc",
 				Value:     "def",
 			},
-			obj1: `test: 
-    test2: 
+			obj1: `test:
+    test2:
         - abc: test
         - abc: test2`,
 			expected: `test:
@@ -136,7 +136,7 @@ test2: {}`,
 					},
 				},
 			},
-			obj1: `test: 
+			obj1: `test:
     abc: test`,
 			expected: `test:
     abc: def`,
@@ -156,7 +156,7 @@ test2: {}`,
 					},
 				},
 			},
-			obj1: `test: 
+			obj1: `test:
     status:
         test: test
     abc: test`,
@@ -180,7 +180,7 @@ test2: {}`,
 					},
 				},
 			},
-			obj1: `test: 
+			obj1: `test:
     status:
         test: test
     abc: test`,
@@ -404,7 +404,7 @@ test2: {}`,
 			},
 			nameResolver: &fakeVirtualToHostNameResolver{},
 			obj1: `test:
-    endpoints: 
+    endpoints:
       - name: abc
       - name: def`,
 			expected: `test:
@@ -428,9 +428,9 @@ test2: {}`,
 		if testCase.expectedErr != nil {
 			assert.ErrorContains(t, err, testCase.expectedErr.Error())
 			continue
-		} else {
-			assert.NilError(t, err, "error in applying patch in test case %s", testCase.name)
 		}
+
+		assert.NilError(t, err, "error in applying patch in test case %s", testCase.name)
 
 		// compare output
 		out, err := yaml.Marshal(obj1)
@@ -442,11 +442,11 @@ test2: {}`,
 
 type fakeNameResolver struct{}
 
-func (f *fakeNameResolver) TranslateName(name string, _ *regexp.Regexp, path string) (string, error) {
+func (f *fakeNameResolver) TranslateName(name string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
 
-func (f *fakeNameResolver) TranslateNameWithNamespace(name string, namespace string, _ *regexp.Regexp, path string) (string, error) {
+func (f *fakeNameResolver) TranslateNameWithNamespace(name string, _ string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
 
@@ -474,7 +474,7 @@ func (f *fakeNameResolver) TranslateLabelSelector(selector map[string]string) (m
 	return selector, nil
 }
 
-func (f *fakeNameResolver) TranslateNamespaceRef(name string) (string, error) {
+func (f *fakeNameResolver) TranslateNamespaceRef(string) (string, error) {
 	return "default", nil
 }
 
@@ -496,9 +496,9 @@ func (r *fakeVirtualToHostNameResolver) TranslateNameWithNamespace(name string, 
 			}
 			return types.NamespacedName{Namespace: r.targetNamespace, Name: translate.Default.PhysicalName(name, ns)}
 		}), nil
-	} else {
-		return translate.Default.PhysicalName(name, namespace), nil
 	}
+
+	return translate.Default.PhysicalName(name, namespace), nil
 }
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
@@ -525,6 +525,6 @@ func (r *fakeVirtualToHostNameResolver) TranslateLabelSelector(selector map[stri
 	return selector, nil
 }
 
-func (r *fakeVirtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
+func (r *fakeVirtualToHostNameResolver) TranslateNamespaceRef(string) (string, error) {
 	return r.targetNamespace, nil
 }

@@ -36,8 +36,8 @@ func NewResumeCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 #######################################################
 ################### vcluster resume ###################
 #######################################################
-Resume will start a vcluster after it was paused. 
-vcluster will recreate all the workloads after it has 
+Resume will start a vcluster after it was paused.
+vcluster will recreate all the workloads after it has
 started automatically.
 
 Example:
@@ -78,7 +78,7 @@ func (cmd *ResumeCmd) prepare(ctx context.Context, vClusterName string) error {
 	// load the rest config
 	kubeConfig, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)

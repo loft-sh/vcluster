@@ -46,6 +46,7 @@ func ExposeLocal(ctx context.Context, vClusterName, vClusterNamespace string, ra
 		return minikubeProxy(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
 	case ClusterTypeK3D:
 		return k3dProxy(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, log)
+	default:
 	}
 
 	return "", nil
@@ -64,6 +65,7 @@ func CleanupLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 		return cleanupProxy(vClusterName, vClusterNamespace, rawConfig, log)
 	case ClusterTypeK3D:
 		return cleanupProxy(vClusterName, vClusterNamespace, rawConfig, log)
+	default:
 	}
 
 	return nil
@@ -135,7 +137,7 @@ func minikubeProxy(ctx context.Context, vClusterName, vClusterNamespace string, 
 					return true, nil
 				})
 				if waitErr != nil {
-					return "", fmt.Errorf("test connection: %v %v", waitErr, err)
+					return "", fmt.Errorf("test connection: %w %w", waitErr, err)
 				}
 
 				// now it's safe to modify the vRawConfig struct that was passed in as a pointer
@@ -218,7 +220,7 @@ func directConnection(ctx context.Context, vRawConfig *clientcmdapi.Config, serv
 		return true, nil
 	})
 	if waitErr != nil {
-		return "", fmt.Errorf("test connection: %v %v", waitErr, err)
+		return "", fmt.Errorf("test connection: %w %w", waitErr, err)
 	}
 
 	return server, nil
@@ -261,7 +263,7 @@ func createProxyContainer(ctx context.Context, vClusterName, vClusterNamespace s
 		return true, nil
 	})
 	if waitErr != nil {
-		return "", fmt.Errorf("test connection: %v %v", waitErr, err)
+		return "", fmt.Errorf("test connection: %w %w", waitErr, err)
 	}
 
 	return server, nil
@@ -329,7 +331,7 @@ func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterN
 		return true, nil
 	})
 	if waitErr != nil {
-		return "", fmt.Errorf("test connection: %v %v", waitErr, err)
+		return "", fmt.Errorf("test connection: %w %w", waitErr, err)
 	}
 	return server, nil
 }

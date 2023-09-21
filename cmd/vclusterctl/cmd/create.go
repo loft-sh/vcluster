@@ -57,7 +57,7 @@ const LoftChartRepo = "https://charts.loft.sh"
 // CreateCmd holds the login cmd flags
 type CreateCmd struct {
 	*flags.GlobalFlags
-	create.CreateOptions
+	create.Options
 
 	log log.Logger
 
@@ -91,7 +91,7 @@ vcluster create test --namespace test
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
-			validateDeprecated(&cmd.CreateOptions, cmd.log)
+			validateDeprecated(&cmd.Options, cmd.log)
 			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
@@ -119,7 +119,7 @@ vcluster create test --namespace test
 	return cobraCmd
 }
 
-func validateDeprecated(createOptions *create.CreateOptions, log log.Logger) {
+func validateDeprecated(createOptions *create.Options, log log.Logger) {
 	if createOptions.ReleaseValues != "" {
 		log.Warn("Flag --release-values is deprecated, please use --extra-values instead. This flag will be removed in future!")
 	}
@@ -247,12 +247,12 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		}
 
 		return connectCmd.Connect(ctx, args[0], nil)
+	}
+
+	if cmd.localCluster {
+		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", args[0], cmd.Namespace, args[0], cmd.Namespace)
 	} else {
-		if cmd.localCluster {
-			cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", args[0], cmd.Namespace, args[0], cmd.Namespace)
-		} else {
-			cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
-		}
+		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
 	}
 
 	return nil
@@ -270,7 +270,7 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 	// check if there is a vcluster directory already
 	workDir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("unable to get current work directory: %v", err)
+		return fmt.Errorf("unable to get current work directory: %w", err)
 	}
 	if _, err := os.Stat(filepath.Join(workDir, cmd.ChartName)); err == nil {
 		return fmt.Errorf("aborting vcluster creation. Current working directory contains a file or a directory with the name equal to the vcluster chart name - \"%s\". Please execute vcluster create command from a directory that doesn't contain a file or directory named \"%s\"", cmd.ChartName, cmd.ChartName)
@@ -400,7 +400,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	// load the raw config
 	rawConfig, err := kubeClientConfig.RawConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 	if cmd.Context != "" {
 		rawConfig.CurrentContext = cmd.Context
@@ -427,7 +427,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 				})
 				rawConfig, err = kubeClientConfig.RawConfig()
 				if err != nil {
-					return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+					return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 				}
 				err = switchContext(&rawConfig, cmd.Context)
 				if err != nil {
@@ -442,7 +442,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	// load the rest config
 	kubeConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	client, err := kubernetes.NewForConfig(kubeConfig)

@@ -42,7 +42,7 @@ computing resources.
 
 Pause will scale down the virtual cluster and delete
 all workloads created through the virtual cluster. Upon resume,
-all workloads will be recreated. Other resources such 
+all workloads will be recreated. Other resources such
 as persistent volume claims, services etc. will not be affected.
 
 Example:
@@ -93,7 +93,7 @@ func (cmd *PauseCmd) prepare(ctx context.Context, vClusterName string) error {
 	// load the rest config
 	kubeConfig, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)

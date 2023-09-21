@@ -203,7 +203,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 	// generate a name, because this field is cleared
 	if vService.GenerateName != "" && vService.Name == "" {
-		vService.Name = vService.GenerateName + random.RandomString(5)
+		vService.Name = vService.GenerateName + random.String(5)
 	}
 
 	newService := translate.Default.ApplyMetadata(vService, syncedLabels).(*corev1.Service)

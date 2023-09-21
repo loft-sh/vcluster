@@ -145,7 +145,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	// run port forwarder and retrieve kubeconfig for the vcluster
 	vKubeconfigFile, err := os.CreateTemp(os.TempDir(), "vcluster_e2e_kubeconfig_")
 	if err != nil {
-		return fmt.Errorf("could not create a temporary file: %v", err)
+		return fmt.Errorf("could not create a temporary file: %w", err)
 	}
 	// vKubeconfigFile removal is done in the Framework.Cleanup() which gets called in ginkgo's AfterSuite()
 

@@ -62,7 +62,7 @@ func SetVersion(verText string) {
 
 var (
 	latestVersion     string
-	latestVersionErr  error
+	errLatestVersion  error
 	latestVersionOnce sync.Once
 )
 
@@ -71,7 +71,7 @@ func CheckForNewerVersion() (string, error) {
 	latestVersionOnce.Do(func() {
 		latest, found, err := selfupdate.DetectLatest(githubSlug)
 		if err != nil {
-			latestVersionErr = err
+			errLatestVersion = err
 			return
 		}
 
@@ -83,7 +83,7 @@ func CheckForNewerVersion() (string, error) {
 		latestVersion = latest.Version.String()
 	})
 
-	return latestVersion, latestVersionErr
+	return latestVersion, errLatestVersion
 }
 
 // NewerVersionAvailable checks if there is a newer version of vcluster

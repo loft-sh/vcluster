@@ -95,12 +95,12 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 			p, _ := f.VclusterClient.CoreV1().Pods("default").Get(ctx, "nginx", metav1.GetOptions{})
 			if p.Status.Phase == corev1.PodRunning {
 				return true, nil
-			} else {
-				e, _ := f.VclusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{TypeMeta: p.TypeMeta})
-				if len(e.Items) > 0 {
-					if strings.Contains(e.Items[0].Message, `Invalid value: "2": must be less than or equal to cpu limit`) {
-						return true, fmt.Errorf(`invalid value: "2": must be less than or equal to cpu limit`)
-					}
+			}
+
+			e, _ := f.VclusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{TypeMeta: p.TypeMeta})
+			if len(e.Items) > 0 {
+				if strings.Contains(e.Items[0].Message, `Invalid value: "2": must be less than or equal to cpu limit`) {
+					return true, fmt.Errorf(`invalid value: "2": must be less than or equal to cpu limit`)
 				}
 			}
 			return false, nil

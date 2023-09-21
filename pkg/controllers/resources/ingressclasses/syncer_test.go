@@ -6,7 +6,7 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
-	v1 "k8s.io/api/networking/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,14 +23,14 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	vObj := &v1.IngressClass{
+	vObj := &networkingv1.IngressClass{
 		ObjectMeta: vObjectMeta,
-		Spec: v1.IngressClassSpec{
+		Spec: networkingv1.IngressClassSpec{
 			Controller: "test-controller",
 		},
 	}
 
-	pObj := &v1.IngressClass{
+	pObj := &networkingv1.IngressClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vObjectMeta.Name,
 			Labels: map[string]string{
@@ -41,16 +41,16 @@ func TestSync(t *testing.T) {
 				translate.UIDAnnotation:  "",
 			},
 		},
-		Spec: v1.IngressClassSpec{
+		Spec: networkingv1.IngressClassSpec{
 			Controller: "test-controller",
 		},
 	}
 
-	vObjUpdated := &v1.IngressClass{
+	vObjUpdated := &networkingv1.IngressClass{
 		ObjectMeta: vObjectMeta,
-		Spec: v1.IngressClassSpec{
+		Spec: networkingv1.IngressClassSpec{
 			Controller: "test-controller",
-			Parameters: &v1.IngressClassParametersReference{
+			Parameters: &networkingv1.IngressClassParametersReference{
 				APIGroup: strRef("test-group"),
 				Kind:     "test-kind",
 				Name:     "test-ingc-param",
@@ -58,7 +58,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	pObjUpdated := &v1.IngressClass{
+	pObjUpdated := &networkingv1.IngressClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
 			Labels: map[string]string{
@@ -69,9 +69,9 @@ func TestSync(t *testing.T) {
 				translate.UIDAnnotation:  "",
 			},
 		},
-		Spec: v1.IngressClassSpec{
+		Spec: networkingv1.IngressClassSpec{
 			Controller: "test-controller",
-			Parameters: &v1.IngressClassParametersReference{
+			Parameters: &networkingv1.IngressClassParametersReference{
 				APIGroup: strRef("test-group"),
 				Kind:     "test-kind",
 				Name:     "test-ingc-param",
@@ -85,10 +85,10 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{},
 			InitialPhysicalState: []runtime.Object{pObj},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("IngressClass"): {vObj},
+				networkingv1.SchemeGroupVersion.WithKind("IngressClass"): {vObj},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("IngressClass"): {pObj},
+				networkingv1.SchemeGroupVersion.WithKind("IngressClass"): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
@@ -112,10 +112,10 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{vObj},
 			InitialPhysicalState: []runtime.Object{pObjUpdated},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("IngressClass"): {vObjUpdated},
+				networkingv1.SchemeGroupVersion.WithKind("IngressClass"): {vObjUpdated},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				v1.SchemeGroupVersion.WithKind("IngressClass"): {pObjUpdated},
+				networkingv1.SchemeGroupVersion.WithKind("IngressClass"): {pObjUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)

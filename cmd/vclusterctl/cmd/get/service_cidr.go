@@ -31,7 +31,7 @@ func getServiceCIDR(globalFlags *flags.GlobalFlags) *cobra.Command {
 #######################################################
 Prints Service CIDR of the cluster
 
-Ex: 
+Ex:
 vcluster get service-cidr
 10.96.0.0/12
 #######################################################
@@ -52,7 +52,7 @@ func (cmd *serviceCIDRCmd) Run(cobraCmd *cobra.Command) error {
 	// load the rest config
 	kubeConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	client, err := kubernetes.NewForConfig(kubeConfig)

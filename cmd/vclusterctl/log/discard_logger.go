@@ -2,8 +2,9 @@ package log
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"os"
+
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 
 	"github.com/sirupsen/logrus"
 )
@@ -14,28 +15,28 @@ type DiscardLogger struct {
 }
 
 // Debug implements logger interface
-func (d *DiscardLogger) Debug(args ...interface{}) {}
+func (d *DiscardLogger) Debug(...interface{}) {}
 
 // Debugf implements logger interface
-func (d *DiscardLogger) Debugf(format string, args ...interface{}) {}
+func (d *DiscardLogger) Debugf(string, ...interface{}) {}
 
 // Info implements logger interface
-func (d *DiscardLogger) Info(args ...interface{}) {}
+func (d *DiscardLogger) Info(...interface{}) {}
 
 // Infof implements logger interface
-func (d *DiscardLogger) Infof(format string, args ...interface{}) {}
+func (d *DiscardLogger) Infof(string, ...interface{}) {}
 
 // Warn implements logger interface
-func (d *DiscardLogger) Warn(args ...interface{}) {}
+func (d *DiscardLogger) Warn(...interface{}) {}
 
 // Warnf implements logger interface
-func (d *DiscardLogger) Warnf(format string, args ...interface{}) {}
+func (d *DiscardLogger) Warnf(string, ...interface{}) {}
 
 // Error implements logger interface
-func (d *DiscardLogger) Error(args ...interface{}) {}
+func (d *DiscardLogger) Error(...interface{}) {}
 
 // Errorf implements logger interface
-func (d *DiscardLogger) Errorf(format string, args ...interface{}) {}
+func (d *DiscardLogger) Errorf(string, ...interface{}) {}
 
 // Fatal implements logger interface
 func (d *DiscardLogger) Fatal(args ...interface{}) {
@@ -66,31 +67,31 @@ func (d *DiscardLogger) Panicf(format string, args ...interface{}) {
 }
 
 // Done implements logger interface
-func (d *DiscardLogger) Done(args ...interface{}) {}
+func (d *DiscardLogger) Done(...interface{}) {}
 
 // Donef implements logger interface
-func (d *DiscardLogger) Donef(format string, args ...interface{}) {}
+func (d *DiscardLogger) Donef(string, ...interface{}) {}
 
 // Fail implements logger interface
-func (d *DiscardLogger) Fail(args ...interface{}) {}
+func (d *DiscardLogger) Fail(...interface{}) {}
 
 // Failf implements logger interface
-func (d *DiscardLogger) Failf(format string, args ...interface{}) {}
+func (d *DiscardLogger) Failf(string, ...interface{}) {}
 
 // Print implements logger interface
-func (d *DiscardLogger) Print(level logrus.Level, args ...interface{}) {}
+func (d *DiscardLogger) Print(logrus.Level, ...interface{}) {}
 
 // Printf implements logger interface
-func (d *DiscardLogger) Printf(level logrus.Level, format string, args ...interface{}) {}
+func (d *DiscardLogger) Printf(logrus.Level, string, ...interface{}) {}
 
 // StartWait implements logger interface
-func (d *DiscardLogger) StartWait(message string) {}
+func (d *DiscardLogger) StartWait(string) {}
 
 // StopWait implements logger interface
 func (d *DiscardLogger) StopWait() {}
 
 // SetLevel implements logger interface
-func (d *DiscardLogger) SetLevel(level logrus.Level) {}
+func (d *DiscardLogger) SetLevel(logrus.Level) {}
 
 // GetLevel implements logger interface
 func (d *DiscardLogger) GetLevel() logrus.Level { return logrus.FatalLevel }
@@ -101,10 +102,10 @@ func (d *DiscardLogger) Write(message []byte) (int, error) {
 }
 
 // WriteString implements logger interface
-func (d *DiscardLogger) WriteString(message string) {}
+func (d *DiscardLogger) WriteString(string) {}
 
 // Question asks a new question
-func (d *DiscardLogger) Question(params *survey.QuestionOptions) (string, error) {
+func (d *DiscardLogger) Question(*survey.QuestionOptions) (string, error) {
 	return "", SurveyError{}
 }
 

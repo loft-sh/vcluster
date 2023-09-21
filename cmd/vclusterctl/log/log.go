@@ -32,7 +32,7 @@ func writeColored(message string, color string) {
 	_, _ = defaultLog.Write([]byte(ansi.Color(message, color)))
 }
 
-//SetFakePrintTable is a testing tool that allows overwriting the function PrintTable
+// SetFakePrintTable is a testing tool that allows overwriting the function PrintTable
 func SetFakePrintTable(fake func(s Logger, header []string, values [][]string)) {
 	fakePrintTable = fake
 }

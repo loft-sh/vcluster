@@ -62,7 +62,7 @@ func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 
 var _ syncer.ControllerModifier = &configMapSyncer{}
 
-func (s *configMapSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *configMapSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
 }
 

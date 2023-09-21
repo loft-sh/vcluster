@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewFakeSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewFakeSyncer(*synccontext.RegisterContext) (syncer.Object, error) {
 	return &fakePersistentVolumeSyncer{}, nil
 }
 
@@ -44,7 +44,7 @@ func (r *fakePersistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterCo
 
 var _ syncer.ControllerModifier = &fakePersistentVolumeSyncer{}
 
-func (r *fakePersistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (r *fakePersistentVolumeSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
 		pvc, ok := object.(*corev1.PersistentVolumeClaim)
 		if !ok || pvc == nil || pvc.Spec.VolumeName == "" {

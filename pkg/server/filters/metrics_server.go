@@ -41,7 +41,7 @@ const (
 	LabelSelectorQueryParam = "labelSelector"
 )
 
-var ErrorNodeNotInVcluster = errors.New("node not present in vcluster")
+var ErrNodeNotInVcluster = errors.New("node not present in vcluster")
 
 func WithMetricsServerProxy(ctx *vclustercontext.ControllerContext, h http.Handler, cacheHostClient, cachedVirtualClient client.Client, hostConfig *rest.Config) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -305,7 +305,7 @@ func (p *MetricsServerProxy) HandleRequest() {
 		// filter nodes synced with vcluster
 		newData, err = p.filterVirtualNodes(data)
 		if err != nil {
-			if errors.Is(err, ErrorNodeNotInVcluster) {
+			if errors.Is(err, ErrNodeNotInVcluster) {
 				requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusNotFound, err)
 				return
 			}
@@ -373,7 +373,7 @@ func (p *MetricsServerProxy) filterVirtualNodes(data []byte) ([]byte, error) {
 			return newData, nil
 		}
 
-		return newData, ErrorNodeNotInVcluster
+		return newData, ErrNodeNotInVcluster
 	}
 
 	return newData, nil

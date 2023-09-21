@@ -648,7 +648,7 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 		// write the extra secret
 		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.KubeConfigSecret, secretNamespace, config)
 		if err != nil {
-			return fmt.Errorf("creating %s secret in the %s ns failed: %v", options.KubeConfigSecret, secretNamespace, err)
+			return fmt.Errorf("creating %s secret in the %s ns failed: %w", options.KubeConfigSecret, secretNamespace, err)
 		}
 	}
 

@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewHostStorageClassSyncer(*synccontext.RegisterContext) (syncer.Object, error) {
 	return &hostStorageClassSyncer{
 		Translator: translator.NewMirrorPhysicalTranslator("host-storageclass", &storagev1.StorageClass{}),
 	}, nil

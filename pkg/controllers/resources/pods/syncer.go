@@ -316,9 +316,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		}
 
 		// translate services to environment variables
-		serviceEnv := translatepods.TranslateServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
+		serviceEnv := translatepods.ServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
 		for i := range vPod.Spec.EphemeralContainers {
-			envVar, envFrom := translatepods.TranslateContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+			envVar, envFrom := translatepods.ContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
 			vPod.Spec.EphemeralContainers[i].Env = envVar
 			vPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		}

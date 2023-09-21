@@ -346,6 +346,8 @@ func (s *stdoutLogger) Failf(format string, args ...interface{}) {
 
 func (s *stdoutLogger) Print(level logrus.Level, args ...interface{}) {
 	switch level {
+	case logrus.TraceLevel:
+		s.Info(args...)
 	case logrus.InfoLevel:
 		s.Info(args...)
 	case logrus.DebugLevel:
@@ -363,6 +365,8 @@ func (s *stdoutLogger) Print(level logrus.Level, args ...interface{}) {
 
 func (s *stdoutLogger) Printf(level logrus.Level, format string, args ...interface{}) {
 	switch level {
+	case logrus.TraceLevel:
+		s.Infof(format, args...)
 	case logrus.InfoLevel:
 		s.Infof(format, args...)
 	case logrus.DebugLevel:
@@ -490,10 +494,10 @@ func (s *stdoutLogSink) Info(level int, msg string, keysAndValues ...interface{}
 }
 
 // Init implements logr.LogSink.
-func (*stdoutLogSink) Init(info logr.RuntimeInfo) {}
+func (*stdoutLogSink) Init(logr.RuntimeInfo) {}
 
 // WithName implements logr.LogSink.
-func (s *stdoutLogSink) WithName(name string) logr.LogSink {
+func (s *stdoutLogSink) WithName(string) logr.LogSink {
 	return &stdoutLogSink{
 		logger:        s.logger,
 		keysAndValues: s.keysAndValues,

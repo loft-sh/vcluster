@@ -33,7 +33,7 @@ const (
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	namespaceLabels, err := parseNamespaceLabels(ctx.Options.NamespaceLabels)
 	if err != nil {
-		return nil, fmt.Errorf("invalid value of the namespace-labels flag: %v", err)
+		return nil, fmt.Errorf("invalid value of the namespace-labels flag: %w", err)
 	}
 
 	namespaceLabels[VclusterNameAnnotation] = ctx.Options.Name

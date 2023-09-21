@@ -56,9 +56,9 @@ func Execute() {
 	if err != nil {
 		if globalFlags.Debug {
 			log.Fatalf("%+v", err)
-		} else {
-			log.Fatal(err)
 		}
+
+		log.Fatal(err)
 	}
 }
 

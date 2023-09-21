@@ -1,10 +1,11 @@
 package volumesnapshotclasses
 
 import (
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
-	"testing"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"

@@ -70,7 +70,7 @@ vcluster list --namespace test
 }
 
 // Run executes the functionality
-func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return err

@@ -52,14 +52,14 @@ func validate(config *Config) error {
 		for patchIdx, patch := range exp.Patches {
 			err := validatePatch(patch)
 			if err != nil {
-				return fmt.Errorf("invalid exports[%d].patches[%d]: %v", idx, patchIdx, err)
+				return fmt.Errorf("invalid exports[%d].patches[%d]: %w", idx, patchIdx, err)
 			}
 		}
 
 		for patchIdx, patch := range exp.ReversePatches {
 			err := validatePatch(patch)
 			if err != nil {
-				return fmt.Errorf("invalid exports[%d].reversPatches[%d]: %v", idx, patchIdx, err)
+				return fmt.Errorf("invalid exports[%d].reversPatches[%d]: %w", idx, patchIdx, err)
 			}
 		}
 	}
@@ -85,14 +85,14 @@ func validate(config *Config) error {
 		for patchIdx, patch := range imp.Patches {
 			err := validatePatch(patch)
 			if err != nil {
-				return fmt.Errorf("invalid imports[%d].patches[%d]: %v", idx, patchIdx, err)
+				return fmt.Errorf("invalid imports[%d].patches[%d]: %w", idx, patchIdx, err)
 			}
 		}
 
 		for patchIdx, patch := range imp.ReversePatches {
 			err := validatePatch(patch)
 			if err != nil {
-				return fmt.Errorf("invalid imports[%d].reversPatches[%d]: %v", idx, patchIdx, err)
+				return fmt.Errorf("invalid imports[%d].reversPatches[%d]: %w", idx, patchIdx, err)
 			}
 		}
 	}
@@ -102,13 +102,13 @@ func validate(config *Config) error {
 		for idx, hook := range config.Hooks.HostToVirtual {
 			for idy, verb := range hook.Verbs {
 				if err := validateVerb(verb); err != nil {
-					return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %v", idx, idy, err)
+					return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %w", idx, idy, err)
 				}
 			}
 
 			for idy, patch := range hook.Patches {
 				if err := validatePatch(patch); err != nil {
-					return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %v", idx, idy, err)
+					return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %w", idx, idy, err)
 				}
 			}
 		}
@@ -117,13 +117,13 @@ func validate(config *Config) error {
 		for idx, hook := range config.Hooks.VirtualToHost {
 			for idy, verb := range hook.Verbs {
 				if err := validateVerb(verb); err != nil {
-					return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %v", idx, idy, err)
+					return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %w", idx, idy, err)
 				}
 			}
 
 			for idy, patch := range hook.Patches {
 				if err := validatePatch(patch); err != nil {
-					return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %v", idx, idy, err)
+					return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %w", idx, idy, err)
 				}
 			}
 		}

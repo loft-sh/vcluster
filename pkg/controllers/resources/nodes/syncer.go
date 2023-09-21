@@ -30,7 +30,7 @@ var (
 	indexPodByRunningNonVClusterNode = "indexpodbyrunningnonvclusternode"
 )
 
-func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.NodeServiceProvider) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.Provider) (syncer.Object, error) {
 	var err error
 	var nodeSelector labels.Selector
 	if ctx.Options.SyncAllNodes {
@@ -83,7 +83,7 @@ type nodeSyncer struct {
 	virtualClient  client.Client
 
 	podCache            client.Reader
-	nodeServiceProvider nodeservice.NodeServiceProvider
+	nodeServiceProvider nodeservice.Provider
 	enforcedTolerations []*corev1.Toleration
 }
 
@@ -137,7 +137,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder 
 	return modifyController(ctx, s.nodeServiceProvider, builder)
 }
 
-func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.NodeServiceProvider, builder *builder.Builder) (*builder.Builder, error) {
+func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.Provider, builder *builder.Builder) (*builder.Builder, error) {
 	go func() {
 		nodeServiceProvider.Start(ctx.Context)
 	}()
@@ -198,7 +198,7 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 	})
 }
 
-func (s *nodeSyncer) VirtualToPhysical(_ context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *nodeSyncer) VirtualToPhysical(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	return req
 }
 

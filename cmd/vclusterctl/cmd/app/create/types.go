@@ -1,7 +1,7 @@
 package create
 
-// CreateOptions holds the create cmd options
-type CreateOptions struct {
+// Options holds the create cmd options
+type Options struct {
 	KubeConfigContextName string
 	ChartVersion          string
 	ChartName             string
@@ -33,20 +33,20 @@ type Values struct {
 
 type Init struct {
 	Manifests string      `json:"manifests" mapstructure:"manifests"`
-	Helm      []HelmChart `json:"helm" mapstructure:"helm"`
+	Helm      []HelmChart `json:"helm"      mapstructure:"helm"`
 }
 
 type HelmChart struct {
-	Bundle    string      `mapstructure:"bundle,omitempty" json:"bundle,omitempty"`
-	Name      string      `mapstructure:"name" json:"name,omitempty"`
-	Repo      string      `mapstructure:"repo" json:"repo,omitempty"`
-	Version   string      `mapstructure:"version" json:"version,omitempty"`
-	Namespace string      `mapstructure:"namespace" json:"namespace,omitempty"`
-	Values    string      `mapstructure:"values" json:"values,omitempty"`
-	Release   HelmRelease `mapstructure:"release" json:"release,omitempty"`
+	Bundle    string      `json:"bundle,omitempty"    mapstructure:"bundle,omitempty"`
+	Name      string      `json:"name,omitempty"      mapstructure:"name"`
+	Repo      string      `json:"repo,omitempty"      mapstructure:"repo"`
+	Version   string      `json:"version,omitempty"   mapstructure:"version"`
+	Namespace string      `json:"namespace,omitempty" mapstructure:"namespace"`
+	Values    string      `json:"values,omitempty"    mapstructure:"values"`
+	Release   HelmRelease `json:"release,omitempty"   mapstructure:"release"`
 }
 
 type HelmRelease struct {
-	Name      string `mapstructure:"name" json:"name,omitempty"`
-	Namespace string `mapstructure:"namespace" json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"      mapstructure:"name"`
+	Namespace string `json:"namespace,omitempty" mapstructure:"namespace"`
 }

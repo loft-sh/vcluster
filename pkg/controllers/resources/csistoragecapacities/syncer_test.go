@@ -1,8 +1,9 @@
 package csistoragecapacities
 
 import (
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"testing"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"

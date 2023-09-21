@@ -99,7 +99,7 @@ func NewNodeFromString(in string) (*yaml.Node, error) {
 	var node yaml.Node
 	err := yaml.Unmarshal([]byte(in), &node)
 	if err != nil {
-		return nil, fmt.Errorf("failed unmarshaling doc: %s\n\n%s", string(in), err)
+		return nil, fmt.Errorf("failed unmarshaling doc: %s\n\n%w", in, err)
 	}
 
 	return &node, nil
@@ -108,13 +108,13 @@ func NewNodeFromString(in string) (*yaml.Node, error) {
 func NewNode(raw interface{}) (*yaml.Node, error) {
 	doc, err := yaml.Marshal(raw)
 	if err != nil {
-		return nil, fmt.Errorf("failed marshaling struct: %+v\n\n%s", raw, err)
+		return nil, fmt.Errorf("failed marshaling struct: %+v\n\n%w", raw, err)
 	}
 
 	var node yaml.Node
 	err = yaml.Unmarshal(doc, &node)
 	if err != nil {
-		return nil, fmt.Errorf("failed unmarshaling doc: %s\n\n%s", string(doc), err)
+		return nil, fmt.Errorf("failed unmarshaling doc: %s\n\n%w", string(doc), err)
 	}
 
 	return &node, nil
@@ -123,13 +123,13 @@ func NewNode(raw interface{}) (*yaml.Node, error) {
 func NewJSONNode(raw interface{}) (*yaml.Node, error) {
 	doc, err := json.Marshal(raw)
 	if err != nil {
-		return nil, fmt.Errorf("failed marshaling struct: %+v\n\n%s", raw, err)
+		return nil, fmt.Errorf("failed marshaling struct: %+v\n\n%w", raw, err)
 	}
 
 	var node yaml.Node
 	err = yaml.Unmarshal(doc, &node)
 	if err != nil {
-		return nil, fmt.Errorf("failed unmarshaling doc: %s\n\n%s", string(doc), err)
+		return nil, fmt.Errorf("failed unmarshaling doc: %s\n\n%w", string(doc), err)
 	}
 
 	return &node, nil

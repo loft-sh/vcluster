@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -341,7 +342,7 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(ctx context.Context, vclusterName s
 			return true, nil
 		})
 		if waitErr != nil {
-			return nil, fmt.Errorf("finding vcluster pod: %v - %v", waitErr, err)
+			return nil, fmt.Errorf("finding vcluster pod: %w - %w", waitErr, err)
 		}
 	}
 
@@ -611,7 +612,7 @@ func (cmd *ConnectCmd) executeCommand(ctx context.Context, vKubeConfig api.Confi
 
 		return errors.Wrap(err, "error port-forwarding")
 	case err := <-commandErrChan:
-		if exitError, ok := err.(*exec.ExitError); ok {
+		if exitError, ok := lo.ErrorsAs[*exec.ExitError](err); ok {
 			cmd.Log.Errorf("Error executing command: %v", err)
 			os.Exit(exitError.ExitCode())
 		}
