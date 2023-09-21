@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"

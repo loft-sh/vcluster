@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/podprinter"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"

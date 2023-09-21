@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
