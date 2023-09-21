@@ -22,15 +22,18 @@ func getActionOrConditionValue(annotation, actionOrCondition string) string {
 	return ""
 }
 
+// ref https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/pkg/ingress/config_types.go
+type actionPayload struct {
+	Type          string `json:"type,omitempty"`
+	ForwardConfig struct {
+		TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
+		TargetGroupStickinessConfig map[string]interface{}   `json:"targetGroupStickinessConfig,omitempty"`
+	} `json:"forwardConfig,omitempty"`
+	RedirectConfig map[string]interface{} `json:"redirectConfig,omitempty"`
+}
+
 func ProcessAlbAnnotations(namespace string, k string, v string) (string, string) {
 	if strings.HasPrefix(k, AlbActionsAnnotation) {
-		type actionPayload struct {
-			Type          string `json:"type,omitempty"`
-			ForwardConfig struct {
-				TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
-				TargetGroupStickinessConfig map[string]interface{}   `json:"targetGroupStickinessConfig,omitempty"`
-			} `json:"forwardConfig,omitempty"`
-		}
 		// change k
 		action := getActionOrConditionValue(k, ActionsSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
