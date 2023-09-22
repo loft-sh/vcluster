@@ -368,7 +368,7 @@ func TestSync(t *testing.T) {
 						Labels:    baseIngress.Labels,
 						Annotations: map[string]string{
 							"nginx.ingress.kubernetes.io/auth-secret":        "my-secret",
-							"alb.ingress.kubernetes.io/actions.testservice":  "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service\",\"servicePort\":\"80\",\"weight\":100}]}}",
+							"alb.ingress.kubernetes.io/actions.testservice":  `{"forwardConfig":{"targetGroups":[{"serviceName":"nginx-service","servicePort":"80","weight":100}]}}`,
 							"alb.ingress.kubernetes.io/actions.ssl-redirect": `{"type": "redirect", "redirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}`,
 						},
 					},
@@ -391,7 +391,7 @@ func TestSync(t *testing.T) {
 							Namespace: baseIngress.Namespace,
 							Labels:    baseIngress.Labels,
 							Annotations: map[string]string{
-								"alb.ingress.kubernetes.io/actions.testservice":  "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service\",\"servicePort\":\"80\",\"weight\":100}]}}",
+								"alb.ingress.kubernetes.io/actions.testservice":  `{"forwardConfig":{"targetGroups":[{"serviceName":"nginx-service","servicePort":"80","weight":100}]}}`,
 								"alb.ingress.kubernetes.io/actions.ssl-redirect": `{"type": "redirect", "redirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}`,
 								"nginx.ingress.kubernetes.io/auth-secret":        "my-secret",
 							},
@@ -412,7 +412,7 @@ func TestSync(t *testing.T) {
 								"vcluster.loft.sh/object-name":                                   baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":                              baseIngress.Namespace,
 								translate.UIDAnnotation:                                          "",
-								"alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix":  "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service-x-test-x-suffix\",\"servicePort\":\"80\",\"weight\":100}]}}",
+								"alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix":  `{"forwardConfig":{"targetGroups":[{"serviceName":"nginx-service-x-test-x-suffix","servicePort":"80","weight":100}]}}`,
 								"alb.ingress.kubernetes.io/actions.ssl-redirect-x-test-x-suffix": `{"type":"redirect","forwardConfig":{},"redirectConfig":{"Port":"443","Protocol":"HTTPS","StatusCode":"HTTP_301"}}`,
 							},
 						},
