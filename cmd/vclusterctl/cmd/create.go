@@ -46,7 +46,6 @@ import (
 )
 
 var (
-	AllowedDistros              = []string{"k3s", "k0s", "k8s", "eks"}
 	CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
 )
 
@@ -97,7 +96,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.9.1)")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", create.LoftChartRepo, "The virtual cluster chart repo to use")
-	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k3s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(AllowedDistros, ", ")))
+	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k3s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(create.AllowedDistros, ", ")))
 	cobraCmd.Flags().StringVar(&cmd.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cobraCmd.Flags().StringArrayVarP(&cmd.Values, "values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().StringArrayVar(&cmd.SetValues, "set", []string{}, "Set values for helm. E.g. --set 'persistence.enabled=true'")
@@ -169,7 +168,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		proClient, err := pro.CreateProClient()
 		if err == nil {
 			// deploy pro cluster
-			err = create.DeployProCluster(ctx, &cmd.Options, proClient, args[0], cmd.log)
+			err = create.DeployProCluster(ctx, &cmd.Options, proClient, args[0], cmd.Namespace, cmd.log)
 			if err != nil {
 				return err
 			}
@@ -400,8 +399,8 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 }
 
 func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtils.ChartOptions, error) {
-	if !util.Contains(cmd.Distro, AllowedDistros) {
-		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(AllowedDistros, ", "))
+	if !util.Contains(cmd.Distro, create.AllowedDistros) {
+		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(create.AllowedDistros, ", "))
 	}
 
 	if cmd.ChartName == "vcluster" && cmd.Distro != "k3s" {

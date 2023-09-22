@@ -3,10 +3,15 @@ package create
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
+	"github.com/go-logr/logr"
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
@@ -16,7 +21,14 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
+	helmUtils "github.com/loft-sh/utils/pkg/helm"
+	"github.com/loft-sh/utils/pkg/helm/values"
+	"github.com/loft-sh/vcluster/pkg/strvals"
+	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util"
+	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -25,7 +37,9 @@ import (
 
 const LoftChartRepo = "https://charts.loft.sh"
 
-func DeployProCluster(ctx context.Context, options *Options, proClient proclient.Client, virtualClusterName string, log log.Logger) error {
+var AllowedDistros = []string{"k3s", "k0s", "k8s", "eks"}
+
+func DeployProCluster(ctx context.Context, options *Options, proClient proclient.Client, virtualClusterName, targetNamespace string, log log.Logger) error {
 	// determine project & cluster name
 	var err error
 	options.Cluster, options.Project, err = helper.SelectProjectOrCluster(proClient, options.Cluster, options.Project, false, log)
@@ -72,18 +86,40 @@ func DeployProCluster(ctx context.Context, options *Options, proClient proclient
 		return fmt.Errorf("virtual cluster %s already exists in project %s", virtualClusterName, options.Project)
 	}
 
+	// should create via template
+	useTemplate, err := shouldCreateWithTemplate(ctx, proClient, options, virtualClusterInstance)
+	if err != nil {
+		return fmt.Errorf("should use template: %w", err)
+	}
+
 	// create virtual cluster if necessary
-	if virtualClusterInstance == nil {
-		// create via template
-		virtualClusterInstance, err = createWithTemplate(ctx, proClient, options, virtualClusterName, log)
-		if err != nil {
-			return err
+	if useTemplate {
+		if virtualClusterInstance == nil {
+			// create via template
+			virtualClusterInstance, err = createWithTemplate(ctx, proClient, options, virtualClusterName, log)
+			if err != nil {
+				return err
+			}
+		} else {
+			// upgrade via template
+			virtualClusterInstance, err = upgradeWithTemplate(ctx, proClient, options, virtualClusterInstance, log)
+			if err != nil {
+				return err
+			}
 		}
-	} else if options.Upgrade {
-		// upgrade via template
-		virtualClusterInstance, err = upgradeWithTemplate(ctx, proClient, options, virtualClusterInstance, log)
-		if err != nil {
-			return err
+	} else {
+		if virtualClusterInstance == nil {
+			// create without template
+			virtualClusterInstance, err = createWithoutTemplate(ctx, proClient, options, virtualClusterName, targetNamespace, log)
+			if err != nil {
+				return err
+			}
+		} else {
+			// upgrade via template
+			virtualClusterInstance, err = upgradeWithoutTemplate(ctx, proClient, options, virtualClusterInstance, log)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -95,6 +131,164 @@ func DeployProCluster(ctx context.Context, options *Options, proClient proclient
 	log.Donef("Successfully created the virtual cluster %s in project %s", virtualClusterName, options.Project)
 
 	return nil
+}
+
+func createWithoutTemplate(ctx context.Context, proClient proclient.Client, options *Options, virtualClusterName, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+	err := validateNoTemplateOptions(options)
+	if err != nil {
+		return nil, err
+	}
+
+	// merge values
+	helmValues, err := mergeValues(options, log)
+	if err != nil {
+		return nil, err
+	}
+
+	// create virtual cluster instance
+	zone, offset := time.Now().Zone()
+	virtualClusterInstance := &managementv1.VirtualClusterInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: naming.ProjectNamespace(options.Project),
+			Name:      virtualClusterName,
+			Annotations: map[string]string{
+				clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
+			},
+		},
+		Spec: managementv1.VirtualClusterInstanceSpec{
+			VirtualClusterInstanceSpec: storagev1.VirtualClusterInstanceSpec{
+				Template: &storagev1.VirtualClusterTemplateDefinition{
+					VirtualClusterCommonSpec: agentstoragev1.VirtualClusterCommonSpec{
+						HelmRelease: agentstoragev1.VirtualClusterHelmRelease{
+							Chart: agentstoragev1.VirtualClusterHelmChart{
+								Name:    options.ChartName,
+								Repo:    options.ChartRepo,
+								Version: options.ChartVersion,
+							},
+							Values: helmValues,
+						},
+						// TODO: enable
+						// Pro: true
+					},
+				},
+				ClusterRef: storagev1.VirtualClusterClusterRef{
+					ClusterRef: storagev1.ClusterRef{
+						Cluster:   options.Cluster,
+						Namespace: targetNamespace,
+					},
+				},
+			},
+		},
+	}
+
+	// set links
+	create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
+
+	// get management client
+	managementClient, err := proClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	// create virtualclusterinstance
+	log.Infof("Creating virtual cluster %s in project %s...", virtualClusterName, options.Project)
+	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Create(ctx, virtualClusterInstance, metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("create virtual cluster: %w", err)
+	}
+
+	return virtualClusterInstance, nil
+}
+
+func upgradeWithoutTemplate(ctx context.Context, proClient proclient.Client, options *Options, virtualClusterInstance *managementv1.VirtualClusterInstance, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+	err := validateNoTemplateOptions(options)
+	if err != nil {
+		return nil, err
+	}
+
+	// merge values
+	helmValues, err := mergeValues(options, log)
+	if err != nil {
+		return nil, err
+	}
+
+	// update virtual cluster instance
+	if virtualClusterInstance.Spec.Template == nil {
+		return nil, fmt.Errorf("virtual cluster instance uses a template, cannot update virtual cluster")
+	}
+
+	oldVirtualCluster := virtualClusterInstance.DeepCopy()
+	chartNameChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Name != options.ChartName
+	if chartNameChanged {
+		return nil, fmt.Errorf("cannot change chart name from '%s' to '%s', this operation is not allowed", virtualClusterInstance.Spec.Template.HelmRelease.Chart.Name, options.ChartName)
+	}
+
+	chartRepoChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo != options.ChartRepo
+	chartVersionChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version != options.ChartVersion
+	valuesChanged := virtualClusterInstance.Spec.Template.HelmRelease.Values != helmValues
+	linksChanged := create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
+
+	// check if update is needed
+	if chartRepoChanged || chartVersionChanged || valuesChanged || linksChanged {
+		virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo = options.ChartRepo
+		virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version = options.ChartVersion
+		virtualClusterInstance.Spec.Template.HelmRelease.Values = helmValues
+
+		// get management client
+		managementClient, err := proClient.Management()
+		if err != nil {
+			return nil, err
+		}
+
+		patch := client.MergeFrom(oldVirtualCluster)
+		patchData, err := patch.Data(virtualClusterInstance)
+		if err != nil {
+			return nil, fmt.Errorf("calculate update patch: %w", err)
+		}
+		log.Infof("Updating virtual cluster %s in project %s...", virtualClusterInstance.Name, options.Project)
+		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Patch(ctx, virtualClusterInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("patch virtual cluster: %w", err)
+		}
+	} else {
+		log.Infof("Skip updating virtual cluster...")
+	}
+
+	return virtualClusterInstance, nil
+}
+
+func shouldCreateWithTemplate(ctx context.Context, proClient proclient.Client, options *Options, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
+	virtualClusterInstanceHasTemplate := virtualClusterInstance != nil && virtualClusterInstance.Spec.TemplateRef != nil
+	virtualClusterInstanceHasNoTemplate := virtualClusterInstance != nil && virtualClusterInstance.Spec.TemplateRef == nil
+	if virtualClusterInstanceHasTemplate || options.Template != "" {
+		return true, nil
+	} else if virtualClusterInstanceHasNoTemplate {
+		return false, nil
+	}
+
+	managementClient, err := proClient.Management()
+	if err != nil {
+		return false, err
+	}
+
+	project, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, options.Project, metav1.GetOptions{})
+	if err != nil {
+		return false, fmt.Errorf("get vCluster project: %w", err)
+	}
+
+	// check if there is a default template
+	for _, template := range project.Spec.AllowedTemplates {
+		if template.Kind == "VirtualClusterTemplate" && template.IsDefault {
+			return true, nil
+		}
+	}
+
+	// check if we can create without
+	if project.Spec.RequireTemplate.Disabled {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func createWithTemplate(ctx context.Context, proClient proclient.Client, options *Options, virtualClusterName string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
@@ -222,6 +416,23 @@ func upgradeWithTemplate(ctx context.Context, proClient proclient.Client, option
 	return virtualClusterInstance, nil
 }
 
+func validateNoTemplateOptions(options *Options) error {
+	if len(options.SetParams) > 0 {
+		return fmt.Errorf("cannot use --set-param because the vcluster is not using a template. Use --set instead")
+	}
+	if options.Params != "" {
+		return fmt.Errorf("cannot use --params because the vcluster is not using a template. Use --values instead")
+	}
+	if options.Template != "" {
+		return fmt.Errorf("cannot use --template because the vcluster is not using a template")
+	}
+	if options.TemplateVersion != "" {
+		return fmt.Errorf("cannot use --template-version because the vcluster is not using a template")
+	}
+
+	return nil
+}
+
 func validateTemplateOptions(options *Options) error {
 	if len(options.SetValues) > 0 {
 		return fmt.Errorf("cannot use --set because the vcluster is using a template. Please use --set-param instead")
@@ -249,4 +460,125 @@ func validateTemplateOptions(options *Options) error {
 	}
 
 	return nil
+}
+
+func mergeValues(options *Options, log log.Logger) (string, error) {
+	// merge values
+	chartOptions, err := toChartOptions(options, log)
+	if err != nil {
+		return "", err
+	}
+	logger := logr.New(log.LogrLogSink())
+	chartValues, err := values.GetDefaultReleaseValues(chartOptions, logger)
+	if err != nil {
+		return "", err
+	}
+
+	// merge them with --values
+	outValues, err := parseString(chartValues)
+	if err != nil {
+		return "", err
+	}
+
+	// merge values
+	for _, valuesFile := range options.Values {
+		out, err := os.ReadFile(valuesFile)
+		if err != nil {
+			return "", fmt.Errorf("reading values file %s: %w", valuesFile, err)
+		}
+
+		extraValues, err := parseString(string(out))
+		if err != nil {
+			return "", fmt.Errorf("parse values file %s: %w", valuesFile, err)
+		}
+
+		strvals.MergeMaps(outValues, extraValues)
+	}
+
+	// merge set
+	for _, set := range options.SetValues {
+		err = strvals.ParseIntoString(set, outValues)
+		if err != nil {
+			return "", fmt.Errorf("apply --set %s: %w", set, err)
+		}
+	}
+
+	// out
+	out, err := yaml.Marshal(outValues)
+	if err != nil {
+		return "", err
+	}
+
+	return string(out), nil
+}
+
+func parseString(str string) (map[string]interface{}, error) {
+	out := map[string]interface{}{}
+	err := yaml.Unmarshal([]byte(str), &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func toChartOptions(options *Options, log log.Logger) (*helmUtils.ChartOptions, error) {
+	if !util.Contains(options.Distro, AllowedDistros) {
+		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
+	}
+
+	if options.ChartName == "vcluster" && options.Distro != "k3s" {
+		options.ChartName += "-" + options.Distro
+	}
+
+	cliConf, err := cliconfig.GetConfig()
+	if err != nil {
+		log.Debugf("Failed to load local configuration file: %v", err.Error())
+	}
+	instanceCreatorUID := ""
+	if !cliConf.TelemetryDisabled {
+		instanceCreatorUID = telemetry.GetInstanceCreatorUID()
+	}
+
+	version := helmUtils.Version{}
+	if options.KubernetesVersion != "" {
+		if options.KubernetesVersion[0] != 'v' {
+			options.KubernetesVersion = "v" + options.KubernetesVersion
+		}
+
+		if !semver.IsValid(options.KubernetesVersion) {
+			return nil, fmt.Errorf("please use valid semantic versioning format, e.g. vX.X")
+		}
+
+		majorMinorVer := semver.MajorMinor(options.KubernetesVersion)
+		if splittedVersion := strings.Split(options.KubernetesVersion, "."); len(splittedVersion) > 2 {
+			log.Warnf("currently we only support major.minor version (%s) and not the patch version (%s)", majorMinorVer, options.KubernetesVersion)
+		}
+
+		parsedVersion, err := values.ParseKubernetesVersionInfo(majorMinorVer)
+		if err != nil {
+			return nil, err
+		}
+
+		version.Major = parsedVersion.Major
+		version.Minor = parsedVersion.Minor
+	}
+
+	// use default version if its development
+	if options.ChartVersion == upgrade.DevelopmentVersion {
+		options.ChartVersion = ""
+	}
+
+	return &helmUtils.ChartOptions{
+		ChartName:           options.ChartName,
+		ChartRepo:           options.ChartRepo,
+		ChartVersion:        options.ChartVersion,
+		CreateClusterRole:   true,
+		DisableIngressSync:  options.DisableIngressSync,
+		Isolate:             options.Isolate,
+		KubernetesVersion:   version,
+		DisableTelemetry:    cliConf.TelemetryDisabled,
+		InstanceCreatorType: "vclusterctl",
+		InstanceCreatorUID:  instanceCreatorUID,
+	}, nil
 }

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	MinimumVersionTag = "v3.3.0-alpha.24"
+	MinimumVersionTag = "v3.3.0-alpha.25"
 	MinimumVersion    = semver.MustParse(strings.TrimPrefix(MinimumVersionTag, "v"))
 )
 

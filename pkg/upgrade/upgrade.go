@@ -14,6 +14,8 @@ import (
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )
 
+const DevelopmentVersion = "0.0.1"
+
 // Version holds the current version tag
 var version string
 
