@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	VclusterProFolder = "pro"
-
+	VclusterProFolder     = "pro"
 	LoftctlConfigFileName = "creds.json"
 )
 
@@ -30,13 +29,13 @@ type CLIConfig struct {
 	LatestCheckAt time.Time `json:"latestCheck,omitempty"`
 }
 
-// getDefaultCLIConfig returns the default config
-func getDefaultCLIConfig() *CLIConfig {
+// defaultCLIConfig returns the default config
+func defaultCLIConfig() *CLIConfig {
 	return &CLIConfig{}
 }
 
-// GetLoftConfigFilePath returns the path to the loft config file
-func GetLoftConfigFilePath() (string, error) {
+// LoftctlConfigFilePath returns the path to the loft config file
+func LoftctlConfigFilePath() (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
@@ -45,8 +44,8 @@ func GetLoftConfigFilePath() (string, error) {
 	return filepath.Join(home, cliconfig.VclusterFolder, VclusterProFolder, LoftctlConfigFileName), nil
 }
 
-// getConfigFilePath returns the path to the config file
-func getConfigFilePath() (string, error) {
+// configFilePath returns the path to the config file
+func configFilePath() (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
@@ -57,39 +56,39 @@ func getConfigFilePath() (string, error) {
 
 // GetConfig returns the config from the config file
 func GetConfig() (*CLIConfig, error) {
-	path, err := getConfigFilePath()
+	path, err := configFilePath()
 	if err != nil {
-		return getDefaultCLIConfig(), fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
+		return defaultCLIConfig(), fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
 	}
 
 	// check if the file exists
 	fi, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return getDefaultCLIConfig(), nil
+			return defaultCLIConfig(), nil
 		}
-		return getDefaultCLIConfig(), fmt.Errorf("failed to load vcluster configuration file from %s, falling back to default configuration, following error occurred: %w", path, err)
+		return defaultCLIConfig(), fmt.Errorf("failed to load vcluster configuration file from %s, falling back to default configuration, following error occurred: %w", path, err)
 	}
 	if fi.IsDir() {
-		return getDefaultCLIConfig(), fmt.Errorf("failed to load vcluster configuration file %s, falling back to default configuration, this path is a directory", path)
+		return defaultCLIConfig(), fmt.Errorf("failed to load vcluster configuration file %s, falling back to default configuration, this path is a directory", path)
 	}
 	file, err := os.Open(path)
 	if err != nil {
-		return getDefaultCLIConfig(), fmt.Errorf("failed to open vcluster configuration file from %s, falling back to default configuration, following error occurred: %w", path, err)
+		return defaultCLIConfig(), fmt.Errorf("failed to open vcluster configuration file from %s, falling back to default configuration, following error occurred: %w", path, err)
 	}
 	defer file.Close()
 	bytes, _ := io.ReadAll(file)
 	c := &CLIConfig{}
 	err = json.Unmarshal(bytes, &c)
 	if err != nil {
-		return getDefaultCLIConfig(), fmt.Errorf("failed to unmarshall vcluster configuration from %s file, falling back to default configuration, following error occurred: %w", path, err)
+		return defaultCLIConfig(), fmt.Errorf("failed to unmarshall vcluster configuration from %s file, falling back to default configuration, following error occurred: %w", path, err)
 	}
 	return c, nil
 }
 
 // WriteConfig writes the given config to the config file
 func WriteConfig(c *CLIConfig) error {
-	path, err := getConfigFilePath()
+	path, err := configFilePath()
 	if err != nil {
 		return fmt.Errorf("failed to get vcluster configuration file path: %w", err)
 	}

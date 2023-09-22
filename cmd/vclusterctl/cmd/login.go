@@ -21,7 +21,7 @@ func NewLoginCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 		loftctlGlobalFlags.Config = globalFlags.Config
 	} else {
 		var err error
-		loftctlGlobalFlags.Config, err = pro.GetLoftConfigFilePath()
+		loftctlGlobalFlags.Config, err = pro.LoftctlConfigFilePath()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
 		}
