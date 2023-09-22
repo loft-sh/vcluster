@@ -3,7 +3,6 @@ module github.com/loft-sh/vcluster
 go 1.21.1
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/blang/semver/v4 v4.0.0
 	github.com/denisbrodbeck/machineid v1.0.1
@@ -13,11 +12,10 @@ require (
 	github.com/google/go-github/v53 v53.2.1-0.20230815134205-bb00f570d301
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru/v2 v2.0.2
-	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
+	github.com/loft-sh/api/v3 v3.0.0-20230921143328-114580f85fdd
 	github.com/loft-sh/loftctl/v3 v3.0.0-20230921143437-669b265e3ecf
 	github.com/loft-sh/utils v0.0.25
-	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.0
 	github.com/onsi/ginkgo/v2 v2.11.0
@@ -60,6 +58,7 @@ require (
 )
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
@@ -75,12 +74,13 @@ require (
 	github.com/google/cel-go v0.16.0 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
+	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230921083523-e1d74f6f8fd1 // indirect
-	github.com/loft-sh/api/v3 v3.0.0-20230921143328-114580f85fdd // indirect
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f // indirect
 	github.com/loft-sh/external-types v0.0.2-0.20230301201552-ec939da949b4 // indirect
 	github.com/loft-sh/jspolicy v0.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/otiai10/copy v1.11.0 // indirect
