@@ -89,25 +89,19 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pro command: %w", err)
 	}
-	if proCmd != nil {
-		rootCmd.AddCommand(proCmd)
-	}
+	rootCmd.AddCommand(proCmd)
 
 	loginCmd, err := NewLoginCmd(globalFlags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create login command: %w", err)
 	}
-	if loginCmd != nil {
-		rootCmd.AddCommand(loginCmd)
-	}
+	rootCmd.AddCommand(loginCmd)
 
 	logoutCmd, err := NewLogoutCmd(globalFlags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logout command: %w", err)
 	}
-	if logoutCmd != nil {
-		rootCmd.AddCommand(logoutCmd)
-	}
+	rootCmd.AddCommand(logoutCmd)
 
 	// add completion command
 	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))

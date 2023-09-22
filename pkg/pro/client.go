@@ -19,17 +19,17 @@ type VirtualClusterInstanceProject struct {
 	Project        *managementv1.Project
 }
 
-var ErrConfigNotFound = errors.New("couldn't find vCluster.Pro config, please make sure to run 'vcluster login' to connect to an existing instance or 'vcluster pro start' to deploy a new instance")
+var ErrConfigNotFound = errors.New("couldn't find vCluster.Pro config")
 
 func CreateProClient() (client.Client, error) {
-	configPath, err := GetConfigFilePath()
+	configPath, err := ConfigFilePath()
 	if err != nil {
 		return nil, err
 	}
 
 	_, err = os.Stat(configPath)
 	if err != nil {
-		return nil, ErrConfigNotFound
+		return nil, fmt.Errorf("%w: please make sure to run 'vcluster login' to connect to an existing instance or 'vcluster pro start' to deploy a new instance", ErrConfigNotFound)
 	}
 
 	proClient, err := client.NewClientFromPath(configPath)

@@ -24,9 +24,9 @@ func ResetPassword() string {
 	case Loft:
 		return "loft reset password"
 	case DevPodPro:
-		return "devpod reset password"
+		return "devpod pro reset password"
 	case VClusterPro:
-		return "vcluster reset password"
+		return "vcluster pro reset password"
 	}
 
 	return resetPassword
