@@ -168,7 +168,7 @@ func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// determine cluster name
-	cmd.Cluster, cmd.Project, err = helper.SelectProjectOrCluster(baseClient, cmd.Cluster, cmd.Project, cmd.Log)
+	cmd.Cluster, cmd.Project, err = helper.SelectProjectOrCluster(baseClient, cmd.Cluster, cmd.Project, true, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -217,9 +217,8 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 		}
 	}
 
-	var virtualClusterInstance *managementv1.VirtualClusterInstance
-
 	// make sure there is not existing virtual cluster
+	var virtualClusterInstance *managementv1.VirtualClusterInstance
 	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(ctx, virtualClusterName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("couldn't retrieve virtual cluster instance: %w", err)
@@ -254,7 +253,15 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 	// create virtual cluster if necessary
 	if virtualClusterInstance == nil {
 		// resolve template
-		virtualClusterTemplate, resolvedParameters, err := cmd.resolveTemplate(baseClient)
+		virtualClusterTemplate, resolvedParameters, err := ResolveTemplate(
+			baseClient,
+			cmd.Project,
+			cmd.Template,
+			cmd.Version,
+			cmd.Set,
+			cmd.ParametersFile,
+			cmd.Log,
+		)
 		if err != nil {
 			return err
 		}
@@ -282,13 +289,18 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 						Version: cmd.Version,
 					},
 					ClusterRef: storagev1.VirtualClusterClusterRef{
-						ClusterRef: storagev1.ClusterRef{Cluster: cmd.Cluster},
+						ClusterRef: storagev1.ClusterRef{
+							Cluster: cmd.Cluster,
+						},
 					},
 					Parameters: resolvedParameters,
 				},
 			},
 		}
+
+		// set links
 		SetCustomLinksAnnotation(virtualClusterInstance, cmd.Links)
+
 		// create virtualclusterinstance
 		cmd.Log.Infof("Creating virtual cluster %s in project %s with template %s...", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(virtualClusterTemplate.Name, "white+b"))
 		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Create(ctx, virtualClusterInstance, metav1.CreateOptions{})
@@ -297,7 +309,15 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 		}
 	} else if cmd.Update {
 		// resolve template
-		virtualClusterTemplate, resolvedParameters, err := cmd.resolveTemplate(baseClient)
+		virtualClusterTemplate, resolvedParameters, err := ResolveTemplate(
+			baseClient,
+			cmd.Project,
+			cmd.Template,
+			cmd.Version,
+			cmd.Set,
+			cmd.ParametersFile,
+			cmd.Log,
+		)
 		if err != nil {
 			return err
 		}
@@ -361,9 +381,17 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 	return nil
 }
 
-func (cmd *VirtualClusterCmd) resolveTemplate(baseClient client.Client) (*managementv1.VirtualClusterTemplate, string, error) {
+func ResolveTemplate(
+	baseClient client.Client,
+	project,
+	template,
+	templateVersion string,
+	setParams []string,
+	fileParams string,
+	log log.Logger,
+) (*managementv1.VirtualClusterTemplate, string, error) {
 	// determine space template to use
-	virtualClusterTemplate, err := helper.SelectVirtualClusterTemplate(baseClient, cmd.Project, cmd.Template, cmd.Log)
+	virtualClusterTemplate, err := helper.SelectVirtualClusterTemplate(baseClient, project, template, log)
 	if err != nil {
 		return nil, "", err
 	}
@@ -371,7 +399,7 @@ func (cmd *VirtualClusterCmd) resolveTemplate(baseClient client.Client) (*manage
 	// get parameters
 	var templateParameters []storagev1.AppParameter
 	if len(virtualClusterTemplate.Spec.Versions) > 0 {
-		if cmd.Version == "" {
+		if templateVersion == "" {
 			latestVersion := version.GetLatestVersion(virtualClusterTemplate)
 			if latestVersion == nil {
 				return nil, "", fmt.Errorf("couldn't find any version in template")
@@ -379,11 +407,11 @@ func (cmd *VirtualClusterCmd) resolveTemplate(baseClient client.Client) (*manage
 
 			templateParameters = latestVersion.(*storagev1.VirtualClusterTemplateVersion).Parameters
 		} else {
-			_, latestMatched, err := version.GetLatestMatchedVersion(virtualClusterTemplate, cmd.Version)
+			_, latestMatched, err := version.GetLatestMatchedVersion(virtualClusterTemplate, templateVersion)
 			if err != nil {
 				return nil, "", err
 			} else if latestMatched == nil {
-				return nil, "", fmt.Errorf("couldn't find any matching version to %s", cmd.Version)
+				return nil, "", fmt.Errorf("couldn't find any matching version to %s", templateVersion)
 			}
 
 			templateParameters = latestMatched.(*storagev1.VirtualClusterTemplateVersion).Parameters
@@ -393,7 +421,7 @@ func (cmd *VirtualClusterCmd) resolveTemplate(baseClient client.Client) (*manage
 	}
 
 	// resolve space template parameters
-	resolvedParameters, err := parameters.ResolveTemplateParameters(cmd.Set, templateParameters, cmd.ParametersFile)
+	resolvedParameters, err := parameters.ResolveTemplateParameters(setParams, templateParameters, fileParams)
 	if err != nil {
 		return nil, "", err
 	}

@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"time"
 
+	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -29,6 +33,8 @@ import (
 type DeleteCmd struct {
 	*flags.GlobalFlags
 
+	Project             string
+	Wait                bool
 	KeepPVC             bool
 	DeleteNamespace     bool
 	AutoDeleteNamespace bool
@@ -67,6 +73,8 @@ vcluster delete test --namespace test
 		},
 	}
 
+	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PRO] The pro project the vcluster is in")
+	cobraCmd.Flags().BoolVar(&cmd.Wait, "wait", true, "If enabled, vcluster will wait until the vcluster is deleted")
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
 	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster")
 	cobraCmd.Flags().BoolVar(&cmd.AutoDeleteNamespace, "auto-delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster")
@@ -76,6 +84,27 @@ vcluster delete test --namespace test
 // Run executes the functionality
 func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	ctx := cobraCmd.Context()
+
+	// get pro client
+	proClient, err := pro.CreateProClient()
+	if err != nil {
+		cmd.log.Debugf("Error creating pro client: %v", err)
+	}
+
+	// find vcluster
+	vClusterName := args[0]
+	vCluster, proVCluster, err := find.GetVCluster(ctx, proClient, cmd.Context, vClusterName, cmd.Namespace, cmd.Project, cmd.log)
+	if err != nil {
+		return err
+	} else if proVCluster != nil {
+		return cmd.deleteProVCluster(cobraCmd.Context(), proClient, proVCluster)
+	}
+
+	// prepare client
+	err = cmd.prepare(vCluster)
+	if err != nil {
+		return err
+	}
 
 	// test for helm
 	helmBinaryPath, err := GetHelmBinaryPath(ctx, cmd.log)
@@ -89,12 +118,6 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
-	}
-
-	// prepare client
-	err = cmd.prepare(cobraCmd.Context(), args[0])
-	if err != nil {
-		return err
 	}
 
 	// check if namespace
@@ -162,6 +185,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			return err
 		}
 
+		// delete namespace
 		err = client.CoreV1().Namespaces().Delete(ctx, cmd.Namespace, metav1.DeleteOptions{})
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
@@ -192,17 +216,64 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				}
 			}
 		}
+
+		// wait for vcluster deletion
+		if cmd.Wait {
+			cmd.log.Info("Waiting for virtual cluster to be deleted...")
+			for {
+				_, err = client.CoreV1().Namespaces().Get(ctx, cmd.Namespace, metav1.GetOptions{})
+				if err != nil {
+					break
+				}
+
+				time.Sleep(time.Second)
+			}
+			cmd.log.Done("Virtual Cluster is deleted")
+		}
 	}
 
 	return nil
 }
 
-func (cmd *DeleteCmd) prepare(ctx context.Context, vClusterName string) error {
-	vCluster, _, err := find.GetVCluster(ctx, nil, cmd.Context, vClusterName, cmd.Namespace, "", cmd.log)
+func (cmd *DeleteCmd) deleteProVCluster(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject) error {
+	managementClient, err := proClient.Management()
 	if err != nil {
 		return err
 	}
 
+	cmd.log.Infof("Deleting virtual cluster %s in project %s", vCluster.VirtualCluster.Name, vCluster.Project.Name)
+
+	err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(vCluster.VirtualCluster.Namespace)).Delete(ctx, vCluster.VirtualCluster.Name, metav1.DeleteOptions{})
+	if err != nil {
+		return errors.Wrap(err, "delete virtual cluster")
+	}
+
+	cmd.log.Donef("Successfully deleted virtual cluster %s in project %s", vCluster.VirtualCluster.Name, vCluster.Project.Name)
+
+	// update kube config
+	err = deleteProContext(vCluster.VirtualCluster.Name, vCluster.VirtualCluster.Namespace)
+	if err != nil {
+		return errors.Wrap(err, "delete kube context")
+	}
+
+	// wait until deleted
+	if cmd.Wait {
+		cmd.log.Info("Waiting for virtual cluster to be deleted...")
+		for isVirtualClusterInstanceStillThere(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name) {
+			time.Sleep(time.Second)
+		}
+		cmd.log.Done("Virtual Cluster is deleted")
+	}
+
+	return nil
+}
+
+func isVirtualClusterInstanceStillThere(ctx context.Context, managementClient kube.Interface, namespace, name string) bool {
+	_, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
+	return err == nil
+}
+
+func (cmd *DeleteCmd) prepare(vCluster *find.VCluster) error {
 	// load the raw config
 	rawConfig, err := vCluster.ClientFactory.RawConfig()
 	if err != nil {
@@ -219,13 +290,13 @@ func (cmd *DeleteCmd) prepare(ctx context.Context, vClusterName string) error {
 		return err
 	}
 
-	err = localkubernetes.CleanupLocal(vClusterName, vCluster.Namespace, &rawConfig, cmd.log)
+	err = localkubernetes.CleanupLocal(vCluster.Name, vCluster.Namespace, &rawConfig, cmd.log)
 	if err != nil {
 		cmd.log.Warnf("error cleaning up: %v", err)
 	}
 
 	// construct proxy name
-	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vCluster.Namespace, rawConfig.CurrentContext)
+	proxyName := find.VClusterConnectBackgroundProxyName(vCluster.Name, vCluster.Namespace, rawConfig.CurrentContext)
 	_ = localkubernetes.CleanupBackgroundProxy(proxyName, cmd.log)
 
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
@@ -237,6 +308,29 @@ func (cmd *DeleteCmd) prepare(ctx context.Context, vClusterName string) error {
 	cmd.rawConfig = &rawConfig
 	cmd.restConfig = restConfig
 	cmd.kubeClient = kubeClient
+	return nil
+}
+
+func deleteProContext(vClusterName, vClusterNamespace string) error {
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+	kubeConfig, err := kubeClientConfig.RawConfig()
+	if err != nil {
+		return fmt.Errorf("load kube config: %w", err)
+	}
+
+	// remove matching contexts
+	for contextName := range kubeConfig.Contexts {
+		name, namespace, previousContext := find.VClusterProFromContext(contextName)
+		if vClusterName != name || vClusterNamespace != namespace {
+			continue
+		}
+
+		err := deleteContext(&kubeConfig, contextName, previousContext)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

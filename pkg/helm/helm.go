@@ -24,8 +24,8 @@ type UpgradeOptions struct {
 	Version         string
 	Values          string
 	ValuesFiles     []string
-	SetValues       map[string]string
-	SetStringValues map[string]string
+	SetValues       []string
+	SetStringValues []string
 
 	CreateNamespace bool
 
@@ -140,37 +140,16 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	}
 
 	// Set values
-	if options.SetValues != nil && len(options.SetValues) > 0 {
-		args = append(args, "--set")
-
-		setString := ""
-		for key, value := range options.SetValues {
-			if setString != "" {
-				setString += ","
-			}
-
-			setString += key + "=" + value
-		}
-
-		args = append(args, setString)
+	for _, value := range options.SetValues {
+		args = append(args, "--set", value)
 	}
 
 	// Set string values
-	if options.SetStringValues != nil && len(options.SetStringValues) > 0 {
-		args = append(args, "--set-string")
-
-		setString := ""
-		for key, value := range options.SetStringValues {
-			if setString != "" {
-				setString += ","
-			}
-
-			setString += key + "=" + value
-		}
-
-		args = append(args, setString)
+	for _, value := range options.SetStringValues {
+		args = append(args, "--set-string", value)
 	}
 
+	// force
 	if options.Force {
 		args = append(args, "--force")
 	}

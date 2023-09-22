@@ -7,24 +7,33 @@ type Options struct {
 	ChartName             string
 	ChartRepo             string
 	LocalChartDir         string
-	K3SImage              string
 	Distro                string
 	CIDR                  string
-	ExtraValues           []string
+	Values                []string
+	SetValues             []string
+	DeprecatedExtraValues []string
 
 	KubernetesVersion string
 
 	CreateNamespace    bool
 	DisableIngressSync bool
-	CreateClusterRole  bool
 	UpdateCurrent      bool
 	Expose             bool
 	ExposeLocal        bool
 
-	Connect       bool
-	Upgrade       bool
-	Isolate       bool
-	ReleaseValues string
+	Connect bool
+	Upgrade bool
+	Isolate bool
+
+	// Pro
+	Project         string
+	Cluster         string
+	Template        string
+	TemplateVersion string
+	Links           []string
+	Params          string
+	SetParams       []string
+	DisablePro      bool
 }
 
 type Values struct {

@@ -145,6 +145,13 @@ func formatOptions(format string, options [][]string) []string {
 
 func ListVClusters(ctx context.Context, proClient proclient.Client, context, name, namespace, project string, log log.Logger) ([]VCluster, []pro.VirtualClusterInstanceProject, error) {
 	var err error
+	if context == "" {
+		var err error
+		context, _, err = CurrentContext()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
 
 	var ossVClusters []VCluster
 	if project == "" {
@@ -166,13 +173,7 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 }
 
 func listOSSVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
-	if context == "" {
-		var err error
-		context, _, err = CurrentContext()
-		if err != nil {
-			return nil, err
-		}
-	}
+	var err error
 
 	vClusterName, _, vClusterContext := VClusterFromContext(context)
 	timeout := time.Minute
@@ -180,22 +181,30 @@ func listOSSVClusters(ctx context.Context, context, name, namespace string) ([]V
 		timeout = time.Second * 5
 	}
 
-	// In case of error in vcluster listing in vcluster context, the below check will skip the error and try searching for parent context vclusters.
-	vclusters, err := findInContext(ctx, context, name, namespace, timeout, false)
-	if err != nil && vClusterName == "" {
-		return nil, errors.Wrap(err, "find vcluster")
+	vclusters := []VCluster{}
+	isPro := strings.HasPrefix(context, "vcluster-pro_")
+	if !isPro {
+		// In case of error in vcluster listing in vcluster context, the below check will skip the error and try searching for parent context vclusters.
+		vclusters, err = findInContext(ctx, context, name, namespace, timeout, false)
+		if err != nil && vClusterName == "" {
+			return nil, errors.Wrap(err, "find vcluster")
+		}
 	}
 
 	if vClusterName != "" {
-		parentContextVclusters, err := findInContext(ctx, vClusterContext, name, namespace, time.Minute, true)
+		parentContextVClusters, err := findInContext(ctx, vClusterContext, name, namespace, time.Minute, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "find vcluster")
 		}
 
-		vclusters = append(vclusters, parentContextVclusters...)
+		vclusters = append(vclusters, parentContextVClusters...)
 	}
 
 	return vclusters, nil
+}
+
+func VClusterProContextName(vClusterName string, vClusterNamespace string, currentContext string) string {
+	return "vcluster-pro_" + vClusterName + "_" + vClusterNamespace + "_" + currentContext
 }
 
 func VClusterContextName(vClusterName string, vClusterNamespace string, currentContext string) string {
@@ -204,6 +213,21 @@ func VClusterContextName(vClusterName string, vClusterNamespace string, currentC
 
 func VClusterConnectBackgroundProxyName(vClusterName string, vClusterNamespace string, currentContext string) string {
 	return VClusterContextName(vClusterName, vClusterNamespace, currentContext) + "_background_proxy"
+}
+
+func VClusterProFromContext(originalContext string) (name string, namespace string, context string) {
+	if !strings.HasPrefix(originalContext, "vcluster-pro_") {
+		return "", "", ""
+	}
+
+	splitted := strings.Split(originalContext, "_")
+	// vcluster-pro_<name>_<namespace>_<context>
+	if len(splitted) >= 4 {
+		return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
+	}
+
+	// we don't know for sure, but most likely specified custom vcluster context name
+	return originalContext, "", ""
 }
 
 func VClusterFromContext(originalContext string) (name string, namespace string, context string) {

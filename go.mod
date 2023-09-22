@@ -14,7 +14,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/api/v3 v3.0.0-20230922094800-6d0c1cbf0fa6
-	github.com/loft-sh/loftctl/v3 v3.0.0-20230922094952-2a6aef29f31e
+	github.com/loft-sh/loftctl/v3 v3.0.0-20230922100229-83e8d117af6d
 	github.com/loft-sh/utils v0.0.25
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.0
