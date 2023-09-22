@@ -22,7 +22,7 @@ type VirtualClusterInstanceProject struct {
 var ErrConfigNotFound = errors.New("couldn't find vCluster.Pro config")
 
 func CreateProClient() (client.Client, error) {
-	configPath, err := LoftctlConfigFilePath()
+	configPath, err := ConfigFilePath()
 	if err != nil {
 		return nil, err
 	}

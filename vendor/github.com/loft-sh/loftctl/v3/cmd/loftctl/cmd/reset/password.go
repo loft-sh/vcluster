@@ -31,14 +31,14 @@ type PasswordCmd struct {
 	Create   bool
 	Force    bool
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewPasswordCmd creates a new command
 func NewPasswordCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &PasswordCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 	description := product.ReplaceWithHeader("reset password", `
 Resets the password of a user.
@@ -91,7 +91,7 @@ func (cmd *PasswordCmd) Run() error {
 	}
 
 	// get user
-	cmd.log.Infof("Resetting password of user %s", cmd.User)
+	cmd.Log.Infof("Resetting password of user %s", cmd.User)
 	user, err := managementClient.Loft().StorageV1().Users().Get(context.Background(), cmd.User, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return errors.Wrap(err, "get user")
@@ -144,7 +144,7 @@ func (cmd *PasswordCmd) Run() error {
 	password := cmd.Password
 	if password == "" {
 		for {
-			password, err = cmd.log.Question(&survey.QuestionOptions{
+			password, err = cmd.Log.Question(&survey.QuestionOptions{
 				Question:   "Please enter a new password",
 				IsPassword: true,
 			})
@@ -152,7 +152,7 @@ func (cmd *PasswordCmd) Run() error {
 			if err != nil {
 				return err
 			} else if password == "" {
-				cmd.log.Error("Please enter a password")
+				cmd.Log.Error("Please enter a password")
 				continue
 			}
 
@@ -189,6 +189,6 @@ func (cmd *PasswordCmd) Run() error {
 		}
 	}
 
-	cmd.log.Donef("Successfully reset password of user %s", cmd.User)
+	cmd.Log.Donef("Successfully reset password of user %s", cmd.User)
 	return nil
 }
