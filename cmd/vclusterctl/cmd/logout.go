@@ -42,5 +42,4 @@ vcluster logout
 	}
 
 	return logoutCmd, nil
-
 }

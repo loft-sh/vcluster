@@ -20,13 +20,6 @@ func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, 
 		},
 	}
 
-	version := pro.MinimumVersionTag
-
-	latestVersion, err := pro.LatestCompatibleVersion(context.TODO())
-	if err == nil {
-		version = latestVersion
-	}
-
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start a vCluster.Pro instance and connect via port-forwarding",
@@ -48,6 +41,15 @@ before running this command:
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			if cmd.Version == "latest" || cmd.Version == "" {
+				cmd.Version = pro.MinimumVersionTag
+
+				latestVersion, err := pro.LatestCompatibleVersion(context.TODO())
+				if err == nil {
+					cmd.Version = latestVersion
+				}
+			}
+
 			return start.NewLoftStarter(cmd.Options).Start(cobraCmd.Context())
 		},
 	}
@@ -57,7 +59,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "", "The local port to bind to if using port-forwarding")
 	startCmd.Flags().StringVar(&cmd.Host, "host", "", "Provide a hostname to enable ingress and configure its hostname")
 	startCmd.Flags().StringVar(&cmd.Password, "password", "", "The password to use for the admin account. (If empty this will be the namespace UID)")
-	startCmd.Flags().StringVar(&cmd.Version, "version", version, "The vCluster.Pro version to install")
+	startCmd.Flags().StringVar(&cmd.Version, "version", "latest", "The vCluster.Pro version to install")
 	startCmd.Flags().StringVar(&cmd.Values, "values", "", "Path to a file for extra vCluster.Pro helm chart values")
 	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, "Reuse previous vCluster.Pro helm values on upgrade")
 	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true, vCluster.Pro will try to upgrade the release")
