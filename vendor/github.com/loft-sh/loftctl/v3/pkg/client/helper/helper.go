@@ -363,10 +363,10 @@ func SelectSpaceInstanceOrSpace(baseClient client.Client, spaceName, projectName
 	return "", "", "", fmt.Errorf("couldn't find answer")
 }
 
-func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName string, log log.Logger) (cluster string, project string, err error) {
+func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName string, allowClusterOnly bool, log log.Logger) (cluster string, project string, err error) {
 	if projectName != "" {
 		return clusterName, projectName, nil
-	} else if clusterName != "" {
+	} else if allowClusterOnly && clusterName != "" {
 		return clusterName, "", nil
 	}
 
