@@ -170,7 +170,7 @@ Loft was successfully installed and can now be reached at: %s
 Thanks for using Loft!
 `),
 		ansi.Color(url, "green+b"),
-		ansi.Color(product.Replace(`loft login `)+url, "green+b"),
+		ansi.Color(product.LoginCmd()+" "+url, "green+b"),
 		url,
 	))
 }

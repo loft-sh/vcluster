@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
 const (
 	VclusterProFolder = "pro"
+
+	LoftctlConfigFileName = "creds.json"
 )
 
 var (
@@ -25,8 +26,6 @@ var (
 
 // CLIConfig is the config of the CLI
 type CLIConfig struct {
-	*client.Config `json:",inline"`
-
 	LatestVersion string    `json:"latestVersion,omitempty"`
 	LatestCheckAt time.Time `json:"latestCheck,omitempty"`
 }
@@ -36,8 +35,18 @@ func getDefaultCLIConfig() *CLIConfig {
 	return &CLIConfig{}
 }
 
+// GetLoftConfigFilePath returns the path to the loft config file
+func GetLoftConfigFilePath() (string, error) {
+	home, err := homedir.Dir()
+	if err != nil {
+		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+	}
+
+	return filepath.Join(home, cliconfig.VclusterFolder, VclusterProFolder, LoftctlConfigFileName), nil
+}
+
 // getConfigFilePath returns the path to the config file
-func GetConfigFilePath() (string, error) {
+func getConfigFilePath() (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
@@ -48,7 +57,7 @@ func GetConfigFilePath() (string, error) {
 
 // GetConfig returns the config from the config file
 func GetConfig() (*CLIConfig, error) {
-	path, err := GetConfigFilePath()
+	path, err := getConfigFilePath()
 	if err != nil {
 		return getDefaultCLIConfig(), fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
 	}
@@ -80,7 +89,7 @@ func GetConfig() (*CLIConfig, error) {
 
 // WriteConfig writes the given config to the config file
 func WriteConfig(c *CLIConfig) error {
-	path, err := GetConfigFilePath()
+	path, err := getConfigFilePath()
 	if err != nil {
 		return fmt.Errorf("failed to get vcluster configuration file path: %w", err)
 	}

@@ -21,7 +21,6 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/sleep"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vars"
-	vclusterpro "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vcluster-pro"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/wakeup"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/defaults"
@@ -92,29 +91,10 @@ func BuildRoot(log *log.StreamLogger) *cobra.Command {
 		log.Debugf("Error loading defaults: %v", err)
 	}
 
-	switch product.Product() {
-	case product.VClusterPro:
-		proCmd := rootCmd
-		proCmd.Use = "pro"
-
-		rootCmd = &cobra.Command{Use: "vcluster"}
-		rootCmd.AddCommand(proCmd)
-
-		vclusterpro.BuildVclusterProRoot(proCmd, globalFlags, defaults, []*cobra.Command{
-			NewStartCmd(globalFlags),
-			NewLoginCmd(globalFlags),
-		})
-	case product.DevPodPro, product.Loft:
-		buildLoftRoot(rootCmd, defaults)
-	}
-
-	return rootCmd
-}
-
-func buildLoftRoot(rootCmd *cobra.Command, defaults *defaults.Defaults) {
 	// add top level commands
 	rootCmd.AddCommand(NewStartCmd(globalFlags))
 	rootCmd.AddCommand(NewLoginCmd(globalFlags))
+	rootCmd.AddCommand(NewLogoutCmd(globalFlags))
 	rootCmd.AddCommand(NewTokenCmd(globalFlags))
 	rootCmd.AddCommand(NewBackupCmd(globalFlags))
 	rootCmd.AddCommand(NewCompletionCmd(rootCmd, globalFlags))
@@ -137,4 +117,6 @@ func buildLoftRoot(rootCmd *cobra.Command, defaults *defaults.Defaults) {
 	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(cmddefaults.NewDefaultsCmd(globalFlags, defaults))
 	rootCmd.AddCommand(devpod.NewDevPodCmd(globalFlags))
+
+	return rootCmd
 }

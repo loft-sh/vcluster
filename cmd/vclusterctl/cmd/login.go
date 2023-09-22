@@ -1,7 +1,4 @@
-//go:build pro
-// +build pro
-
-package login
+package cmd
 
 import (
 	"fmt"
@@ -17,14 +14,17 @@ func NewLoginCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	loftctlGlobalFlags := &loftctlflags.GlobalFlags{
 		Silent:    globalFlags.Silent,
 		Debug:     globalFlags.Debug,
-		Config:    globalFlags.Config,
 		LogOutput: globalFlags.LogOutput,
 	}
 
-	var err error
-	loftctlGlobalFlags.Config, err = pro.GetConfigFilePath()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
+	if globalFlags.Config != "" {
+		loftctlGlobalFlags.Config = globalFlags.Config
+	} else {
+		var err error
+		loftctlGlobalFlags.Config, err = pro.GetLoftConfigFilePath()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get vcluster pro configuration file path: %w", err)
+		}
 	}
 
 	loginCmd := loftctl.NewLoginCmd(loftctlGlobalFlags)

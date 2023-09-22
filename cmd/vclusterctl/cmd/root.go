@@ -93,6 +93,23 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 		rootCmd.AddCommand(proCmd)
 	}
 
+	loginCmd, err := NewLoginCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create login command: %w", err)
+	}
+	if loginCmd != nil {
+		rootCmd.AddCommand(loginCmd)
+	}
+
+	logoutCmd, err := NewLogoutCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create logout command: %w", err)
+	}
+	if logoutCmd != nil {
+		rootCmd.AddCommand(logoutCmd)
+	}
+
+	// add completion command
 	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
 		return rootCmd, fmt.Errorf("failed to register completion for namespace: %w", err)

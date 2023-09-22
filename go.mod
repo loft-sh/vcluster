@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/loftctl/v3 v3.0.0-20230921095454-4a09cdaacca3
+	github.com/loft-sh/loftctl/v3 v3.0.0-20230921143437-669b265e3ecf
 	github.com/loft-sh/utils v0.0.25
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -76,7 +76,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
 	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230921083523-e1d74f6f8fd1 // indirect
-	github.com/loft-sh/api/v3 v3.3.0-alpha.21 // indirect
+	github.com/loft-sh/api/v3 v3.0.0-20230921143328-114580f85fdd // indirect
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f // indirect
 	github.com/loft-sh/external-types v0.0.2-0.20230301201552-ec939da949b4 // indirect
 	github.com/loft-sh/jspolicy v0.1.0 // indirect
