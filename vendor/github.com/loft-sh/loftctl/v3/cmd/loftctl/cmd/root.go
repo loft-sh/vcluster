@@ -95,6 +95,7 @@ func BuildRoot(log *log.StreamLogger) *cobra.Command {
 	rootCmd.AddCommand(NewStartCmd(globalFlags))
 	rootCmd.AddCommand(NewLoginCmd(globalFlags))
 	rootCmd.AddCommand(NewLogoutCmd(globalFlags))
+	rootCmd.AddCommand(NewUiCmd(globalFlags))
 	rootCmd.AddCommand(NewTokenCmd(globalFlags))
 	rootCmd.AddCommand(NewBackupCmd(globalFlags))
 	rootCmd.AddCommand(NewCompletionCmd(rootCmd, globalFlags))

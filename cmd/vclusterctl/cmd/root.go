@@ -103,6 +103,12 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	}
 	rootCmd.AddCommand(logoutCmd)
 
+	uiCmd, err := NewUICmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ui command: %w", err)
+	}
+	rootCmd.AddCommand(uiCmd)
+
 	// add completion command
 	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
