@@ -96,7 +96,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 		cmd.log.Debugf("Error creating pro client: %v", err)
 	}
 
-	vClusters, proVClusters, err := find.ListVClusters(cobraCmd.Context(), proClient, cmd.Context, "", namespace, "", cmd.log.ErrorStreamOnly())
+	vClusters, proVClusters, err := find.ListVClusters(cobraCmd.Context(), proClient, "", "", namespace, "", cmd.log.ErrorStreamOnly())
 	if err != nil {
 		return err
 	}
@@ -159,8 +159,8 @@ func proToVClusters(vClusters []pro.VirtualClusterInstanceProject, currentContex
 		context := kubeconfig.VirtualClusterInstanceContextName(vCluster.Project.Name, vCluster.VirtualCluster.Name)
 
 		vClusterOutput := VCluster{
-			Name:       vCluster.VirtualCluster.Name,
-			Namespace:  vCluster.VirtualCluster.Namespace,
+			Name:       vCluster.VirtualCluster.Spec.ClusterRef.VirtualCluster,
+			Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
 			Context:    context,
 			Connected:  currentContext == context,
 			Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
