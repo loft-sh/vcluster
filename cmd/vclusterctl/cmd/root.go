@@ -109,6 +109,12 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	}
 	rootCmd.AddCommand(uiCmd)
 
+	importCmd, err := NewImportCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create import command: %w", err)
+	}
+	rootCmd.AddCommand(importCmd)
+
 	// add completion command
 	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
