@@ -153,20 +153,28 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 		}
 	}
 
-	var ossVClusters []VCluster
+	var vClusters []VCluster
 	if project == "" {
-		ossVClusters, err = listOSSVClusters(ctx, context, name, namespace)
+		vClusters, err = listOSSVClusters(ctx, context, name, namespace)
 		if err != nil {
 			log.Warn("Error retrieving vclusters: %v", err)
 		}
 	}
 
 	var proVClusters []pro.VirtualClusterInstanceProject
-	if context == "" && namespace == "" && proClient != nil {
+	if namespace == "" && proClient != nil {
 		proVClusters, err = pro.ListVClusters(ctx, proClient, name, project)
 		if err != nil {
 			log.Warn("Error retrieving pro vclusters: %v", err)
 		}
+	}
+
+	var ossVClusters []VCluster
+	for _, vCluster := range vClusters {
+		if isPro(vCluster, proVClusters) {
+			continue
+		}
+		ossVClusters = append(ossVClusters, vCluster)
 	}
 
 	return ossVClusters, proVClusters, nil
@@ -524,4 +532,14 @@ func GetPodStatus(pod *corev1.Pod) string {
 		reason = "Terminating"
 	}
 	return reason
+}
+
+func isPro(vCluster VCluster, proVClusters []pro.VirtualClusterInstanceProject) bool {
+	for _, proVCluster := range proVClusters {
+		clusterRef := proVCluster.VirtualCluster.Spec.ClusterRef
+		if clusterRef.VirtualCluster == vCluster.Name && clusterRef.Namespace == vCluster.Namespace {
+			return true
+		}
+	}
+	return false
 }
