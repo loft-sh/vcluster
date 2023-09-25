@@ -391,7 +391,7 @@ github.com/loft-sh/log/scanner
 github.com/loft-sh/log/survey
 github.com/loft-sh/log/table
 github.com/loft-sh/log/terminal
-# github.com/loft-sh/utils v0.0.28-0.20230922120533-1b39f079a09e
+# github.com/loft-sh/utils v0.0.28
 ## explicit; go 1.20
 github.com/loft-sh/utils/pkg/command
 github.com/loft-sh/utils/pkg/downloader
