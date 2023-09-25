@@ -43,6 +43,13 @@ func (l *LoftStarter) success(ctx context.Context) error {
 				l.Log.Errorf("Error retrieving loft router domain: %v", err)
 				l.Log.Info("Fallback to use port-forwarding")
 			} else if loftRouterDomain != "" {
+				if !l.NoLogin {
+					err := l.login(loftRouterDomain)
+					if err != nil {
+						return err
+					}
+				}
+
 				printhelper.PrintSuccessMessageLoftRouterInstall(loftRouterDomain, l.Password, l.Log)
 				return nil
 			}
