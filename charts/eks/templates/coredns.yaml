@@ -131,16 +131,6 @@ data:
             - name: custom-config-volume
               mountPath: /etc/coredns/custom
               readOnly: true
-            ports:
-            - containerPort: 1053
-              name: dns
-              protocol: UDP
-            - containerPort: 1053
-              name: dns-tcp
-              protocol: TCP
-            - containerPort: 9153
-              name: metrics
-              protocol: TCP
             securityContext:
               runAsNonRoot:  true
               runAsUser:  {{`{{.RUN_AS_USER}}`}}
