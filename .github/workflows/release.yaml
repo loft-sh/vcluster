@@ -56,24 +56,14 @@ jobs:
           registry: ghcr.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Setup GoReleaser nightly from source
-        run: go install github.com/goreleaser/goreleaser@962429de067b3f6cde8d377beaf3194b3b258075
-      - name: Run GoReleaser
-        run: goreleaser release --clean --timeout 60m
+      - uses: "goreleaser/goreleaser-action@v4.4.0"
+        with:
+          args: release --clean --timeout 60m
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           TELEMETRY_PRIVATE_KEY: ${{ secrets.VCLUSTER_TELEMETRY_PRIVATE_KEY }}
           GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.release_version }}
           GORELEASER_PREVIOUS_TAG: ${{ steps.get_version.outputs.previous_tag }}
-      # - uses: "goreleaser/goreleaser-action@v4.4.0"
-      #   with:
-      #     version: nightly
-      #     args: release --clean --timeout 60m
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-      #     TELEMETRY_PRIVATE_KEY: ${{ secrets.VCLUSTER_TELEMETRY_PRIVATE_KEY }}
-      #     GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.release_version }}
-      #     GORELEASER_PREVIOUS_TAG: ${{ steps.get_version.outputs.previous_tag }}
       - name: Save release assets
         uses: actions/upload-artifact@v3
         with:
