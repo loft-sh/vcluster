@@ -133,32 +133,6 @@ vcluster create test --namespace test
 
 var loginText = "\nPlease run:\n * 'vcluster login' to connect to an existing vCluster.Pro instance\n * 'vcluster pro start' to deploy a new vCluster.Pro instance"
 
-func (cmd *CreateCmd) validateOSSFlags() error {
-	if cmd.Project != "" {
-		return fmt.Errorf("cannot use --project as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if cmd.Cluster != "" {
-		return fmt.Errorf("cannot use --cluster as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if cmd.Template != "" {
-		return fmt.Errorf("cannot use --template as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if cmd.TemplateVersion != "" {
-		return fmt.Errorf("cannot use --template-version as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if len(cmd.Links) > 0 {
-		return fmt.Errorf("cannot use --link as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if cmd.Params != "" {
-		return fmt.Errorf("cannot use --params as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if len(cmd.SetParams) > 0 {
-		return fmt.Errorf("cannot use --set-params as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-
-	return nil
-}
-
 // Run executes the functionality
 func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	cmd.Values = append(cmd.Values, cmd.DeprecatedExtraValues...)
@@ -180,10 +154,11 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 					UpdateCurrent:         cmd.UpdateCurrent,
 					KubeConfigContextName: cmd.KubeConfigContextName,
 					KubeConfig:            "./kubeconfig.yaml",
+					Project:               cmd.Project,
 					Log:                   cmd.log,
 				}
 
-				return connectCmd.Connect(ctx, args[0], nil)
+				return connectCmd.Connect(ctx, proClient, args[0], nil)
 			}
 
 			cmd.log.Donef("Successfully created virtual cluster %s in project %s. \n- Use 'vcluster connect %s --project %s' to access the virtual cluster\n- Use `vcluster connect %s --project %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Project, args[0], cmd.Project, args[0], cmd.Project)
@@ -282,7 +257,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 					Log:                   cmd.log,
 				}
 
-				return connectCmd.Connect(ctx, args[0], nil)
+				return connectCmd.Connect(ctx, nil, args[0], nil)
 			}
 
 			return fmt.Errorf("vcluster %s already exists in namespace %s\n- Use `vcluster create %s -n %s --upgrade` to upgrade the vcluster\n- Use `vcluster connect %s -n %s` to access the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
@@ -306,13 +281,39 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 			Log:                   cmd.log,
 		}
 
-		return connectCmd.Connect(ctx, args[0], nil)
+		return connectCmd.Connect(ctx, nil, args[0], nil)
 	}
 
 	if cmd.localCluster {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", args[0], cmd.Namespace, args[0], cmd.Namespace)
 	} else {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
+	}
+
+	return nil
+}
+
+func (cmd *CreateCmd) validateOSSFlags() error {
+	if cmd.Project != "" {
+		return fmt.Errorf("cannot use --project as you are not connected to a vCluster.Pro instance." + loginText)
+	}
+	if cmd.Cluster != "" {
+		return fmt.Errorf("cannot use --cluster as you are not connected to a vCluster.Pro instance." + loginText)
+	}
+	if cmd.Template != "" {
+		return fmt.Errorf("cannot use --template as you are not connected to a vCluster.Pro instance." + loginText)
+	}
+	if cmd.TemplateVersion != "" {
+		return fmt.Errorf("cannot use --template-version as you are not connected to a vCluster.Pro instance." + loginText)
+	}
+	if len(cmd.Links) > 0 {
+		return fmt.Errorf("cannot use --link as you are not connected to a vCluster.Pro instance." + loginText)
+	}
+	if cmd.Params != "" {
+		return fmt.Errorf("cannot use --params as you are not connected to a vCluster.Pro instance." + loginText)
+	}
+	if len(cmd.SetParams) > 0 {
+		return fmt.Errorf("cannot use --set-params as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 
 	return nil

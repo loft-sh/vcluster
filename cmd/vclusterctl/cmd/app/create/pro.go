@@ -167,6 +167,7 @@ func createWithoutTemplate(ctx context.Context, proClient proclient.Client, opti
 							},
 							Values: helmValues,
 						},
+						ForwardToken: true,
 						// TODO: enable
 						// Pro: true
 					},
