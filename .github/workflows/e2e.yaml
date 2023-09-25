@@ -45,13 +45,11 @@ jobs:
         uses: extractions/setup-just@v1
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.14.3
-      # - name: Setup GoReleaser
-      #   uses: goreleaser/goreleaser-action@v4
-      #   with:
-      #     install-only: true
-      #     version: nightly
-      - name: Setup GoReleaser nightly from source
-        run: go install github.com/goreleaser/goreleaser@962429de067b3f6cde8d377beaf3194b3b258075
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
+          version: latest
       - name: Build and save syncer image
         run: |
           set -x
@@ -82,13 +80,10 @@ jobs:
         uses: extractions/setup-just@v1
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.14.3
-      # - name: Setup GoReleaser
-      #   uses: goreleaser/goreleaser-action@v4
-      #   with:
-      #     install-only: true
-      #     version: nightly
-      - name: Setup GoReleaser nightly from source
-        run: go install github.com/goreleaser/goreleaser@962429de067b3f6cde8d377beaf3194b3b258075
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
       - name: Build vcluster cli
         run: |
           set -x
