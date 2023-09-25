@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -35,6 +36,22 @@ func CreateProClient() (client.Client, error) {
 	proClient, err := client.NewClientFromPath(configPath)
 	if err != nil {
 		return nil, err
+	}
+
+	managementClient, err := proClient.Management()
+	if err != nil {
+		return nil, fmt.Errorf("error creating pro client: %w", err)
+	}
+
+	self, err := managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "the server rejected our request for an unknown reason") {
+			return nil, fmt.Errorf("vCluster.Pro instance is not reachable at %s, please make sure you are correctly logged in via 'vcluster login'", proClient.Config().Host)
+		}
+
+		return nil, fmt.Errorf("get self: %w", err)
+	} else if self.Status.User == nil && self.Status.Team == nil {
+		return nil, fmt.Errorf("no user or team name returned for vCluster.Pro credentials")
 	}
 
 	return proClient, nil

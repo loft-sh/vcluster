@@ -7,7 +7,6 @@ import (
 	"time"
 
 	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
@@ -243,7 +242,7 @@ func (cmd *DeleteCmd) deleteProVCluster(ctx context.Context, proClient proclient
 
 	cmd.log.Infof("Deleting virtual cluster %s in project %s", vCluster.VirtualCluster.Name, vCluster.Project.Name)
 
-	err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(vCluster.VirtualCluster.Namespace)).Delete(ctx, vCluster.VirtualCluster.Name, metav1.DeleteOptions{})
+	err = managementClient.Loft().ManagementV1().VirtualClusterInstances(vCluster.VirtualCluster.Namespace).Delete(ctx, vCluster.VirtualCluster.Name, metav1.DeleteOptions{})
 	if err != nil {
 		return errors.Wrap(err, "delete virtual cluster")
 	}

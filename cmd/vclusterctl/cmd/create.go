@@ -172,6 +172,11 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
+	// make sure we deploy the correct version
+	if cmd.ChartVersion == upgrade.DevelopmentVersion {
+		cmd.ChartVersion = ""
+	}
+
 	// check helm binary
 	helmBinaryPath, err := GetHelmBinaryPath(ctx, cmd.log)
 	if err != nil {
@@ -343,7 +348,6 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 			embeddedChartName := fmt.Sprintf("%s-%s.tgz", cmd.ChartName, upgrade.GetVersion())
 			// not using filepath.Join because the embed.FS separator is not OS specific
 			embeddedChartPath := fmt.Sprintf("charts/%s", embeddedChartName)
-
 			embeddedChartFile, err := embed.Charts.ReadFile(embeddedChartPath)
 			if err != nil && errors.Is(err, fs.ErrNotExist) {
 				cmd.log.Infof("Chart not embedded: %q, pulling from helm repository.", err)
@@ -366,13 +370,11 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 				}
 			}
 		}
+
 		// rewrite chart location, this is an optimization to avoid
 		// downloading the whole index.yaml and parsing it
-		if !chartEmbedded && cmd.ChartRepo == create.LoftChartRepo { // specify versioned path to repo url
-			cmd.ChartVersion = strings.TrimPrefix(cmd.ChartVersion, "v")
-			cmd.LocalChartDir = create.LoftChartRepo + "/charts/" + cmd.ChartName + "-" + cmd.ChartVersion + ".tgz"
-			cmd.ChartVersion = ""
-			cmd.ChartRepo = ""
+		if !chartEmbedded && cmd.ChartRepo == create.LoftChartRepo && cmd.ChartVersion != "" { // specify versioned path to repo url
+			cmd.LocalChartDir = create.LoftChartRepo + "/charts/" + cmd.ChartName + "-" + strings.TrimPrefix(cmd.ChartVersion, "v") + ".tgz"
 		}
 	}
 
@@ -385,9 +387,9 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 	// we have to upgrade / install the chart
 	err = helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
 		Chart:       cmd.ChartName,
-		Path:        cmd.LocalChartDir,
 		Repo:        cmd.ChartRepo,
 		Version:     cmd.ChartVersion,
+		Path:        cmd.LocalChartDir,
 		Values:      chartValues,
 		ValuesFiles: cmd.Values,
 		SetValues:   cmd.SetValues,
