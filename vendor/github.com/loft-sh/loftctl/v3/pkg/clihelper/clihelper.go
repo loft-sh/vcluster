@@ -41,6 +41,18 @@ import (
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
 
+// CriticalStatus container status
+var CriticalStatus = map[string]bool{
+	"Error":                      true,
+	"Unknown":                    true,
+	"ImagePullBackOff":           true,
+	"CrashLoopBackOff":           true,
+	"RunContainerError":          true,
+	"ErrImagePull":               true,
+	"CreateContainerConfigError": true,
+	"InvalidImageName":           true,
+}
+
 const defaultReleaseName = "loft"
 
 const LoftRouterDomainSecret = "loft-router-domain"
@@ -100,7 +112,6 @@ func GetLoftIngressHost(ctx context.Context, kubeClient kubernetes.Interface, na
 func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, namespace string, log log.Logger) (*corev1.Pod, error) {
 	// wait until we have a running loft pod
 	now := time.Now()
-	warningPrinted := false
 	pod := &corev1.Pod{}
 	err := wait.PollUntilContextTimeout(ctx, time.Second*2, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
@@ -110,6 +121,10 @@ func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, n
 			log.Warnf("Error trying to retrieve Loft pod: %v", err)
 			return false, nil
 		} else if len(pods.Items) == 0 {
+			if time.Now().After(now.Add(time.Second * 10)) {
+				log.Infof("Still waiting for a Loft pod...")
+				now = time.Now()
+			}
 			return false, nil
 		}
 
@@ -126,21 +141,38 @@ func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, n
 				}
 
 				continue
-			} else if containerStatus.State.Terminated != nil || (containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff") {
+			} else if containerStatus.State.Terminated != nil || (containerStatus.State.Waiting != nil && CriticalStatus[containerStatus.State.Waiting.Reason]) {
+				reason := ""
+				message := ""
+				if containerStatus.State.Terminated != nil {
+					reason = containerStatus.State.Terminated.Reason
+					message = containerStatus.State.Terminated.Message
+				} else if containerStatus.State.Waiting != nil {
+					reason = containerStatus.State.Waiting.Reason
+					message = containerStatus.State.Waiting.Message
+				}
+
 				out, err := kubeClient.CoreV1().Pods(namespace).GetLogs(loftPod.Name, &corev1.PodLogOptions{
 					Container: "manager",
 				}).Do(context.Background()).Raw()
 				if err != nil {
-					return false, fmt.Errorf("there seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/")
+					return false, fmt.Errorf("there seems to be an issue with loft starting up: %s (%s). Please reach out to our support at https://loft.sh/", message, reason)
 				}
 				if strings.Contains(string(out), "register instance: Post \"https://license.loft.sh/register\": dial tcp") {
 					return false, fmt.Errorf("loft logs: \n%v \nThere seems to be an issue with Loft starting up. Looks like you try to install Loft into an air-gapped environment, please reach out to our support at https://loft.sh/ for an offline license and take a look at the air-gapped installation guide https://loft.sh/docs/guides/administration/air-gapped-installation", string(out))
 				}
 
-				return false, fmt.Errorf("loft logs: \n%v \nThere seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/", string(out))
-			} else if containerStatus.State.Waiting != nil && time.Now().After(now.Add(time.Minute*3)) && !warningPrinted {
-				log.Warnf("There might be an issue with Loft starting up. The container is still waiting, because of %s (%s). Please reach out to our support at https://loft.sh/", containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
-				warningPrinted = true
+				return false, fmt.Errorf("loft logs: \n%v \nThere seems to be an issue with loft starting up: %s (%s). Please reach out to our support at https://loft.sh/", string(out), message, reason)
+			} else if containerStatus.State.Waiting != nil && time.Now().After(now.Add(time.Second*10)) {
+				if containerStatus.State.Waiting.Message != "" {
+					log.Infof("Please keep waiting, Loft container is still starting up: %s (%s)", containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
+				} else if containerStatus.State.Waiting.Reason != "" {
+					log.Infof("Please keep waiting, Loft container is still starting up: %s", containerStatus.State.Waiting.Reason)
+				} else {
+					log.Infof("Please keep waiting, Loft container is still starting up...")
+				}
+
+				now = time.Now()
 			}
 
 			return false, nil

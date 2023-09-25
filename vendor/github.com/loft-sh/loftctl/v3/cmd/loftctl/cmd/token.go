@@ -99,7 +99,7 @@ func getToken(cmd *TokenCmd, baseClient client.Client) error {
 	if config == nil {
 		return ErrNoConfigLoaded
 	} else if config.Host == "" || config.AccessKey == "" {
-		return fmt.Errorf(product.Replace("%w: please make sure you have run 'loft login [loft-url]'"), ErrNotLoggedIn)
+		return fmt.Errorf("%w: please make sure you have run '%s [%s]'", ErrNotLoggedIn, product.LoginCmd(), product.Url())
 	}
 
 	// by default we print the access key as token

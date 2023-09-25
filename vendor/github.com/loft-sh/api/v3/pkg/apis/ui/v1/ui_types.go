@@ -37,12 +37,10 @@ type UISettingsConfig struct {
 	// the Loft UI!
 	// +optional
 	LogoURL string `json:"logoURL,omitempty"`
-	// LogoWithWordmarkURL is url pointing to the logo, including the wordmark, to use in the Loft UI. This path must be accessible for clients accessing
-	// the Loft UI!
+	// LogoBackgroundColor is the color value (ex: "#12345") to use as the background color for the logo
 	// +optional
-	LogoWithWordmarkURL string `json:"logoWithWordmarkURL,omitempty"`
-	// LegalTemplate is a text (html) string containing the legal template to prompt to users when authenticating to
-	// Loft
+	LogoBackgroundColor string `json:"logoBackgroundColor,omitempty"`
+	// LegalTemplate is a text (html) string containing the legal template to prompt to users when authenticating to Loft
 	// +optional
 	LegalTemplate string `json:"legalTemplate,omitempty"`
 	// PrimaryColor is the color value (ex: "#12345") to use as the primary color

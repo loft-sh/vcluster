@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 
 	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
@@ -21,12 +20,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/util/term"
 )
-
-var (
-	ErrMissingEmail = errors.New("missing email")
-)
-
-var emailRegex = regexp.MustCompile(`^[^@]+@[^\.]+\..+$`)
 
 // Options holds the cmd flags
 type Options struct {
@@ -126,50 +119,18 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 	l.Log.Info(product.Replace("Welcome to Loft!"))
 	l.Log.Info(product.Replace("This installer will help you configure and deploy Loft."))
 
-	// Get email
-	email, err := l.getEmail()
-	if err != nil {
-		return err
-	}
-
 	// make sure we are ready for installing
 	err = l.prepareInstall(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = l.upgradeLoft(email)
+	err = l.upgradeLoft()
 	if err != nil {
 		return err
 	}
 
 	return l.success(ctx)
-}
-
-func (l *LoftStarter) getEmail() (string, error) {
-	var err error
-
-	email := l.Email
-	if email == "" {
-		if !term.IsTerminal(os.Stdin) {
-			return "", fmt.Errorf("%w: %s", ErrMissingEmail, product.Replace("please enter an email via 'loft start --email my-email@domain.com'"))
-		}
-
-		email, err = l.Log.Question(&survey.QuestionOptions{
-			Question: "Enter your email address to create the login for your admin user",
-			ValidationFunc: func(emailVal string) error {
-				if !emailRegex.MatchString(emailVal) {
-					return fmt.Errorf("%s is not a valid email address", emailVal)
-				}
-				return nil
-			},
-		})
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return email, nil
 }
 
 func (l *LoftStarter) prepareInstall(ctx context.Context) error {
@@ -340,7 +301,7 @@ func (l *LoftStarter) handleAlreadyExistingInstallation(ctx context.Context) err
 
 	// Only upgrade if --upgrade flag is present or user decided to enable ingress
 	if l.Upgrade || enableIngress {
-		err := l.upgradeLoft("")
+		err := l.upgradeLoft()
 		if err != nil {
 			return err
 		}
