@@ -236,10 +236,10 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		namespace:       vObj.GetNamespace(),
 		targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
-		// on conflict, auto delete and recreate
-		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && f.config.ReplaceOnConflict {
+		// when invalid, auto delete and recreate to recover
+		if kerrors.IsInvalid(err) && f.config.ReplaceWhenInvalid {
 			// Replace the object
-			ctx.Log.Infof("Replace physical object, because of conflict: %v", err)
+			ctx.Log.Infof("Replace physical object, because apply failed: %v", err)
 			err = ctx.PhysicalClient.Delete(ctx.Context, pObj, &client.DeleteOptions{
 				GracePeriodSeconds: &[]int64{0}[0],
 			})

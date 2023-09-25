@@ -313,10 +313,10 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		return s.TranslateMetadata(ctx.Context, vObj), nil
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
-		// on conflict, auto delete and recreate
-		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && s.config.ReplaceOnConflict {
+		// when invalid, auto delete and recreate to recover
+		if kerrors.IsInvalid(err) && s.config.ReplaceWhenInvalid {
 			// Replace the object
-			ctx.Log.Infof("Replace virtual object, because of conflict: %v", err)
+			ctx.Log.Infof("Replace virtual object, because of apply failed: %v", err)
 			err = ctx.VirtualClient.Delete(ctx.Context, vObj, &client.DeleteOptions{
 				GracePeriodSeconds: &[]int64{0}[0],
 			})

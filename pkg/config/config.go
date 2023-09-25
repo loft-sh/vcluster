@@ -47,9 +47,9 @@ type SyncBase struct {
 
 	Optional bool `json:"optional,omitempty" yaml:"optional,omitempty"`
 
-	// ReplaceOnConflict determines if the controller should try to recreate the object
+	// ReplaceWhenInvalid determines if the controller should try to recreate the object
 	// if there is a problem applying
-	ReplaceOnConflict bool `json:"replaceOnConflict,omitempty" yaml:"replaceOnConflict,omitempty"`
+	ReplaceWhenInvalid bool `json:"replaceOnConflict,omitempty" yaml:"replaceOnConflict,omitempty"`
 
 	// Patches are the patches to apply on the virtual cluster objects
 	// when syncing them from the host cluster
