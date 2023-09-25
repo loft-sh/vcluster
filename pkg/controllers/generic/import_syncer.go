@@ -326,6 +326,9 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 			return ctrl.Result{}, nil
 		}
+		if kerrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
