@@ -13,6 +13,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
+	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -59,6 +63,8 @@ type ConnectCmd struct {
 
 	Server   string
 	Insecure bool
+
+	Project string
 
 	Log log.Logger
 
@@ -118,39 +124,122 @@ vcluster connect test -n test -- kubectl get ns
 	cobraCmd.Flags().IntVar(&cmd.ServiceAccountExpiration, "token-expiration", 0, "If specified, vcluster will create the service account token for the given duration in seconds. Defaults to eternal")
 	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If specified, vcluster will create the kube config with insecure-skip-tls-verify")
 	cobraCmd.Flags().BoolVar(&cmd.BackgroundProxy, "background-proxy", false, "If specified, vcluster will create the background proxy in docker [its mainly used for vclusters with no nodeport service.]")
+
+	// pro
+	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PRO] The pro project the vcluster is in")
+
 	return cobraCmd
 }
 
 // Run executes the functionality
 func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
-	vclusterName := ""
+	vClusterName := ""
 	if len(args) > 0 {
-		vclusterName = args[0]
+		vClusterName = args[0]
 	}
 
-	return cmd.Connect(ctx, vclusterName, args[1:])
+	proClient, err := pro.CreateProClient()
+	if err != nil {
+		cmd.Log.Debugf("Error creating pro client: %v", err)
+	}
+
+	return cmd.Connect(ctx, proClient, vClusterName, args[1:])
 }
 
-func (cmd *ConnectCmd) Connect(ctx context.Context, vclusterName string, command []string) error {
-	if vclusterName == "" && cmd.PodName == "" {
-		return fmt.Errorf("please specify either --pod or a name for the vcluster")
+func (cmd *ConnectCmd) Connect(ctx context.Context, proClient proclient.Client, vClusterName string, command []string) error {
+	// validate flags
+	err := cmd.validateFlags()
+	if err != nil {
+		return err
 	}
 
+	// retrieve the vcluster
+	vCluster, proVCluster, err := find.GetVCluster(ctx, proClient, cmd.Context, vClusterName, cmd.Namespace, cmd.Project, cmd.Log)
+	if err != nil {
+		return err
+	} else if proVCluster != nil {
+		return cmd.connectPro(ctx, proClient, proVCluster, command)
+	}
+
+	return cmd.connectOss(ctx, vCluster, command)
+}
+
+func (cmd *ConnectCmd) validateFlags() error {
+	if cmd.ServiceAccountClusterRole != "" && cmd.ServiceAccount == "" {
+		return fmt.Errorf("expected --service-account to be defined as well")
+	}
+
+	return nil
+}
+
+func (cmd *ConnectCmd) connectPro(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject, command []string) error {
+	err := cmd.validateProFlags()
+	if err != nil {
+		return err
+	}
+
+	// create management client
+	managementClient, err := proClient.Management()
+	if err != nil {
+		return err
+	}
+
+	// wait for vCluster to become ready
+	vCluster.VirtualCluster, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, cmd.Log)
+	if err != nil {
+		return err
+	}
+
+	// retrieve vCluster kube config
+	kubeConfig, err := cmd.getVClusterProKubeConfig(ctx, proClient, vCluster)
+	if err != nil {
+		return err
+	}
+
+	// check if we should execute command
+	if len(command) > 0 {
+		return cmd.executeCommand(*kubeConfig, command)
+	}
+
+	return cmd.writeKubeConfig(kubeConfig, vCluster.VirtualCluster.Name)
+}
+
+func (cmd *ConnectCmd) validateProFlags() error {
+	if cmd.PodName != "" {
+		return fmt.Errorf("cannot use --pod with a pro vCluster")
+	}
+	if cmd.Server != "" {
+		return fmt.Errorf("cannot use --server with a pro vCluster")
+	}
+	if cmd.BackgroundProxy {
+		return fmt.Errorf("cannot use --background-proxy with a pro vCluster")
+	}
+	if cmd.LocalPort != 0 {
+		return fmt.Errorf("cannot use --local-port with a pro vCluster")
+	}
+	if cmd.Address != "" {
+		return fmt.Errorf("cannot use --address with a pro vCluster")
+	}
+
+	return nil
+}
+
+func (cmd *ConnectCmd) connectOss(ctx context.Context, vCluster *find.VCluster, command []string) error {
 	// prepare clients and find vcluster
-	err := cmd.prepare(ctx, vclusterName)
+	err := cmd.prepare(ctx, vCluster)
 	if err != nil {
 		return err
 	}
 
 	// retrieve vcluster kube config
-	kubeConfig, err := cmd.getVClusterKubeConfig(ctx, vclusterName, command)
+	kubeConfig, err := cmd.getVClusterKubeConfig(ctx, vCluster.Name, command)
 	if err != nil {
 		return err
 	}
 
 	if len(command) == 0 && cmd.ServiceAccount == "" && cmd.Server == "" && cmd.BackgroundProxy && localkubernetes.IsDockerInstalledAndUpAndRunning() {
 		// start background container
-		server, err := localkubernetes.CreateBackgroundProxyContainer(ctx, vclusterName, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
+		server, err := localkubernetes.CreateBackgroundProxyContainer(ctx, vCluster.Name, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
 		if err != nil {
 			cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
 			cmd.BackgroundProxy = false
@@ -160,9 +249,25 @@ func (cmd *ConnectCmd) Connect(ctx context.Context, vclusterName string, command
 
 	// check if we should execute command
 	if len(command) > 0 {
-		return cmd.executeCommand(ctx, *kubeConfig, command)
+		if !cmd.portForwarding {
+			return fmt.Errorf("command is specified, but port-forwarding isn't started")
+		}
+		defer close(cmd.interruptChan)
+
+		// wait for vcluster to be ready
+		err := cmd.waitForVCluster(ctx, *kubeConfig, cmd.errorChan)
+		if err != nil {
+			return err
+		}
+
+		// build vKubeConfig
+		return cmd.executeCommand(cmd.getLocalVClusterConfig(*kubeConfig), command)
 	}
 
+	return cmd.writeKubeConfig(kubeConfig, vCluster.Name)
+}
+
+func (cmd *ConnectCmd) writeKubeConfig(kubeConfig *api.Config, vClusterName string) error {
 	// write kube config to buffer
 	out, err := clientcmd.Write(*kubeConfig)
 	if err != nil {
@@ -227,7 +332,7 @@ func (cmd *ConnectCmd) Connect(ctx context.Context, vclusterName string, command
 
 		cmd.Log.Donef("Virtual cluster kube config written to: %s", cmd.KubeConfig)
 		if cmd.Server == "" {
-			cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("- Use `vcluster connect %s -n %s -- kubectl get ns` to execute a command directly within this terminal\n", vclusterName, cmd.Namespace))
+			cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("- Use `vcluster connect %s -n %s -- kubectl get ns` to execute a command directly within this terminal\n", vClusterName, cmd.Namespace))
 		}
 		cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("- Use `kubectl --kubeconfig %s get namespaces` to access the vcluster\n", cmd.KubeConfig))
 	}
@@ -245,35 +350,18 @@ func (cmd *ConnectCmd) Connect(ctx context.Context, vclusterName string, command
 	return nil
 }
 
-func (cmd *ConnectCmd) prepare(ctx context.Context, vclusterName string) error {
+func (cmd *ConnectCmd) prepare(ctx context.Context, vCluster *find.VCluster) error {
 	if cmd.LocalPort == 0 {
 		cmd.LocalPort = randomPort()
 	}
 
-	if cmd.ServiceAccountClusterRole != "" && cmd.ServiceAccount == "" {
-		return fmt.Errorf("expected --service-account to be defined as well")
-	}
-
 	var (
 		kubeConfigLoader clientcmd.ClientConfig
-		vCluster         *find.VCluster
 		err              error
 	)
-	if vclusterName != "" {
-		vCluster, _, err = find.GetVCluster(ctx, nil, cmd.Context, vclusterName, cmd.Namespace, "", cmd.Log)
-		if err != nil {
-			return err
-		}
-
-		kubeConfigLoader = vCluster.ClientFactory
-		cmd.Context = vCluster.Context
-		cmd.Namespace = vCluster.Namespace
-	} else {
-		kubeConfigLoader = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-			CurrentContext: cmd.Context,
-		})
-	}
-
+	kubeConfigLoader = vCluster.ClientFactory
+	cmd.Context = vCluster.Context
+	cmd.Namespace = vCluster.Namespace
 	restConfig, err := kubeConfigLoader.ClientConfig()
 	if err != nil {
 		return errors.Wrap(err, "load kube config")
@@ -304,13 +392,74 @@ func (cmd *ConnectCmd) prepare(ctx context.Context, vclusterName string) error {
 	// resume vcluster if necessary
 	if vCluster != nil && vCluster.Status == find.StatusPaused {
 		cmd.Log.Infof("Resume vcluster %s...", vCluster.Name)
-		err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
+		err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vCluster.Name, cmd.Namespace, cmd.Log)
 		if err != nil {
 			return errors.Wrap(err, "resume vcluster")
 		}
 	}
 
 	return nil
+}
+
+func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject) (*api.Config, error) {
+	contextOptions, err := use.CreateVirtualClusterInstanceOptions(ctx, proClient, "", vCluster.Project.Name, vCluster.VirtualCluster, false, false, cmd.Log)
+	if err != nil {
+		return nil, fmt.Errorf("prepare vCluster kube config: %w", err)
+	}
+
+	// make sure access key is set
+	if contextOptions.Token == "" && len(contextOptions.ClientCertificateData) == 0 && len(contextOptions.ClientKeyData) == 0 {
+		contextOptions.Token = proClient.Config().AccessKey
+	}
+
+	// get current context
+	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+		CurrentContext: cmd.Context,
+	}).RawConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure kube context name is set
+	if cmd.KubeConfigContextName == "" {
+		cmd.KubeConfigContextName = find.VClusterProContextName(vCluster.VirtualCluster.Name, vCluster.Project.Name, rawConfig.CurrentContext)
+	}
+
+	// set insecure true?
+	if cmd.Insecure {
+		contextOptions.InsecureSkipTLSVerify = true
+	}
+
+	// build kube config
+	kubeConfig, err := GetProKubeConfig(contextOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// we want to use a service account token in the kube config
+	if cmd.ServiceAccount != "" {
+		// check if its enabled on the pro vcluster
+		if !vCluster.VirtualCluster.Status.VirtualCluster.ForwardToken {
+			return nil, fmt.Errorf("forward token is not enabled on the vCluster and hence you cannot authenticate with a service account token")
+		}
+
+		// create service account token
+		token, err := cmd.createServiceAccountToken(ctx, *kubeConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		// set service account token
+		for k := range kubeConfig.AuthInfos {
+			kubeConfig.AuthInfos[k] = &api.AuthInfo{
+				Token:                token,
+				Extensions:           make(map[string]runtime.Object),
+				ImpersonateUserExtra: make(map[string][]string),
+			}
+		}
+	}
+
+	return kubeConfig, nil
 }
 
 func (cmd *ConnectCmd) getVClusterKubeConfig(ctx context.Context, vclusterName string, command []string) (*api.Config, error) {
@@ -551,21 +700,8 @@ func (cmd *ConnectCmd) exchangeContextName(kubeConfig *api.Config, vclusterName 
 	return nil
 }
 
-func (cmd *ConnectCmd) executeCommand(ctx context.Context, vKubeConfig api.Config, command []string) error {
-	if !cmd.portForwarding {
-		return fmt.Errorf("command is specified, but port-forwarding isn't started")
-	}
-
-	defer close(cmd.interruptChan)
-
-	// wait for vcluster to be ready
-	err := cmd.waitForVCluster(ctx, vKubeConfig, cmd.errorChan)
-	if err != nil {
-		return err
-	}
-
+func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string) error {
 	// convert to local kube config
-	vKubeConfig = cmd.getLocalVClusterConfig(vKubeConfig)
 	out, err := clientcmd.Write(vKubeConfig)
 	if err != nil {
 		return err
@@ -601,6 +737,10 @@ func (cmd *ConnectCmd) executeCommand(ctx context.Context, vKubeConfig api.Confi
 	if err != nil {
 		return err
 	}
+	if cmd.errorChan == nil {
+		return execCmd.Wait()
+	}
+
 	go func() {
 		commandErrChan <- execCmd.Wait()
 	}()

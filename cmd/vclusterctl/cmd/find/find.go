@@ -85,9 +85,9 @@ func GetVCluster(ctx context.Context, proClient proclient.Client, context, name,
 		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{name, vCluster.Namespace, "false"})
 	}
 	for _, vCluster := range proVClusters {
-		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{name, vCluster.VirtualCluster.Namespace, "true"})
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{name, vCluster.Project.Name, "true"})
 	}
-	questionOptions := formatOptions("Name: %s | Namespace: %s | Pro: %s ", questionOptionsUnformatted)
+	questionOptions := formatOptions("Name: %s | Namespace / Project: %s | Pro: %s ", questionOptionsUnformatted)
 	selectedVCluster, err := log.Question(&survey.QuestionOptions{
 		Question:     "Please choose a virtual cluster to use",
 		DefaultValue: questionOptions[0],
@@ -223,7 +223,7 @@ func VClusterConnectBackgroundProxyName(vClusterName string, vClusterNamespace s
 	return VClusterContextName(vClusterName, vClusterNamespace, currentContext) + "_background_proxy"
 }
 
-func VClusterProFromContext(originalContext string) (name string, namespace string, context string) {
+func VClusterProFromContext(originalContext string) (name string, project string, context string) {
 	if !strings.HasPrefix(originalContext, "vcluster-pro_") {
 		return "", "", ""
 	}

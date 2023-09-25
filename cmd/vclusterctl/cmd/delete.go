@@ -251,7 +251,7 @@ func (cmd *DeleteCmd) deleteProVCluster(ctx context.Context, proClient proclient
 	cmd.log.Donef("Successfully deleted virtual cluster %s in project %s", vCluster.VirtualCluster.Name, vCluster.Project.Name)
 
 	// update kube config
-	err = deleteProContext(vCluster.VirtualCluster.Name, vCluster.VirtualCluster.Namespace)
+	err = deleteProContext(vCluster.VirtualCluster.Name, vCluster.Project.Name)
 	if err != nil {
 		return errors.Wrap(err, "delete kube context")
 	}
@@ -311,7 +311,7 @@ func (cmd *DeleteCmd) prepare(vCluster *find.VCluster) error {
 	return nil
 }
 
-func deleteProContext(vClusterName, vClusterNamespace string) error {
+func deleteProContext(vClusterName, projectName string) error {
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 	kubeConfig, err := kubeClientConfig.RawConfig()
 	if err != nil {
@@ -320,8 +320,8 @@ func deleteProContext(vClusterName, vClusterNamespace string) error {
 
 	// remove matching contexts
 	for contextName := range kubeConfig.Contexts {
-		name, namespace, previousContext := find.VClusterProFromContext(contextName)
-		if vClusterName != name || vClusterNamespace != namespace {
+		name, project, previousContext := find.VClusterProFromContext(contextName)
+		if vClusterName != name || projectName != project {
 			continue
 		}
 
