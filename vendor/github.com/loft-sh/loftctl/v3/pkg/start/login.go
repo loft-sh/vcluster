@@ -21,6 +21,10 @@ import (
 const defaultUser = "admin"
 
 func (l *LoftStarter) login(url string) error {
+	if !strings.HasPrefix(url, "https://") {
+		url = "https://" + url
+	}
+
 	err := l.loginViaCLI(url)
 	if err != nil {
 		return err
