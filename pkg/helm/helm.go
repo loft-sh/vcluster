@@ -95,6 +95,16 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	args := []string{command, name}
 	if options.Path != "" {
 		args = append(args, options.Path)
+	} else {
+		if options.Chart != "" {
+			args = append(args, options.Chart)
+		}
+		if options.Repo != "" {
+			args = append(args, "--repo", options.Repo)
+		}
+		if options.Version != "" {
+			args = append(args, "--version", options.Version)
+		}
 	}
 
 	if options.CreateNamespace {

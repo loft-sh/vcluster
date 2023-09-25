@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	loftclientset "github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset"
 	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
@@ -153,11 +154,11 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 		}
 	}
 
-	var vClusters []VCluster
+	var ossVClusters []VCluster
 	if project == "" {
-		vClusters, err = listOSSVClusters(ctx, context, name, namespace)
+		ossVClusters, err = listOSSVClusters(ctx, context, name, namespace)
 		if err != nil {
-			log.Warn("Error retrieving vclusters: %v", err)
+			log.Warnf("Error retrieving vclusters: %v", err)
 		}
 	}
 
@@ -165,16 +166,8 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 	if namespace == "" && proClient != nil {
 		proVClusters, err = pro.ListVClusters(ctx, proClient, name, project)
 		if err != nil {
-			log.Warn("Error retrieving pro vclusters: %v", err)
+			log.Warnf("Error retrieving pro vclusters: %v", err)
 		}
-	}
-
-	var ossVClusters []VCluster
-	for _, vCluster := range vClusters {
-		if isPro(vCluster, proVClusters) {
-			continue
-		}
-		ossVClusters = append(ossVClusters, vCluster)
 	}
 
 	return ossVClusters, proVClusters, nil
@@ -272,6 +265,10 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 	if err != nil {
 		return nil, errors.Wrap(err, "create kube client")
 	}
+	loftClient, err := loftclientset.NewForConfig(restConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "create new loft api client")
+	}
 
 	// statefulset based vclusters
 	statefulSets, err := getStatefulSets(ctx, kubeClient, namespace, kubeClientConfig, timeout)
@@ -300,6 +297,12 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 				continue
 			}
 
+			// skip pro clusters
+			_, err = loftClient.StorageV1().VirtualClusters(p.Namespace).Get(ctx, p.Name, metav1.GetOptions{})
+			if err == nil {
+				continue
+			}
+
 			vCluster, err := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
 			if err != nil {
 				return nil, err
@@ -317,6 +320,12 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 	for _, p := range deployments.Items {
 		if release, ok := p.Labels["release"]; ok {
 			if name != "" && name != release {
+				continue
+			}
+
+			// skip pro clusters
+			_, err = loftClient.StorageV1().VirtualClusters(p.Namespace).Get(ctx, p.Name, metav1.GetOptions{})
+			if err == nil {
 				continue
 			}
 
@@ -532,14 +541,4 @@ func GetPodStatus(pod *corev1.Pod) string {
 		reason = "Terminating"
 	}
 	return reason
-}
-
-func isPro(vCluster VCluster, proVClusters []pro.VirtualClusterInstanceProject) bool {
-	for _, proVCluster := range proVClusters {
-		clusterRef := proVCluster.VirtualCluster.Spec.ClusterRef
-		if clusterRef.VirtualCluster == vCluster.Name && clusterRef.Namespace == vCluster.Namespace {
-			return true
-		}
-	}
-	return false
 }

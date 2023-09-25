@@ -37,6 +37,11 @@ vcluster logout
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			_, err := pro.CreateProClient()
+			if err != nil {
+				return err
+			}
+
 			return cmd.RunLogout(cobraCmd.Context(), args)
 		},
 	}
