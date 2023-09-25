@@ -13,11 +13,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (l *LoftStarter) upgradeLoft(email string) error {
+func (l *LoftStarter) upgradeLoft() error {
 	extraArgs := []string{}
-	if email != "" {
-		extraArgs = append(extraArgs, "--set", "admin.email="+email)
-	}
 	if l.NoTunnel {
 		extraArgs = append(extraArgs, "--set-string", "env.DISABLE_LOFT_ROUTER=true")
 	}

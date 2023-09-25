@@ -64,7 +64,7 @@ func (cmd *UiCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	if url == "" {
-		return fmt.Errorf("%w: please login first using 'loft login' or start using 'loft start'", ErrNoUrl)
+		return fmt.Errorf("%w: please login first using '%s' or start using '%s'", ErrNoUrl, product.LoginCmd(), product.StartCmd())
 	}
 
 	err = open.Run(url)

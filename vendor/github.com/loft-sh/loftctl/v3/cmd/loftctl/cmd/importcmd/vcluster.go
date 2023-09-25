@@ -25,14 +25,14 @@ type VClusterCmd struct {
 	Project             string
 	ImportName          string
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewVClusterCmd creates a new command
 func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &VClusterCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 
 	description := product.ReplaceWithHeader("import vcluster", `
@@ -111,7 +111,7 @@ func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	cmd.log.Donef("Successfully imported vcluster %s into project %s", ansi.Color(vclusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+	cmd.Log.Donef("Successfully imported vcluster %s into project %s", ansi.Color(vclusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
 
 	return nil
 }

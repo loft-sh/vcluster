@@ -428,13 +428,13 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 		return fmt.Errorf("couldn't open the login page in a browser: %w. Please use the --access-key flag for the login command. You can generate an access key here: %s", err, fmt.Sprintf(AccessKeyPath, host))
 	} else {
 		log.Infof("If the browser does not open automatically, please navigate to %s", loginUrl)
-		msg := "If you have problems logging in, please navigate to %s/profile/access-keys, click on 'Create Access Key' and then login via 'loft login %s --access-key ACCESS_KEY"
+		msg := "If you have problems logging in, please navigate to %s/profile/access-keys, click on 'Create Access Key' and then login via '%s %s --access-key ACCESS_KEY"
 		if insecure {
 			msg += " --insecure"
 		}
 		msg += "'"
-		log.Infof(msg, host, host)
-		log.Info("Logging into loft...")
+		log.Infof(msg, host, product.LoginCmd(), host)
+		log.Info("Logging into %s...", product.Name())
 
 		key = <-keyChannel
 	}
@@ -543,9 +543,9 @@ func VerifyVersion(baseClient Client) error {
 	}
 
 	if int(cliVersion.Major) > backendMajor {
-		return fmt.Errorf("unsupported Loft version %[1]s. Please downgrade your CLI to below v%[2]d.0.0 to support this version, as Loft v%[2]d.0.0 and newer versions are incompatible with v%[3]d.x.x", v.Version, cliVersion.Major, backendMajor)
+		return fmt.Errorf("unsupported %[1]s version %[2]s. Please downgrade your CLI to below v%[3]d.0.0 to support this version, as %[1]s v%[3]d.0.0 and newer versions are incompatible with v%[4]d.x.x", product.Name(), v.Version, cliVersion.Major, backendMajor)
 	} else if int(cliVersion.Major) < backendMajor {
-		return fmt.Errorf("unsupported Loft version %[1]s. Please upgrade your CLI to v%[2]d.0.0 or above to support this version, as Loft v%[2]d.0.0 and newer versions are incompatible with v%[3]d.x.x", v.Version, backendMajor, cliVersion.Major)
+		return fmt.Errorf("unsupported %[1]s version %[2]s. Please upgrade your CLI to v%[3]d.0.0 or above to support this version, as %[1]s v%[3]d.0.0 and newer versions are incompatible with v%[4]d.x.x", product.Name(), v.Version, backendMajor, cliVersion.Major)
 	}
 
 	return nil
@@ -555,7 +555,7 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	if c.config == nil {
 		return nil, perrors.New("no config loaded")
 	} else if c.config.Host == "" || c.config.AccessKey == "" {
-		return nil, perrors.New(product.Replace("not logged in, please make sure you have run 'loft login [loft-url]'"))
+		return nil, perrors.New(fmt.Sprintf("not logged in, please make sure you have run '%s [%s]'", product.LoginCmd(), product.Url()))
 	}
 
 	// build a rest config

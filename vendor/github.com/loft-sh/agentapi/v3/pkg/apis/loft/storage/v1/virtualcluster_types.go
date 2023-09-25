@@ -64,6 +64,10 @@ type VirtualClusterCommonSpec struct {
 	// +optional
 	Access *InstanceAccess `json:"access,omitempty"`
 
+	// Pro defines the pro settings for the virtual cluster
+	// +optional
+	Pro VirtualClusterProSpec `json:"pro,omitempty"`
+
 	// HelmRelease is the helm release configuration for the virtual cluster.
 	// +optional
 	HelmRelease VirtualClusterHelmRelease `json:"helmRelease,omitempty"`
@@ -77,6 +81,12 @@ type VirtualClusterCommonSpec struct {
 	// api server and do a TokenReview there.
 	// +optional
 	ForwardToken bool `json:"forwardToken,omitempty"`
+}
+
+type VirtualClusterProSpec struct {
+	// Enabled defines if the virtual cluster is a pro cluster or not
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type VirtualClusterAccessPoint struct {
