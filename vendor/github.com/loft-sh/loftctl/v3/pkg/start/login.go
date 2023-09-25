@@ -25,7 +25,13 @@ func (l *LoftStarter) login(url string) error {
 		url = "https://" + url
 	}
 
-	err := l.loginViaCLI(url)
+	// check if we are already logged in
+	c, err := client.NewClientFromPath(l.Config)
+	if err == nil && strings.TrimSuffix(c.Config().Host, "/") == strings.TrimSuffix(url, "/") {
+		return nil
+	}
+
+	err = l.loginViaCLI(url)
 	if err != nil {
 		return err
 	}
