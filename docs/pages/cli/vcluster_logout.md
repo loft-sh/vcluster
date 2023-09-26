@@ -1,35 +1,33 @@
 ---
-title: "vcluster get service-cidr --help"
-sidebar_label: vcluster get service-cidr
+title: "vcluster logout --help"
+sidebar_label: vcluster logout
 ---
 
 
-Prints Service CIDR of the cluster
+Log out of a vCluster.Pro instance
 
 ## Synopsis
 
+```
+vcluster logout [flags]
+```
 
 ```
-vcluster get service-cidr [flags]
-```
+########################################################
+################### vcluster logout ####################
+########################################################
+Log out of vCluster.Pro
 
-```
-#######################################################
-############### vcluster get service-cidr  ############
-#######################################################
-Prints Service CIDR of the cluster
-
-Ex:
-vcluster get service-cidr
-10.96.0.0/12
-#######################################################
+Example:
+vcluster logout
+########################################################
 ```
 
 
 ## Flags
 
 ```
-  -h, --help   help for service-cidr
+  -h, --help   help for logout
 ```
 
 

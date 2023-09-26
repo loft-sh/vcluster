@@ -1,28 +1,16 @@
 ---
-title: "vcluster resume --help"
-sidebar_label: vcluster resume
+title: "vcluster pro --help"
+sidebar_label: vcluster pro
 ---
 
 
-Resumes a virtual cluster
+vCluster.Pro subcommands
 
 ## Synopsis
 
-
-```
-vcluster resume VCLUSTER_NAME [flags]
-```
-
 ```
 #######################################################
-################### vcluster resume ###################
-#######################################################
-Resume will start a vcluster after it was paused.
-vcluster will recreate all the workloads after it has
-started automatically.
-
-Example:
-vcluster resume test --namespace test
+#################### vcluster pro #####################
 #######################################################
 ```
 
@@ -30,8 +18,7 @@ vcluster resume test --namespace test
 ## Flags
 
 ```
-  -h, --help             help for resume
-      --project string   [PRO] The pro project the vcluster is in
+  -h, --help   help for pro
 ```
 
 

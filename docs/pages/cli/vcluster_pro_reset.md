@@ -1,26 +1,24 @@
 ---
-title: "vcluster version --help"
-sidebar_label: vcluster version
+title: "vcluster pro reset --help"
+sidebar_label: vcluster pro reset
 ---
 
 
-Print the version number of vcluster
+Reset configuration
 
 ## Synopsis
 
 ```
-vcluster version [flags]
-```
-
-```
-All software has versions. This is Vcluster's.
+########################################################
+################## vcluster pro reset ##################
+########################################################
 ```
 
 
 ## Flags
 
 ```
-  -h, --help   help for version
+  -h, --help   help for reset
 ```
 
 

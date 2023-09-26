@@ -1,35 +1,33 @@
 ---
-title: "vcluster get service-cidr --help"
-sidebar_label: vcluster get service-cidr
+title: "vcluster ui --help"
+sidebar_label: vcluster ui
 ---
 
 
-Prints Service CIDR of the cluster
+Start the web UI
 
 ## Synopsis
 
+```
+vcluster ui [flags]
+```
 
 ```
-vcluster get service-cidr [flags]
-```
+########################################################
+##################### vcluster ui ######################
+########################################################
+Open the vCluster.Pro web UI
 
-```
-#######################################################
-############### vcluster get service-cidr  ############
-#######################################################
-Prints Service CIDR of the cluster
-
-Ex:
-vcluster get service-cidr
-10.96.0.0/12
-#######################################################
+Example:
+vcluster ui
+########################################################
 ```
 
 
 ## Flags
 
 ```
-  -h, --help   help for service-cidr
+  -h, --help   help for ui
 ```
 
 

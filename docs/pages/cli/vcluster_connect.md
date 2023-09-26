@@ -41,6 +41,7 @@ vcluster connect test -n test -- kubectl get ns
       --local-port int                    The local port to forward the virtual cluster to. If empty, vcluster will use a random unused port
       --pod string                        The pod to connect to
       --print                             When enabled prints the context to stdout
+      --project string                    [PRO] The pro project the vcluster is in
       --server string                     The server to connect to
       --service-account string            If specified, vcluster will create a service account token to connect to the virtual cluster instead of using the default client cert / key. Service account must exist and can be used as namespace/name.
       --token-expiration int              If specified, vcluster will create the service account token for the given duration in seconds. Defaults to eternal
@@ -51,9 +52,10 @@ vcluster connect test -n test -- kubectl get ns
 ## Global & Inherited Flags
 
 ```
-      --context string     The kubernetes config context to use
-      --debug              Prints the stack trace if an error occurs
-  -n, --namespace string   The kubernetes namespace to use
-  -s, --silent             Run in silent mode and prevents any vcluster log output except panics & fatals
+      --context string      The kubernetes config context to use
+      --debug               Prints the stack trace if an error occurs
+      --log-output string   The log format to use. Can be either plain, raw or json (default "plain")
+  -n, --namespace string    The kubernetes namespace to use
+  -s, --silent              Run in silent mode and prevents any vcluster log output except panics & fatals
 ```
 
