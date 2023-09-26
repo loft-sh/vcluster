@@ -679,11 +679,30 @@ body .markdown {
 	vertical-align: middle;
 }
 
+.pro-feature .menu__link:after {
+	content: "p";
+}
+
 .pro-feature-link {
 	visibility: hidden;
 	opacity:0;
 
 	transition: visibility 0.2s linear,opacity 0.2s linear;
+}
+
+.pro-feature-sidebar-item .menu__link:after {
+	content: "p";
+
+	--ifm-font-family-base: "loft";
+	font-family: "loft";
+	font-size: large;
+
+	padding-left: 4px;
+	padding-top: 0.4em;
+
+	line-height: 1em;
+
+	vertical-align: middle;
 }
 
 .menu__link:hover > .pro-feature-link {
