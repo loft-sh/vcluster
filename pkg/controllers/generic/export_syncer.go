@@ -142,6 +142,9 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	pObj, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return f.TranslateMetadata(ctx.Context, vObj), nil
 	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
+	if kerrors.IsConflict(err) {
+		return ctrl.Result{Requeue: true}, nil
+	}
 	if err != nil {
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
@@ -208,6 +211,9 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		pObj: pObj,
 	})
 	if err != nil {
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		if kerrors.IsInvalid(err) {
 			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch virtual %s %s/%s: %v", f.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
 			// this happens when some field is being removed shortly after being added, which suggest it's a timing issue
@@ -230,10 +236,10 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		namespace:       vObj.GetNamespace(),
 		targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
-		// on conflict, auto delete and recreate
-		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && f.config.ReplaceOnConflict {
+		// when invalid, auto delete and recreate to recover
+		if kerrors.IsInvalid(err) && f.config.ReplaceWhenInvalid {
 			// Replace the object
-			ctx.Log.Infof("Replace physical object, because of conflict: %v", err)
+			ctx.Log.Infof("Replace physical object, because apply failed: %v", err)
 			err = ctx.PhysicalClient.Delete(ctx.Context, pObj, &client.DeleteOptions{
 				GracePeriodSeconds: &[]int64{0}[0],
 			})
@@ -242,6 +248,9 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 			}
 
 			return ctrl.Result{}, nil
+		}
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
 
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)

@@ -87,6 +87,9 @@ func (n *namespacedTranslator) SyncDownUpdate(ctx *context.SyncContext, vObj, pO
 	if !(pObj == nil || (reflect.ValueOf(pObj).Kind() == reflect.Ptr && reflect.ValueOf(pObj).IsNil())) {
 		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), n.name)
 		err := ctx.PhysicalClient.Update(ctx.Context, pObj)
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		if err != nil {
 			n.eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 			return ctrl.Result{}, err

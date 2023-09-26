@@ -262,6 +262,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	// make sure node exists for pod
 	if pPod.Spec.NodeName != "" {
 		requeue, err := s.ensureNode(ctx, pPod, vPod)
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		if err != nil {
 			return ctrl.Result{}, err
 		} else if requeue {
@@ -298,11 +301,11 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		ctx.Log.Infof("update virtual pod %s/%s, because status has changed", vPod.Namespace, vPod.Name)
 		translator.PrintChanges(vPod, newPod, ctx.Log)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, newPod)
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		if err != nil {
-			if !kerrors.IsConflict(err) {
-				s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error updating pod: %v", err)
-			}
-
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error updating pod: %v", err)
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -420,7 +423,9 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 		},
 	}, metav1.CreateOptions{})
 	if err != nil {
-		s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error binding pod: %v", err)
+		if !kerrors.IsConflict(err) {
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error binding pod: %v", err)
+		}
 		return err
 	}
 
