@@ -68,7 +68,7 @@ func LatestCompatibleVersion(ctx context.Context) (string, error) {
 
 	if len(eligibleReleases) > 0 {
 		return "v" + eligibleReleases[len(eligibleReleases)-1].String(), nil
-	} else {
-		return MinimumVersionTag, nil
 	}
+
+	return MinimumVersionTag, nil
 }
