@@ -254,7 +254,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "vcluster --help",
+      label: "CLI",
       collapsed: true,
       link: { type: 'doc', id: 'cli' },
       items: [
