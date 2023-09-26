@@ -349,6 +349,9 @@ coredns:
   integrated: false
   enabled: true
   replicas: 1
+  # The nodeSelector example below specifices that coredns should only be scheduled to nodes with the arm64 label
+  # nodeSelector:
+  #   kubernetes.io/arch: arm64
   # image: my-core-dns-image:latest
   # config: |-
   #   .:1053 {
