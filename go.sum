@@ -548,6 +548,8 @@ github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0 h1:nHHjmvjitIiyP
 github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0/go.mod h1:YBCo4DoEeDndqvAn6eeu0vWM7QdXmHEeI9cFWplmBys=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhnIaL+V+BEER86oLrvS+kWobKpbJuye0=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
+github.com/loft-sh/agentapi/v3 v3.3.0-alpha.26 h1:EFzeSuuIWtZJPEZP8A7xI6z3Yq/AxigkugLoeCtYjjQ=
+github.com/loft-sh/agentapi/v3 v3.3.0-alpha.26/go.mod h1:8jmVWFBcLjwh6Tv2KPVxkIjUJpVxUMROcbYYVYxR1pI=
 github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230925121720-6c3f4d5f792e h1:msR5AtLG2hQ70l+1ztZxCDN4KB9t0xOClC/Jg7zupcQ=
 github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230925121720-6c3f4d5f792e/go.mod h1:8jmVWFBcLjwh6Tv2KPVxkIjUJpVxUMROcbYYVYxR1pI=
 github.com/loft-sh/api/v3 v3.0.0-20230925132152-fb279316cadb h1:FgEPNNPOEQhpnwkNRf2TGT5gEqcFFKb2k/WtwqEL6fQ=

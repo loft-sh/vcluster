@@ -168,8 +168,9 @@ func createWithoutTemplate(ctx context.Context, proClient proclient.Client, opti
 							Values: helmValues,
 						},
 						ForwardToken: true,
-						// TODO: enable
-						// Pro: true
+						Pro: agentstoragev1.VirtualClusterProSpec{
+							Enabled: true,
+						},
 					},
 				},
 				ClusterRef: storagev1.VirtualClusterClusterRef{
@@ -347,7 +348,7 @@ func createWithTemplate(ctx context.Context, proClient proclient.Client, options
 		return nil, err
 	}
 
-	// create virtualclusterinstance
+	// create virtual cluster instance
 	log.Infof("Creating virtual cluster %s in project %s with template %s...", virtualClusterName, options.Project, virtualClusterTemplate.Name)
 	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Create(ctx, virtualClusterInstance, metav1.CreateOptions{})
 	if err != nil {
