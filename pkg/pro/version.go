@@ -3,11 +3,13 @@ package pro
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/blang/semver/v4"
 	"github.com/google/go-github/v53/github"
 	"github.com/loft-sh/log"
+	"github.com/samber/lo"
 )
 
 var (
@@ -30,14 +32,43 @@ func LatestCompatibleVersion(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to get latest release tag name")
 	}
 
-	version := MinimumVersionTag
-
 	ghVersion, err := semver.Parse(strings.TrimPrefix(tagName, "v"))
 	if err != nil {
 		log.GetInstance().Warnf("failed to parse latest release tag name, falling back to %s: %v", MinimumVersionTag, err)
-	} else if ghVersion.GTE(MinimumVersion) {
-		version = tagName
+		return MinimumVersionTag, nil
 	}
 
-	return version, nil
+	if ghVersion.GTE(MinimumVersion) {
+		return tagName, nil
+	}
+
+	releases, _, err := client.Repositories.ListReleases(ctx, "loft-sh", "loft", &github.ListOptions{})
+	if err != nil {
+		log.GetInstance().Warnf("failed to fetch releases from Github, falling back to %s: %v", MinimumVersionTag, err)
+		return MinimumVersionTag, nil
+	}
+
+	eligibleReleases := lo.FilterMap(releases, func(release *github.RepositoryRelease, index int) (semver.Version, bool) {
+		tagName := release.GetTagName()
+		if tagName == "" {
+			return semver.Version{}, false
+		}
+
+		ghVersion, err := semver.Parse(strings.TrimPrefix(tagName, "v"))
+		if err != nil {
+			return semver.Version{}, false
+		}
+
+		return ghVersion, ghVersion.GTE(MinimumVersion)
+	})
+
+	sort.Slice(eligibleReleases, func(i, j int) bool {
+		return eligibleReleases[i].LT(eligibleReleases[j])
+	})
+
+	if len(eligibleReleases) > 0 {
+		return "v" + eligibleReleases[len(eligibleReleases)-1].String(), nil
+	}
+
+	return MinimumVersionTag, nil
 }
