@@ -219,6 +219,9 @@ spec:
           {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
           - --proxy-metrics-server=true
           {{- end }}
+          {{- if .Values.coredns.integrated }}
+          - --integrated-coredns=true
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
