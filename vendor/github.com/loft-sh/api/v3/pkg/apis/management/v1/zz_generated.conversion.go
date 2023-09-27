@@ -6597,6 +6597,7 @@ func autoConvert_v1_ProjectImportVirtualCluster_To_management_ProjectImportVirtu
 	if err := Convert_v1_ProjectImportVirtualClusterSource_To_management_ProjectImportVirtualClusterSource(&in.SourceVirtualCluster, &out.SourceVirtualCluster, s); err != nil {
 		return err
 	}
+	out.UpgradeToPro = in.UpgradeToPro
 	return nil
 }
 
@@ -6610,6 +6611,7 @@ func autoConvert_management_ProjectImportVirtualCluster_To_v1_ProjectImportVirtu
 	if err := Convert_management_ProjectImportVirtualClusterSource_To_v1_ProjectImportVirtualClusterSource(&in.SourceVirtualCluster, &out.SourceVirtualCluster, s); err != nil {
 		return err
 	}
+	out.UpgradeToPro = in.UpgradeToPro
 	return nil
 }
 

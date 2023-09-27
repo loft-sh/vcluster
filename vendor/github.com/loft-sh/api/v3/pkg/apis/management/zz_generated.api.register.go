@@ -2081,6 +2081,7 @@ type ProjectImportVirtualCluster struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 	SourceVirtualCluster ProjectImportVirtualClusterSource
+	UpgradeToPro         bool
 }
 
 type ProjectImportVirtualClusterSource struct {

@@ -6,12 +6,13 @@ import (
 	"fmt"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
-	loftctlImport "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/importcmd"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/compress"
+	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,14 +21,21 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func NewImportCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
-	loftctlGlobalFlags, err := pro.GlobalFlags(globalFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse pro flags: %w", err)
-	}
+type ImportCmd struct {
+	*flags.GlobalFlags
 
-	cmd := &loftctlImport.VClusterCmd{
-		GlobalFlags: loftctlGlobalFlags,
+	VClusterClusterName string
+	VClusterNamespace   string
+	Project             string
+	ImportName          string
+	DisableUpgrade      bool
+
+	Log log.Logger
+}
+
+func NewImportCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
+	cmd := &ImportCmd{
+		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
 
@@ -48,8 +56,13 @@ vcluster import my-vcluster --cluster connected-cluster \
 		Long:  description,
 		Args:  loftctlUtil.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			proClient, err := pro.CreateProClient()
+			if err != nil {
+				return err
+			}
+
 			if cmd.Project == "" {
-				cmd.Project, err = getProjectName(cobraCmd.Context())
+				cmd.Project, err = getProjectName(cobraCmd.Context(), proClient)
 				if err != nil {
 					return err
 				}
@@ -62,7 +75,7 @@ vcluster import my-vcluster --cluster connected-cluster \
 				}
 			}
 
-			return cmd.Run(cobraCmd.Context(), args)
+			return cmd.Run(cobraCmd.Context(), args, proClient)
 		},
 	}
 
@@ -70,10 +83,38 @@ vcluster import my-vcluster --cluster connected-cluster \
 	importCmd.Flags().StringVar(&cmd.VClusterNamespace, "namespace", "", "The namespace of the vcluster")
 	importCmd.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vcluster into")
 	importCmd.Flags().StringVar(&cmd.ImportName, "importname", "", "The name of the vcluster under projects. If unspecified, will use the vcluster name")
+	importCmd.Flags().BoolVar(&cmd.DisableUpgrade, "disable-upgrade", false, "If true, will disable auto-upgrade of the imported vcluster to vCluster.Pro")
 
 	_ = importCmd.MarkFlagRequired("namespace")
 
 	return importCmd, nil
+}
+
+// Run executes the functionality
+func (cmd *ImportCmd) Run(ctx context.Context, args []string, proClient client.Client) error {
+	// Get vclusterName from command argument
+	var vclusterName string = args[0]
+
+	managementClient, err := proClient.Management()
+	if err != nil {
+		return err
+	}
+
+	if _, err = managementClient.Loft().ManagementV1().Projects().ImportVirtualCluster(ctx, cmd.Project, &managementv1.ProjectImportVirtualCluster{
+		SourceVirtualCluster: managementv1.ProjectImportVirtualClusterSource{
+			Name:       vclusterName,
+			Namespace:  cmd.VClusterNamespace,
+			Cluster:    cmd.VClusterClusterName,
+			ImportName: cmd.ImportName,
+		},
+		UpgradeToPro: !cmd.DisableUpgrade,
+	}, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	cmd.Log.Donef("Successfully imported vcluster %s into project %s", ansi.Color(vclusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+
+	return nil
 }
 
 func getClusterName(ctx context.Context, kubeContext string) (string, error) {
@@ -153,12 +194,7 @@ func findSecret(ctx context.Context, kubeContext, secretName string) (*corev1.Se
 	return nil, nil
 }
 
-func getProjectName(ctx context.Context) (string, error) {
-	proClient, err := pro.CreateProClient()
-	if err != nil {
-		return "", err
-	}
-
+func getProjectName(ctx context.Context, proClient client.Client) (string, error) {
 	managementClient, err := proClient.Management()
 	if err != nil {
 		return "", err
