@@ -80,13 +80,20 @@ archives:
     builds_info:
       group: root
       owner: root
-    files:
-      - README.md
-      - LICENSE
 
 sboms:
-  - id: archive_sbom
-    artifacts: archive
+  - id: vcluster_sbom
+    artifacts: binary
+    ids:
+      - vcluster
+    documents:
+      - "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom"
+  - id: vcluster_cli_sbom
+    artifacts: binary
+    ids:
+      - vcluster-cli
+    documents:
+      - "{{ .Binary }}_cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom"
 
 checksum:
   name_template: "checksums.txt"
