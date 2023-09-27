@@ -476,10 +476,17 @@ func mergeValues(options *Options, log log.Logger) (string, error) {
 		return "", err
 	}
 
-	// merge them with --values
+	// parse into map
 	outValues, err := parseString(chartValues)
 	if err != nil {
 		return "", err
+	}
+
+	// set integrated to true
+	if outValues["coredns"] == nil {
+		outValues["coredns"] = map[string]interface{}{
+			"integrated": true,
+		}
 	}
 
 	// merge values
