@@ -4,6 +4,10 @@ sidebar_label: vcluster pro generate
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro generate` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro generate
 
 Generates configuration

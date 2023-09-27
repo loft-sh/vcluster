@@ -4,6 +4,10 @@ sidebar_label: vcluster pro create
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro create` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro create
 
 Creates a new virtual cluster in the given parent cluster

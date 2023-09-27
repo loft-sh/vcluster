@@ -4,6 +4,10 @@ sidebar_label: vcluster pro list
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro list` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro list
 
 Lists the vCluster.Pro instances you have access to

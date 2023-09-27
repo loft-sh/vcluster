@@ -4,6 +4,10 @@ sidebar_label: vcluster pro import
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro import` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro import
 
 Imports a vCluster.Pro instance into a space

@@ -4,6 +4,10 @@ sidebar_label: vcluster pro secret set
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro secret set` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro secret set
 
 Sets the key value of a project / shared secret

@@ -4,6 +4,10 @@ sidebar_label: vcluster pro secret list
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro secret list` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro secret list
 
 Lists all the shared secrets you have access to

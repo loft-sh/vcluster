@@ -4,6 +4,10 @@ sidebar_label: vcluster pro secret
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro secret` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro secret
 
 Management Operations on secret resources

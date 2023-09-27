@@ -4,6 +4,10 @@ sidebar_label: vcluster pro use
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro use` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro use
 
 Creates a kube context for the given virtual cluster

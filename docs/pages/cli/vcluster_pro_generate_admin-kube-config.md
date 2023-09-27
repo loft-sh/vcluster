@@ -4,6 +4,10 @@ sidebar_label: vcluster pro generate admin-kube-config
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
 
+:::info Note:
+`vcluster pro generate admin-kube-config` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
+
 ## vcluster pro generate admin-kube-config
 
 Generates a new kube config for connecting a cluster

@@ -25,10 +25,14 @@ sidebar_label: %s
 `
 
 const proHeaderTemplate = `---
-title: "%s --help"
-sidebar_label: %s
+title: "%[1]s --help"
+sidebar_label: %[2]s
 sidebar_class_name: "pro-feature-sidebar-item"
 ---
+
+:::info Note:
+` + "`%[1]s`" + ` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
+:::
 
 `
 
