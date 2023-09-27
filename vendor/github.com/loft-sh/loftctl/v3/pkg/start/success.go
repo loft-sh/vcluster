@@ -5,13 +5,16 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/printhelper"
 	"github.com/loft-sh/log/survey"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,15 +46,7 @@ func (l *LoftStarter) success(ctx context.Context) error {
 				l.Log.Errorf("Error retrieving loft router domain: %v", err)
 				l.Log.Info("Fallback to use port-forwarding")
 			} else if loftRouterDomain != "" {
-				if !l.NoLogin {
-					err := l.login(loftRouterDomain)
-					if err != nil {
-						return err
-					}
-				}
-
-				printhelper.PrintSuccessMessageLoftRouterInstall(loftRouterDomain, l.Password, l.Log)
-				return nil
+				return l.successLoftRouter(loftRouterDomain)
 			}
 		}
 
@@ -148,6 +143,19 @@ func (l *LoftStarter) pingLoftRouter(ctx context.Context, loftPod *corev1.Pod) (
 	return loftRouterDomain, nil
 }
 
+func (l *LoftStarter) successLoftRouter(url string) error {
+	if !l.NoLogin {
+		err := l.login(url)
+		if err != nil {
+			return err
+		}
+	}
+
+	printhelper.PrintSuccessMessageLoftRouterInstall(url, l.Password, l.Log)
+	l.printVClusterProGettingStarted(url)
+	return nil
+}
+
 func (l *LoftStarter) successLocal() error {
 	url := "https://localhost:" + l.LocalPort
 
@@ -159,10 +167,18 @@ func (l *LoftStarter) successLocal() error {
 	}
 
 	printhelper.PrintSuccessMessageLocalInstall(l.Password, url, l.Log)
+	l.printVClusterProGettingStarted(url)
 
 	blockChan := make(chan bool)
 	<-blockChan
 	return nil
+}
+
+func (l *LoftStarter) isLoggedIn(url string) bool {
+	url = strings.TrimPrefix(url, "https://")
+
+	c, err := client.NewClientFromPath(l.Config)
+	return err == nil && strings.TrimPrefix(strings.TrimSuffix(c.Config().Host, "/"), "https://") == strings.TrimSuffix(url, "/")
 }
 
 func (l *LoftStarter) successRemote(ctx context.Context, host string) error {
@@ -188,6 +204,22 @@ func (l *LoftStarter) successRemote(ctx context.Context, host string) error {
 	l.Log.Done(product.Replace("Loft is reachable at https://") + host)
 	printhelper.PrintSuccessMessageRemoteInstall(host, l.Password, l.Log)
 	return nil
+}
+
+func (l *LoftStarter) printVClusterProGettingStarted(url string) {
+	if product.Product() != product.VClusterPro {
+		return
+	}
+
+	if l.isLoggedIn(url) {
+		l.Log.Donef("You are successfully logged into vCluster.Pro!")
+		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster create` to create a new pro vCluster\n")
+		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster create --disable-pro` to create a new oss vCluster\n")
+		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster import` to import and upgrade an existing oss vCluster\n")
+	} else {
+		l.Log.Warnf("You are not logged into vCluster.Pro yet, please run the below command to log into the vCluster.Pro instance")
+		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster login "+url+"` to log into the vCluster.Pro instance\n")
+	}
 }
 
 func (l *LoftStarter) waitForLoft(ctx context.Context) (*corev1.Pod, error) {
