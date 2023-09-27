@@ -80,13 +80,12 @@ archives:
     builds_info:
       group: root
       owner: root
-    files:
-      - README.md
-      - LICENSE
 
 sboms:
-  - id: archive_sbom
-    artifacts: archive
+  - id: vcluster_sbom
+    artifacts: binary
+    documents:
+      - '{{ if eq .ArtifactName "vcluster" }}syncer-{{ .Os }}-{{ .Arch }}.sbom{{ else }}{{ .ArtifactName }}.sbom{{ end }}'
 
 checksum:
   name_template: "checksums.txt"
