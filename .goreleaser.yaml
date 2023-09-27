@@ -84,16 +84,8 @@ archives:
 sboms:
   - id: vcluster_sbom
     artifacts: binary
-    ids:
-      - vcluster
     documents:
-      - "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom"
-  - id: vcluster_cli_sbom
-    artifacts: binary
-    ids:
-      - vcluster-cli
-    documents:
-      - "{{ .Binary }}_cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom"
+      - '{{ if eq .ArtifactName "vcluster" }}syncer-{{ .Os }}-{{ .Arch }}.sbom{{ else }}{{ .ArtifactName }}.sbom{{ end }}'
 
 checksum:
   name_template: "checksums.txt"
