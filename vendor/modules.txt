@@ -313,7 +313,7 @@ github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/scheme
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/cluster/v1
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/storage/v1
-# github.com/loft-sh/api/v3 v3.0.0-20230925132152-fb279316cadb
+# github.com/loft-sh/api/v3 v3.0.0-20230927120541-83f9f967b31e
 ## explicit; go 1.21.1
 github.com/loft-sh/api/v3/pkg/apis/audit/v1
 github.com/loft-sh/api/v3/pkg/apis/management

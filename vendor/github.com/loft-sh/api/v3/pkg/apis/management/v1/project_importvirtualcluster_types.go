@@ -14,6 +14,9 @@ type ProjectImportVirtualCluster struct {
 
 	// SourceVirtualCluster is the virtual cluster to import into this project
 	SourceVirtualCluster ProjectImportVirtualClusterSource `json:"sourceVirtualCluster"`
+
+	// UpgradeToPro indicates whether we should upgrade to Pro on import
+	UpgradeToPro bool `json:"upgradeToPro,omitempty"`
 }
 
 type ProjectImportVirtualClusterSource struct {
