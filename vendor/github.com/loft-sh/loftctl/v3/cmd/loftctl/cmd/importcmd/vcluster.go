@@ -24,6 +24,7 @@ type VClusterCmd struct {
 	VClusterNamespace   string
 	Project             string
 	ImportName          string
+	UpgradeToPro        bool
 
 	Log log.Logger
 }
@@ -73,6 +74,7 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 	c.Flags().StringVar(&cmd.VClusterNamespace, "namespace", "", "The namespace of the vcluster")
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vcluster into")
 	c.Flags().StringVar(&cmd.ImportName, "importname", "", "The name of the vcluster under projects. If unspecified, will use the vcluster name")
+	c.Flags().BoolVar(&cmd.UpgradeToPro, "pro-upgrade", false, "If true, will upgrade the vcluster to vCluster.Pro upon import")
 
 	_ = c.MarkFlagRequired("cluster")
 	_ = c.MarkFlagRequired("namespace")
@@ -107,6 +109,7 @@ func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 			Cluster:    cmd.VClusterClusterName,
 			ImportName: cmd.ImportName,
 		},
+		UpgradeToPro: cmd.UpgradeToPro,
 	}, metav1.CreateOptions{}); err != nil {
 		return err
 	}

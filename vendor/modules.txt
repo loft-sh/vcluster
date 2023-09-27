@@ -340,7 +340,7 @@ github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server
 # github.com/loft-sh/jspolicy v0.1.0
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v3 v3.0.0-20230925152156-6330c0e3000c
+# github.com/loft-sh/loftctl/v3 v3.0.0-20230927163845-34f6902ff7ae
 ## explicit; go 1.21.1
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect
