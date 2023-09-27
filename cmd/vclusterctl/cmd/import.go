@@ -9,6 +9,9 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/compress"
@@ -25,7 +28,6 @@ type ImportCmd struct {
 	*flags.GlobalFlags
 
 	VClusterClusterName string
-	VClusterNamespace   string
 	Project             string
 	ImportName          string
 	DisableUpgrade      bool
@@ -80,30 +82,34 @@ vcluster import my-vcluster --cluster connected-cluster \
 	}
 
 	importCmd.Flags().StringVar(&cmd.VClusterClusterName, "cluster", "", "Cluster name of the cluster the virtual cluster is running on")
-	importCmd.Flags().StringVar(&cmd.VClusterNamespace, "namespace", "", "The namespace of the vcluster")
 	importCmd.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vcluster into")
 	importCmd.Flags().StringVar(&cmd.ImportName, "importname", "", "The name of the vcluster under projects. If unspecified, will use the vcluster name")
 	importCmd.Flags().BoolVar(&cmd.DisableUpgrade, "disable-upgrade", false, "If true, will disable auto-upgrade of the imported vcluster to vCluster.Pro")
-
-	_ = importCmd.MarkFlagRequired("namespace")
 
 	return importCmd, nil
 }
 
 // Run executes the functionality
 func (cmd *ImportCmd) Run(ctx context.Context, args []string, proClient client.Client) error {
-	// Get vclusterName from command argument
-	var vclusterName string = args[0]
+	// Get vClusterName from command argument
+	var vClusterName = args[0]
 
 	managementClient, err := proClient.Management()
 	if err != nil {
 		return err
 	}
 
+	if cmd.Namespace == "" {
+		cmd.Namespace, err = GetVClusterNamespace(ctx, cmd.Context, vClusterName, cmd.Namespace, cmd.Log)
+		if err != nil {
+			cmd.Log.Warnf("Error retrieving vcluster namespace: %v", err)
+		}
+	}
+
 	if _, err = managementClient.Loft().ManagementV1().Projects().ImportVirtualCluster(ctx, cmd.Project, &managementv1.ProjectImportVirtualCluster{
 		SourceVirtualCluster: managementv1.ProjectImportVirtualClusterSource{
-			Name:       vclusterName,
-			Namespace:  cmd.VClusterNamespace,
+			Name:       vClusterName,
+			Namespace:  cmd.Namespace,
 			Cluster:    cmd.VClusterClusterName,
 			ImportName: cmd.ImportName,
 		},
@@ -112,9 +118,59 @@ func (cmd *ImportCmd) Run(ctx context.Context, args []string, proClient client.C
 		return err
 	}
 
-	cmd.Log.Donef("Successfully imported vcluster %s into project %s", ansi.Color(vclusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+	cmd.Log.Donef("Successfully imported vcluster %s into project %s", ansi.Color(vClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
 
 	return nil
+}
+
+func GetVClusterNamespace(ctx context.Context, context, name, namespace string, log log.Logger) (string, error) {
+	if name == "" {
+		return "", fmt.Errorf("please specify a name")
+	}
+
+	// list vclusters
+	ossVClusters, err := find.ListOSSVClusters(ctx, context, name, namespace)
+	if err != nil {
+		log.Warnf("Error retrieving vclusters: %v", err)
+		return "", err
+	}
+
+	// figure out what we want to return
+	if len(ossVClusters) == 0 {
+		return "", fmt.Errorf("couldn't find vcluster %s", name)
+	} else if len(ossVClusters) == 1 {
+		return ossVClusters[0].Namespace, nil
+	}
+
+	// check if terminal
+	if !terminal.IsTerminalIn {
+		return "", fmt.Errorf("multiple vclusters with name %s found, please specify a namespace via --namespace to select the correct one", name)
+	}
+
+	// ask a question
+	questionOptionsUnformatted := [][]string{}
+	for _, vCluster := range ossVClusters {
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{name, vCluster.Namespace})
+	}
+
+	questionOptions := find.FormatOptions("Name: %s | Namespace: %s ", questionOptionsUnformatted)
+	selectedVCluster, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a virtual cluster to use",
+		DefaultValue: questionOptions[0],
+		Options:      questionOptions,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// match answer
+	for idx, s := range questionOptions {
+		if s == selectedVCluster {
+			return ossVClusters[idx].Namespace, nil
+		}
+	}
+
+	return "", fmt.Errorf("unexpected error searching for selected vcluster")
 }
 
 func getClusterName(ctx context.Context, kubeContext string) (string, error) {

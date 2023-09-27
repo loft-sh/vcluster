@@ -88,7 +88,7 @@ func GetVCluster(ctx context.Context, proClient proclient.Client, context, name,
 	for _, vCluster := range proVClusters {
 		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{name, vCluster.Project.Name, "true"})
 	}
-	questionOptions := formatOptions("Name: %s | Namespace / Project: %s | Pro: %s ", questionOptionsUnformatted)
+	questionOptions := FormatOptions("Name: %s | Namespace / Project: %s | Pro: %s ", questionOptionsUnformatted)
 	selectedVCluster, err := log.Question(&survey.QuestionOptions{
 		Question:     "Please choose a virtual cluster to use",
 		DefaultValue: questionOptions[0],
@@ -112,7 +112,7 @@ func GetVCluster(ctx context.Context, proClient proclient.Client, context, name,
 	return nil, nil, fmt.Errorf("unexpected error searching for selected vcluster")
 }
 
-func formatOptions(format string, options [][]string) []string {
+func FormatOptions(format string, options [][]string) []string {
 	if len(options) == 0 {
 		return []string{}
 	}
@@ -156,7 +156,7 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 
 	var ossVClusters []VCluster
 	if project == "" {
-		ossVClusters, err = listOSSVClusters(ctx, context, name, namespace)
+		ossVClusters, err = ListOSSVClusters(ctx, context, name, namespace)
 		if err != nil {
 			log.Warnf("Error retrieving vclusters: %v", err)
 		}
@@ -173,7 +173,7 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 	return ossVClusters, proVClusters, nil
 }
 
-func listOSSVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
+func ListOSSVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
 	var err error
 
 	vClusterName, _, vClusterContext := VClusterFromContext(context)
