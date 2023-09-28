@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/sirupsen/logrus"
@@ -115,7 +114,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 		header := []string{"NAME", "NAMESPACE", "STATUS", "VERSION", "CONNECTED", "CREATED", "AGE", "PRO"}
 		values := toValues(output)
 		table.PrintTable(cmd.log, header, values)
-		if strings.HasPrefix(cmd.Context, "vcluster_") {
+		if strings.HasPrefix(cmd.Context, "vcluster_") || strings.HasPrefix(cmd.Context, "vcluster-pro_") {
 			cmd.log.Infof("Run `vcluster disconnect` to switch back to the parent context")
 		}
 	}
@@ -156,13 +155,11 @@ func proToVClusters(vClusters []pro.VirtualClusterInstanceProject, currentContex
 			status = "Pending"
 		}
 
-		context := kubeconfig.VirtualClusterInstanceContextName(vCluster.Project.Name, vCluster.VirtualCluster.Name)
-
+		connected := strings.HasPrefix(currentContext, "vcluster-pro_"+vCluster.VirtualCluster.Name+"_"+vCluster.Project.Name)
 		vClusterOutput := VCluster{
 			Name:       vCluster.VirtualCluster.Spec.ClusterRef.VirtualCluster,
 			Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
-			Context:    context,
-			Connected:  currentContext == context,
+			Connected:  connected,
 			Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
 			AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
 			Status:     status,
