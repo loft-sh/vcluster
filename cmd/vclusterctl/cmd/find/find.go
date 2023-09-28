@@ -163,7 +163,7 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 	}
 
 	var proVClusters []pro.VirtualClusterInstanceProject
-	if namespace == "" && proClient != nil {
+	if proClient != nil {
 		proVClusters, err = pro.ListVClusters(ctx, proClient, name, project)
 		if err != nil {
 			log.Warnf("Error retrieving pro vclusters: %v", err)
@@ -176,20 +176,20 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 func ListOSSVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
 	var err error
 
+	_, _, proParentContext := VClusterProFromContext(context)
+	if proParentContext != "" {
+		return nil, nil
+	}
+
 	vClusterName, _, vClusterContext := VClusterFromContext(context)
 	timeout := time.Minute
 	if vClusterName != "" {
 		timeout = time.Second * 5
 	}
 
-	vclusters := []VCluster{}
-	isPro := strings.HasPrefix(context, "vcluster-pro_")
-	if !isPro {
-		// In case of error in vcluster listing in vcluster context, the below check will skip the error and try searching for parent context vclusters.
-		vclusters, err = findInContext(ctx, context, name, namespace, timeout, false)
-		if err != nil && vClusterName == "" {
-			return nil, errors.Wrap(err, "find vcluster")
-		}
+	vclusters, err := findInContext(ctx, context, name, namespace, timeout, false)
+	if err != nil && vClusterName == "" {
+		return nil, errors.Wrap(err, "find vcluster")
 	}
 
 	if vClusterName != "" {
@@ -204,8 +204,8 @@ func ListOSSVClusters(ctx context.Context, context, name, namespace string) ([]V
 	return vclusters, nil
 }
 
-func VClusterProContextName(vClusterName string, vClusterNamespace string, currentContext string) string {
-	return "vcluster-pro_" + vClusterName + "_" + vClusterNamespace + "_" + currentContext
+func VClusterProContextName(vClusterName string, projectName string, currentContext string) string {
+	return "vcluster-pro_" + vClusterName + "_" + projectName + "_" + currentContext
 }
 
 func VClusterContextName(vClusterName string, vClusterNamespace string, currentContext string) string {

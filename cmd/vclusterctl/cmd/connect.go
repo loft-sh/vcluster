@@ -422,7 +422,16 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 
 	// make sure kube context name is set
 	if cmd.KubeConfigContextName == "" {
-		cmd.KubeConfigContextName = find.VClusterProContextName(vCluster.VirtualCluster.Name, vCluster.Project.Name, rawConfig.CurrentContext)
+		// use parent context if this is a vcluster context
+		kubeContext := rawConfig.CurrentContext
+		_, _, parentContext := find.VClusterProFromContext(kubeContext)
+		if parentContext == "" {
+			_, _, parentContext = find.VClusterFromContext(kubeContext)
+		}
+		if parentContext != "" {
+			kubeContext = parentContext
+		}
+		cmd.KubeConfigContextName = find.VClusterProContextName(vCluster.VirtualCluster.Name, vCluster.Project.Name, kubeContext)
 	}
 
 	// set insecure true?
