@@ -448,7 +448,7 @@ func validateTemplateOptions(options *Options) error {
 	if options.KubernetesVersion != "" {
 		return fmt.Errorf("cannot use --kubernetes-version because the vcluster is using a template")
 	}
-	if options.Distro != "" {
+	if options.Distro != "" && options.Distro != "k3s" {
 		return fmt.Errorf("cannot use --distro because the vcluster is using a template")
 	}
 	if options.ChartName != "vcluster" {
