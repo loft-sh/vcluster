@@ -15,7 +15,6 @@ import (
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v3/pkg/product"
 	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
@@ -125,7 +124,7 @@ func (cmd *PauseCmd) pauseProVCluster(ctx context.Context, proClient proclient.C
 
 	cmd.Log.Infof("Putting virtual cluster %s in project %s to sleep", vCluster.VirtualCluster.Name, vCluster.Project.Name)
 
-	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(vCluster.VirtualCluster.Namespace)).Get(ctx, vCluster.VirtualCluster.Name, metav1.GetOptions{})
+	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(vCluster.VirtualCluster.Namespace).Get(ctx, vCluster.VirtualCluster.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -138,7 +137,7 @@ func (cmd *PauseCmd) pauseProVCluster(ctx context.Context, proClient proclient.C
 		virtualClusterInstance.Annotations[clusterv1.SleepModeForceDurationAnnotation] = strconv.FormatInt(cmd.ForceDuration, 10)
 	}
 
-	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(vCluster.VirtualCluster.Namespace)).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(vCluster.VirtualCluster.Namespace).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -146,7 +145,7 @@ func (cmd *PauseCmd) pauseProVCluster(ctx context.Context, proClient proclient.C
 	// wait for sleeping
 	cmd.Log.Info("Wait until virtual cluster is sleeping...")
 	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
-		virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(vCluster.VirtualCluster.Namespace)).Get(ctx, vCluster.VirtualCluster.Name, metav1.GetOptions{})
+		virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(vCluster.VirtualCluster.Namespace).Get(ctx, vCluster.VirtualCluster.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

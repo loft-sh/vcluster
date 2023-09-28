@@ -8,7 +8,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
@@ -101,7 +100,7 @@ func (cmd *ResumeCmd) resumeProVCluster(ctx context.Context, proClient proclient
 
 	cmd.Log.Infof("Waking up virtual cluster %s in project %s", vCluster.VirtualCluster.Name, vCluster.Project.Name)
 
-	_, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, naming.ProjectNamespace(vCluster.VirtualCluster.Namespace), vCluster.VirtualCluster.Name, true, cmd.Log)
+	_, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, cmd.Log)
 	if err != nil {
 		return err
 	}
