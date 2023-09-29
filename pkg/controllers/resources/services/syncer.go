@@ -157,8 +157,12 @@ var _ syncertypes.Starter = &serviceSyncer{}
 func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service
 	specialServices := specialservices.Default.SpecialServicesToSync()
-	if svc, ok := specialServices[req.NamespacedName]; ok {
+
+	svc, ok := specialServices[req.NamespacedName]
+	if ok && req.NamespacedName == specialservices.DefaultKubernetesSvcKey {
 		return true, svc(ctx, ctx.CurrentNamespace, s.serviceName, req.NamespacedName, TranslateServicePorts)
+	} else if ok && req.NamespacedName == specialservices.VclusterProxyMetricsSvcKey {
+		return true, svc(ctx, ctx.CurrentNamespace, s.serviceName+"-metrics-proxy", req.NamespacedName, func(p []corev1.ServicePort) []corev1.ServicePort { return []corev1.ServicePort{} })
 	}
 
 	return false, nil

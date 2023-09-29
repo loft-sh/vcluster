@@ -7,6 +7,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -79,7 +80,12 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	pfuncs := predicate.NewPredicateFuncs(pp)
 
 	vp := func(object client.Object) bool {
-		return object.GetNamespace() == "default" && object.GetName() == "kubernetes"
+
+		if object.GetNamespace() == specialservices.DefaultKubernetesSvcKey.Namespace && object.GetName() == specialservices.DefaultKubernetesSvcKey.Name {
+			return true
+		}
+
+		return false
 	}
 	vfuncs := predicate.NewPredicateFuncs(vp)
 

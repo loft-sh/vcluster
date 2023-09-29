@@ -42,10 +42,8 @@ func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]Spec
 func DefaultNameserverFinder() Interface {
 	return &NameserverFinder{
 		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
-			{
-				Name:      DefaultKubernetesSVCName,
-				Namespace: DefaultKubernetesSVCNamespace,
-			}: SyncKubernetesService,
+			DefaultKubernetesSvcKey:    SyncKubernetesService,
+			VclusterProxyMetricsSvcKey: SyncVclusterProxyService,
 		},
 	}
 }

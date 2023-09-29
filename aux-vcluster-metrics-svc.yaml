@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vcluster-metrics-proxy
+  namespace: vcluster
+  labels:
+    app: vcluster
+    chart: vcluster-k8s-0.0.1
+    release: vcluter
+    heritage: helm
+  annotations:
+    meta.helm.sh/release-name: vcluster
+    meta.helm.sh/release-namespace: vcluster
+spec:
+  type: NodePort
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP
+    - name: kubelet
+      port: 10250
+      targetPort: 8443
+      protocol: TCP
+  externalTrafficPolicy: Cluster
+  selector:
+    app: vcluster
+    release: vcluster

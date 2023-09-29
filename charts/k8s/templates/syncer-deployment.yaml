@@ -148,7 +148,7 @@ spec:
         {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
-          - --request-header-ca-cert=/pki/ca.crt
+          - --request-header-ca-cert=/pki/front-proxy-ca.crt
           - --client-ca-cert=/pki/ca.crt
           - --server-ca-cert=/pki/ca.crt
           - --server-ca-key=/pki/ca.key

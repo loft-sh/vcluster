@@ -16,8 +16,18 @@ func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byt
 	commonName := "kube-apiserver"
 	extKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 	altNames := &certhelper.AltNames{
-		DNSNames: []string{"kubernetes.default.svc." + clusterDomain, "kubernetes.default.svc", "kubernetes.default", "kubernetes", "localhost"},
-		IPs:      []net.IP{net.ParseIP("127.0.0.1")},
+		DNSNames: []string{
+			"kubernetes.default.svc." + clusterDomain,
+			"kubernetes.default.svc",
+			"kubernetes.default",
+			"kubernetes",
+			"localhost",
+			"metrics-server.kube-system.svc." + clusterDomain,
+			"metrics-server.kube-system.svc",
+			"metrics-server.kube-system",
+			"metrics-server",
+		},
+		IPs: []net.IP{net.ParseIP("127.0.0.1")},
 	}
 
 	addSANs(altNames, SANs)
