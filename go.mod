@@ -15,7 +15,7 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230925121720-6c3f4d5f792e
 	github.com/loft-sh/api/v3 v3.0.0-20230927120541-83f9f967b31e
-	github.com/loft-sh/loftctl/v3 v3.0.0-20230927163845-34f6902ff7ae
+	github.com/loft-sh/loftctl/v3 v3.0.0-20230929122730-66c14842d912
 	github.com/loft-sh/utils v0.0.28
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
