@@ -335,6 +335,9 @@ func TestSync(t *testing.T) {
 	editedNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
+			Annotations: map[string]string{
+				translate.ManagedLabelsAnnotation: "test",
+			},
 			Labels: map[string]string{
 				"test": "true",
 			},
@@ -473,6 +476,9 @@ func TestSync(t *testing.T) {
 	editedNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
+			Annotations: map[string]string{
+				translate.ManagedLabelsAnnotation: "test",
+			},
 			Labels: map[string]string{
 				"test": "true",
 			},
@@ -517,6 +523,9 @@ func TestSync(t *testing.T) {
 	editedNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
+			Annotations: map[string]string{
+				translate.ManagedLabelsAnnotation: "test",
+			},
 			Labels: map[string]string{
 				"test": "true",
 			},
