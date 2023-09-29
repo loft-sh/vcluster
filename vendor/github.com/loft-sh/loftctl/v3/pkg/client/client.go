@@ -434,7 +434,7 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 		}
 		msg += "'"
 		log.Infof(msg, host, product.LoginCmd(), host)
-		log.Info("Logging into %s...", product.Name())
+		log.Infof("Logging into %s...", product.Name())
 
 		key = <-keyChannel
 	}
