@@ -63,7 +63,7 @@ vcluster pro generate admin-kube-config
 				return err
 			}
 
-			return cmd.Run(cobraCmd.Context(), c, cobraCmd, args)
+			return cmd.Run(cobraCmd.Context(), c)
 		},
 	}
 
@@ -73,7 +73,7 @@ vcluster pro generate admin-kube-config
 }
 
 // Run executes the command
-func (cmd *GenerateKubeConfigCmd) Run(ctx context.Context, c *rest.Config, cobraCmd *cobra.Command, args []string) error {
+func (cmd *GenerateKubeConfigCmd) Run(ctx context.Context, c *rest.Config) error {
 	token, err := generate.GetAuthToken(ctx, c, cmd.Namespace, cmd.ServiceAccount)
 	if err != nil {
 		return fmt.Errorf("get auth token: %w", err)
