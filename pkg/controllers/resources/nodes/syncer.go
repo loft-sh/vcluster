@@ -245,8 +245,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 			return ctrl.Result{}, err
 		}
 
-		// we will requeue here anyways
-		return ctrl.Result{}, nil
+		vNode = updatedVNode
 	}
 
 	updated := s.translateUpdateBackwards(pNode, vNode)
