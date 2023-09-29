@@ -32,13 +32,6 @@ func NewProCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	// Use is an alias to connect
 	proxy.AddCmd("use", "Creates a kube context for the given virtual cluster")
 
-	proxy.AddCmd("space", "Management operations on space resources")
-	proxy.AddCmd("space create", "Creates a new space in the given cluster")
-	proxy.AddCmd("space delete", "Deletes a space from a cluster")
-	proxy.AddCmd("space import", "Imports a vcluster into a vcluster pro project")
-	proxy.AddCmd("space list", "Lists the vcluster pro spaces you have access to")
-	proxy.AddCmd("space use", "Creates a kube context for the given space")
-
 	proxy.AddCmd("secret", "Management Operations on secret resources")
 	proxy.AddCmd("secret get", "Returns the key value of a project / shared secret")
 	proxy.AddCmd("secret list", "Lists all the shared secrets you have access to")
