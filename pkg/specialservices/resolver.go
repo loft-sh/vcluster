@@ -23,17 +23,11 @@ type SpecialServiceSyncer func(ctx context.Context,
 	servicePortTranslator ServicePortTranslator) error
 
 type Interface interface {
-	GetDNSServiceSuffix() *string
 	SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer
 }
 
 type NameserverFinder struct {
-	DNSServiceSuffix *string
-	SpecialServices  map[types.NamespacedName]SpecialServiceSyncer
-}
-
-func (f *NameserverFinder) GetDNSServiceSuffix() *string {
-	return f.DNSServiceSuffix
+	SpecialServices map[types.NamespacedName]SpecialServiceSyncer
 }
 
 func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer {

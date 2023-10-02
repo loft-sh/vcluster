@@ -1,49 +1,6 @@
 {{- if .Values.pro }}
 {{- if .Values.coredns.integrated }}
 apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-dns
-  namespace: {{ .Release.Namespace }}
-  annotations:
-    prometheus.io/port: "9153"
-    prometheus.io/scrape: "true"
-    {{- if .Values.coredns.service.annotations }}
-{{ toYaml .Values.coredns.service.annotations | indent 8 }}
-    {{- end }}
-  {{- if .Values.globalAnnotations }}
-{{ toYaml .Values.globalAnnotations | indent 4 }}
-  {{- end }}
-spec:
-  selector:
-    app: vcluster
-    release: {{ .Release.Name }}
-  type: {{ .Values.coredns.service.type }}
-  {{- if (eq (.Values.coredns.service.type) "LoadBalancer") }}
-  {{- if .Values.coredns.service.externalTrafficPolicy }}
-  externalTrafficPolicy: {{ .Values.coredns.service.externalTrafficPolicy }}
-  {{- end }}
-  {{- if .Values.coredns.service.externalIPs }}
-  externalIPs:
-    {{- range $f := .Values.coredns.service.externalIPs }}
-    - {{ $f }}
-    {{- end }}
-  {{- end }}
-  {{- end }}
-  ports:
-    - name: dns
-      port: 53
-      targetPort: 1053
-      protocol: UDP
-    - name: dns-tcp
-      port: 53
-      targetPort: 1053
-      protocol: TCP
-    - name: metrics
-      port: 9153
-      protocol: TCP
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-dns
