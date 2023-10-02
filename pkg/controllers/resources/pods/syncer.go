@@ -283,15 +283,12 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
-
 	strippedPod = stripInjectedSidecarContainers(vPod, pPod, strippedPod)
 
 	// update readiness gates & sync status virtual -> physical
-	updated, err := UpdateConditions(ctx, strippedPod, vPod)
+	strippedPod, err := UpdateConditions(ctx, strippedPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if updated {
-		return ctrl.Result{}, nil
 	}
 
 	// update status physical -> virtual
