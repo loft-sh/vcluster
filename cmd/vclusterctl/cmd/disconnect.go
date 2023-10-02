@@ -80,18 +80,13 @@ func (cmd *DisconnectCmd) Run(*cobra.Command, []string) error {
 		}
 	}
 
-	err = switchContext(&rawConfig, otherContext)
+	err = find.SwitchContext(&rawConfig, otherContext)
 	if err != nil {
 		return errors.Wrap(err, "switch kube context")
 	}
 
 	cmd.log.Infof("Successfully disconnected from vcluster: %s and switched back to the original context: %s", vClusterName, otherContext)
 	return nil
-}
-
-func switchContext(kubeConfig *clientcmdapi.Config, otherContext string) error {
-	kubeConfig.CurrentContext = otherContext
-	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
 }
 
 func (cmd *DisconnectCmd) selectContext(kubeConfig *clientcmdapi.Config, currentContext string) (string, error) {

@@ -495,7 +495,7 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 				if err != nil {
 					return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 				}
-				err = switchContext(&rawConfig, cmd.Context)
+				err = find.SwitchContext(&rawConfig, cmd.Context)
 				if err != nil {
 					return errors.Wrap(err, "switch context")
 				}

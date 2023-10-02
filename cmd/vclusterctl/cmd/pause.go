@@ -179,7 +179,7 @@ func (cmd *PauseCmd) prepare(vCluster *find.VCluster) error {
 
 	vClusterName, vClusterNamespace, vClusterContext := find.VClusterFromContext(currentContext)
 	if vClusterName == vCluster.Name && vClusterNamespace == vCluster.Namespace && vClusterContext == vCluster.Context {
-		err = switchContext(currentRawConfig, vCluster.Context)
+		err = find.SwitchContext(currentRawConfig, vCluster.Context)
 		if err != nil {
 			return err
 		}

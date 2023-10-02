@@ -46,6 +46,11 @@ const (
 	StatusUnknown Status = "Unknown"
 )
 
+func SwitchContext(kubeConfig *api.Config, otherContext string) error {
+	kubeConfig.CurrentContext = otherContext
+	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
+}
+
 func CurrentContext() (string, *api.Config, error) {
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
