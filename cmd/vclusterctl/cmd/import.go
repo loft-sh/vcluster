@@ -190,10 +190,8 @@ func getAgentConfig(ctx context.Context, kubeContext string) (*managementv1.Agen
 	agentConfigSecret, err := findSecret(ctx, kubeContext, "loft-agent-config")
 	if err != nil {
 		return nil, err
-	}
-
-	if agentConfigSecret == nil {
-		return nil, fmt.Errorf("could not determine current vCluster.Pro cluster, please provide a target cluster via --cluster")
+	} else if agentConfigSecret == nil {
+		return nil, fmt.Errorf("could not determine current vCluster.Pro cluster, please make sure the current context is connected to vCluster.Pro. If this is not an error, you can also specify the cluster manually via '--cluster'")
 	}
 
 	// get data

@@ -2,17 +2,25 @@ package pro
 
 import (
 	"context"
+	"fmt"
 
-	loftctl "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
 	loftctlflags "github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/start"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
+type StartCmd struct {
+	start.Options
+}
+
 func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, error) {
-	cmd := &loftctl.StartCmd{
+	cmd := &StartCmd{
 		Options: start.Options{
 			GlobalFlags: loftctlGlobalFlags,
 			Log:         log.GetInstance(),
@@ -41,16 +49,7 @@ before running this command:
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			if cmd.Version == "latest" || cmd.Version == "" {
-				cmd.Version = pro.MinimumVersionTag
-
-				latestVersion, err := pro.LatestCompatibleVersion(context.TODO())
-				if err == nil {
-					cmd.Version = latestVersion
-				}
-			}
-
-			return start.NewLoftStarter(cmd.Options).Start(cobraCmd.Context())
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -74,4 +73,69 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-control-plane", "The chart name to deploy vCluster.Pro")
 
 	return startCmd, nil
+}
+
+func (cmd *StartCmd) Run(ctx context.Context) error {
+	// get version to deploy
+	if cmd.Version == "latest" || cmd.Version == "" {
+		cmd.Version = pro.MinimumVersionTag
+
+		latestVersion, err := pro.LatestCompatibleVersion(context.TODO())
+		if err == nil {
+			cmd.Version = latestVersion
+		}
+	}
+
+	// make sure we are in the correct context
+	// first load the kube config
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+		CurrentContext: cmd.Context,
+	})
+
+	// load the raw config
+	rawConfig, err := kubeClientConfig.RawConfig()
+	if err != nil {
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+	if cmd.Context != "" {
+		rawConfig.CurrentContext = cmd.Context
+	}
+
+	// check if vcluster in vcluster
+	_, _, previousContext := find.VClusterFromContext(rawConfig.CurrentContext)
+	if previousContext == "" {
+		_, _, previousContext = find.VClusterProFromContext(rawConfig.CurrentContext)
+	}
+	if previousContext != "" {
+		if terminal.IsTerminalIn {
+			switchBackOption := "No, switch back to context " + previousContext
+			out, err := cmd.Log.Question(&survey.QuestionOptions{
+				Question:     "You are trying to create vCluster.Pro inside another vcluster, is this desired?",
+				DefaultValue: switchBackOption,
+				Options:      []string{switchBackOption, "Yes"},
+			})
+			if err != nil {
+				return err
+			}
+
+			if out == switchBackOption {
+				cmd.Context = previousContext
+				kubeClientConfig = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+					CurrentContext: cmd.Context,
+				})
+				rawConfig, err = kubeClientConfig.RawConfig()
+				if err != nil {
+					return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+				}
+				err = find.SwitchContext(&rawConfig, cmd.Context)
+				if err != nil {
+					return fmt.Errorf("switch context: %w", err)
+				}
+			}
+		} else {
+			cmd.Log.Warnf("You are trying to create vCluster.Pro inside another vcluster, is this desired?")
+		}
+	}
+
+	return start.NewLoftStarter(cmd.Options).Start(ctx)
 }
