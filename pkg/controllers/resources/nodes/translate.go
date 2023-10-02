@@ -25,71 +25,79 @@ var (
 func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) *corev1.Node {
 	var updated *corev1.Node
 
-	var (
-		annotations    map[string]string
-		labels         map[string]string
-		translatedSpec = pNode.Spec.DeepCopy()
-	)
-	if s.enableScheduler {
-		labels, annotations = translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, TaintsAnnotation)
+	// merge labels & taints
+	translatedSpec := pNode.Spec.DeepCopy()
+	labels, annotations := translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, TaintsAnnotation)
 
-		// merge taints together
-		oldPhysical := []string{}
-		if vNode.Annotations != nil && vNode.Annotations[TaintsAnnotation] != "" {
-			err := json.Unmarshal([]byte(vNode.Annotations[TaintsAnnotation]), &oldPhysical)
-			if err != nil {
-				klog.Errorf("error decoding taints: %v", err)
-			}
-		}
-
-		// convert physical taints
-		physical := []string{}
-		for _, p := range pNode.Spec.Taints {
-			out, err := json.Marshal(p)
-			if err != nil {
-				klog.Errorf("error encoding taint: %v", err)
-			} else {
-				physical = append(physical, string(out))
-			}
-		}
-
-		// convert virtual taints
-		virtual := []string{}
-		for _, p := range vNode.Spec.Taints {
-			out, err := json.Marshal(p)
-			if err != nil {
-				klog.Errorf("error encoding taint: %v", err)
-			} else {
-				virtual = append(virtual, string(out))
-			}
-		}
-
-		// merge taints
-		newTaints := mergeStrings(physical, virtual, oldPhysical)
-		newTaintsObjects := []corev1.Taint{}
-		for _, t := range newTaints {
-			taint := corev1.Taint{}
-			err := json.Unmarshal([]byte(t), &taint)
-			if err != nil {
-				klog.Errorf("error decoding taint: %v", err)
-			} else {
-				newTaintsObjects = append(newTaintsObjects, taint)
-			}
-		}
-		translatedSpec.Taints = newTaintsObjects
-
-		// encode taints
-		out, err := json.Marshal(physical)
+	// merge taints together
+	oldPhysical := []string{}
+	if vNode.Annotations != nil && vNode.Annotations[TaintsAnnotation] != "" {
+		err := json.Unmarshal([]byte(vNode.Annotations[TaintsAnnotation]), &oldPhysical)
 		if err != nil {
-			klog.Errorf("error encoding taints: %v", err)
-		} else {
-			if annotations == nil {
-				annotations = map[string]string{}
-			}
-			annotations[TaintsAnnotation] = string(out)
+			klog.Errorf("error decoding taints: %v", err)
 		}
+	}
+
+	// convert physical taints
+	physical := []string{}
+	hasUnready := false
+	for _, p := range pNode.Spec.Taints {
+		if p.Key == "node.kubernetes.io/not-ready" {
+			hasUnready = true
+		}
+
+		out, err := json.Marshal(p)
+		if err != nil {
+			klog.Errorf("error encoding taint: %v", err)
+		} else {
+			physical = append(physical, string(out))
+		}
+	}
+
+	// convert virtual taints
+	virtual := []string{}
+	for _, p := range vNode.Spec.Taints {
+		if !hasUnready && p.Key == "node.kubernetes.io/not-ready" {
+			continue
+		}
+
+		out, err := json.Marshal(p)
+		if err != nil {
+			klog.Errorf("error encoding taint: %v", err)
+		} else {
+			virtual = append(virtual, string(out))
+		}
+	}
+
+	// merge taints
+	newTaints := mergeStrings(physical, virtual, oldPhysical)
+	newTaintsObjects := []corev1.Taint{}
+	for _, t := range newTaints {
+		taint := corev1.Taint{}
+		err := json.Unmarshal([]byte(t), &taint)
+		if err != nil {
+			klog.Errorf("error decoding taint: %v", err)
+		} else {
+			newTaintsObjects = append(newTaintsObjects, taint)
+		}
+	}
+
+	// set merged taints
+	translatedSpec.Taints = newTaintsObjects
+
+	// encode taints
+	out, err := json.Marshal(physical)
+	if err != nil {
+		klog.Errorf("error encoding taints: %v", err)
 	} else {
-		labels, annotations = translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels)
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		if len(physical) > 0 {
+			annotations[TaintsAnnotation] = string(out)
+		} else {
+			delete(annotations, TaintsAnnotation)
+		}
 	}
 
 	// Omit those taints for which the vcluster has enforced tolerations defined
