@@ -176,15 +176,15 @@ func ListVClusters(ctx context.Context, proClient proclient.Client, context, nam
 func ListOSSVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
 	var err error
 
-	_, _, proParentContext := VClusterProFromContext(context)
-	if proParentContext != "" {
-		return nil, nil
-	}
-
-	vClusterName, _, vClusterContext := VClusterFromContext(context)
 	timeout := time.Minute
-	if vClusterName != "" {
-		timeout = time.Second * 5
+	vClusterName, _, vClusterContext := VClusterProFromContext(context)
+	if vClusterContext != "" {
+		timeout = time.Second * 10
+	} else {
+		vClusterName, _, vClusterContext = VClusterFromContext(context)
+		if vClusterName != "" {
+			timeout = time.Second * 5
+		}
 	}
 
 	vclusters, err := findInContext(ctx, context, name, namespace, timeout, false)
