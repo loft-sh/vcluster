@@ -27,10 +27,10 @@ import (
 type ImportCmd struct {
 	*flags.GlobalFlags
 
-	VClusterClusterName string
-	Project             string
-	ImportName          string
-	DisableUpgrade      bool
+	ClusterName    string
+	Project        string
+	ImportName     string
+	DisableUpgrade bool
 
 	Log log.Logger
 }
@@ -70,8 +70,8 @@ vcluster import my-vcluster --cluster connected-cluster \
 				}
 			}
 
-			if cmd.VClusterClusterName == "" {
-				cmd.VClusterClusterName, err = getClusterName(cobraCmd.Context(), globalFlags.Context)
+			if cmd.ClusterName == "" {
+				cmd.ClusterName, err = getClusterName(cobraCmd.Context(), globalFlags.Context)
 				if err != nil {
 					return err
 				}
@@ -81,7 +81,7 @@ vcluster import my-vcluster --cluster connected-cluster \
 		},
 	}
 
-	importCmd.Flags().StringVar(&cmd.VClusterClusterName, "cluster", "", "Cluster name of the cluster the virtual cluster is running on")
+	importCmd.Flags().StringVar(&cmd.ClusterName, "cluster", "", "Cluster name of the cluster the virtual cluster is running on")
 	importCmd.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vcluster into")
 	importCmd.Flags().StringVar(&cmd.ImportName, "importname", "", "The name of the vcluster under projects. If unspecified, will use the vcluster name")
 	importCmd.Flags().BoolVar(&cmd.DisableUpgrade, "disable-upgrade", false, "If true, will disable auto-upgrade of the imported vcluster to vCluster.Pro")
@@ -110,7 +110,7 @@ func (cmd *ImportCmd) Run(ctx context.Context, args []string, proClient client.C
 		SourceVirtualCluster: managementv1.ProjectImportVirtualClusterSource{
 			Name:       vClusterName,
 			Namespace:  cmd.Namespace,
-			Cluster:    cmd.VClusterClusterName,
+			Cluster:    cmd.ClusterName,
 			ImportName: cmd.ImportName,
 		},
 		UpgradeToPro: !cmd.DisableUpgrade,

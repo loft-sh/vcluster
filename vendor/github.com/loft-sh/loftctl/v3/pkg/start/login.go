@@ -27,14 +27,22 @@ func (l *LoftStarter) login(url string) error {
 
 	// check if we are already logged in
 	if l.isLoggedIn(url) {
+		// still open the UI
+		err := open.Run(url)
+		if err != nil {
+			return fmt.Errorf("couldn't open the login page in a browser: %w", err)
+		}
+
 		return nil
 	}
 
+	// log into the CLI
 	err := l.loginViaCLI(url)
 	if err != nil {
 		return err
 	}
 
+	// log into the UI
 	err = l.loginUI(url)
 	if err != nil {
 		return err
@@ -104,7 +112,7 @@ func (l *LoftStarter) loginUI(url string) error {
 
 	err := open.Run(loginURL)
 	if err != nil {
-		return fmt.Errorf("couldn't open the login page in a browser: %w.", err)
+		return fmt.Errorf("couldn't open the login page in a browser: %w", err)
 	}
 
 	l.Log.Infof("If the browser does not open automatically, please navigate to %s", loginURL)
