@@ -105,7 +105,7 @@ func GetVCluster(ctx context.Context, proClient proclient.Client, context, name,
 				return &ossVClusters[idx], nil, nil
 			}
 
-			return nil, &proVClusters[idx], nil
+			return nil, &proVClusters[idx-len(ossVClusters)], nil
 		}
 	}
 

@@ -193,7 +193,7 @@ func getAgentConfig(ctx context.Context, kubeContext string) (*managementv1.Agen
 	}
 
 	if agentConfigSecret == nil {
-		return nil, fmt.Errorf("could not find agent config secret")
+		return nil, fmt.Errorf("could not determine current vCluster.Pro cluster, please provide a target cluster via --cluster")
 	}
 
 	// get data
