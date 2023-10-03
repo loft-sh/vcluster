@@ -2,7 +2,9 @@ package specialservices
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var Default = DefaultNameserverFinder()
@@ -22,10 +24,15 @@ type SpecialServiceSyncer func(
 
 type Interface interface {
 	SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer
+	DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string)
 }
 
 type NameserverFinder struct {
 	SpecialServices map[types.NamespacedName]SpecialServiceSyncer
+}
+
+func (f *NameserverFinder) DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string) {
+	return ctx.PhysicalClient, translate.Default.PhysicalNamespace(DefaultKubeDNSServiceNamespace)
 }
 
 func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer {
