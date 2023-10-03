@@ -13,13 +13,13 @@ kubectl logs -n test -l app=vcluster,release=test -c syncer
 kubectl logs -n test -l app=vcluster,release=test -c vcluster
 ```
 
-If you are having problems with k3s not starting or database being locked, you can also try to [use a different distribution such as k0s or k8s](./deploying-vclusters/supported-distros.mdx) or try to use another [storage type for k3s](./deploying-vclusters/persistence.mdx).
+If you are having problems with k3s not starting or database being locked, you can also try to [use a different distribution such as k0s or k8s](../deploying-vclusters/supported-distros.mdx) or try to use another [storage type for k3s](../deploying-vclusters/persistence.mdx).
 
 ### Problem: using vCluster with an ingress causes unauthorized errors
 
 The problem is that SSL termination does happen at the ingress controller level and not at vCluster itself. By default, vCluster uses client cert authentication, which will be sent to the ingress controller and the ingress controller will then forward the request to vCluster, but without the client cert, which causes the error. There are possible solutions to this problem:
 
-1. Use SSL pass through for your ingress controller as described [here](./using-vclusters/access.mdx). Make sure you do not have `spec.tls` defined.
+1. Use SSL pass through for your ingress controller as described [here](../using-vclusters/access.mdx). Make sure you do not have `spec.tls` defined.
 2. Use service account authentication instead of client-cert and client-key described here
 
 ### Problem: installing vCluster causes Error: Chart.yaml file is missing
