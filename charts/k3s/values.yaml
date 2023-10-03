@@ -176,6 +176,7 @@ vcluster:
     - --flannel-backend=none
     - --kube-apiserver-arg=bind-address=127.0.0.1
   extraArgs: []
+  extraVolumeMounts: []
   volumeMounts:
     - mountPath: /data
       name: data
