@@ -36,7 +36,7 @@ data:
       {{- end}}
   {{- end }}
   {{- if .bundle }}
-    - bundle: {{ .bundle }}
+      bundle: {{ .bundle }}
   {{- end }}
   {{- if or .chart .bundle }}
       {{- if or .values .valuesTemplate }}

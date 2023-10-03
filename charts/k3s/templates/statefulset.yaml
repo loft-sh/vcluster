@@ -116,21 +116,23 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
-      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
         - name: helm-cache
           emptyDir: {}
         - name: tmp
           emptyDir: {}
-      {{- end }}
         - name: config
           emptyDir: {}
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
-      {{- if .Values.coredns.enabled }}
+      {{- if and .Values.coredns.enabled (not .Values.coredns.integrated) }}
         - name: coredns
           configMap:
             name: {{ .Release.Name }}-coredns
+      {{- else if .Values.coredns.integrated }}
+        - name: coredns
+          configMap:
+            name: {{ .Release.Name }}-dns
       {{- end }}
         - name: custom-config-volume
           configMap:
@@ -139,6 +141,12 @@ spec:
       {{- if not .Values.storage.persistence }}
         - name: data
           emptyDir: {}
+      {{- end }}
+      {{- if and .Values.noopSyncer.enabled .Values.noopSyncer.secret }}
+        - name: noopsyncer-cluster-certs
+          secret:
+            secretName: {{ .Values.noopSyncer.secret }}
+            optional: true
       {{- end }}
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
@@ -151,7 +159,7 @@ spec:
       {{- end }}
       {{- end }}
       containers:
-      {{- if not .Values.vcluster.disabled }}
+      {{- if and (not .Values.vcluster.disabled) (not .Values.noopSyncer.enabled) }}
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
         name: vcluster
         # k3s has a problem running as pid 1 and disabled agents on cgroupv2
@@ -218,7 +226,11 @@ spec:
         {{- if .Values.syncer.image }}
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
+        {{- if .Values.pro }}
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster-pro:{{ .Chart.Version }}"
+        {{- else }}
         image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
         {{- end }}
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
@@ -281,6 +293,18 @@ spec:
           {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
           - --proxy-metrics-server=true
           {{- end }}
+          {{- if .Values.coredns.integrated }}
+          - --integrated-coredns=true
+          {{- end }}
+          {{- if not .Values.coredns.enabled }}
+          - --coredns-enabled=false
+          {{- end }}
+          {{- if .Values.noopSyncer.enabled }}
+          - --noop-syncer=true
+          {{- if .Values.noopSyncer.synck8sService }}
+          - --sync-k8s-service=true
+          {{- end }}
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
@@ -337,19 +361,34 @@ spec:
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
         volumeMounts:
-        {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
           - name: helm-cache
             mountPath: /.cache/helm
           - name: tmp
             mountPath: /tmp
-        {{- end }}
-        {{- if or .Values.coredns.enabled }}
+        {{- if or .Values.coredns.enabled .Values.coredns.integrated }}
           - name: coredns
             mountPath: /manifests/coredns
             readOnly: true
           - name: custom-config-volume
             mountPath: /etc/coredns/custom
             readOnly: true
+        {{- end }}
+        {{- if and .Values.noopSyncer.enabled .Values.noopSyncer.secret }}
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/tls/request-header-ca.crt
+            subPath: requestHeaderCaCert
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/tls/client-ca.crt
+            subPath: clientCaCert
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/tls/server-ca.crt
+            subPath: serverCaCert
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/tls/server-ca.key
+            subPath: serverCaKey
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/cred/admin.kubeconfig
+            subPath: kubeConfig
         {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         {{- if .Values.syncer.extraVolumeMounts }}

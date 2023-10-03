@@ -8,114 +8,114 @@ const Version = "v1beta1"
 
 type Config struct {
 	// Version is the config version
-	Version string `yaml:"version,omitempty" json:"version,omitempty"`
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 
 	// Exports syncs a resource from the virtual cluster to the host
-	Exports []*Export `yaml:"export,omitempty" json:"export,omitempty"`
+	Exports []*Export `json:"export,omitempty" yaml:"export,omitempty"`
 
 	// Imports syncs a resource from the host cluster to virtual cluster
-	Imports []*Import `yaml:"import,omitempty" json:"import,omitempty"`
+	Imports []*Import `json:"import,omitempty" yaml:"import,omitempty"`
 
 	// Hooks are hooks that can be used to inject custom patches before syncing
-	Hooks *Hooks `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+	Hooks *Hooks `json:"hooks,omitempty" yaml:"hooks,omitempty"`
 }
 
 type Hooks struct {
 	// HostToVirtual is a hook that is executed before syncing from the host to the virtual cluster
-	HostToVirtual []*Hook `yaml:"hostToVirtual,omitempty" json:"hostToVirtual,omitempty"`
+	HostToVirtual []*Hook `json:"hostToVirtual,omitempty" yaml:"hostToVirtual,omitempty"`
 
 	// VirtualToHost is a hook that is executed before syncing from the virtual to the host cluster
-	VirtualToHost []*Hook `yaml:"virtualToHost,omitempty" json:"virtualToHost,omitempty"`
+	VirtualToHost []*Hook `json:"virtualToHost,omitempty" yaml:"virtualToHost,omitempty"`
 }
 
 type Hook struct {
 	TypeInformation
 
 	// Verbs are the verbs that the hook should mutate
-	Verbs []string `yaml:"verbs,omitempty" json:"verbs,omitempty"`
+	Verbs []string `json:"verbs,omitempty" yaml:"verbs,omitempty"`
 
 	// Patches are the patches to apply on the object to be synced
-	Patches []*Patch `yaml:"patches,omitempty" json:"patches,omitempty"`
+	Patches []*Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 }
 
 type Import struct {
-	SyncBase `yaml:",inline" json:",inline"`
+	SyncBase `json:",inline" yaml:",inline"`
 }
 
 type SyncBase struct {
-	TypeInformation `yaml:",inline" json:",inline"`
+	TypeInformation `json:",inline" yaml:",inline"`
 
-	Optional bool `yaml:"optional,omitempty" json:"optional,omitempty"`
+	Optional bool `json:"optional,omitempty" yaml:"optional,omitempty"`
 
-	// ReplaceOnConflict determines if the controller should try to recreate the object
+	// ReplaceWhenInvalid determines if the controller should try to recreate the object
 	// if there is a problem applying
-	ReplaceOnConflict bool `yaml:"replaceOnConflict,omitempty" json:"replaceOnConflict,omitempty"`
+	ReplaceWhenInvalid bool `json:"replaceOnConflict,omitempty" yaml:"replaceOnConflict,omitempty"`
 
 	// Patches are the patches to apply on the virtual cluster objects
 	// when syncing them from the host cluster
-	Patches []*Patch `yaml:"patches,omitempty" json:"patches,omitempty"`
+	Patches []*Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 
 	// ReversePatches are the patches to apply to host cluster objects
 	// after it has been synced to the virtual cluster
-	ReversePatches []*Patch `yaml:"reversePatches,omitempty" json:"reversePatches,omitempty"`
+	ReversePatches []*Patch `json:"reversePatches,omitempty" yaml:"reversePatches,omitempty"`
 }
 
 type Export struct {
-	SyncBase `yaml:",inline" json:",inline"`
+	SyncBase `json:",inline" yaml:",inline"`
 
 	// Selector is a label selector to select the synced objects in the virtual cluster.
 	// If empty, all objects will be synced.
-	Selector *Selector `yaml:"selector,omitempty" json:"selector,omitempty"`
+	Selector *Selector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
 type TypeInformation struct {
 	// APIVersion of the object to sync
-	APIVersion string `yaml:"apiVersion,omitempty" json:"apiVersion,omitempty"`
+	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
 
 	// Kind of the object to sync
-	Kind string `yaml:"kind,omitempty" json:"kind,omitempty"`
+	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
 
 type Selector struct {
 	// LabelSelector are the labels to select the object from
-	LabelSelector map[string]string `yaml:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+	LabelSelector map[string]string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
 }
 
 type Patch struct {
 	// Operation is the type of the patch
-	Operation PatchType `yaml:"op,omitempty" json:"op,omitempty"`
+	Operation PatchType `json:"op,omitempty" yaml:"op,omitempty"`
 
 	// FromPath is the path from the other object
-	FromPath string `yaml:"fromPath,omitempty" json:"fromPath,omitempty"`
+	FromPath string `json:"fromPath,omitempty" yaml:"fromPath,omitempty"`
 
 	// Path is the path of the patch
-	Path string `yaml:"path,omitempty" json:"path,omitempty"`
+	Path string `json:"path,omitempty" yaml:"path,omitempty"`
 
 	// NamePath is the path to the name of a child resource within Path
-	NamePath string `yaml:"namePath,omitempty" json:"namePath,omitempty"`
+	NamePath string `json:"namePath,omitempty" yaml:"namePath,omitempty"`
 
 	// NamespacePath is path to the namespace of a child resource within Path
-	NamespacePath string `yaml:"namespacePath,omitempty" json:"namespacePath,omitempty"`
+	NamespacePath string `json:"namespacePath,omitempty" yaml:"namespacePath,omitempty"`
 
 	// Value is the new value to be set to the path
-	Value interface{} `yaml:"value,omitempty" json:"value,omitempty"`
+	Value interface{} `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// Regex - is regular expresion used to identify the Name,
 	// and optionally Namespace, parts of the field value that
 	// will be replaced with the rewritten Name and/or Namespace
-	Regex       string         `yaml:"regex,omitempty" json:"regex,omitempty"`
-	ParsedRegex *regexp.Regexp `yaml:"-" json:"-"`
+	Regex       string         `json:"regex,omitempty" yaml:"regex,omitempty"`
+	ParsedRegex *regexp.Regexp `json:"-"               yaml:"-"`
 
 	// Conditions are conditions that must be true for
 	// the patch to get executed
-	Conditions []*PatchCondition `yaml:"conditions,omitempty" json:"conditions,omitempty"`
+	Conditions []*PatchCondition `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 
 	// Ignore determines if the path should be ignored if handled as a reverse patch
-	Ignore *bool `yaml:"ignore,omitempty" json:"ignore,omitempty"`
+	Ignore *bool `json:"ignore,omitempty" yaml:"ignore,omitempty"`
 
 	// Sync defines if a specialized syncer should be initialized using values
 	// from the rewriteName operation as Secret/Configmap names to be synced
-	Sync *PatchSync `yaml:"sync,omitempty" json:"sync,omitempty"`
+	Sync *PatchSync `json:"sync,omitempty" yaml:"sync,omitempty"`
 }
 
 type PatchType string
@@ -134,22 +134,22 @@ const (
 
 type PatchCondition struct {
 	// Path is the path within the object to select
-	Path string `yaml:"path,omitempty" json:"path,omitempty"`
+	Path string `json:"path,omitempty" yaml:"path,omitempty"`
 
 	// SubPath is the path below the selected object to select
-	SubPath string `yaml:"subPath,omitempty" json:"subPath,omitempty"`
+	SubPath string `json:"subPath,omitempty" yaml:"subPath,omitempty"`
 
 	// Equal is the value the path should be equal to
-	Equal interface{} `yaml:"equal,omitempty" json:"equal,omitempty"`
+	Equal interface{} `json:"equal,omitempty" yaml:"equal,omitempty"`
 
 	// NotEqual is the value the path should not be equal to
-	NotEqual interface{} `yaml:"notEqual,omitempty" json:"notEqual,omitempty"`
+	NotEqual interface{} `json:"notEqual,omitempty" yaml:"notEqual,omitempty"`
 
 	// Empty means that the path value should be empty or unset
-	Empty *bool `yaml:"empty,omitempty" json:"empty,omitempty"`
+	Empty *bool `json:"empty,omitempty" yaml:"empty,omitempty"`
 }
 
 type PatchSync struct {
-	Secret    *bool `yaml:"secret,omitempty" json:"secret,omitempty"`
-	ConfigMap *bool `yaml:"configmap,omitempty" json:"configmap,omitempty"`
+	Secret    *bool `json:"secret,omitempty"    yaml:"secret,omitempty"`
+	ConfigMap *bool `json:"configmap,omitempty" yaml:"configmap,omitempty"`
 }

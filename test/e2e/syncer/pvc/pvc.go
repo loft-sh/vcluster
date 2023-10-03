@@ -29,7 +29,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 		f = framework.DefaultFramework
 		iteration++
 
-		ns = fmt.Sprintf("e2e-syncer-pvc-%d-%s", iteration, random.RandomString(5))
+		ns = fmt.Sprintf("e2e-syncer-pvc-%d-%s", iteration, random.String(5))
 
 		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 			Name:   ns,

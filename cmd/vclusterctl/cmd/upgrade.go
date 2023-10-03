@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -38,7 +38,7 @@ Upgrades the vcluster CLI to the newest version
 }
 
 // Run executes the command logic
-func (cmd *UpgradeCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *UpgradeCmd) Run(*cobra.Command, []string) error {
 	err := upgrade.Upgrade(cmd.Version, cmd.log)
 	if err != nil {
 		return errors.Errorf("Couldn't upgrade: %v", err)

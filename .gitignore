@@ -1,5 +1,4 @@
 /.idea
-/.vscode
 /.devspace
 /kubeconfig.yaml
 .devspace/

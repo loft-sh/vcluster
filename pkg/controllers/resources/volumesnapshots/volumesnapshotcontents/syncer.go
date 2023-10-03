@@ -116,7 +116,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	pVSC := pObj.(*volumesnapshotv1.VolumeSnapshotContent)
 	vVSC := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 
-	//check if objects are getting deleted
+	// check if objects are getting deleted
 	if vObj.GetDeletionTimestamp() != nil {
 		if pObj.GetDeletionTimestamp() == nil {
 			ctx.Log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", pObj.GetName())

@@ -3,9 +3,10 @@ package get
 import (
 	"fmt"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -31,7 +32,7 @@ func getServiceCIDR(globalFlags *flags.GlobalFlags) *cobra.Command {
 #######################################################
 Prints Service CIDR of the cluster
 
-Ex: 
+Ex:
 vcluster get service-cidr
 10.96.0.0/12
 #######################################################
@@ -52,7 +53,7 @@ func (cmd *serviceCIDRCmd) Run(cobraCmd *cobra.Command) error {
 	// load the rest config
 	kubeConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	client, err := kubernetes.NewForConfig(kubeConfig)
@@ -74,10 +75,6 @@ func (cmd *serviceCIDRCmd) Run(cobraCmd *cobra.Command) error {
 		cmd.log.Debugf(warning)
 	}
 
-	_, err = cmd.log.Write([]byte(cidr))
-	if err != nil {
-		return err
-	}
-
+	cmd.log.WriteString(logrus.InfoLevel, cidr)
 	return nil
 }

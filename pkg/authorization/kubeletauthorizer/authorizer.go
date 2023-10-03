@@ -5,7 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	authv1 "k8s.io/api/authorization/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -36,9 +36,9 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 	}
 
 	// check if request is allowed in the target cluster
-	accessReview := &authv1.SubjectAccessReview{
+	accessReview := &authorizationv1.SubjectAccessReview{
 		ObjectMeta: metav1.ObjectMeta{},
-		Spec: authv1.SubjectAccessReviewSpec{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
 			User:   a.GetUser().GetName(),
 			UID:    a.GetUser().GetUID(),
 			Groups: a.GetUser().GetGroups(),
@@ -48,7 +48,7 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 
 	// check what kind of request it is
 	if filters.IsKubeletStats(a.GetPath()) {
-		accessReview.Spec.ResourceAttributes = &authv1.ResourceAttributes{
+		accessReview.Spec.ResourceAttributes = &authorizationv1.ResourceAttributes{
 			Verb:        "get",
 			Group:       corev1.SchemeGroupVersion.Group,
 			Version:     corev1.SchemeGroupVersion.Version,
@@ -57,7 +57,7 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 			Name:        nodeName,
 		}
 	} else if filters.IsKubeletMetrics(a.GetPath()) {
-		accessReview.Spec.ResourceAttributes = &authv1.ResourceAttributes{
+		accessReview.Spec.ResourceAttributes = &authorizationv1.ResourceAttributes{
 			Verb:        "get",
 			Group:       corev1.SchemeGroupVersion.Group,
 			Version:     corev1.SchemeGroupVersion.Version,
@@ -66,7 +66,7 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 			Name:        nodeName,
 		}
 	} else {
-		accessReview.Spec.NonResourceAttributes = &authv1.NonResourceAttributes{
+		accessReview.Spec.NonResourceAttributes = &authorizationv1.NonResourceAttributes{
 			Path: a.GetPath(),
 			Verb: a.GetVerb(),
 		}

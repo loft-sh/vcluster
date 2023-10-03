@@ -31,7 +31,7 @@ var (
 	FakeNodesVersion = "v1.19.1"
 )
 
-func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
+func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.Provider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
 		nodeServiceProvider: nodeService,
 		fakeKubeletIPs:      ctx.Options.FakeKubeletIPs,
@@ -39,7 +39,7 @@ func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.Nod
 }
 
 type fakeNodeSyncer struct {
-	nodeServiceProvider nodeservice.NodeServiceProvider
+	nodeServiceProvider nodeservice.Provider
 	fakeKubeletIPs      bool
 }
 
@@ -140,12 +140,12 @@ func (r *fakeNodeSyncer) nodeNeeded(ctx *synccontext.SyncContext, nodeName strin
 
 // this is not a real guid, but it doesn't really matter because it should just look right and not be an actual guid
 func newGUID() string {
-	return random.RandomString(8) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(12)
+	return random.String(8) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(12)
 }
 
 func CreateFakeNode(ctx context.Context,
 	fakeKubeletIPs bool,
-	nodeServiceProvider nodeservice.NodeServiceProvider,
+	nodeServiceProvider nodeservice.Provider,
 	virtualClient client.Client,
 	name string) error {
 	nodeServiceProvider.Lock()

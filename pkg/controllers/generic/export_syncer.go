@@ -49,11 +49,11 @@ func CreateExporters(ctx *vcontext.ControllerContext, exporterConfig *config.Con
 				gvk)
 			if err != nil {
 				if exportConfig.Optional {
-					klog.Infof("error ensuring CRD %s(%s) from host cluster: %v. Skipping exportSyncer as resource is optional", exportConfig.Kind, exportConfig.APIVersion, err)
+					klog.Infof("error ensuring CRD %s(%s) from host cluster: %w. Skipping exportSyncer as resource is optional", exportConfig.Kind, exportConfig.APIVersion, err)
 					continue
 				}
 
-				return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
+				return fmt.Errorf("error creating %s(%s) syncer: %w", exportConfig.Kind, exportConfig.APIVersion, err)
 			}
 		}
 
@@ -70,13 +70,13 @@ func CreateExporters(ctx *vcontext.ControllerContext, exporterConfig *config.Con
 		s, err := createExporter(registerCtx, exportConfig)
 		klog.Infof("creating exporter for %s/%s", exportConfig.APIVersion, exportConfig.Kind)
 		if err != nil {
-			return fmt.Errorf("error creating %s(%s) syncer: %v", exportConfig.Kind, exportConfig.APIVersion, err)
+			return fmt.Errorf("error creating %s(%s) syncer: %w", exportConfig.Kind, exportConfig.APIVersion, err)
 		}
 
 		err = syncer.RegisterSyncer(registerCtx, s)
 		klog.Infof("registering export syncer for %s/%s", exportConfig.APIVersion, exportConfig.Kind)
 		if err != nil {
-			return fmt.Errorf("error registering syncer %v", err)
+			return fmt.Errorf("error registering syncer %w", err)
 		}
 	}
 
@@ -90,14 +90,14 @@ func createExporter(ctx *synccontext.RegisterContext, config *config.Export) (sy
 
 	err := validateExportConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("invalid configuration for %s(%s) mapping: %v", config.Kind, config.APIVersion, err)
+		return nil, fmt.Errorf("invalid configuration for %s(%s) mapping: %w", config.Kind, config.APIVersion, err)
 	}
 
 	var selector labels.Selector
 	if config.Selector != nil {
 		selector, err = metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(config.Selector.LabelSelector))
 		if err != nil {
-			return nil, fmt.Errorf("invalid selector in configuration for %s(%s) mapping: %v", config.Kind, config.APIVersion, err)
+			return nil, fmt.Errorf("invalid selector in configuration for %s(%s) mapping: %w", config.Kind, config.APIVersion, err)
 		}
 	}
 
@@ -142,9 +142,12 @@ func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (c
 	pObj, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f.config.Patches, f.config.ReversePatches, func(vObj client.Object) (client.Object, error) {
 		return f.TranslateMetadata(ctx.Context, vObj), nil
 	}, &virtualToHostNameResolver{namespace: vObj.GetNamespace(), targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
+	if kerrors.IsConflict(err) {
+		return ctrl.Result{Requeue: true}, nil
+	}
 	if err != nil {
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	// wait here for vObj to be created
@@ -208,6 +211,9 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		pObj: pObj,
 	})
 	if err != nil {
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		if kerrors.IsInvalid(err) {
 			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch virtual %s %s/%s: %v", f.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
 			// this happens when some field is being removed shortly after being added, which suggest it's a timing issue
@@ -216,7 +222,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		}
 
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("failed to patch virtual %s %s/%s: %v", f.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+		return ctrl.Result{}, fmt.Errorf("failed to patch virtual %s %s/%s: %w", f.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
 	} else if result == controllerutil.OperationResultUpdated || result == controllerutil.OperationResultUpdatedStatus || result == controllerutil.OperationResultUpdatedStatusOnly {
 		// a change will trigger reconciliation anyway, and at that point we can make
 		// a more accurate updates(reverse patches) to the virtual resource
@@ -230,10 +236,10 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		namespace:       vObj.GetNamespace(),
 		targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
 	if err != nil {
-		// on conflict, auto delete and recreate
-		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && f.config.ReplaceOnConflict {
+		// when invalid, auto delete and recreate to recover
+		if kerrors.IsInvalid(err) && f.config.ReplaceWhenInvalid {
 			// Replace the object
-			ctx.Log.Infof("Replace physical object, because of conflict: %v", err)
+			ctx.Log.Infof("Replace physical object, because apply failed: %v", err)
 			err = ctx.PhysicalClient.Delete(ctx.Context, pObj, &client.DeleteOptions{
 				GracePeriodSeconds: &[]int64{0}[0],
 			})
@@ -243,9 +249,12 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 			return ctrl.Result{}, nil
 		}
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -279,7 +288,7 @@ func (f *exporter) TranslateMetadata(ctx context.Context, vObj client.Object) cl
 	return pObj
 }
 
-func (f *exporter) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+func (f *exporter) IsManaged(_ context.Context, pObj client.Object) (bool, error) {
 	return translate.Default.IsManaged(pObj), nil
 }
 
@@ -308,9 +317,9 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 				Namespace: translate.Default.PhysicalNamespace(namespace),
 				Name:      translate.Default.PhysicalName(name, ns)}
 		}), nil
-	} else {
-		return translate.Default.PhysicalName(name, namespace), nil
 	}
+
+	return translate.Default.PhysicalName(name, namespace), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
@@ -339,7 +348,7 @@ func validateExportConfig(config *config.Export) error {
 		if p.Regex != "" {
 			parsed, err := patchesregex.PrepareRegex(p.Regex)
 			if err != nil {
-				return fmt.Errorf("invalid Regex: %v", err)
+				return fmt.Errorf("invalid Regex: %w", err)
 			}
 			p.ParsedRegex = parsed
 		}
@@ -352,21 +361,21 @@ type hostToVirtualNameResolver struct {
 	pObj client.Object
 }
 
-func (r *hostToVirtualNameResolver) TranslateName(name string, regex *regexp.Regexp, path string) (string, error) {
+func (r *hostToVirtualNameResolver) TranslateName(string, *regexp.Regexp, string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateNameWithNamespace(name string, namespace string, regex *regexp.Regexp, path string) (string, error) {
+func (r *hostToVirtualNameResolver) TranslateNameWithNamespace(string, string, *regexp.Regexp, string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateLabelKey(key string) (string, error) {
+func (r *hostToVirtualNameResolver) TranslateLabelKey(string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
+func (r *hostToVirtualNameResolver) TranslateLabelExpressionsSelector(*metav1.LabelSelector) (*metav1.LabelSelector, error) {
 	return nil, fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
+func (r *hostToVirtualNameResolver) TranslateLabelSelector(map[string]string) (map[string]string, error) {
 	return nil, fmt.Errorf("translation not supported from host to virtual object")
 }
-func (r *hostToVirtualNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
+func (r *hostToVirtualNameResolver) TranslateNamespaceRef(string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }

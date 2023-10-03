@@ -3,12 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -39,6 +40,11 @@ var globalFlags *flags.GlobalFlags
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	err := os.Setenv("PRODUCT", "vcluster-pro")
+	if err != nil {
+		panic(err)
+	}
+
 	log := log.GetInstance()
 	rootCmd, err := BuildRoot(log)
 	if err != nil {
@@ -50,9 +56,9 @@ func Execute() {
 	if err != nil {
 		if globalFlags.Debug {
 			log.Fatalf("%+v", err)
-		} else {
-			log.Fatal(err)
 		}
+
+		log.Fatal(err)
 	}
 }
 
@@ -79,11 +85,38 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(versionCmd)
 
 	// add pro commands
-	if proCmd := pro.NewProCmd(globalFlags); proCmd != nil {
-		rootCmd.AddCommand(proCmd)
+	proCmd, err := pro.NewProCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pro command: %w", err)
 	}
+	rootCmd.AddCommand(proCmd)
 
-	err := rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
+	loginCmd, err := NewLoginCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create login command: %w", err)
+	}
+	rootCmd.AddCommand(loginCmd)
+
+	logoutCmd, err := NewLogoutCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create logout command: %w", err)
+	}
+	rootCmd.AddCommand(logoutCmd)
+
+	uiCmd, err := NewUICmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ui command: %w", err)
+	}
+	rootCmd.AddCommand(uiCmd)
+
+	importCmd, err := NewImportCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create import command: %w", err)
+	}
+	rootCmd.AddCommand(importCmd)
+
+	// add completion command
+	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
 		return rootCmd, fmt.Errorf("failed to register completion for namespace: %w", err)
 	}

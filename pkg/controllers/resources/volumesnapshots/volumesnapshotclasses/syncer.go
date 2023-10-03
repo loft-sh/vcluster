@@ -19,7 +19,7 @@ const (
 	crdPath = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotclasses.yaml"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotClassSyncer{
 		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}),
 	}, nil

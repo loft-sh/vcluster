@@ -15,7 +15,7 @@ import (
 	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
@@ -29,7 +29,7 @@ type Syncer interface {
 	dynamiccertificates.CertKeyContentProvider
 }
 
-func NewSyncer(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
+func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
 	return &syncer{
 		clusterDomain: options.ClusterDomain,
 
@@ -100,7 +100,7 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 		Name:      s.serviceName,
 	}, svc)
 	if err != nil {
-		return nil, fmt.Errorf("error getting vcluster service %s/%s: %v", s.currentNamespace, s.serviceName, err)
+		return nil, fmt.Errorf("error getting vcluster service %s/%s: %w", s.currentNamespace, s.serviceName, err)
 	} else if svc.Spec.ClusterIP == "" {
 		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, s.serviceName)
 	}
@@ -134,9 +134,9 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 		Name:      lbSVCName,
 	}, lbSVC)
 	// proceed only if load balancer service exists
-	if !errors.IsNotFound(err) {
+	if !kerrors.IsNotFound(err) {
 		if err != nil {
-			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %v", s.currentNamespace, lbSVCName, err)
+			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %w", s.currentNamespace, lbSVCName, err)
 		} else if lbSVC.Spec.ClusterIP == "" {
 			return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, lbSVCName)
 		}
@@ -206,8 +206,8 @@ func (s *syncer) regen(extraSANs []string) error {
 	return nil
 }
 
-func (s *syncer) Run(ctx context.Context, workers int) {
-	wait.JitterUntil(func() {
+func (s *syncer) Run(ctx context.Context, _ int) {
+	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
 		extraSANs, err := s.getSANs(ctx)
 		if err != nil {
 			klog.Infof("Error retrieving SANs: %v", err)
@@ -228,5 +228,5 @@ func (s *syncer) Run(ctx context.Context, workers int) {
 				l.Enqueue()
 			}
 		}
-	}, time.Second*2, 1.25, true, ctx.Done())
+	}, time.Second*2, 1.25, true)
 }

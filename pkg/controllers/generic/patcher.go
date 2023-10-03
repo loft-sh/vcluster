@@ -3,6 +3,7 @@ package generic
 import (
 	"context"
 	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/patches"
@@ -42,7 +43,7 @@ func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 	// apply patches on from object
 	err = patches.ApplyPatches(toObjCopied, toObj, patchesConfig, reversePatchesConfig, nameResolver)
 	if err != nil {
-		return nil, fmt.Errorf("error applying patches: %v", err)
+		return nil, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	// compare status
@@ -88,7 +89,7 @@ func (s *patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj cli
 	// apply patches on from object
 	err = patches.ApplyPatches(fromCopied, otherObj, reversePatchConfig, nil, nameResolver)
 	if err != nil {
-		return controllerutil.OperationResultNone, fmt.Errorf("error applying reverse patches: %v", err)
+		return controllerutil.OperationResultNone, fmt.Errorf("error applying reverse patches: %w", err)
 	}
 
 	// compare status

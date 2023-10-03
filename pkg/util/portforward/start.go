@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -25,7 +25,7 @@ func StartPortForwardingWithRestart(ctx context.Context, config *rest.Config, ad
 	// restart port forwarding
 	stopChan, err := StartPortForwarding(config, kubeClient, address, pod, namespace, localPort, remotePort, stdout, stderr, log)
 	if err != nil {
-		return fmt.Errorf("error starting port forwarding: %v", err)
+		return fmt.Errorf("error starting port forwarding: %w", err)
 	}
 
 	for {

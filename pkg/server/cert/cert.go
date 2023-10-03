@@ -63,7 +63,7 @@ func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byt
 	if regen || len(currentKey) == 0 {
 		privateKey, err = certhelper.MakeEllipticPrivateKeyPEM()
 		if err != nil {
-			return nil, nil, false, fmt.Errorf("error generating key: %v", err)
+			return nil, nil, false, fmt.Errorf("error generating key: %w", err)
 		}
 	}
 	key, err := certhelper.ParsePrivateKeyPEM(privateKey)

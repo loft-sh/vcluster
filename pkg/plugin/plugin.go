@@ -25,7 +25,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var runID = random.RandomString(12)
+var runID = random.String(12)
 
 var DefaultManager Manager = &manager{
 	clientHooks:    map[VersionKindType][]*Plugin{},
@@ -167,7 +167,7 @@ func (m *manager) Start(
 	loghelper.Infof("Plugin server listening on %s", options.PluginListenAddress)
 	lis, err := net.Listen("tcp", options.PluginListenAddress)
 	if err != nil {
-		return fmt.Errorf("failed to listen: %v", err)
+		return fmt.Errorf("failed to listen: %w", err)
 	}
 
 	var opts []grpc.ServerOption
@@ -194,7 +194,7 @@ func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualC
 			return ok, nil
 		})
 		if err != nil {
-			return fmt.Errorf("error waiting for plugin %s: %v", plugin, err)
+			return fmt.Errorf("error waiting for plugin %s: %w", plugin, err)
 		}
 		klog.Infof("Plugin %s has successfully registered", plugin)
 	}
@@ -202,14 +202,14 @@ func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualC
 	return nil
 }
 
-func (m *manager) IsLeader(ctx context.Context, empty *remote.Empty) (*remote.LeaderInfo, error) {
+func (m *manager) IsLeader(context.Context, *remote.Empty) (*remote.LeaderInfo, error) {
 	return &remote.LeaderInfo{
 		Leader: m.isLeader.Load(),
 		RunID:  runID,
 	}, nil
 }
 
-func (m *manager) GetContext(ctx context.Context, empty *remote.Empty) (*remote.Context, error) {
+func (m *manager) GetContext(context.Context, *remote.Empty) (*remote.Context, error) {
 	return &remote.Context{
 		VirtualClusterConfig:  m.virtualKubeConfig,
 		PhysicalClusterConfig: m.physicalKubeConfig,
@@ -220,7 +220,7 @@ func (m *manager) GetContext(ctx context.Context, empty *remote.Empty) (*remote.
 	}, nil
 }
 
-func (m *manager) RegisterPlugin(ctx context.Context, info *remote.RegisterPluginRequest) (*remote.RegisterPluginResult, error) {
+func (m *manager) RegisterPlugin(_ context.Context, info *remote.RegisterPluginRequest) (*remote.RegisterPluginResult, error) {
 	if info != nil && info.Name != "" {
 		klog.Infof("Registering plugin %s", info.Name)
 
@@ -252,7 +252,7 @@ func (m *manager) RegisterPlugin(ctx context.Context, info *remote.RegisterPlugi
 }
 
 // Register is deprecated and will be removed in future
-func (m *manager) Register(ctx context.Context, info *remote.PluginInfo) (*remote.Context, error) {
+func (m *manager) Register(_ context.Context, info *remote.PluginInfo) (*remote.Context, error) {
 	if info != nil && info.Name != "" {
 		klog.Infof("Registering plugin %s", info.Name)
 

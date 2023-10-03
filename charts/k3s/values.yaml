@@ -1,6 +1,9 @@
 # These annotations will be applied to all objects created in this chart
 globalAnnotations: {}
 
+# If vCluster.Pro is enabled
+pro: false
+
 # If the control plane is deployed in high availability mode
 # Make sure to scale up the replicas and use an external datastore
 enableHA: false
@@ -171,6 +174,7 @@ vcluster:
     - --disable-agent
     - --disable-cloud-controller
     - --flannel-backend=none
+    - --kube-apiserver-arg=bind-address=127.0.0.1
   extraArgs: []
   volumeMounts:
     - mountPath: /data
@@ -227,6 +231,9 @@ rbac:
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
+    # all entries in excludedApiResources will be excluded from the Role created for vcluster
+    excludedApiResources:
+      # - pods/exec
 
 # The amount of replicas to run the statefulset with
 replicas: 1
@@ -325,10 +332,11 @@ securityContext:
   # For installation on OpenShift leave the runAsUser undefined (commented out).
   # runAsUser: 12345
   # runAsNonRoot: true
+  runAsUser: 0
+  runAsGroup: 0
 
 # PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
-podSecurityContext:
-  {}
+podSecurityContext: {}
 
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order
@@ -338,8 +346,12 @@ openshift:
 
 # If enabled will deploy the coredns configmap
 coredns:
+  integrated: false
   enabled: true
   replicas: 1
+  # The nodeSelector example below specifices that coredns should only be scheduled to nodes with the arm64 label
+  # nodeSelector:
+  #   kubernetes.io/arch: arm64
   # image: my-core-dns-image:latest
   # config: |-
   #   .:1053 {
@@ -432,6 +444,22 @@ init:
   # this allows you to use helm values inside, e.g.: {{ .Release.Name }}
   manifestsTemplate: ''
   helm: []
+    # - bundle: <string> - base64-encoded .tar.gz file content (optional - overrides chart.repo)
+    #   chart:
+    #     name: <string>  REQUIRED
+    #     version: <string>  REQUIRED
+    #     repo: <string>  (optional when bundle is used)
+    #     username: <string>   (if required for repo)
+    #     password: <string>   (if required for repo)
+    #     insecure: boolean    (if required for repo)
+    #   release:
+    #     releaseName: <string> REQUIRED
+    #     releaseNamespace: <string> REQUIRED
+    #     timeout: number
+    #   values: |-  string YAML object
+    #     foo: bar
+    #   valuesTemplate: |-  string YAML object
+    #     foo: {{ .Release.Name }}
 
 multiNamespaceMode:
   enabled: false
@@ -440,3 +468,18 @@ telemetry:
   disabled: "false"
   instanceCreator: "helm"
   instanceCreatorUID: ""
+
+noopSyncer:
+  enabled: false
+  synck8sService: false
+
+  # Secret containing remote cluster configuration
+  # (should have the following keys defined)
+  #   serverCaCert: <server-ca-cert of the remote cluster>
+  #   serverCaKey: <server-ca-key of the remote cluster>
+  #   clientCaCert: <client-ca-cert of the remote cluster>
+  #   requestHeaderCaCert: <request-header-ca-cert of the remote cluster>
+  #   kubeConfig: <kubeconfig of the remote cluster>
+  #
+  #secret: ""
+

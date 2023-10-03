@@ -9,12 +9,16 @@ type Status struct {
 	Manifests ManifestsStatus `json:"manifests,omitempty"`
 }
 
+//revive:disable
+
 type ManifestsStatus struct {
 	Phase                string `json:"phase,omitempty"`
 	Reason               string `json:"reason,omitempty"`
 	Message              string `json:"message,omitempty"`
 	LastAppliedManifests string `json:"lastAppliedManifests,omitempty"`
 }
+
+//revive:enable
 
 type ChartStatus struct {
 	Name                       string `json:"name,omitempty"`

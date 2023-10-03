@@ -40,7 +40,7 @@ func (n *clusterTranslator) Resource() client.Object {
 	return n.obj.DeepCopyObject().(client.Object)
 }
 
-func (n *clusterTranslator) IsManaged(ctx context2.Context, pObj client.Object) (bool, error) {
+func (n *clusterTranslator) IsManaged(_ context2.Context, pObj client.Object) (bool, error) {
 	return translate.Default.IsManagedCluster(pObj), nil
 }
 
@@ -71,7 +71,7 @@ func (n *clusterTranslator) PhysicalToVirtual(ctx context2.Context, pObj client.
 	}
 }
 
-func (n *clusterTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
+func (n *clusterTranslator) TranslateMetadata(_ context2.Context, vObj client.Object) client.Object {
 	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.nameTranslator)
 	if err != nil {
 		return nil
@@ -82,7 +82,7 @@ func (n *clusterTranslator) TranslateMetadata(ctx context2.Context, vObj client.
 	return pObj
 }
 
-func (n *clusterTranslator) TranslateMetadataUpdate(ctx context2.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+func (n *clusterTranslator) TranslateMetadataUpdate(_ context2.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
 	updatedAnnotations := n.TranslateAnnotations(vObj, pObj)
 	updatedLabels := n.TranslateLabels(vObj, pObj)
 	return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels

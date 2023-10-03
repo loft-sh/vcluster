@@ -30,7 +30,7 @@ func (o *ObjectEventHelper) OnAdd(obj interface{}) {
 	}
 }
 
-func (o *ObjectEventHelper) OnUpdate(oldObj, newObj interface{}) {
+func (o *ObjectEventHelper) OnUpdate(_, newObj interface{}) {
 	if o.OnObjectChange != nil {
 		if newObj == nil {
 			return

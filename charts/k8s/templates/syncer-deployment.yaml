@@ -103,19 +103,21 @@ spec:
         - name: certs
           secret:
             secretName: {{ .Release.Name }}-certs
-      {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
         - name: helm-cache
           emptyDir: {}
         - name: tmp
           emptyDir: {}
-      {{- end }}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
       {{- end }}
-      {{- if .Values.coredns.enabled }}
+      {{- if and .Values.coredns.enabled (not .Values.coredns.integrated) }}
         - name: coredns
           configMap:
             name: {{ .Release.Name }}-coredns
+      {{- else if .Values.coredns.integrated }}
+        - name: coredns
+          configMap:
+            name: {{ .Release.Name }}-dns
       {{- end }}
         - name: custom-config-volume
           configMap:
@@ -129,7 +131,11 @@ spec:
         {{- if .Values.syncer.image }}
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
+        {{- if .Values.pro }}
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster-pro:{{ .Chart.Version }}"
+        {{- else }}
         image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
         {{- end }}
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
@@ -198,6 +204,9 @@ spec:
           {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
           - --proxy-metrics-server=true
           {{- end }}
+          {{- if .Values.coredns.integrated }}
+          - --integrated-coredns=true
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
@@ -248,12 +257,10 @@ spec:
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
         volumeMounts:
-        {{- if or .Values.syncer.securityContext.runAsUser .Values.syncer.securityContext.runAsNonRoot }}
           - name: helm-cache
             mountPath: /.cache/helm
           - name: tmp
             mountPath: /tmp
-        {{- end }}
         {{- if .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns

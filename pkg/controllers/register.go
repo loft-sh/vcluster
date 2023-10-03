@@ -31,8 +31,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
@@ -299,7 +299,7 @@ func RegisterInitManifestsController(ctx *context.ControllerContext) error {
 
 	err = controller.SetupWithManager(currentNamespaceManager)
 	if err != nil {
-		return fmt.Errorf("unable to setup init manifests configmap controller: %v", err)
+		return fmt.Errorf("unable to setup init manifests configmap controller: %w", err)
 	}
 
 	return nil
@@ -434,26 +434,26 @@ func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace st
 }
 
 func RegisterCoreDNSController(ctx *context.ControllerContext) error {
-	controller := &coredns.CoreDNSNodeHostsReconciler{
+	controller := &coredns.NodeHostsReconciler{
 		Client: ctx.VirtualManager.GetClient(),
 		Log:    loghelper.New("corednsnodehosts-controller"),
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
-		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
+		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %w", err)
 	}
 	return nil
 }
 
 func RegisterPodSecurityController(ctx *context.ControllerContext) error {
-	controller := &podsecurity.PodSecurityReconciler{
+	controller := &podsecurity.Reconciler{
 		Client:              ctx.VirtualManager.GetClient(),
 		PodSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
 		Log:                 loghelper.New("podSecurity-controller"),
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
-		return fmt.Errorf("unable to setup pod security controller: %v", err)
+		return fmt.Errorf("unable to setup pod security controller: %w", err)
 	}
 	return nil
 }

@@ -52,6 +52,9 @@ Next we can paste the bundle in our values file:
 init:
   helm:
     - bundle: <base64_encoded_tar_bundle>
+      chart:
+        name: my-chart
+        version: <chart version>
       values: |-
         foo: bar
       release:

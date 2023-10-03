@@ -89,7 +89,7 @@ func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespa
 			NamespaceSelector: nil, // must be set to nil as all vcluster pods are in the same host namespace as the NetworkPolicy
 		}
 		if peer.IPBlock == nil {
-			translatedNamespaceSelectors := translate.TranslateLabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
+			translatedNamespaceSelectors := translate.LabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
 			newPeer.PodSelector = translate.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
 
 			if newPeer.PodSelector.MatchLabels == nil {

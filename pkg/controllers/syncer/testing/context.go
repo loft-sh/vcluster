@@ -63,32 +63,32 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 
 type fakeEventBroadcaster struct{}
 
-func (f *fakeEventBroadcaster) StartEventWatcher(eventHandler func(*corev1.Event)) watch.Interface {
+func (f *fakeEventBroadcaster) StartEventWatcher(_ func(*corev1.Event)) watch.Interface {
 	return nil
 }
 
-func (f *fakeEventBroadcaster) StartRecordingToSink(sink record.EventSink) watch.Interface {
+func (f *fakeEventBroadcaster) StartRecordingToSink(_ record.EventSink) watch.Interface {
 	return nil
 }
 
-func (f *fakeEventBroadcaster) StartLogging(logf func(format string, args ...interface{})) watch.Interface {
+func (f *fakeEventBroadcaster) StartLogging(_ func(format string, args ...interface{})) watch.Interface {
 	return nil
 }
 
-func (f *fakeEventBroadcaster) StartStructuredLogging(verbosity klog.Level) watch.Interface {
+func (f *fakeEventBroadcaster) StartStructuredLogging(_ klog.Level) watch.Interface {
 	return nil
 }
 
-func (f *fakeEventBroadcaster) NewRecorder(scheme *runtime.Scheme, source corev1.EventSource) record.EventRecorder {
+func (f *fakeEventBroadcaster) NewRecorder(_ *runtime.Scheme, _ corev1.EventSource) record.EventRecorder {
 	return f
 }
 
 func (f *fakeEventBroadcaster) Shutdown() {}
 
-func (f *fakeEventBroadcaster) Event(object runtime.Object, eventtype, reason, message string) {}
+func (f *fakeEventBroadcaster) Event(_ runtime.Object, _, _, _ string) {}
 
-func (f *fakeEventBroadcaster) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (f *fakeEventBroadcaster) Eventf(_ runtime.Object, _, _, _ string, _ ...interface{}) {
 }
 
-func (f *fakeEventBroadcaster) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+func (f *fakeEventBroadcaster) AnnotatedEventf(_ runtime.Object, _ map[string]string, _, _, _ string, _ ...interface{}) {
 }

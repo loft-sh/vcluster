@@ -51,6 +51,7 @@ Whether to create a cluster role or not
         ((index .Values.sync "legacy-storageclasses") | default (dict "enabled" false))
     "enabled")
     (include "vcluster.syncIngressclassesEnabled" . )
+    .Values.pro
     .Values.sync.nodes.enabled
     .Values.sync.persistentvolumes.enabled
     .Values.sync.storageclasses.enabled
@@ -204,6 +205,11 @@ Corefile: |-
       ready
       rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
       kubernetes cluster.local in-addr.arpa ip6.arpa {
+          {{- if .Values.pro }}
+          {{- if .Values.coredns.integrated }}
+          kubeconfig /data/k3s-config/kube-config.yaml
+          {{- end }}
+          {{- end }}
           pods insecure
           {{- if .Values.fallbackHostDns }}
           fallthrough cluster.local in-addr.arpa ip6.arpa

@@ -13,6 +13,16 @@
         "cwd": "${workspaceRoot}",
         "args": ["create", "vcluster-1", "-nvcluster-1"]
       },
+      {
+        "name": "Debug pro cli",
+        "type": "go",
+        "request": "launch",
+        "mode": "debug",
+        "program": "${workspaceRoot}/cmd/vclusterctl/main.go",
+        "cwd": "${workspaceRoot}",
+        "buildFlags": "-tags=pro",
+        "args": ["pro", "start"]
+      },
         {
           "name": "Debug vcluster (localhost:2346)",
           "type": "go",
@@ -43,6 +53,6 @@
             },
             "args": ["-ginkgo.v"], // add "-ginkgo.focus=.*part of test name.*" to run just the test containing said regexp
             "showLog": true,
-        } 
+        }
     ]
 }

@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var Default Interface = DefaultNameserverFinder()
+var Default = DefaultNameserverFinder()
 
 const (
 	DefaultKubeDNSServiceName      = "kube-dns"
@@ -23,17 +23,11 @@ type SpecialServiceSyncer func(ctx context.Context,
 	servicePortTranslator ServicePortTranslator) error
 
 type Interface interface {
-	GetDNSServiceSuffix() *string
 	SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer
 }
 
 type NameserverFinder struct {
-	DNSServiceSuffix *string
-	SpecialServices  map[types.NamespacedName]SpecialServiceSyncer
-}
-
-func (f *NameserverFinder) GetDNSServiceSuffix() *string {
-	return f.DNSServiceSuffix
+	SpecialServices map[types.NamespacedName]SpecialServiceSyncer
 }
 
 func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer {

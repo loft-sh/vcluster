@@ -91,7 +91,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 func ReadKubeConfig(ctx context.Context, client *kubernetes.Clientset, suffix, namespace string) (*api.Config, error) {
 	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, GetDefaultSecretName(suffix), metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("could not Get the %s secret in order to read kubeconfig: %v", GetDefaultSecretName(suffix), err)
+		return nil, fmt.Errorf("could not Get the %s secret in order to read kubeconfig: %w", GetDefaultSecretName(suffix), err)
 	}
 	config, found := secret.Data[KubeconfigSecretKey]
 	if !found {

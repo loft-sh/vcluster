@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
@@ -161,7 +161,7 @@ func disableMissingAPIs(discoveryClient discovery.DiscoveryInterface, controller
 	enabledControllers := controllers.Clone()
 	for groupVersion, resourceList := range possibleMissing {
 		resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !kerrors.IsNotFound(err) {
 			return nil, err
 		}
 		for _, resourcePlural := range resourceList {

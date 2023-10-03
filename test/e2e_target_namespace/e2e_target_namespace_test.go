@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"

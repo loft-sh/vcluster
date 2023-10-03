@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"io"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kblabels "k8s.io/apimachinery/pkg/labels"
@@ -53,7 +53,7 @@ type Release struct {
 	// Namespace is the kubernetes namespace of the release.
 	Namespace string `json:"namespace,omitempty"`
 
-	Secret *v1.Secret `json:"-"`
+	Secret *corev1.Secret `json:"-"`
 }
 
 // Info describes release information.
@@ -166,7 +166,7 @@ func NewSecrets(clientSet kubernetes.Interface) *Secrets {
 	}
 }
 
-func (secrets *Secrets) Update(ctx context.Context, secret *v1.Secret) (*v1.Secret, error) {
+func (secrets *Secrets) Update(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
 	return secrets.kubeClient.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{})
 }
 
@@ -230,7 +230,7 @@ func (secrets *Secrets) Get(ctx context.Context, name string, namespace string) 
 	if err != nil {
 		return nil, err
 	} else if len(list) == 0 {
-		return nil, kerrors.NewNotFound(v1.SchemeGroupVersion.WithResource("secrets").GroupResource(), name)
+		return nil, kerrors.NewNotFound(corev1.SchemeGroupVersion.WithResource("secrets").GroupResource(), name)
 	}
 
 	var latest *Release
@@ -246,7 +246,7 @@ func (secrets *Secrets) Get(ctx context.Context, name string, namespace string) 
 // decodeRelease decodes the bytes of data into a release
 // type. Data must contain a base64 encoded gzipped string of a
 // valid release, otherwise an error is returned.
-func decodeRelease(secret *v1.Secret, data string) (*Release, error) {
+func decodeRelease(secret *corev1.Secret, data string) (*Release, error) {
 	// base64 decode string
 	b, err := b64.DecodeString(data)
 	if err != nil {
@@ -273,7 +273,7 @@ func decodeRelease(secret *v1.Secret, data string) (*Release, error) {
 	var rls Release
 	// unmarshal release object bytes
 	if err := json.Unmarshal(b, &rls); err != nil {
-		return nil, fmt.Errorf("error decoding %s: %v", string(b), err)
+		return nil, fmt.Errorf("error decoding %s: %w", string(b), err)
 	}
 
 	rls.Secret = secret

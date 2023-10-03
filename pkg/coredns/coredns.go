@@ -124,12 +124,12 @@ func processManifestTemplate(vars map[string]interface{}) ([]byte, error) {
 	}
 	manifestTemplate, err := template.ParseFiles(manifestInputPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse %s: %v", manifestInputPath, err)
+		return nil, fmt.Errorf("unable to parse %s: %w", manifestInputPath, err)
 	}
 	buf := new(bytes.Buffer)
 	err = manifestTemplate.Execute(buf, vars)
 	if err != nil {
-		return nil, fmt.Errorf("manifestTemplate.Execute failed for manifest %s: %v", manifestInputPath, err)
+		return nil, fmt.Errorf("manifestTemplate.Execute failed for manifest %s: %w", manifestInputPath, err)
 	}
 	return buf.Bytes(), nil
 }

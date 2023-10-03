@@ -51,7 +51,7 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContext
 	}, operationFunc)
 }
 
-func deleteOperation(ctx context.Context, client client.Client) wait.ConditionWithContextFunc {
+func deleteOperation(_ context.Context, client client.Client) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		err := client.Delete(ctx, &apiregistrationv1.APIService{
 			ObjectMeta: v1.ObjectMeta{
@@ -71,7 +71,7 @@ func deleteOperation(ctx context.Context, client client.Client) wait.ConditionWi
 	}
 }
 
-func createOperation(ctx context.Context, client client.Client) wait.ConditionWithContextFunc {
+func createOperation(_ context.Context, client client.Client) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		spec := apiregistrationv1.APIServiceSpec{
 			Group:                metrics.GroupName,

@@ -93,6 +93,19 @@ github.com/davecgh/go-spew/spew
 # github.com/denisbrodbeck/machineid v1.0.1
 ## explicit
 github.com/denisbrodbeck/machineid
+# github.com/docker/cli v23.0.0-rc.1+incompatible
+## explicit
+github.com/docker/cli/cli/config
+github.com/docker/cli/cli/config/configfile
+github.com/docker/cli/cli/config/credentials
+github.com/docker/cli/cli/config/types
+# github.com/docker/docker v23.0.0-rc.1+incompatible
+## explicit
+github.com/docker/docker/pkg/homedir
+# github.com/docker/docker-credential-helpers v0.7.0
+## explicit; go 1.18
+github.com/docker/docker-credential-helpers/client
+github.com/docker/docker-credential-helpers/credentials
 # github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960
 ## explicit; go 1.13
 github.com/dprotaso/go-yit
@@ -294,20 +307,94 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
-# github.com/loft-sh/api/v3 v3.2.4
-## explicit; go 1.21.0
+# github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230925121720-6c3f4d5f792e
+## explicit; go 1.21.1
+github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster
+github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1
+github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1
+github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset
+github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/scheme
+github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/cluster/v1
+github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/storage/v1
+# github.com/loft-sh/api/v3 v3.0.0-20231002075709-103158ad55b5
+## explicit; go 1.21.1
+github.com/loft-sh/api/v3/pkg/apis/audit/v1
+github.com/loft-sh/api/v3/pkg/apis/management
+github.com/loft-sh/api/v3/pkg/apis/management/install
+github.com/loft-sh/api/v3/pkg/apis/management/v1
+github.com/loft-sh/api/v3/pkg/apis/storage/v1
+github.com/loft-sh/api/v3/pkg/apis/ui/v1
+github.com/loft-sh/api/v3/pkg/apis/virtualcluster
+github.com/loft-sh/api/v3/pkg/apis/virtualcluster/v1
 github.com/loft-sh/api/v3/pkg/auth
-# github.com/loft-sh/loftctl/v3 v3.2.4
-## explicit; go 1.21.0
+github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset
+github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset/scheme
+github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset/typed/management/v1
+github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset/typed/storage/v1
+github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset/typed/virtualcluster/v1
+github.com/loft-sh/api/v3/pkg/managerfactory
+github.com/loft-sh/api/v3/pkg/product
+# github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
+## explicit; go 1.19
+github.com/loft-sh/apiserver/pkg/builders
+# github.com/loft-sh/external-types v0.0.2-0.20230301201552-ec939da949b4
+## explicit; go 1.17
+github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server
+# github.com/loft-sh/jspolicy v0.1.0
+## explicit; go 1.16
+github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
+# github.com/loft-sh/loftctl/v3 v3.0.0-20231002131651-85b7f5df694d
+## explicit; go 1.21.1
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/defaults
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/delete
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod/list
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/generate
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/get
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/importcmd
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/list
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/reset
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/set
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/share
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/sleep
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vars
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/wakeup
+github.com/loft-sh/loftctl/v3/cmd/loftctl/flags
+github.com/loft-sh/loftctl/v3/pkg/client
+github.com/loft-sh/loftctl/v3/pkg/client/helper
+github.com/loft-sh/loftctl/v3/pkg/client/naming
+github.com/loft-sh/loftctl/v3/pkg/clihelper
+github.com/loft-sh/loftctl/v3/pkg/config
+github.com/loft-sh/loftctl/v3/pkg/constants
+github.com/loft-sh/loftctl/v3/pkg/defaults
+github.com/loft-sh/loftctl/v3/pkg/docker
+github.com/loft-sh/loftctl/v3/pkg/kube
+github.com/loft-sh/loftctl/v3/pkg/kubeconfig
+github.com/loft-sh/loftctl/v3/pkg/parameters
+github.com/loft-sh/loftctl/v3/pkg/portforward
+github.com/loft-sh/loftctl/v3/pkg/printhelper
+github.com/loft-sh/loftctl/v3/pkg/random
+github.com/loft-sh/loftctl/v3/pkg/remotecommand
+github.com/loft-sh/loftctl/v3/pkg/space
+github.com/loft-sh/loftctl/v3/pkg/start
+github.com/loft-sh/loftctl/v3/pkg/task
+github.com/loft-sh/loftctl/v3/pkg/upgrade
 github.com/loft-sh/loftctl/v3/pkg/util
+github.com/loft-sh/loftctl/v3/pkg/vcluster
+github.com/loft-sh/loftctl/v3/pkg/version
 # github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
 ## explicit; go 1.20
 github.com/loft-sh/log
 github.com/loft-sh/log/hash
 github.com/loft-sh/log/scanner
 github.com/loft-sh/log/survey
+github.com/loft-sh/log/table
 github.com/loft-sh/log/terminal
-# github.com/loft-sh/utils v0.0.25
+# github.com/loft-sh/utils v0.0.28
 ## explicit; go 1.20
 github.com/loft-sh/utils/pkg/command
 github.com/loft-sh/utils/pkg/downloader
@@ -326,6 +413,9 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.12
 ## explicit; go 1.12
 github.com/mattn/go-isatty
+# github.com/mattn/go-runewidth v0.0.9
+## explicit; go 1.9
+github.com/mattn/go-runewidth
 # github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
@@ -367,6 +457,9 @@ github.com/mxk/go-flowrate/flowrate
 # github.com/oklog/ulid v1.3.1
 ## explicit
 github.com/oklog/ulid
+# github.com/olekukonko/tablewriter v0.0.5
+## explicit; go 1.12
+github.com/olekukonko/tablewriter
 # github.com/onsi/ginkgo v1.16.5
 ## explicit; go 1.16
 # github.com/onsi/ginkgo/v2 v2.11.0
@@ -445,6 +538,9 @@ github.com/samber/lo
 # github.com/sirupsen/logrus v1.9.3
 ## explicit; go 1.13
 github.com/sirupsen/logrus
+# github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
+## explicit
+github.com/skratchdot/open-golang/open
 # github.com/spf13/cobra v1.7.0
 ## explicit; go 1.15
 github.com/spf13/cobra
@@ -637,6 +733,7 @@ golang.org/x/sync/singleflight
 # golang.org/x/sys v0.11.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
+golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix

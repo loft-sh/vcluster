@@ -43,7 +43,7 @@ func ManifestStringToUnstructuredArray(out, defaultNamespace string) ([]*unstruc
 		err := yaml.Unmarshal([]byte(part), &objMap)
 		if err != nil {
 			if firstErr == nil {
-				firstErr = fmt.Errorf("failed to unmarshal manifest: %v", err)
+				firstErr = fmt.Errorf("failed to unmarshal manifest: %w", err)
 			}
 			continue
 		}
@@ -55,7 +55,7 @@ func ManifestStringToUnstructuredArray(out, defaultNamespace string) ([]*unstruc
 		err = yaml.Unmarshal([]byte(part), &obj)
 		if err != nil {
 			if firstErr == nil {
-				firstErr = fmt.Errorf("failed to unmarshal manifest: %v", err)
+				firstErr = fmt.Errorf("failed to unmarshal manifest: %w", err)
 			}
 			continue
 		}

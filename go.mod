@@ -3,8 +3,8 @@ module github.com/loft-sh/vcluster
 go 1.21.1
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/blang/semver/v4 v4.0.0
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.2.4
@@ -12,11 +12,11 @@ require (
 	github.com/google/go-github/v53 v53.2.1-0.20230815134205-bb00f570d301
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru/v2 v2.0.2
-	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/api/v3 v3.2.4
-	github.com/loft-sh/loftctl/v3 v3.2.4
-	github.com/loft-sh/utils v0.0.25
+	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230925121720-6c3f4d5f792e
+	github.com/loft-sh/api/v3 v3.0.0-20231002075709-103158ad55b5
+	github.com/loft-sh/loftctl/v3 v3.0.0-20231002131651-85b7f5df694d
+	github.com/loft-sh/utils v0.0.28
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.0
@@ -60,12 +60,14 @@ require (
 )
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cloudflare/circl v1.3.3 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
+	github.com/docker/cli v23.0.0-rc.1+incompatible // indirect
+	github.com/docker/docker v23.0.0-rc.1+incompatible // indirect
+	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
@@ -74,9 +76,16 @@ require (
 	github.com/google/cel-go v0.16.0 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
+	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
+	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f // indirect
+	github.com/loft-sh/external-types v0.0.2-0.20230301201552-ec939da949b4 // indirect
+	github.com/loft-sh/jspolicy v0.1.0 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
+	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/otiai10/copy v1.11.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.16.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.16.0 // indirect
