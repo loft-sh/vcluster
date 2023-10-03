@@ -481,7 +481,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := specialservices.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes", types.NamespacedName{
+				err := specialservices.SyncKubernetesService(synccontext.ConvertContext(ctx, "sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
 					Name:      specialservices.DefaultKubernetesSVCName,
 					Namespace: specialservices.DefaultKubernetesSVCNamespace,
 				}, TranslateServicePorts)
@@ -499,7 +499,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := specialservices.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes", types.NamespacedName{
+				err := specialservices.SyncKubernetesService(synccontext.ConvertContext(ctx, "sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
 					Name:      specialservices.DefaultKubernetesSVCName,
 					Namespace: specialservices.DefaultKubernetesSVCNamespace,
 				}, TranslateServicePorts)
@@ -517,7 +517,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithClusterIPService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := specialservices.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes", types.NamespacedName{
+				err := specialservices.SyncKubernetesService(synccontext.ConvertContext(ctx, "sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
 					Name:      specialservices.DefaultKubernetesSVCName,
 					Namespace: specialservices.DefaultKubernetesSVCNamespace,
 				}, TranslateServicePorts)
@@ -535,7 +535,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithPortsService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := specialservices.SyncKubernetesService(ctx.Context, ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), "default", "kubernetes", types.NamespacedName{
+				err := specialservices.SyncKubernetesService(synccontext.ConvertContext(ctx, "sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
 					Name:      specialservices.DefaultKubernetesSVCName,
 					Namespace: specialservices.DefaultKubernetesSVCNamespace,
 				}, TranslateServicePorts)

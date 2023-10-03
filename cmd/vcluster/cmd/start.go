@@ -7,12 +7,14 @@ import (
 	"os"
 	"time"
 
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
 	"github.com/loft-sh/vcluster/pkg/server"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -527,9 +529,15 @@ func FindOwner(ctx *context2.ControllerContext) error {
 }
 
 func SyncKubernetesService(ctx *context2.ControllerContext) error {
-	err := specialservices.SyncKubernetesService(ctx.Context,
-		ctx.VirtualManager.GetClient(),
-		ctx.CurrentNamespaceClient,
+	err := specialservices.SyncKubernetesService(
+		&synccontext.SyncContext{
+			Context:                ctx.Context,
+			Log:                    loghelper.New("sync-kubernetes-service"),
+			PhysicalClient:         ctx.LocalManager.GetClient(),
+			VirtualClient:          ctx.VirtualManager.GetClient(),
+			CurrentNamespace:       ctx.CurrentNamespace,
+			CurrentNamespaceClient: ctx.CurrentNamespaceClient,
+		},
 		ctx.CurrentNamespace,
 		ctx.Options.ServiceName,
 		types.NamespacedName{

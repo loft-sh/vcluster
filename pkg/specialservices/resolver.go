@@ -1,10 +1,8 @@
 package specialservices
 
 import (
-	"context"
-
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var Default = DefaultNameserverFinder()
@@ -14,13 +12,13 @@ const (
 	DefaultKubeDNSServiceNamespace = "kube-system"
 )
 
-type SpecialServiceSyncer func(ctx context.Context,
-	vClient,
-	pClient client.Client,
+type SpecialServiceSyncer func(
+	ctx *synccontext.SyncContext,
 	svcNamespace,
 	svcName string,
 	vSvcToSync types.NamespacedName,
-	servicePortTranslator ServicePortTranslator) error
+	servicePortTranslator ServicePortTranslator,
+) error
 
 type Interface interface {
 	SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer

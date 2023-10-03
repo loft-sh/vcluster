@@ -1,15 +1,12 @@
 package specialservices
 
 import (
-	"context"
-
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -19,16 +16,16 @@ const (
 
 type ServicePortTranslator func(ports []corev1.ServicePort) []corev1.ServicePort
 
-func SyncKubernetesService(ctx context.Context,
-	vClient,
-	pClient client.Client,
+func SyncKubernetesService(
+	ctx *synccontext.SyncContext,
 	svcNamespace,
 	svcName string,
 	vSvcToSync types.NamespacedName,
-	svcPortTranslator ServicePortTranslator) error {
+	svcPortTranslator ServicePortTranslator,
+) error {
 	// get physical service
 	pObj := &corev1.Service{}
-	err := pClient.Get(ctx, types.NamespacedName{
+	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{
 		Namespace: svcNamespace,
 		Name:      svcName,
 	}, pObj)
@@ -41,7 +38,7 @@ func SyncKubernetesService(ctx context.Context,
 
 	// get virtual service
 	vObj := &corev1.Service{}
-	err = vClient.Get(ctx, vSvcToSync, vObj)
+	err = ctx.VirtualClient.Get(ctx.Context, vSvcToSync, vObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
@@ -58,7 +55,7 @@ func SyncKubernetesService(ctx context.Context,
 		newService.Spec.Ports = translatedPorts
 		if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.ClusterIPs, pObj.Spec.ClusterIPs) {
 			// delete & create with correct ClusterIP
-			err = vClient.Delete(ctx, vObj)
+			err = ctx.VirtualClient.Delete(ctx.Context, vObj)
 			if err != nil {
 				return err
 			}
@@ -67,13 +64,13 @@ func SyncKubernetesService(ctx context.Context,
 			newService.ResourceVersion = ""
 
 			// create the new service with the correct cluster ip
-			err = vClient.Create(ctx, newService)
+			err = ctx.VirtualClient.Create(ctx.Context, newService)
 			if err != nil {
 				return err
 			}
 		} else {
 			// delete & create with correct ClusterIP
-			err = vClient.Update(ctx, newService)
+			err = ctx.VirtualClient.Update(ctx.Context, newService)
 			if err != nil {
 				return err
 			}
