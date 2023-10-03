@@ -2,10 +2,10 @@
 title: High Availability
 sidebar_label: High Availability
 ---
-By default, vCluster runs one instance of each of its components. That’s fine for many use cases, like ones that are very ephemeral (dev environments, CI/CD, etc.). But suppose your situation requires virtual clusters with more redundancy. In that case, you can use vCluster’s High Availability feature to run multiple copies of the vCluster components so that the cluster is more resistant to individual pods failing.
+By default, vCluster runs one instance of each of its components. That’s fine for many use cases, like ones that are very ephemeral (dev environments, CI/CD, etc.). But suppose your situation requires virtual clusters with more redundancy. In that case, you can use vCluster’s High Availability feature to run multiple copies of the vCluster components so that the cluster is more resistant to partial failures.
 
 # Prerequisites
-For this tutorial, you will need a multi-node Kubernetes cluster. This can be a local cluster, created with tools like Minikube or kind, or a remote cluster managed or hosted by a cloud provider. Or even a bare metal cluster if you are so inclined. You just need more than one node in the cluster.
+For this tutorial, you will need a multi-node Kubernetes cluster. This can be a local minikube or kind cluster, or any full Kubernetes cluster. You just need more than one node in the cluster.
 
 You also need your kube config pointing to that cluster (you can connect and run kubectl commands against it).
 
@@ -15,7 +15,7 @@ If you’re on a Mac and using Homebrew, you can install the vCluster CLI with t
 ```
 brew install vcluster
 ```
-For other platforms, see the installation instructions.
+For other platforms, see [the installation instructions](../getting-started/setup.mdx).
 
 # 2. Understanding vCluster distros
 A distro in vcluster is the Kubernetes distribution that runs inside the virtual cluster. There are four supported distros at the time of this writing:
