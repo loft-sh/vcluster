@@ -1,21 +1,25 @@
 ---
-title: "vcluster pro generate --help"
-sidebar_label: vcluster pro generate
-sidebar_class_name: "pro-feature-sidebar-item"
+title: "vcluster logout --help"
+sidebar_label: vcluster logout
 ---
 
-:::info Note:
-`vcluster pro generate` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
-:::
 
-
-Generate configuration
+Log out of a vCluster.Pro instance
 
 ## Synopsis
 
 ```
+vcluster logout [flags]
+```
+
+```
 ########################################################
-################## vcluster pro generate ##################
+################### vcluster logout ####################
+########################################################
+Log out of vCluster.Pro
+
+Example:
+vcluster logout
 ########################################################
 ```
 
@@ -23,7 +27,7 @@ Generate configuration
 ## Flags
 
 ```
-  -h, --help   help for generate
+  -h, --help   help for logout
 ```
 
 

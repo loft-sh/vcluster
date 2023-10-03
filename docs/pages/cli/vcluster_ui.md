@@ -1,21 +1,25 @@
 ---
-title: "vcluster pro generate --help"
-sidebar_label: vcluster pro generate
-sidebar_class_name: "pro-feature-sidebar-item"
+title: "vcluster ui --help"
+sidebar_label: vcluster ui
 ---
 
-:::info Note:
-`vcluster pro generate` is only available in the enterprise-ready [vCluster.Pro](https://vcluster.pro) offering.
-:::
 
-
-Generate configuration
+Start the web UI
 
 ## Synopsis
 
 ```
+vcluster ui [flags]
+```
+
+```
 ########################################################
-################## vcluster pro generate ##################
+##################### vcluster ui ######################
+########################################################
+Open the vCluster.Pro web UI
+
+Example:
+vcluster ui
 ########################################################
 ```
 
@@ -23,7 +27,7 @@ Generate configuration
 ## Flags
 
 ```
-  -h, --help   help for generate
+  -h, --help   help for ui
 ```
 
 
