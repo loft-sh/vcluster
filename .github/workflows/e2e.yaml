@@ -122,9 +122,6 @@ jobs:
         exclude:
           - distribution: "eks"
             test-suite-path: "./test/e2e_scheduler"
-          - distribution: "eks"
-            test-suite-path: "./test/e2e_node"
-            multinamespace-mode: "false"
           - distribution: "k8s"
             multinamespace-mode: "true"
           - distribution: "k0s"
