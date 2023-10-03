@@ -244,9 +244,9 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Help and Troubleshooting",
+      label: "Help and Tutorials",
       collapsed: true,
-      items: ["troubleshooting", "community"],
+      items: ["help&tutorials/troubleshooting", "help&tutorials/helm-provisioning", "help&tutorials/bootstrapping"],
     },
     {
       type: "doc",
