@@ -344,6 +344,7 @@ table th:first-child:empty {
 .container > .row > .col > div {
 	display: flex;
 	flex-direction: column;
+	height: 100%;
 }
 
 /* Button: Edit this page */
@@ -610,4 +611,101 @@ body .markdown {
 	background-repeat: no-repeat;
 	background-position: center center;
 	background-size: contain;
+}
+
+/* --- */
+/* The slider */
+.pro-flex-container {
+	margin-top: 1em;
+
+	display: flex;
+	background-color: #F2F2F2;
+
+	border-style: solid;
+	border-color: #E1E1E1;
+	border-width: 1px;
+
+	border-radius: 4px;
+}
+
+[data-theme="dark"] .pro-flex-container {
+	background-color: #272729;
+	border-color: #444950;
+}
+
+.pro-flex-container > a {
+	margin: 6px;
+	padding: 4px;
+	width: 50%;
+	text-align: center;
+	font-weight: 500;
+	color: black;
+
+	font-weight: 500;
+}
+
+.pro-flex-container > a.selected {
+	background-color: #EE7D3B;
+	color: white;
+	border-radius: 4px;
+
+	font-weight: bolder;
+}
+
+[data-theme="dark"] .pro-flex-container > a {
+	color: white;
+}
+
+[data-theme="dark"] .pro-flex-container > a.selected {
+	color: black;
+}
+
+@font-face {
+	font-family: "loft";
+	src: url('../../static/media/loft-1-3-Regular.otf') format('opentype');
+}
+
+.pro-feature {
+	--ifm-font-family-base: "loft";
+	font-family: "loft";
+
+	font-size: large;
+
+	padding-left: 4px;
+	padding-top: 0.4em;
+
+	line-height: 1em;
+
+	vertical-align: middle;
+}
+
+.pro-feature .menu__link:after {
+	content: "p";
+}
+
+.pro-feature-link {
+	visibility: hidden;
+	opacity:0;
+
+	transition: visibility 0.2s linear,opacity 0.2s linear;
+}
+
+.pro-feature-sidebar-item .menu__link:after {
+	content: "p";
+
+	--ifm-font-family-base: "loft";
+	font-family: "loft";
+	font-size: large;
+
+	padding-left: 4px;
+	padding-top: 0.4em;
+
+	line-height: 1em;
+
+	vertical-align: middle;
+}
+
+.menu__link:hover > .pro-feature-link {
+	visibility: visible;
+	opacity:1;
 }
