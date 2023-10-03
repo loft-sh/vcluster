@@ -159,7 +159,7 @@ func CreateFakeNode(ctx context.Context,
 				"beta.kubernetes.io/arch":    "amd64",
 				"beta.kubernetes.io/os":      "linux",
 				"kubernetes.io/arch":         "amd64",
-				"kubernetes.io/hostname":     translate.SafeConcatName("fake", name),
+				"kubernetes.io/hostname":     GetNodeHost(name),
 				"kubernetes.io/os":           "linux",
 			},
 			Annotations: map[string]string{

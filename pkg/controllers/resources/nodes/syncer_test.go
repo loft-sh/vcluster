@@ -81,12 +81,14 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Labels: map[string]string{
-				"test": "true",
+				"test":                   "true",
+				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
 			},
 			Annotations: map[string]string{
 				"test":                                 "true",
 				translate.ManagedAnnotationsAnnotation: "test",
-				translate.ManagedLabelsAnnotation:      "test",
+				translate.ManagedLabelsAnnotation:      "kubernetes.io/hostname\ntest",
+				"vcluster.loft.sh/managed-annotations": "vcluster.loft.sh/original-taints",
 			},
 		},
 		Status: corev1.NodeStatus{
@@ -184,8 +186,13 @@ func TestSync(t *testing.T) {
 	baseNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
+			Labels: map[string]string{
+				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
+			},
 			Annotations: map[string]string{
-				TaintsAnnotation: "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
+				"vcluster.loft.sh/managed-annotations": "vcluster.loft.sh/original-taints",
+				translate.ManagedLabelsAnnotation:      "kubernetes.io/hostname",
+				TaintsAnnotation:                       "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
 			},
 		},
 		Spec: corev1.NodeSpec{
@@ -218,8 +225,13 @@ func TestSync(t *testing.T) {
 	editedNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
+			Labels: map[string]string{
+				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
+			},
 			Annotations: map[string]string{
-				TaintsAnnotation: "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
+				"vcluster.loft.sh/managed-annotations": "vcluster.loft.sh/original-taints",
+				translate.ManagedLabelsAnnotation:      "kubernetes.io/hostname",
+				TaintsAnnotation:                       "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
 			},
 		},
 		Spec: corev1.NodeSpec{
@@ -345,7 +357,8 @@ func TestSync(t *testing.T) {
 				translate.ManagedLabelsAnnotation: "test",
 			},
 			Labels: map[string]string{
-				"test": "true",
+				"test":                   "true",
+				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
 			},
 		},
 		Status: corev1.NodeStatus{
@@ -486,7 +499,8 @@ func TestSync(t *testing.T) {
 				translate.ManagedLabelsAnnotation: "test",
 			},
 			Labels: map[string]string{
-				"test": "true",
+				"test":                   "true",
+				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
 			},
 		},
 		Status: corev1.NodeStatus{
@@ -533,7 +547,8 @@ func TestSync(t *testing.T) {
 				translate.ManagedLabelsAnnotation: "test",
 			},
 			Labels: map[string]string{
-				"test": "true",
+				"test":                   "true",
+				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
 			},
 		},
 		Status: corev1.NodeStatus{

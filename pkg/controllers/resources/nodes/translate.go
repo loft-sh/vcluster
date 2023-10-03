@@ -98,7 +98,10 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		} else {
 			delete(annotations, TaintsAnnotation)
 		}
+		labels, annotations = translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels)
 	}
+
+	labels["kubernetes.io/hostname"] = GetNodeHost(vNode.Name)
 
 	// Omit those taints for which the vcluster has enforced tolerations defined
 	if len(s.enforcedTolerations) > 0 && len(translatedSpec.Taints) > 0 {
