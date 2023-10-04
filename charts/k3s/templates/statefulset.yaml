@@ -296,6 +296,9 @@ spec:
           {{- if .Values.coredns.integrated }}
           - --integrated-coredns=true
           {{- end }}
+          {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
+          - --use-coredns-plugin=true
+          {{- end }}
           {{- if not .Values.coredns.enabled }}
           - --coredns-enabled=false
           {{- end }}
