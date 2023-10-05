@@ -76,7 +76,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 ########################################################
 	`
 	}
-	useLine, validator := util.NamedPositionalArgsValidator(false, "VCLUSTER_NAME")
+	useLine, validator := util.NamedPositionalArgsValidator(false, false, "VCLUSTER_NAME")
 	c := &cobra.Command{
 		Use:   "vcluster" + useLine,
 		Short: "Creates a kube context for the given virtual cluster",

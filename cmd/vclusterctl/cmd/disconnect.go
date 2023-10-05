@@ -44,7 +44,7 @@ vcluster disconnect
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run()
 		},
 	}
 
@@ -52,7 +52,7 @@ vcluster disconnect
 }
 
 // Run executes the functionality
-func (cmd *DisconnectCmd) Run(*cobra.Command, []string) error {
+func (cmd *DisconnectCmd) Run() error {
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: cmd.Context,
 	}).RawConfig()

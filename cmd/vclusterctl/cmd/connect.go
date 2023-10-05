@@ -85,8 +85,10 @@ func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Log:         log.GetInstance(),
 	}
 
+	useLine, nameValidator := loftctlUtil.NamedPositionalArgsValidator(true, false, "VCLUSTER_NAME")
+
 	cobraCmd := &cobra.Command{
-		Use:   "connect" + loftctlUtil.VClusterNameOnlyUseLine,
+		Use:   "connect" + useLine,
 		Short: "Connect to a virtual cluster",
 		Long: `
 #######################################################
@@ -101,7 +103,7 @@ vcluster connect test -n test -- bash
 vcluster connect test -n test -- kubectl get ns
 #######################################################
 	`,
-		Args:              loftctlUtil.VClusterNameOnlyValidator,
+		Args:              nameValidator,
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version

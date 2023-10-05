@@ -66,7 +66,7 @@ devspace get secret test-secret.key --project myproject
 ########################################################
 	`
 	}
-	useLine, validator := util.NamedPositionalArgsValidator(true, "SECRET_NAME")
+	useLine, validator := util.NamedPositionalArgsValidator(true, true, "SECRET_NAME")
 	c := &cobra.Command{
 		Use:   "secret" + useLine,
 		Short: "Returns the key value of a project / shared secret",

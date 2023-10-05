@@ -67,7 +67,7 @@ devspace use space myspace --project myproject
 ########################################################
 	`
 	}
-	useLine, validator := util.NamedPositionalArgsValidator(false, "SPACE_NAME")
+	useLine, validator := util.NamedPositionalArgsValidator(false, false, "SPACE_NAME")
 	c := &cobra.Command{
 		Use:   "space" + useLine,
 		Short: "Creates a kube context for the given space",

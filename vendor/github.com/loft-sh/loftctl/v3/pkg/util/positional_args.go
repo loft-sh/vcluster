@@ -17,8 +17,8 @@ var (
 )
 
 func init() {
-	SpaceNameOnlyUseLine, SpaceNameOnlyValidator = NamedPositionalArgsValidator(true, "SPACE_NAME")
-	VClusterNameOnlyUseLine, VClusterNameOnlyValidator = NamedPositionalArgsValidator(true, "VCLUSTER_NAME")
+	SpaceNameOnlyUseLine, SpaceNameOnlyValidator = NamedPositionalArgsValidator(true, true, "SPACE_NAME")
+	VClusterNameOnlyUseLine, VClusterNameOnlyValidator = NamedPositionalArgsValidator(true, true, "VCLUSTER_NAME")
 }
 
 // NamedPositionalArgsValidator returns a cobra.PositionalArgs that returns a helpful
@@ -38,7 +38,7 @@ func init() {
 //	[fatal]  command ARG_1 [flags]
 //	Invalid Args: received 0 arguments, expected 1, please specify missing: "ARG_!"
 //	Run with --help for more details on arguments
-func NamedPositionalArgsValidator(failMissing bool, expectedArgs ...string) (string, cobra.PositionalArgs) {
+func NamedPositionalArgsValidator(failMissing, failExtra bool, expectedArgs ...string) (string, cobra.PositionalArgs) {
 	return " " + strings.Join(expectedArgs, " "), func(cmd *cobra.Command, args []string) error {
 		numExpectedArgs := len(expectedArgs)
 		numArgs := len(args)
@@ -47,19 +47,23 @@ func NamedPositionalArgsValidator(failMissing bool, expectedArgs ...string) (str
 		if numMissing == 0 {
 			return nil
 		}
+
 		// didn't receive as many arguments as expected
-		if numMissing > 0 {
+		if numMissing > 0 && failMissing {
 			// the last numMissing expectedArgs
-			if failMissing {
-				missingKeys := strings.Join(expectedArgs[len(expectedArgs)-(numMissing):], ", ")
-				return fmt.Errorf("%s\nInvalid Args: received %d arguments, expected %d, please specify missing: %q\nRun with --help for more details on arguments", cmd.UseLine(), numArgs, numExpectedArgs, missingKeys)
-			}
-			return nil
+			missingKeys := strings.Join(expectedArgs[len(expectedArgs)-(numMissing):], ", ")
+			return fmt.Errorf("%s\nInvalid Args: received %d arguments, expected %d, please specify missing: %q\nRun with --help for more details on arguments", cmd.UseLine(), numArgs, numExpectedArgs, missingKeys)
 		}
+
 		// received more than expected
-		numExtra := -numMissing
-		// the last numExtra args
-		extraValues := strings.Join(args[len(args)-numExtra:], ", ")
-		return fmt.Errorf("%s\nInvalid Args: received %d arguments, expected %d, extra arguments: %q\nRun with --help for more details on arguments", cmd.UseLine(), numArgs, numExpectedArgs, extraValues)
+		if numMissing < 0 && failExtra {
+			// received more than expected
+			numExtra := -numMissing
+			// the last numExtra args
+			extraValues := strings.Join(args[len(args)-numExtra:], ", ")
+			return fmt.Errorf("%s\nInvalid Args: received %d arguments, expected %d, extra arguments: %q\nRun with --help for more details on arguments", cmd.UseLine(), numArgs, numExpectedArgs, extraValues)
+		}
+
+		return nil
 	}
 }
