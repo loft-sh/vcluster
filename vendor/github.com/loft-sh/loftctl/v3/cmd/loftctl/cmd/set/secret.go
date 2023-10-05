@@ -71,7 +71,7 @@ devspace set secret test-secret.key value --project myproject
 #######################################################
 	`
 	}
-	useLine, validator := util.NamedPositionalArgsValidator(true, "SECRET_NAME", "SECRET_VALUE")
+	useLine, validator := util.NamedPositionalArgsValidator(true, true, "SECRET_NAME", "SECRET_VALUE")
 	c := &cobra.Command{
 		Use:   "secret" + useLine,
 		Short: "Sets the key value of a project / shared secret",
