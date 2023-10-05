@@ -28,7 +28,10 @@ var _ = ginkgo.Describe("Connect to vCluster", func() {
 		framework.ExpectNoError(err)
 
 		connectCmd := cmd.NewConnectCmd(&flags.GlobalFlags{})
-		connectCmd.Flags().Set("kube-config", kcfgFile.Name())
+
+		err = connectCmd.Flags().Set("kube-config", kcfgFile.Name())
+		framework.ExpectNoError(err)
+
 		connectCmd.SetArgs([]string{f.VclusterName})
 
 		err = connectCmd.Execute()
