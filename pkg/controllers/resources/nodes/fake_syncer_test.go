@@ -66,7 +66,7 @@ func TestFakeSync(t *testing.T) {
 				"beta.kubernetes.io/arch":    "amd64",
 				"beta.kubernetes.io/os":      "linux",
 				"kubernetes.io/arch":         "amd64",
-				"kubernetes.io/hostname":     "fake-" + baseName.Name,
+				"kubernetes.io/hostname":     GetNodeHost(baseName.Name),
 				"kubernetes.io/os":           "linux",
 			},
 			Annotations: map[string]string{
