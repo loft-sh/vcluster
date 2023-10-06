@@ -177,7 +177,7 @@ syncer:
 
 # Etcd settings
 etcd:
-  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.8-eks-1-27-11
+  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.9-eks-1-28-6
   # The amount of replicas to run
   replicas: 1
   # NodeSelector used
@@ -212,7 +212,7 @@ etcd:
 
 # Kubernetes Controller Manager settings
 controller:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.27.4-eks-1-27-11
+  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used
@@ -235,7 +235,7 @@ controller:
 
 # Kubernetes API Server settings
 api:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.27.4-eks-1-27-11
+  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -263,7 +263,7 @@ api:
 coredns:
   integrated: false
   enabled: true
-  image: public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-27-11
+  image: public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-28-6
   replicas: 1
   # The nodeSelector example below specifices that coredns should only be scheduled to nodes with the arm64 label
   # nodeSelector:
