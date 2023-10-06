@@ -16,7 +16,7 @@ require (
 	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230925121720-6c3f4d5f792e
 	github.com/loft-sh/api/v3 v3.0.0-20231002075709-103158ad55b5
 	github.com/loft-sh/loftctl/v3 v3.0.0-20231005113406-74b569e42fd1
-	github.com/loft-sh/utils v0.0.28
+	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.0
