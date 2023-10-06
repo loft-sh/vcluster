@@ -262,6 +262,48 @@ api:
 # Core DNS settings
 coredns:
   integrated: false
+  plugin:
+    enabled: false
+    config: |-
+      ---
+    # example configuration for plugin syntax, will be documented in detail
+    # - record:
+    #     fqdn: google.com
+    #   target:
+    #     mode: url
+    #     url: google.co.in
+    # - record:
+    #     service: my-namespace/my-svc    # dns-test/nginx-svc
+    #   target:
+    #     mode: host
+    #     service: dns-test/nginx-svc
+    # - record:
+    #     service: my-namespace-lb/my-svc-lb
+    #   target:
+    #     mode: host
+    #     service: dns-test-exposed-lb/nginx-svc-exposed-lb
+    # - record:
+    #     service: my-ns-external-name/my-svc-external-name
+    #   target:
+    #     mode: host
+    #     service: dns-test-external-name/nginx-svc-external-name
+    # - record:
+    #     service: my-ns-in-vcluster/my-svc-vcluster
+    #   target:
+    #     mode: vcluster              # can be tested only manually for now
+    #     vcluster: test-vcluster-ns/test-vcluster
+    #     service: dns-test-in-vcluster-ns/test-in-vcluster-service
+    # - record:
+    #     service: my-ns-in-vcluster-mns/my-svc-mns
+    #   target:
+    #     mode: vcluster              # can be tested only manually for now
+    #     service: dns-test-in-vcluster-mns/test-in-vcluster-svc-mns
+    #     vcluster: test-vcluster-ns-mns/test-vcluster-mns
+    # - record:
+    #     service: my-self-vc-ns/my-self-vc-svc
+    #   target:
+    #     mode: self
+    #     service: dns-test/nginx-svc
   enabled: true
   image: public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-28-6
   replicas: 1

@@ -207,6 +207,9 @@ spec:
           {{- if .Values.coredns.integrated }}
           - --integrated-coredns=true
           {{- end }}
+          {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
+          - --use-coredns-plugin=true
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
