@@ -151,7 +151,7 @@ spec:
         {{- if .Values.syncer.image }}
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
-        {{- if .pro }}
+        {{- if .Values.pro }}
         image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster-pro:{{ .Chart.Version }}"
         {{- else }}
         image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
