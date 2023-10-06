@@ -190,9 +190,8 @@ func TestSync(t *testing.T) {
 				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
 			},
 			Annotations: map[string]string{
-				"vcluster.loft.sh/managed-annotations": "vcluster.loft.sh/original-taints",
-				translate.ManagedLabelsAnnotation:      "kubernetes.io/hostname",
-				TaintsAnnotation:                       "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
+				translate.ManagedLabelsAnnotation: "kubernetes.io/hostname",
+				TaintsAnnotation:                  "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
 			},
 		},
 		Spec: corev1.NodeSpec{
@@ -229,9 +228,8 @@ func TestSync(t *testing.T) {
 				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
 			},
 			Annotations: map[string]string{
-				"vcluster.loft.sh/managed-annotations": "vcluster.loft.sh/original-taints",
-				translate.ManagedLabelsAnnotation:      "kubernetes.io/hostname",
-				TaintsAnnotation:                       "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
+				translate.ManagedLabelsAnnotation: "kubernetes.io/hostname",
+				TaintsAnnotation:                  "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
 			},
 		},
 		Spec: corev1.NodeSpec{
