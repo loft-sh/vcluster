@@ -100,10 +100,6 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		}
 	}
 
-	if s.useFakeKubelets {
-		labels["kubernetes.io/hostname"] = GetNodeHost(vNode.Name)
-	}
-
 	// Omit those taints for which the vcluster has enforced tolerations defined
 	if len(s.enforcedTolerations) > 0 && len(translatedSpec.Taints) > 0 {
 		translatedSpec.Taints = s.filterOutTaintsMatchingTolerations(translatedSpec.Taints)
