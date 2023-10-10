@@ -14,35 +14,41 @@ type Helm struct {
 	DefaultImageRegistry string                 `json:"defaultImageRegistry,omitempty"`
 	Plugin               map[string]interface{} `json:"plugin,omitempty"`
 	Sync                 SyncValues             `json:"sync,omitempty"`
-	FallbackHostDns      bool                   `json:"fallbackHostDns,omitempty"`
-	MapServices          MapServices
-	Proxy                ProxyValues
-	Syncer               SyncerValues
-	Vcluster             VclusterValues
-	Storage              StorageValues
-	Volumes              []corev1.Volume
+	FallbackHostDNS      bool                   `json:"fallbackHostDns,omitempty"`
+	MapServices          MapServices            `json:"mapServices,omitempty"`
+	Proxy                ProxyValues            `json:"proxy,omitempty"`
+	Syncer               SyncerValues           `json:"syncer,omitempty"`
+	Vcluster             VclusterValues         `json:"vcluster,omitempty"`
+	Storage              StorageValues          `json:"storage,omitempty"`
+	Volumes              []corev1.Volume        `json:"volumes,omitempty"`
 	ServiceAccount       struct {
-		Create bool
-	}
+		Create bool `json:"create,omitempty"`
+	} `json:"serviceAccount,omitempty"`
 	WorkloadServiceAccount struct {
-		Annotations map[string]interface{}
-	}
-	Replicas            uint32
-	NodeSelector        corev1.NodeSelector
-	Affinity            corev1.Affinity
-	PriorityClassName   string
-	Tolerations         []corev1.Toleration
-	Labels              []map[string]string
-	PodLabels           []map[string]string
-	Annotations         map[string]string
-	PodAnnotations      map[string]string
-	PodDisruptionbudget PDBValues
+		Annotations map[string]interface{} `json:"annotations,omitempty"`
+	} `json:"workloadServiceAccount,omitempty"`
+	Replicas            uint32              `json:"replicas,omitempty"`
+	NodeSelector        corev1.NodeSelector `json:"nodeSelector,omitempty"`
+	Affinity            corev1.Affinity     `json:"affinity,omitempty"`
+	PriorityClassName   string              `json:"priorityClassName,omitempty"`
+	Tolerations         []corev1.Toleration `json:"tolerations,omitempty"`
+	Labels              []map[string]string `json:"labels,omitempty"`
+	PodLabels           []map[string]string `json:"podLabels,omitempty"`
+	Annotations         map[string]string   `json:"annotations,omitempty"`
+	PodAnnotations      map[string]string   `json:"podAnnotations,omitempty"`
+	PodDisruptionbudget PDBValues           `json:"podDisruptionbudget,omitempty"`
 	ServerToken         struct {
-		Values       string
-		SecretKeyRef corev1.SecretKeySelector
-	}
-	Service ServiceValues
-	Ingress IngressValues
+		Values       string                   `json:"values,omitempty"`
+		SecretKeyRef corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+	} `json:"serverToken,omitempty"`
+	Service ServiceValues `json:"service,omitempty"`
+	Ingress IngressValues `json:"ingress,omitempty"`
+
+	SecurityContext    corev1.SecurityContext    `json:"securityContext,omitempty"`
+	PodSecurityContext corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	Openshift          EnabledSwitch             `json:"openshift,omitempty"`
+	Coredns            CoreDNSValues             `json:"coredns,omitempty"`
+	Isolation          IsolationValues           `json:"isolation,omitempty"`
 }
 
 type SyncValues struct {
@@ -102,67 +108,127 @@ type EnabledSwitch struct {
 }
 
 type MapServices struct {
-	FromVirtual []map[string]interface{}
-	FromHost    []map[string]interface{}
+	FromVirtual []map[string]interface{} `json:"fromVirtual,omitempty"`
+	FromHost    []map[string]interface{} `json:"fromHost,omitempty"`
 }
 
 type ProxyValues struct {
-	MetricsServer MetricsProxyServerConfig
+	MetricsServer MetricsProxyServerConfig `json:"metricsServer,omitempty"`
 }
 
 type MetricsProxyServerConfig struct {
-	Nodes EnabledSwitch
-	Pods  EnabledSwitch
+	Nodes EnabledSwitch `json:"nodes,omitempty"`
+	Pods  EnabledSwitch `json:"pods,omitempty"`
 }
 
 type SyncerValues struct {
-	ExtraArgs             []string
-	Env                   []corev1.EnvVar
-	LivenessProbe         EnabledSwitch
-	ReadinessProbe        EnabledSwitch
-	VolumeMounts          []corev1.VolumeMount
-	ExtraVolumeMounts     []corev1.VolumeMount
-	Resources             corev1.ResourceRequirements
-	KubeConfigContextName string
-	ServiceAnnotations    map[string]interface{}
+	ExtraArgs             []string                    `json:"extraArgs,omitempty"`
+	Env                   []corev1.EnvVar             `json:"env,omitempty"`
+	LivenessProbe         EnabledSwitch               `json:"livenessProbe,omitempty"`
+	ReadinessProbe        EnabledSwitch               `json:"readinessProbe,omitempty"`
+	VolumeMounts          []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
+	ExtraVolumeMounts     []corev1.VolumeMount        `json:"extraVolumeMounts,omitempty"`
+	Resources             corev1.ResourceRequirements `json:"resources,omitempty"`
+	KubeConfigContextName string                      `json:"kubeConfigContextName,omitempty"`
+	ServiceAnnotations    map[string]interface{}      `json:"serviceAnnotations,omitempty"`
 }
 
 type VclusterValues struct {
-	Image             string
-	Command           []string
-	BaseArgs          []string
-	ExtraArgs         []string
-	ExtraVolumeMounts []corev1.VolumeMount
-	VolumeMounts      []corev1.VolumeMount
-	Env               []corev1.EnvVar
-	Resources         corev1.ResourceRequirements
+	Image             string                      `json:"image,omitempty"`
+	Command           []string                    `json:"command,omitempty"`
+	BaseArgs          []string                    `json:"baseArgs,omitempty"`
+	ExtraArgs         []string                    `json:"extraArgs,omitempty"`
+	ExtraVolumeMounts []corev1.VolumeMount        `json:"extraVolumeMounts,omitempty"`
+	VolumeMounts      []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
+	Env               []corev1.EnvVar             `json:"env,omitempty"`
+	Resources         corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type StorageValues struct {
-	Persistence bool
-	Size        string
+	Persistence bool   `json:"persistence,omitempty"`
+	Size        string `json:"size,omitempty"`
 }
 
 type PDBValues struct {
-	Enabled bool
+	Enabled bool `json:"enabled,omitempty"`
 	policyv1.PodDisruptionBudgetSpec
 }
 
 type ServiceValues struct {
-	Type                     corev1.ServiceType
-	ExternalIPs              []string
-	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicy
-	LoadBalancerIP           string
-	LoadBalancerSourceRanges []string
-	LoadBalancerClass        string
+	Type                     corev1.ServiceType                  `json:"type,omitempty"`
+	ExternalIPs              []string                            `json:"externalIPs,omitempty"`
+	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicy `json:"externalTrafficPolicy,omitempty"`
+	LoadBalancerIP           string                              `json:"loadBalancerIP,omitempty"`
+	LoadBalancerSourceRanges []string                            `json:"loadBalancerSourceRanges,omitempty"`
+	LoadBalancerClass        string                              `json:"loadBalancerClass,omitempty"`
 }
 
 type IngressValues struct {
-	Enabled          bool
-	PathType         string
-	ApiVersion       string
-	IngressClassName string
-	Host             string
-	Annotations      map[string]string
-	Tls              []networkingv1.IngressTLS
+	Enabled          bool                      `json:"enabled,omitempty"`
+	PathType         string                    `json:"pathType,omitempty"`
+	APIVersion       string                    `json:"apiVersion,omitempty"`
+	IngressClassName string                    `json:"ingressClassName,omitempty"`
+	Host             string                    `json:"host,omitempty"`
+	Annotations      map[string]string         `json:"annotations,omitempty"`
+	TLS              []networkingv1.IngressTLS `json:"tls,omitempty"`
+}
+
+type CoreDNSValues struct {
+	Integrated     bool                        `json:"integrated,omitempty"`
+	Enabled        bool                        `json:"enabled,omitempty"`
+	Replicas       uint32                      `json:"replicas,omitempty"`
+	NodeSelector   corev1.NodeSelector         `json:"nodeSelector,omitempty"`
+	Image          string                      `json:"image,omitempty"`
+	Config         string                      `json:"config,omitempty"`
+	Service        CoreDNSServiceValues        `json:"service,omitempty"`
+	Resources      corev1.ResourceRequirements `json:"resources,omitempty"`
+	Manifests      string                      `json:"manifests,omitempty"`
+	PodAnnotations map[string]string           `json:"podAnnotations,omitempty"`
+	PodLabels      map[string]string           `json:"podLabels,omitempty"`
+}
+
+type CoreDNSServiceValues struct {
+	Type                  corev1.ServiceType                  `json:"type,omitempty"`
+	ExternalIPs           []string                            `json:"externalIPs,omitempty"`
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicy `json:"externalTrafficPolicy,omitempty"`
+	Annotations           map[string]string                   `json:"annotations,omitempty"`
+}
+
+type IsolationValues struct {
+	Enabled             bool          `json:"enabled,omitempty"`
+	Namespace           *string       `json:"namespace,omitempty"`
+	PodSecurityStandard string        `json:"podSecurityStandard,omitempty"`
+	NodeProxyPermission EnabledSwitch `json:"nodeProxyPermission,omitempty"`
+
+	ResourceQuota struct {
+		Enabled       bool                        `json:"enabled,omitempty"`
+		Quota         map[string]interface{}      `json:"quota,omitempty"`
+		ScopeSelector corev1.ScopeSelector        `json:"scopeSelector,omitempty"`
+		Scopes        []corev1.ResourceQuotaScope `json:"scopes,omitempty"`
+	} `json:"resourceQuota,omitempty"`
+
+	LimitRange    IsolationLimitRangeValues `json:"limitRange,omitempty"`
+	NetworkPolicy NetworkPolicyValues       `json:"networkPolicy,omitempty"`
+}
+
+type IsolationLimitRangeValues struct {
+	Enabled        bool                             `json:"enabled,omitempty"`
+	Default        IsolationLimitRangeDefaultValues `json:"default,omitempty"`
+	DefaultRequest IsolationLimitRangeDefaultValues `json:"defaultRequest,omitempty"`
+}
+
+type IsolationLimitRangeDefaultValues struct {
+	EphemeralStorage string `json:"ephemeral-storage,omitempty"`
+	Memory           string `json:"memory,omitempty"`
+	CPU              string `json:"cpu,omitempty"`
+}
+
+type NetworkPolicyValues struct {
+	Enabled             bool `json:"enabled,omitempty"`
+	OutgoingConnections struct {
+		IPBlock struct {
+			CIDR   string   `json:"cidr,omitempty"`
+			Except []string `json:"except,omitempty"`
+		} `json:"ipBlock,omitempty"`
+	} `json:"outgoingConnections,omitempty"`
 }
