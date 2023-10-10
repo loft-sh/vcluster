@@ -81,14 +81,12 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Labels: map[string]string{
-				"test":                   "true",
-				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
+				"test": "true",
 			},
 			Annotations: map[string]string{
 				"test":                                 "true",
 				translate.ManagedAnnotationsAnnotation: "test",
-				translate.ManagedLabelsAnnotation:      "kubernetes.io/hostname\ntest",
-				"vcluster.loft.sh/managed-annotations": "vcluster.loft.sh/original-taints",
+				translate.ManagedLabelsAnnotation:      "test",
 			},
 		},
 		Status: corev1.NodeStatus{
@@ -186,12 +184,8 @@ func TestSync(t *testing.T) {
 	baseNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
-			Labels: map[string]string{
-				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
-			},
 			Annotations: map[string]string{
-				translate.ManagedLabelsAnnotation: "kubernetes.io/hostname",
-				TaintsAnnotation:                  "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
+				TaintsAnnotation: "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
 			},
 		},
 		Spec: corev1.NodeSpec{
@@ -224,12 +218,8 @@ func TestSync(t *testing.T) {
 	editedNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
-			Labels: map[string]string{
-				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
-			},
 			Annotations: map[string]string{
-				translate.ManagedLabelsAnnotation: "kubernetes.io/hostname",
-				TaintsAnnotation:                  "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
+				TaintsAnnotation: "[\"{\\\"key\\\":\\\"key1\\\",\\\"value\\\":\\\"value1\\\",\\\"effect\\\":\\\"NoSchedule\\\"}\"]",
 			},
 		},
 		Spec: corev1.NodeSpec{
@@ -355,8 +345,7 @@ func TestSync(t *testing.T) {
 				translate.ManagedLabelsAnnotation: "test",
 			},
 			Labels: map[string]string{
-				"test":                   "true",
-				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
+				"test": "true",
 			},
 		},
 		Status: corev1.NodeStatus{
@@ -497,8 +486,7 @@ func TestSync(t *testing.T) {
 				translate.ManagedLabelsAnnotation: "test",
 			},
 			Labels: map[string]string{
-				"test":                   "true",
-				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
+				"test": "true",
 			},
 		},
 		Status: corev1.NodeStatus{
@@ -545,8 +533,7 @@ func TestSync(t *testing.T) {
 				translate.ManagedLabelsAnnotation: "test",
 			},
 			Labels: map[string]string{
-				"test":                   "true",
-				"kubernetes.io/hostname": GetNodeHost(baseName.Name),
+				"test": "true",
 			},
 		},
 		Status: corev1.NodeStatus{

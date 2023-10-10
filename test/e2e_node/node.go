@@ -21,15 +21,11 @@ var _ = ginkgo.Describe("Node sync", func() {
 
 		hostNodeLabels := make(map[string]map[string]string)
 		for _, node := range hostNodes.Items {
-			pHostname := node.Labels[corev1.LabelHostname]
-			pHostname += ".nodes.vcluster.com"
-			node.Labels[corev1.LabelHostname] = pHostname
 			hostNodeLabels[node.Name] = node.Labels
 		}
 
 		virtualNodeLabels := make(map[string]map[string]string)
 		for _, node := range virtualNodes.Items {
-			delete(node.Labels, "vcluster.loft.sh/fake-node")
 			virtualNodeLabels[node.Name] = node.Labels
 		}
 
