@@ -293,7 +293,7 @@ func (f *exporter) IsManaged(_ context.Context, pObj client.Object) (bool, error
 }
 
 func (f *exporter) objectMatches(obj client.Object) bool {
-	return f.selector == nil || !f.selector.Matches(labels.Set(obj.GetLabels()))
+	return f.selector == nil || f.selector.Matches(labels.Set(obj.GetLabels()))
 }
 
 type virtualToHostNameResolver struct {
