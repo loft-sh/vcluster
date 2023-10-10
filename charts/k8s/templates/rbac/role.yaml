@@ -41,7 +41,7 @@ rules:
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- if or .Values.sync.pods.ephemeralContainers .Values.rbac.role.extended }}
-  {{- if semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion }}
+  {{- if semverCompare ">=1.23-0" .Capabilities.KubeVersion.Version }}
   - apiGroups: [""]
     resources: ["pods/ephemeralcontainers"]
     verbs: ["patch", "update"]
