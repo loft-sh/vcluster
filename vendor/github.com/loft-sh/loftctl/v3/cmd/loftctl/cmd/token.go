@@ -25,10 +25,12 @@ var (
 type TokenCmd struct {
 	*flags.GlobalFlags
 
+	// Deprecated please use access keys instead
 	DirectClusterEndpoint bool
-	Project               string
-	VirtualCluster        string
-	log                   log.Logger
+
+	Project        string
+	VirtualCluster string
+	log            log.Logger
 }
 
 // NewTokenCmd creates a new command

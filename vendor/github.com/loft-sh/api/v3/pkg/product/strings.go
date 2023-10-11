@@ -1,16 +1,17 @@
 package product
 
+import "github.com/loft-sh/admin-apis/pkg/licenseapi"
+
 // LoginCmd returns the login command for the product
 func LoginCmd() string {
-	loginCmd := ""
+	loginCmd := "loft login"
 
-	switch Product() {
-	case Loft:
-		return "loft login"
-	case DevPodPro:
+	switch Name() {
+	case licenseapi.DevPodPro:
 		return "devpod login"
-	case VClusterPro:
+	case licenseapi.VClusterPro:
 		return "vcluster login"
+	case licenseapi.Loft:
 	}
 
 	return loginCmd
@@ -18,15 +19,14 @@ func LoginCmd() string {
 
 // StartCmd returns the start command for the product
 func StartCmd() string {
-	loginCmd := ""
+	loginCmd := "loft start"
 
-	switch Product() {
-	case Loft:
-		return "loft start"
-	case DevPodPro:
-		return "devpod pro start"
-	case VClusterPro:
-		return "vcluster pro start"
+	switch Name() {
+	case licenseapi.DevPodPro:
+		loginCmd = "devpod pro start"
+	case licenseapi.VClusterPro:
+		loginCmd = "vcluster pro start"
+	case licenseapi.Loft:
 	}
 
 	return loginCmd
@@ -34,15 +34,14 @@ func StartCmd() string {
 
 // Url returns the url command for the product
 func Url() string {
-	loginCmd := ""
+	loginCmd := "loft-url"
 
-	switch Product() {
-	case Loft:
-		return "loft-url"
-	case DevPodPro:
-		return "devpod-pro-url"
-	case VClusterPro:
-		return "vcluster-pro-url"
+	switch Name() {
+	case licenseapi.DevPodPro:
+		loginCmd = "devpod-pro-url"
+	case licenseapi.VClusterPro:
+		loginCmd = "vcluster-pro-url"
+	case licenseapi.Loft:
 	}
 
 	return loginCmd
@@ -50,32 +49,15 @@ func Url() string {
 
 // ResetPassword returns the reset password command for the product
 func ResetPassword() string {
-	resetPassword := ""
+	resetPassword := "loft reset password"
 
-	switch Product() {
-	case Loft:
-		return "loft reset password"
-	case DevPodPro:
+	switch Name() {
+	case licenseapi.DevPodPro:
 		return "devpod pro reset password"
-	case VClusterPro:
+	case licenseapi.VClusterPro:
 		return "vcluster pro reset password"
+	case licenseapi.Loft:
 	}
 
 	return resetPassword
-}
-
-// Name returns the name of the product
-func Name() string {
-	name := ""
-
-	switch Product() {
-	case Loft:
-		return "Loft"
-	case DevPodPro:
-		return "DevPod Pro"
-	case VClusterPro:
-		return "vCluster.Pro"
-	}
-
-	return name
 }

@@ -118,11 +118,11 @@ func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, n
 			LabelSelector: "app=loft",
 		})
 		if err != nil {
-			log.Warnf("Error trying to retrieve %s pod: %v", product.Name(), err)
+			log.Warnf("Error trying to retrieve %s pod: %v", product.DisplayName(), err)
 			return false, nil
 		} else if len(pods.Items) == 0 {
 			if time.Now().After(now.Add(time.Second * 10)) {
-				log.Infof("Still waiting for a %s pod...", product.Name())
+				log.Infof("Still waiting for a %s pod...", product.DisplayName())
 				now = time.Now()
 			}
 			return false, nil
@@ -156,20 +156,20 @@ func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, n
 					Container: "manager",
 				}).Do(context.Background()).Raw()
 				if err != nil {
-					return false, fmt.Errorf("there seems to be an issue with %s starting up: %s (%s). Please reach out to our support at https://loft.sh/", product.Name(), message, reason)
+					return false, fmt.Errorf("there seems to be an issue with %s starting up: %s (%s). Please reach out to our support at https://loft.sh/", product.DisplayName(), message, reason)
 				}
 				if strings.Contains(string(out), "register instance: Post \"https://license.loft.sh/register\": dial tcp") {
-					return false, fmt.Errorf("%[1]s logs: \n%[2]v \nThere seems to be an issue with %[1]s starting up. Looks like you try to install %[1]s into an air-gapped environment, please reach out to our support at https://loft.sh/ for an offline license", product.Name(), string(out))
+					return false, fmt.Errorf("%[1]s logs: \n%[2]v \nThere seems to be an issue with %[1]s starting up. Looks like you try to install %[1]s into an air-gapped environment, please reach out to our support at https://loft.sh/ for an offline license", product.DisplayName(), string(out))
 				}
 
-				return false, fmt.Errorf("%[1]s logs: \n%v \nThere seems to be an issue with %[1]s starting up: %[2]s (%[3]s). Please reach out to our support at https://loft.sh/", product.Name(), string(out), message, reason)
+				return false, fmt.Errorf("%[1]s logs: \n%v \nThere seems to be an issue with %[1]s starting up: %[2]s (%[3]s). Please reach out to our support at https://loft.sh/", product.DisplayName(), string(out), message, reason)
 			} else if containerStatus.State.Waiting != nil && time.Now().After(now.Add(time.Second*10)) {
 				if containerStatus.State.Waiting.Message != "" {
-					log.Infof("Please keep waiting, %s container is still starting up: %s (%s)", product.Name(), containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
+					log.Infof("Please keep waiting, %s container is still starting up: %s (%s)", product.DisplayName(), containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
 				} else if containerStatus.State.Waiting.Reason != "" {
-					log.Infof("Please keep waiting, %s container is still starting up: %s", product.Name(), containerStatus.State.Waiting.Reason)
+					log.Infof("Please keep waiting, %s container is still starting up: %s", product.DisplayName(), containerStatus.State.Waiting.Reason)
 				} else {
-					log.Infof("Please keep waiting, %s container is still starting up...", product.Name())
+					log.Infof("Please keep waiting, %s container is still starting up...", product.DisplayName())
 				}
 
 				now = time.Now()
@@ -190,7 +190,7 @@ func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, n
 
 func StartPortForwarding(ctx context.Context, config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
 	log.WriteString(logrus.InfoLevel, "\n")
-	log.Infof("Starting port-forwarding to the %s pod", product.Name())
+	log.Infof("Starting port-forwarding to the %s pod", product.DisplayName())
 	execRequest := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod.Name).
@@ -358,7 +358,7 @@ func IsPrivateIP(ip net.IP) bool {
 
 func EnterHostNameQuestion(log log.Logger) (string, error) {
 	return log.Question(&survey.QuestionOptions{
-		Question: fmt.Sprintf("Enter a hostname for your %s instance (e.g. loft.my-domain.tld): \n ", product.Name()),
+		Question: fmt.Sprintf("Enter a hostname for your %s instance (e.g. loft.my-domain.tld): \n ", product.DisplayName()),
 		ValidationFunc: func(answer string) error {
 			u, err := url.Parse("https://" + answer)
 			if err != nil || u.Path != "" || u.Port() != "" || len(strings.Split(answer, ".")) < 2 {
@@ -383,7 +383,7 @@ func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface
 }
 
 func UninstallLoft(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
-	log.Infof("Uninstalling %s...", product.Name())
+	log.Infof("Uninstalling %s...", product.DisplayName())
 	releaseName := defaultReleaseName
 	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, defaultDeploymentName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
@@ -616,7 +616,7 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 		return fmt.Errorf("error during helm command: %s (%w)", string(output), err)
 	}
 
-	log.Donef("%s has been deployed to your cluster!", product.Name())
+	log.Donef("%s has been deployed to your cluster!", product.DisplayName())
 	return nil
 }
 

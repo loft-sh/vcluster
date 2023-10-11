@@ -60,9 +60,9 @@ type SelfStatus struct {
 	// +optional
 	Groups []string `json:"groups,omitempty"`
 
-	// IntercomHash is the hmac used to link a user/instance to intercomm
+	// ChatAuthToken is the token used to authenticate with the in-product chat widget in the UI
 	// +optional
-	IntercomHash string `json:"intercomHash"`
+	ChatAuthToken string `json:"chatAuthToken"`
 
 	// InstanceID is the loft instance id
 	// +optional

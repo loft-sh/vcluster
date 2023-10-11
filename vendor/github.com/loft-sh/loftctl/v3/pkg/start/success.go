@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
@@ -207,7 +208,7 @@ func (l *LoftStarter) successRemote(ctx context.Context, host string) error {
 }
 
 func (l *LoftStarter) printVClusterProGettingStarted(url string) {
-	if product.Product() != product.VClusterPro {
+	if product.Name() != licenseapi.VClusterPro {
 		return
 	}
 

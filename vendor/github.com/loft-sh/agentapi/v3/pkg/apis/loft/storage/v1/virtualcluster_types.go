@@ -231,6 +231,14 @@ type VirtualClusterHelmChart struct {
 	// +optional
 	Repo string `json:"repo,omitempty"`
 
+	// The username that is required for this repository
+	// +optional
+	Username string `json:"username,omitempty"`
+
+	// The password that is required for this repository
+	// +optional
+	Password string `json:"password,omitempty"`
+
 	// the version of the helm chart to use
 	// +optional
 	Version string `json:"version,omitempty"`

@@ -9,13 +9,13 @@ import (
 	url "net/url"
 	unsafe "unsafe"
 
+	licenseapi "github.com/loft-sh/admin-apis/pkg/licenseapi"
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	loftstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	auditv1 "github.com/loft-sh/api/v3/pkg/apis/audit/v1"
 	management "github.com/loft-sh/api/v3/pkg/apis/management"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	uiv1 "github.com/loft-sh/api/v3/pkg/apis/ui/v1"
-	server "github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
@@ -2724,7 +2724,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 
 func autoConvert_v1_AgentAnalyticsSpec_To_management_AgentAnalyticsSpec(in *AgentAnalyticsSpec, out *management.AgentAnalyticsSpec, s conversion.Scope) error {
 	out.AnalyticsEndpoint = in.AnalyticsEndpoint
-	out.InstanceTokenAuth = (*server.InstanceTokenAuth)(unsafe.Pointer(in.InstanceTokenAuth))
 	return nil
 }
 
@@ -2735,7 +2734,6 @@ func Convert_v1_AgentAnalyticsSpec_To_management_AgentAnalyticsSpec(in *AgentAna
 
 func autoConvert_management_AgentAnalyticsSpec_To_v1_AgentAnalyticsSpec(in *management.AgentAnalyticsSpec, out *AgentAnalyticsSpec, s conversion.Scope) error {
 	out.AnalyticsEndpoint = in.AnalyticsEndpoint
-	out.InstanceTokenAuth = (*server.InstanceTokenAuth)(unsafe.Pointer(in.InstanceTokenAuth))
 	return nil
 }
 
@@ -2950,7 +2948,6 @@ func Convert_management_AnnouncementSpec_To_v1_AnnouncementSpec(in *management.A
 
 func autoConvert_v1_AnnouncementStatus_To_management_AnnouncementStatus(in *AnnouncementStatus, out *management.AnnouncementStatus, s conversion.Scope) error {
 	out.Announcement = in.Announcement
-	out.InstanceTokenAuth = (*server.InstanceTokenAuth)(unsafe.Pointer(in.InstanceTokenAuth))
 	return nil
 }
 
@@ -2961,7 +2958,6 @@ func Convert_v1_AnnouncementStatus_To_management_AnnouncementStatus(in *Announce
 
 func autoConvert_management_AnnouncementStatus_To_v1_AnnouncementStatus(in *management.AnnouncementStatus, out *AnnouncementStatus, s conversion.Scope) error {
 	out.Announcement = in.Announcement
-	out.InstanceTokenAuth = (*server.InstanceTokenAuth)(unsafe.Pointer(in.InstanceTokenAuth))
 	return nil
 }
 
@@ -5385,7 +5381,9 @@ func Convert_management_FeatureSpec_To_v1_FeatureSpec(in *management.FeatureSpec
 }
 
 func autoConvert_v1_FeatureStatus_To_management_FeatureStatus(in *FeatureStatus, out *management.FeatureStatus, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	out.Feature = in.Feature
+	out.Internal = in.Internal
+	out.Used = in.Used
 	return nil
 }
 
@@ -5395,7 +5393,9 @@ func Convert_v1_FeatureStatus_To_management_FeatureStatus(in *FeatureStatus, out
 }
 
 func autoConvert_management_FeatureStatus_To_v1_FeatureStatus(in *management.FeatureStatus, out *FeatureStatus, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	out.Feature = in.Feature
+	out.Internal = in.Internal
+	out.Used = in.Used
 	return nil
 }
 
@@ -5595,6 +5595,9 @@ func autoConvert_v1_KioskSpec_To_management_KioskSpec(in *KioskSpec, out *manage
 	out.LocalUser = in.LocalUser
 	out.LocalTeam = in.LocalTeam
 	out.UISettings = in.UISettings
+	if err := Convert_v1_License_To_management_License(&in.License, &out.License, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -5620,6 +5623,9 @@ func autoConvert_management_KioskSpec_To_v1_KioskSpec(in *management.KioskSpec, 
 	out.LocalUser = in.LocalUser
 	out.LocalTeam = in.LocalTeam
 	out.UISettings = in.UISettings
+	if err := Convert_management_License_To_v1_License(&in.License, &out.License, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -5755,7 +5761,7 @@ func Convert_management_LicenseRequestList_To_v1_LicenseRequestList(in *manageme
 }
 
 func autoConvert_v1_LicenseRequestSpec_To_management_LicenseRequestSpec(in *LicenseRequestSpec, out *management.LicenseRequestSpec, s conversion.Scope) error {
-	out.Route = in.Route
+	out.URL = in.URL
 	out.Input = in.Input
 	return nil
 }
@@ -5766,7 +5772,7 @@ func Convert_v1_LicenseRequestSpec_To_management_LicenseRequestSpec(in *LicenseR
 }
 
 func autoConvert_management_LicenseRequestSpec_To_v1_LicenseRequestSpec(in *management.LicenseRequestSpec, out *LicenseRequestSpec, s conversion.Scope) error {
-	out.Route = in.Route
+	out.URL = in.URL
 	out.Input = in.Input
 	return nil
 }
@@ -5777,8 +5783,7 @@ func Convert_management_LicenseRequestSpec_To_v1_LicenseRequestSpec(in *manageme
 }
 
 func autoConvert_v1_LicenseRequestStatus_To_management_LicenseRequestStatus(in *LicenseRequestStatus, out *management.LicenseRequestStatus, s conversion.Scope) error {
-	out.OK = in.OK
-	out.Output = in.Output
+	out.Output = (*licenseapi.GenericRequestOutput)(unsafe.Pointer(in.Output))
 	return nil
 }
 
@@ -5788,8 +5793,7 @@ func Convert_v1_LicenseRequestStatus_To_management_LicenseRequestStatus(in *Lice
 }
 
 func autoConvert_management_LicenseRequestStatus_To_v1_LicenseRequestStatus(in *management.LicenseRequestStatus, out *LicenseRequestStatus, s conversion.Scope) error {
-	out.OK = in.OK
-	out.Output = in.Output
+	out.Output = (*licenseapi.GenericRequestOutput)(unsafe.Pointer(in.Output))
 	return nil
 }
 
@@ -5817,9 +5821,8 @@ func Convert_management_LicenseSpec_To_v1_LicenseSpec(in *management.LicenseSpec
 }
 
 func autoConvert_v1_LicenseStatus_To_management_LicenseStatus(in *LicenseStatus, out *management.LicenseStatus, s conversion.Scope) error {
-	out.Buttons = *(*server.Buttons)(unsafe.Pointer(&in.Buttons))
-	out.License = (*server.License)(unsafe.Pointer(in.License))
-	out.InstanceID = in.InstanceID
+	out.License = (*licenseapi.License)(unsafe.Pointer(in.License))
+	out.ResourceUsage = *(*map[string]licenseapi.ResourceCount)(unsafe.Pointer(&in.ResourceUsage))
 	return nil
 }
 
@@ -5829,9 +5832,8 @@ func Convert_v1_LicenseStatus_To_management_LicenseStatus(in *LicenseStatus, out
 }
 
 func autoConvert_management_LicenseStatus_To_v1_LicenseStatus(in *management.LicenseStatus, out *LicenseStatus, s conversion.Scope) error {
-	out.Buttons = *(*server.Buttons)(unsafe.Pointer(&in.Buttons))
-	out.License = (*server.License)(unsafe.Pointer(in.License))
-	out.InstanceID = in.InstanceID
+	out.License = (*licenseapi.License)(unsafe.Pointer(in.License))
+	out.ResourceUsage = *(*map[string]licenseapi.ResourceCount)(unsafe.Pointer(&in.ResourceUsage))
 	return nil
 }
 
@@ -5895,6 +5897,8 @@ func Convert_management_LicenseTokenList_To_v1_LicenseTokenList(in *management.L
 }
 
 func autoConvert_v1_LicenseTokenSpec_To_management_LicenseTokenSpec(in *LicenseTokenSpec, out *management.LicenseTokenSpec, s conversion.Scope) error {
+	out.URL = in.URL
+	out.Payload = in.Payload
 	return nil
 }
 
@@ -5904,6 +5908,8 @@ func Convert_v1_LicenseTokenSpec_To_management_LicenseTokenSpec(in *LicenseToken
 }
 
 func autoConvert_management_LicenseTokenSpec_To_v1_LicenseTokenSpec(in *management.LicenseTokenSpec, out *LicenseTokenSpec, s conversion.Scope) error {
+	out.URL = in.URL
+	out.Payload = in.Payload
 	return nil
 }
 
@@ -5913,7 +5919,7 @@ func Convert_management_LicenseTokenSpec_To_v1_LicenseTokenSpec(in *management.L
 }
 
 func autoConvert_v1_LicenseTokenStatus_To_management_LicenseTokenStatus(in *LicenseTokenStatus, out *management.LicenseTokenStatus, s conversion.Scope) error {
-	out.Token = (*server.InstanceTokenAuth)(unsafe.Pointer(in.Token))
+	out.Token = (*licenseapi.InstanceTokenAuth)(unsafe.Pointer(in.Token))
 	return nil
 }
 
@@ -5923,7 +5929,7 @@ func Convert_v1_LicenseTokenStatus_To_management_LicenseTokenStatus(in *LicenseT
 }
 
 func autoConvert_management_LicenseTokenStatus_To_v1_LicenseTokenStatus(in *management.LicenseTokenStatus, out *LicenseTokenStatus, s conversion.Scope) error {
-	out.Token = (*server.InstanceTokenAuth)(unsafe.Pointer(in.Token))
+	out.Token = (*licenseapi.InstanceTokenAuth)(unsafe.Pointer(in.Token))
 	return nil
 }
 
@@ -7545,7 +7551,7 @@ func autoConvert_v1_SelfStatus_To_management_SelfStatus(in *SelfStatus, out *man
 	out.Subject = in.Subject
 	out.UID = in.UID
 	out.Groups = *(*[]string)(unsafe.Pointer(&in.Groups))
-	out.IntercomHash = in.IntercomHash
+	out.ChatAuthToken = in.ChatAuthToken
 	out.InstanceID = in.InstanceID
 	return nil
 }
@@ -7564,7 +7570,7 @@ func autoConvert_management_SelfStatus_To_v1_SelfStatus(in *management.SelfStatu
 	out.Subject = in.Subject
 	out.UID = in.UID
 	out.Groups = *(*[]string)(unsafe.Pointer(&in.Groups))
-	out.IntercomHash = in.IntercomHash
+	out.ChatAuthToken = in.ChatAuthToken
 	out.InstanceID = in.InstanceID
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	pkglicenseapi "github.com/loft-sh/admin-apis/pkg/licenseapi"
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	auditv1 "github.com/loft-sh/api/v3/pkg/apis/audit/v1"
@@ -13,7 +14,6 @@ import (
 	uiv1 "github.com/loft-sh/api/v3/pkg/apis/ui/v1"
 	"github.com/loft-sh/api/v3/pkg/managerfactory"
 	"github.com/loft-sh/apiserver/pkg/builders"
-	pkgserver "github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server"
 	policyv1beta1 "github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -1263,7 +1263,6 @@ type Stage string
 
 type AgentAnalyticsSpec struct {
 	AnalyticsEndpoint string
-	InstanceTokenAuth *pkgserver.InstanceTokenAuth
 }
 
 type AgentAuditConfig struct {
@@ -1311,8 +1310,7 @@ type AnnouncementSpec struct {
 }
 
 type AnnouncementStatus struct {
-	Announcement      string
-	InstanceTokenAuth *pkgserver.InstanceTokenAuth
+	Announcement pkglicenseapi.Announcement
 }
 
 // +genclient
@@ -1813,7 +1811,9 @@ type FeatureSpec struct {
 }
 
 type FeatureStatus struct {
-	Enabled bool
+	pkglicenseapi.Feature
+	Internal bool
+	Used     bool
 }
 
 type GroupResources struct {
@@ -1870,6 +1870,7 @@ type KioskSpec struct {
 	LocalUser             agentstoragev1.LocalUser
 	LocalTeam             agentstoragev1.LocalTeam
 	UISettings            uiv1.UISettings
+	License               License
 }
 
 type KioskStatus struct {
@@ -1896,22 +1897,20 @@ type LicenseRequest struct {
 }
 
 type LicenseRequestSpec struct {
-	Route string
-	Input pkgserver.StandardRequestInputFrontEnd
+	URL   string
+	Input pkglicenseapi.GenericRequestInput
 }
 
 type LicenseRequestStatus struct {
-	OK     bool
-	Output pkgserver.StandardRequestOutput
+	Output *pkglicenseapi.GenericRequestOutput
 }
 
 type LicenseSpec struct {
 }
 
 type LicenseStatus struct {
-	Buttons    pkgserver.Buttons
-	License    *pkgserver.License
-	InstanceID string
+	License       *pkglicenseapi.License
+	ResourceUsage map[string]pkglicenseapi.ResourceCount
 }
 
 // +genclient
@@ -1926,10 +1925,12 @@ type LicenseToken struct {
 }
 
 type LicenseTokenSpec struct {
+	URL     string
+	Payload string
 }
 
 type LicenseTokenStatus struct {
-	Token *pkgserver.InstanceTokenAuth
+	Token *pkglicenseapi.InstanceTokenAuth
 }
 
 // +genclient
@@ -1966,7 +1967,7 @@ type OIDCClient struct {
 }
 
 // +genclient
-// +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type OwnedAccessKey struct {
@@ -2271,7 +2272,7 @@ type SelfStatus struct {
 	Subject        string
 	UID            string
 	Groups         []string
-	IntercomHash   string
+	ChatAuthToken  string
 	InstanceID     string
 }
 

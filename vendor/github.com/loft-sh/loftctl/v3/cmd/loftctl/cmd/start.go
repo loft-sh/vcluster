@@ -53,7 +53,6 @@ before running this command:
 	startCmd.Flags().BoolVar(&cmd.Docker, "docker", false, product.Replace("If enabled will try to deploy Loft to the local docker installation."))
 	startCmd.Flags().StringVar(&cmd.DockerImage, "docker-image", "", product.Replace("The docker image to install."))
 	startCmd.Flags().StringArrayVar(&cmd.DockerArgs, "docker-arg", []string{}, product.Replace("Extra docker args for running Loft."))
-	startCmd.Flags().StringVar(&cmd.Product, "product", "", "The Loft product to install")
 	startCmd.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
 	startCmd.Flags().StringVar(&cmd.Namespace, "namespace", "loft", product.Replace("The namespace to install loft into"))
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "", "The local port to bind to if using port-forwarding")

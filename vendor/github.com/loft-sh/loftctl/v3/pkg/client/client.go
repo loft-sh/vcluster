@@ -434,7 +434,7 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 		}
 		msg += "'"
 		log.Infof(msg, host, product.LoginCmd(), host)
-		log.Infof("Logging into %s...", product.Name())
+		log.Infof("Logging into %s...", product.DisplayName())
 
 		key = <-keyChannel
 	}
@@ -543,9 +543,9 @@ func VerifyVersion(baseClient Client) error {
 	}
 
 	if int(cliVersion.Major) > backendMajor {
-		return fmt.Errorf("unsupported %[1]s version %[2]s. Please downgrade your CLI to below v%[3]d.0.0 to support this version, as %[1]s v%[3]d.0.0 and newer versions are incompatible with v%[4]d.x.x", product.Name(), v.Version, cliVersion.Major, backendMajor)
+		return fmt.Errorf("unsupported %[1]s version %[2]s. Please downgrade your CLI to below v%[3]d.0.0 to support this version, as %[1]s v%[3]d.0.0 and newer versions are incompatible with v%[4]d.x.x", product.DisplayName(), v.Version, cliVersion.Major, backendMajor)
 	} else if int(cliVersion.Major) < backendMajor {
-		return fmt.Errorf("unsupported %[1]s version %[2]s. Please upgrade your CLI to v%[3]d.0.0 or above to support this version, as %[1]s v%[3]d.0.0 and newer versions are incompatible with v%[4]d.x.x", product.Name(), v.Version, backendMajor, cliVersion.Major)
+		return fmt.Errorf("unsupported %[1]s version %[2]s. Please upgrade your CLI to v%[3]d.0.0 or above to support this version, as %[1]s v%[3]d.0.0 and newer versions are incompatible with v%[4]d.x.x", product.DisplayName(), v.Version, backendMajor, cliVersion.Major)
 	}
 
 	return nil

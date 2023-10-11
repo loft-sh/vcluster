@@ -252,15 +252,6 @@ func (l *LoftStarter) runLoftInDocker(ctx context.Context, name string) (string,
 	if l.Password != "" {
 		args = append(args, "--env", "ADMIN_PASSWORD_HASH="+hash.String(l.Password))
 	}
-	if l.Product != "" {
-		args = append(args, "--env", "PRODUCT="+l.Product)
-		if l.Product == "devpod-pro" {
-			// run docker in docker
-			args = append(args, "--env", "LOFT_DIND=true")
-			args = append(args, "-v", "loft-docker:/var/lib/docker")
-			args = append(args, "--privileged")
-		}
-	}
 
 	// run as root otherwise we get permission errors
 	args = append(args, "-u", "root")

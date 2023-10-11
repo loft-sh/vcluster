@@ -27,12 +27,6 @@ func (l *LoftStarter) upgradeLoft() error {
 	if l.Version != "" {
 		extraArgs = append(extraArgs, "--version", l.Version)
 	}
-	if l.Product != "" {
-		extraArgs = append(extraArgs, "--set", "env.PRODUCT="+l.Product)
-		if l.Product == "devpod-pro" {
-			extraArgs = append(extraArgs, "--set", "persistence.enabled=true")
-		}
-	}
 
 	// Do not use --reuse-values if --reset flag is provided because this should be a new install and it will cause issues with `helm template`
 	if !l.Reset && l.ReuseValues {

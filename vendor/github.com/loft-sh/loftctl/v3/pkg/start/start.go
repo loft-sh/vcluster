@@ -29,8 +29,6 @@ type Options struct {
 	DockerArgs  []string
 	DockerImage string
 
-	Product string
-
 	LocalPort   string
 	Host        string
 	Reset       bool

@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server"
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,18 +21,15 @@ type LicenseRequest struct {
 }
 
 type LicenseRequestSpec struct {
-	// Route is the route to make the request to on the license server.
-	Route string `json:"url"`
+	// URL is the url for the request.
+	URL string `json:"url,omitempty"`
+
 	// Input is the input payload to send to the url.
-	Input server.StandardRequestInputFrontEnd `json:"input,omitempty"`
+	Input licenseapi.GenericRequestInput `json:"input,omitempty"`
 }
 
 type LicenseRequestStatus struct {
-	// OK indicates if the license request operation was successful or not. If OK is true, the front end should follow
-	// the link in the output.
-	// +optional
-	OK bool `json:"ok,omitempty"`
 	// Output is where the request output is stored.
 	// +optional
-	Output server.StandardRequestOutput `json:"output,omitempty"`
+	Output *licenseapi.GenericRequestOutput `json:"output,omitempty"`
 }
