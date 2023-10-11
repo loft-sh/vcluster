@@ -6,7 +6,7 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 )
 
-type Helm struct {
+type BaseHelm struct {
 	GlobalAnnotations    map[string]interface{} `json:"globalAnnotations,omitempty"`
 	Pro                  bool                   `json:"pro,omitempty"`
 	EnableHA             bool                   `json:"enableHA,omitempty"`
@@ -17,7 +17,6 @@ type Helm struct {
 	FallbackHostDNS      bool                   `json:"fallbackHostDns,omitempty"`
 	MapServices          MapServices            `json:"mapServices,omitempty"`
 	Proxy                ProxyValues            `json:"proxy,omitempty"`
-	Syncer               SyncerValues           `json:"syncer,omitempty"`
 	Vcluster             VclusterValues         `json:"vcluster,omitempty"`
 	Storage              StorageValues          `json:"storage,omitempty"`
 	Volumes              []corev1.Volume        `json:"volumes,omitempty"`
@@ -56,6 +55,24 @@ type Helm struct {
 	MultiNamespaceMode EnabledSwitch    `json:"multiNamespaceMode,omitempty"`
 	Telemetry          TelemetryValues  `json:"telemetry,omitempty"`
 	NoopSyncer         NoopSyncerValues `json:"noopSyncer,omitempty"`
+}
+
+type K3s struct {
+	BaseHelm
+	Image  string           `json:"image,omitempty"`
+	Syncer BaseSyncerValues `json:"syncer,omitempty"`
+}
+
+type BaseSyncerValues struct {
+	ExtraArgs             []string                    `json:"extraArgs,omitempty"`
+	Env                   []corev1.EnvVar             `json:"env,omitempty"`
+	LivenessProbe         EnabledSwitch               `json:"livenessProbe,omitempty"`
+	ReadinessProbe        EnabledSwitch               `json:"readinessProbe,omitempty"`
+	VolumeMounts          []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
+	ExtraVolumeMounts     []corev1.VolumeMount        `json:"extraVolumeMounts,omitempty"`
+	Resources             corev1.ResourceRequirements `json:"resources,omitempty"`
+	KubeConfigContextName string                      `json:"kubeConfigContextName,omitempty"`
+	ServiceAnnotations    map[string]interface{}      `json:"serviceAnnotations,omitempty"`
 }
 
 type SyncValues struct {
@@ -131,18 +148,6 @@ type MetricsProxyServerConfig struct {
 	Pods  EnabledSwitch `json:"pods,omitempty"`
 }
 
-type SyncerValues struct {
-	ExtraArgs             []string                    `json:"extraArgs,omitempty"`
-	Env                   []corev1.EnvVar             `json:"env,omitempty"`
-	LivenessProbe         EnabledSwitch               `json:"livenessProbe,omitempty"`
-	ReadinessProbe        EnabledSwitch               `json:"readinessProbe,omitempty"`
-	VolumeMounts          []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
-	ExtraVolumeMounts     []corev1.VolumeMount        `json:"extraVolumeMounts,omitempty"`
-	Resources             corev1.ResourceRequirements `json:"resources,omitempty"`
-	KubeConfigContextName string                      `json:"kubeConfigContextName,omitempty"`
-	ServiceAnnotations    map[string]interface{}      `json:"serviceAnnotations,omitempty"`
-}
-
 type VclusterValues struct {
 	Image             string                      `json:"image,omitempty"`
 	Command           []string                    `json:"command,omitempty"`
@@ -152,6 +157,9 @@ type VclusterValues struct {
 	VolumeMounts      []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
 	Env               []corev1.EnvVar             `json:"env,omitempty"`
 	Resources         corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// this is only provided in context of k0s right now
+	PriorityClassName string `json:"priorityClassName,omitempty"`
 }
 
 type StorageValues struct {
