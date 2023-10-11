@@ -27,18 +27,19 @@ type Helm struct {
 	WorkloadServiceAccount struct {
 		Annotations map[string]interface{} `json:"annotations,omitempty"`
 	} `json:"workloadServiceAccount,omitempty"`
+	Rbac                RBACValues          `json:"rbac,omitempty"`
 	Replicas            uint32              `json:"replicas,omitempty"`
 	NodeSelector        corev1.NodeSelector `json:"nodeSelector,omitempty"`
 	Affinity            corev1.Affinity     `json:"affinity,omitempty"`
 	PriorityClassName   string              `json:"priorityClassName,omitempty"`
 	Tolerations         []corev1.Toleration `json:"tolerations,omitempty"`
-	Labels              []map[string]string `json:"labels,omitempty"`
-	PodLabels           []map[string]string `json:"podLabels,omitempty"`
+	Labels              map[string]string   `json:"labels,omitempty"`
+	PodLabels           map[string]string   `json:"podLabels,omitempty"`
 	Annotations         map[string]string   `json:"annotations,omitempty"`
 	PodAnnotations      map[string]string   `json:"podAnnotations,omitempty"`
 	PodDisruptionbudget PDBValues           `json:"podDisruptionbudget,omitempty"`
 	ServerToken         struct {
-		Values       string                   `json:"values,omitempty"`
+		Value        string                   `json:"value,omitempty"`
 		SecretKeyRef corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 	} `json:"serverToken,omitempty"`
 	Service ServiceValues `json:"service,omitempty"`
@@ -46,9 +47,15 @@ type Helm struct {
 
 	SecurityContext    corev1.SecurityContext    `json:"securityContext,omitempty"`
 	PodSecurityContext corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-	Openshift          EnabledSwitch             `json:"openshift,omitempty"`
-	Coredns            CoreDNSValues             `json:"coredns,omitempty"`
-	Isolation          IsolationValues           `json:"isolation,omitempty"`
+	Openshift          struct {
+		Enable bool `json:"enable,omitempty"`
+	} `json:"openshift,omitempty"`
+	Coredns            CoreDNSValues    `json:"coredns,omitempty"`
+	Isolation          IsolationValues  `json:"isolation,omitempty"`
+	Init               InitValues       `json:"init,omitempty"`
+	MultiNamespaceMode EnabledSwitch    `json:"multiNamespaceMode,omitempty"`
+	Telemetry          TelemetryValues  `json:"telemetry,omitempty"`
+	NoopSyncer         NoopSyncerValues `json:"noopSyncer,omitempty"`
 }
 
 type SyncValues struct {
@@ -97,6 +104,9 @@ type SyncNodes struct {
 	SyncAllNodes    bool   `json:"syncAllNodes,omitempty"`
 	NodeSelector    string `json:"nodeSelector,omitempty"`
 	EnableScheduler bool   `json:"enableScheduler,omitempty"`
+
+	// Deprecated: should be removed from the chart first
+	SyncNodeChanges bool `json:"syncNodeChanges,omitempty"`
 }
 
 type SyncGeneric struct {
@@ -147,6 +157,18 @@ type VclusterValues struct {
 type StorageValues struct {
 	Persistence bool   `json:"persistence,omitempty"`
 	Size        string `json:"size,omitempty"`
+}
+
+// These should be remove from the chart first as they are deprecated there
+type RBACValues struct {
+	ClusterRole struct {
+		Create bool `json:"create,omitempty"`
+	} `json:"clusterRole,omitempty"`
+	Role struct {
+		Create               bool     `json:"create,omitempty"`
+		Extended             bool     `json:"extended,omitempty"`
+		ExcludedAPIResources []string `json:"excludedAPIResources,omitempty"`
+	} `json:"role,omitempty"`
 }
 
 type PDBValues struct {
@@ -268,4 +290,47 @@ type NetworkPolicyValues struct {
 			Except []string `json:"except,omitempty"`
 		} `json:"ipBlock,omitempty"`
 	} `json:"outgoingConnections,omitempty"`
+}
+
+type InitValues struct {
+	Manifests         string           `json:"manifests,omitempty"`
+	ManifestsTemplate string           `json:"manifestsTemplate,omitempty"`
+	Helm              []InitHelmCharts `json:"helm,omitempty"`
+}
+
+type InitHelmCharts struct {
+	Bundle string `json:"bundle,omitempty"`
+	Chart  struct {
+		Name     string `json:"name,omitempty"`
+		Version  string `json:"version,omitempty"`
+		Repo     string `json:"repo,omitempty"`
+		Username string `json:"username,omitempty"`
+		Password string `json:"password,omitempty"`
+		Insecure bool   `json:"insecure,omitempty"`
+	} `json:"chart,omitempty"`
+	Release struct {
+		ReleaseName      string `json:"releaseName,omitempty"`
+		ReleaseNamespace string `json:"releaseNamespace,omitempty"`
+		Timeout          uint32 `json:"timeout,omitempty"`
+	} `json:"release,omitempty"`
+	Values         string `json:"values,omitempty"`
+	ValuesTemplate string `json:"valuesTemplate,omitempty"`
+}
+
+type TelemetryValues struct {
+	Disabled           string `json:"disabled,omitempty"`
+	InstanceCreator    string `json:"instanceCreator,omitempty"`
+	InstanceCreatorUID string `json:"instanceCreatorUID,omitempty"`
+}
+
+type NoopSyncerValues struct {
+	Enabled        bool `json:"enabled,omitempty"`
+	Synck8sService bool `json:"synck8SService,omitempty"`
+	Secret         struct {
+		ServerCaCert        string `json:"serverCaCert,omitempty"`
+		ServerCaKey         string `json:"serverCaKey,omitempty"`
+		ClientCaCert        string `json:"clientCaCert,omitempty"`
+		RequestHeaderCaCert string `json:"requestHeaderCaCert,omitempty"`
+		KubeConfig          string `json:"kubeConfig,omitempty"`
+	}
 }
