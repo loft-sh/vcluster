@@ -175,6 +175,7 @@ type IngressValues struct {
 
 type CoreDNSValues struct {
 	Integrated     bool                        `json:"integrated,omitempty"`
+	Plugin         CoreDNSPluginValues         `json:"plugin,omitempty"`
 	Enabled        bool                        `json:"enabled,omitempty"`
 	Replicas       uint32                      `json:"replicas,omitempty"`
 	NodeSelector   corev1.NodeSelector         `json:"nodeSelector,omitempty"`
@@ -185,6 +186,42 @@ type CoreDNSValues struct {
 	Manifests      string                      `json:"manifests,omitempty"`
 	PodAnnotations map[string]string           `json:"podAnnotations,omitempty"`
 	PodLabels      map[string]string           `json:"podLabels,omitempty"`
+}
+
+type CoreDNSPluginValues struct {
+	Enabled bool
+	Config  []DNSMappings
+}
+
+type DNSMappings struct {
+	Record    Record       `json:"record"`
+	Target    Target       `json:"target"`
+	AllowedOn []FilterSpec `json:"allowedOn"`
+	ExceptOn  []FilterSpec `json:"exceptOn"`
+}
+
+type Record struct {
+	RecordType RecordType
+	FQDN       *string `json:"fqdn"`
+	Service    *string `json:"service"`
+	Namespace  *string `json:"namespace"`
+}
+
+type RecordType string
+type TargetMode string
+
+type Target struct {
+	Mode      TargetMode `json:"mode"`
+	Vcluster  *string    `json:"vcluster"`
+	URL       *string    `json:"url"`
+	Service   *string    `json:"service"`
+	Namespace *string    `json:"namespace"`
+}
+
+type FilterSpec struct {
+	Name      string   `json:"name"`
+	Namespace string   `json:"namespace"`
+	Labels    []string `json:"labels"`
 }
 
 type CoreDNSServiceValues struct {
