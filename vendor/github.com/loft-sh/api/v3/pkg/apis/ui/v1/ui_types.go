@@ -2,10 +2,12 @@ package v1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+type ProductName string
+
 const (
-	ProductNameLoft        = "Loft"
-	ProductNameVClusterPro = "vCluster.Pro"
-	ProductNameDevPodPro   = "DevPod.Pro"
+	ProductNameLoft        ProductName = "Loft"
+	ProductNameVClusterPro ProductName = "vCluster.Pro"
+	ProductNameDevPodPro   ProductName = "DevPod.Pro"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

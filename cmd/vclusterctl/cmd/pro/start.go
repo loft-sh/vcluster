@@ -24,7 +24,6 @@ func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, 
 		Options: start.Options{
 			GlobalFlags: loftctlGlobalFlags,
 			Log:         log.GetInstance(),
-			Product:     "vcluster-pro",
 		},
 	}
 

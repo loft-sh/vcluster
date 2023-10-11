@@ -13,9 +13,9 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230925121720-6c3f4d5f792e
-	github.com/loft-sh/api/v3 v3.0.0-20231002075709-103158ad55b5
-	github.com/loft-sh/loftctl/v3 v3.0.0-20231005113406-74b569e42fd1
+	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20231005145009-3a5ce22c731a
+	github.com/loft-sh/api/v3 v3.0.0-20231011095658-d9afe455ba0d
+	github.com/loft-sh/loftctl/v3 v3.0.0-20231011100306-69699531686b
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -78,8 +78,8 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
+	github.com/loft-sh/admin-apis v0.0.0-20231005083919-a177d920e993 // indirect
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f // indirect
-	github.com/loft-sh/external-types v0.0.2-0.20230301201552-ec939da949b4 // indirect
 	github.com/loft-sh/jspolicy v0.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect

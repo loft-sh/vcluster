@@ -307,7 +307,10 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
-# github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20230925121720-6c3f4d5f792e
+# github.com/loft-sh/admin-apis v0.0.0-20231005083919-a177d920e993
+## explicit; go 1.21.1
+github.com/loft-sh/admin-apis/pkg/licenseapi
+# github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20231005145009-3a5ce22c731a
 ## explicit; go 1.21.1
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1
@@ -316,7 +319,7 @@ github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/scheme
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/cluster/v1
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/storage/v1
-# github.com/loft-sh/api/v3 v3.0.0-20231002075709-103158ad55b5
+# github.com/loft-sh/api/v3 v3.0.0-20231011095658-d9afe455ba0d
 ## explicit; go 1.21.1
 github.com/loft-sh/api/v3/pkg/apis/audit/v1
 github.com/loft-sh/api/v3/pkg/apis/management
@@ -337,13 +340,10 @@ github.com/loft-sh/api/v3/pkg/product
 # github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
 ## explicit; go 1.19
 github.com/loft-sh/apiserver/pkg/builders
-# github.com/loft-sh/external-types v0.0.2-0.20230301201552-ec939da949b4
-## explicit; go 1.17
-github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server
 # github.com/loft-sh/jspolicy v0.1.0
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v3 v3.0.0-20231005113406-74b569e42fd1
+# github.com/loft-sh/loftctl/v3 v3.0.0-20231011100306-69699531686b
 ## explicit; go 1.21.1
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect

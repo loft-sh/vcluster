@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server"
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,8 +21,10 @@ type LicenseToken struct {
 }
 
 type LicenseTokenSpec struct {
+	URL     string `json:"url,omitempty"`
+	Payload string `json:"payload,omitempty"`
 }
 
 type LicenseTokenStatus struct {
-	Token *server.InstanceTokenAuth `json:"token,omitempty"`
+	Token *licenseapi.InstanceTokenAuth `json:"token,omitempty"`
 }

@@ -1,7 +1,7 @@
 package v1
 
 import (
-	admintypes "github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server"
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,9 +26,5 @@ type AnnouncementSpec struct {
 type AnnouncementStatus struct {
 	// Announcement is the html announcement that should be displayed in the frontend
 	// +optional
-	Announcement string `json:"announcement,omitempty"`
-
-	// InstanceTokenAuth is an instance auth token signed for the user that is used by the frontend
-	// +optional
-	InstanceTokenAuth *admintypes.InstanceTokenAuth `json:"analyticsToken,omitempty"`
+	Announcement licenseapi.Announcement `json:"announcement,omitempty"`
 }

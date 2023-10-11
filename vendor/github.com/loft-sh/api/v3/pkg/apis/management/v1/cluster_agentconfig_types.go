@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -104,6 +103,5 @@ type AgentAuditConfig struct {
 
 // AgentAnalyticsSpec holds info the agent can use to send analytics data to the analytics backend.
 type AgentAnalyticsSpec struct {
-	AnalyticsEndpoint string                    `json:"analyticsEndpoint,omitempty"`
-	InstanceTokenAuth *server.InstanceTokenAuth `json:"instanceTokenAuth,omitempty"`
+	AnalyticsEndpoint string `json:"analyticsEndpoint,omitempty"`
 }

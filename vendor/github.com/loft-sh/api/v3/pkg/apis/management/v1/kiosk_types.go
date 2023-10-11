@@ -47,6 +47,8 @@ type KioskSpec struct {
 
 	// ui.loft.sh
 	UISettings uiv1.UISettings `json:"UISettings,omitempty"`
+
+	License License `json:"license,omitempty"`
 }
 
 type KioskStatus struct {

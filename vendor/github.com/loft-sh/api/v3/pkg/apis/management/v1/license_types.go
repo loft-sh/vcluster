@@ -1,7 +1,7 @@
 package v1
 
 import (
-	admintypes "github.com/loft-sh/external-types/loft-sh/admin-services/pkg/server"
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,14 +26,11 @@ type LicenseSpec struct {
 }
 
 type LicenseStatus struct {
-	// Buttons is the selection of routes or endpoints in the license server that are used for license related
-	// operations such as updating subscriptions.
-	// +optional
-	Buttons admintypes.Buttons `json:"buttons,omitempty"`
 	// License is the license data received from the license server.
 	// +optional
-	License *admintypes.License `json:"info,omitempty"`
-	// InstanceID is the instance ID for the Loft license/instance.
+	License *licenseapi.License `json:"license,omitempty"`
+
+	// ResourceUsage shows the current usage of license limit.
 	// +optional
-	InstanceID string `json:"instanceID,omitempty"`
+	ResourceUsage map[string]licenseapi.ResourceCount `json:"resourceUsage,omitempty"`
 }
