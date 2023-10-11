@@ -41,7 +41,7 @@ func init() {
 			loghelper.New("telemetry").Infof("failed to parse telemetry config from the %s environment variable: %v", ConfigEnvVar, err)
 		}
 	}
-	if c.Disabled == "true" {
+	if c.Disabled != nil && *c.Disabled {
 		Collector = &DefaultCollector{
 			enabled: false,
 		}

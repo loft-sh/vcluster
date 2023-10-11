@@ -318,7 +318,7 @@ type InitHelmCharts struct {
 }
 
 type TelemetryValues struct {
-	Disabled           string `json:"disabled,omitempty"`
+	Disabled           *bool  `json:"disabled,omitempty"`
 	InstanceCreator    string `json:"instanceCreator,omitempty"`
 	InstanceCreatorUID string `json:"instanceCreatorUID,omitempty"`
 }
