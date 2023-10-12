@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -13,6 +14,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,6 +35,7 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer Syncer) error {
 	controller := &syncerController{
 		syncer:         syncer,
 		log:            loghelper.New(syncer.Name()),
+		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
 		physicalClient: ctx.PhysicalManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
@@ -48,7 +51,8 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer Syncer) error {
 type syncerController struct {
 	syncer Syncer
 
-	log loghelper.Logger
+	log            loghelper.Logger
+	vEventRecorder record.EventRecorder
 
 	physicalClient client.Client
 
@@ -105,14 +109,29 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
-
 		pObj = nil
 	}
 
 	// check if we should skip resource
-	// this is to distinguish generic and plugin syncers with the core syncers
-	if pObj != nil && r.excludePhysical(pObj) {
-		return ctrl.Result{}, nil
+	if pObj != nil {
+		// this is to distinguish generic and plugin syncers with the core syncers
+		if r.excludePhysical(pObj) {
+			return ctrl.Result{}, nil
+		}
+
+		// check if physical object is actually managed by vcluster or just coincidentally named
+		isManaged, err := r.syncer.IsManaged(ctx, pObj)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to check if physical object is managed: %w", err)
+		}
+		if !isManaged {
+			if vObj != nil {
+				msg := "conflict: cannot sync virtual object as unmanaged physical object exists with desired name"
+				r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
+				return captureSyncTelemetry(ctrl.Result{}, fmt.Errorf(msg))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
+			}
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// check what function we should call
