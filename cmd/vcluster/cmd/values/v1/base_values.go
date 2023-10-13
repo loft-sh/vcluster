@@ -7,7 +7,7 @@ import (
 )
 
 type BaseHelm struct {
-	GlobalAnnotations    map[string]interface{} `json:"globalAnnotations,omitempty"`
+	GlobalAnnotations    map[string]string `json:"globalAnnotations,omitempty"`
 	Pro                  bool                   `json:"pro,omitempty"`
 	EnableHA             bool                   `json:"enableHA,omitempty"`
 	Headless             bool                   `json:"headless,omitempty"`
@@ -72,7 +72,7 @@ type BaseSyncerValues struct {
 	ExtraVolumeMounts     []corev1.VolumeMount        `json:"extraVolumeMounts,omitempty"`
 	Resources             corev1.ResourceRequirements `json:"resources,omitempty"`
 	KubeConfigContextName string                      `json:"kubeConfigContextName,omitempty"`
-	ServiceAnnotations    map[string]interface{}      `json:"serviceAnnotations,omitempty"`
+	ServiceAnnotations    map[string]string      `json:"serviceAnnotations,omitempty"`
 }
 
 type SyncValues struct {
@@ -135,8 +135,13 @@ type EnabledSwitch struct {
 }
 
 type MapServices struct {
-	FromVirtual []map[string]interface{} `json:"fromVirtual,omitempty"`
-	FromHost    []map[string]interface{} `json:"fromHost,omitempty"`
+	FromVirtual []ServiceMapping `json:"fromVirtual,omitempty"`
+	FromHost    []ServiceMapping `json:"fromHost,omitempty"`
+}
+
+type ServiceMapping struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 type ProxyValues struct {
