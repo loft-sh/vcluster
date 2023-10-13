@@ -7,7 +7,7 @@ import (
 )
 
 type BaseHelm struct {
-	GlobalAnnotations    map[string]string `json:"globalAnnotations,omitempty"`
+	GlobalAnnotations    map[string]string      `json:"globalAnnotations,omitempty"`
 	Pro                  bool                   `json:"pro,omitempty"`
 	EnableHA             bool                   `json:"enableHA,omitempty"`
 	Headless             bool                   `json:"headless,omitempty"`
@@ -72,7 +72,7 @@ type BaseSyncerValues struct {
 	ExtraVolumeMounts     []corev1.VolumeMount        `json:"extraVolumeMounts,omitempty"`
 	Resources             corev1.ResourceRequirements `json:"resources,omitempty"`
 	KubeConfigContextName string                      `json:"kubeConfigContextName,omitempty"`
-	ServiceAnnotations    map[string]string      `json:"serviceAnnotations,omitempty"`
+	ServiceAnnotations    map[string]string           `json:"serviceAnnotations,omitempty"`
 }
 
 type SyncValues struct {

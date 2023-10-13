@@ -205,7 +205,7 @@ Corefile: |-
       ready
       rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
       {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
-      vcluster {{ .Values.coredns.plugin.config | b64enc }}
+      vcluster {{ toYaml .Values.coredns.plugin.config | b64enc }}
       {{- end }}
       kubernetes cluster.local in-addr.arpa ip6.arpa {
           {{- if .Values.pro }}
