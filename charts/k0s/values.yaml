@@ -328,8 +328,7 @@ coredns:
   integrated: false
   plugin:
     enabled: false
-    config: |-
-      ---
+    config: []
     # example configuration for plugin syntax, will be documented in detail
     # - record:
     #     fqdn: google.com
@@ -489,6 +488,6 @@ multiNamespaceMode:
   enabled: false
 
 telemetry:
-  disabled: "false"
+  disabled: false
   instanceCreator: "helm"
   instanceCreatorUID: ""
