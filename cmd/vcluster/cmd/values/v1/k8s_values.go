@@ -50,7 +50,7 @@ type EtcdValues struct {
 		Size        string `json:"size,omitempty"`
 	} `json:"storage,omitempty"`
 	SecurityContext    corev1.SecurityContext `json:"securityContext,omitempty"`
-	ServiceAnnotations map[string]interface{} `json:"serviceAnnotations,omitempty"`
+	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`
 }
 
 type JobValues struct {

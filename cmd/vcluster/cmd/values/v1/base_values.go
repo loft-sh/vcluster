@@ -3,7 +3,7 @@ package values
 import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type BaseHelm struct {
@@ -17,14 +17,14 @@ type BaseHelm struct {
 	FallbackHostDNS      bool                   `json:"fallbackHostDns,omitempty"`
 	MapServices          MapServices            `json:"mapServices,omitempty"`
 	Proxy                ProxyValues            `json:"proxy,omitempty"`
-	Vcluster             VclusterValues         `json:"vcluster,omitempty"`
+	VCluster             VClusterValues         `json:"vcluster,omitempty"`
 	Storage              StorageValues          `json:"storage,omitempty"`
 	Volumes              []corev1.Volume        `json:"volumes,omitempty"`
 	ServiceAccount       struct {
 		Create bool `json:"create,omitempty"`
 	} `json:"serviceAccount,omitempty"`
 	WorkloadServiceAccount struct {
-		Annotations map[string]interface{} `json:"annotations,omitempty"`
+		Annotations map[string]string `json:"annotations,omitempty"`
 	} `json:"workloadServiceAccount,omitempty"`
 	Rbac                RBACValues          `json:"rbac,omitempty"`
 	Replicas            uint32              `json:"replicas,omitempty"`
@@ -36,7 +36,7 @@ type BaseHelm struct {
 	PodLabels           map[string]string   `json:"podLabels,omitempty"`
 	Annotations         map[string]string   `json:"annotations,omitempty"`
 	PodAnnotations      map[string]string   `json:"podAnnotations,omitempty"`
-	PodDisruptionbudget PDBValues           `json:"podDisruptionbudget,omitempty"`
+	PodDisruptionBudget PDBValues           `json:"podDisruptionBudget,omitempty"`
 	ServerToken         struct {
 		Value        string                   `json:"value,omitempty"`
 		SecretKeyRef corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
@@ -153,7 +153,7 @@ type MetricsProxyServerConfig struct {
 	Pods  EnabledSwitch `json:"pods,omitempty"`
 }
 
-type VclusterValues struct {
+type VClusterValues struct {
 	Image             string                      `json:"image,omitempty"`
 	Command           []string                    `json:"command,omitempty"`
 	BaseArgs          []string                    `json:"baseArgs,omitempty"`
@@ -185,8 +185,9 @@ type RBACValues struct {
 }
 
 type PDBValues struct {
-	Enabled bool `json:"enabled,omitempty"`
-	policyv1.PodDisruptionBudgetSpec
+	Enabled        bool                `json:"enabled,omitempty"`
+	MinAvailable   *intstr.IntOrString `json:"minAvailable,omitempty"`
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
 type ServiceValues struct {
@@ -224,39 +225,39 @@ type CoreDNSValues struct {
 }
 
 type CoreDNSPluginValues struct {
-	Enabled bool
-	Config  []DNSMappings
+	Enabled bool          `json:"enabled,omitempty"`
+	Config  []DNSMappings `json:"config,omitempty"`
 }
 
 type DNSMappings struct {
-	Record    Record       `json:"record"`
-	Target    Target       `json:"target"`
-	AllowedOn []FilterSpec `json:"allowedOn"`
-	ExceptOn  []FilterSpec `json:"exceptOn"`
+	Record    Record       `json:"record,omitempty"`
+	Target    Target       `json:"target,omitempty"`
+	AllowedOn []FilterSpec `json:"allowedOn,omitempty"`
+	ExceptOn  []FilterSpec `json:"exceptOn,omitempty"`
 }
 
 type Record struct {
-	RecordType RecordType
-	FQDN       *string `json:"fqdn"`
-	Service    *string `json:"service"`
-	Namespace  *string `json:"namespace"`
+	RecordType RecordType `json:"recordType,omitempty"`
+	FQDN       *string    `json:"fqdn,omitempty"`
+	Service    *string    `json:"service,omitempty"`
+	Namespace  *string    `json:"namespace,omitempty"`
 }
 
 type RecordType string
 type TargetMode string
 
 type Target struct {
-	Mode      TargetMode `json:"mode"`
-	Vcluster  *string    `json:"vcluster"`
-	URL       *string    `json:"url"`
-	Service   *string    `json:"service"`
-	Namespace *string    `json:"namespace"`
+	Mode      TargetMode `json:"mode,omitempty"`
+	VCluster  *string    `json:"vcluster,omitempty"`
+	URL       *string    `json:"url,omitempty"`
+	Service   *string    `json:"service,omitempty"`
+	Namespace *string    `json:"namespace,omitempty"`
 }
 
 type FilterSpec struct {
-	Name      string   `json:"name"`
-	Namespace string   `json:"namespace"`
-	Labels    []string `json:"labels"`
+	Name      string   `json:"name,omitempty"`
+	Namespace string   `json:"namespace,omitempty"`
+	Labels    []string `json:"labels,omitempty"`
 }
 
 type CoreDNSServiceValues struct {
@@ -331,7 +332,7 @@ type InitHelmCharts struct {
 }
 
 type TelemetryValues struct {
-	Disabled           *bool  `json:"disabled,omitempty"`
+	Disabled           bool   `json:"disabled,omitempty"`
 	InstanceCreator    string `json:"instanceCreator,omitempty"`
 	InstanceCreatorUID string `json:"instanceCreatorUID,omitempty"`
 }
