@@ -6,7 +6,7 @@ WORKDIR /vcluster-dev
 ARG TARGETOS
 ARG TARGETARCH
 
-ARG HELM_VERSION="v3.12.3"
+ARG HELM_VERSION="v3.13.1"
 
 # Add curl
 RUN apk add --no-cache curl
