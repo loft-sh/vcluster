@@ -43,7 +43,7 @@ vClusters should be as lightweight as possible to minimize resource overhead ins
 ### 2. No Performance Degradation
 Workloads running inside a vCluster (even inside [nested vClusters](#host-cluster--namespace)) should run with the same performance as workloads which are running directly on the underlying host cluster. The computing power, the access to underlying persistent storage as well as the network performance should not be degraded at all.
 
-**Implementation:** This is mainly achieved by synchonizing pods which means that the pods are actually being scheduled and started just like regular pods of the underlying host cluster, i.e. if you run a pod inside the vCluster and you run the same pod directly on the host cluster will be exactly the same in terms of computing power, storage access and networking. 
+**Implementation:** This is mainly achieved by synchronizing pods which means that the pods are actually being scheduled and started just like regular pods of the underlying host cluster, i.e. if you run a pod inside the vCluster and you run the same pod directly on the host cluster will be exactly the same in terms of computing power, storage access and networking. 
 
 ### 3. Reduce Requests On Host Cluster
 vClusters should greatly reduce the number of requests to the Kubernetes API server of the underlying [host cluster](#host-cluster--namespace) by ensuring that all high-level resources remain in the virtual cluster only without ever reaching the underlying host cluster.
