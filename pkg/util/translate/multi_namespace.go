@@ -90,7 +90,7 @@ func (s *multiNamespace) IsManagedCluster(obj runtime.Object) bool {
 }
 
 func (s *multiNamespace) IsTargetedNamespace(ns string) bool {
-	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, s.getNamespaceSuffix())
+	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, getNamespaceSuffix(s.currentNamespace, Suffix))
 }
 
 func (s *multiNamespace) convertLabelKey(key string) string {
@@ -102,14 +102,18 @@ func (s *multiNamespace) getNamespacePrefix() string {
 	return "vcluster"
 }
 
-func (s *multiNamespace) getNamespaceSuffix() string {
-	sha := sha256.Sum256([]byte(s.currentNamespace + "x" + Suffix))
-	return hex.EncodeToString(sha[0:])[0:8]
+func (s *multiNamespace) PhysicalNamespace(vNamespace string) string {
+	return PhysicalNamespace(s.currentNamespace, vNamespace, s.getNamespacePrefix(), Suffix)
 }
 
-func (s *multiNamespace) PhysicalNamespace(vNamespace string) string {
+func PhysicalNamespace(currentNamespace, vNamespace, prefix, suffix string) string {
 	sha := sha256.Sum256([]byte(vNamespace))
-	return fmt.Sprintf("%s-%s-%s", s.getNamespacePrefix(), hex.EncodeToString(sha[0:])[0:8], s.getNamespaceSuffix())
+	return fmt.Sprintf("%s-%s-%s", prefix, hex.EncodeToString(sha[0:])[0:8], getNamespaceSuffix(currentNamespace, suffix))
+}
+
+func getNamespaceSuffix(currentNamespace, suffix string) string {
+	sha := sha256.Sum256([]byte(currentNamespace + "x" + suffix))
+	return hex.EncodeToString(sha[0:])[0:8]
 }
 
 func (s *multiNamespace) TranslateLabelsCluster(vObj client.Object, pObj client.Object, syncedLabels []string) map[string]string {

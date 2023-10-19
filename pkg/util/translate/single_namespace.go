@@ -31,10 +31,14 @@ func (s *singleNamespace) SingleNamespaceTarget() bool {
 
 // PhysicalName returns the physical name of the name / namespace resource
 func (s *singleNamespace) PhysicalName(name, namespace string) string {
+	return SingleNamespacePhysicalName(name, namespace, Suffix)
+}
+
+func SingleNamespacePhysicalName(name, namespace, suffix string) string {
 	if name == "" {
 		return ""
 	}
-	return SafeConcatName(name, "x", namespace, "x", Suffix)
+	return SafeConcatName(name, "x", namespace, "x", suffix)
 }
 
 func (s *singleNamespace) objectPhysicalName(obj runtime.Object) string {
