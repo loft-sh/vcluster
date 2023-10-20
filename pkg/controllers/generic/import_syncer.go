@@ -17,6 +17,7 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/log"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -85,11 +86,11 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 	return nil
 }
 
-func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvkRegister GVKRegister) (syncer.Syncer, error) {
+func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvkRegister GVKRegister) (syncertypes.Syncer, error) {
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
 	controllerID := fmt.Sprintf("%s/%s/GenericImport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.GroupVersion().String()))
 
-	syncerOptions := &syncer.Options{
+	syncerOptions := &syncertypes.Options{
 		DisableUIDDeletion: true,
 	}
 
@@ -121,7 +122,7 @@ type importer struct {
 	virtualClient client.Client
 	name          string
 
-	syncerOptions *syncer.Options
+	syncerOptions *syncertypes.Options
 }
 
 func (s *importer) Resource() client.Object {
@@ -135,13 +136,13 @@ func (s *importer) Name() string {
 	return s.name
 }
 
-var _ syncer.OptionsProvider = &importer{}
+var _ syncertypes.OptionsProvider = &importer{}
 
-func (s *importer) WithOptions() *syncer.Options {
+func (s *importer) WithOptions() *syncertypes.Options {
 	return s.syncerOptions
 }
 
-var _ syncer.ObjectExcluder = &importer{}
+var _ syncertypes.ObjectExcluder = &importer{}
 
 func (s *importer) ExcludeVirtual(vObj client.Object) bool {
 	return s.excludeObject(vObj)
@@ -178,7 +179,7 @@ func (s *importer) excludeObject(obj client.Object) bool {
 	return false
 }
 
-var _ syncer.UpSyncer = &importer{}
+var _ syncertypes.UpSyncer = &importer{}
 
 func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// check if annotation is already present
@@ -233,7 +234,7 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	return ctrl.Result{}, nil
 }
 
-var _ syncer.Syncer = &importer{}
+var _ syncertypes.Syncer = &importer{}
 
 func (s *importer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// ignore all virtual resources that were not created by this controller

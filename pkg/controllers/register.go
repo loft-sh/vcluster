@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
@@ -52,14 +53,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
-var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncer.Object, error){
+var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncertypes.Object, error){
 	"services":               {services.New},
 	"configmaps":             {configmaps.New},
 	"secrets":                {secrets.New},
@@ -84,11 +85,11 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 	"persistentvolumes,fake-persistentvolumes": {persistentvolumes.New},
 }
 
-func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
+func Create(ctx *context.ControllerContext) ([]syncertypes.Object, error) {
 	registerContext := util.ToRegisterContext(ctx)
 
 	// register controllers for resource synchronization
-	syncers := []syncer.Object{}
+	syncers := []syncertypes.Object{}
 	for k, v := range ResourceControllers {
 		for _, controllerNew := range v {
 			controllers := strings.Split(k, ",")
@@ -110,7 +111,7 @@ func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
 	return syncers, nil
 }
 
-func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syncer.Object) error {
+func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(controllerCtx)
 
 	// execute in parallel because each one might be time-consuming
@@ -118,7 +119,7 @@ func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syn
 	registerContext.Context = ctx
 	for _, s := range syncers {
 		name := s.Name()
-		initializer, ok := s.(syncer.Initializer)
+		initializer, ok := s.(syncertypes.Initializer)
 		if ok {
 			errorGroup.Go(func() error {
 				err := initializer.Init(registerContext)
@@ -133,10 +134,10 @@ func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syn
 	return errorGroup.Wait()
 }
 
-func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) error {
+func RegisterIndices(ctx *context.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 	for _, s := range syncers {
-		indexRegisterer, ok := s.(syncer.IndicesRegisterer)
+		indexRegisterer, ok := s.(syncertypes.IndicesRegisterer)
 		if ok {
 			err := indexRegisterer.RegisterIndices(registerContext)
 			if err != nil {
@@ -148,7 +149,7 @@ func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) er
 	return nil
 }
 
-func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
+func RegisterControllers(ctx *context.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 
 	err := k8sdefaultendpoint.Register(ctx)
@@ -190,7 +191,7 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 	// register controllers for resource synchronization
 	for _, v := range syncers {
 		// fake syncer?
-		fakeSyncer, ok := v.(syncer.FakeSyncer)
+		fakeSyncer, ok := v.(syncertypes.FakeSyncer)
 		if ok {
 			err = syncer.RegisterFakeSyncer(registerContext, fakeSyncer)
 			if err != nil {
@@ -198,7 +199,7 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 			}
 		} else {
 			// real syncer?
-			realSyncer, ok := v.(syncer.Syncer)
+			realSyncer, ok := v.(syncertypes.Syncer)
 			if ok {
 				err = syncer.RegisterSyncer(registerContext, realSyncer)
 				if err != nil {

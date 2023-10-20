@@ -8,9 +8,9 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -30,7 +30,7 @@ var (
 	indexPodByRunningNonVClusterNode = "indexpodbyrunningnonvclusternode"
 )
 
-func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.Provider) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.Provider) (syncertypes.Object, error) {
 	var err error
 	var nodeSelector labels.Selector
 	if ctx.Options.SyncAllNodes {
@@ -95,7 +95,7 @@ func (s *nodeSyncer) Name() string {
 	return "node"
 }
 
-var _ syncer.ControllerModifier = &nodeSyncer{}
+var _ syncertypes.ControllerModifier = &nodeSyncer{}
 
 func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.enableScheduler {
@@ -171,7 +171,7 @@ func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider node
 	})), nil
 }
 
-var _ syncer.IndicesRegisterer = &nodeSyncer{}
+var _ syncertypes.IndicesRegisterer = &nodeSyncer{}
 
 func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return registerIndices(ctx)
@@ -215,7 +215,7 @@ func (s *nodeSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, e
 	return shouldSync, nil
 }
 
-var _ syncer.Syncer = &nodeSyncer{}
+var _ syncertypes.Syncer = &nodeSyncer{}
 
 func (s *nodeSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vNode := vObj.(*corev1.Node)
@@ -261,7 +261,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 	return ctrl.Result{}, nil
 }
 
-var _ syncer.UpSyncer = &nodeSyncer{}
+var _ syncertypes.UpSyncer = &nodeSyncer{}
 
 func (s *nodeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pNode := pObj.(*corev1.Node)

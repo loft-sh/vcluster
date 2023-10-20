@@ -1,4 +1,4 @@
-package syncer
+package types
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"

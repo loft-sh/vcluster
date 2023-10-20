@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -25,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func RegisterSyncer(ctx *synccontext.RegisterContext, syncer Syncer) error {
-	options := &Options{}
-	optionsProvider, ok := syncer.(OptionsProvider)
+func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) error {
+	options := &syncertypes.Options{}
+	optionsProvider, ok := syncer.(syncertypes.OptionsProvider)
 	if ok {
 		options = optionsProvider.WithOptions()
 	}
@@ -49,7 +50,7 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer Syncer) error {
 }
 
 type syncerController struct {
-	syncer Syncer
+	syncer syncertypes.Syncer
 
 	log            loghelper.Logger
 	vEventRecorder record.EventRecorder
@@ -60,7 +61,7 @@ type syncerController struct {
 	currentNamespaceClient client.Client
 
 	virtualClient client.Client
-	options       *Options
+	options       *syncertypes.Options
 }
 
 func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -76,7 +77,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// check if we should skip reconcile
-	lifecycle, ok := r.syncer.(Starter)
+	lifecycle, ok := r.syncer.(syncertypes.Starter)
 	if ok {
 		skip, err := lifecycle.ReconcileStart(syncContext, req)
 		defer lifecycle.ReconcileEnd()
@@ -160,7 +161,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 
 		// check if up syncer
-		upSyncer, ok := r.syncer.(UpSyncer)
+		upSyncer, ok := r.syncer.(syncertypes.UpSyncer)
 		if ok {
 			return captureSyncTelemetry(upSyncer.SyncUp(syncContext, pObj))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
 		}
@@ -172,7 +173,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 func (r *syncerController) excludePhysical(pObj client.Object) bool {
-	excluder, ok := r.syncer.(ObjectExcluder)
+	excluder, ok := r.syncer.(syncertypes.ObjectExcluder)
 	if ok {
 		return excluder.ExcludePhysical(pObj)
 	}
@@ -191,7 +192,7 @@ func (r *syncerController) excludePhysical(pObj client.Object) bool {
 }
 
 func (r *syncerController) excludeVirtual(vObj client.Object) bool {
-	excluder, ok := r.syncer.(ObjectExcluder)
+	excluder, ok := r.syncer.(syncertypes.ObjectExcluder)
 	if ok {
 		return excluder.ExcludeVirtual(vObj)
 	}
@@ -258,7 +259,7 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource()), r).
 		For(r.syncer.Resource())
 	var err error
-	modifier, ok := r.syncer.(ControllerModifier)
+	modifier, ok := r.syncer.(syncertypes.ControllerModifier)
 	if ok {
 		controller, err = modifier.ModifyController(ctx, controller)
 		if err != nil {
