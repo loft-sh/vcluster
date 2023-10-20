@@ -78,7 +78,7 @@ func (s *SyncTest) Run(t *testing.T, createContext NewContextFunc) {
 	// Compare states
 	if s.ExpectedPhysicalState != nil {
 		for gvk, objs := range s.ExpectedPhysicalState {
-			err := compareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme, objs, s.Compare)
+			err := CompareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme, objs, s.Compare)
 			if err != nil {
 				t.Fatalf("%s - Physical State mismatch: %v", s.Name, err)
 			}
@@ -86,7 +86,7 @@ func (s *SyncTest) Run(t *testing.T, createContext NewContextFunc) {
 	}
 	if s.ExpectedVirtualState != nil {
 		for gvk, objs := range s.ExpectedVirtualState {
-			err := compareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme, objs, s.Compare)
+			err := CompareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme, objs, s.Compare)
 			if err != nil {
 				t.Fatalf("%s - Virtual State mismatch: %v", s.Name, err)
 			}
@@ -94,7 +94,7 @@ func (s *SyncTest) Run(t *testing.T, createContext NewContextFunc) {
 	}
 }
 
-func compareObjs(ctx context.Context, t *testing.T, state string, c client.Client, gvk schema.GroupVersionKind, scheme *runtime.Scheme, objs []runtime.Object, compare Compare) error {
+func CompareObjs(ctx context.Context, t *testing.T, state string, c client.Client, gvk schema.GroupVersionKind, scheme *runtime.Scheme, objs []runtime.Object, compare Compare) error {
 	listGvk := gvk.GroupVersion().WithKind(gvk.Kind + "List")
 	list, err := scheme.New(listGvk)
 	if err != nil {

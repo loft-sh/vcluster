@@ -124,8 +124,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		isManaged, err := r.syncer.IsManaged(ctx, pObj)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to check if physical object is managed: %w", err)
-		}
-		if !isManaged {
+		} else if !isManaged {
 			if vObj != nil {
 				msg := "conflict: cannot sync virtual object as unmanaged physical object exists with desired name"
 				r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
