@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/loft-sh/vcluster/hack/load-testing/tests/events"
-	"github.com/loft-sh/vcluster/hack/load-testing/tests/secrets"
+	"github.com/loft-sh/vcluster/hack/load-testing/tests/throughput"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func printUsage() {
-	_, _ = fmt.Fprintln(os.Stderr, "usage: load-testing <TEST> [-amount INT] [-namespace STRING]")
+	_, _ = fmt.Fprintln(os.Stderr, "usage: load-testing <TEST> [-namespace STRING]")
 	os.Exit(1)
 }
 
@@ -25,8 +24,6 @@ func printError(err error) {
 
 func main() {
 	ctx := context.Background()
-	amount := flag.Int64("amount", 100, "amount to create")
-
 	namespace := ""
 	flag.StringVar(&namespace, "namespace", "load-testing", "namespace to use")
 	flag.Parse()
@@ -39,8 +36,8 @@ func main() {
 
 	// We increase the limits here so that we don't get any problems
 	restConfig := ctrl.GetConfigOrDie()
-	restConfig.QPS = 1000
-	restConfig.Burst = 2000
+	restConfig.QPS = 9999999
+	restConfig.Burst = 9999999
 	restConfig.Timeout = 0
 
 	// build client
@@ -51,13 +48,8 @@ func main() {
 	}
 
 	switch test {
-	case "secrets":
-		err = secrets.TestSecrets(ctx, kubeClient, *amount, namespace)
-		if err != nil {
-			printError(err)
-		}
-	case "events":
-		err = events.TestEvents(ctx, kubeClient, restConfig, *amount, namespace)
+	case "throughput":
+		err = throughput.TestThroughput(ctx, kubeClient, namespace)
 		if err != nil {
 			printError(err)
 		}
