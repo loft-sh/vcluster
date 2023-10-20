@@ -98,8 +98,6 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		virtualLogsPath:          virtualLogsPath,
 		virtualPodLogsPath:       filepath.Join(virtualLogsPath, "pods"),
 		virtualKubeletPodPath:    filepath.Join(virtualKubeletPath, "pods"),
-
-		projectedVolumeSAToken: make(map[string]string),
 	}, nil
 }
 
@@ -128,8 +126,6 @@ type translator struct {
 	virtualLogsPath          string
 	virtualPodLogsPath       string
 	virtualKubeletPodPath    string
-
-	projectedVolumeSAToken map[string]string
 }
 
 func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -355,7 +351,7 @@ func LabelsAnnotation(obj client.Object) string {
 }
 
 func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPod *corev1.Pod) error {
-	var shouldCreateTokenSecret bool
+	tokenSecrets := map[string]string{}
 
 	for i := range pPod.Spec.Volumes {
 		if pPod.Spec.Volumes[i].ConfigMap != nil {
@@ -381,7 +377,7 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 			pPod.Spec.Volumes[i].Ephemeral = nil
 		}
 		if pPod.Spec.Volumes[i].Projected != nil {
-			err := t.translateProjectedVolume(ctx, pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, &shouldCreateTokenSecret)
+			err := t.translateProjectedVolume(ctx, pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, tokenSecrets)
 			if err != nil {
 				return err
 			}
@@ -423,9 +419,9 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 		}
 	}
 
-	if shouldCreateTokenSecret {
+	if len(tokenSecrets) > 0 {
 		// create the service account token holder secret
-		err := SATokenSecret(ctx, t.pClient, vPod, t.projectedVolumeSAToken)
+		err := SATokenSecret(ctx, t.pClient, vPod, tokenSecrets)
 		if err != nil {
 			return nil
 		}
@@ -439,7 +435,14 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 	return nil
 }
 
-func (t *translator) translateProjectedVolume(ctx context.Context, projectedVolume *corev1.ProjectedVolumeSource, volumeName string, pPod *corev1.Pod, vPod *corev1.Pod, shouldCreateTokenSecret *bool) error {
+func (t *translator) translateProjectedVolume(
+	ctx context.Context,
+	projectedVolume *corev1.ProjectedVolumeSource,
+	volumeName string,
+	pPod *corev1.Pod,
+	vPod *corev1.Pod,
+	tokenSecrets map[string]string,
+) error {
 	for i := range projectedVolume.Sources {
 		if projectedVolume.Sources[i].Secret != nil {
 			projectedVolume.Sources[i].Secret.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace)
@@ -498,7 +501,7 @@ func (t *translator) translateProjectedVolume(ctx context.Context, projectedVolu
 
 			if t.serviceAccountSecretsEnabled {
 				// populate service account map
-				t.projectedVolumeSAToken[volumeName] = token.Status.Token
+				tokenSecrets[volumeName] = token.Status.Token
 
 				// rewrite projected volume to use sources as secret
 				projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
@@ -513,8 +516,6 @@ func (t *translator) translateProjectedVolume(ctx context.Context, projectedVolu
 						},
 					},
 				}
-
-				*shouldCreateTokenSecret = true
 			} else {
 				// set annotation on physical pod
 				if pPod.Annotations == nil {
