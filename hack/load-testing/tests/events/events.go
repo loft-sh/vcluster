@@ -35,7 +35,7 @@ func TestEvents(ctx context.Context, kubeClient client.Client, restConfig *rest.
 	for i := int64(0); i < amount; i++ {
 		if i%int64(100) == 0 {
 			klog.FromContext(ctx).Info("Creating event", "n", i)
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond * 500)
 		}
 
 		recorder.Event(&corev1.Pod{
