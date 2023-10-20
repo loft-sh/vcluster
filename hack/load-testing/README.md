@@ -2,21 +2,8 @@
 
 How to use:
 
-1. Create a new vcluster
+1. Create a new vcluster via the deployment options
 2. Start testing via:
 ```
-go run hack/load-testing/main.go -amount 1000 secrets
+go run hack/load-testing/main.go throughput
 ```
-
-### Connect to SQLite
-
-Install SQLite:
-```
-kubectl exec -it -n NAMESPACE NAME-0 -c syncer -- sh -c 'apk update && apk add sqlite'
-```
-
-Access Database:
-```
-kubectl exec -it -n NAMESPACE NAME-0 -c syncer -- sh -c 'sqlite3 /data/server/db/state.db'
-```
-
