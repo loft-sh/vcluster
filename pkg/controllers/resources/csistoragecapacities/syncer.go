@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &csistoragecapacitySyncer{
 		storageClassSyncEnabled:     ctx.Controllers.Has("storageclasses"),
 		hostStorageClassSyncEnabled: ctx.Controllers.Has("hoststorageclasses"),
@@ -33,8 +33,8 @@ type csistoragecapacitySyncer struct {
 	physicalClient              client.Client
 }
 
-var _ syncer.UpSyncer = &csistoragecapacitySyncer{}
-var _ syncer.Syncer = &csistoragecapacitySyncer{}
+var _ syncertypes.UpSyncer = &csistoragecapacitySyncer{}
+var _ syncertypes.Syncer = &csistoragecapacitySyncer{}
 
 func (s *csistoragecapacitySyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj, shouldSkip, err := s.translateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity))

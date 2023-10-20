@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"gotest.tools/assert"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"

@@ -3,9 +3,9 @@ package ingresses
 import (
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &ingressSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "ingress", &networkingv1.Ingress{}),
 	}, nil
@@ -23,7 +23,7 @@ type ingressSyncer struct {
 	translator.NamespacedTranslator
 }
 
-var _ syncer.Syncer = &ingressSyncer{}
+var _ syncertypes.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1.Ingress)))

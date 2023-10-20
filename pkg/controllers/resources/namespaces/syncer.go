@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +30,7 @@ const (
 	VclusterNamespaceAnnotation = "vcluster.loft.sh/vcluster-namespace"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	namespaceLabels, err := parseNamespaceLabels(ctx.Options.NamespaceLabels)
 	if err != nil {
 		return nil, fmt.Errorf("invalid value of the namespace-labels flag: %w", err)
@@ -52,7 +52,7 @@ type namespaceSyncer struct {
 	namespaceLabels            map[string]string
 }
 
-var _ syncer.IndicesRegisterer = &namespaceSyncer{}
+var _ syncertypes.IndicesRegisterer = &namespaceSyncer{}
 
 func (s *namespaceSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Namespace{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
@@ -60,7 +60,7 @@ func (s *namespaceSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 	})
 }
 
-var _ syncer.Syncer = &namespaceSyncer{}
+var _ syncertypes.Syncer = &namespaceSyncer{}
 
 func (s *namespaceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	newNamespace := s.translate(ctx.Context, vObj.(*corev1.Namespace))

@@ -18,6 +18,7 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -83,7 +84,7 @@ func CreateExporters(ctx *vcontext.ControllerContext, exporterConfig *config.Con
 	return nil
 }
 
-func createExporter(ctx *synccontext.RegisterContext, config *config.Export) (syncer.Syncer, error) {
+func createExporter(ctx *synccontext.RegisterContext, config *config.Export) (syncertypes.Syncer, error) {
 	obj := &unstructured.Unstructured{}
 	obj.SetKind(config.Kind)
 	obj.SetAPIVersion(config.APIVersion)
@@ -260,7 +261,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	return ctrl.Result{}, nil
 }
 
-var _ syncer.UpSyncer = &exporter{}
+var _ syncertypes.UpSyncer = &exporter{}
 
 func (f *exporter) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	if !translate.Default.IsManaged(pObj) {

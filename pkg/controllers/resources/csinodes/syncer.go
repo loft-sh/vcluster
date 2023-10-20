@@ -1,9 +1,9 @@
 package csinodes
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &csinodeSyncer{
 		Translator:    translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}),
 		virtualClient: ctx.VirtualManager.GetClient(),
@@ -24,8 +24,8 @@ type csinodeSyncer struct {
 	virtualClient client.Client
 }
 
-var _ syncer.UpSyncer = &csinodeSyncer{}
-var _ syncer.Syncer = &csinodeSyncer{}
+var _ syncertypes.UpSyncer = &csinodeSyncer{}
+var _ syncertypes.Syncer = &csinodeSyncer{}
 
 func (s *csinodeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// look up matching node name, don't sync if not found

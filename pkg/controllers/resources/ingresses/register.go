@@ -2,8 +2,8 @@ package ingresses
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/legacy"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"

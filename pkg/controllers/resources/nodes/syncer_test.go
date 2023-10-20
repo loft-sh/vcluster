@@ -6,8 +6,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +29,7 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 	})
 	assert.NilError(t, err)
 
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return NewSyncer(ctx, &fakeNodeServiceProvider{})
 	})
 	return syncContext, object.(*nodeSyncer)
