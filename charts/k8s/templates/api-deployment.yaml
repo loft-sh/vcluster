@@ -162,6 +162,9 @@ spec:
           periodSeconds: 1
           successThreshold: 1
           failureThreshold: 3
+        {{- if .Values.api.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.api.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.api.securityContext | indent 10 }}
         env:

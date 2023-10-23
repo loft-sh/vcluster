@@ -130,6 +130,9 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           failureThreshold: 24
+        {{- if .Values.controller.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.controller.securityContext | indent 10 }}
         env:

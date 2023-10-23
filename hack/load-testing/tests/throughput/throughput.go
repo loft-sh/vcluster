@@ -89,7 +89,28 @@ func TestThroughput(ctx context.Context, kubeClient client.Client, namespace str
 	}
 	stopWatch.Stop("Patching secrets", "amount", amount)
 
-	// deleting secrets
+	// relist secrets
+	secretList = &corev1.SecretList{}
+	err = kubeClient.List(ctx, secretList, client.InNamespace(namespace))
+	if err != nil {
+		return fmt.Errorf("error re-listing secrets: %w", err)
+	}
+	stopWatch.Stop("Re-re-Listing secrets", "amount", amount)
+
+	// delete secrets
+	for i, secret := range secretList.Items {
+		if i%2000 == 0 {
+			klog.FromContext(ctx).Info("Deleting secret", "n", i)
+		}
+
+		err = kubeClient.Delete(ctx, &secret)
+		if err != nil {
+			return fmt.Errorf("error delete secret: %w", err)
+		}
+	}
+	stopWatch.Stop("Deleting secrets", "amount", amount)
+
+	// delete namespace
 	err = kubeClient.Delete(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
@@ -106,7 +127,7 @@ func TestThroughput(ctx context.Context, kubeClient client.Client, namespace str
 
 		time.Sleep(time.Millisecond * 100)
 	}
-	stopWatch.Stop("Deleting secrets & namespace", "amount", amount)
+	stopWatch.Stop("Deleting namespace", "amount", amount)
 
 	return nil
 }
