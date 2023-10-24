@@ -36,6 +36,7 @@ type DeleteCmd struct {
 	Wait                bool
 	KeepPVC             bool
 	DeleteNamespace     bool
+	DeleteConfigMap     bool
 	AutoDeleteNamespace bool
 
 	rawConfig  *clientcmdapi.Config
@@ -74,6 +75,7 @@ vcluster delete test --namespace test
 
 	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PRO] The pro project the vcluster is in")
 	cobraCmd.Flags().BoolVar(&cmd.Wait, "wait", true, "If enabled, vcluster will wait until the vcluster is deleted")
+	cobraCmd.Flags().BoolVar(&cmd.DeleteConfigMap, "delete-configmap", false, "If enabled, vCluster will delete the ConfigMap of the vCluster")
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
 	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster")
 	cobraCmd.Flags().BoolVar(&cmd.AutoDeleteNamespace, "auto-delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster")
@@ -164,6 +166,26 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			}
 		} else {
 			cmd.log.Donef("Successfully deleted virtual cluster pvc %s in namespace %s", pvcName, cmd.Namespace)
+		}
+	}
+
+	// try to delete the ConfigMap
+	if cmd.DeleteConfigMap {
+		client, err := kubernetes.NewForConfig(cmd.restConfig)
+		if err != nil {
+			return err
+		}
+
+		configMapName := fmt.Sprintf("configmap-%s", args[0])
+
+		// Attempt to delete the ConfigMap
+		err = client.CoreV1().ConfigMaps(cmd.Namespace).Delete(ctx, configMapName, metav1.DeleteOptions{})
+		if err != nil {
+			if !kerrors.IsNotFound(err) {
+				return errors.Wrap(err, "delete configmap")
+			}
+		} else {
+			cmd.log.Donef("Successfully deleted ConfigMap %s in namespace %s", configMapName, cmd.Namespace)
 		}
 	}
 
