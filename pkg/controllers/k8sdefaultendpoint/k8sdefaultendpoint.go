@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
@@ -42,7 +42,7 @@ type EndpointController struct {
 	provider provider
 }
 
-func NewEndpointController(ctx *controllercontext.ControllerContext, provider provider) *EndpointController {
+func NewEndpointController(ctx *options.ControllerContext, provider provider) *EndpointController {
 	return &EndpointController{
 		LocalClient:         ctx.LocalManager.GetClient(),
 		VirtualClient:       ctx.VirtualManager.GetClient(),

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -25,34 +26,36 @@ const (
 	FallbackCIDR     = "10.96.0.0/12"
 )
 
-func GetCIDRConfigMapName(vclusterName string) string {
-	return fmt.Sprintf("%s%s", CIDRConfigMapPrefix, vclusterName)
+func GetCIDRConfigMapName(vClusterName string) string {
+	return fmt.Sprintf("%s%s", CIDRConfigMapPrefix, vClusterName)
 }
 
-func GetK0sSecretName(vclusterName string) string {
-	return fmt.Sprintf("vc-%s-config", vclusterName)
+func GetK0sSecretName(vClusterName string) string {
+	return fmt.Sprintf("vc-%s-config", vClusterName)
 }
 
-func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace string, vclusterName string) (string, error) {
-	cm, err := currentNamespaceClient.CoreV1().ConfigMaps(currentNamespace).Get(ctx, GetCIDRConfigMapName(vclusterName), metav1.GetOptions{})
+func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace string, vClusterName string) (string, error) {
+	cm, err := currentNamespaceClient.CoreV1().ConfigMaps(currentNamespace).Get(ctx, GetCIDRConfigMapName(vClusterName), metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return "", err
 	}
+
 	exists := !kerrors.IsNotFound(err)
 	if !exists {
 		cm = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      GetCIDRConfigMapName(vclusterName),
+				Name:      GetCIDRConfigMapName(vClusterName),
 				Namespace: currentNamespace,
 			},
 		}
 	}
-	cidrData, ok := cm.Data[CIDRConfigMapKey]
+
 	// do nothing if a valid CIDR is already present in the expected Configmap data key
+	cidrData, ok := cm.Data[CIDRConfigMapKey]
 	if exists && ok {
 		_, _, err = net.ParseCIDR(cidrData)
 		if err == nil {
-			return cidrData, err
+			return cidrData, nil
 		}
 	}
 
@@ -67,6 +70,10 @@ func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, c
 			CIDRConfigMapKey: cidr,
 		}
 		_, err = currentNamespaceClient.CoreV1().ConfigMaps(currentNamespace).Create(ctx, cm, metav1.CreateOptions{})
+		if err != nil {
+			return "", err
+		}
+
 		return cidr, err
 	}
 
@@ -85,36 +92,55 @@ func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, c
 	return cidr, err
 }
 
-func EnsureServiceCIDRInK0sSecret(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace string, vclusterName string) error {
-	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, GetK0sSecretName(vclusterName), metav1.GetOptions{})
+func EnsureServiceCIDRInK0sSecret(
+	ctx context.Context,
+	workspaceNamespaceClient,
+	currentNamespaceClient kubernetes.Interface,
+	workspaceNamespace,
+	currentNamespace string,
+	vClusterName string,
+) (string, error) {
+	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, GetK0sSecretName(vClusterName), metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("could not read k0s configuration secret %s/%s: %w", currentNamespace, GetK0sSecretName(vclusterName), err)
+		return "", fmt.Errorf("could not read k0s configuration secret %s/%s: %w", currentNamespace, GetK0sSecretName(vClusterName), err)
 	}
+
+	// verify secret
 	configData, ok := secret.Data[K0sConfigKey]
 	if !ok {
-		return fmt.Errorf("k0s configuration secret %s/%s does not contain the expected key - %s", secret.Namespace, secret.Name, K0sConfigKey)
+		return "", fmt.Errorf("k0s configuration secret %s/%s does not contain the expected key - %s", secret.Namespace, secret.Name, K0sConfigKey)
 	}
 
 	// find out correct cidr
-	cidr, warning := GetServiceCIDR(ctx, workspaceNamespaceClient, workspaceNamespace)
+	serviceCIDR, warning := GetServiceCIDR(ctx, workspaceNamespaceClient, workspaceNamespace)
 	if warning != "" {
 		klog.Info(warning)
 	}
-	newData := strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, cidr)
 
+	// apply changes
 	originalObject := secret.DeepCopy()
-	secret.Data[K0sConfigKey] = []byte(newData)
+	secret.Data[K0sConfigKey] = []byte(strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, serviceCIDR))
 	secret.Data[K0sConfigReadyFlag] = []byte("true")
+
+	// return early if equal
+	if equality.Semantic.DeepEqual(originalObject.Data, secret.Data) {
+		return serviceCIDR, nil
+	}
+
+	// create patch
 	patch := client.MergeFrom(originalObject)
 	data, err := patch.Data(secret)
 	if err != nil {
-		return fmt.Errorf("failed to create patch for the %s/%s Secret: %w", secret.Namespace, secret.Name, err)
+		return "", fmt.Errorf("failed to create patch for the %s/%s Secret: %w", secret.Namespace, secret.Name, err)
 	}
+
+	// apply patch
 	_, err = currentNamespaceClient.CoreV1().Secrets(secret.Namespace).Patch(ctx, secret.Name, patch.Type(), data, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to patch k0s configuration secret %s/%s: %w", secret.Namespace, secret.Name, err)
+		return "", fmt.Errorf("failed to patch k0s configuration secret %s/%s: %w", secret.Namespace, secret.Name, err)
 	}
-	return nil
+
+	return serviceCIDR, nil
 }
 
 func GetServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace string) (string, string) {

@@ -16,7 +16,6 @@ package certs
 import (
 	"crypto"
 	"crypto/x509"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -42,7 +41,6 @@ func CreatePKIAssets(cfg *InitConfiguration) error {
 	// This isn't a problem right now, but may become one in the future.
 
 	var certList Certificates
-
 	if cfg.Etcd.Local == nil {
 		certList = GetCertsWithoutEtcd()
 	} else {
@@ -58,7 +56,7 @@ func CreatePKIAssets(cfg *InitConfiguration) error {
 		return errors.Wrap(err, "error creating PKI assets")
 	}
 
-	fmt.Printf("[certs] Valid certificates and keys now exist in %q\n", cfg.CertificatesDir)
+	klog.Infof("Valid certificates and keys now exist in %q", cfg.CertificatesDir)
 
 	// Service accounts are not x509 certs, so handled separately
 	return CreateServiceAccountKeyAndPublicKeyFiles(cfg.CertificatesDir, cfg.ClusterConfiguration.PublicKeyAlgorithm())
@@ -73,7 +71,7 @@ func CreateServiceAccountKeyAndPublicKeyFiles(certsDir string, keyType x509.Publ
 		// kubeadm doesn't validate the existing certificate key more than this;
 		// Basically, if we find a key file with the same path kubeadm thinks those files
 		// are equal and doesn't bother writing a new file
-		fmt.Printf("[certs] Using the existing %q key\n", ServiceAccountKeyBaseName)
+		klog.Infof("[certs] Using the existing %q key", ServiceAccountKeyBaseName)
 		return nil
 	} else if !os.IsNotExist(err) {
 		return errors.Wrapf(err, "file %s existed but it could not be loaded properly", ServiceAccountPrivateKeyName)
@@ -86,7 +84,7 @@ func CreateServiceAccountKeyAndPublicKeyFiles(certsDir string, keyType x509.Publ
 	}
 
 	// Write .key and .pub files to disk
-	fmt.Printf("[certs] Generating %q key and public key\n", ServiceAccountKeyBaseName)
+	klog.Infof("[certs] Generating %q key and public key", ServiceAccountKeyBaseName)
 
 	if err := WriteKey(certsDir, ServiceAccountKeyBaseName, key); err != nil {
 		return err
@@ -118,11 +116,10 @@ func writeCertificateAuthorityFilesIfNotExist(pkiDir string, baseName string, ca
 		// kubeadm doesn't validate the existing certificate Authority more than this;
 		// Basically, if we find a certificate file with the same path; and it is a CA
 		// kubeadm thinks those files are equal and doesn't bother writing a new file
-		fmt.Printf("[certs] Using the existing %q certificate and key\n", baseName)
+		klog.Infof("Using the existing %q certificate and key", baseName)
 	} else {
 		// Write .crt and .key files to disk
-		fmt.Printf("[certs] Generating %q certificate and key\n", baseName)
-
+		klog.Infof("Generating %q certificate and key", baseName)
 		if err := WriteCertAndKey(pkiDir, baseName, caCert, caKey); err != nil {
 			return errors.Wrapf(err, "failure while saving %s certificate and key", baseName)
 		}
@@ -161,16 +158,16 @@ func writeCertificateFilesIfNotExist(pkiDir string, baseName string, signingCert
 			return err
 		}
 
-		fmt.Printf("[certs] Using the existing %q certificate and key\n", baseName)
+		klog.Infof("[certs] Using the existing %q certificate and key", baseName)
 	} else {
 		// Write .crt and .key files to disk
-		fmt.Printf("[certs] Generating %q certificate and key\n", baseName)
+		klog.Infof("[certs] Generating %q certificate and key", baseName)
 
 		if err := WriteCertAndKey(pkiDir, baseName, cert, key); err != nil {
 			return errors.Wrapf(err, "failure while saving %s certificate and key", baseName)
 		}
 		if HasServerAuth(cert) {
-			fmt.Printf("[certs] %s serving cert is signed for DNS names %v and IPs %v\n", baseName, cert.DNSNames, cert.IPAddresses)
+			klog.Infof("[certs] %s serving cert is signed for DNS names %v and IPs %v", baseName, cert.DNSNames, cert.IPAddresses)
 		}
 	}
 

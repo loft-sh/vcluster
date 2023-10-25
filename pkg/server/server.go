@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
@@ -22,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
@@ -45,7 +45,7 @@ import (
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/server"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
-	"k8s.io/apiserver/pkg/server/options"
+	koptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	flowcontrolrequest "k8s.io/apiserver/pkg/util/flowcontrol/request"
 	"k8s.io/apiserver/pkg/util/webhook"
@@ -78,7 +78,7 @@ type Server struct {
 
 // NewServer creates and installs a new Server.
 // 'filter', if non-nil, protects requests to the api only.
-func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
+func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
 	localConfig := ctx.LocalManager.GetConfig()
 	virtualConfig := ctx.VirtualManager.GetConfig()
 	uncachedLocalClient, err := client.New(localConfig, client.Options{
@@ -261,7 +261,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 		allowall.New(),
 	)
 
-	sso := options.NewSecureServingOptions()
+	sso := koptions.NewSecureServingOptions()
 	sso.HTTP2MaxStreamsPerConnection = 1000
 	sso.ServerCert.GeneratedCert = s.certSyncer
 	sso.BindPort = port
@@ -271,7 +271,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 		return err
 	}
 
-	authOptions := options.NewDelegatingAuthenticationOptions()
+	authOptions := koptions.NewDelegatingAuthenticationOptions()
 	authOptions.RemoteKubeConfigFileOptional = true
 	authOptions.SkipInClusterLookup = true
 	authOptions.RequestHeader.ClientCAFile = s.requestHeaderCaFile

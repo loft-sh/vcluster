@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	vclustercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -103,7 +103,7 @@ func createOperation(_ context.Context, client client.Client) wait.ConditionWith
 	}
 }
 
-func RegisterOrDeregisterAPIService(ctx context.Context, options *vclustercontext.VirtualClusterOptions, client client.Client) error {
+func RegisterOrDeregisterAPIService(ctx context.Context, options *options.VirtualClusterOptions, client client.Client) error {
 	// check if the api service should get created
 	exists := checkExistingAPIService(ctx, client)
 	if options.ProxyMetricsServer {

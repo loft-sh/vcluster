@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -286,7 +287,7 @@ func GetControlPlaneEndpoint(controlPlaneEndpoint string, localEndpoint *APIEndp
 		localEndpointPort := strconv.Itoa(int(localEndpoint.BindPort))
 		if port != "" {
 			if port != localEndpointPort {
-				fmt.Println("[endpoint] WARNING: port specified in controlPlaneEndpoint overrides bindPort in the controlplane address")
+				klog.Infof("[endpoint] WARNING: port specified in controlPlaneEndpoint overrides bindPort in the controlplane address")
 			}
 		} else {
 			port = localEndpointPort
@@ -510,8 +511,8 @@ func appendSANsToAltNames(altNames *certutil.AltNames, SANs []string, certName s
 		} else if len(validation.IsWildcardDNS1123Subdomain(altname)) == 0 {
 			altNames.DNSNames = append(altNames.DNSNames, altname)
 		} else {
-			fmt.Printf(
-				"[certificates] WARNING: '%s' was not added to the '%s' SAN, because it is not a valid IP or RFC-1123 compliant DNS entry\n",
+			klog.Infof(
+				"[certificates] WARNING: '%s' was not added to the '%s' SAN, because it is not a valid IP or RFC-1123 compliant DNS entry",
 				altname,
 				certName,
 			)

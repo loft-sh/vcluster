@@ -1,11 +1,11 @@
 package util
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vcluster/context"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 )
 
-func ToRegisterContext(ctx *context.ControllerContext) *synccontext.RegisterContext {
+func ToRegisterContext(ctx *options.ControllerContext) *synccontext.RegisterContext {
 	return &synccontext.RegisterContext{
 		Context: ctx.Context,
 

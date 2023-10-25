@@ -72,21 +72,6 @@ Whether to create a cluster role or not
 {{- end -}}
 
 {{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "vcluster.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
-Get
-*/}}
-{{- $}}
-{{- define "vcluster.admin.accessKey" -}}
-{{- now | unixEpoch | toString | trunc 8 | sha256sum -}}
-{{- end -}}
-
-{{/*
 Syncer flags for enabling/disabling controllers
 Prints only the flags that modify the defaults:
 - when default controller has enabled: false => `- "--sync=-controller`

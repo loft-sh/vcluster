@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/denisbrodbeck/machineid"
-	vcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	homedir "github.com/mitchellh/go-homedir"
@@ -38,7 +38,7 @@ const (
 )
 
 // getSyncerUID provides instance UID based on the UID of the PVC or Service
-func getSyncerUID(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) string {
+func getSyncerUID(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *options.VirtualClusterOptions) string {
 	if cachedUID != "" {
 		return cachedUID
 	}
@@ -57,7 +57,7 @@ func getSyncerUID(ctx context.Context, c *kubernetes.Clientset, vclusterNamespac
 }
 
 // returns a Kubernetes resource that can be used to uniquely identify this syncer instance - PVC or Service
-func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) (client.Object, error) {
+func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *options.VirtualClusterOptions) (client.Object, error) {
 	// we primarily use PVC as the source of vcluster instance UID
 	pvc, err := c.CoreV1().PersistentVolumeClaims(vclusterNamespace).Get(ctx, fmt.Sprintf("data-%s-0", translate.Suffix), metav1.GetOptions{})
 	if err == nil {
@@ -78,7 +78,7 @@ func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vcluste
 	return nil, err
 }
 
-func getSyncerFlags(startCommand *cobra.Command, options *vcontext.VirtualClusterOptions) string {
+func getSyncerFlags(startCommand *cobra.Command, options *options.VirtualClusterOptions) string {
 	if cachedSyncerFlags != "" {
 		return cachedSyncerFlags
 	}
@@ -142,7 +142,7 @@ func toKubernetesVersion(vi *version.Info) *types.KubernetesVersion {
 	}
 }
 
-func getVclusterServiceType(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) string {
+func getVclusterServiceType(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *options.VirtualClusterOptions) string {
 	if cachedVclusterServiceType != "" {
 		return cachedVclusterServiceType
 	}
