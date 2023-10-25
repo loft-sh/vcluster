@@ -45,9 +45,9 @@ For this use case you can label resources vCluster should ignore either on the p
 
 ### Plugin Hooks
 
-Plugin hooks are a great feature to adjust current syncing behaviour of vCluster without the need to override an already existing syncer in vCluster completely.
+Plugin hooks are a great feature to adjust the current syncing behaviour of vCluster without the need to override an already existing syncer in vCluster completely.
 They allow you to change outgoing objects of vCluster similar to an mutating admission controller in Kubernetes.
-Requirement for an hook to work correctly is that vCluster itself would sync the resource, so hooks only work for the core resources that are synced by vCluster such as pods, services, secrets etc.
+The requirement for a hook to work correctly is that vCluster itself would sync the resource, so hooks only work for the core resources that are synced by vCluster such as pods, services, secrets etc.
 
 If a plugin registers a hook to a specific resource, vCluster will forward all requests that match the plugin's defined hooks to the plugin and the plugin can then adjust or even deny the request completely.
 This opens up a wide variety of adjustment possibilities for plugins, where you for example only want to add a custom label or annotation.
@@ -59,7 +59,7 @@ If you want to start developing your own vCluster plugins, it is recommended tha
 :::
 
 vCluster provides an [SDK](https://github.com/loft-sh/vcluster-sdk) for writing plugin controllers that abstracts a lot of the syncer complexity away from the user, but still gives you access to the underlying structures if you need it.
-Internally, the vCluster SDK uses the popular [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) project, that is used by vCluster itself to create the controllers.
+Internally, the vCluster SDK uses the popular [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) project, which is used by vCluster itself to create the controllers.
 The vCluster SDK lets you write custom plugin controllers with just a few lines of code.
 
 Since the plugin SDK interfaces are mostly compatible with the vCluster syncers, you can also take a look at how those are implemented in [the vCluster itself](https://github.com/loft-sh/vcluster/tree/main/pkg/controllers/resources), which work in most cases the same way as if those would be implemented in a plugin.
@@ -91,7 +91,7 @@ plugin:
     #        ...
 ```
 
-The `plugin.yaml` is a valid helm values file used to define the plugin's sidecar configuration and additional RBAC rules needed to function properly. If you want to distribute that plugin for others, it's also possible to install a plugin through an URL:
+The `plugin.yaml` is a valid helm values file used to define the plugin's sidecar configuration and additional RBAC rules needed to function properly. If you want to distribute that plugin to others, it's also possible to install a plugin through a URL:
 
 ```
 # Install a plugin with a local plugin.yaml

@@ -86,7 +86,7 @@ done √ Switched active kube context to vcluster_init-tutorial_vcluster-init-tu
 ```
 The exact output will depend a bit on how your host cluster is set up.
 
-If your host cluster is local (Docker Desktop, Minikube, etc.), vcluster will configure it to use a NodePort and connect to it automaticaly.
+If your host cluster is local (Docker Desktop, Minikube, etc.), vcluster will configure it to use a NodePort and connect to it automatically.
 
 For remote clusters, vcluster will connect using port forwarding.
 
@@ -100,7 +100,7 @@ NAMESPACE     NAME                                READY   STATUS    RESTARTS   A
 nginx         nginx-deployment-775b6549b5-nr8jh   1/1     Running   0          68s
 nginx         nginx-deployment-775b6549b5-vcx7w   1/1     Running   0          68s
 ```
-In this example the two NGINX pods are running in the nginx namespace. The pods and the namespace were created automatically as soon as the vcluster was created.
+In this example, the two NGINX pods are running in the nginx namespace. The pods and the namespace were created automatically as soon as the vcluster was created.
 
 Now let’s disconnect from the virtual cluster and delete it to clean up.
 
@@ -113,7 +113,7 @@ vcluster delete init-tutorial
 ```
 
 # Apply a Helm chart on initialization
-Now let’s create a NGIX namespace and deployment again, but this time instead of creating the deployment manually, we’ll install NGINX with a public Helm chart.
+Now let’s create an NGINX namespace and deploy again, but this time instead of creating the deployment manually, we’ll install NGINX with a public Helm chart.
 
 First, edit the values.yaml. Remove the previous contents and set them to:
 ```

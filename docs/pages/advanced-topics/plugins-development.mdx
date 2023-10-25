@@ -3,7 +3,7 @@ title: "Development tutorial"
 sidebar_label: "Development tutorial"
 ---
 
-In this tutorial we will implement a ConfigMap syncer. Vcluster syncs ConfigMaps out of the box, but only those that are used by one of the pods created in vCluster. Here we will have a step-by-step look at a plugin implementation that will synchronize all ConfigMaps using the [vcluster plugin SDK](https://github.com/loft-sh/vcluster-sdk).
+In this tutorial, we will implement a ConfigMap syncer. Vcluster syncs ConfigMaps out of the box, but only those that are used by one of the pods created in vCluster. Here we will have a step-by-step look at a plugin implementation that will synchronize all ConfigMaps using the [vcluster plugin SDK](https://github.com/loft-sh/vcluster-sdk).
 
 
 ### Prerequisites
@@ -22,7 +22,7 @@ Check out the vCluster plugin example via:
 git clone https://github.com/loft-sh/vcluster-plugin-example.git
 ```
 
-You'll see a bunch of files already created, but lets take a look at the `main.go` file:
+You'll see a bunch of files already created, but let's take a look at the `main.go` file:
 ```
 package main
 
@@ -82,7 +82,7 @@ You can get more familiar with the interfaces mentioned above by reading the SDK
 :::
 
 
-The `SyncDown` function mentioned above is called by the vCluster SDK when a given resource, e.g. a ConfigMap, is created in the vCluster, but it doesn't exist in the host cluster yet. To create a ConfigMap in the host cluster we will call the `SyncDownCreate` function with the output of the `translate` function as third parameter. This demonstrates a typical pattern used in the vCluster syncer implementations.
+The `SyncDown` function mentioned above is called by the vCluster SDK when a given resource, e.g. a ConfigMap, is created in the vCluster, but it doesn't exist in the host cluster yet. To create a ConfigMap in the host cluster we will call the `SyncDownCreate` function with the output of the `translate` function as a third parameter. This demonstrates a typical pattern used in the vCluster syncer implementations.
 
 ```
 func (s *configMapSyncer) SyncDown(ctx *syncercontext.syncercontext, vObj client.Object) (ctrl.Result, error) {
@@ -93,10 +93,10 @@ func (s *configMapSyncer) translate(vObj client.Object) *corev1.ConfigMap {
 	return s.TranslateMetadata(vObj).(*corev1.ConfigMap)
 }
 ```
-The `TranslateMetadata` function used above produces a ConfigMap object that will be created in the host cluster. It is a deep copy of the ConfigMap from vCluster, but with certain metadata modifications - the name and labels are transformed, some vCluster labels and annotations are added, many metadata fields are stripped (uid, resourceVersion, etc.).
+The `TranslateMetadata` function used above produces a ConfigMap object that will be created in the host cluster. It is a deep copy of the ConfigMap from vCluster, but with certain metadata modifications - the name and labels are transformed, some vCluster labels and annotations are added, and many metadata fields are stripped (uid, resourceVersion, etc.).
 
 
-Next, we need to implement code that will handle the updates of the ConfigMap. When a ConfigMap in vCluster or host cluster is updated, the vCluster SDK will call the `Sync` function of the syncer. Current ConfigMap resource from the host cluster and from vCluster are passed as the second and third parameters respectively. In the implementation below, you can see another pattern used by the vCluster syncers. The `translateUpdate` function will return nil when no change to the ConfigMap in the host cluster is needed, and the `SyncDownUpdate` function will not do an unnecessary update API call in such case.
+Next, we need to implement code that will handle the updates of the ConfigMap. When a ConfigMap in vCluster or host cluster is updated, the vCluster SDK will call the `Sync` function of the syncer. Current ConfigMap resources from the host cluster and from vCluster are passed as the second and third parameters respectively. In the implementation below, you can see another pattern used by the vCluster syncers. The `translateUpdate` function will return nil when no change to the ConfigMap in the host cluster is needed, and the `SyncDownUpdate` function will not do an unnecessary update API call in such case.
 
 ```
 
@@ -129,14 +129,14 @@ func (s *configMapSyncer) translateUpdate(pObj, vObj *corev1.ConfigMap) *corev1.
 }
 ```
 
-As you might have noticed, the changes to the Immutable field of the ConfigMap are not being checked and propagated to the updated ConfigMap. That is done just for the simplification of the code in this tutorial. In the real world use cases, there will likely be many scenarios and edge cases that you will need to handle differently than just with a simple comparison and assignment. For example, you will need to look out for label selectors that are interpreted in the host cluster, e.g. pod selectors in the NetworkPolicy resources are interpreted by the host cluster network plugin. Such selectors must be translated when synced down to the host resources. Several functions for the common use cases are [built into the SDK in the `syncer/translator` package](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer/translator#pkg-functions), including the `TranslateLabelSelector` function.
+As you might have noticed, the changes to the Immutable field of the ConfigMap are not being checked and propagated to the updated ConfigMap. That is done just for the simplification of the code in this tutorial. In real world use cases, there will likely be many scenarios and edge cases that you will need to handle differently than just with a simple comparison and assignment. For example, you will need to look out for label selectors that are interpreted in the host cluster, e.g. pod selectors in the NetworkPolicy resources are interpreted by the host cluster network plugin. Such selectors must be translated when synced down to the host resources. Several functions for the common use cases are [built into the SDK in the `syncer/translator` package](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer/translator#pkg-functions), including the `TranslateLabelSelector` function.
 
-Also, notice that this example lacks the updates to the ConfigMap resource in vCluster. Here we propagate the changes only down to the ConfigMap in the host cluster, but there are resources or use cases where a syncer would update the synced resource in vCluster. For example, this might be an update of the status subresource or synchronization of any other field that some controller sets on the host side, e.g., finalizers. Implementation of such updates needs to be considered on case-by-case basis.
+Also, notice that this example lacks the updates to the ConfigMap resource in vCluster. Here we propagate the changes only down to the ConfigMap in the host cluster, but there are resources or use cases where a syncer would update the synced resource in vCluster. For example, this might be an update of the status subresource or synchronization of any other field that some controller sets on the host side, e.g., finalizers. Implementation of such updates needs to be considered on a case-by-case basis.
 For some use cases, you may need to sync the resources in the opposite direction, from the host cluster up into the vCluster, or even in both directions. If that is what your plugin needs to do, you will implement the [`UpSyncer`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer#UpSyncer) interface defined by the SDK.
 
 ### Adding a hook for changing a resource on the fly
 
-Hooks are a great feature to adjust current syncing behaviour of vCluster without the need to override an already existing syncer in vCluster completely. They allow you to change outgoing objects of vCluster similar to an mutating admission controller in Kubernetes. Requirement for an hook to work correctly is that vCluster itself would sync the resource, so hooks only work for the core resources that are synced by vCluster such as pods, services, secrets etc.
+Hooks are a great feature to adjust the current syncing behaviour of vCluster without the need to override an already existing syncer in vCluster completely. They allow you to change outgoing objects of vCluster similar to an mutating admission controller in Kubernetes. The requirement for a hook to work correctly is that vCluster itself would sync the resource, so hooks only work for the core resources that are synced by vCluster such as pods, services, secrets etc.
 
 To add a hook to your plugin, you simply need to create a new struct that implements the `ClientHook` interface:
 
