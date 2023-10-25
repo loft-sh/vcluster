@@ -1,4 +1,4 @@
-package values
+package helmvalues
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +17,6 @@ type BaseHelm struct {
 	FallbackHostDNS      bool                   `json:"fallbackHostDns,omitempty"`
 	MapServices          MapServices            `json:"mapServices,omitempty"`
 	Proxy                ProxyValues            `json:"proxy,omitempty"`
-	VCluster             VClusterValues         `json:"vcluster,omitempty"`
 	Storage              StorageValues          `json:"storage,omitempty"`
 	Volumes              []corev1.Volume        `json:"volumes,omitempty"`
 	ServiceAccount       struct {
@@ -59,11 +58,13 @@ type BaseHelm struct {
 
 type K3s struct {
 	BaseHelm
-	Image  string           `json:"image,omitempty"`
-	Syncer BaseSyncerValues `json:"syncer,omitempty"`
+	VCluster VClusterValues `json:"vcluster,omitempty"`
+	Syncer   SyncerValues   `json:"syncer,omitempty"`
 }
 
-type BaseSyncerValues struct {
+type SyncerValues struct {
+	Image                 string                      `json:"image,omitempty"`
+	ImagePullPolicy       string                      `json:"imagePullPolicy,omitempty"`
 	ExtraArgs             []string                    `json:"extraArgs,omitempty"`
 	Env                   []corev1.EnvVar             `json:"env,omitempty"`
 	LivenessProbe         EnabledSwitch               `json:"livenessProbe,omitempty"`
@@ -155,6 +156,7 @@ type MetricsProxyServerConfig struct {
 
 type VClusterValues struct {
 	Image             string                      `json:"image,omitempty"`
+	ImagePullPolicy   string                      `json:"imagePullPolicy,omitempty"`
 	Command           []string                    `json:"command,omitempty"`
 	BaseArgs          []string                    `json:"baseArgs,omitempty"`
 	ExtraArgs         []string                    `json:"extraArgs,omitempty"`
