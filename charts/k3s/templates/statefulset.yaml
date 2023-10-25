@@ -198,13 +198,11 @@ spec:
           {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
           {{- end }}
-          {{- if .Values.enableHA }}
           - name: K3S_TOKEN
             valueFrom:
               secretKeyRef:
-                name: {{ include "vcluster.k3s.tokenSecretName" . | quote }}
-                key: {{ include "vcluster.k3s.serverTokenKey" . | quote }}
-          {{- end }}
+                name: "vc-token-{{ .Release.Name }}"
+                key: "token"
           {{- if not .Values.serviceCIDR }}
           - name: SERVICE_CIDR
             valueFrom:

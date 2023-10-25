@@ -15,7 +15,6 @@ type K8s struct {
 type K8sSyncerValues struct {
 	SyncerValues
 	CommonValues
-	ControlPlaneCommonValues
 	SecurityContext    corev1.SecurityContext    `json:"securityContext,omitempty"`
 	PodSecurityContext corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }

@@ -63,8 +63,7 @@ type K3s struct {
 }
 
 type SyncerValues struct {
-	Image                 string                      `json:"image,omitempty"`
-	ImagePullPolicy       string                      `json:"imagePullPolicy,omitempty"`
+	ControlPlaneCommonValues
 	ExtraArgs             []string                    `json:"extraArgs,omitempty"`
 	Env                   []corev1.EnvVar             `json:"env,omitempty"`
 	LivenessProbe         EnabledSwitch               `json:"livenessProbe,omitempty"`

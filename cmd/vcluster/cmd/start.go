@@ -8,6 +8,7 @@ import (
 	"time"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
 	"github.com/loft-sh/vcluster/pkg/server"
@@ -94,9 +95,7 @@ func NewStartCommand() *cobra.Command {
 		},
 	}
 	context2.AddFlags(cmd.Flags(), options)
-
 	telemetry.Collector.SetStartCommand(cmd)
-
 	return cmd
 }
 
@@ -136,7 +135,6 @@ func ExecuteStart(ctx context.Context, options *context2.VirtualClusterOptions) 
 	inClusterConfig.QPS = 40
 	inClusterConfig.Burst = 80
 	inClusterConfig.Timeout = 0
-
 	inClusterClient, err := kubernetes.NewForConfig(inClusterConfig)
 	if err != nil {
 		return err
@@ -144,11 +142,11 @@ func ExecuteStart(ctx context.Context, options *context2.VirtualClusterOptions) 
 
 	// Ensure that service CIDR range is written into the expected location
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		err = EnsureServiceCIDR(ctx, inClusterClient, inClusterClient, currentNamespace, currentNamespace, translate.Suffix)
+		err = EnsureServiceCIDRAndToken(ctx, inClusterClient, inClusterClient, currentNamespace, currentNamespace, translate.Suffix)
 		if err != nil {
-			klog.Errorf("failed to ensure that service CIDR range is written into the expected location: %v", err)
 			return false, nil
 		}
+
 		return true, nil
 	})
 	if err != nil {
@@ -389,7 +387,7 @@ func RegisterOrDeregisterAPIService(ctx *context2.ControllerContext) {
 	}
 }
 
-func EnsureServiceCIDR(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace, vClusterName string) error {
+func EnsureServiceCIDRAndToken(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace, vClusterName string) error {
 	// check if k0s config Secret exists
 	_, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, servicecidr.GetK0sSecretName(vClusterName), metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
@@ -404,7 +402,24 @@ func EnsureServiceCIDR(ctx context.Context, workspaceNamespaceClient, currentNam
 
 	// in all other cases ensure that a valid CIDR range is in the designated ConfigMap
 	_, err = servicecidr.EnsureServiceCIDRConfigmap(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
-	return err
+	if err != nil {
+		klog.Errorf("failed to ensure that service CIDR range is written into the expected location: %v", err)
+		return err
+	}
+
+	// check if k8s/eks or k3s
+	_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, vClusterName+"-certs", metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	} else if kerrors.IsNotFound(err) {
+		// its k3s, let's create the token secret
+		err = k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func StartControllers(controllerContext *context2.ControllerContext) error {
