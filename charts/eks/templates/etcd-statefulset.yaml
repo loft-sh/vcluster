@@ -120,6 +120,9 @@ spec:
           {{- end }}
         securityContext:
 {{ toYaml .Values.etcd.securityContext | indent 10 }}
+        {{- if .Values.etcd.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.etcd.imagePullPolicy }}
+        {{- end }}
         env:
         - name: NAME
           valueFrom:

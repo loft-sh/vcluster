@@ -137,6 +137,9 @@ spec:
               secretKeyRef:
                 name: "vc-{{ .Release.Name }}-config"
                 key: CONFIG_READY
+        {{- if .Values.vcluster.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.vcluster.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
@@ -254,6 +257,9 @@ spec:
           failureThreshold: 30
           periodSeconds: 2
         {{- end }}
+        {{- end }}
+        {{- if .Values.syncer.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
         {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}

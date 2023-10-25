@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/serviceaccount"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/spf13/cobra"
 	"gopkg.in/square/go-jose.v2/jwt"
 	"k8s.io/client-go/kubernetes"
 
-	vcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -82,7 +82,7 @@ type EventCollector interface {
 	RecordEvent(e *types.Event)
 	// NewEvent allocates a new Event struct to be populated by the caller.
 	NewEvent(t types.EventType) *types.Event
-	SetOptions(options *vcontext.VirtualClusterOptions)
+	SetOptions(options *options.VirtualClusterOptions)
 	SetVirtualClient(virtualClient *kubernetes.Clientset)
 	// start command object is used to determine which flags were set by the user
 	SetStartCommand(startCommand *cobra.Command)
@@ -151,7 +151,7 @@ type DefaultCollector struct {
 	hostClient        *kubernetes.Clientset
 	virtualClient     *kubernetes.Clientset
 	vclusterNamespace string
-	options           *vcontext.VirtualClusterOptions
+	options           *options.VirtualClusterOptions
 	startCommand      *cobra.Command
 
 	startTime time.Time
@@ -180,7 +180,7 @@ func (d *DefaultCollector) RecordEvent(e *types.Event) {
 	d.events <- e
 }
 
-func (d *DefaultCollector) SetOptions(options *vcontext.VirtualClusterOptions) {
+func (d *DefaultCollector) SetOptions(options *options.VirtualClusterOptions) {
 	d.options = options
 }
 

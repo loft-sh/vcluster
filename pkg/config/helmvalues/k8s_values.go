@@ -1,4 +1,4 @@
-package values
+package helmvalues
 
 import corev1 "k8s.io/api/core/v1"
 
@@ -9,13 +9,11 @@ type K8s struct {
 	Controller ControllerValues `json:"controller,omitempty"`
 	Scheduler  SchedulerValues  `json:"scheduler,omitempty"`
 	Etcd       EtcdValues       `json:"etcd,omitempty"`
-	Job        JobValues        `json:"job,omitempty"`
 }
 
 type K8sSyncerValues struct {
-	BaseSyncerValues
+	SyncerValues
 	CommonValues
-	ControlPlaneCommonValues
 	SecurityContext    corev1.SecurityContext    `json:"securityContext,omitempty"`
 	PodSecurityContext corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }
@@ -53,25 +51,12 @@ type EtcdValues struct {
 	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`
 }
 
-type JobValues struct {
-	CommonValues
-	SyncerExORCommonValues
-	Enabled         bool `json:"enabled,omitempty"`
-	SecurityContext struct {
-		Capabilities             corev1.Capabilities `json:"capabilities,omitempty"`
-		AllowPrivilegeEscalation bool                `json:"allowPrivilegeEscalation,omitempty"`
-		ReadOnlyRootFilesystem   bool                `json:"readOnlyRootFilesystem,omitempty"`
-		RunAsNonRoot             bool                `json:"runAsNonRoot,omitempty"`
-		RunAsUser                uint32              `json:"runAsUser,omitempty"`
-		RunAsGroup               uint32              `json:"runAsGroup,omitempty"`
-	} `json:"securityContext,omitempty"`
-}
-
 type ControlPlaneCommonValues struct {
-	Image       string            `json:"image,omitempty"`
-	Replicas    uint32            `json:"replicas,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Image           string            `json:"image,omitempty"`
+	ImagePullPolicy string            `json:"imagePullPolicy,omitempty"`
+	Replicas        uint32            `json:"replicas,omitempty"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty"`
 }
 
 type SyncerExORCommonValues struct {

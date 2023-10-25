@@ -11,8 +11,8 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 
-	ctrlcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +29,7 @@ type Syncer interface {
 	dynamiccertificates.CertKeyContentProvider
 }
 
-func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClient client.Client, options *ctrlcontext.VirtualClusterOptions) (Syncer, error) {
+func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClient client.Client, options *options.VirtualClusterOptions) (Syncer, error) {
 	return &syncer{
 		clusterDomain: options.ClusterDomain,
 

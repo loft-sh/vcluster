@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	vcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/log"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateExporters(ctx *vcontext.ControllerContext, exporterConfig *config.Config) error {
+func CreateExporters(ctx *options.ControllerContext, exporterConfig *config.Config) error {
 	if len(exporterConfig.Exports) == 0 {
 		return nil
 	}

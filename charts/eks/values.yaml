@@ -132,13 +132,11 @@ proxy:
 syncer:
   # Image to use for the syncer
   # image: ghcr.io/loft-sh/vcluster
+  imagePullPolicy: ""
   extraArgs: []
   volumeMounts:
     - mountPath: /manifests/coredns
       name: coredns
-      readOnly: true
-    - mountPath: /pki
-      name: certs
       readOnly: true
   extraVolumeMounts: []
   env: []
@@ -178,6 +176,7 @@ syncer:
 # Etcd settings
 etcd:
   image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.9-eks-1-28-6
+  imagePullPolicy: ""
   # The amount of replicas to run
   replicas: 1
   # NodeSelector used
@@ -213,6 +212,7 @@ etcd:
 # Kubernetes Controller Manager settings
 controller:
   image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6
+  imagePullPolicy: ""
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used
@@ -236,6 +236,7 @@ controller:
 # Kubernetes API Server settings
 api:
   image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
+  imagePullPolicy: ""
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -384,37 +385,12 @@ service:
   # Set the loadBalancerClass if using an external load balancer controller
   loadBalancerClass: ""
 
-# job configuration
-job:
-  enabled: true
-  volumes: []
-  volumeMounts: []
-  extraArgs: []
-  priorityClassName: ""
-  nodeSelector: {}
-  affinity: {}
-  tolerations: []
-  resources: {}
-  podAnnotations: {}
-  podLabels: {}
-  # Security context configuration of the container
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 10001
-    runAsGroup: 10001
-
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
   # Enable ingress record generation
   enabled: false
   # Ingress path type
   pathType: ImplementationSpecific
-  apiVersion: networking.k8s.io/v1
   ingressClassName: ""
   host: vcluster.local
   annotations:

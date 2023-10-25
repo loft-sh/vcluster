@@ -1,4 +1,4 @@
-package context
+package options
 
 import (
 	"fmt"
@@ -67,7 +67,7 @@ var possibleMissing = map[string][]string{
 	storageV1GroupVersion: schedulerRequiredControllers.UnsortedList(),
 }
 
-func parseControllers(options *VirtualClusterOptions) (sets.Set[string], error) {
+func ParseControllers(options *VirtualClusterOptions) (sets.Set[string], error) {
 	enabledControllers := DefaultEnabledControllers.Clone()
 	disabledControllers := sets.New[string]()
 
@@ -156,8 +156,8 @@ func availableControllers() string {
 	return strings.Join(sets.List(ExistingControllers), ", ")
 }
 
-// disableMissingAPIs checks if the  apis are enabled, if any are missing, disable the syncer and print a log
-func disableMissingAPIs(discoveryClient discovery.DiscoveryInterface, controllers sets.Set[string]) (sets.Set[string], error) {
+// DisableMissingAPIs checks if the  apis are enabled, if any are missing, disable the syncer and print a log
+func DisableMissingAPIs(discoveryClient discovery.DiscoveryInterface, controllers sets.Set[string]) (sets.Set[string], error) {
 	enabledControllers := controllers.Clone()
 	for groupVersion, resourceList := range possibleMissing {
 		resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)

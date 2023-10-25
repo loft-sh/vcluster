@@ -198,13 +198,11 @@ spec:
           {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
           {{- end }}
-          {{- if .Values.enableHA }}
           - name: K3S_TOKEN
             valueFrom:
               secretKeyRef:
-                name: {{ include "vcluster.k3s.tokenSecretName" . | quote }}
-                key: {{ include "vcluster.k3s.serverTokenKey" . | quote }}
-          {{- end }}
+                name: "vc-token-{{ .Release.Name }}"
+                key: "token"
           {{- if not .Values.serviceCIDR }}
           - name: SERVICE_CIDR
             valueFrom:
@@ -212,6 +210,9 @@ spec:
                 name: "vc-cidr-{{ .Release.Name }}"
                 key: cidr
           {{- end }}
+        {{- if .Values.vcluster.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.vcluster.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
@@ -342,6 +343,9 @@ spec:
           failureThreshold: 60
           periodSeconds: 2
         {{- end }}
+        {{- end }}
+        {{- if .Values.syncer.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
         {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
