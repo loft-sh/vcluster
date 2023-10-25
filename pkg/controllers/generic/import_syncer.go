@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -33,19 +33,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error {
+func CreateImporters(ctx *options.ControllerContext, cfg *config.Config) error {
 	if len(cfg.Imports) == 0 {
 		return nil
 	}
 
 	registerCtx := util.ToRegisterContext(ctx)
-
 	if !registerCtx.Options.MultiNamespaceMode {
 		return fmt.Errorf("invalid configuration, 'import' type sync of the generic CRDs is allowed only in the multi-namespace mode")
 	}
 
 	gvkRegister := make(GVKRegister)
-
 	for _, importConfig := range cfg.Imports {
 		gvk := schema.FromAPIVersionAndKind(importConfig.APIVersion, importConfig.Kind)
 

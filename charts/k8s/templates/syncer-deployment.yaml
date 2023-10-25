@@ -100,12 +100,11 @@ spec:
 {{ toYaml .Values.syncer.podSecurityContext | indent 8 }}
       {{- end }}
       volumes:
-        - name: certs
-          secret:
-            secretName: {{ .Release.Name }}-certs
         - name: helm-cache
           emptyDir: {}
         - name: tmp
+          emptyDir: {}
+        - name: certs
           emptyDir: {}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
@@ -267,12 +266,16 @@ spec:
             mountPath: /.cache/helm
           - name: tmp
             mountPath: /tmp
+          - mountPath: /pki
+            name: certs
         {{- if .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns
             readOnly: true
         {{- end }}
+        {{- if .Values.syncer.volumeMounts }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
+        {{- end }}
         {{- if .Values.syncer.extraVolumeMounts }}
 {{ toYaml .Values.syncer.extraVolumeMounts | indent 10 }}
         {{- end }}

@@ -1,4 +1,4 @@
-package context
+package options
 
 import (
 	"testing"
@@ -119,7 +119,7 @@ func TestEnableControllers(t *testing.T) {
 			tc.optsModifier(&opts)
 		}
 
-		foundControllers, err := parseControllers(&opts)
+		foundControllers, err := ParseControllers(&opts)
 		if tc.expectError {
 			assert.ErrorContains(t, err, tc.errSubString, "should have failed validation")
 		} else {
@@ -202,7 +202,7 @@ func TestDisableMissingAPIs(t *testing.T) {
 		fakeDisoveryClient := &fakeDiscovery.FakeDiscovery{Fake: &clientTesting.Fake{Resources: resourceLists}}
 
 		// run function
-		actualControllers, err := disableMissingAPIs(fakeDisoveryClient, ExistingControllers.Clone())
+		actualControllers, err := DisableMissingAPIs(fakeDisoveryClient, ExistingControllers.Clone())
 		assert.NilError(t, err)
 
 		// unexpectedly not disabled

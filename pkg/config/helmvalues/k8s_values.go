@@ -9,7 +9,6 @@ type K8s struct {
 	Controller ControllerValues `json:"controller,omitempty"`
 	Scheduler  SchedulerValues  `json:"scheduler,omitempty"`
 	Etcd       EtcdValues       `json:"etcd,omitempty"`
-	Job        JobValues        `json:"job,omitempty"`
 }
 
 type K8sSyncerValues struct {
@@ -50,20 +49,6 @@ type EtcdValues struct {
 	} `json:"storage,omitempty"`
 	SecurityContext    corev1.SecurityContext `json:"securityContext,omitempty"`
 	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`
-}
-
-type JobValues struct {
-	CommonValues
-	SyncerExORCommonValues
-	Enabled         bool `json:"enabled,omitempty"`
-	SecurityContext struct {
-		Capabilities             corev1.Capabilities `json:"capabilities,omitempty"`
-		AllowPrivilegeEscalation bool                `json:"allowPrivilegeEscalation,omitempty"`
-		ReadOnlyRootFilesystem   bool                `json:"readOnlyRootFilesystem,omitempty"`
-		RunAsNonRoot             bool                `json:"runAsNonRoot,omitempty"`
-		RunAsUser                uint32              `json:"runAsUser,omitempty"`
-		RunAsGroup               uint32              `json:"runAsGroup,omitempty"`
-	} `json:"securityContext,omitempty"`
 }
 
 type ControlPlaneCommonValues struct {

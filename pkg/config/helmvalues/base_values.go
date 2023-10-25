@@ -199,7 +199,6 @@ type ServiceValues struct {
 type IngressValues struct {
 	Enabled          bool                      `json:"enabled,omitempty"`
 	PathType         string                    `json:"pathType,omitempty"`
-	APIVersion       string                    `json:"apiVersion,omitempty"`
 	IngressClassName string                    `json:"ingressClassName,omitempty"`
 	Host             string                    `json:"host,omitempty"`
 	Annotations      map[string]string         `json:"annotations,omitempty"`

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"go.uber.org/atomic"
@@ -39,7 +39,7 @@ type Manager interface {
 		virtualKubeConfig *rest.Config,
 		physicalKubeConfig *rest.Config,
 		syncerConfig *clientcmdapi.Config,
-		options *context2.VirtualClusterOptions,
+		options *options.VirtualClusterOptions,
 	) error
 	SetLeader(isLeader bool)
 	ClientHooksFor(versionKindType VersionKindType) []*Plugin
@@ -110,7 +110,7 @@ func (m *manager) Start(
 	virtualKubeConfig *rest.Config,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
-	options *context2.VirtualClusterOptions,
+	options *options.VirtualClusterOptions,
 ) error {
 	// set if we have plugins
 	m.hasPlugins.Store(len(options.Plugins) > 0)
@@ -183,7 +183,7 @@ func (m *manager) Start(
 	return m.waitForPlugins(ctx, options)
 }
 
-func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualClusterOptions) error {
+func (m *manager) waitForPlugins(ctx context.Context, options *options.VirtualClusterOptions) error {
 	for _, plugin := range options.Plugins {
 		klog.Infof("Waiting for plugin %s to register...", plugin)
 		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, time.Minute*10, true, func(context.Context) (done bool, err error) {

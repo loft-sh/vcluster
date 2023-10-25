@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -25,8 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	vclustercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 )
 
 const (
@@ -43,7 +42,7 @@ const (
 
 var ErrNodeNotInVcluster = errors.New("node not present in vcluster")
 
-func WithMetricsServerProxy(ctx *vclustercontext.ControllerContext, h http.Handler, cacheHostClient, cachedVirtualClient client.Client, hostConfig *rest.Config) http.Handler {
+func WithMetricsServerProxy(ctx *options.ControllerContext, h http.Handler, cacheHostClient, cachedVirtualClient client.Client, hostConfig *rest.Config) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
