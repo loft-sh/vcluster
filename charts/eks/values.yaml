@@ -132,6 +132,7 @@ proxy:
 syncer:
   # Image to use for the syncer
   # image: ghcr.io/loft-sh/vcluster
+  imagePullPolicy: ""
   extraArgs: []
   volumeMounts:
     - mountPath: /manifests/coredns
@@ -178,6 +179,7 @@ syncer:
 # Etcd settings
 etcd:
   image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.9-eks-1-28-6
+  imagePullPolicy: ""
   # The amount of replicas to run
   replicas: 1
   # NodeSelector used
@@ -213,6 +215,7 @@ etcd:
 # Kubernetes Controller Manager settings
 controller:
   image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6
+  imagePullPolicy: ""
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used
@@ -236,6 +239,7 @@ controller:
 # Kubernetes API Server settings
 api:
   image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
+  imagePullPolicy: ""
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1

@@ -132,6 +132,7 @@ proxy:
 syncer:
   # Image to use for the syncer
   # image: ghcr.io/loft-sh/vcluster
+  imagePullPolicy: ""
   extraArgs: []
   env: []
   livenessProbe:
@@ -156,6 +157,7 @@ syncer:
 vcluster:
   # Image to use for the virtual cluster
   image: k0sproject/k0s:v1.28.2-k0s.0
+  imagePullPolicy: ""
   command:
     - k0s
   baseArgs:

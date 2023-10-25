@@ -240,6 +240,9 @@ spec:
           periodSeconds: 2
         {{- end }}
         {{- end }}
+        {{- if .Values.syncer.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.syncer.securityContext | indent 10 }}
         env:

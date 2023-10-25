@@ -1,4 +1,4 @@
-package values
+package helmvalues
 
 import (
 	"os"
@@ -8,10 +8,10 @@ import (
 )
 
 var sourceFiles = map[string]string{
-	"k3s": "../../../../../charts/k3s/values.yaml",
-	"k8s": "../../../../../charts/k8s/values.yaml",
-	"eks": "../../../../../charts/eks/values.yaml",
-	"k0s": "../../../../../charts/k0s/values.yaml",
+	"k3s": "../../../charts/k3s/values.yaml",
+	"k8s": "../../../charts/k8s/values.yaml",
+	"eks": "../../../charts/eks/values.yaml",
+	"k0s": "../../../charts/k0s/values.yaml",
 }
 
 func TestHelmValues(t *testing.T) {

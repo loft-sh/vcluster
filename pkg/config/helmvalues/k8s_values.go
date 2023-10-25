@@ -1,4 +1,4 @@
-package values
+package helmvalues
 
 import corev1 "k8s.io/api/core/v1"
 
@@ -13,9 +13,8 @@ type K8s struct {
 }
 
 type K8sSyncerValues struct {
-	BaseSyncerValues
+	SyncerValues
 	CommonValues
-	ControlPlaneCommonValues
 	SecurityContext    corev1.SecurityContext    `json:"securityContext,omitempty"`
 	PodSecurityContext corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }
@@ -68,10 +67,11 @@ type JobValues struct {
 }
 
 type ControlPlaneCommonValues struct {
-	Image       string            `json:"image,omitempty"`
-	Replicas    uint32            `json:"replicas,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Image           string            `json:"image,omitempty"`
+	ImagePullPolicy string            `json:"imagePullPolicy,omitempty"`
+	Replicas        uint32            `json:"replicas,omitempty"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty"`
 }
 
 type SyncerExORCommonValues struct {
