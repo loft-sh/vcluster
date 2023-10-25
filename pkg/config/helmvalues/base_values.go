@@ -36,12 +36,8 @@ type BaseHelm struct {
 	Annotations         map[string]string   `json:"annotations,omitempty"`
 	PodAnnotations      map[string]string   `json:"podAnnotations,omitempty"`
 	PodDisruptionBudget PDBValues           `json:"podDisruptionBudget,omitempty"`
-	ServerToken         struct {
-		Value        string                   `json:"value,omitempty"`
-		SecretKeyRef corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
-	} `json:"serverToken,omitempty"`
-	Service ServiceValues `json:"service,omitempty"`
-	Ingress IngressValues `json:"ingress,omitempty"`
+	Service             ServiceValues       `json:"service,omitempty"`
+	Ingress             IngressValues       `json:"ingress,omitempty"`
 
 	SecurityContext    corev1.SecurityContext    `json:"securityContext,omitempty"`
 	PodSecurityContext corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
