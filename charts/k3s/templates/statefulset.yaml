@@ -42,7 +42,7 @@ spec:
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-  {{- else if .Values.storage.persistence }}
+  {{- else if (include "vcluster.k3s.persistence" . ) }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -138,7 +138,7 @@ spec:
           configMap:
             name: coredns-custom
             optional: true
-      {{- if not .Values.storage.persistence }}
+      {{- if not (include "vcluster.k3s.persistence" . ) }}
         - name: data
           emptyDir: {}
       {{- end }}
@@ -190,6 +190,19 @@ spec:
           {{- else }}
             --service-cidr=$(SERVICE_CIDR)
           {{- end }}
+          {{- if .Values.pro }}
+          {{- if .Values.etcd.enabled }}
+            --datastore-endpoint=https://{{ .Release.Name }}-etcd:2379
+            --datastore-cafile=/data/pki/etcd/ca.crt
+            --datastore-certfile=/data/pki/apiserver-etcd-client.crt
+            --datastore-keyfile=/data/pki/apiserver-etcd-client.key
+          {{- else if .Values.embeddedEtcd.enabled }}
+            --datastore-endpoint=https://127.0.0.1:2379
+            --datastore-cafile=/data/pki/etcd/ca.crt
+            --datastore-certfile=/data/pki/apiserver-etcd-client.crt
+            --datastore-keyfile=/data/pki/apiserver-etcd-client.key
+          {{- end }}
+          {{- end }}
           {{- range $f := .Values.vcluster.extraArgs }}
             {{ $f }}
           {{- end }}
@@ -201,8 +214,25 @@ spec:
           - name: K3S_TOKEN
             valueFrom:
               secretKeyRef:
-                name: "vc-token-{{ .Release.Name }}"
+                name: "vc-k3s-{{ .Release.Name }}"
                 key: "token"
+          {{- if .Values.pro }}
+          {{- if .Values.etcd.enabled }}
+          # This is needed so that we wait with starting the container until syncer has migrated etcd
+          - name: ETCD_MIGRATED
+            valueFrom:
+              secretKeyRef:
+                name: "vc-k3s-{{ .Release.Name }}"
+                key: "etcd-migrated"
+          {{- else if .Values.embeddedEtcd.enabled }}
+          # This is needed so that we wait with starting the container until syncer has migrated etcd
+          - name: ETCD_MIGRATED
+            valueFrom:
+              secretKeyRef:
+                name: "vc-k3s-{{ .Release.Name }}"
+                key: "embedded-etcd-migrated"
+          {{- end }}
+          {{- end }}
           {{- if not .Values.serviceCIDR }}
           - name: SERVICE_CIDR
             valueFrom:
@@ -253,6 +283,14 @@ spec:
           {{- range $key, $container := .Values.plugin }}
           {{- if not $container.optional }}
           - --plugins={{ $key }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.pro }}
+          {{- if .Values.etcd.enabled }}
+          - --generate-certificates
+          {{- else if .Values.embeddedEtcd.enabled }}
+          - --generate-certificates
+          - --embedded-etcd
           {{- end }}
           {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}
