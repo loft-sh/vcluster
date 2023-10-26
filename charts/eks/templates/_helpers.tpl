@@ -189,9 +189,6 @@ Corefile: |-
       health
       ready
       rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
-      {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
-      vcluster {{ toYaml .Values.coredns.plugin.config | b64enc }}
-      {{- end }}
       kubernetes cluster.local in-addr.arpa ip6.arpa {
           {{- if .Values.pro }}
           {{- if .Values.coredns.integrated }}
@@ -205,6 +202,9 @@ Corefile: |-
           fallthrough in-addr.arpa ip6.arpa
           {{- end }}
       }
+      {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
+      vcluster {{ toYaml .Values.coredns.plugin.config | b64enc }}
+      {{- end }}
       hosts /etc/NodeHosts {
           ttl 60
           reload 15s
