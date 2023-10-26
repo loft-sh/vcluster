@@ -438,7 +438,6 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 		ChartRepo:          cmd.ChartRepo,
 		ChartVersion:       cmd.ChartVersion,
 		CIDR:               cmd.CIDR,
-		CreateClusterRole:  true,
 		DisableIngressSync: cmd.DisableIngressSync,
 		Expose:             cmd.Expose,
 		SyncNodes:          cmd.localCluster,
