@@ -135,7 +135,6 @@ pipelines:
 
       # Deploy the vcluster
       if is_equal $(get_flag distro) k8s; then
-        kubectl apply -f ./hack/vcluster-certs.yaml -n ${DEVSPACE_NAMESPACE}
         create_deployments vcluster-k8s
       elif is_equal $(get_flag distro) k0s; then
         create_deployments vcluster-k0s
