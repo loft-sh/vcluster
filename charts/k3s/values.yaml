@@ -269,6 +269,9 @@ podDisruptionBudget:
   minAvailable: 1
   # maxUnavailable: 1
 
+# The k3s token to use. If empty will generate one automatically
+k3sToken: ""
+
 # Service configurations
 service:
   type: ClusterIP
