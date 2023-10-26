@@ -114,7 +114,13 @@ func downloadCertsFromSecret(
 			return fmt.Errorf("secret is missing %s", fromName)
 		}
 
-		err := os.WriteFile(filepath.Join(certificateDir, toName), secret.Data[fromName], 0666)
+		name := filepath.Join(certificateDir, toName)
+		err := os.MkdirAll(filepath.Dir(name), 0777)
+		if err != nil {
+			return fmt.Errorf("create directory %s", filepath.Dir(name))
+		}
+
+		err = os.WriteFile(name, secret.Data[fromName], 0666)
 		if err != nil {
 			return fmt.Errorf("write %s: %w", fromName, err)
 		}

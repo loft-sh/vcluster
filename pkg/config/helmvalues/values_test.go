@@ -8,10 +8,10 @@ import (
 )
 
 var sourceFiles = map[string]string{
+	"k0s": "../../../charts/k0s/values.yaml",
 	"k3s": "../../../charts/k3s/values.yaml",
 	"k8s": "../../../charts/k8s/values.yaml",
 	"eks": "../../../charts/eks/values.yaml",
-	"k0s": "../../../charts/k0s/values.yaml",
 }
 
 func TestHelmValues(t *testing.T) {
@@ -25,7 +25,9 @@ func TestHelmValues(t *testing.T) {
 		var helmValues interface{}
 
 		switch k {
-		case "k3s", "k0s":
+		case "k0s":
+			helmValues = &K0s{}
+		case "k3s":
 			helmValues = &K3s{}
 		case "k8s", "eks":
 			helmValues = &K8s{}

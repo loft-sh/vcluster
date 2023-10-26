@@ -114,8 +114,7 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 		currentNamespace,
 		currentNamespace,
 		translate.Suffix,
-		options.ClusterDomain,
-		options.ServerCaCert,
+		options,
 	)
 	if err != nil {
 		return err
