@@ -16,7 +16,7 @@ var tokenPath = "/data/server/token"
 
 func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Interface, currentNamespace, vClusterName string) error {
 	// check if secret exists
-	secretName := fmt.Sprintf("vc-token-%s", vClusterName)
+	secretName := fmt.Sprintf("vc-k3s-%s", vClusterName)
 	_, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err

@@ -32,6 +32,12 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
+var allowedPodSecurityStandards = map[string]bool{
+	"privileged": true,
+	"baseline":   true,
+	"restricted": true,
+}
+
 // NewControllerContext builds the controller context we can use to start the syncer
 func NewControllerContext(
 	ctx context.Context,
@@ -40,6 +46,11 @@ func NewControllerContext(
 	inClusterConfig *rest.Config,
 	scheme *runtime.Scheme,
 ) (*options.ControllerContext, error) {
+	// check the value of pod security standard
+	if options.EnforcePodSecurityStandard != "" && !allowedPodSecurityStandards[options.EnforcePodSecurityStandard] {
+		return nil, fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", options.EnforcePodSecurityStandard)
+	}
+
 	// parse tolerations
 	for _, t := range options.Tolerations {
 		_, err := toleration.ParseToleration(t)
@@ -58,9 +69,8 @@ func NewControllerContext(
 		options.DisableFakeKubelets = true
 	}
 
-	var DefaultNamespaces map[string]cache.Config
-
 	// is multi namespace mode?
+	var DefaultNamespaces map[string]cache.Config
 	if options.MultiNamespaceMode {
 		// set options.TargetNamespace to empty because it will later be used in Manager
 		options.TargetNamespace = ""

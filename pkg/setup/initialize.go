@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/k3s"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,12 +25,11 @@ func Initialize(
 	workspaceNamespace,
 	currentNamespace,
 	vClusterName string,
-	clusterDomain string,
-	serverCaCert string,
+	options *options.VirtualClusterOptions,
 ) error {
 	// check if we should create certificates
 	certificatesDir := ""
-	if strings.HasPrefix(serverCaCert, "/pki/") {
+	if strings.HasPrefix(options.ServerCaCert, "/pki/") {
 		certificatesDir = "/pki"
 	}
 
@@ -42,7 +42,7 @@ func Initialize(
 			workspaceNamespace,
 			currentNamespace,
 			vClusterName,
-			clusterDomain,
+			options,
 			certificatesDir,
 		)
 		if err != nil {
@@ -67,7 +67,7 @@ func initialize(
 	workspaceNamespace,
 	currentNamespace,
 	vClusterName string,
-	clusterDomain string,
+	options *options.VirtualClusterOptions,
 	certificatesDir string,
 ) error {
 	// check if k0s config Secret exists
@@ -75,33 +75,38 @@ func initialize(
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
+	isK0s := err == nil
 
 	// if k0s secret was found ensure it contains service CIDR range
-	if err == nil {
+	var serviceCIDR string
+	if isK0s {
 		klog.Info("k0s config secret detected, syncer will ensure that it contains service CIDR")
-		_, err = servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+		serviceCIDR, err = servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
 		if err != nil {
 			return err
 		}
 	} else {
 		// in all other cases ensure that a valid CIDR range is in the designated ConfigMap
-		serviceCIDR, err := servicecidr.EnsureServiceCIDRConfigmap(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+		serviceCIDR, err = servicecidr.EnsureServiceCIDRConfigmap(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
 		if err != nil {
 			return fmt.Errorf("failed to ensure that service CIDR range is written into the expected location: %w", err)
 		}
+	}
 
-		// check if we need to create certs
-		if certificatesDir != "" {
-			err = certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain)
-			if err != nil {
-				return fmt.Errorf("ensure certs: %w", err)
-			}
-		} else {
-			// its k3s, let's create the token secret
-			err = k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
-			if err != nil {
-				return err
-			}
+	// check if we need to create certs
+	if certificatesDir != "" {
+		err = certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, options.ClusterDomain)
+		if err != nil {
+			return fmt.Errorf("ensure certs: %w", err)
+		}
+	}
+
+	// check if k3s
+	if !isK0s && certificatesDir != "/pki" {
+		// its k3s, let's create the token secret
+		err = k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
+		if err != nil {
+			return err
 		}
 	}
 

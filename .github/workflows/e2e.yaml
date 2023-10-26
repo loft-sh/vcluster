@@ -182,9 +182,9 @@ jobs:
         run: |
           set -x
 
-          MULTINS_VALUES=""
+          extraArgs=()
           if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
-              MULTINS_VALUES="-f ./test/multins_values.yaml"
+            extraArgs+=( -f ./test/multins_values.yaml )
           fi
 
           sudo apt-get install -y sed
@@ -203,7 +203,7 @@ jobs:
           --local-chart-dir ./charts/${{ matrix.distribution }} \
           -f ./test/commonValues.yaml \
           -f ${{ matrix.test-suite-path }}/values.yaml \
-          $MULTINS_VALUES
+          "${extraArgs[@]}"
         continue-on-error: true
 
       - name: Wait until vcluster is ready

@@ -190,6 +190,54 @@ vcluster:
       cpu: 200m
       memory: 256Mi
 
+# Embedded etcd settings
+embeddedEtcd:
+  # If embedded etcd should be enabled, this is a PRO only feature
+  enabled: false
+  # If true, vCluster will migrate sqlite to etcd
+  migrate: false
+
+# Etcd settings
+etcd:
+  # If etcd should be enabled, this is a PRO only feature
+  enabled: false
+  # If true, vCluster will try to migrate sqlite or embedded etcd to external etcd
+  migrate: false
+  # The etcd image to use
+  image: registry.k8s.io/etcd:3.5.9-0
+  imagePullPolicy: ""
+  # The amount of replicas to run
+  replicas: 3
+  # NodeSelector used
+  nodeSelector: {}
+  # Affinity to apply
+  affinity: {}
+  # Tolerations to apply
+  tolerations: []
+  # Extra Labels
+  labels: {}
+  # Extra Annotations
+  annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  resources:
+    requests:
+      cpu: 20m
+      memory: 150Mi
+  # Storage settings for the etcd
+  storage:
+    # If this is disabled, vcluster will use an emptyDir instead
+    # of a PersistentVolumeClaim
+    persistence: true
+    # Size of the persistent volume claim
+    size: 5Gi
+    # Optional StorageClass used for the pvc
+    # if empty default StorageClass defined in your host cluster will be used
+    #className:
+  priorityClassName: ""
+  securityContext: {}
+  serviceAnnotations: {}
+
 # Storage settings for the vcluster
 storage:
   # If this is disabled, vcluster will use an emptyDir instead
@@ -268,6 +316,9 @@ podDisruptionBudget:
   enabled: false
   minAvailable: 1
   # maxUnavailable: 1
+
+# The k3s token to use. If empty will generate one automatically
+k3sToken: ""
 
 # Service configurations
 service:

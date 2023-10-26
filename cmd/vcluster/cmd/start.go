@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/apis"
@@ -26,12 +25,7 @@ import (
 )
 
 var (
-	scheme                      = runtime.NewScheme()
-	allowedPodSecurityStandards = map[string]bool{
-		"privileged": true,
-		"baseline":   true,
-		"restricted": true,
-	}
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -69,11 +63,6 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 	if telemetry.Collector.IsEnabled() {
 		// TODO: add code that will force events upload immediately? (in case of panic/Fail/Exit initiated from the code)
 		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventSyncerStarted))
-	}
-
-	// check the value of pod security standard
-	if options.EnforcePodSecurityStandard != "" && !allowedPodSecurityStandards[options.EnforcePodSecurityStandard] {
-		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", options.EnforcePodSecurityStandard)
 	}
 
 	// set suffix
@@ -114,8 +103,7 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 		currentNamespace,
 		currentNamespace,
 		translate.Suffix,
-		options.ClusterDomain,
-		options.ServerCaCert,
+		options,
 	)
 	if err != nil {
 		return err

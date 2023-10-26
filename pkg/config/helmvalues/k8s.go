@@ -40,6 +40,8 @@ type SchedulerValues struct {
 }
 
 type EtcdValues struct {
+	// Disabled is allowed for k8s & eks
+	Disabled bool `json:"disabled,omitempty"`
 	CommonValues
 	SyncerExORCommonValues
 	ControlPlaneCommonValues

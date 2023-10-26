@@ -30,8 +30,7 @@ func main() {
 
 	test := flag.Arg(0)
 	if test == "" {
-		printUsage()
-		return
+		test = "throughput"
 	}
 
 	// We increase the limits here so that we don't get any problems

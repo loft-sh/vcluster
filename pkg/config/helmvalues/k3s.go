@@ -6,6 +6,35 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+type K3s struct {
+	BaseHelm
+	K3sToken     string                `json:"k3sToken,omitempty"`
+	EmbeddedEtcd K3sEmbeddedEtcdValues `json:"embeddedEtcd,omitempty"`
+	Etcd         K3SEtcdValues         `json:"etcd,omitempty"`
+	VCluster     VClusterValues        `json:"vcluster,omitempty"`
+	Syncer       SyncerValues          `json:"syncer,omitempty"`
+}
+
+type K3sEmbeddedEtcdValues struct {
+	Enabled bool `json:"enabled,omitempty"`
+	Migrate bool `json:"migrate,omitempty"`
+}
+
+type K3SEtcdValues struct {
+	Enabled bool `json:"enabled,omitempty"`
+	Migrate bool `json:"migrate,omitempty"`
+
+	CommonValues
+	SyncerExORCommonValues
+	ControlPlaneCommonValues
+	Storage struct {
+		Persistence bool   `json:"persistence,omitempty"`
+		Size        string `json:"size,omitempty"`
+	} `json:"storage,omitempty"`
+	SecurityContext    corev1.SecurityContext `json:"securityContext,omitempty"`
+	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`
+}
+
 type BaseHelm struct {
 	GlobalAnnotations    map[string]string      `json:"globalAnnotations,omitempty"`
 	Pro                  bool                   `json:"pro,omitempty"`
@@ -50,12 +79,6 @@ type BaseHelm struct {
 	MultiNamespaceMode EnabledSwitch    `json:"multiNamespaceMode,omitempty"`
 	Telemetry          TelemetryValues  `json:"telemetry,omitempty"`
 	NoopSyncer         NoopSyncerValues `json:"noopSyncer,omitempty"`
-}
-
-type K3s struct {
-	BaseHelm
-	VCluster VClusterValues `json:"vcluster,omitempty"`
-	Syncer   SyncerValues   `json:"syncer,omitempty"`
 }
 
 type SyncerValues struct {
