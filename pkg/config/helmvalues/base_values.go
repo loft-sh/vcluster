@@ -53,6 +53,7 @@ type BaseHelm struct {
 }
 
 type K3s struct {
+	K3sToken string `json:"k3sToken,omitempty"`
 	BaseHelm
 	VCluster VClusterValues `json:"vcluster,omitempty"`
 	Syncer   SyncerValues   `json:"syncer,omitempty"`
