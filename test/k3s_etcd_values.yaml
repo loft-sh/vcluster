@@ -1,4 +1,0 @@
-pro: true
-
-etcd:
-  enabled: true

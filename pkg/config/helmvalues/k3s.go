@@ -8,9 +8,16 @@ import (
 
 type K3s struct {
 	BaseHelm
-	Etcd     K3SEtcdValues  `json:"etcd,omitempty"`
-	VCluster VClusterValues `json:"vcluster,omitempty"`
-	Syncer   SyncerValues   `json:"syncer,omitempty"`
+	K3sToken     string                `json:"k3sToken,omitempty"`
+	EmbeddedEtcd K3sEmbeddedEtcdValues `json:"embeddedEtcd,omitempty"`
+	Etcd         K3SEtcdValues         `json:"etcd,omitempty"`
+	VCluster     VClusterValues        `json:"vcluster,omitempty"`
+	Syncer       SyncerValues          `json:"syncer,omitempty"`
+}
+
+type K3sEmbeddedEtcdValues struct {
+	Enabled bool `json:"enabled,omitempty"`
+	Migrate bool `json:"migrate,omitempty"`
 }
 
 type K3SEtcdValues struct {

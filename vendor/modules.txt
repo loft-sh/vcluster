@@ -109,9 +109,6 @@ github.com/docker/docker-credential-helpers/credentials
 # github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960
 ## explicit; go 1.13
 github.com/dprotaso/go-yit
-# github.com/dustin/go-humanize v1.0.1
-## explicit; go 1.16
-github.com/dustin/go-humanize
 # github.com/emicklei/go-restful/v3 v3.10.2
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
@@ -529,9 +526,6 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
-## explicit; go 1.12
-github.com/remyoudompheng/bigfft
 # github.com/rhysd/go-github-selfupdate v1.2.3
 ## explicit; go 1.13
 github.com/rhysd/go-github-selfupdate/selfupdate
@@ -785,21 +779,7 @@ golang.org/x/time/rate
 # golang.org/x/tools v0.9.3
 ## explicit; go 1.18
 golang.org/x/tools/go/ast/inspector
-golang.org/x/tools/go/gcexportdata
-golang.org/x/tools/go/internal/packagesdriver
-golang.org/x/tools/go/packages
-golang.org/x/tools/internal/event
-golang.org/x/tools/internal/event/core
-golang.org/x/tools/internal/event/keys
-golang.org/x/tools/internal/event/label
-golang.org/x/tools/internal/event/tag
-golang.org/x/tools/internal/gcimporter
-golang.org/x/tools/internal/gocommand
-golang.org/x/tools/internal/packagesinternal
-golang.org/x/tools/internal/pkgbits
-golang.org/x/tools/internal/tokeninternal
 golang.org/x/tools/internal/typeparams
-golang.org/x/tools/internal/typesinternal
 # gomodules.xyz/jsonpatch/v2 v2.4.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
@@ -1730,62 +1710,6 @@ k8s.io/utils/path
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# lukechampine.com/uint128 v1.2.0
-## explicit; go 1.12
-lukechampine.com/uint128
-# modernc.org/cc/v3 v3.40.0
-## explicit; go 1.17
-modernc.org/cc/v3
-# modernc.org/ccgo/v3 v3.16.13
-## explicit; go 1.17
-modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.24.1
-## explicit; go 1.18
-modernc.org/libc
-modernc.org/libc/errno
-modernc.org/libc/fcntl
-modernc.org/libc/fts
-modernc.org/libc/grp
-modernc.org/libc/honnef.co/go/netdb
-modernc.org/libc/langinfo
-modernc.org/libc/limits
-modernc.org/libc/netdb
-modernc.org/libc/netinet/in
-modernc.org/libc/poll
-modernc.org/libc/pthread
-modernc.org/libc/pwd
-modernc.org/libc/signal
-modernc.org/libc/stdio
-modernc.org/libc/stdlib
-modernc.org/libc/sys/socket
-modernc.org/libc/sys/stat
-modernc.org/libc/sys/types
-modernc.org/libc/termios
-modernc.org/libc/time
-modernc.org/libc/unistd
-modernc.org/libc/utime
-modernc.org/libc/uuid
-modernc.org/libc/uuid/uuid
-modernc.org/libc/wctype
-# modernc.org/mathutil v1.5.0
-## explicit; go 1.13
-modernc.org/mathutil
-# modernc.org/memory v1.6.0
-## explicit; go 1.18
-modernc.org/memory
-# modernc.org/opt v0.1.3
-## explicit; go 1.13
-modernc.org/opt
-# modernc.org/sqlite v1.26.0
-## explicit; go 1.18
-modernc.org/sqlite
-modernc.org/sqlite/lib
-# modernc.org/strutil v1.1.3
-## explicit; go 1.18
-modernc.org/strutil
-# modernc.org/token v1.0.1
-## explicit
-modernc.org/token
 # mvdan.cc/sh/v3 v3.6.0
 ## explicit; go 1.18
 mvdan.cc/sh/v3/expand

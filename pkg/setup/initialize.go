@@ -31,8 +31,6 @@ func Initialize(
 	certificatesDir := ""
 	if strings.HasPrefix(options.ServerCaCert, "/pki/") {
 		certificatesDir = "/pki"
-	} else if options.GenerateCertificates {
-		certificatesDir = "/data/pki"
 	}
 
 	// Ensure that service CIDR range is written into the expected location
@@ -109,14 +107,6 @@ func initialize(
 		err = k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
 		if err != nil {
 			return err
-		}
-
-		// check if we need to migrate start etcd
-		if options.EmbeddedEtcd {
-			err = k3s.StartEmbeddedEtcd(ctx, certificatesDir)
-			if err != nil {
-				return fmt.Errorf("start embedded etcd: %w", err)
-			}
 		}
 	}
 

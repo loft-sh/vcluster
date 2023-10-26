@@ -55,7 +55,6 @@ require (
 	k8s.io/metrics v0.28.1
 	k8s.io/pod-security-admission v0.28.1
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
-	modernc.org/sqlite v1.26.0
 	sigs.k8s.io/controller-runtime v0.16.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -71,7 +70,6 @@ require (
 	github.com/docker/docker v23.0.0-rc.1+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
@@ -87,7 +85,6 @@ require (
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/otiai10/copy v1.11.0 // indirect
-	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
@@ -97,15 +94,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	k8s.io/kms v0.28.1 // indirect
-	lukechampine.com/uint128 v1.2.0 // indirect
-	modernc.org/cc/v3 v3.40.0 // indirect
-	modernc.org/ccgo/v3 v3.16.13 // indirect
-	modernc.org/libc v1.24.1 // indirect
-	modernc.org/mathutil v1.5.0 // indirect
-	modernc.org/memory v1.6.0 // indirect
-	modernc.org/opt v0.1.3 // indirect
-	modernc.org/strutil v1.1.3 // indirect
-	modernc.org/token v1.0.1 // indirect
 	mvdan.cc/sh/v3 v3.6.0 // indirect
 )
 
@@ -178,7 +166,7 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.9 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.9 // indirect
-	go.etcd.io/etcd/client/v3 v3.5.9
+	go.etcd.io/etcd/client/v3 v3.5.9 // indirect
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.42.0 // indirect

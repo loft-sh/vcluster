@@ -217,14 +217,14 @@ spec:
                 name: "vc-k3s-{{ .Release.Name }}"
                 key: "token"
           {{- if .Values.pro }}
-          {{- if .Values.etcd.enabled }}
+          {{- if and .Values.etcd.enabled .Values.etcd.migrate }}
           # This is needed so that we wait with starting the container until syncer has migrated etcd
           - name: ETCD_MIGRATED
             valueFrom:
               secretKeyRef:
                 name: "vc-k3s-{{ .Release.Name }}"
                 key: "etcd-migrated"
-          {{- else if .Values.embeddedEtcd.enabled }}
+          {{- else if and .Values.embeddedEtcd.enabled .Values.embeddedEtcd.migrate }}
           # This is needed so that we wait with starting the container until syncer has migrated etcd
           - name: ETCD_MIGRATED
             valueFrom:
@@ -287,10 +287,16 @@ spec:
           {{- end }}
           {{- if .Values.pro }}
           {{- if .Values.etcd.enabled }}
-          - --generate-certificates
+          - --etcd-generate-certificates
+          {{- if .Values.etcd.migrate }}
+          - --etcd-migrate
+          {{- end }}
           {{- else if .Values.embeddedEtcd.enabled }}
-          - --generate-certificates
-          - --embedded-etcd
+          - --etcd-generate-certificates
+          - --etcd-embedded
+          {{- if .Values.embeddedEtcd.migrate }}
+          - --etcd-migrate
+          {{- end }}
           {{- end }}
           {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}

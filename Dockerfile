@@ -7,16 +7,12 @@ ARG TARGETARCH
 ARG BUILD_VERSION=dev
 ARG TELEMETRY_PRIVATE_KEY=""
 ARG HELM_VERSION="v3.13.1"
-ARG ETCD_VER="v3.4.27"
 
 # Install kubectl for development
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
 
 # Install helm binary
 RUN curl -s https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz > helm3.tar.gz && tar -zxvf helm3.tar.gz linux-${TARGETARCH}/helm && chmod +x linux-${TARGETARCH}/helm && mv linux-${TARGETARCH}/helm /usr/local/bin/helm && rm helm3.tar.gz && rm -R linux-${TARGETARCH}
-
-# Install etcd binary
-RUN mkdir -p /tmp/etcd-download-test && curl -L https://github.com/etcd-io/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-${TARGETARCH}.tar.gz -o ./etcd-${ETCD_VER}-linux-${TARGETARCH}.tar.gz && tar xzvf ./etcd-${ETCD_VER}-linux-${TARGETARCH}.tar.gz -C /tmp/etcd-download-test --strip-components=1 && rm -f ./etcd-${ETCD_VER}-linux-${TARGETARCH}.tar.gz && chmod +x /tmp/etcd-download-test/etcd && mv /tmp/etcd-download-test/etcd /usr/local/bin/etcd && rm -R /tmp/etcd-download-test
 
 # Install Delve for debugging
 RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then go install github.com/go-delve/delve/cmd/dlv@latest; fi
@@ -67,7 +63,6 @@ WORKDIR /
 
 COPY --from=builder /vcluster .
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
-COPY --from=builder /usr/local/bin/etcd /usr/local/bin/etcd
 COPY manifests/ /manifests/
 
 # RUN useradd -u 12345 nonroot

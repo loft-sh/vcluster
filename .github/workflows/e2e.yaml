@@ -119,21 +119,7 @@ jobs:
         distribution: ["k3s", "k8s", "k0s", "eks"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
         multinamespace-mode: ["false", "true"]
-        k3s-etcd: ["false", "true"]
         exclude:
-          - distribution: "eks"
-            k3s-etcd: "true"
-          - distribution: "k8s"
-            k3s-etcd: "true"
-          - distribution: "k0s"
-            k3s-etcd: "true"
-          - distribution: "k3s"
-            k3s-etcd: "true"
-            multinamespace-mode: "true"
-          - distribution: "k3s"
-            k3s-etcd: "true"
-            multinamespace-mode: "false"
-            test-suite-path: "./test/e2e_target_namespace"
           - distribution: "eks"
             test-suite-path: "./test/e2e_scheduler"
           - distribution: "k8s"
@@ -199,9 +185,6 @@ jobs:
           extraArgs=()
           if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
             extraArgs+=( -f ./test/multins_values.yaml )
-          fi
-          if [ ${{ matrix.k3s-etcd }} == "true" ]; then
-            extraArgs+=( -f ./test/k3s_etcd_values.yaml )
           fi
 
           sudo apt-get install -y sed

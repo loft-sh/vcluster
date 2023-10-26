@@ -194,12 +194,14 @@ vcluster:
 embeddedEtcd:
   # If embedded etcd should be enabled, this is a PRO only feature
   enabled: false
+  # If true, vCluster will migrate sqlite to etcd
+  migrate: false
 
 # Etcd settings
 etcd:
   # If etcd should be enabled, this is a PRO only feature
   enabled: false
-  # If true, vCluster will migrate sqlite to etcd
+  # If true, vCluster will try to migrate sqlite or embedded etcd to external etcd
   migrate: false
   # The etcd image to use
   image: registry.k8s.io/etcd:3.5.9-0
@@ -314,6 +316,9 @@ podDisruptionBudget:
   enabled: false
   minAvailable: 1
   # maxUnavailable: 1
+
+# The k3s token to use. If empty will generate one automatically
+k3sToken: ""
 
 # Service configurations
 service:
