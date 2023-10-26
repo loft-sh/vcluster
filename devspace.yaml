@@ -136,6 +136,10 @@ pipelines:
 
       # Deploy the vcluster
       if is_equal $(get_flag distro) k8s; then
+<<<<<<< HEAD
+=======
+        kubectl apply -f ./hack/vcluster-certs.yaml -n ${DEVSPACE_NAMESPACE}
+>>>>>>> 1e206c68 (fix: allow custom k3s token)
         create_deployments vcluster-k8s
       elif is_equal $(get_flag distro) k0s; then
         create_deployments vcluster-k0s

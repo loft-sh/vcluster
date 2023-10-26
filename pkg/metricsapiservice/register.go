@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	vclustercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,6 +73,10 @@ func deleteOperation(_ context.Context, client client.Client) wait.ConditionWith
 }
 
 func createOperation(_ context.Context, client client.Client) wait.ConditionWithContextFunc {
+	// first check if we are in k8s or eks distro mode where
+	// syncer and api server are behind separate services
+	// checkForSeparateAPIServerService()
+
 	return func(ctx context.Context) (bool, error) {
 		spec := apiregistrationv1.APIServiceSpec{
 			Group:                metrics.GroupName,
@@ -113,4 +118,7 @@ func RegisterOrDeregisterAPIService(ctx context.Context, options *options.Virtua
 	}
 
 	return nil
+}
+
+func checkForSeparateAPIServerService(ctx context.Context, options *vclustercontext.VirtualClusterOptions) {
 }

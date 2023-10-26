@@ -267,6 +267,9 @@ podAnnotations: {}
 # The k3s token to use. If empty will generate one automatically
 k3sToken: ""
 
+# The k3s token to use. If empty will generate one automatically
+k3sToken: ""
+
 # Service configurations
 service:
   type: ClusterIP
