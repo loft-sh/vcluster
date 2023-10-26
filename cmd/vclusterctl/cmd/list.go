@@ -25,6 +25,7 @@ type VCluster struct {
 	Created    time.Time
 	AgeSeconds int
 	Context    string
+	Cluster    string
 	Version    string
 	Status     string
 	Connected  bool
@@ -111,7 +112,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 		}
 		cmd.log.WriteString(logrus.InfoLevel, string(bytes)+"\n")
 	} else {
-		header := []string{"NAME", "NAMESPACE", "STATUS", "VERSION", "CONNECTED", "CREATED", "AGE", "PRO"}
+		header := []string{"NAME", "CLUSTER", "NAMESPACE", "STATUS", "VERSION", "CONNECTED", "CREATED", "AGE", "DISTRO"}
 		values := toValues(output)
 		table.PrintTable(cmd.log, header, values)
 		if strings.HasPrefix(cmd.Context, "vcluster_") || strings.HasPrefix(cmd.Context, "vcluster-pro_") {
@@ -131,7 +132,7 @@ func ossToVClusters(vClusters []find.VCluster, currentContext string) []VCluster
 			Created:    vCluster.Created.Time,
 			Version:    vCluster.Version,
 			AgeSeconds: int(time.Since(vCluster.Created.Time).Round(time.Second).Seconds()),
-			Context:    vCluster.Context,
+			Cluster:    vCluster.Context,
 			Status:     string(vCluster.Status),
 			Pro:        false,
 		}
@@ -159,6 +160,7 @@ func proToVClusters(vClusters []pro.VirtualClusterInstanceProject, currentContex
 		vClusterOutput := VCluster{
 			Name:       vCluster.VirtualCluster.Spec.ClusterRef.VirtualCluster,
 			Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
+			Cluster:    vCluster.VirtualCluster.Spec.ClusterRef.Cluster,
 			Connected:  connected,
 			Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
 			AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
@@ -179,20 +181,21 @@ func toValues(vClusters []VCluster) [][]string {
 			isConnected = "True"
 		}
 
-		isPro := ""
+		distro := "OSS"
 		if vCluster.Pro {
-			isPro = "True"
+			distro = "Pro"
 		}
 
 		values = append(values, []string{
 			vCluster.Name,
+			vCluster.Cluster,
 			vCluster.Namespace,
 			vCluster.Status,
 			vCluster.Version,
 			isConnected,
 			vCluster.Created.String(),
 			time.Since(vCluster.Created).Round(1 * time.Second).String(),
-			isPro,
+			distro,
 		})
 	}
 	return values
