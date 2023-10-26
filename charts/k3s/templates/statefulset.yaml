@@ -347,9 +347,6 @@ spec:
           {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
           - --use-coredns-plugin=true
           {{- end }}
-          {{- if not .Values.coredns.enabled }}
-          - --coredns-enabled=false
-          {{- end }}
           {{- if .Values.noopSyncer.enabled }}
           - --noop-syncer=true
           {{- if .Values.noopSyncer.synck8sService }}
