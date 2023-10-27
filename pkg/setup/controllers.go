@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -31,21 +32,7 @@ func StartControllers(controllerContext *options.ControllerContext) error {
 	}
 
 	// setup CoreDNS according to the manifest file
-	go func() {
-		_ = wait.ExponentialBackoffWithContext(controllerContext.Context, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
-			err := coredns.ApplyManifest(ctx, controllerContext.Options.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
-			if err != nil {
-				if errors.Is(err, coredns.ErrNoCoreDNSManifests) {
-					klog.Infof("No CoreDNS manifests found, skipping CoreDNS configuration")
-					return true, nil
-				}
-				klog.Infof("Failed to apply CoreDNS configuration from the manifest file: %v", err)
-				return false, nil
-			}
-			klog.Infof("CoreDNS configuration from the manifest file applied successfully")
-			return true, nil
-		})
-	}()
+	go ApplyCoreDNS(controllerContext)
 
 	// instantiate controllers
 	syncers, err := controllers.Create(controllerContext)
@@ -53,51 +40,22 @@ func StartControllers(controllerContext *options.ControllerContext) error {
 		return errors.Wrap(err, "instantiate controllers")
 	}
 
-	// execute controller initializers to setup prereqs, etc.
-	err = controllers.ExecuteInitializers(controllerContext, syncers)
-	if err != nil {
-		return errors.Wrap(err, "execute initializers")
-	}
-
-	// register indices
-	err = controllers.RegisterIndices(controllerContext, syncers)
+	// start managers
+	err = StartManagers(controllerContext, syncers)
 	if err != nil {
 		return err
-	}
-
-	// start the local manager
-	go func() {
-		err := controllerContext.LocalManager.Start(controllerContext.Context)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	// start the virtual cluster manager
-	go func() {
-		err := controllerContext.VirtualManager.Start(controllerContext.Context)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	// Wait for caches to be synced
-	controllerContext.LocalManager.GetCache().WaitForCacheSync(controllerContext.Context)
-	controllerContext.VirtualManager.GetCache().WaitForCacheSync(controllerContext.Context)
-
-	// register APIService
-	go RegisterOrDeregisterAPIService(controllerContext)
-
-	// make sure owner is set if it is there
-	err = FindOwner(controllerContext)
-	if err != nil {
-		return errors.Wrap(err, "finding vcluster pod owner")
 	}
 
 	// make sure the kubernetes service is synced
 	err = SyncKubernetesService(controllerContext)
 	if err != nil {
 		return errors.Wrap(err, "sync kubernetes service")
+	}
+
+	// register controllers
+	err = controllers.RegisterControllers(controllerContext, syncers)
+	if err != nil {
+		return err
 	}
 
 	// write the kube config to secret
@@ -110,18 +68,28 @@ func StartControllers(controllerContext *options.ControllerContext) error {
 		}, time.Minute, controllerContext.StopChan)
 	}()
 
-	// register controllers
-	err = controllers.RegisterControllers(controllerContext, syncers)
-	if err != nil {
-		return err
-	}
-
 	// set leader
 	if !controllerContext.Options.DisablePlugins {
 		plugin.DefaultManager.SetLeader(true)
 	}
 
 	return nil
+}
+
+func ApplyCoreDNS(controllerContext *options.ControllerContext) {
+	_ = wait.ExponentialBackoffWithContext(controllerContext.Context, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
+		err := coredns.ApplyManifest(ctx, controllerContext.Options.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
+		if err != nil {
+			if errors.Is(err, coredns.ErrNoCoreDNSManifests) {
+				klog.Infof("No CoreDNS manifests found, skipping CoreDNS configuration")
+				return true, nil
+			}
+			klog.Infof("Failed to apply CoreDNS configuration from the manifest file: %v", err)
+			return false, nil
+		}
+		klog.Infof("CoreDNS configuration from the manifest file applied successfully")
+		return true, nil
+	})
 }
 
 func FindOwner(ctx *options.ControllerContext) error {
@@ -172,6 +140,53 @@ func SyncKubernetesService(ctx *options.ControllerContext) error {
 
 		return errors.Wrap(err, "sync kubernetes service")
 	}
+	return nil
+}
+
+func StartManagers(controllerContext *options.ControllerContext, syncers []syncertypes.Object) error {
+	// execute controller initializers to setup prereqs, etc.
+	err := controllers.ExecuteInitializers(controllerContext, syncers)
+	if err != nil {
+		return errors.Wrap(err, "execute initializers")
+	}
+
+	// register indices
+	err = controllers.RegisterIndices(controllerContext, syncers)
+	if err != nil {
+		return err
+	}
+
+	// start the local manager
+	go func() {
+		err := controllerContext.LocalManager.Start(controllerContext.Context)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// start the virtual cluster manager
+	go func() {
+		err := controllerContext.VirtualManager.Start(controllerContext.Context)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// Wait for caches to be synced
+	klog.Infof("Starting local & virtual managers...")
+	controllerContext.LocalManager.GetCache().WaitForCacheSync(controllerContext.Context)
+	controllerContext.VirtualManager.GetCache().WaitForCacheSync(controllerContext.Context)
+	klog.Infof("Successfully started local & virtual manager")
+
+	// register APIService
+	go RegisterOrDeregisterAPIService(controllerContext)
+
+	// make sure owner is set if it is there
+	err = FindOwner(controllerContext)
+	if err != nil {
+		return errors.Wrap(err, "finding vcluster pod owner")
+	}
+
 	return nil
 }
 
