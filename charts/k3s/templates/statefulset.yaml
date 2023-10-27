@@ -1,7 +1,6 @@
 {{- if not .Values.headless }}
-{{- $kind := include "vcluster.k3s.workloadKind" . -}}
 apiVersion: apps/v1
-kind: {{ $kind }}
+kind: StatefulSet
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -19,30 +18,16 @@ metadata:
 {{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
-{{- if (eq $kind "StatefulSet") }}
   serviceName: {{ .Release.Name }}-headless
-{{- end }}
   replicas: {{ .Values.replicas }}
-{{- if (and (eq $kind "Deployment") (.Values.enableHA)) }}
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-    {{- if (eq (int .Values.replicas) 1) }}
-      maxUnavailable: 0
-    {{- else }}
-      maxUnavailable: 1
-    {{- end }}
-    type: RollingUpdate
-{{- end }}
   selector:
     matchLabels:
       app: vcluster
       release: {{ .Release.Name }}
-  {{- if (eq $kind "StatefulSet") }}
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-  {{- else if (include "vcluster.k3s.persistence" . ) }}
+  {{- else if .Values.storage.persistence }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -54,7 +39,6 @@ spec:
         resources:
           requests:
             storage: {{ .Values.storage.size }}
-  {{- end }}
   {{- end }}
   template:
     metadata:
@@ -138,7 +122,7 @@ spec:
           configMap:
             name: coredns-custom
             optional: true
-      {{- if not (include "vcluster.k3s.persistence" . ) }}
+      {{- if not .Values.storage.persistence }}
         - name: data
           emptyDir: {}
       {{- end }}
@@ -191,12 +175,7 @@ spec:
             --service-cidr=$(SERVICE_CIDR)
           {{- end }}
           {{- if .Values.pro }}
-          {{- if .Values.etcd.enabled }}
-            --datastore-endpoint=https://{{ .Release.Name }}-etcd:2379
-            --datastore-cafile=/data/pki/etcd/ca.crt
-            --datastore-certfile=/data/pki/apiserver-etcd-client.crt
-            --datastore-keyfile=/data/pki/apiserver-etcd-client.key
-          {{- else if .Values.embeddedEtcd.enabled }}
+          {{- if .Values.embeddedEtcd.enabled }}
             --datastore-endpoint=https://127.0.0.1:2379
             --datastore-cafile=/data/pki/etcd/ca.crt
             --datastore-certfile=/data/pki/apiserver-etcd-client.crt
@@ -216,23 +195,6 @@ spec:
               secretKeyRef:
                 name: "vc-k3s-{{ .Release.Name }}"
                 key: "token"
-          {{- if .Values.pro }}
-          {{- if and .Values.etcd.enabled .Values.etcd.migrate }}
-          # This is needed so that we wait with starting the container until syncer has migrated etcd
-          - name: ETCD_MIGRATED
-            valueFrom:
-              secretKeyRef:
-                name: "vc-k3s-{{ .Release.Name }}"
-                key: "etcd-migrated"
-          {{- else if and .Values.embeddedEtcd.enabled .Values.embeddedEtcd.migrate }}
-          # This is needed so that we wait with starting the container until syncer has migrated etcd
-          - name: ETCD_MIGRATED
-            valueFrom:
-              secretKeyRef:
-                name: "vc-k3s-{{ .Release.Name }}"
-                key: "embedded-etcd-migrated"
-          {{- end }}
-          {{- end }}
           {{- if not .Values.serviceCIDR }}
           - name: SERVICE_CIDR
             valueFrom:
@@ -286,17 +248,9 @@ spec:
           {{- end }}
           {{- end }}
           {{- if .Values.pro }}
-          {{- if .Values.etcd.enabled }}
-          - --etcd-generate-certificates
-          {{- if .Values.etcd.migrate }}
-          - --etcd-migrate
-          {{- end }}
-          {{- else if .Values.embeddedEtcd.enabled }}
-          - --etcd-generate-certificates
+          {{- if .Values.embeddedEtcd.enabled }}
           - --etcd-embedded
-          {{- if .Values.embeddedEtcd.migrate }}
-          - --etcd-migrate
-          {{- end }}
+          - --etcd-replicas={{ .Values.replicas }}
           {{- end }}
           {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}
@@ -394,6 +348,10 @@ spec:
           {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
           {{- end }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
           - name: POD_IP
             valueFrom:
               fieldRef:
