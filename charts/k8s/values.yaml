@@ -212,6 +212,7 @@ etcd:
   priorityClassName: ""
   securityContext: {}
   serviceAnnotations: {}
+  autoDeletePersistentVolumeClaims: true
 
 # Kubernetes Controller Manager settings
 controller:

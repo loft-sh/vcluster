@@ -49,8 +49,9 @@ type EtcdValues struct {
 		Persistence bool   `json:"persistence,omitempty"`
 		Size        string `json:"size,omitempty"`
 	} `json:"storage,omitempty"`
-	SecurityContext    corev1.SecurityContext `json:"securityContext,omitempty"`
-	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`
+	SecurityContext                  corev1.SecurityContext `json:"securityContext,omitempty"`
+	ServiceAnnotations               map[string]string      `json:"serviceAnnotations,omitempty"`
+	AutoDeletePersistentVolumeClaims bool                   `json:"autoDeletePersistentVolumeClaims,omitempty"`
 }
 
 type ControlPlaneCommonValues struct {

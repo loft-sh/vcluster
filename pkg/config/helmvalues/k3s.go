@@ -8,11 +8,12 @@ import (
 
 type K3s struct {
 	BaseHelm
-	K3sToken     string                `json:"k3sToken,omitempty"`
-	EmbeddedEtcd K3sEmbeddedEtcdValues `json:"embeddedEtcd,omitempty"`
-	Etcd         K3SEtcdValues         `json:"etcd,omitempty"`
-	VCluster     VClusterValues        `json:"vcluster,omitempty"`
-	Syncer       SyncerValues          `json:"syncer,omitempty"`
+	AutoDeletePersistentVolumeClaims bool                  `json:"autoDeletePersistentVolumeClaims,omitempty"`
+	K3sToken                         string                `json:"k3sToken,omitempty"`
+	EmbeddedEtcd                     K3sEmbeddedEtcdValues `json:"embeddedEtcd,omitempty"`
+	Etcd                             K3SEtcdValues         `json:"etcd,omitempty"`
+	VCluster                         VClusterValues        `json:"vcluster,omitempty"`
+	Syncer                           SyncerValues          `json:"syncer,omitempty"`
 }
 
 type K3sEmbeddedEtcdValues struct {
