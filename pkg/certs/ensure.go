@@ -43,8 +43,12 @@ func EnsureCerts(
 	etcdService := vClusterName + "-etcd"
 	serverSans := []string{etcdService, etcdService + "." + currentNamespace, etcdService + "." + currentNamespace + ".svc"}
 	for i := 0; i < etcdReplicas; i++ {
-		hostname := etcdService + "-" + strconv.Itoa(i)
-		serverSans = append(serverSans, hostname, hostname+"."+etcdService+"-headless", hostname+"."+etcdService+"-headless"+"."+currentNamespace)
+		// this is for embedded etcd
+		hostname := vClusterName + "-" + strconv.Itoa(i)
+		serverSans = append(serverSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)
+		// this is for external etcd
+		etcdHostname := etcdService + "-" + strconv.Itoa(i)
+		serverSans = append(serverSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
 	}
 
 	cfg.ClusterName = "kubernetes"
