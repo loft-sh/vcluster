@@ -41,7 +41,7 @@ func EnsureCerts(
 
 	// generate etcd server and peer sans
 	etcdService := vClusterName + "-etcd"
-	serverSans := []string{etcdService, etcdService + "." + currentNamespace, etcdService + "." + currentNamespace + ".svc"}
+	serverSans := []string{"localhost", etcdService, etcdService + "." + currentNamespace, etcdService + "." + currentNamespace + ".svc"}
 	for i := 0; i < etcdReplicas; i++ {
 		// this is for embedded etcd
 		hostname := vClusterName + "-" + strconv.Itoa(i)

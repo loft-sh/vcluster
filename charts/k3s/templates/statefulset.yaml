@@ -183,7 +183,7 @@ spec:
           {{- end }}
           {{- if .Values.pro }}
           {{- if .Values.embeddedEtcd.enabled }}
-            --datastore-endpoint=https://127.0.0.1:2379
+            --datastore-endpoint=https://localhost:2379
             --datastore-cafile=/data/pki/etcd/ca.crt
             --datastore-certfile=/data/pki/apiserver-etcd-client.crt
             --datastore-keyfile=/data/pki/apiserver-etcd-client.key
