@@ -19,6 +19,13 @@ metadata:
   {{- end }}
 spec:
   serviceName: {{ .Release.Name }}-headless
+  {{- if .Values.autoDeletePersistentVolumeClaims }}
+  {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Delete
+  {{- end }}
+  {{- end }}
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:

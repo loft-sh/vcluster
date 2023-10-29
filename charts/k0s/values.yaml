@@ -232,6 +232,9 @@ rbac:
 # The amount of replicas to run the statefulset with
 replicas: 1
 
+# If vCluster persistent volume claims should get deleted automatically.
+autoDeletePersistentVolumeClaims: true
+
 # NodeSelector used to schedule the vcluster
 nodeSelector: {}
 
