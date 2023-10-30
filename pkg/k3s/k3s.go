@@ -4,24 +4,94 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
+	"github.com/ghodss/yaml"
+	"github.com/loft-sh/log/scanner"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 )
 
 var tokenPath = "/data/server/token"
 
-func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Interface, currentNamespace, vClusterName string) error {
+const VClusterCommandEnv = "VCLUSTER_COMMAND"
+
+type k3sCommand struct {
+	Command []string `json:"command,omitempty"`
+	Args    []string `json:"args,omitempty"`
+}
+
+func StartK3S(ctx context.Context, serviceCIDR, k3sToken string) error {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
+
+	command := &k3sCommand{}
+	err = yaml.Unmarshal([]byte(os.Getenv(VClusterCommandEnv)), command)
+	if err != nil {
+		return fmt.Errorf("parsing k3s command %s: %w", os.Getenv(VClusterCommandEnv), err)
+	}
+
+	// add service cidr and k3s token
+	command.Args = append(
+		command.Args,
+		"--service-cidr", serviceCIDR,
+		"--token", k3sToken,
+	)
+	args := append(command.Command, command.Args...)
+
+	// start func
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		// make sure we scan the output correctly
+		scan := scanner.NewScanner(reader)
+		for scan.Scan() {
+			line := scan.Text()
+			if len(line) == 0 {
+				continue
+			}
+
+			// print to our logs
+			args := []interface{}{"component", "k3s"}
+			PrintK3sLine(line, args)
+		}
+	}()
+
+	// start the command
+	klog.InfoS("Starting k3s", "args", strings.Join(args, " "))
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd.Stdout = writer
+	cmd.Stderr = writer
+	err = cmd.Run()
+
+	// make sure we wait for scanner to be done
+	_ = writer.Close()
+	<-done
+
+	// regular stop case
+	if err != nil && err.Error() != "signal: killed" {
+		return err
+	}
+	return nil
+}
+
+func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Interface, currentNamespace, vClusterName string) (string, error) {
 	// check if secret exists
 	secretName := fmt.Sprintf("vc-k3s-%s", vClusterName)
-	_, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		return err
+		return "", err
 	} else if err == nil {
-		return nil
+		return string(secret.Data["token"]), nil
 	}
 
 	// try to read token file (migration case)
@@ -31,7 +101,7 @@ func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Inter
 	}
 
 	// create k3s secret
-	_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Create(ctx, &corev1.Secret{
+	secret, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: currentNamespace,
@@ -42,8 +112,14 @@ func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Inter
 		Type: corev1.SecretTypeOpaque,
 	}, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return err
+		return "", err
+	} else if err != nil {
+		// retrieve k3s secret again
+		secret, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
+		if err != nil {
+			return "", err
+		}
 	}
 
-	return nil
+	return string(secret.Data["token"]), nil
 }

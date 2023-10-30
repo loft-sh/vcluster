@@ -26,6 +26,7 @@ deployments:
       chart:
         name: ./charts/k8s
       values: &values
+        autoDeletePersistentVolumeClaims: false
         k3sToken: "devspace"
         job:
           enabled: false

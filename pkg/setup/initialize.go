@@ -34,8 +34,9 @@ func Initialize(
 	}
 
 	// Ensure that service CIDR range is written into the expected location
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
 		err := initialize(
+			waitCtx,
 			ctx,
 			workspaceNamespaceClient,
 			currentNamespaceClient,
@@ -62,6 +63,7 @@ func Initialize(
 // initialize creates the required secrets and configmaps for the control plane to start
 func initialize(
 	ctx context.Context,
+	parentCtx context.Context,
 	workspaceNamespaceClient,
 	currentNamespaceClient kubernetes.Interface,
 	workspaceNamespace,
@@ -104,10 +106,20 @@ func initialize(
 	// check if k3s
 	if !isK0s && certificatesDir != "/pki" {
 		// its k3s, let's create the token secret
-		err = k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
+		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
 		if err != nil {
 			return err
 		}
+
+		// start k3s
+		go func() {
+			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
+			// loop in Initialize
+			err := k3s.StartK3S(parentCtx, serviceCIDR, k3sToken)
+			if err != nil {
+				klog.Fatalf("Error running k3s: %v", err)
+			}
+		}()
 	}
 
 	return nil
