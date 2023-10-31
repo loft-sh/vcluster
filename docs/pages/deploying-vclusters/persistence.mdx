@@ -42,7 +42,7 @@ This method should only be used for testing purposes, as data will be lost upon 
 
 If you want to use an external datastore such as PostgreSQL, MySQL, or etcd you must set the `K3S_DATASTORE_ENDPOINT` environment variable of the vCluster container so that K3s knows how to connect to it. You may also specify environment variables to configure the authentication and encryption of the connection. The following environment variables are available:
 
-* **K3S_DATASTORE_ENDPOINT**: Specify a PostgresSQL, MySQL, or etcd connection string. This is a string used to describe the connection to the datastore. The structure of this string is specific to each backend and is detailed below.
+* **K3S_DATASTORE_ENDPOINT**: Specify a PostgreSQL, MySQL, or etcd connection string. This is a string used to describe the connection to the datastore. The structure of this string is specific to each backend and is detailed below.
 * **K3S_DATASTORE_CAFILE**: TLS Certificate Authority (CA) file used to help secure communication with the datastore. If your datastore serves requests over TLS using a certificate signed by a custom certificate authority, you can specify that CA using this parameter so that the K3s client can properly verify the certificate.
 * **K3S_DATASTORE_CERTFILE**: TLS certificate file used for client certificate based authentication to your datastore. To use this feature, your datastore must be configured to support client certificate based authentication. If you specify this parameter, you must also specify the `K3S_DATASTORE_KEYFILE` parameter.
 * **K3S_DATASTORE_KEYFILE**: TLS key file used for client certificate based authentication to your datastore. See the previous `K3S_DATASTORE_CERTFILE` parameter for more details.

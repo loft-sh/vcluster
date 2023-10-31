@@ -3,7 +3,7 @@ title: Supported distributions
 sidebar_label: Supported distributions
 ---
 
-By default, vCluster will use [k3s](https://github.com/k3s-io/k3s) as the virtual Kubernetes cluster. However, it is not tied to a specific distribution and should work with all certified Kubernetes distributions. By default, we recommend to use k3s, because it has a small footprint and widely adopted, but if your use case requires a different k8s distribution, vCluster currently also supports k0s or vanilla k8s. If that is also not enough, you can also add your custom Kubernetes distribution as outlined below.
+By default, vCluster will use [k3s](https://github.com/k3s-io/k3s) as the virtual Kubernetes cluster. However, it is not tied to a specific distribution and should work with all certified Kubernetes distributions. By default, we recommend using k3s, because it has a small footprint and is widely adopted, but if your use case requires a different k8s distribution, vCluster currently also supports k0s or vanilla k8s. If that is not enough, you can also add your custom Kubernetes distribution as outlined below.
 
 ## k3s
 
@@ -21,7 +21,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes the default helm chart will be deployed, that holds specific configuration to support k3s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k3s) for all available chart options.
+Behind the scenes the default helm chart will be deployed, which holds a specific configuration to support k3s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k3s) for all available chart options.
 
 ## k0s
 
@@ -45,7 +45,7 @@ Behind the scenes a different helm chart will be deployed (`vcluster-k0s`), that
 
 When choosing this option, vCluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vCluster hypervisor.
 
-In order to use vanilla k8s as backing cluster, create a vCluster with the following command:
+In order to use vanilla k8s as a backing cluster, create a vCluster with the following command:
 
 ```
 vcluster create my-vcluster --distro k8s
@@ -57,7 +57,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes a different helm chart will be deployed (`vcluster-k8s`), that holds specific configuration to support vanilla k8s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.
+Behind the scenes, a different helm chart will be deployed (`vcluster-k8s`), that holds specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.
 
 
 ## eks
@@ -76,7 +76,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes a different helm chart will be deployed (`vcluster-eks`), that holds specific configuration to support vanilla k8s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/eks) for all available chart options.
+Behind the scenes, a different helm chart will be deployed (`vcluster-eks`), that holds a specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/charts/eks) for all available chart options.
 
 
 ## Other Distributions
@@ -102,7 +102,7 @@ And then deploy vCluster with:
 vcluster create my-vcluster -n test --distro k8s -f values.yaml
 ```
 
-If you want to create a separate chart for the Kubernetes distribution, a good starting point is to copy one of [our distro charts](https://github.com/loft-sh/vcluster/tree/main/charts) and then modifying it to work with your distribution.
+If you want to create a separate chart for the Kubernetes distribution, a good starting point is to copy one of [our distro charts](https://github.com/loft-sh/vcluster/tree/main/charts) and then modify it to work with your distribution.
 vCluster only needs the following information from the virtual Kubernetes distribution to function properly:
 1. The api server central authority certificate (usually found at `/pki/ca.crt`)
 2. The api server central authority key (usually found at `/pki/ca.key`)
@@ -110,4 +110,4 @@ vCluster only needs the following information from the virtual Kubernetes distri
 
 For multi binary distributions, vCluster can even create those with a pre-install hook as found in the [k8s chart](https://github.com/loft-sh/vcluster/tree/main/charts/k8s/templates).
 
-In general, if you need vCluster to support another Kubernetes distribution, we are always happy to help you or accept a pull request in our github repository.
+In general, if you need vCluster to support another Kubernetes distribution, we are always happy to help you or accept a pull request in our GitHub repository.
