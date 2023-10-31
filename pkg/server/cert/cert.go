@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/certhelper"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -15,19 +16,27 @@ func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byt
 	regen := false
 	commonName := "kube-apiserver"
 	extKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-	altNames := &certhelper.AltNames{
-		DNSNames: []string{
-			"kubernetes.default.svc." + clusterDomain,
-			"kubernetes.default.svc",
-			"kubernetes.default",
-			"kubernetes",
-			"localhost",
+
+	dnsNames := []string{
+		"kubernetes.default.svc." + clusterDomain,
+		"kubernetes.default.svc",
+		"kubernetes.default",
+		"kubernetes",
+		"localhost",
+	}
+
+	if isSingleBinaryDistro := os.Getenv(specialservices.DistroEnvKey); isSingleBinaryDistro == "false" {
+		dnsNames = append(dnsNames, []string{
 			"metrics-server.kube-system.svc." + clusterDomain,
 			"metrics-server.kube-system.svc",
 			"metrics-server.kube-system",
 			"metrics-server",
-		},
-		IPs: []net.IP{net.ParseIP("127.0.0.1")},
+		}...)
+	}
+
+	altNames := &certhelper.AltNames{
+		DNSNames: dnsNames,
+		IPs:      []net.IP{net.ParseIP("127.0.0.1")},
 	}
 
 	addSANs(altNames, SANs)
