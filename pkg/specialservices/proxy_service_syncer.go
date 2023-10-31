@@ -24,17 +24,16 @@ const (
 )
 
 func SyncVclusterProxyService(ctx *synccontext.SyncContext,
-	svcNamespace,
+	_,
 	svcName string,
 	vSvcToSync types.NamespacedName,
-	svcPortTranslator ServicePortTranslator) error {
-
+	_ ServicePortTranslator) error {
 	pClient := ctx.PhysicalClient
 	// get physical service
 	pObj := &corev1.Service{}
 	err := pClient.Get(ctx.Context, types.NamespacedName{
-		Namespace: translate.Default.PhysicalNamespace(vSvcToSync.Namespace), // svcNamespace,
-		Name:      svcName + PhysicalMetricsServerServiceNameSuffix,          // svcName,
+		Namespace: translate.Default.PhysicalNamespace(vSvcToSync.Namespace),
+		Name:      svcName + PhysicalMetricsServerServiceNameSuffix,
 	}, pObj)
 
 	if err != nil {

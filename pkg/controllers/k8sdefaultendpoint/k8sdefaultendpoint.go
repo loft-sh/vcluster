@@ -91,7 +91,6 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	pfuncs := predicate.NewPredicateFuncs(pp)
 
 	vp := func(object client.Object) bool {
-
 		if object.GetNamespace() == specialservices.DefaultKubernetesSvcKey.Namespace && object.GetName() == specialservices.DefaultKubernetesSvcKey.Name {
 			return true
 		}
