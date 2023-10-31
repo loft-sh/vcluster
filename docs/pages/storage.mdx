@@ -11,7 +11,7 @@ sidebar_label: Storage
 Since the vCluster's syncer synchronizes pods to the underlying host cluster to schedule them, vCluster users can use the storage classes of the underlying host cluster to create persistent volume claims and to mount persistent volumes. By default, the host's storage classes can be used without the need to create it in the vCluster, but this can be configured by [enabling sync of "storageclasses" or "hoststorageclasses"](./syncer/core_resources.mdx).
 
 
-vCluster provides helm values to adjust this behavior during vCluster installation or upgrade. Find out more below. 
+vCluster provides helm values to adjust this behavior during vCluster installation or upgrade. Find out more below.
 
 ### Sync Persistent Volumes
 
@@ -72,7 +72,7 @@ spec:
       storage: 5Gi
 ```
 
-This only happens if persistent volume sync is enabled in the vCluster. There might be cases where you want to disable this automatic rewriting of PVCs (for example if you want to mount an already existing PV of the host cluster to a PVC in the vCluster), for that case you can set the annotation called `vcluster.loft.sh/skip-translate` to `true`, which will tell vCluster to not rewrite the PVC `volumeName`, `storageClass`, `selectors` or `dataSource`. 
+This only happens if persistent volume sync is enabled in the vCluster. There might be cases where you want to disable this automatic rewriting of PVCs (for example if you want to mount an already existing PV of the host cluster to a PVC in the vCluster), for that case you can set the annotation called `vcluster.loft.sh/skip-translate` to `true`, which will tell vCluster to not rewrite the PVC `volumeName`, `storageClass`, `selectors` or `dataSource`.
 
 
 ### Sync Volume Snapshots
@@ -81,13 +81,13 @@ Kubernetes VolumeSnapshot resource represents a snapshot of a volume on a storag
 By default, VolumeSnapshot syncing is disabled, and creating a VolumeSnapshot custom resource in the vCluster will have no effect. Following chapters describe how to enable this feature in the vCluster.
 
 #### Host prerequisites
-Vcluster relies fully on the volume snapshot capabilities of the host cluster, which has to fullfil certain criteria.
+Vcluster relies fully on the volume snapshot capabilities of the host cluster, which has to fulfill certain criteria.
 
 Host cluster must have all relevant [snapshot CRDs](https://github.com/kubernetes-csi/external-snapshotter/tree/master/client/config/crd) installed, without which the vCluster will fail to start when volume snapshots sync is enabled.
 
 Host cluster should have a common snapshot controller installed, as well as a compatible CSI driver. Without these the volume snapshots will not be created in the storage backend.
 
-It is also recommended for the host cluster to have [the volume snapshots validating webhook](https://github.com/kubernetes-csi/external-snapshotter#validating-webhook) installed. 
+It is also recommended for the host cluster to have [the volume snapshots validating webhook](https://github.com/kubernetes-csi/external-snapshotter#validating-webhook) installed.
 
 #### Create a vCluster with volume snapshots sync
 
@@ -103,8 +103,8 @@ then create or upgrade the vCluster with:
 vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
-:::info 
-It is recommend to install [the volume snapshots validating webhook](https://github.com/kubernetes-csi/external-snapshotter#validating-webhook) in your vCluster instance. 
+:::info
+It is recommend to install [the volume snapshots validating webhook](https://github.com/kubernetes-csi/external-snapshotter#validating-webhook) in your vCluster instance.
 :::
 
 #### How does it work?

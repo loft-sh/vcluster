@@ -42,7 +42,7 @@ spec:
       - backend:
           service:
             name: my-vcluster
-            port: 
+            port:
               number: 443
         path: /
         pathType: ImplementationSpecific
@@ -54,7 +54,7 @@ kubectl apply -f ingress.yaml
 ```
 
 :::info Enable SSL Passthrough Feature
-If you are using the ingress nginx controller, please make sure you have [enabled the SSL passthrough feature](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough) as it is disabled by default. 
+If you are using the ingress nginx controller, please make sure you have [enabled the SSL passthrough feature](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough) as it is disabled by default.
 :::
 
 :::warning SSL Passthrough required
@@ -107,7 +107,7 @@ spec:
       - backend:
           service:
             name: my-vcluster
-            port: 
+            port:
               number: 443
         path: /
         pathType: ImplementationSpecific
@@ -140,7 +140,7 @@ vcluster create my-vcluster --expose
 kubectl get ns
 ```
 
-Thats it, your vCluster is now externally reachable through a LoadBalancer service.
+That's it, your vCluster is now externally reachable through a LoadBalancer service.
 
 :::warning Check the costs first
 Even though using a LoadBalancer is the easiest option, if you use a cloud provider it will be costly to create one Loadbalancer per cluster. Check your cloud vendor about the cost of each LoadBalancer. In general using an Ingress is the most cost effective method.
