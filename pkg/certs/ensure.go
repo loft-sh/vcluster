@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,11 +21,11 @@ func EnsureCerts(
 	vClusterName string,
 	certificateDir string,
 	clusterDomain string,
+	etcdSans []string,
 ) error {
 	// we create a certificate for up to 20 etcd replicas, this should be sufficient for most use cases. Eventually we probably
 	// want to update this to the actual etcd number, but for now this is the easiest way to allow up and downscaling without
 	// regenerating certificates.
-	etcdReplicas := 20
 	secretName := vClusterName + "-certs"
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err == nil {
@@ -39,23 +38,11 @@ func EnsureCerts(
 		return err
 	}
 
-	// generate etcd server and peer sans
-	etcdService := vClusterName + "-etcd"
-	serverSans := []string{"localhost", etcdService, etcdService + "." + currentNamespace, etcdService + "." + currentNamespace + ".svc"}
-	for i := 0; i < etcdReplicas; i++ {
-		// this is for embedded etcd
-		hostname := vClusterName + "-" + strconv.Itoa(i)
-		serverSans = append(serverSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)
-		// this is for external etcd
-		etcdHostname := etcdService + "-" + strconv.Itoa(i)
-		serverSans = append(serverSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
-	}
-
 	cfg.ClusterName = "kubernetes"
 	cfg.NodeRegistration.Name = vClusterName + "-api"
 	cfg.Etcd.Local = &LocalEtcd{
-		ServerCertSANs: serverSans,
-		PeerCertSANs:   serverSans,
+		ServerCertSANs: etcdSans,
+		PeerCertSANs:   etcdSans,
 	}
 	cfg.Networking.ServiceSubnet = serviceCIDR
 	cfg.Networking.DNSDomain = clusterDomain
