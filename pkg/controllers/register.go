@@ -1,13 +1,18 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
@@ -21,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
@@ -246,36 +250,8 @@ func RegisterGenericSyncController(ctx *options.ControllerContext) error {
 	return nil
 }
 
-func RegisterInitManifestsController(ctx *options.ControllerContext) error {
-	currentNamespaceManager := ctx.LocalManager
-	if ctx.Options.TargetNamespace != ctx.CurrentNamespace {
-		var err error
-		currentNamespaceManager, err = ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
-				return ctx.LocalManager.GetRESTMapper(), nil
-			},
-			Metrics:        metricsserver.Options{BindAddress: "0"},
-			LeaderElection: false,
-			Cache:          cache.Options{DefaultNamespaces: map[string]cache.Config{ctx.CurrentNamespace: {}}},
-		})
-		if err != nil {
-			return err
-		}
-
-		// start the manager
-		go func() {
-			err := currentNamespaceManager.Start(ctx.Context)
-			if err != nil {
-				panic(err)
-			}
-		}()
-
-		// Wait for caches to be synced
-		currentNamespaceManager.GetCache().WaitForCacheSync(ctx.Context)
-	}
-
-	vconfig, err := plugin.ConvertRestConfigToClientConfig(ctx.VirtualManager.GetConfig())
+func RegisterInitManifestsController(controllerCtx *options.ControllerContext) error {
+	vconfig, err := plugin.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
 	if err != nil {
 		return err
 	}
@@ -285,23 +261,37 @@ func RegisterInitManifestsController(ctx *options.ControllerContext) error {
 		return err
 	}
 
-	helmBinaryPath, err := cmd.GetHelmBinaryPath(ctx.Context, log.GetInstance())
+	helmBinaryPath, err := cmd.GetHelmBinaryPath(controllerCtx.Context, log.GetInstance())
 	if err != nil {
 		return err
 	}
 
 	controller := &manifests.InitManifestsConfigMapReconciler{
-		LocalClient:    currentNamespaceManager.GetClient(),
+		LocalClient:    controllerCtx.CurrentNamespaceClient,
 		Log:            loghelper.New("init-manifests-controller"),
-		VirtualManager: ctx.VirtualManager,
+		VirtualManager: controllerCtx.VirtualManager,
 
 		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance(), helmBinaryPath),
 	}
 
-	err = controller.SetupWithManager(currentNamespaceManager)
-	if err != nil {
-		return fmt.Errorf("unable to setup init manifests configmap controller: %w", err)
-	}
+	go func() {
+		wait.JitterUntilWithContext(controllerCtx.Context, func(ctx context.Context) {
+			for {
+				result, err := controller.Reconcile(ctx, ctrl.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: controllerCtx.CurrentNamespace,
+						Name:      translate.Suffix + manifests.InitManifestSuffix,
+					},
+				})
+				if err != nil {
+					klog.Errorf("Error reconciling init_configmap: %v", err)
+					break
+				} else if !result.Requeue {
+					break
+				}
+			}
+		}, time.Second*10, 1.0, true)
+	}()
 
 	return nil
 }

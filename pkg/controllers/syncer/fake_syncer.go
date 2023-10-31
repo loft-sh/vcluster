@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -86,6 +87,7 @@ func (r *fakeSyncer) Register(ctx *synccontext.RegisterContext) error {
 	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
 		WithOptions(controller2.Options{
 			MaxConcurrentReconciles: 10,
+			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 		}).
 		Named(r.syncer.Name()).
 		For(r.syncer.Resource())
