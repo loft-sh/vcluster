@@ -66,7 +66,7 @@ spec:
       {{- if .Values.affinity }}
       affinity:
 {{ toYaml .Values.affinity | indent 8 }}
-      {{- else if .Values.enableHA }}
+      {{- else if (gt (int .Values.replicas) 1) }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -220,7 +220,7 @@ spec:
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
-          {{- if .Values.enableHA }}
+          {{- if (gt (int .Values.replicas) 1) }}
           - --leader-elect=true
           {{- else }}
           - --leader-elect=false

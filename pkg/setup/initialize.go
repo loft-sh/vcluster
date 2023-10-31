@@ -95,14 +95,6 @@ func initialize(
 		}
 	}
 
-	// check if we need to create certs
-	if certificatesDir != "" {
-		err = certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, options.ClusterDomain)
-		if err != nil {
-			return fmt.Errorf("ensure certs: %w", err)
-		}
-	}
-
 	// check if k3s
 	if !isK0s && certificatesDir != "/pki" {
 		// its k3s, let's create the token secret
@@ -120,6 +112,32 @@ func initialize(
 				klog.Fatalf("Error running k3s: %v", err)
 			}
 		}()
+	} else if certificatesDir != "" {
+		err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
+	// generate etcd server and peer sans
+	etcdService := vClusterName + "-etcd"
+	etcdSans := []string{
+		"localhost",
+		etcdService,
+		etcdService + "." + currentNamespace,
+		etcdService + "." + currentNamespace + ".svc",
+		"*." + etcdService + "-headless",
+		"*." + etcdService + "-headless" + "." + currentNamespace,
+	}
+
+	// generate certificates
+	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans)
+	if err != nil {
+		return fmt.Errorf("ensure certs: %w", err)
 	}
 
 	return nil
