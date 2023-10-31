@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
@@ -85,6 +87,9 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("kubernetes_default_endpoint").
+		WithOptions(controller.Options{
+			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
+		}).
 		For(&corev1.Endpoints{},
 			builder.WithPredicates(pfuncs, predicate.ResourceVersionChangedPredicate{})).
 		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}),

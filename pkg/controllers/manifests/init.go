@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/ghodss/yaml"
@@ -69,6 +70,10 @@ func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ct
 	cm := &corev1.ConfigMap{}
 	err = r.LocalClient.Get(ctx, req.NamespacedName, cm)
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -714,11 +719,4 @@ func (r *InitManifestsConfigMapReconciler) deleteHelmRelease(cm *corev1.ConfigMa
 	}
 
 	return r.popFromStatus(cm, chartStatus)
-}
-
-func (r *InitManifestsConfigMapReconciler) SetupWithManager(hostMgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(hostMgr).
-		Named("init_manifests").
-		For(&corev1.ConfigMap{}).
-		Complete(r)
 }

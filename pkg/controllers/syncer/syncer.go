@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -253,10 +254,12 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
 		WithOptions(controller2.Options{
 			MaxConcurrentReconciles: 10,
+			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 		}).
 		Named(r.syncer.Name()).
 		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource()), r).
 		For(r.syncer.Resource())
+
 	var err error
 	modifier, ok := r.syncer.(syncertypes.ControllerModifier)
 	if ok {
@@ -265,6 +268,7 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 			return err
 		}
 	}
+
 	return controller.Complete(r)
 }
 

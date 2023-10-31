@@ -4,12 +4,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
 type Reconciler struct {
@@ -53,6 +55,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 // SetupWithManager adds the controller to the manager
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{
+			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
+		}).
 		Named("pod_security").
 		For(&corev1.Namespace{}).
 		Complete(r)

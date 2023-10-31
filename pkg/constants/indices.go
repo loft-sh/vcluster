@@ -1,5 +1,7 @@
 package constants
 
+import "time"
+
 const (
 	IndexByPhysicalName  = "IndexByPhysicalName"
 	IndexByVirtualName   = "IndexByVirtualName"
@@ -13,3 +15,5 @@ const (
 
 	IndexByClusterIP = "IndexByClusterIP"
 )
+
+const DefaultCacheSyncTimeout = time.Minute * 15

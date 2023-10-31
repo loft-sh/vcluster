@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -43,6 +45,9 @@ func (e *ServiceSyncer) Register() error {
 	}
 
 	return ctrl.NewControllerManagedBy(e.From).
+		WithOptions(controller.Options{
+			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
+		}).
 		Named("servicesync").
 		For(&corev1.Service{}).
 		WatchesRawSource(source.Kind(e.To.GetCache(), &corev1.Service{}), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
