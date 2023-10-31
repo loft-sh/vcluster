@@ -191,8 +191,7 @@ func StartManagers(controllerContext *options.ControllerContext, syncers []synce
 }
 
 func RegisterOrDeregisterAPIService(ctx *options.ControllerContext) {
-	// check api-service for metrics server
-	err := metricsapiservice.RegisterOrDeregisterAPIService(ctx.Context, ctx.Options, ctx.VirtualManager.GetClient())
+	err := metricsapiservice.RegisterOrDeregisterAPIService(ctx)
 	if err != nil {
 		klog.Errorf("Error registering metrics apiservice: %v", err)
 	}

@@ -1,6 +1,8 @@
 package specialservices
 
 import (
+	"os"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,6 +14,8 @@ var Default = DefaultNameserverFinder()
 const (
 	DefaultKubeDNSServiceName      = "kube-dns"
 	DefaultKubeDNSServiceNamespace = "kube-system"
+
+	DistroEnvKey = "SINGLE_BINARY_DISTRO"
 )
 
 type SpecialServiceSyncer func(
@@ -40,10 +44,15 @@ func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]Spec
 }
 
 func DefaultNameserverFinder() Interface {
+	specialServicesMap := map[types.NamespacedName]SpecialServiceSyncer{
+		DefaultKubernetesSvcKey: SyncKubernetesService,
+	}
+
+	if isSingleBinaryDistro := os.Getenv(DistroEnvKey); isSingleBinaryDistro == "false" {
+		specialServicesMap[VclusterProxyMetricsSvcKey] = SyncVclusterProxyService
+	}
+
 	return &NameserverFinder{
-		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
-			DefaultKubernetesSvcKey:    SyncKubernetesService,
-			VclusterProxyMetricsSvcKey: SyncVclusterProxyService,
-		},
+		SpecialServices: specialServicesMap,
 	}
 }

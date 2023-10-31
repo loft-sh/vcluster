@@ -2,10 +2,12 @@ package specialservices
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -13,6 +15,12 @@ var (
 		Name:      "metrics-server",
 		Namespace: "kube-system",
 	}
+)
+
+const (
+	PhysicalSvcSelectorKeyApp              = "app"
+	PhysicalSvcSelectorKeyRelease          = "release"
+	PhysicalMetricsServerServiceNameSuffix = "-metrics-proxy"
 )
 
 func SyncVclusterProxyService(ctx *synccontext.SyncContext,
@@ -25,8 +33,8 @@ func SyncVclusterProxyService(ctx *synccontext.SyncContext,
 	// get physical service
 	pObj := &corev1.Service{}
 	err := pClient.Get(ctx.Context, types.NamespacedName{
-		Namespace: svcNamespace,
-		Name:      svcName,
+		Namespace: translate.Default.PhysicalNamespace(vSvcToSync.Namespace), // svcNamespace,
+		Name:      svcName + PhysicalMetricsServerServiceNameSuffix,          // svcName,
 	}, pObj)
 
 	if err != nil {
@@ -35,6 +43,22 @@ func SyncVclusterProxyService(ctx *synccontext.SyncContext,
 		}
 
 		return err
+	}
+
+	// check if pobject has the expected selectors, if not update
+	// and make it point to the syncer pod
+	expectedPhysicalSvcSelectors := map[string]string{
+		PhysicalSvcSelectorKeyApp:     "vcluster",
+		PhysicalSvcSelectorKeyRelease: svcName,
+	}
+
+	if !equality.Semantic.DeepEqual(pObj.Spec.Selector, expectedPhysicalSvcSelectors) {
+		pObj.Spec.Selector = expectedPhysicalSvcSelectors
+		err = pClient.Update(ctx.Context, pObj)
+		if err != nil {
+			klog.Errorf("error updating physical metrics server service object %v", err)
+			return err
+		}
 	}
 
 	vClient := ctx.VirtualClient

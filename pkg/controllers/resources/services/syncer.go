@@ -159,10 +159,8 @@ func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Re
 	specialServices := specialservices.Default.SpecialServicesToSync()
 
 	svc, ok := specialServices[req.NamespacedName]
-	if ok && req.NamespacedName == specialservices.DefaultKubernetesSvcKey {
+	if ok {
 		return true, svc(ctx, ctx.CurrentNamespace, s.serviceName, req.NamespacedName, TranslateServicePorts)
-	} else if ok && req.NamespacedName == specialservices.VclusterProxyMetricsSvcKey {
-		return true, svc(ctx, ctx.CurrentNamespace, s.serviceName+"-metrics-proxy", req.NamespacedName, func(p []corev1.ServicePort) []corev1.ServicePort { return []corev1.ServicePort{} })
 	}
 
 	return false, nil

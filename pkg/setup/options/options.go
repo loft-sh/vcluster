@@ -66,6 +66,8 @@ type VirtualClusterOptions struct {
 
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
+	SingleBinaryDistro bool `json:"singleBinaryDistro,omitempty"`
+
 	// hostpath mapper options
 	// this is only needed if using vcluster-hostpath-mapper component
 	// see: https://github.com/loft-sh/vcluster-hostpath-mapper

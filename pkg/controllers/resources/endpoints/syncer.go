@@ -40,16 +40,9 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 var _ syncer.Starter = &endpointsSyncer{}
 
 func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	if req.NamespacedName == specialservices.DefaultKubernetesSvcKey ||
-		req.NamespacedName == specialservices.VclusterProxyMetricsSvcKey {
-		return true, nil
-	} else if _, ok := specialservices.Default.SpecialServicesToSync()[req.NamespacedName]; ok {
+	if req.NamespacedName == specialservices.DefaultKubernetesSvcKey {
 		return true, nil
 	}
-
-	// if req.Namespace == "default" && req.Name == "kubernetes" {
-	// 	return true, nil
-	// }
 
 	svc := &corev1.Service{}
 	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
