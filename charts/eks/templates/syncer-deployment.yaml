@@ -92,6 +92,11 @@ spec:
           configMap:
             name: coredns-custom
             optional: true
+      {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
+        - name: metrics-proxy-svc
+          configMap:
+            name: {{ .Release.Name }}-metrics-proxy
+      {{- end }}
       {{- if .Values.syncer.priorityClassName }}
       priorityClassName: {{ .Values.syncer.priorityClassName }}
       {{- end }}
@@ -118,7 +123,7 @@ spec:
         {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
-          - --request-header-ca-cert=/pki/ca.crt
+          - --request-header-ca-cert=/pki/front-proxy-ca.crt
           - --client-ca-cert=/pki/ca.crt
           - --server-ca-cert=/pki/ca.crt
           - --server-ca-key=/pki/ca.key
@@ -169,6 +174,7 @@ spec:
           {{- end }}
           {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled}}
           - --proxy-metrics-server=true
+          - --single-binary-distro=false
           {{- end }}
           {{- if .Values.coredns.integrated }}
           - --integrated-coredns=true
@@ -228,6 +234,10 @@ spec:
         {{- end }}
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
+        {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
+          - name: SINGLE_BINARY_DISTRO
+            value: "false"
+        {{- end }}
         volumeMounts:
           - name: helm-cache
             mountPath: /.cache/helm
@@ -235,6 +245,10 @@ spec:
             mountPath: /tmp
           - mountPath: /pki
             name: certs
+        {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
+          - name: metrics-proxy-svc
+            mountPath: /manifests/metrics-server
+        {{- end }}
         {{- if .Values.syncer.volumeMounts }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         {{- end }}
