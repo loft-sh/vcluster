@@ -168,6 +168,7 @@ vcluster:
     - --disable-network-policy
     - --disable-agent
     - --disable-cloud-controller
+    - --egress-selector-mode=disabled
     - --flannel-backend=none
     - --kube-apiserver-arg=bind-address=127.0.0.1
   extraArgs: []
