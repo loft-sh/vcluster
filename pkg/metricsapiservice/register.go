@@ -30,6 +30,9 @@ const (
 	ManifestRelativePath  = "metrics-server/service.yaml"
 	MetricsVersion        = "v1beta1"
 	MetricsAPIServiceName = MetricsVersion + "." + metrics.GroupName // "v1beta1.metrics.k8s.io"
+
+	AuxVirtualSvcName      = "metrics-server"
+	AuxVirtualSvcNamespace = "kube-system"
 )
 
 func checkExistingAPIService(ctx context.Context, client client.Client) bool {
@@ -62,6 +65,34 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContext
 
 func deleteOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
+		if !ctrlCtx.Options.SingleBinaryDistro {
+			auxVirtualSvc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      AuxVirtualSvcName,
+					Namespace: AuxVirtualSvcNamespace,
+				},
+			}
+			err := ctrlCtx.VirtualManager.GetClient().Delete(ctx, auxVirtualSvc)
+			if err != nil {
+				if !kerrors.IsNotFound(err) {
+					return false, nil
+				}
+			}
+
+			hostMetricsProxySvc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ctrlCtx.Options.ServiceName + "-metrics-proxy",
+					Namespace: ctrlCtx.CurrentNamespace,
+				},
+			}
+			err = ctrlCtx.LocalManager.GetClient().Delete(ctx, hostMetricsProxySvc)
+			if err != nil {
+				if !kerrors.IsNotFound(err) {
+					return false, nil
+				}
+			}
+		}
+
 		err := ctrlCtx.VirtualManager.GetClient().Delete(ctx, &apiregistrationv1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: MetricsAPIServiceName,
@@ -95,30 +126,17 @@ func createOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithConte
 			// pair makes sure the service discovery happens as expected in even non single
 			// binary distros like k8s and eks
 			spec.Service = &apiregistrationv1.ServiceReference{
-				Name:      "metrics-server",
-				Namespace: "kube-system",
+				Name:      AuxVirtualSvcName,
+				Namespace: AuxVirtualSvcNamespace,
 				Port:      pointer.Int32(443),
 			}
-
 			spec.InsecureSkipTLSVerify = true
-
-			// manifestPath := path.Join(constants.ContainerManifestsFolder, ManifestRelativePath)
-			// if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
-			// 	klog.Errorf("error, no metrics server manifest file found %v", ErrNoMetricsManifests)
-			// 	return false, nil
-			// }
-
-			// err := applier.ApplyManifestFile(ctrlCtx.Context, ctrlCtx.VirtualManager.GetConfig(), manifestPath)
-			// if err != nil {
-			// 	klog.Errorf("error applying metrics server manifest %v", err)
-			// 	return false, nil
-			// }
 
 			// create aux metrics server service in vcluster
 			auxVirtualSvc := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "metrics-server",
-					Namespace: "kube-system",
+					Name:      AuxVirtualSvcName,
+					Namespace: AuxVirtualSvcNamespace,
 					Labels: map[string]string{
 						"k8s-app": "metrics-server",
 					},
