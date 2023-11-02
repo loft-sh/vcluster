@@ -64,8 +64,6 @@ func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, nil
 	}
 
-	r.Log.Debugf("process init manifests")
-
 	// get config map
 	cm := &corev1.ConfigMap{}
 	err = r.LocalClient.Get(ctx, req.NamespacedName, cm)
