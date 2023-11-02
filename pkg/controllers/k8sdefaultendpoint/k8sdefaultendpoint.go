@@ -95,6 +95,13 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 			return true
 		}
 
+		if !e.singleBinaryDistro {
+			if object.GetNamespace() == specialservices.VclusterProxyMetricsSvcKey.Namespace &&
+				object.GetName() == specialservices.VclusterProxyMetricsSvcKey.Name {
+				return true
+			}
+		}
+
 		return false
 	}
 	vfuncs := predicate.NewPredicateFuncs(vp)

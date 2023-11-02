@@ -92,11 +92,6 @@ spec:
           configMap:
             name: coredns-custom
             optional: true
-      {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
-        - name: metrics-proxy-svc
-          configMap:
-            name: {{ .Release.Name }}-metrics-proxy
-      {{- end }}
       {{- if .Values.syncer.priorityClassName }}
       priorityClassName: {{ .Values.syncer.priorityClassName }}
       {{- end }}
@@ -245,10 +240,6 @@ spec:
             mountPath: /tmp
           - mountPath: /pki
             name: certs
-        {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
-          - name: metrics-proxy-svc
-            mountPath: /manifests/metrics-server
-        {{- end }}
         {{- if .Values.syncer.volumeMounts }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         {{- end }}

@@ -27,7 +27,8 @@ func SyncVclusterProxyService(ctx *synccontext.SyncContext,
 	_,
 	svcName string,
 	vSvcToSync types.NamespacedName,
-	_ ServicePortTranslator) error {
+	_ ServicePortTranslator,
+) error {
 	pClient := ctx.PhysicalClient
 	// get physical service
 	pObj := &corev1.Service{}
@@ -35,7 +36,6 @@ func SyncVclusterProxyService(ctx *synccontext.SyncContext,
 		Namespace: translate.Default.PhysicalNamespace(vSvcToSync.Namespace),
 		Name:      svcName + PhysicalMetricsServerServiceNameSuffix,
 	}, pObj)
-
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
