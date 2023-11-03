@@ -23,7 +23,6 @@ spec:
   {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Delete
-    whenScaled: Delete
   {{- end }}
   {{- end }}
   replicas: {{ .Values.replicas }}
