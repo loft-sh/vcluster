@@ -205,6 +205,19 @@ jobs:
           -f ${{ matrix.test-suite-path }}/values.yaml \
           "${extraArgs[@]}"
         continue-on-error: true
+      
+      - name: Install metrics server in host cluster
+        uses: 'deliverybot/helm@v1'
+        id: install-metrics-server
+        with:
+          release: metrics-server
+          namespace: kube-system
+          chart: metrics-server
+          repo: https://kubernetes-sigs.github.io/metrics-server/
+          version: 3.11.0
+          values: |-
+            defaultArgs:
+              - --kubelet-insecure-tls          
 
       - name: Wait until vcluster is ready
         id: wait-until-vcluster-is-ready
