@@ -43,7 +43,7 @@ func StartK3S(ctx context.Context, serviceCIDR, k3sToken string) error {
 	command.Args = append(
 		command.Args,
 		"--service-cidr", serviceCIDR,
-		"--token", k3sToken,
+		"--token", strings.TrimSpace(k3sToken),
 	)
 	args := append(command.Command, command.Args...)
 

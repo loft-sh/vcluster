@@ -187,6 +187,10 @@ jobs:
             extraArgs+=( -f ./test/multins_values.yaml )
           fi
 
+          if [ ${{ matrix.test-suite-path }} == "./test/e2e_target_namespace" ]; then
+            kubectl apply -f ${{ matrix.test-suite-path }}/role.yaml
+          fi
+
           sudo apt-get install -y sed
 
           sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
