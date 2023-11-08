@@ -319,7 +319,7 @@ spec:
           - name: VCLUSTER_COMMAND
             value: |-
               command:
-              {{ range $f := .Values.vcluster.command -}}
+              {{ range $f := .Values.vcluster.command }}
               - {{ $f }}
               {{- end }}
               args:
