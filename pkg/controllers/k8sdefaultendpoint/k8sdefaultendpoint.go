@@ -72,7 +72,6 @@ func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 		return ctrl.Result{RequeueAfter: time.Second}, err
 	}
 
-	// TODO: Change this to only be set for k8s/eks distros and when using metrics proxy
 	if !e.singleBinaryDistro {
 		err = e.syncMetricsServerEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
 		if err != nil {

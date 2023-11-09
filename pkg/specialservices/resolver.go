@@ -1,15 +1,18 @@
 package specialservices
 
 import (
-	"os"
-
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var Default = DefaultNameserverFinder()
+var Default Interface
+
+func SetDefault(ctrlCtx *options.VirtualClusterOptions) {
+	Default = defaultNameserverFinder(ctrlCtx.SingleBinaryDistro)
+}
 
 const (
 	DefaultKubeDNSServiceName      = "kube-dns"
@@ -43,12 +46,12 @@ func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]Spec
 	return f.SpecialServices
 }
 
-func DefaultNameserverFinder() Interface {
+func defaultNameserverFinder(isSingleBinaryDistro bool) Interface {
 	specialServicesMap := map[types.NamespacedName]SpecialServiceSyncer{
 		DefaultKubernetesSvcKey: SyncKubernetesService,
 	}
 
-	if isSingleBinaryDistro := os.Getenv(DistroEnvKey); isSingleBinaryDistro == "false" {
+	if !isSingleBinaryDistro {
 		specialServicesMap[VclusterProxyMetricsSvcKey] = SyncVclusterProxyService
 	}
 

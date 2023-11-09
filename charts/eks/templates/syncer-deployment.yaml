@@ -229,10 +229,6 @@ spec:
         {{- end }}
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
-        {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
-          - name: SINGLE_BINARY_DISTRO
-            value: "false"
-        {{- end }}
         volumeMounts:
           - name: helm-cache
             mountPath: /.cache/helm
