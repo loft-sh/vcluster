@@ -211,7 +211,7 @@ jobs:
         run: |-
           set -x
           helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
-          helm upgrade --install metrics-server metrics-server/metrics-server --set defaultArgs={--kubelet-insecure-tls} --set hostNetwork.enabled=true -n kube-system    
+          helm upgrade --install metrics-server metrics-server/metrics-server --set args={--kubelet-insecure-tls} --set containerPort=4443 -n kube-system
 
       - name: Wait until vcluster is ready
         id: wait-until-vcluster-is-ready
