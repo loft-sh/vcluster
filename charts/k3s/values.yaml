@@ -484,8 +484,8 @@ init:
     #     password: <string>   (if required for repo)
     #     insecure: boolean    (if required for repo)
     #   release:
-    #     releaseName: <string> REQUIRED
-    #     releaseNamespace: <string> REQUIRED
+    #     name: <string> REQUIRED
+    #     namespace: <string> REQUIRED
     #     timeout: number
     #   values: |-  string YAML object
     #     foo: bar
