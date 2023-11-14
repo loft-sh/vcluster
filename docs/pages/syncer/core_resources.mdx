@@ -32,6 +32,6 @@ This section lists all resources that can be synced or mirrored by vCluster curr
 | csinodes               | Mirrors CSINode objects from host cluster to vCluster. Enabled automatically when [virtual scheduler](../architecture/scheduling.mdx#separate-vcluster-scheduler) is enabled. Disabling this syncer while using virtual scheduler may result in incorrect pod scheduling.                                                                                               | No _*_          |
 | csistoragecapacities   | Mirrors CSIStorageCapacity Objects from host cluster to vCluster if the .nodeTopology matches a synced node. Enabled automatically when [virtual scheduler](../architecture/scheduling.mdx#separate-vcluster-scheduler) is enabled. Disabling this syncer while using virtual scheduler may result in incorrect pod scheduling.                                         | No _*_          |
 
-_\* refer to the description column for claryfying information about default behavior._
+_\* refer to the description column for clarifying information about default behavior._
 
 By default, vCluster runs with a minimal set of RBAC permissions to allow execution in restricted environments. Certain resources require extra permissions, which will be automatically given to the vCluster ServiceAccount if you enable the resource sync with the associated helm value

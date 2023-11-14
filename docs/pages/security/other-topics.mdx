@@ -16,7 +16,7 @@ The above mentioned methods also work for isolating workloads inside the vCluste
 ### Secret based Service Account tokens
 
 By default vCluster will create Service Account Tokens for each pod and inject them as an annotation in the respective pods
-metadata. This can be a security risk in certain senarios. To mitigate this there's a flag `--service-account-token-secrets` in vCluster
+metadata. This can be a security risk in certain scenarios. To mitigate this there's a flag `--service-account-token-secrets` in vCluster
 which creates separate secrets for each pods Service Account Token and mounts it accordingly using projected volumes. This option
 is not enabled by default but can be enabled on demand. To enable this one can use the `extraArgs` options of the vCluster chart as follows
 

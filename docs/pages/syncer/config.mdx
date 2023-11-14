@@ -5,7 +5,7 @@ sidebar_label: Configuration
 
 ## Enable or disable synced resources
 
-To enable a resource syncronization, for example persistent volumes, and automatically create the necessary RBAC permissions, add the following to your `values.yaml`:
+To enable a resource synchronization, for example persistent volumes, and automatically create the necessary RBAC permissions, add the following to your `values.yaml`:
 ```
 sync:
   persistentvolumes:
@@ -17,7 +17,7 @@ then create or upgrade the vCluster with:
 vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
-To disable a resource that is synced by default, for example if you don't want to sync services, set the following in your `values.yaml`: 
+To disable a resource that is synced by default, for example if you don't want to sync services, set the following in your `values.yaml`:
 ```
 sync:
   services:
@@ -30,7 +30,7 @@ vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
 :::warning Correct Cluster Functionality
-Disabling certain resources such as services, endpoints or pods can lead to a non-functional virtual Kubernetes cluster, so be careful with what resources you are deactivating. 
+Disabling certain resources such as services, endpoints or pods can lead to a non-functional virtual Kubernetes cluster, so be careful with what resources you are deactivating.
 :::
 
 ## Sync all Secrets and Configmaps
