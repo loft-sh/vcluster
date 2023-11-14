@@ -42,7 +42,7 @@ type EndpointController struct {
 
 	provider provider
 
-	singleBinaryDistro bool
+	k8sDistro bool
 }
 
 func NewEndpointController(ctx *options.ControllerContext, provider provider) *EndpointController {
@@ -54,7 +54,7 @@ func NewEndpointController(ctx *options.ControllerContext, provider provider) *E
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),
 		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
 		provider:            provider,
-		singleBinaryDistro:  ctx.Options.SingleBinaryDistro,
+		k8sDistro:           ctx.Options.IsK8sDistro,
 	}
 }
 
@@ -72,7 +72,7 @@ func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 		return ctrl.Result{RequeueAfter: time.Second}, err
 	}
 
-	if !e.singleBinaryDistro {
+	if e.k8sDistro {
 		err = e.syncMetricsServerEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
 		if err != nil {
 			return ctrl.Result{RequeueAfter: time.Second}, err
@@ -94,7 +94,7 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 			return true
 		}
 
-		if !e.singleBinaryDistro {
+		if e.k8sDistro {
 			if object.GetNamespace() == specialservices.VclusterProxyMetricsSvcKey.Namespace &&
 				object.GetName() == specialservices.VclusterProxyMetricsSvcKey.Name {
 				return true

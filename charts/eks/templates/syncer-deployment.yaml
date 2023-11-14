@@ -169,7 +169,6 @@ spec:
           {{- end }}
           {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled}}
           - --proxy-metrics-server=true
-          - --single-binary-distro=false
           {{- end }}
           {{- if .Values.coredns.integrated }}
           - --integrated-coredns=true

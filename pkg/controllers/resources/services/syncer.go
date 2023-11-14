@@ -157,9 +157,7 @@ var _ syncertypes.Starter = &serviceSyncer{}
 func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service
 	specialServices := specialservices.Default.SpecialServicesToSync()
-
-	svc, ok := specialServices[req.NamespacedName]
-	if ok {
+	if svc, ok := specialServices[req.NamespacedName]; ok {
 		return true, svc(ctx, ctx.CurrentNamespace, s.serviceName, req.NamespacedName, TranslateServicePorts)
 	}
 

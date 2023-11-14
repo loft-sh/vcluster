@@ -66,7 +66,7 @@ type VirtualClusterOptions struct {
 
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
-	SingleBinaryDistro bool `json:"singleBinaryDistro,omitempty"`
+	IsK8sDistro bool `json:"singleBinaryDistro,omitempty"`
 
 	// hostpath mapper options
 	// this is only needed if using vcluster-hostpath-mapper component

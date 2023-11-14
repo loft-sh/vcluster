@@ -11,7 +11,7 @@ import (
 var Default Interface
 
 func SetDefault(ctrlCtx *options.VirtualClusterOptions) {
-	Default = defaultNameserverFinder(ctrlCtx.SingleBinaryDistro)
+	Default = defaultNameserverFinder(ctrlCtx.IsK8sDistro)
 }
 
 const (
@@ -46,12 +46,12 @@ func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]Spec
 	return f.SpecialServices
 }
 
-func defaultNameserverFinder(isSingleBinaryDistro bool) Interface {
+func defaultNameserverFinder(k8sDistro bool) Interface {
 	specialServicesMap := map[types.NamespacedName]SpecialServiceSyncer{
 		DefaultKubernetesSvcKey: SyncKubernetesService,
 	}
 
-	if !isSingleBinaryDistro {
+	if k8sDistro {
 		specialServicesMap[VclusterProxyMetricsSvcKey] = SyncVclusterProxyService
 	}
 

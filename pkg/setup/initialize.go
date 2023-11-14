@@ -116,6 +116,7 @@ func initialize(
 			}
 		}()
 	} else if certificatesDir != "" {
+		options.IsK8sDistro = true
 		err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 		if err != nil {
 			return err
