@@ -17,8 +17,6 @@ func SetDefault(ctrlCtx *options.VirtualClusterOptions) {
 const (
 	DefaultKubeDNSServiceName      = "kube-dns"
 	DefaultKubeDNSServiceNamespace = "kube-system"
-
-	DistroEnvKey = "SINGLE_BINARY_DISTRO"
 )
 
 type SpecialServiceSyncer func(

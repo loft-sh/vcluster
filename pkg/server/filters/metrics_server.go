@@ -516,27 +516,12 @@ func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) ([]byte, err
 // returns the types.NamespacedName list of pods for the given namespace
 func getVirtualPodObjectsInNamespace(ctx context.Context, vClient client.Client, namespace string) ([]corev1.Pod, error) {
 	podList := &corev1.PodList{}
-
-	// This is to counter an issue which occurred after the latest update
-	// to 0.28 client libraries where the cache api was changed and broke
-	// our cachedClients resulting in errors of the form
-	// "unable to list: kube-system because of unknown namespace for the cache"
 	err := vClient.List(ctx, podList, &client.ListOptions{
-		// Namespace: namespace,
+		Namespace: namespace,
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	// manually filter until the above issue with cachedClient is resolved
-	filteredPodList := &corev1.PodList{}
-	for _, pod := range podList.Items {
-		if pod.Namespace == namespace {
-			filteredPodList.Items = append(filteredPodList.Items, pod)
-		}
-	}
-
-	podList.Items = filteredPodList.Items
 
 	return podList.Items, nil
 }
