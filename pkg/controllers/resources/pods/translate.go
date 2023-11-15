@@ -54,12 +54,10 @@ func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod 
 }
 
 func (s *podSyncer) translateUpdate(ctx context.Context, pClient client.Client, pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
-	secret, exists, err := podtranslate.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
+	secret, err := podtranslate.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
 	if err != nil {
 		return nil, err
-	}
-
-	if exists {
+	} else if secret != nil {
 		// check if owner is vcluster service, if so, modify to pod as owner
 		err := podtranslate.SetPodAsOwner(ctx, pObj, pClient, secret)
 		if err != nil {

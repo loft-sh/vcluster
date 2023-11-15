@@ -419,11 +419,11 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 		}
 	}
 
+	// create the service account token holder secret if necessary
 	if len(tokenSecrets) > 0 {
-		// create the service account token holder secret
 		err := SATokenSecret(ctx, t.pClient, vPod, tokenSecrets)
 		if err != nil {
-			return nil
+			return fmt.Errorf("create sa token secret: %w", err)
 		}
 	}
 

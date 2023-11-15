@@ -24,31 +24,28 @@ func SecretNameFromPodName(podName, namespace string) string {
 	return translate.Default.PhysicalName(fmt.Sprintf("%s-sa-token", podName), namespace)
 }
 
-func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNamespace string) (*corev1.Secret, bool, error) {
+func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNamespace string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
-
 	err := pClient.Get(ctx, types.NamespacedName{
 		Name:      SecretNameFromPodName(vPodName, vNamespace),
 		Namespace: translate.Default.PhysicalNamespace(vNamespace),
 	}, secret)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil, false, nil
+			return nil, nil
 		}
 
-		return nil, false, err
+		return nil, err
 	}
 
-	return secret, true, nil
+	return secret, nil
 }
 
 func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod, tokens map[string]string) error {
-	_, exists, err := GetSecretIfExists(ctx, pClient, vPod.Name, vPod.Namespace)
+	existingSecret, err := GetSecretIfExists(ctx, pClient, vPod.Name, vPod.Namespace)
 	if err != nil {
 		return err
-	}
-
-	if !exists {
+	} else if existingSecret == nil {
 		// create to secret with the given token
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -62,11 +59,11 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 			Type:       corev1.SecretTypeOpaque,
 			StringData: tokens,
 		}
-
 		if translate.Owner != nil {
 			secret.SetOwnerReferences(translate.GetOwnerReference(nil))
 		}
 
+		// create the service account secret
 		err = pClient.Create(ctx, secret)
 		if err != nil {
 			return err
