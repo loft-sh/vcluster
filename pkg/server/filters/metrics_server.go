@@ -516,7 +516,6 @@ func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) ([]byte, err
 // returns the types.NamespacedName list of pods for the given namespace
 func getVirtualPodObjectsInNamespace(ctx context.Context, vClient client.Client, namespace string) ([]corev1.Pod, error) {
 	podList := &corev1.PodList{}
-
 	err := vClient.List(ctx, podList, &client.ListOptions{
 		Namespace: namespace,
 	})

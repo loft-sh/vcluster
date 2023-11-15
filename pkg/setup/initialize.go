@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +57,8 @@ func Initialize(
 	if err != nil {
 		return err
 	}
+
+	specialservices.SetDefault(options)
 
 	return nil
 }
@@ -113,6 +116,7 @@ func initialize(
 			}
 		}()
 	} else if certificatesDir != "" {
+		options.IsK8sDistro = true
 		err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 		if err != nil {
 			return err

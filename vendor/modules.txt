@@ -1686,7 +1686,10 @@ k8s.io/kubernetes/pkg/apis/storage/util
 # k8s.io/metrics v0.28.1
 ## explicit; go 1.20
 k8s.io/metrics/pkg/apis/metrics
+k8s.io/metrics/pkg/apis/metrics/v1alpha1
 k8s.io/metrics/pkg/apis/metrics/v1beta1
+k8s.io/metrics/pkg/client/clientset/versioned/scheme
+k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1
 # k8s.io/pod-security-admission v0.28.1
 ## explicit; go 1.20
 k8s.io/pod-security-admission/admission

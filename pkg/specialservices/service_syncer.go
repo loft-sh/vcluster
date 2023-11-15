@@ -9,6 +9,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+var (
+	DefaultKubernetesSvcKey = types.NamespacedName{
+		Name:      DefaultKubernetesSVCName,
+		Namespace: DefaultKubernetesSVCNamespace,
+	}
+)
+
 const (
 	DefaultKubernetesSVCName      = "kubernetes"
 	DefaultKubernetesSVCNamespace = "default"

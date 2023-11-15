@@ -40,7 +40,7 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 var _ syncer.Starter = &endpointsSyncer{}
 
 func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	if req.Namespace == "default" && req.Name == "kubernetes" {
+	if req.NamespacedName == specialservices.DefaultKubernetesSvcKey {
 		return true, nil
 	} else if _, ok := specialservices.Default.SpecialServicesToSync()[req.NamespacedName]; ok {
 		return true, nil

@@ -209,6 +209,13 @@ jobs:
           -f ${{ matrix.test-suite-path }}/values.yaml \
           "${extraArgs[@]}"
         continue-on-error: true
+      
+      - name: Install metrics server in host cluster
+        id: install-metrics-server
+        run: |-
+          set -x
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+          helm upgrade --install metrics-server metrics-server/metrics-server --set args={--kubelet-insecure-tls} --set containerPort=4443 -n kube-system
 
       - name: Wait until vcluster is ready
         id: wait-until-vcluster-is-ready

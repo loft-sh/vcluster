@@ -52,6 +52,12 @@ deployments:
           disabled: "false"
           instanceCreatorType: "devspace"
           instanceCreatorUID: "devspace"
+        proxy:
+          metricsServer:
+            nodes:
+              enabled: true
+            pods:
+              enabled: true
         sync:
           generic:
             clusterRole:
