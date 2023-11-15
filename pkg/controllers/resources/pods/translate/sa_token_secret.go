@@ -45,7 +45,20 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 	existingSecret, err := GetSecretIfExists(ctx, pClient, vPod.Name, vPod.Namespace)
 	if err != nil {
 		return err
-	} else if existingSecret == nil {
+	}
+
+	// check if we need to delete the secret
+	if existingSecret != nil {
+		err = pClient.Delete(ctx, existingSecret)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return err
+		}
+
+		existingSecret = nil
+	}
+
+	// secret does not exist we need to create it
+	if existingSecret == nil {
 		// create to secret with the given token
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -84,10 +97,8 @@ func SetPodAsOwner(ctx context.Context, pPod *corev1.Pod, pClient client.Client,
 	}
 
 	owners := secret.GetOwnerReferences()
-
 	if translate.Owner != nil {
 		// check if the current owner is the vcluster service
-
 		for i, owner := range owners {
 			if owner.UID == translate.Owner.GetUID() {
 				// path this with current pod as owner instead
