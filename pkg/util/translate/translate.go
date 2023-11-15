@@ -286,17 +286,14 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 			return false, errors.Wrap(err, "retrieve crd in virtual cluster")
 		}
 		for _, cond := range crdDefinition.Status.Conditions {
-			switch cond.Type {
-			case apiextensionsv1.Established:
-				if cond.Status == apiextensionsv1.ConditionTrue {
-					return true, nil
-				}
+			if cond.Type == apiextensionsv1.Established && cond.Status == apiextensionsv1.ConditionTrue {
+				return true, nil
 			}
 		}
 		return false, nil
 	})
 	if err != nil {
-		return isClusterScoped, hasStatusSubresource, fmt.Errorf("failed to wait for CRD %s to become ready: %v", groupVersionKind.String(), err)
+		return isClusterScoped, hasStatusSubresource, fmt.Errorf("failed to wait for CRD %s to become ready: %w", groupVersionKind.String(), err)
 	}
 
 	// check if crd is cluster scoped

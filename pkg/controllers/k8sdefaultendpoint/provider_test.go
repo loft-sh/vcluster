@@ -2,12 +2,13 @@ package k8sdefaultendpoint
 
 import (
 	"context"
+	"testing"
+
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"testing"
 )
 
 func TestCreateOrPatch(t *testing.T) {

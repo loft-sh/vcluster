@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"go.uber.org/atomic"
@@ -25,7 +25,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var runID = random.RandomString(12)
+var runID = random.String(12)
 
 var DefaultManager Manager = &manager{
 	clientHooks:    map[VersionKindType][]*Plugin{},
@@ -39,7 +39,7 @@ type Manager interface {
 		virtualKubeConfig *rest.Config,
 		physicalKubeConfig *rest.Config,
 		syncerConfig *clientcmdapi.Config,
-		options *context2.VirtualClusterOptions,
+		options *options.VirtualClusterOptions,
 	) error
 	SetLeader(isLeader bool)
 	ClientHooksFor(versionKindType VersionKindType) []*Plugin
@@ -110,7 +110,7 @@ func (m *manager) Start(
 	virtualKubeConfig *rest.Config,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
-	options *context2.VirtualClusterOptions,
+	options *options.VirtualClusterOptions,
 ) error {
 	// set if we have plugins
 	m.hasPlugins.Store(len(options.Plugins) > 0)
@@ -167,7 +167,7 @@ func (m *manager) Start(
 	loghelper.Infof("Plugin server listening on %s", options.PluginListenAddress)
 	lis, err := net.Listen("tcp", options.PluginListenAddress)
 	if err != nil {
-		return fmt.Errorf("failed to listen: %v", err)
+		return fmt.Errorf("failed to listen: %w", err)
 	}
 
 	var opts []grpc.ServerOption
@@ -183,7 +183,7 @@ func (m *manager) Start(
 	return m.waitForPlugins(ctx, options)
 }
 
-func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualClusterOptions) error {
+func (m *manager) waitForPlugins(ctx context.Context, options *options.VirtualClusterOptions) error {
 	for _, plugin := range options.Plugins {
 		klog.Infof("Waiting for plugin %s to register...", plugin)
 		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, time.Minute*10, true, func(context.Context) (done bool, err error) {
@@ -194,7 +194,7 @@ func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualC
 			return ok, nil
 		})
 		if err != nil {
-			return fmt.Errorf("error waiting for plugin %s: %v", plugin, err)
+			return fmt.Errorf("error waiting for plugin %s: %w", plugin, err)
 		}
 		klog.Infof("Plugin %s has successfully registered", plugin)
 	}
@@ -202,14 +202,14 @@ func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualC
 	return nil
 }
 
-func (m *manager) IsLeader(ctx context.Context, empty *remote.Empty) (*remote.LeaderInfo, error) {
+func (m *manager) IsLeader(context.Context, *remote.Empty) (*remote.LeaderInfo, error) {
 	return &remote.LeaderInfo{
 		Leader: m.isLeader.Load(),
 		RunID:  runID,
 	}, nil
 }
 
-func (m *manager) GetContext(ctx context.Context, empty *remote.Empty) (*remote.Context, error) {
+func (m *manager) GetContext(context.Context, *remote.Empty) (*remote.Context, error) {
 	return &remote.Context{
 		VirtualClusterConfig:  m.virtualKubeConfig,
 		PhysicalClusterConfig: m.physicalKubeConfig,
@@ -220,7 +220,7 @@ func (m *manager) GetContext(ctx context.Context, empty *remote.Empty) (*remote.
 	}, nil
 }
 
-func (m *manager) RegisterPlugin(ctx context.Context, info *remote.RegisterPluginRequest) (*remote.RegisterPluginResult, error) {
+func (m *manager) RegisterPlugin(_ context.Context, info *remote.RegisterPluginRequest) (*remote.RegisterPluginResult, error) {
 	if info != nil && info.Name != "" {
 		klog.Infof("Registering plugin %s", info.Name)
 
@@ -252,7 +252,7 @@ func (m *manager) RegisterPlugin(ctx context.Context, info *remote.RegisterPlugi
 }
 
 // Register is deprecated and will be removed in future
-func (m *manager) Register(ctx context.Context, info *remote.PluginInfo) (*remote.Context, error) {
+func (m *manager) Register(_ context.Context, info *remote.PluginInfo) (*remote.Context, error) {
 	if info != nil && info.Name != "" {
 		klog.Infof("Registering plugin %s", info.Name)
 

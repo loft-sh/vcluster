@@ -11,9 +11,9 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -31,7 +31,7 @@ var (
 	FakeNodesVersion = "v1.19.1"
 )
 
-func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.NodeServiceProvider) (syncer.Object, error) {
+func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.Provider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
 		nodeServiceProvider: nodeService,
 		fakeKubeletIPs:      ctx.Options.FakeKubeletIPs,
@@ -39,7 +39,7 @@ func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.Nod
 }
 
 type fakeNodeSyncer struct {
-	nodeServiceProvider nodeservice.NodeServiceProvider
+	nodeServiceProvider nodeservice.Provider
 	fakeKubeletIPs      bool
 }
 
@@ -140,15 +140,14 @@ func (r *fakeNodeSyncer) nodeNeeded(ctx *synccontext.SyncContext, nodeName strin
 
 // this is not a real guid, but it doesn't really matter because it should just look right and not be an actual guid
 func newGUID() string {
-	return random.RandomString(8) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(4) + "-" + random.RandomString(12)
+	return random.String(8) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(12)
 }
 
 func CreateFakeNode(ctx context.Context,
 	fakeKubeletIPs bool,
-	nodeServiceProvider nodeservice.NodeServiceProvider,
+	nodeServiceProvider nodeservice.Provider,
 	virtualClient client.Client,
 	name string) error {
-
 	nodeServiceProvider.Lock()
 	defer nodeServiceProvider.Unlock()
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
@@ -25,7 +25,7 @@ func (s *csistoragecapacitySyncer) Resource() client.Object {
 	return &storagev1.CSIStorageCapacity{}
 }
 
-func (s *csistoragecapacitySyncer) IsManaged(ctx context.Context, obj client.Object) (bool, error) {
+func (s *csistoragecapacitySyncer) IsManaged(context.Context, client.Object) (bool, error) {
 	return true, nil
 }
 
@@ -36,7 +36,7 @@ func (s *csistoragecapacitySyncer) RegisterIndices(ctx *synccontext.RegisterCont
 }
 
 // translate namespace
-func (s *csistoragecapacitySyncer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
+func (s *csistoragecapacitySyncer) PhysicalToVirtual(_ context.Context, pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translate.SafeConcatName(pObj.GetName(), "x", pObj.GetNamespace()), Namespace: "kube-system"}
 }
 func (s *csistoragecapacitySyncer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {

@@ -1,15 +1,15 @@
 package ingressclasses
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	networkingv1 "k8s.io/api/networking/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(*synccontext.RegisterContext) (syncer.Object, error) {
 	return &ingressClassSyncer{
 		Translator: translator.NewMirrorPhysicalTranslator("ingressclass", &networkingv1.IngressClass{}),
 	}, nil

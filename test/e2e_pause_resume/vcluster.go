@@ -7,7 +7,7 @@ import (
 
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -47,7 +47,7 @@ var _ = ginkgo.Describe("Pause Resume Vcluster", func() {
 				// rp, running pod counter
 				rp := 0
 				for _, pod := range newPods.Items {
-					if pod.Status.Phase == v1.PodRunning {
+					if pod.Status.Phase == corev1.PodRunning {
 						rp = rp + 1
 					}
 				}

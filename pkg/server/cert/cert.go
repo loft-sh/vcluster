@@ -11,12 +11,30 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byte, clusterDomain string, SANs []string) ([]byte, []byte, bool, error) {
+func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byte, clusterDomain string, SANs []string, k8sDistro bool) ([]byte, []byte, bool, error) {
 	regen := false
 	commonName := "kube-apiserver"
 	extKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+
+	dnsNames := []string{
+		"kubernetes.default.svc." + clusterDomain,
+		"kubernetes.default.svc",
+		"kubernetes.default",
+		"kubernetes",
+		"localhost",
+	}
+
+	if k8sDistro {
+		dnsNames = append(dnsNames, []string{
+			"metrics-server.kube-system.svc." + clusterDomain,
+			"metrics-server.kube-system.svc",
+			"metrics-server.kube-system",
+			"metrics-server",
+		}...)
+	}
+
 	altNames := &certhelper.AltNames{
-		DNSNames: []string{"kubernetes.default.svc." + clusterDomain, "kubernetes.default.svc", "kubernetes.default", "kubernetes", "localhost"},
+		DNSNames: dnsNames,
 		IPs:      []net.IP{net.ParseIP("127.0.0.1")},
 	}
 
@@ -63,7 +81,7 @@ func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byt
 	if regen || len(currentKey) == 0 {
 		privateKey, err = certhelper.MakeEllipticPrivateKeyPEM()
 		if err != nil {
-			return nil, nil, false, fmt.Errorf("error generating key: %v", err)
+			return nil, nil, false, fmt.Errorf("error generating key: %w", err)
 		}
 	}
 	key, err := certhelper.ParsePrivateKeyPEM(privateKey)

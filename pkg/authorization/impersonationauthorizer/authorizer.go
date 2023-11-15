@@ -5,7 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 
-	authv1 "k8s.io/api/authorization/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,10 +27,10 @@ func (i *impersonationAuthorizer) Authorize(ctx context.Context, a authorizer.At
 	}
 
 	// check if request is allowed in the target cluster
-	accessReview := &authv1.SubjectAccessReview{
+	accessReview := &authorizationv1.SubjectAccessReview{
 		ObjectMeta: metav1.ObjectMeta{},
-		Spec: authv1.SubjectAccessReviewSpec{
-			ResourceAttributes: &authv1.ResourceAttributes{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
 				Namespace:   a.GetNamespace(),
 				Verb:        a.GetVerb(),
 				Group:       a.GetAPIGroup(),

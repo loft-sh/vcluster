@@ -1,12 +1,13 @@
 package csistoragecapacities
 
 import (
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -21,7 +22,6 @@ import (
 const kind = "CSIStorageCapacity"
 
 func TestSyncHostStorageClass(t *testing.T) {
-
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      "test-csistoragecapacity",
 		Namespace: "test",

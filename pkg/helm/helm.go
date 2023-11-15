@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -24,8 +24,8 @@ type UpgradeOptions struct {
 	Version         string
 	Values          string
 	ValuesFiles     []string
-	SetValues       map[string]string
-	SetStringValues map[string]string
+	SetValues       []string
+	SetStringValues []string
 
 	CreateNamespace bool
 
@@ -95,6 +95,16 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	args := []string{command, name}
 	if options.Path != "" {
 		args = append(args, options.Path)
+	} else {
+		if options.Chart != "" {
+			args = append(args, options.Chart)
+		}
+		if options.Repo != "" {
+			args = append(args, "--repo", options.Repo)
+		}
+		if options.Version != "" {
+			args = append(args, "--version", options.Version)
+		}
 	}
 
 	if options.CreateNamespace {
@@ -140,37 +150,16 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	}
 
 	// Set values
-	if options.SetValues != nil && len(options.SetValues) > 0 {
-		args = append(args, "--set")
-
-		setString := ""
-		for key, value := range options.SetValues {
-			if setString != "" {
-				setString += ","
-			}
-
-			setString += key + "=" + value
-		}
-
-		args = append(args, setString)
+	for _, value := range options.SetValues {
+		args = append(args, "--set", value)
 	}
 
 	// Set string values
-	if options.SetStringValues != nil && len(options.SetStringValues) > 0 {
-		args = append(args, "--set-string")
-
-		setString := ""
-		for key, value := range options.SetStringValues {
-			if setString != "" {
-				setString += ","
-			}
-
-			setString += key + "=" + value
-		}
-
-		args = append(args, setString)
+	for _, value := range options.SetStringValues {
+		args = append(args, "--set-string", value)
 	}
 
+	// force
 	if options.Force {
 		args = append(args, "--force")
 	}
@@ -196,7 +185,7 @@ func (c *client) pull(ctx context.Context, name string, options UpgradeOptions) 
 		// login
 		err = c.login(ctx, options)
 		if err != nil {
-			return fmt.Errorf("error login to registry: %s", err)
+			return fmt.Errorf("error login to registry: %w", err)
 		}
 	}
 	defer c.logout(ctx, options)
@@ -223,7 +212,6 @@ func (c *client) pull(ctx context.Context, name string, options UpgradeOptions) 
 }
 
 func (c *client) login(ctx context.Context, options UpgradeOptions) error {
-
 	url, err := url.Parse(options.Repo)
 	if err != nil {
 		return fmt.Errorf("error login in, repo is not a valid URL: %s", options.Repo)
@@ -259,7 +247,7 @@ func (c *client) execute(ctx context.Context, args []string, operation string, w
 
 	output, err := cmd.CombinedOutput()
 
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return fmt.Errorf(errorTimeout, string(output), operation)
 	}
 	if err != nil {

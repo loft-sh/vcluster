@@ -4,21 +4,23 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-type PodSecurityReconciler struct {
+type Reconciler struct {
 	client.Client
 	PodSecurityStandard string
 	Log                 loghelper.Logger
 }
 
-func (r *PodSecurityReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	client := r.Client
 	ns := &corev1.Namespace{}
 	err := client.Get(ctx, req.NamespacedName, ns)
@@ -51,8 +53,11 @@ func (r *PodSecurityReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 // SetupWithManager adds the controller to the manager
-func (r *PodSecurityReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{
+			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
+		}).
 		Named("pod_security").
 		For(&corev1.Namespace{}).
 		Complete(r)

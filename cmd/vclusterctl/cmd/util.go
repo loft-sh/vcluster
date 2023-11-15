@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
+	loftkubeconfig "github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/podprinter"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +37,40 @@ var CriticalStatus = map[string]bool{
 
 var SortPodsByNewest = func(pods []corev1.Pod, i, j int) bool {
 	return pods[i].CreationTimestamp.Unix() > pods[j].CreationTimestamp.Unix()
+}
+
+// GetProKubeConfig builds a pro kube config from options and client
+func GetProKubeConfig(options loftkubeconfig.ContextOptions) (*api.Config, error) {
+	contextName := options.Name
+	cluster := api.NewCluster()
+	cluster.Server = options.Server
+	cluster.CertificateAuthorityData = options.CaData
+	cluster.InsecureSkipTLSVerify = options.InsecureSkipTLSVerify
+
+	authInfo := api.NewAuthInfo()
+	if options.Token != "" || options.ClientCertificateData != nil || options.ClientKeyData != nil {
+		authInfo.Token = options.Token
+		authInfo.ClientKeyData = options.ClientKeyData
+		authInfo.ClientCertificateData = options.ClientCertificateData
+	}
+
+	config := api.NewConfig()
+	config.Clusters[contextName] = cluster
+	config.AuthInfos[contextName] = authInfo
+
+	// Update kube context
+	kubeContext := api.NewContext()
+	kubeContext.Cluster = contextName
+	kubeContext.AuthInfo = contextName
+	kubeContext.Namespace = options.CurrentNamespace
+
+	config.Contexts[contextName] = kubeContext
+	config.CurrentContext = contextName
+
+	// set kind & version
+	config.APIVersion = "v1"
+	config.Kind = "Config"
+	return config, nil
 }
 
 // GetKubeConfig attempts to read the kubeconfig from the default Secret and

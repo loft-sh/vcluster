@@ -35,7 +35,7 @@ func NewDirectApplier() *DirectApplier {
 	return &DirectApplier{}
 }
 
-func (d *DirectApplier) Apply(ctx context.Context, opt ApplierOptions) error {
+func (d *DirectApplier) Apply(_ context.Context, opt Options) error {
 	ioStreams := genericclioptions.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,

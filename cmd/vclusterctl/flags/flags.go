@@ -11,6 +11,7 @@ type GlobalFlags struct {
 	Config    string
 	Context   string
 	Namespace string
+	LogOutput string
 }
 
 // SetGlobalFlags applies the global flags
@@ -21,6 +22,7 @@ func SetGlobalFlags(flags *flag.FlagSet) *GlobalFlags {
 	flags.StringVar(&globalFlags.Context, "context", "", "The kubernetes config context to use")
 	flags.StringVarP(&globalFlags.Namespace, "namespace", "n", "", "The kubernetes namespace to use")
 	flags.BoolVarP(&globalFlags.Silent, "silent", "s", false, "Run in silent mode and prevents any vcluster log output except panics & fatals")
+	flags.StringVar(&globalFlags.LogOutput, "log-output", "plain", "The log format to use. Can be either plain, raw or json")
 
 	return globalFlags
 }

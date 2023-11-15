@@ -1,18 +1,18 @@
 package csinodes
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &csinodeSyncer{
 		Translator:    translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}),
 		virtualClient: ctx.VirtualManager.GetClient(),
@@ -24,14 +24,14 @@ type csinodeSyncer struct {
 	virtualClient client.Client
 }
 
-var _ syncer.UpSyncer = &csinodeSyncer{}
-var _ syncer.Syncer = &csinodeSyncer{}
+var _ syncertypes.UpSyncer = &csinodeSyncer{}
+var _ syncertypes.Syncer = &csinodeSyncer{}
 
 func (s *csinodeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// look up matching node name, don't sync if not found
 	node := &corev1.Node{}
 	err := s.virtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.GetName()}, node)
-	if errors.IsNotFound(err) {
+	if kerrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, err
@@ -45,7 +45,7 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	// look up matching node name, delete csinode if not found
 	node := &corev1.Node{}
 	err := s.virtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.GetName()}, node)
-	if errors.IsNotFound(err) {
+	if kerrors.IsNotFound(err) {
 		ctx.Log.Infof("delete virtual CSINode %s, because corresponding node object is missing", vObj.GetName())
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 	} else if err != nil {

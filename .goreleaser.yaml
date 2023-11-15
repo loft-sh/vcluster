@@ -76,18 +76,16 @@ archives:
     format: binary
     builds:
       - vcluster-cli
-    # this name template makes the OS and Arch compatible with the results of uname.
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
     builds_info:
       group: root
       owner: root
-    files:
-      - README.md
-      - LICENSE
 
 sboms:
-  - id: archive_sbom
-    artifacts: archive
+  - id: vcluster_sbom
+    artifacts: binary
+    documents:
+      - '{{ if eq .ArtifactName "vcluster" }}syncer-{{ .Os }}-{{ .Arch }}.sbom{{ else }}{{ .ArtifactName }}.sbom{{ end }}'
 
 checksum:
   name_template: "checksums.txt"
@@ -136,8 +134,9 @@ brews:
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
-    extra_install: |
-      generate_completions_from_executable(bin/"vcluster", "completion")
+    conflicts:
+      - vcluster
+      - loft-sh/tap/vcluster-experimental
     test: |
       help_output = "vcluster root command"
       assert_match help_output, shell_output("#{bin}/vcluster --help")
@@ -145,6 +144,28 @@ brews:
       name: loft-bot
       email: 73976634+loft-bot@users.noreply.github.com
     skip_upload: auto
+  - name: vcluster-experimental
+    ids:
+      - vcluster_cli_archives
+    dependencies:
+      - name: helm
+      - name: kubernetes-cli
+    repository:
+      owner: loft-sh
+      name: homebrew-tap
+    folder: Formula
+    homepage: https://www.vcluster.com
+    license: Apache-2.0
+    description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
+    conflicts:
+      - vcluster
+      - loft-sh/tap/vcluster
+    test: |
+      help_output = "vcluster root command"
+      assert_match help_output, shell_output("#{bin}/vcluster --help")
+    commit_author:
+      name: loft-bot
+      email: 73976634+loft-bot@users.noreply.github.com
 
 dockers:
   # --- Vcluster images ---

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,7 +94,6 @@ func relevantObjectsFromPod(pod *corev1.Pod) []relevantObject {
 				Name: v.PersistentVolumeClaim.ClaimName,
 			})
 		}
-
 	}
 	return objects
 }

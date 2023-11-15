@@ -4,20 +4,21 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strings"
 )
 
 func Decode(data []byte) ([]*dto.MetricFamily, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(strings.NewReader(string(data)))
 	if err != nil {
-		return nil, fmt.Errorf("reading text format failed: %v", err)
+		return nil, fmt.Errorf("reading text format failed: %w", err)
 	}
 
 	// sort metrics alphabetically

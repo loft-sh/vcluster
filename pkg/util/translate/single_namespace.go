@@ -31,10 +31,14 @@ func (s *singleNamespace) SingleNamespaceTarget() bool {
 
 // PhysicalName returns the physical name of the name / namespace resource
 func (s *singleNamespace) PhysicalName(name, namespace string) string {
+	return SingleNamespacePhysicalName(name, namespace, Suffix)
+}
+
+func SingleNamespacePhysicalName(name, namespace, suffix string) string {
 	if name == "" {
 		return ""
 	}
-	return SafeConcatName(name, "x", namespace, "x", Suffix)
+	return SafeConcatName(name, "x", namespace, "x", suffix)
 }
 
 func (s *singleNamespace) objectPhysicalName(obj runtime.Object) string {
@@ -97,7 +101,7 @@ func (s *singleNamespace) convertNamespacedLabelKey(key string) string {
 	return SafeConcatName(LabelPrefix, s.targetNamespace, "x", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
-func (s *singleNamespace) PhysicalNamespace(vNamespace string) string {
+func (s *singleNamespace) PhysicalNamespace(_ string) string {
 	return s.targetNamespace
 }
 
@@ -278,10 +282,10 @@ func (s *singleNamespace) SetupMetadataWithName(vObj client.Object, translator P
 }
 
 func (s *singleNamespace) TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	return TranslateLabelSelectorWithPrefix(LabelPrefix, labelSelector)
+	return LabelSelectorWithPrefix(LabelPrefix, labelSelector)
 }
 
-func TranslateLabelSelectorWithPrefix(labelPrefix string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+func LabelSelectorWithPrefix(labelPrefix string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
 	if labelSelector == nil {
 		return nil
 	}

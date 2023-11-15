@@ -3,9 +3,11 @@ package syncer
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -13,7 +15,7 @@ import (
 	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-func RegisterFakeSyncer(ctx *synccontext.RegisterContext, syncer FakeSyncer) error {
+func RegisterFakeSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.FakeSyncer) error {
 	controller := &fakeSyncer{
 		syncer:         syncer,
 		log:            loghelper.New(syncer.Name()),
@@ -29,7 +31,7 @@ func RegisterFakeSyncer(ctx *synccontext.RegisterContext, syncer FakeSyncer) err
 }
 
 type fakeSyncer struct {
-	syncer FakeSyncer
+	syncer syncertypes.FakeSyncer
 	log    loghelper.Logger
 
 	physicalClient client.Client
@@ -52,7 +54,7 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// check if we should skip reconcile
-	lifecycle, ok := r.syncer.(Starter)
+	lifecycle, ok := r.syncer.(syncertypes.Starter)
 	if ok {
 		skip, err := lifecycle.ReconcileStart(syncContext, req)
 		defer lifecycle.ReconcileEnd()
@@ -85,11 +87,12 @@ func (r *fakeSyncer) Register(ctx *synccontext.RegisterContext) error {
 	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
 		WithOptions(controller2.Options{
 			MaxConcurrentReconciles: 10,
+			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 		}).
 		Named(r.syncer.Name()).
 		For(r.syncer.Resource())
 	var err error
-	modifier, ok := r.syncer.(ControllerModifier)
+	modifier, ok := r.syncer.(syncertypes.ControllerModifier)
 	if ok {
 		controller, err = modifier.ModifyController(ctx, controller)
 		if err != nil {

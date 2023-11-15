@@ -4,28 +4,87 @@ run:
 linters:
   disable-all: true
   enable:
-    - deadcode
+    - asasalint
+    - asciicheck
+    - bidichk
+    - decorder
+    - dupl
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gofmt
+    - goimports
     - gosimple
     - govet
+    - grouper
+    - importas
     - ineffassign
+    - makezero
     - misspell
-    - unused
-    - varcheck
-    - staticcheck
-    - errcheck
-    # - goimports
-    - dupl
     - nakedret
+    - promlinter
+    - revive
+    - staticcheck
     - stylecheck
-    # - gofmt
-    # - golint
-    # - structcheck
+    - tagalign
+    - typecheck
+    - unconvert
+    - unused
+    - usestdlibvars
+    - whitespace
+
+    # next linters to be enabled:
+    # - prealloc
+    # - nilnil
+    # - errchkjson
+    # - gocritic
+
+    # linters to be enabled in the distant future:
+    # - cyclop
+    # - dupl
+    # - funlen
+    # - interfacebloat
+    # - predeclared
+    # - stylecheck
+    # - wrapcheck
 
 linters-settings:
   gofmt:
     simplify: true
   dupl:
     threshold: 400
+
+  exhaustive:
+    check:
+      - switch
+      - map
+    ignore-enum-types: "ResourceName|Atom"
+    default-signifies-exhaustive: true
+
+  importas:
+    no-unaliased: true
+    alias:
+      # Kubernetes
+      - pkg: k8s\.io/api/(\w+)/(v[\w\d]+)
+        alias: $1$2
+      - pkg: k8s\.io/apimachinery/pkg/api/(\w+)/(v[\w\d]+)
+        alias: $1$2
+      - pkg: k8s.io/apimachinery/pkg/api/errors
+        alias: kerrors
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/internalversion
+        alias: metainternalversion
+
+  tagalign:
+    order:
+      - json
+      - yaml
+      - xml
+      - form
 
 issues:
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.

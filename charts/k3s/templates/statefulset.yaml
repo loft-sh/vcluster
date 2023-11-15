@@ -1,7 +1,6 @@
 {{- if not .Values.headless }}
-{{- $kind := include "vcluster.k3s.workloadKind" . -}}
 apiVersion: apps/v1
-kind: {{ $kind }}
+kind: StatefulSet
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -19,26 +18,18 @@ metadata:
 {{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
-{{- if (eq $kind "StatefulSet") }}
   serviceName: {{ .Release.Name }}-headless
-{{- end }}
+  {{- if .Values.autoDeletePersistentVolumeClaims }}
+  {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+  {{- end }}
+  {{- end }}
   replicas: {{ .Values.replicas }}
-{{- if (and (eq $kind "Deployment") (.Values.enableHA)) }}
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-    {{- if (eq (int .Values.replicas) 1) }}
-      maxUnavailable: 0
-    {{- else }}
-      maxUnavailable: 1
-    {{- end }}
-    type: RollingUpdate
-{{- end }}
   selector:
     matchLabels:
       app: vcluster
       release: {{ .Release.Name }}
-  {{- if (eq $kind "StatefulSet") }}
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
@@ -54,7 +45,6 @@ spec:
         resources:
           requests:
             storage: {{ .Values.storage.size }}
-  {{- end }}
   {{- end }}
   template:
     metadata:
@@ -75,7 +65,7 @@ spec:
       {{- if .Values.affinity }}
       affinity:
 {{ toYaml .Values.affinity | indent 8 }}
-      {{- else if .Values.enableHA }}
+      {{- else if (gt (int .Values.replicas) 1) }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -116,21 +106,25 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
-      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
         - name: helm-cache
+          emptyDir: {}
+        - name: k3s-binary
           emptyDir: {}
         - name: tmp
           emptyDir: {}
-      {{- end }}
         - name: config
           emptyDir: {}
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
-      {{- if .Values.coredns.enabled }}
+      {{- if and .Values.coredns.enabled (not .Values.coredns.integrated) }}
         - name: coredns
           configMap:
             name: {{ .Release.Name }}-coredns
+      {{- else if .Values.coredns.integrated }}
+        - name: coredns
+          configMap:
+            name: {{ .Release.Name }}-dns
       {{- end }}
         - name: custom-config-volume
           configMap:
@@ -139,6 +133,12 @@ spec:
       {{- if not .Values.storage.persistence }}
         - name: data
           emptyDir: {}
+      {{- end }}
+      {{- if and .Values.noopSyncer.enabled .Values.noopSyncer.secret }}
+        - name: noopsyncer-cluster-certs
+          secret:
+            secretName: {{ .Values.noopSyncer.secret }}
+            optional: true
       {{- end }}
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
@@ -150,8 +150,8 @@ spec:
 {{ toYaml . | indent 8 }}
       {{- end }}
       {{- end }}
-      containers:
-      {{- if not .Values.vcluster.disabled }}
+      {{- if and (not .Values.vcluster.disabled) (not .Values.noopSyncer.enabled) }}
+      initContainers:
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
         name: vcluster
         # k3s has a problem running as pid 1 and disabled agents on cgroupv2
@@ -161,64 +161,29 @@ spec:
           - /bin/sh
         args:
           - -c
-          - {{ range $f := .Values.vcluster.command -}}
-            {{ $f }}
-            {{- end }}
-          {{- range $f := .Values.vcluster.baseArgs }}
-            {{ $f }}
-          {{- end }}
-          {{- if not .Values.sync.nodes.enableScheduler }}
-            --disable-scheduler
-            --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl
-            --kube-apiserver-arg=endpoint-reconciler-type=none
-          {{- else }}
-            --kube-controller-manager-arg=controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl
-            --kube-apiserver-arg=endpoint-reconciler-type=none
-            --kube-controller-manager-arg=node-monitor-grace-period=1h
-            --kube-controller-manager-arg=node-monitor-period=1h
-          {{- end }}
-          {{- if .Values.serviceCIDR }}
-            --service-cidr={{ .Values.serviceCIDR }}
-          {{- else }}
-            --service-cidr=$(SERVICE_CIDR)
-          {{- end }}
-          {{- range $f := .Values.vcluster.extraArgs }}
-            {{ $f }}
-          {{- end }}
-            && true
-        env:
-          {{- if .Values.vcluster.env }}
-{{ toYaml .Values.vcluster.env | indent 10 }}
-          {{- end }}
-          {{- if .Values.enableHA }}
-          - name: K3S_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: {{ include "vcluster.k3s.tokenSecretName" . | quote }}
-                key: {{ include "vcluster.k3s.serverTokenKey" . | quote }}
-          {{- end }}
-          {{- if not .Values.serviceCIDR }}
-          - name: SERVICE_CIDR
-            valueFrom:
-              configMapKeyRef:
-                name: "vc-cidr-{{ .Release.Name }}"
-                key: cidr
-          {{- end }}
+          - "cp /bin/k3s /k3s-binary/k3s"
+        {{- if .Values.vcluster.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.vcluster.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
-          - name: config
-            mountPath: /etc/rancher
-{{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
+          - name: k3s-binary
+            mountPath: /k3s-binary
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
       {{- end }}
+      containers:
       {{- if not .Values.syncer.disabled }}
       - name: syncer
         {{- if .Values.syncer.image }}
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
+        {{- if .Values.pro }}
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster-pro:{{ .Chart.Version }}"
+        {{- else }}
         image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
         {{- end }}
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
@@ -239,6 +204,12 @@ spec:
           - --plugins={{ $key }}
           {{- end }}
           {{- end }}
+          {{- if .Values.pro }}
+          {{- if .Values.embeddedEtcd.enabled }}
+          - --etcd-embedded
+          - --etcd-replicas={{ .Values.replicas }}
+          {{- end }}
+          {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
           {{- end }}
@@ -248,7 +219,7 @@ spec:
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
-          {{- if .Values.enableHA }}
+          {{- if (gt (int .Values.replicas) 1) }}
           - --leader-elect=true
           {{- else }}
           - --leader-elect=false
@@ -280,6 +251,18 @@ spec:
           {{- end }}
           {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
           - --proxy-metrics-server=true
+          {{- end }}
+          {{- if .Values.coredns.integrated }}
+          - --integrated-coredns=true
+          {{- end }}
+          {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
+          - --use-coredns-plugin=true
+          {{- end }}
+          {{- if .Values.noopSyncer.enabled }}
+          - --noop-syncer=true
+          {{- if .Values.noopSyncer.synck8sService }}
+          - --sync-k8s-service=true
+          {{- end }}
           {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
@@ -313,16 +296,57 @@ spec:
           periodSeconds: 2
         {{- end }}
         {{- end }}
+        {{- if .Values.syncer.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         env:
+          {{- if .Values.vcluster.env }}
+{{ toYaml .Values.vcluster.env | indent 10 }}
+          {{- end }}
           {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
           {{- end }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
           - name: POD_IP
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+          - name: VCLUSTER_COMMAND
+            value: |-
+              command:
+              {{ range $f := .Values.vcluster.command }}
+              - {{ $f }}
+              {{- end }}
+              args:
+              {{- range $f := .Values.vcluster.baseArgs }}
+              - {{ $f }}
+              {{- end }}
+              {{- if not .Values.sync.nodes.enableScheduler }}
+              - --disable-scheduler
+              - --kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl
+              - --kube-apiserver-arg=endpoint-reconciler-type=none
+              {{- else }}
+              - --kube-controller-manager-arg=controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl
+              - --kube-apiserver-arg=endpoint-reconciler-type=none
+              - --kube-controller-manager-arg=node-monitor-grace-period=1h
+              - --kube-controller-manager-arg=node-monitor-period=1h
+              {{- end }}
+              {{- if .Values.pro }}
+              {{- if .Values.embeddedEtcd.enabled }}
+              - --datastore-endpoint=https://localhost:2379
+              - --datastore-cafile=/data/pki/etcd/ca.crt
+              - --datastore-certfile=/data/pki/apiserver-etcd-client.crt
+              - --datastore-keyfile=/data/pki/apiserver-etcd-client.key
+              {{- end }}
+              {{- end }}
+              {{- range $f := .Values.vcluster.extraArgs }}
+              - {{ $f }}
+              {{- end }}
           {{- if eq (.Values.replicas | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
@@ -337,13 +361,15 @@ spec:
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
         volumeMounts:
-        {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
+          - name: k3s-binary
+            mountPath: /k3s-binary
           - name: helm-cache
             mountPath: /.cache/helm
+          - name: config
+            mountPath: /etc/rancher
           - name: tmp
             mountPath: /tmp
-        {{- end }}
-        {{- if or .Values.coredns.enabled }}
+        {{- if or .Values.coredns.enabled .Values.coredns.integrated }}
           - name: coredns
             mountPath: /manifests/coredns
             readOnly: true
@@ -351,9 +377,32 @@ spec:
             mountPath: /etc/coredns/custom
             readOnly: true
         {{- end }}
+        {{- if and .Values.noopSyncer.enabled .Values.noopSyncer.secret }}
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/tls/request-header-ca.crt
+            subPath: requestHeaderCaCert
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/tls/client-ca.crt
+            subPath: clientCaCert
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/tls/server-ca.crt
+            subPath: serverCaCert
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/tls/server-ca.key
+            subPath: serverCaKey
+          - name: noopsyncer-cluster-certs
+            mountPath: /data/server/cred/admin.kubeconfig
+            subPath: kubeConfig
+        {{- end }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         {{- if .Values.syncer.extraVolumeMounts }}
 {{ toYaml .Values.syncer.extraVolumeMounts | indent 10 }}
+        {{- end }}
+        {{- if .Values.vcluster.volumeMounts }}
+{{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
+        {{- end }}
+        {{- if .Values.vcluster.extraVolumeMounts }}
+{{ toYaml .Values.vcluster.extraVolumeMounts | indent 10 }}
         {{- end }}
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}

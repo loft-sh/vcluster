@@ -1,9 +1,10 @@
 package endpoints
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,7 +40,9 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 var _ syncer.Starter = &endpointsSyncer{}
 
 func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	if req.Namespace == "default" && req.Name == "kubernetes" {
+	if req.NamespacedName == specialservices.DefaultKubernetesSvcKey {
+		return true, nil
+	} else if _, ok := specialservices.Default.SpecialServicesToSync()[req.NamespacedName]; ok {
 		return true, nil
 	}
 
@@ -71,7 +74,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 			// Deleting the endpoints is necessary here as some clusters would not correctly maintain
 			// the endpoints if they were managed by us previously and now should be managed by Kubernetes.
 			// In the worst case we would end up in a state where we have multiple endpoint slices pointing
-			// to the same endpoints resulting in wrong DNS and cluster networking. Hence deleting the previously
+			// to the same endpoints resulting in wrong DNS and cluster networking. Hence, deleting the previously
 			// managed endpoints signals the Kubernetes controller to recreate the endpoints from the selector.
 			klog.Infof("Refresh endpoints in physical cluster because they shouldn't be managed by vcluster anymore")
 			err = ctx.PhysicalClient.Delete(ctx.Context, endpoints)

@@ -1,15 +1,15 @@
 package csidrivers
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &csidriverSyncer{
 		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}),
 	}, nil

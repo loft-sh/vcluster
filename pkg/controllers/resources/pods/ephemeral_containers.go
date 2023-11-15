@@ -3,9 +3,11 @@ package pods
 import (
 	"encoding/json"
 	"fmt"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,7 +20,7 @@ func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient k
 	if len(virtualPod.Spec.EphemeralContainers) > 0 {
 		podJS, err := json.Marshal(physicalPod)
 		if err != nil {
-			return fmt.Errorf("error creating JSON for physicalPod: %v", err)
+			return fmt.Errorf("error creating JSON for physicalPod: %w", err)
 		}
 		debugPod, debugContainer, err := getEphemeralContainer(physicalPod, virtualPod)
 		if err != nil {
@@ -28,12 +30,12 @@ func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient k
 
 		debugJS, err := json.Marshal(debugPod)
 		if err != nil {
-			return fmt.Errorf("error creating JSON for debug container: %v", err)
+			return fmt.Errorf("error creating JSON for debug container: %w", err)
 		}
 
 		patch, err := strategicpatch.CreateTwoWayMergePatch(podJS, debugJS, physicalPod)
 		if err != nil {
-			return fmt.Errorf("error creating patch to add debug container: %v", err)
+			return fmt.Errorf("error creating patch to add debug container: %w", err)
 		}
 		ctx.Log.Debugf("generated strategic merge patch for debug container: %s", patch)
 
@@ -42,8 +44,8 @@ func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient k
 		if err != nil {
 			// The apiserver will return a 404 when the EphemeralContainers feature is disabled because the `/ephemeralcontainers` subresource
 			// is missing. Unlike the 404 returned by a missing physicalPod, the status details will be empty.
-			if serr, ok := err.(*errors.StatusError); ok && serr.Status().Reason == metav1.StatusReasonNotFound && serr.ErrStatus.Details.Name == "" {
-				return fmt.Errorf("ephemeral containers are disabled for this cluster (error from server: %q)", err)
+			if serr, ok := lo.ErrorsAs[*kerrors.StatusError](err); ok && serr.Status().Reason == metav1.StatusReasonNotFound && serr.ErrStatus.Details.Name == "" {
+				return fmt.Errorf("ephemeral containers are disabled for this cluster (error from server: %w)", err)
 			}
 			// The Kind used for the /ephemeralcontainers subresource changed in 1.22. When presented with an unexpected
 			// Kind the api server will respond with a not-registered error. When this happens we can optimistically try
@@ -70,7 +72,7 @@ func addEphemeralContainerLegacy(ctx *synccontext.SyncContext, physicalClusterCl
 		"value": debugContainer,
 	}})
 	if err != nil {
-		return fmt.Errorf("error creating JSON 6902 patch for old /ephemeralcontainers API: %s", err)
+		return fmt.Errorf("error creating JSON 6902 patch for old /ephemeralcontainers API: %w", err)
 	}
 
 	result := physicalClusterClient.CoreV1().RESTClient().Patch(types.JSONPatchType).

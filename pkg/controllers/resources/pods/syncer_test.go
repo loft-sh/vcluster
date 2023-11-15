@@ -7,6 +7,8 @@ import (
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/maps"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
@@ -20,6 +22,8 @@ import (
 
 func TestSync(t *testing.T) {
 	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+
+	specialservices.SetDefault(&options.VirtualClusterOptions{})
 
 	PodLogsVolumeName := "pod-logs"
 	LogsVolumeName := "logs"
@@ -91,7 +95,7 @@ func TestSync(t *testing.T) {
 		Namespace: "test",
 		Annotations: map[string]string{
 			podtranslate.ClusterAutoScalerAnnotation:  "false",
-			podtranslate.LabelsAnnotation:             "",
+			podtranslate.VClusterLabelsAnnotation:     "",
 			podtranslate.NameAnnotation:               vObjectMeta.Name,
 			podtranslate.NamespaceAnnotation:          vObjectMeta.Namespace,
 			translate.NameAnnotation:                  vObjectMeta.Name,
@@ -235,7 +239,7 @@ func TestSync(t *testing.T) {
 
 			Annotations: map[string]string{
 				podtranslate.ClusterAutoScalerAnnotation:  "false",
-				podtranslate.LabelsAnnotation:             "",
+				podtranslate.VClusterLabelsAnnotation:     "",
 				podtranslate.NameAnnotation:               vHostPathPod.Name,
 				podtranslate.NamespaceAnnotation:          vHostPathPod.Namespace,
 				translate.NameAnnotation:                  vHostPathPod.Name,
@@ -415,7 +419,7 @@ func TestSync(t *testing.T) {
 	pPodWithLabels := pPodBase.DeepCopy()
 	maps.Copy(pPodWithLabels.Labels, testLabels)
 	maps.Copy(pPodWithLabels.Labels, convertLabelKeyWithPrefix(testLabels))
-	pPodWithLabels.Annotations[podtranslate.LabelsAnnotation] = podtranslate.TranslateLabelsAnnotation(vPodWithLabels)
+	pPodWithLabels.Annotations[podtranslate.VClusterLabelsAnnotation] = podtranslate.LabelsAnnotation(vPodWithLabels)
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{

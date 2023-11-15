@@ -5,10 +5,10 @@ import "k8s.io/apimachinery/pkg/runtime"
 type FakeEventRecorder struct {
 }
 
-func (f *FakeEventRecorder) Event(object runtime.Object, eventtype, reason, message string) {}
+func (f *FakeEventRecorder) Event(runtime.Object, string, string, string) {}
 
-func (f *FakeEventRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (f *FakeEventRecorder) Eventf(runtime.Object, string, string, string, ...interface{}) {
 }
 
-func (f *FakeEventRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+func (f *FakeEventRecorder) AnnotatedEventf(runtime.Object, map[string]string, string, string, string, ...interface{}) {
 }

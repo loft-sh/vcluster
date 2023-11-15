@@ -1,11 +1,11 @@
-import Tabs from '@theme/Tabs'
-import TabItem from '@theme/TabItem'
-
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 <Tabs
   groupId="platform"
-  defaultValue="mac"
+  defaultValue="brew"
   values={[
+	{ label: "Homebrew", value: "brew" },
     { label: 'Mac (Intel/AMD)', value: 'mac', },
     { label: 'Mac (Silicon/ARM)', value: 'mac-arm', },
     { label: 'Linux (AMD)', value: 'linux', },
@@ -14,6 +14,13 @@ import TabItem from '@theme/TabItem'
     { label: 'Windows Powershell', value: 'windows', },
   ]
 }>
+<TabItem value="brew">
+
+```bash
+brew install loft-sh/tap/vcluster
+```
+
+</TabItem>
 <TabItem value="mac">
 
 ```bash
@@ -63,7 +70,7 @@ You may need to reboot your computer to use the CLI due to changes to the PATH v
 :::
 
 :::info Check Environment Variable $PATH
-Line 4 of this install script adds the install directory `%APPDATA%\vcluster` to the `$PATH` environment variable. This is only effective for the current Powershell session, i.e. when opening a new terminal window, `vcluster` may not be found.
+Line 4 of this install script adds the install directory `%APPDATA%\vcluster` to the `$PATH`environment variable. This is only effective for the current Powershell session, i.e. when opening a new terminal window,`vcluster` may not be found.
 
 **Make sure to add the folder `%APPDATA%\vcluster` to the `PATH` environment variable after installing vcluster CLI via Powershell. Afterward, a reboot might be necessary.**
 :::
@@ -73,7 +80,8 @@ Line 4 of this install script adds the install directory `%APPDATA%\vcluster` to
 
 Alternatively, you can download the binary for your platform from the [GitHub Releases](https://github.com/loft-sh/vcluster/releases) page and add this binary to your PATH.
 
-To confirm that vcluster CLI is successfully installed, test via:
+To confirm that vCluster CLI is successfully installed, test via:
+
 ```bash
 vcluster --version
 ```

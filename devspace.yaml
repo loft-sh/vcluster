@@ -26,6 +26,8 @@ deployments:
       chart:
         name: ./charts/k8s
       values: &values
+        autoDeletePersistentVolumeClaims: false
+        k3sToken: "devspace"
         job:
           enabled: false
         fallbackHostDns: true
@@ -50,6 +52,12 @@ deployments:
           disabled: "false"
           instanceCreatorType: "devspace"
           instanceCreatorUID: "devspace"
+        proxy:
+          metricsServer:
+            nodes:
+              enabled: true
+            pods:
+              enabled: true
         sync:
           generic:
             clusterRole:
@@ -115,7 +123,7 @@ pipelines:
     run: |-
       # Deploy the vcluster
       run_pipelines deploy --set-flag distro=$(get_flag distro)
-      
+
       # Start dev mode
       start_dev --all
 
@@ -128,14 +136,13 @@ pipelines:
     run: |-
       # Make sure pull secrets are there
       ensure_pull_secrets --all
-      
+
       # Build the vcluster image
       build_images --all
-      
+
       # Deploy the vcluster
       if is_equal $(get_flag distro) k8s; then
-        kubectl apply -f ./hack/vcluster-certs.yaml -n ${DEVSPACE_NAMESPACE}
-        create_deployments vcluster-k8s  
+        create_deployments vcluster-k8s
       elif is_equal $(get_flag distro) k0s; then
         create_deployments vcluster-k0s
       else
@@ -146,7 +153,7 @@ pipelines:
     run: |-
       # Purge the vcluster
       run_default_pipeline purge
-      
+
       # Make sure the pvcs are deleted as well
       kubectl delete pvc --all -n ${DEVSPACE_NAMESPACE}
 
@@ -180,7 +187,7 @@ profiles:
                   - --tls-san=vcluster
         vcluster-k0s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
         vcluster-k8s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
-  
+
   - name: test-k3s
     patches:
       - op: add
@@ -198,7 +205,7 @@ profiles:
           valuesFiles:
           - ${COMMON_VALUES}
           - ${VALUES_FILE}
-  
+
   - name: test-k0s
     patches:
       - op: add

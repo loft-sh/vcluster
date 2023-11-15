@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -25,8 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	vclustercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
 )
 
 const (
@@ -41,9 +40,9 @@ const (
 	LabelSelectorQueryParam = "labelSelector"
 )
 
-var ErrorNodeNotInVcluster = errors.New("node not present in vcluster")
+var ErrNodeNotInVcluster = errors.New("node not present in vcluster")
 
-func WithMetricsServerProxy(ctx *vclustercontext.ControllerContext, h http.Handler, cacheHostClient, cachedVirtualClient client.Client, hostConfig *rest.Config) http.Handler {
+func WithMetricsServerProxy(ctx *options.ControllerContext, h http.Handler, cacheHostClient, cachedVirtualClient client.Client, hostConfig *rest.Config) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
@@ -305,7 +304,7 @@ func (p *MetricsServerProxy) HandleRequest() {
 		// filter nodes synced with vcluster
 		newData, err = p.filterVirtualNodes(data)
 		if err != nil {
-			if errors.Is(err, ErrorNodeNotInVcluster) {
+			if errors.Is(err, ErrNodeNotInVcluster) {
 				requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusNotFound, err)
 				return
 			}
@@ -373,7 +372,7 @@ func (p *MetricsServerProxy) filterVirtualNodes(data []byte) ([]byte, error) {
 			return newData, nil
 		}
 
-		return newData, ErrorNodeNotInVcluster
+		return newData, ErrNodeNotInVcluster
 	}
 
 	return newData, nil
@@ -512,13 +511,11 @@ func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) ([]byte, err
 	}
 
 	return newData, nil
-
 }
 
 // returns the types.NamespacedName list of pods for the given namespace
 func getVirtualPodObjectsInNamespace(ctx context.Context, vClient client.Client, namespace string) ([]corev1.Pod, error) {
 	podList := &corev1.PodList{}
-
 	err := vClient.List(ctx, podList, &client.ListOptions{
 		Namespace: namespace,
 	})

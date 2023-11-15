@@ -29,8 +29,8 @@ var _ = ginkgo.Describe("NetworkPolicies are created as expected", func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		nsNameA := fmt.Sprintf("e2e-syncer-networkpolicies-a-%d-%s", iteration, random.RandomString(5))
-		nsNameB := fmt.Sprintf("e2e-syncer-networkpolicies-b-%d-%s", iteration, random.RandomString(5))
+		nsNameA := fmt.Sprintf("e2e-syncer-networkpolicies-a-%d-%s", iteration, random.String(5))
+		nsNameB := fmt.Sprintf("e2e-syncer-networkpolicies-b-%d-%s", iteration, random.String(5))
 
 		// create test namespaces with different labels
 		var err error

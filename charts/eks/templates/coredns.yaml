@@ -1,5 +1,5 @@
 {{- if not .Values.headless }}
-{{- if .Values.coredns.enabled }}
+{{- if and .Values.coredns.enabled (not .Values.coredns.integrated) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,7 +8,7 @@ metadata:
   {{- if .Values.globalAnnotations}}
   annotations:
 {{ toYaml .Values.globalAnnotations | indent 4}}
-  {{- end}}  
+  {{- end}}
 data:
 {{- if .Values.coredns.manifests }}
   coredns.yaml: |-
@@ -103,17 +103,11 @@ data:
         spec:
           priorityClassName: "system-cluster-critical"
           serviceAccountName: coredns
-          tolerations:
-            - key: "CriticalAddonsOnly"
-              operator: "Exists"
-            - key: "node-role.kubernetes.io/control-plane"
-              operator: "Exists"
-              effect: "NoSchedule"
-            - key: "node-role.kubernetes.io/master"
-              operator: "Exists"
-              effect: "NoSchedule"
           nodeSelector:
             kubernetes.io/os: linux
+            {{- if .Values.coredns.nodeSelector }}
+{{ toYaml .Values.coredns.nodeSelector | indent 12 }}
+            {{- end }}
           topologySpreadConstraints:
             - maxSkew: 1
               topologyKey: kubernetes.io/hostname
@@ -140,16 +134,6 @@ data:
             - name: custom-config-volume
               mountPath: /etc/coredns/custom
               readOnly: true
-            ports:
-            - containerPort: 1053
-              name: dns
-              protocol: UDP
-            - containerPort: 1053
-              name: dns-tcp
-              protocol: TCP
-            - containerPort: 9153
-              name: metrics
-              protocol: TCP
             securityContext:
               runAsNonRoot:  true
               runAsUser:  {{`{{.RUN_AS_USER}}`}}
@@ -158,6 +142,8 @@ data:
               capabilities:
                 add:
                   - NET_BIND_SERVICE
+                drop:
+                  - ALL
               readOnlyRootFilesystem: true
             livenessProbe:
               httpGet:

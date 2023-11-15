@@ -1,0 +1,64 @@
+{{- if .Values.pro }}
+{{- if .Values.coredns.integrated }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-dns
+  namespace: {{ .Release.Namespace }}
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
+data:
+{{ include "vcluster.corefile" . | indent 2 }}
+  coredns.yaml: |-
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: coredns
+      namespace: kube-system
+    data:
+      NodeHosts: ""
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: kube-dns
+      namespace: kube-system
+      annotations:
+        prometheus.io/port: "9153"
+        prometheus.io/scrape: "true"
+        {{- if .Values.coredns.service.annotations }}
+{{ toYaml .Values.coredns.service.annotations | indent 8 }}
+        {{- end }}
+      labels:
+        k8s-app: kube-dns
+        kubernetes.io/cluster-service: "true"
+        kubernetes.io/name: "CoreDNS"
+    spec:
+      type: {{ .Values.coredns.service.type }}
+      {{- if (eq (.Values.coredns.service.type) "LoadBalancer") }}
+      {{- if .Values.coredns.service.externalTrafficPolicy }}
+      externalTrafficPolicy: {{ .Values.coredns.service.externalTrafficPolicy }}
+      {{- end }}
+      {{- if .Values.coredns.service.externalIPs }}
+      externalIPs:
+        {{- range $f := .Values.coredns.service.externalIPs }}
+        - {{ $f }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+      ports:
+        - name: dns
+          port: 53
+          targetPort: 1053
+          protocol: UDP
+        - name: dns-tcp
+          port: 53
+          targetPort: 1053
+          protocol: TCP
+        - name: metrics
+          port: 9153
+          protocol: TCP
+{{- end }}
+{{- end }}

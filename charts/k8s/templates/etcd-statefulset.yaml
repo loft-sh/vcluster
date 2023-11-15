@@ -20,6 +20,12 @@ metadata:
   {{- end }}
 spec:
   serviceName: {{ .Release.Name }}-etcd-headless
+  {{- if .Values.autoDeletePersistentVolumeClaims }}
+  {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+  {{- end }}
+  {{- end }}
   replicas: {{ .Values.etcd.replicas }}
   podManagementPolicy: Parallel
   selector:
@@ -194,5 +200,8 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           failureThreshold: 24
+        {{- if .Values.etcd.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.etcd.imagePullPolicy }}
+        {{- end }}
 {{- end }}
 {{- end }}

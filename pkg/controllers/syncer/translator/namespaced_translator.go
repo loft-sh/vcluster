@@ -87,6 +87,9 @@ func (n *namespacedTranslator) SyncDownUpdate(ctx *context.SyncContext, vObj, pO
 	if !(pObj == nil || (reflect.ValueOf(pObj).Kind() == reflect.Ptr && reflect.ValueOf(pObj).IsNil())) {
 		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), n.name)
 		err := ctx.PhysicalClient.Update(ctx.Context, pObj)
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		if err != nil {
 			n.eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 			return ctrl.Result{}, err
@@ -96,11 +99,11 @@ func (n *namespacedTranslator) SyncDownUpdate(ctx *context.SyncContext, vObj, pO
 	return ctrl.Result{}, nil
 }
 
-func (n *namespacedTranslator) IsManaged(ctx context2.Context, pObj client.Object) (bool, error) {
+func (n *namespacedTranslator) IsManaged(_ context2.Context, pObj client.Object) (bool, error) {
 	return translate.Default.IsManaged(pObj), nil
 }
 
-func (n *namespacedTranslator) VirtualToPhysical(ctx context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (n *namespacedTranslator) VirtualToPhysical(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	name := translate.Default.PhysicalName(req.Name, req.Namespace)
 	if n.nameTranslator != nil {
 		name = n.nameTranslator(req, vObj)
@@ -112,7 +115,7 @@ func (n *namespacedTranslator) VirtualToPhysical(ctx context2.Context, req types
 	}
 }
 
-func (n *namespacedTranslator) PhysicalToVirtual(ctx context2.Context, pObj client.Object) types.NamespacedName {
+func (n *namespacedTranslator) PhysicalToVirtual(_ context2.Context, pObj client.Object) types.NamespacedName {
 	pAnnotations := pObj.GetAnnotations()
 	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
 		return types.NamespacedName{
@@ -157,6 +160,6 @@ func (n *namespacedTranslator) TranslateMetadata(ctx context2.Context, vObj clie
 	return pObj
 }
 
-func (n *namespacedTranslator) TranslateMetadataUpdate(ctx context2.Context, vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
+func (n *namespacedTranslator) TranslateMetadataUpdate(_ context2.Context, vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
 	return translate.Default.ApplyMetadataUpdate(vObj, pObj, n.syncedLabels, n.excludedAnnotations...)
 }

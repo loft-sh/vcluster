@@ -21,7 +21,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -33,10 +32,11 @@ import (
 )
 
 const (
+	OwnerReferences                      = "vcluster.loft.sh/owner-references"
 	OwnerSetKind                         = "vcluster.loft.sh/owner-set-kind"
 	NamespaceAnnotation                  = "vcluster.loft.sh/namespace"
 	NameAnnotation                       = "vcluster.loft.sh/name"
-	LabelsAnnotation                     = "vcluster.loft.sh/labels"
+	VClusterLabelsAnnotation             = "vcluster.loft.sh/labels"
 	NamespaceLabelPrefix                 = "vcluster.loft.sh/ns-label"
 	UIDAnnotation                        = "vcluster.loft.sh/uid"
 	ClusterAutoScalerAnnotation          = "cluster-autoscaler.kubernetes.io/safe-to-evict"
@@ -98,8 +98,6 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		virtualLogsPath:          virtualLogsPath,
 		virtualPodLogsPath:       filepath.Join(virtualLogsPath, "pods"),
 		virtualKubeletPodPath:    filepath.Join(virtualKubeletPath, "pods"),
-
-		projectedVolumeSAToken: make(map[string]string),
 	}, nil
 }
 
@@ -128,8 +126,6 @@ type translator struct {
 	virtualLogsPath          string
 	virtualPodLogsPath       string
 	virtualKubeletPodPath    string
-
-	projectedVolumeSAToken map[string]string
 }
 
 func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -180,8 +176,8 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 		pPod.Annotations[NameAnnotation] = vPod.Annotations[NameAnnotation]
 		pPod.Annotations[UIDAnnotation] = vPod.Annotations[UIDAnnotation]
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Annotations[ServiceAccountNameAnnotation]
-		if _, ok := vPod.Annotations[LabelsAnnotation]; ok {
-			pPod.Annotations[LabelsAnnotation] = vPod.Annotations[LabelsAnnotation]
+		if _, ok := vPod.Annotations[VClusterLabelsAnnotation]; ok {
+			pPod.Annotations[VClusterLabelsAnnotation] = vPod.Annotations[VClusterLabelsAnnotation]
 		}
 	}
 	if pPod.Annotations[NamespaceAnnotation] == "" {
@@ -196,8 +192,8 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 	if pPod.Annotations[ServiceAccountNameAnnotation] == "" {
 		pPod.Annotations[ServiceAccountNameAnnotation] = vPod.Spec.ServiceAccountName
 	}
-	if _, ok := pPod.Annotations[LabelsAnnotation]; !ok {
-		pPod.Annotations[LabelsAnnotation] = TranslateLabelsAnnotation(vPod)
+	if _, ok := pPod.Annotations[VClusterLabelsAnnotation]; !ok {
+		pPod.Annotations[VClusterLabelsAnnotation] = LabelsAnnotation(vPod)
 	}
 	if _, ok := pPod.Annotations[ClusterAutoScalerAnnotation]; !ok {
 		// check if the vPod would be evictable
@@ -206,6 +202,22 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 		pPod.Annotations[ClusterAutoScalerAnnotation] = strconv.FormatBool(isEvictable)
 		if controller != nil && controller.Kind == "DaemonSet" {
 			pPod.Annotations[ClusterAutoScalerDaemonSetAnnotation] = "true"
+		}
+	}
+	if _, ok := pPod.Annotations[OwnerReferences]; !ok && len(vPod.OwnerReferences) > 0 {
+		ownerReferencesData, err := json.Marshal(vPod.OwnerReferences)
+		if err == nil {
+			if pPod.Annotations == nil {
+				pPod.Annotations = map[string]string{}
+			}
+
+			pPod.Annotations[OwnerReferences] = string(ownerReferencesData)
+			for _, ownerReference := range vPod.OwnerReferences {
+				if ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && canAnnotateOwnerSetKind(ownerReference.Kind) {
+					pPod.Annotations[OwnerSetKind] = ownerReference.Kind
+					break
+				}
+			}
 		}
 	}
 
@@ -220,7 +232,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 	pPod.SetLabels(updatedLabels)
 
 	// translate services to environment variables
-	serviceEnv := TranslateServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, services, kubeIP)
+	serviceEnv := ServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, services, kubeIP)
 
 	// add the required kubernetes hosts entry
 	pPod.Spec.HostAliases = append(pPod.Spec.HostAliases, corev1.HostAlias{
@@ -259,7 +271,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate containers
 	for i := range pPod.Spec.Containers {
-		envVar, envFrom := TranslateContainerEnv(pPod.Spec.Containers[i].Env, pPod.Spec.Containers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := ContainerEnv(pPod.Spec.Containers[i].Env, pPod.Spec.Containers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.Containers[i].Env = envVar
 		pPod.Spec.Containers[i].EnvFrom = envFrom
 		pPod.Spec.Containers[i].Image = t.imageTranslator.Translate(pPod.Spec.Containers[i].Image)
@@ -267,7 +279,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate init containers
 	for i := range pPod.Spec.InitContainers {
-		envVar, envFrom := TranslateContainerEnv(pPod.Spec.InitContainers[i].Env, pPod.Spec.InitContainers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := ContainerEnv(pPod.Spec.InitContainers[i].Env, pPod.Spec.InitContainers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.InitContainers[i].Env = envVar
 		pPod.Spec.InitContainers[i].EnvFrom = envFrom
 		pPod.Spec.InitContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.InitContainers[i].Image)
@@ -275,7 +287,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate ephemeral containers
 	for i := range pPod.Spec.EphemeralContainers {
-		envVar, envFrom := TranslateContainerEnv(pPod.Spec.EphemeralContainers[i].Env, pPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := ContainerEnv(pPod.Spec.EphemeralContainers[i].Env, pPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.EphemeralContainers[i].Env = envVar
 		pPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		pPod.Spec.EphemeralContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.EphemeralContainers[i].Image)
@@ -290,18 +302,6 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 	err = t.translateVolumes(ctx, pPod, vPod)
 	if err != nil {
 		return nil, err
-	}
-
-	// add an owner-set-kind annotation to each pod with an owner
-	for _, ownerReference := range vPod.OwnerReferences {
-		if ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && canAnnotateOwnerSetKind(ownerReference.Kind) {
-			if pPod.Annotations == nil {
-				pPod.Annotations = map[string]string{}
-			}
-
-			pPod.Annotations[OwnerSetKind] = ownerReference.Kind
-			break
-		}
 	}
 
 	// translate topology spread constraints
@@ -334,7 +334,7 @@ func canAnnotateOwnerSetKind(kind string) bool {
 	return kind == "DaemonSet" || kind == "Job" || kind == "ReplicaSet" || kind == "StatefulSet"
 }
 
-func TranslateLabelsAnnotation(obj client.Object) string {
+func LabelsAnnotation(obj client.Object) string {
 	labelsString := []string{}
 	for k, v := range obj.GetLabels() {
 		// escape pod labels
@@ -351,7 +351,7 @@ func TranslateLabelsAnnotation(obj client.Object) string {
 }
 
 func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPod *corev1.Pod) error {
-	var shouldCreateTokenSecret bool
+	tokenSecrets := map[string]string{}
 
 	for i := range pPod.Spec.Volumes {
 		if pPod.Spec.Volumes[i].ConfigMap != nil {
@@ -377,7 +377,7 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 			pPod.Spec.Volumes[i].Ephemeral = nil
 		}
 		if pPod.Spec.Volumes[i].Projected != nil {
-			err := t.translateProjectedVolume(ctx, pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, &shouldCreateTokenSecret)
+			err := t.translateProjectedVolume(ctx, pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, tokenSecrets)
 			if err != nil {
 				return err
 			}
@@ -419,11 +419,11 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 		}
 	}
 
-	if shouldCreateTokenSecret {
-		// create the service account token holder secret
-		err := SATokenSecret(ctx, t.pClient, vPod, t.projectedVolumeSAToken)
+	// create the service account token holder secret if necessary
+	if len(tokenSecrets) > 0 {
+		err := SATokenSecret(ctx, t.pClient, vPod, tokenSecrets)
 		if err != nil {
-			return nil
+			return fmt.Errorf("create sa token secret: %w", err)
 		}
 	}
 
@@ -435,7 +435,14 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 	return nil
 }
 
-func (t *translator) translateProjectedVolume(ctx context.Context, projectedVolume *corev1.ProjectedVolumeSource, volumeName string, pPod *corev1.Pod, vPod *corev1.Pod, shouldCreateTokenSecret *bool) error {
+func (t *translator) translateProjectedVolume(
+	ctx context.Context,
+	projectedVolume *corev1.ProjectedVolumeSource,
+	volumeName string,
+	pPod *corev1.Pod,
+	vPod *corev1.Pod,
+	tokenSecrets map[string]string,
+) error {
 	for i := range projectedVolume.Sources {
 		if projectedVolume.Sources[i].Secret != nil {
 			projectedVolume.Sources[i].Secret.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace)
@@ -494,7 +501,7 @@ func (t *translator) translateProjectedVolume(ctx context.Context, projectedVolu
 
 			if t.serviceAccountSecretsEnabled {
 				// populate service account map
-				t.projectedVolumeSAToken[volumeName] = token.Status.Token
+				tokenSecrets[volumeName] = token.Status.Token
 
 				// rewrite projected volume to use sources as secret
 				projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
@@ -509,8 +516,6 @@ func (t *translator) translateProjectedVolume(ctx context.Context, projectedVolu
 						},
 					},
 				}
-
-				*shouldCreateTokenSecret = true
 			} else {
 				// set annotation on physical pod
 				if pPod.Annotations == nil {
@@ -520,7 +525,7 @@ func (t *translator) translateProjectedVolume(ctx context.Context, projectedVolu
 				var annotation string
 
 				for {
-					annotation = ServiceAccountTokenAnnotation + random.RandomString(8)
+					annotation = ServiceAccountTokenAnnotation + random.String(8)
 					if pPod.Annotations[annotation] == "" {
 						pPod.Annotations[annotation] = token.Status.Token
 						break
@@ -563,7 +568,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 
 	switch fieldSelector.FieldPath {
 	case "metadata.labels":
-		fieldSelector.FieldPath = "metadata.annotations['" + LabelsAnnotation + "']"
+		fieldSelector.FieldPath = "metadata.annotations['" + VClusterLabelsAnnotation + "']"
 	case "metadata.name":
 		fieldSelector.FieldPath = "metadata.annotations['" + NameAnnotation + "']"
 	case "metadata.namespace":
@@ -575,7 +580,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	}
 }
 
-func TranslateContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource) {
+func ContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range envVar {
 		translateDownwardAPI(&envVar[j])
@@ -764,7 +769,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 			}
 		} else if term.NamespaceSelector != nil {
 			// translate namespace label selector
-			newAffinityTerm.LabelSelector = translate.TranslateLabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector)
+			newAffinityTerm.LabelSelector = translate.LabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector)
 		} else {
 			// Match namespace where pod is in
 			// k8s docs: "a null or empty namespaces list and null namespaceSelector means "this pod's namespace""
@@ -797,7 +802,7 @@ func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 	}
 }
 
-func TranslateServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1.Service, kubeIP string) map[string]string {
+func ServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1.Service, kubeIP string) map[string]string {
 	var (
 		serviceMap = make(map[string]*corev1.Service)
 		retMap     = make(map[string]string)
@@ -817,7 +822,7 @@ func TranslateServicesToEnvironmentVariables(enableServiceLinks *bool, services 
 	}
 
 	// TODO: figure out if this is an issue because services are now not ordered anymore
-	var mappedServices []*corev1.Service
+	var mappedServices = make([]*corev1.Service, 0, len(serviceMap))
 	for key := range serviceMap {
 		mappedServices = append(mappedServices, serviceMap[key])
 	}
@@ -842,187 +847,4 @@ func TranslateServicesToEnvironmentVariables(enableServiceLinks *bool, services 
 		retMap[k] = strings.ReplaceAll(v, "IP", kubeIP)
 	}
 	return retMap
-}
-
-func (t *translator) Diff(ctx context.Context, vPod, pPod *corev1.Pod) (*corev1.Pod, error) {
-	// get Namespace resource in order to have access to its labels
-	vNamespace := &corev1.Namespace{}
-	err := t.vClient.Get(ctx, client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
-	if err != nil {
-		return nil, err
-	}
-
-	var updatedPod *corev1.Pod
-	updatedPodSpec := t.calcSpecDiff(pPod, vPod)
-	if updatedPodSpec != nil {
-		updatedPod = pPod.DeepCopy()
-		updatedPod.Spec = *updatedPodSpec
-	}
-
-	// check annotations
-	_, updatedAnnotations, updatedLabels := translate.Default.ApplyMetadataUpdate(vPod, pPod, t.syncedLabels, getExcludedAnnotations(pPod)...)
-	if updatedAnnotations == nil {
-		updatedAnnotations = map[string]string{}
-	}
-	if updatedLabels == nil {
-		updatedLabels = map[string]string{}
-	}
-
-	updatedAnnotations[LabelsAnnotation] = TranslateLabelsAnnotation(vPod)
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pPod.Annotations) {
-		if updatedPod == nil {
-			updatedPod = pPod.DeepCopy()
-		}
-		updatedPod.Annotations = updatedAnnotations
-	}
-
-	// check pod and namespace labels
-	for k, v := range vNamespace.GetLabels() {
-		updatedLabels[translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
-	}
-	if !equality.Semantic.DeepEqual(updatedLabels, pPod.Labels) {
-		if updatedPod == nil {
-			updatedPod = pPod.DeepCopy()
-		}
-		updatedPod.Labels = updatedLabels
-	}
-
-	return updatedPod, nil
-}
-
-func getExcludedAnnotations(pPod *corev1.Pod) []string {
-	annotations := []string{ClusterAutoScalerAnnotation, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, LabelsAnnotation}
-	if pPod != nil {
-		for _, v := range pPod.Spec.Volumes {
-			if v.Projected != nil {
-				for _, source := range v.Projected.Sources {
-					if source.DownwardAPI != nil {
-						for _, item := range source.DownwardAPI.Items {
-							if item.FieldRef != nil {
-								// check if its a label we have to rewrite
-								annotationsMatch := FieldPathAnnotationRegEx.FindStringSubmatch(item.FieldRef.FieldPath)
-								if len(annotationsMatch) == 2 {
-									if strings.HasPrefix(annotationsMatch[1], ServiceAccountTokenAnnotation) {
-										annotations = append(annotations, annotationsMatch[1])
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return annotations
-}
-
-// Changeable fields within the pod:
-// - spec.containers[*].image
-// - spec.initContainers[*].image
-// - spec.activeDeadlineSeconds
-//
-// TODO: check for ephemereal containers
-func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) *corev1.PodSpec {
-	var updatedPodSpec *corev1.PodSpec
-
-	// active deadlines different?
-	val, equal := isInt64Different(pObj.Spec.ActiveDeadlineSeconds, vObj.Spec.ActiveDeadlineSeconds)
-	if !equal {
-		updatedPodSpec = pObj.Spec.DeepCopy()
-		updatedPodSpec.ActiveDeadlineSeconds = val
-	}
-
-	// is image different?
-	updatedContainer := calcContainerImageDiff(pObj.Spec.Containers, vObj.Spec.Containers, t.imageTranslator, nil)
-	if len(updatedContainer) != 0 {
-		if updatedPodSpec == nil {
-			updatedPodSpec = pObj.Spec.DeepCopy()
-		}
-		updatedPodSpec.Containers = updatedContainer
-	}
-
-	// we have to skip some init images that are injected by us to change the /etc/hosts file
-	var skipContainers map[string]bool
-	if pObj.Annotations != nil && pObj.Annotations[HostsRewrittenAnnotation] == "true" {
-		skipContainers = map[string]bool{
-			HostsRewriteContainerName: true,
-		}
-	}
-
-	updatedContainer = calcContainerImageDiff(pObj.Spec.InitContainers, vObj.Spec.InitContainers, t.imageTranslator, skipContainers)
-	if len(updatedContainer) != 0 {
-		if updatedPodSpec == nil {
-			updatedPodSpec = pObj.Spec.DeepCopy()
-		}
-		updatedPodSpec.InitContainers = updatedContainer
-	}
-
-	isEqual := isPodSpecSchedulingGatesDiff(pObj.Spec.SchedulingGates, vObj.Spec.SchedulingGates)
-	if !isEqual {
-		if updatedPodSpec == nil {
-			updatedPodSpec = pObj.Spec.DeepCopy()
-		}
-		updatedPodSpec.SchedulingGates = vObj.Spec.SchedulingGates
-	}
-
-	return updatedPodSpec
-}
-
-func calcContainerImageDiff(pContainers, vContainers []corev1.Container, translateImages ImageTranslator, skipContainers map[string]bool) []corev1.Container {
-	newContainers := []corev1.Container{}
-	changed := false
-	for _, p := range pContainers {
-		if skipContainers != nil && skipContainers[p.Name] {
-			newContainers = append(newContainers, p)
-			continue
-		}
-
-		for _, v := range vContainers {
-			if p.Name == v.Name {
-				if p.Image != translateImages.Translate(v.Image) {
-					newContainer := *p.DeepCopy()
-					newContainer.Image = translateImages.Translate(v.Image)
-					newContainers = append(newContainers, newContainer)
-					changed = true
-				} else {
-					newContainers = append(newContainers, p)
-				}
-
-				break
-			}
-		}
-	}
-
-	if !changed {
-		return nil
-	}
-	return newContainers
-}
-
-func isInt64Different(i1, i2 *int64) (*int64, bool) {
-	if i1 == nil && i2 == nil {
-		return nil, true
-	} else if i1 != nil && i2 != nil {
-		return pointer.Int64(*i2), *i1 == *i2
-	}
-
-	var updated *int64
-	if i2 != nil {
-		updated = pointer.Int64(*i2)
-	}
-
-	return updated, false
-}
-
-func isPodSpecSchedulingGatesDiff(pGates, vGates []corev1.PodSchedulingGate) bool {
-	if len(vGates) != len(pGates) {
-		return false
-	}
-	for i, v := range vGates {
-		if v.Name != pGates[i].Name {
-			return false
-		}
-	}
-	return true
 }

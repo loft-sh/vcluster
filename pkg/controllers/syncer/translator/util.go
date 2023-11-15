@@ -1,9 +1,10 @@
 package translator
 
 import (
+	"os"
+
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/apimachinery/pkg/runtime"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

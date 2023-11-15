@@ -28,7 +28,7 @@ func (n *mirrorPhysicalTranslator) Resource() client.Object {
 	return n.obj.DeepCopyObject().(client.Object)
 }
 
-func (n *mirrorPhysicalTranslator) TranslateMetadata(ctx context.Context, pObj client.Object) client.Object {
+func (n *mirrorPhysicalTranslator) TranslateMetadata(_ context.Context, pObj client.Object) client.Object {
 	vObj := pObj.DeepCopyObject().(client.Object)
 	vObj.SetResourceVersion("")
 	vObj.SetUID("")
@@ -37,13 +37,13 @@ func (n *mirrorPhysicalTranslator) TranslateMetadata(ctx context.Context, pObj c
 	return vObj
 }
 
-func (n *mirrorPhysicalTranslator) TranslateMetadataUpdate(ctx context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+func (n *mirrorPhysicalTranslator) TranslateMetadataUpdate(_ context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
 	updatedAnnotations := pObj.GetAnnotations()
 	updatedLabels := pObj.GetLabels()
 	return !equality.Semantic.DeepEqual(updatedAnnotations, vObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, vObj.GetLabels()), updatedAnnotations, updatedLabels
 }
 
-func (n *mirrorPhysicalTranslator) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+func (n *mirrorPhysicalTranslator) IsManaged(context.Context, client.Object) (bool, error) {
 	return true, nil
 }
 
@@ -51,7 +51,7 @@ func (n *mirrorPhysicalTranslator) VirtualToPhysical(_ context.Context, req type
 	return req
 }
 
-func (n *mirrorPhysicalTranslator) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
+func (n *mirrorPhysicalTranslator) PhysicalToVirtual(_ context.Context, pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: pObj.GetNamespace(),
 		Name:      pObj.GetName(),

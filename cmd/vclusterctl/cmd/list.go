@@ -6,10 +6,13 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,8 +25,11 @@ type VCluster struct {
 	Created    time.Time
 	AgeSeconds int
 	Context    string
+	Cluster    string
+	Version    string
 	Status     string
 	Connected  bool
+	Pro        bool
 }
 
 // ListCmd holds the login cmd flags
@@ -69,7 +75,7 @@ vcluster list --namespace test
 }
 
 // Run executes the functionality
-func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return err
@@ -85,59 +91,112 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		namespace = cmd.Namespace
 	}
 
-	vClusters, err := find.ListVClusters(cobraCmd.Context(), cmd.Context, "", namespace)
+	proClient, err := pro.CreateProClient()
+	if err != nil {
+		cmd.log.Debugf("Error creating pro client: %v", err)
+	}
+
+	vClusters, proVClusters, err := find.ListVClusters(cobraCmd.Context(), proClient, "", "", namespace, "", cmd.log.ErrorStreamOnly())
 	if err != nil {
 		return err
 	}
 
+	var output []VCluster
+	output = append(output, ossToVClusters(vClusters, currentContext)...)
+	output = append(output, proToVClusters(proVClusters, currentContext)...)
+
 	if cmd.output == "json" {
-		var output []VCluster
-		for _, vcluster := range vClusters {
-			vclusterOutput := VCluster{
-				Name:       vcluster.Name,
-				Namespace:  vcluster.Namespace,
-				Created:    vcluster.Created.Time,
-				AgeSeconds: int(time.Since(vcluster.Created.Time).Round(time.Second).Seconds()),
-				Context:    vcluster.Context,
-				Status:     string(vcluster.Status),
-			}
-			vclusterOutput.Connected = currentContext == find.VClusterContextName(
-				vcluster.Name,
-				vcluster.Namespace,
-				vcluster.Context,
-			)
-			output = append(output, vclusterOutput)
-		}
 		bytes, err := json.MarshalIndent(output, "", "    ")
 		if err != nil {
 			return errors.Wrap(err, "json marshal vclusters")
 		}
-		cmd.log.WriteString(string(bytes) + "\n")
+		cmd.log.WriteString(logrus.InfoLevel, string(bytes)+"\n")
 	} else {
-		header := []string{"NAME", "NAMESPACE", "STATUS", "CONNECTED", "CREATED", "AGE", "CONTEXT"}
-		values := [][]string{}
-		for _, vcluster := range vClusters {
-			connected := ""
-			if currentContext == find.VClusterContextName(vcluster.Name, vcluster.Namespace, vcluster.Context) {
-				connected = "True"
-			}
-
-			values = append(values, []string{
-				vcluster.Name,
-				vcluster.Namespace,
-				string(vcluster.Status),
-				connected,
-				vcluster.Created.String(),
-				time.Since(vcluster.Created.Time).Round(1 * time.Second).String(),
-				vcluster.Context,
-			})
-		}
-
-		log.PrintTable(cmd.log, header, values)
-		if strings.HasPrefix(cmd.Context, "vcluster_") {
+		header := []string{"NAME", "CLUSTER", "NAMESPACE", "STATUS", "VERSION", "CONNECTED", "CREATED", "AGE", "DISTRO"}
+		values := toValues(output)
+		table.PrintTable(cmd.log, header, values)
+		if strings.HasPrefix(cmd.Context, "vcluster_") || strings.HasPrefix(cmd.Context, "vcluster-pro_") {
 			cmd.log.Infof("Run `vcluster disconnect` to switch back to the parent context")
 		}
 	}
 
 	return nil
+}
+
+func ossToVClusters(vClusters []find.VCluster, currentContext string) []VCluster {
+	var output []VCluster
+	for _, vCluster := range vClusters {
+		vClusterOutput := VCluster{
+			Name:       vCluster.Name,
+			Namespace:  vCluster.Namespace,
+			Created:    vCluster.Created.Time,
+			Version:    vCluster.Version,
+			AgeSeconds: int(time.Since(vCluster.Created.Time).Round(time.Second).Seconds()),
+			Cluster:    vCluster.Context,
+			Status:     string(vCluster.Status),
+			Pro:        false,
+		}
+		vClusterOutput.Connected = currentContext == find.VClusterContextName(
+			vCluster.Name,
+			vCluster.Namespace,
+			vCluster.Context,
+		)
+		output = append(output, vClusterOutput)
+	}
+	return output
+}
+
+func proToVClusters(vClusters []pro.VirtualClusterInstanceProject, currentContext string) []VCluster {
+	var output []VCluster
+	for _, vCluster := range vClusters {
+		status := string(vCluster.VirtualCluster.Status.Phase)
+		if vCluster.VirtualCluster.DeletionTimestamp != nil {
+			status = "Terminating"
+		} else if status == "" {
+			status = "Pending"
+		}
+
+		connected := strings.HasPrefix(currentContext, "vcluster-pro_"+vCluster.VirtualCluster.Name+"_"+vCluster.Project.Name)
+		vClusterOutput := VCluster{
+			Name:       vCluster.VirtualCluster.Spec.ClusterRef.VirtualCluster,
+			Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
+			Cluster:    vCluster.VirtualCluster.Spec.ClusterRef.Cluster,
+			Connected:  connected,
+			Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
+			AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
+			Status:     status,
+			Pro:        true,
+			Version:    vCluster.VirtualCluster.Status.VirtualCluster.HelmRelease.Chart.Version,
+		}
+		output = append(output, vClusterOutput)
+	}
+	return output
+}
+
+func toValues(vClusters []VCluster) [][]string {
+	var values [][]string
+	for _, vCluster := range vClusters {
+		isConnected := ""
+		if vCluster.Connected {
+			isConnected = "True"
+		}
+
+		distro := "OSS"
+		if vCluster.Pro {
+			distro = "Pro"
+		}
+
+		values = append(values, []string{
+			vCluster.Name,
+			vCluster.Cluster,
+			vCluster.Namespace,
+			vCluster.Status,
+			vCluster.Version,
+			isConnected,
+			vCluster.Created.String(),
+			time.Since(vCluster.Created).Round(1 * time.Second).String(),
+			distro,
+		})
+	}
+	return values
 }

@@ -13,6 +13,11 @@ metadata:
 {{ toYaml .Values.globalAnnotations | indent 4 }}
   {{- end }}
 rules:
+{{- if .Values.pro }}
+  - apiGroups: ["cluster.loft.sh", "storage.loft.sh"]
+    resources: ["features", "virtualclusters"]
+    verbs: ["get", "list", "watch"]
+{{- end }}
   {{- if or .Values.sync.nodes.enabled .Values.rbac.clusterRole.create }}
   - apiGroups: [""]
     resources: ["nodes", "nodes/status"]

@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
@@ -22,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
@@ -45,7 +45,7 @@ import (
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/server"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
-	"k8s.io/apiserver/pkg/server/options"
+	koptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	flowcontrolrequest "k8s.io/apiserver/pkg/util/flowcontrol/request"
 	"k8s.io/apiserver/pkg/util/webhook"
@@ -78,7 +78,7 @@ type Server struct {
 
 // NewServer creates and installs a new Server.
 // 'filter', if non-nil, protects requests to the api only.
-func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
+func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
 	localConfig := ctx.LocalManager.GetConfig()
 	virtualConfig := ctx.VirtualManager.GetConfig()
 	uncachedLocalClient, err := client.New(localConfig, client.Options{
@@ -139,7 +139,6 @@ func NewServer(ctx *context2.ControllerContext, requestHeaderCaFile, clientCaFil
 			return err
 		}
 		return nil
-
 	})
 	if err != nil {
 		return nil, err
@@ -262,7 +261,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 		allowall.New(),
 	)
 
-	sso := options.NewSecureServingOptions()
+	sso := koptions.NewSecureServingOptions()
 	sso.HTTP2MaxStreamsPerConnection = 1000
 	sso.ServerCert.GeneratedCert = s.certSyncer
 	sso.BindPort = port
@@ -272,7 +271,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 		return err
 	}
 
-	authOptions := options.NewDelegatingAuthenticationOptions()
+	authOptions := koptions.NewDelegatingAuthenticationOptions()
 	authOptions.RemoteKubeConfigFileOptional = true
 	authOptions.SkipInClusterLookup = true
 	authOptions.RequestHeader.ClientCAFile = s.requestHeaderCaFile
@@ -283,7 +282,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 	}
 
 	// make sure the tokens are correctly authenticated
-	serverConfig.Authentication.Authenticator = unionauthentication.New(delegatingauthenticator.New(s.uncachedVirtualClient), serverConfig.Authentication.Authenticator)
+	serverConfig.Authentication.Authenticator = unionauthentication.NewFailOnError(delegatingauthenticator.New(s.uncachedVirtualClient), serverConfig.Authentication.Authenticator)
 
 	// create server
 	klog.Info("Starting tls proxy server at " + address + ":" + strconv.Itoa(port))
@@ -297,12 +296,17 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 }
 
 func createCachedClient(ctx context.Context, config *rest.Config, namespace string, restMapper meta.RESTMapper, scheme *runtime.Scheme, registerIndices func(cache cache.Cache) error) (client.Client, error) {
+	// create cache options
+	cacheOptions := cache.Options{
+		Scheme: scheme,
+		Mapper: restMapper,
+	}
+	if namespace != "" {
+		cacheOptions.DefaultNamespaces = map[string]cache.Config{namespace: {}}
+	}
+
 	// create the new cache
-	clientCache, err := cache.New(config, cache.Options{
-		Scheme:     scheme,
-		Mapper:     restMapper,
-		Namespaces: []string{namespace},
-	})
+	clientCache, err := cache.New(config, cacheOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +358,7 @@ func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Ha
 	if c.FlowControl != nil {
 		workEstimatorCfg := flowcontrolrequest.DefaultWorkEstimatorConfig()
 		requestWorkEstimator := flowcontrolrequest.NewWorkEstimator(
-			c.StorageObjectCountTracker.Get, c.FlowControl.GetInterestedWatchCount, workEstimatorCfg)
+			c.StorageObjectCountTracker.Get, c.FlowControl.GetInterestedWatchCount, workEstimatorCfg, c.FlowControl.GetMaxSeats)
 		handler = filterlatency.TrackCompleted(handler)
 		handler = genericfilters.WithPriorityAndFairness(handler, c.LongRunningFunc, c.FlowControl, requestWorkEstimator)
 		handler = filterlatency.TrackStarted(handler, c.TracerProvider, "priorityandfairness")
@@ -506,6 +510,6 @@ func setGlobalDefaults(config *rest.Config) *rest.Config {
 
 type emptyConfigProvider struct{}
 
-func (e *emptyConfigProvider) ConfigFor(pluginName string) (io.Reader, error) {
+func (e *emptyConfigProvider) ConfigFor(_ string) (io.Reader, error) {
 	return nil, nil
 }

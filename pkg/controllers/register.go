@@ -1,25 +1,32 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
-	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
@@ -30,8 +37,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 
-	"github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
@@ -51,14 +57,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
-var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncer.Object, error){
+var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncertypes.Object, error){
 	"services":               {services.New},
 	"configmaps":             {configmaps.New},
 	"secrets":                {secrets.New},
@@ -83,11 +89,11 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 	"persistentvolumes,fake-persistentvolumes": {persistentvolumes.New},
 }
 
-func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
+func Create(ctx *options.ControllerContext) ([]syncertypes.Object, error) {
 	registerContext := util.ToRegisterContext(ctx)
 
 	// register controllers for resource synchronization
-	syncers := []syncer.Object{}
+	syncers := []syncertypes.Object{}
 	for k, v := range ResourceControllers {
 		for _, controllerNew := range v {
 			controllers := strings.Split(k, ",")
@@ -109,7 +115,7 @@ func Create(ctx *context.ControllerContext) ([]syncer.Object, error) {
 	return syncers, nil
 }
 
-func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syncer.Object) error {
+func ExecuteInitializers(controllerCtx *options.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(controllerCtx)
 
 	// execute in parallel because each one might be time-consuming
@@ -117,7 +123,7 @@ func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syn
 	registerContext.Context = ctx
 	for _, s := range syncers {
 		name := s.Name()
-		initializer, ok := s.(syncer.Initializer)
+		initializer, ok := s.(syncertypes.Initializer)
 		if ok {
 			errorGroup.Go(func() error {
 				err := initializer.Init(registerContext)
@@ -132,10 +138,10 @@ func ExecuteInitializers(controllerCtx *context.ControllerContext, syncers []syn
 	return errorGroup.Wait()
 }
 
-func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) error {
+func RegisterIndices(ctx *options.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 	for _, s := range syncers {
-		indexRegisterer, ok := s.(syncer.IndicesRegisterer)
+		indexRegisterer, ok := s.(syncertypes.IndicesRegisterer)
 		if ok {
 			err := indexRegisterer.RegisterIndices(registerContext)
 			if err != nil {
@@ -147,7 +153,7 @@ func RegisterIndices(ctx *context.ControllerContext, syncers []syncer.Object) er
 	return nil
 }
 
-func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object) error {
+func RegisterControllers(ctx *options.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 
 	err := k8sdefaultendpoint.Register(ctx)
@@ -189,7 +195,7 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 	// register controllers for resource synchronization
 	for _, v := range syncers {
 		// fake syncer?
-		fakeSyncer, ok := v.(syncer.FakeSyncer)
+		fakeSyncer, ok := v.(syncertypes.FakeSyncer)
 		if ok {
 			err = syncer.RegisterFakeSyncer(registerContext, fakeSyncer)
 			if err != nil {
@@ -197,7 +203,7 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 			}
 		} else {
 			// real syncer?
-			realSyncer, ok := v.(syncer.Syncer)
+			realSyncer, ok := v.(syncertypes.Syncer)
 			if ok {
 				err = syncer.RegisterSyncer(registerContext, realSyncer)
 				if err != nil {
@@ -212,10 +218,10 @@ func RegisterControllers(ctx *context.ControllerContext, syncers []syncer.Object
 	return nil
 }
 
-func RegisterGenericSyncController(ctx *context.ControllerContext) error {
+func RegisterGenericSyncController(ctx *options.ControllerContext) error {
 	// first check if a generic CRD config is provided and we actually need
 	// to create any of these syncer controllers
-	c := os.Getenv(context.GenericConfig)
+	c := os.Getenv(options.GenericConfig)
 	if strings.TrimSpace(c) == "" || strings.TrimSpace(c) == "---" {
 		// empty configuration, no need for creating any syncer controllers
 		loghelper.Infof("no generic config provided, skipping creating controllers")
@@ -244,37 +250,8 @@ func RegisterGenericSyncController(ctx *context.ControllerContext) error {
 	return nil
 }
 
-func RegisterInitManifestsController(ctx *context.ControllerContext) error {
-	currentNamespaceManager := ctx.LocalManager
-	if ctx.Options.TargetNamespace != ctx.CurrentNamespace {
-		var err error
-		currentNamespaceManager, err = ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
-				return ctx.LocalManager.GetRESTMapper(), nil
-			},
-			MetricsBindAddress: "0",
-			LeaderElection:     false,
-			Namespace:          ctx.CurrentNamespace,
-			NewClient:          pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
-		})
-		if err != nil {
-			return err
-		}
-
-		// start the manager
-		go func() {
-			err := currentNamespaceManager.Start(ctx.Context)
-			if err != nil {
-				panic(err)
-			}
-		}()
-
-		// Wait for caches to be synced
-		currentNamespaceManager.GetCache().WaitForCacheSync(ctx.Context)
-	}
-
-	vconfig, err := plugin.ConvertRestConfigToClientConfig(ctx.VirtualManager.GetConfig())
+func RegisterInitManifestsController(controllerCtx *options.ControllerContext) error {
+	vconfig, err := plugin.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
 	if err != nil {
 		return err
 	}
@@ -284,28 +261,42 @@ func RegisterInitManifestsController(ctx *context.ControllerContext) error {
 		return err
 	}
 
-	helmBinaryPath, err := cmd.GetHelmBinaryPath(ctx.Context, log.GetInstance())
+	helmBinaryPath, err := cmd.GetHelmBinaryPath(controllerCtx.Context, log.GetInstance())
 	if err != nil {
 		return err
 	}
 
 	controller := &manifests.InitManifestsConfigMapReconciler{
-		LocalClient:    currentNamespaceManager.GetClient(),
+		LocalClient:    controllerCtx.CurrentNamespaceClient,
 		Log:            loghelper.New("init-manifests-controller"),
-		VirtualManager: ctx.VirtualManager,
+		VirtualManager: controllerCtx.VirtualManager,
 
 		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance(), helmBinaryPath),
 	}
 
-	err = controller.SetupWithManager(currentNamespaceManager)
-	if err != nil {
-		return fmt.Errorf("unable to setup init manifests configmap controller: %v", err)
-	}
+	go func() {
+		wait.JitterUntilWithContext(controllerCtx.Context, func(ctx context.Context) {
+			for {
+				result, err := controller.Reconcile(ctx, ctrl.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: controllerCtx.CurrentNamespace,
+						Name:      translate.Suffix + manifests.InitManifestSuffix,
+					},
+				})
+				if err != nil {
+					klog.Errorf("Error reconciling init_configmap: %v", err)
+					break
+				} else if !result.Requeue {
+					break
+				}
+			}
+		}, time.Second*10, 1.0, true)
+	}()
 
 	return nil
 }
 
-func RegisterServiceSyncControllers(ctx *context.ControllerContext) error {
+func RegisterServiceSyncControllers(ctx *options.ControllerContext) error {
 	hostNamespace := ctx.Options.TargetNamespace
 	if ctx.Options.MultiNamespaceMode {
 		hostNamespace = ctx.CurrentNamespace
@@ -324,9 +315,9 @@ func RegisterServiceSyncControllers(ctx *context.ControllerContext) error {
 			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 				return ctx.LocalManager.GetRESTMapper(), nil
 			},
-			MetricsBindAddress: "0",
-			LeaderElection:     false,
-			NewClient:          blockingcacheclient.NewCacheClient,
+			Metrics:        metricsserver.Options{BindAddress: "0"},
+			LeaderElection: false,
+			NewClient:      blockingcacheclient.NewCacheClient,
 		})
 		if err != nil {
 			return err
@@ -433,27 +424,27 @@ func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace st
 	return ret, nil
 }
 
-func RegisterCoreDNSController(ctx *context.ControllerContext) error {
-	controller := &coredns.CoreDNSNodeHostsReconciler{
+func RegisterCoreDNSController(ctx *options.ControllerContext) error {
+	controller := &coredns.NodeHostsReconciler{
 		Client: ctx.VirtualManager.GetClient(),
 		Log:    loghelper.New("corednsnodehosts-controller"),
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
-		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %v", err)
+		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %w", err)
 	}
 	return nil
 }
 
-func RegisterPodSecurityController(ctx *context.ControllerContext) error {
-	controller := &podsecurity.PodSecurityReconciler{
+func RegisterPodSecurityController(ctx *options.ControllerContext) error {
+	controller := &podsecurity.Reconciler{
 		Client:              ctx.VirtualManager.GetClient(),
 		PodSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
 		Log:                 loghelper.New("podSecurity-controller"),
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
-		return fmt.Errorf("unable to setup pod security controller: %v", err)
+		return fmt.Errorf("unable to setup pod security controller: %w", err)
 	}
 	return nil
 }

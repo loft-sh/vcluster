@@ -7,7 +7,7 @@ import (
 
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -20,10 +20,10 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		framework.ExpectNoError(err)
 
 		for _, vnode := range virtualNodes.Items {
-			vnode.Spec.Taints = append(vnode.Spec.Taints, v1.Taint{
+			vnode.Spec.Taints = append(vnode.Spec.Taints, corev1.Taint{
 				Key:    "key1",
 				Value:  "value1",
-				Effect: v1.TaintEffectNoSchedule,
+				Effect: corev1.TaintEffectNoSchedule,
 			})
 			_, err = f.VclusterClient.CoreV1().Nodes().Update(f.Context, &vnode, metav1.UpdateOptions{})
 			framework.ExpectNoError(err)
@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		hostNodes, err := f.HostClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
-		hostNodesTaints := make(map[string][]v1.Taint)
+		hostNodesTaints := make(map[string][]corev1.Taint)
 		for _, hnode := range hostNodes.Items {
 			hostNodesTaints[hnode.Name] = hnode.Spec.Taints
 		}
@@ -40,7 +40,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		virtualNodes, err = f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
-		virtualNodesTaints := make(map[string][]v1.Taint)
+		virtualNodesTaints := make(map[string][]corev1.Taint)
 		for _, vnode := range virtualNodes.Items {
 			virtualNodesTaints[vnode.Name] = vnode.Spec.Taints
 		}
@@ -49,7 +49,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		ginkgo.By("Pod with matching toleration should be scheduled")
 		nsName := "default"
 		podName := "nginx"
-		pod := &v1.Pod{
+		pod := &corev1.Pod{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Pod",
 				APIVersion: "v1",
@@ -57,19 +57,19 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: podName,
 			},
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
 					{
 						Name:  "nginx",
 						Image: "nginx",
 					},
 				},
-				Tolerations: []v1.Toleration{
+				Tolerations: []corev1.Toleration{
 					{
 						Key:      "key1",
-						Operator: v1.TolerationOpEqual,
+						Operator: corev1.TolerationOpEqual,
 						Value:    "value1",
-						Effect:   v1.TaintEffectNoSchedule,
+						Effect:   corev1.TaintEffectNoSchedule,
 					},
 				},
 			},
@@ -80,7 +80,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
 			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(ctx, podName, metav1.GetOptions{})
-			if p.Status.Phase == v1.PodRunning {
+			if p.Status.Phase == corev1.PodRunning {
 				return true, nil
 			}
 			return false, nil
@@ -89,7 +89,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 
 		ginkgo.By("Pod without matching toleration should not be scheduled")
 		pod1Name := "nginx1"
-		pod1 := &v1.Pod{
+		pod1 := &corev1.Pod{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Pod",
 				APIVersion: "v1",
@@ -97,8 +97,8 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: pod1Name,
 			},
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
 					{
 						Name:  "nginx",
 						Image: "nginx",
@@ -112,7 +112,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
 			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(ctx, pod1Name, metav1.GetOptions{})
-			if p.Status.Phase == v1.PodRunning {
+			if p.Status.Phase == corev1.PodRunning {
 				return true, nil
 			}
 			return false, nil
@@ -132,7 +132,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		virtualNodes, err = f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
-		virtualNodesTaints = make(map[string][]v1.Taint)
+		virtualNodesTaints = make(map[string][]corev1.Taint)
 		for _, vnode := range virtualNodes.Items {
 			virtualNodesTaints[vnode.Name] = vnode.Spec.Taints
 		}

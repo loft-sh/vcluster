@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -21,7 +21,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme, run func() error) error {
+func StartLeaderElection(ctx *options.ControllerContext, scheme *runtime.Scheme, run func() error) error {
 	localConfig := ctx.LocalManager.GetConfig()
 
 	// create the event recorder
@@ -48,7 +48,7 @@ func StartLeaderElection(ctx *context2.ControllerContext, scheme *runtime.Scheme
 
 	// Lock required for leader election
 	rl, err := resourcelock.New(
-		resourcelock.ConfigMapsLeasesResourceLock,
+		resourcelock.LeasesResourceLock,
 		ctx.CurrentNamespace,
 		translate.SafeConcatName("vcluster", translate.Suffix, "controller"),
 		leaderElectionClient.CoreV1(),

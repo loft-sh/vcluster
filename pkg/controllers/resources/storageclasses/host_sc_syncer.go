@@ -1,15 +1,15 @@
 package storageclasses
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewHostStorageClassSyncer(*synccontext.RegisterContext) (syncer.Object, error) {
 	return &hostStorageClassSyncer{
 		Translator: translator.NewMirrorPhysicalTranslator("host-storageclass", &storagev1.StorageClass{}),
 	}, nil

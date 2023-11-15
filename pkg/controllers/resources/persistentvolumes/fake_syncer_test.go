@@ -1,9 +1,10 @@
 package persistentvolumes
 
 import (
+	"testing"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
-	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 

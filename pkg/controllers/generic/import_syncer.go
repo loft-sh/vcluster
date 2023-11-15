@@ -7,16 +7,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/log"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -32,19 +33,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error {
+func CreateImporters(ctx *options.ControllerContext, cfg *config.Config) error {
 	if len(cfg.Imports) == 0 {
 		return nil
 	}
 
 	registerCtx := util.ToRegisterContext(ctx)
-
 	if !registerCtx.Options.MultiNamespaceMode {
 		return fmt.Errorf("invalid configuration, 'import' type sync of the generic CRDs is allowed only in the multi-namespace mode")
 	}
 
 	gvkRegister := make(GVKRegister)
-
 	for _, importConfig := range cfg.Imports {
 		gvk := schema.FromAPIVersionAndKind(importConfig.APIVersion, importConfig.Kind)
 
@@ -57,11 +56,11 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 			gvk)
 		if err != nil {
 			if importConfig.Optional {
-				klog.Infof("error ensuring CRD %s(%s) from host cluster: %v. Skipping importSyncer as resource is optional", importConfig.Kind, importConfig.APIVersion, err)
+				klog.Infof("error ensuring CRD %s(%s) from host cluster: %w. Skipping importSyncer as resource is optional", importConfig.Kind, importConfig.APIVersion, err)
 				continue
 			}
 
-			return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", importConfig.Kind, importConfig.APIVersion, err)
+			return fmt.Errorf("error syncronizing CRD %s(%s) from the host cluster into vcluster: %w", importConfig.Kind, importConfig.APIVersion, err)
 		}
 
 		gvkRegister[gvk] = &GVKScopeAndSubresource{
@@ -72,24 +71,24 @@ func CreateImporters(ctx *context2.ControllerContext, cfg *config.Config) error 
 		s, err := createImporter(registerCtx, importConfig, gvkRegister)
 		klog.Infof("creating importer for %s/%s", importConfig.APIVersion, importConfig.Kind)
 		if err != nil {
-			return fmt.Errorf("error creating %s(%s) syncer: %v", importConfig.Kind, importConfig.APIVersion, err)
+			return fmt.Errorf("error creating %s(%s) syncer: %w", importConfig.Kind, importConfig.APIVersion, err)
 		}
 
 		err = syncer.RegisterSyncer(registerCtx, s)
 		klog.Infof("registering import syncer for %s/%s", importConfig.APIVersion, importConfig.Kind)
 		if err != nil {
-			return fmt.Errorf("error registering syncer %v", err)
+			return fmt.Errorf("error registering syncer %w", err)
 		}
 	}
 
 	return nil
 }
 
-func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvkRegister GVKRegister) (syncer.Syncer, error) {
+func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvkRegister GVKRegister) (syncertypes.Syncer, error) {
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
 	controllerID := fmt.Sprintf("%s/%s/GenericImport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.GroupVersion().String()))
 
-	syncerOptions := &syncer.Options{
+	syncerOptions := &syncertypes.Options{
 		DisableUIDDeletion: true,
 	}
 
@@ -121,7 +120,7 @@ type importer struct {
 	virtualClient client.Client
 	name          string
 
-	syncerOptions *syncer.Options
+	syncerOptions *syncertypes.Options
 }
 
 func (s *importer) Resource() client.Object {
@@ -135,13 +134,13 @@ func (s *importer) Name() string {
 	return s.name
 }
 
-var _ syncer.OptionsProvider = &importer{}
+var _ syncertypes.OptionsProvider = &importer{}
 
-func (s *importer) WithOptions() *syncer.Options {
+func (s *importer) WithOptions() *syncertypes.Options {
 	return s.syncerOptions
 }
 
-var _ syncer.ObjectExcluder = &importer{}
+var _ syncertypes.ObjectExcluder = &importer{}
 
 func (s *importer) ExcludeVirtual(vObj client.Object) bool {
 	return s.excludeObject(vObj)
@@ -178,7 +177,7 @@ func (s *importer) excludeObject(obj client.Object) bool {
 	return false
 }
 
-var _ syncer.UpSyncer = &importer{}
+var _ syncertypes.UpSyncer = &importer{}
 
 func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// check if annotation is already present
@@ -206,8 +205,8 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
 		//TODO: add eventRecorder?
-		//s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+		// s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	// wait here for vObj to be created
@@ -233,7 +232,7 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 	return ctrl.Result{}, nil
 }
 
-var _ syncer.Syncer = &importer{}
+var _ syncertypes.Syncer = &importer{}
 
 func (s *importer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// ignore all virtual resources that were not created by this controller
@@ -301,7 +300,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		return ctrl.Result{}, fmt.Errorf("failed to apply reverse patch on physical %s %s/%s: %v", s.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+		return ctrl.Result{}, fmt.Errorf("failed to apply reverse patch on physical %s %s/%s: %w", s.config.Kind, vObj.GetNamespace(), vObj.GetName(), err)
 	} else if result == controllerutil.OperationResultUpdated || result == controllerutil.OperationResultUpdatedStatus || result == controllerutil.OperationResultUpdatedStatusOnly {
 		// a change will trigger reconciliation anyway, and at that point we can make
 		// a more accurate updates(reverse patches) to the virtual resource
@@ -313,10 +312,10 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		return s.TranslateMetadata(ctx.Context, vObj), nil
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
-		// on conflict, auto delete and recreate
-		if (kerrors.IsConflict(err) || kerrors.IsInvalid(err)) && s.config.ReplaceOnConflict {
+		// when invalid, auto delete and recreate to recover
+		if kerrors.IsInvalid(err) && s.config.ReplaceWhenInvalid {
 			// Replace the object
-			ctx.Log.Infof("Replace virtual object, because of conflict: %v", err)
+			ctx.Log.Infof("Replace virtual object, because of apply failed: %v", err)
 			err = ctx.VirtualClient.Delete(ctx.Context, vObj, &client.DeleteOptions{
 				GracePeriodSeconds: &[]int64{0}[0],
 			})
@@ -326,15 +325,18 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 			return ctrl.Result{}, nil
 		}
+		if kerrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 
-		return ctrl.Result{}, fmt.Errorf("error applying patches: %v", err)
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	// ensure that annotation on physical resource to mark it as controlled by this syncer is present
 	return ctrl.Result{}, s.addAnnotationsToPhysicalObject(ctx, pObj)
 }
 
-func (s *importer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+func (s *importer) IsManaged(_ context.Context, pObj client.Object) (bool, error) {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return true, nil
 	}
@@ -352,7 +354,7 @@ func (s *importer) IsVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *importer) VirtualToPhysical(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
 }
 
@@ -398,13 +400,13 @@ func (s *importer) TranslateMetadataUpdate(vObj client.Object, pObj client.Objec
 func (s *importer) updateVirtualAnnotations(a map[string]string) map[string]string {
 	if a == nil {
 		return map[string]string{translate.ControllerLabel: s.Name()}
-	} else {
-		a[translate.ControllerLabel] = s.Name()
-		delete(a, translate.NameAnnotation)
-		delete(a, translate.UIDAnnotation)
-		delete(a, corev1.LastAppliedConfigAnnotation)
-		return a
 	}
+
+	a[translate.ControllerLabel] = s.Name()
+	delete(a, translate.NameAnnotation)
+	delete(a, translate.UIDAnnotation)
+	delete(a, corev1.LastAppliedConfigAnnotation)
+	return a
 }
 
 func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, pObj client.Object) error {
@@ -438,10 +440,10 @@ type hostToVirtualImportNameResolver struct {
 	ctx           context.Context
 }
 
-func (r *hostToVirtualImportNameResolver) TranslateName(name string, regex *regexp.Regexp, path string) (string, error) {
+func (r *hostToVirtualImportNameResolver) TranslateName(name string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
-func (r *hostToVirtualImportNameResolver) TranslateNameWithNamespace(name string, namespace string, regex *regexp.Regexp, path string) (string, error) {
+func (r *hostToVirtualImportNameResolver) TranslateNameWithNamespace(name string, _ string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
 func (r *hostToVirtualImportNameResolver) TranslateLabelKey(key string) (string, error) {

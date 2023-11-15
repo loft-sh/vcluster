@@ -1,52 +1,59 @@
 package specialservices
 
 import (
-	"context"
-
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var Default Interface = DefaultNameserverFinder()
+var Default Interface
+
+func SetDefault(ctrlCtx *options.VirtualClusterOptions) {
+	Default = defaultNameserverFinder(ctrlCtx.IsK8sDistro)
+}
 
 const (
 	DefaultKubeDNSServiceName      = "kube-dns"
 	DefaultKubeDNSServiceNamespace = "kube-system"
 )
 
-type SpecialServiceSyncer func(ctx context.Context,
-	vClient,
-	pClient client.Client,
+type SpecialServiceSyncer func(
+	ctx *synccontext.SyncContext,
 	svcNamespace,
 	svcName string,
 	vSvcToSync types.NamespacedName,
-	servicePortTranslator ServicePortTranslator) error
+	servicePortTranslator ServicePortTranslator,
+) error
 
 type Interface interface {
-	GetDNSServiceSuffix() *string
 	SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer
+	DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string)
 }
 
 type NameserverFinder struct {
-	DNSServiceSuffix *string
-	SpecialServices  map[types.NamespacedName]SpecialServiceSyncer
+	SpecialServices map[types.NamespacedName]SpecialServiceSyncer
 }
 
-func (f *NameserverFinder) GetDNSServiceSuffix() *string {
-	return f.DNSServiceSuffix
+func (f *NameserverFinder) DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string) {
+	return ctx.PhysicalClient, translate.Default.PhysicalNamespace(DefaultKubeDNSServiceNamespace)
 }
 
 func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer {
 	return f.SpecialServices
 }
 
-func DefaultNameserverFinder() Interface {
+func defaultNameserverFinder(k8sDistro bool) Interface {
+	specialServicesMap := map[types.NamespacedName]SpecialServiceSyncer{
+		DefaultKubernetesSvcKey: SyncKubernetesService,
+	}
+
+	if k8sDistro {
+		specialServicesMap[VclusterProxyMetricsSvcKey] = SyncVclusterProxyService
+	}
+
 	return &NameserverFinder{
-		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
-			{
-				Name:      DefaultKubernetesSVCName,
-				Namespace: DefaultKubernetesSVCNamespace,
-			}: SyncKubernetesService,
-		},
+		SpecialServices: specialServicesMap,
 	}
 }

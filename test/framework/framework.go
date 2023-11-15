@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -145,7 +145,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	// run port forwarder and retrieve kubeconfig for the vcluster
 	vKubeconfigFile, err := os.CreateTemp(os.TempDir(), "vcluster_e2e_kubeconfig_")
 	if err != nil {
-		return fmt.Errorf("could not create a temporary file: %v", err)
+		return fmt.Errorf("could not create a temporary file: %w", err)
 	}
 	// vKubeconfigFile removal is done in the Framework.Cleanup() which gets called in ginkgo's AfterSuite()
 
@@ -158,7 +158,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		KubeConfig: vKubeconfigFile.Name(),
 		LocalPort:  14550, // choosing a port that usually should be unused
 	}
-	err = connectCmd.Connect(ctx, name, nil)
+	err = connectCmd.Connect(ctx, nil, name, nil)
 	if err != nil {
 		l.Fatalf("failed to connect to the vcluster: %v", err)
 	}

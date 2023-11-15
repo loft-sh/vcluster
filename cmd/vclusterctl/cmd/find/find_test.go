@@ -28,5 +28,4 @@ func TestVClusterFromContext(t *testing.T) {
 			t.Fatalf("got %v, want %v", got, test.want)
 		}
 	}
-
 }

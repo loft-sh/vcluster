@@ -19,6 +19,12 @@ metadata:
   {{- end }}
 spec:
   serviceName: {{ .Release.Name }}-headless
+  {{- if .Values.autoDeletePersistentVolumeClaims }}
+  {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+  {{- end }}
+  {{- end }}
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
@@ -66,24 +72,26 @@ spec:
       serviceAccountName: vc-{{ .Release.Name }}
       {{- end }}
       volumes:
-      {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
         - name: helm-cache
           emptyDir: {}
         - name: tmp
           emptyDir: {}
         - name: run-k0s
           emptyDir: {}
-      {{- end }}
         - name: k0s-config
           secret:
             secretName: vc-{{ .Release.Name }}-config
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
-      {{- if .Values.coredns.enabled }}
+      {{- if and .Values.coredns.enabled (not .Values.coredns.integrated) }}
         - name: coredns
           configMap:
             name: {{ .Release.Name }}-coredns
+      {{- else if .Values.coredns.integrated }}
+        - name: coredns
+          configMap:
+            name: {{ .Release.Name }}-dns
       {{- end }}
         - name: custom-config-volume
           configMap:
@@ -115,9 +123,7 @@ spec:
           {{- range $f := .Values.vcluster.baseArgs }}
           - {{ $f | quote }}
           {{- end }}
-          {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
           - --status-socket=/run/k0s/status.sock
-          {{- end }}
           {{- if not .Values.sync.nodes.enableScheduler }}
           - --disable-components=konnectivity-server,kube-scheduler,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
           {{- else }}
@@ -137,13 +143,14 @@ spec:
               secretKeyRef:
                 name: "vc-{{ .Release.Name }}-config"
                 key: CONFIG_READY
+        {{- if .Values.vcluster.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.vcluster.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
-          {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
           - name: run-k0s
             mountPath: /run/k0s
-          {{- end }}
 {{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
@@ -153,7 +160,11 @@ spec:
         {{- if .Values.syncer.image }}
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
         {{- else }}
+        {{- if .Values.pro }}
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster-pro:{{ .Chart.Version }}"
+        {{- else }}
         image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
         {{- end }}
         {{- if .Values.syncer.workingDir }}
         workingDir: {{ .Values.syncer.workingDir }}
@@ -217,6 +228,12 @@ spec:
           {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
           - --proxy-metrics-server=true
           {{- end }}
+          {{- if .Values.coredns.integrated }}
+          - --integrated-coredns=true
+          {{- end }}
+          {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
+          - --use-coredns-plugin=true
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
@@ -247,6 +264,9 @@ spec:
           periodSeconds: 2
         {{- end }}
         {{- end }}
+        {{- if .Values.syncer.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         env:
@@ -267,12 +287,10 @@ spec:
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
         volumeMounts:
-        {{- if or .Values.securityContext.runAsUser .Values.securityContext.runAsNonRoot }}
           - name: helm-cache
             mountPath: /.cache/helm
           - name: tmp
             mountPath: /tmp
-        {{- end }}
         {{- if .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns

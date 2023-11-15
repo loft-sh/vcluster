@@ -5,8 +5,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -116,7 +116,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	pVSC := pObj.(*volumesnapshotv1.VolumeSnapshotContent)
 	vVSC := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 
-	//check if objects are getting deleted
+	// check if objects are getting deleted
 	if vObj.GetDeletionTimestamp() != nil {
 		if pObj.GetDeletionTimestamp() == nil {
 			ctx.Log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", pObj.GetName())

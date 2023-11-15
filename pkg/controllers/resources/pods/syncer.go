@@ -8,9 +8,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -262,6 +262,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	// make sure node exists for pod
 	if pPod.Spec.NodeName != "" {
 		requeue, err := s.ensureNode(ctx, pPod, vPod)
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		if err != nil {
 			return ctrl.Result{}, err
 		} else if requeue {
@@ -280,15 +283,12 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
-
 	strippedPod = stripInjectedSidecarContainers(vPod, pPod, strippedPod)
 
 	// update readiness gates & sync status virtual -> physical
-	updated, err := UpdateConditions(ctx, strippedPod, vPod)
+	strippedPod, err := UpdateConditions(ctx, strippedPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if updated {
-		return ctrl.Result{}, nil
 	}
 
 	// update status physical -> virtual
@@ -298,11 +298,11 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		ctx.Log.Infof("update virtual pod %s/%s, because status has changed", vPod.Namespace, vPod.Name)
 		translator.PrintChanges(vPod, newPod, ctx.Log)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, newPod)
+		if kerrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		if err != nil {
-			if !kerrors.IsConflict(err) {
-				s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error updating pod: %v", err)
-			}
-
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error updating pod: %v", err)
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -316,9 +316,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		}
 
 		// translate services to environment variables
-		serviceEnv := translatepods.TranslateServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
+		serviceEnv := translatepods.ServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
 		for i := range vPod.Spec.EphemeralContainers {
-			envVar, envFrom := translatepods.TranslateContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+			envVar, envFrom := translatepods.ContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
 			vPod.Spec.EphemeralContainers[i].Env = envVar
 			vPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		}
@@ -420,7 +420,9 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 		},
 	}, metav1.CreateOptions{})
 	if err != nil {
-		s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error binding pod: %v", err)
+		if !kerrors.IsConflict(err) {
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error binding pod: %v", err)
+		}
 		return err
 	}
 

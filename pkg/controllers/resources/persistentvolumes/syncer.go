@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
@@ -29,7 +30,7 @@ const (
 	LockPersistentVolume                  = "vcluster.loft.sh/lock"
 )
 
-func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &persistentVolumeSyncer{
 		Translator: translator.NewClusterTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, NewPersistentVolumeTranslator(), HostClusterPersistentVolumeAnnotation),
 
@@ -68,7 +69,7 @@ type persistentVolumeSyncer struct {
 	virtualClient client.Client
 }
 
-var _ syncer.IndicesRegisterer = &persistentVolumeSyncer{}
+var _ syncertypes.IndicesRegisterer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolume{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
@@ -76,13 +77,13 @@ func (s *persistentVolumeSyncer) RegisterIndices(ctx *synccontext.RegisterContex
 	})
 }
 
-var _ syncer.ControllerModifier = &persistentVolumeSyncer{}
+var _ syncertypes.ControllerModifier = &persistentVolumeSyncer{}
 
-func (s *persistentVolumeSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *persistentVolumeSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(mapPVCs)), nil
 }
 
-var _ syncer.Syncer = &persistentVolumeSyncer{}
+var _ syncertypes.Syncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPv := vObj.(*corev1.PersistentVolume)
@@ -210,13 +211,13 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	return ctrl.Result{}, nil
 }
 
-var _ syncer.OptionsProvider = &persistentVolumeSyncer{}
+var _ syncertypes.OptionsProvider = &persistentVolumeSyncer{}
 
-func (s *persistentVolumeSyncer) WithOptions() *syncer.Options {
-	return &syncer.Options{DisableUIDDeletion: true}
+func (s *persistentVolumeSyncer) WithOptions() *syncertypes.Options {
+	return &syncertypes.Options{DisableUIDDeletion: true}
 }
 
-var _ syncer.UpSyncer = &persistentVolumeSyncer{}
+var _ syncertypes.UpSyncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
@@ -282,7 +283,7 @@ func (s *persistentVolumeSyncer) IsManaged(ctx context.Context, pObj client.Obje
 	return sync, nil
 }
 
-func (s *persistentVolumeSyncer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *persistentVolumeSyncer) VirtualToPhysical(_ context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translatePersistentVolumeName(req.Name, vObj)}
 }
 

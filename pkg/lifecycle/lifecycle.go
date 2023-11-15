@@ -74,7 +74,7 @@ func DeleteVClusterWorkloads(ctx context.Context, kubeClient *kubernetes.Clients
 	return nil
 }
 
-func DeleteMultiNamespaceVclusterWorkloads(ctx context.Context, client *kubernetes.Clientset, vclusterName, vclusterNamespace string, log log.BaseLogger) error {
+func DeleteMultiNamespaceVclusterWorkloads(ctx context.Context, client *kubernetes.Clientset, vclusterName, vclusterNamespace string, _ log.BaseLogger) error {
 	// get all host namespaces managed by this multinamespace mode enabled vcluster
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 		LabelSelector: labels.FormatLabels(map[string]string{

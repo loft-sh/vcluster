@@ -8,6 +8,7 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
+	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -20,7 +21,7 @@ import (
 
 var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &serviceSyncer{
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher,
 		// because if it is also installed in the host cluster, it will be
@@ -37,10 +38,10 @@ type serviceSyncer struct {
 	serviceName string
 }
 
-var _ syncer.OptionsProvider = &serviceSyncer{}
+var _ syncertypes.OptionsProvider = &serviceSyncer{}
 
-func (s *serviceSyncer) WithOptions() *syncer.Options {
-	return &syncer.Options{DisableUIDDeletion: true}
+func (s *serviceSyncer) WithOptions() *syncertypes.Options {
+	return &syncertypes.Options{DisableUIDDeletion: true}
 }
 
 func (s *serviceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -109,7 +110,7 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 	return vService.Spec.Type == corev1.ServiceTypeExternalName && pService.Spec.Type != vService.Spec.Type && pService.Spec.ClusterIP != ""
 }
 
-var _ syncer.UpSyncer = &serviceSyncer{}
+var _ syncertypes.UpSyncer = &serviceSyncer{}
 
 func (s *serviceSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	if !translate.Default.IsManaged(pObj) {
@@ -151,14 +152,13 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 	return vService, nil
 }
 
-var _ syncer.Starter = &serviceSyncer{}
+var _ syncertypes.Starter = &serviceSyncer{}
 
 func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service
 	specialServices := specialservices.Default.SpecialServicesToSync()
-
 	if svc, ok := specialServices[req.NamespacedName]; ok {
-		return true, svc(ctx.Context, ctx.VirtualClient, ctx.CurrentNamespaceClient, ctx.CurrentNamespace, s.serviceName, req.NamespacedName, TranslateServicePorts)
+		return true, svc(ctx, ctx.CurrentNamespace, s.serviceName, req.NamespacedName, TranslateServicePorts)
 	}
 
 	return false, nil

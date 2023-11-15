@@ -11,11 +11,10 @@ import (
 )
 
 var K3SVersionMap = map[string]string{
-	"1.27": "rancher/k3s:v1.27.3-k3s1",
-	"1.26": "rancher/k3s:v1.26.6-k3s1",
-	"1.25": "rancher/k3s:v1.25.11-k3s1",
-	"1.24": "rancher/k3s:v1.24.15-k3s1",
-	"1.23": "rancher/k3s:v1.23.17-k3s1",
+	"1.28": "rancher/k3s:v1.28.2-k3s1",
+	"1.27": "rancher/k3s:v1.27.6-k3s1",
+	"1.26": "rancher/k3s:v1.26.9-k3s1",
+	"1.25": "rancher/k3s:v1.25.14-k3s1",
 }
 
 var replaceRegEx = regexp.MustCompile("[^0-9]+")
@@ -28,7 +27,7 @@ func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log logr.Logger
 		err                 error
 	)
 
-	if image == "" {
+	if image == "" && chartOptions.KubernetesVersion.Major != "" && chartOptions.KubernetesVersion.Minor != "" {
 		serverVersionString = GetKubernetesVersion(chartOptions.KubernetesVersion)
 		serverMinorInt, err = GetKubernetesMinorVersion(chartOptions.KubernetesVersion)
 		if err != nil {
@@ -38,30 +37,30 @@ func getDefaultK3SReleaseValues(chartOptions *helm.ChartOptions, log logr.Logger
 		var ok bool
 		image, ok = K3SVersionMap[serverVersionString]
 		if !ok {
-			if serverMinorInt > 27 {
-				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.27", "serverVersion", serverVersionString)
-				image = K3SVersionMap["1.27"]
+			if serverMinorInt > 28 {
+				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.28", "serverVersion", serverVersionString)
+				image = K3SVersionMap["1.28"]
 			} else {
-				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.23", "serverVersion", serverVersionString)
-				image = K3SVersionMap["1.23"]
+				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.25", "serverVersion", serverVersionString)
+				image = K3SVersionMap["1.25"]
 			}
 		}
 	}
 
 	// build values
-	values := `vcluster:
+	values := ""
+	if image != "" {
+		values = `vcluster:
   image: ##IMAGE##
-##BASEARGS##
 `
+		values = strings.ReplaceAll(values, "##IMAGE##", image)
+	}
 	if chartOptions.Isolate {
 		values += `
 securityContext:
   runAsUser: 12345
   runAsNonRoot: true`
 	}
-
-	values = strings.ReplaceAll(values, "##IMAGE##", image)
-
 	return addCommonReleaseValues(values, chartOptions)
 }
 

@@ -36,30 +36,29 @@ type certContext struct {
 func setupServerCert(f *framework.Framework, namespaceName, serviceName string) *certContext {
 	certDir, err := os.MkdirTemp("", "test-e2e-server-cert")
 	if err != nil {
-
-		f.Log.Failf("Failed to create a temp dir for cert generation %v", err)
+		f.Log.Fatalf("Failed to create a temp dir for cert generation %v", err)
 	}
 	defer func(path string) {
 		_ = os.RemoveAll(path)
 	}(certDir)
 	signingKey, err := NewPrivateKey()
 	if err != nil {
-		f.Log.Failf("Failed to create CA private key %v", err)
+		f.Log.Fatalf("Failed to create CA private key %v", err)
 	}
 	signingCert, err := cert.NewSelfSignedCACert(cert.Config{CommonName: "e2e-server-cert-ca"}, signingKey)
 	if err != nil {
-		f.Log.Failf("Failed to create CA cert for apiserver %v", err)
+		f.Log.Fatalf("Failed to create CA cert for apiserver %v", err)
 	}
 	caCertFile, err := os.CreateTemp(certDir, "ca.crt")
 	if err != nil {
-		f.Log.Failf("Failed to create a temp file for ca cert generation %v", err)
+		f.Log.Fatalf("Failed to create a temp file for ca cert generation %v", err)
 	}
 	if err := os.WriteFile(caCertFile.Name(), EncodeCertPEM(signingCert), 0644); err != nil {
-		f.Log.Failf("Failed to write CA cert %v", err)
+		f.Log.Fatalf("Failed to write CA cert %v", err)
 	}
 	key, err := NewPrivateKey()
 	if err != nil {
-		f.Log.Failf("Failed to create private key for %v", err)
+		f.Log.Fatalf("Failed to create private key for %v", err)
 	}
 	signedCert, err := NewSignedCert(
 		&cert.Config{
@@ -70,25 +69,25 @@ func setupServerCert(f *framework.Framework, namespaceName, serviceName string) 
 		key, signingCert, signingKey,
 	)
 	if err != nil {
-		f.Log.Failf("Failed to create cert%v", err)
+		f.Log.Fatalf("Failed to create cert%v", err)
 	}
 	certFile, err := os.CreateTemp(certDir, "server.crt")
 	if err != nil {
-		f.Log.Failf("Failed to create a temp file for cert generation %v", err)
+		f.Log.Fatalf("Failed to create a temp file for cert generation %v", err)
 	}
 	keyFile, err := os.CreateTemp(certDir, "server.key")
 	if err != nil {
-		f.Log.Failf("Failed to create a temp file for key generation %v", err)
+		f.Log.Fatalf("Failed to create a temp file for key generation %v", err)
 	}
 	if err = os.WriteFile(certFile.Name(), EncodeCertPEM(signedCert), 0600); err != nil {
-		f.Log.Failf("Failed to write cert file %v", err)
+		f.Log.Fatalf("Failed to write cert file %v", err)
 	}
 	privateKeyPEM, err := keyutil.MarshalPrivateKeyToPEM(key)
 	if err != nil {
-		f.Log.Failf("Failed to marshal key %v", err)
+		f.Log.Fatalf("Failed to marshal key %v", err)
 	}
 	if err = os.WriteFile(keyFile.Name(), privateKeyPEM, 0644); err != nil {
-		f.Log.Failf("Failed to write key file %v", err)
+		f.Log.Fatalf("Failed to write key file %v", err)
 	}
 	return &certContext{
 		cert:        EncodeCertPEM(signedCert),

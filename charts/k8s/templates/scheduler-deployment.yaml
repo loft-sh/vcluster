@@ -144,6 +144,9 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           failureThreshold: 24
+        {{- if .Values.scheduler.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.scheduler.imagePullPolicy }}
+        {{- end }}
         securityContext:
 {{ toYaml .Values.scheduler.securityContext | indent 10 }}
         env:

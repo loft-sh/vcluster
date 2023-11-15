@@ -95,7 +95,7 @@ func ChooseAPIServerBindAddress(bindAddress net.IP) (net.IP, error) {
 }
 
 // SetClusterDynamicDefaults checks and sets values for the ClusterConfiguration object
-func SetClusterDynamicDefaults(cfg *ClusterConfiguration, localAPIEndpoint *APIEndpoint, nodeRegOpts *NodeRegistrationOptions) error {
+func SetClusterDynamicDefaults(cfg *ClusterConfiguration, localAPIEndpoint *APIEndpoint, _ *NodeRegistrationOptions) error {
 	// If ControlPlaneEndpoint is specified without a port number defaults it to
 	// the bindPort number of the APIEndpoint.
 	// This will allow join of additional control plane instances with different bindPort number

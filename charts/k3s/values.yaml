@@ -1,9 +1,8 @@
 # These annotations will be applied to all objects created in this chart
 globalAnnotations: {}
 
-# If the control plane is deployed in high availability mode
-# Make sure to scale up the replicas and use an external datastore
-enableHA: false
+# If vCluster.Pro is enabled
+pro: false
 
 # If true, will deploy vcluster in headless mode, which means no deployment
 # or statefulset is created.
@@ -113,8 +112,8 @@ mapServices:
   # as the service exists.
   # For example:
   # fromVirtual:
-  #   from: my-namespace/name
-  #   to: host-service
+  #   - from: my-namespace/name
+  #     to: host-service
   fromVirtual: []
   # Same as from virtual, but instead sync services
   # from the host cluster into the virtual cluster.
@@ -134,6 +133,7 @@ syncer:
   # Image to use for the syncer
   # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
+  imagePullPolicy: ""
   env: []
   livenessProbe:
     enabled: true
@@ -146,22 +146,20 @@ syncer:
   extraVolumeMounts: []
   resources:
     limits:
-      cpu: 1000m
-      memory: 512Mi
+      memory: 2Gi
     requests:
-      # ensure that cpu/memory requests are high enough.
-      # for example gke wants minimum 10m/32Mi here!
-      cpu: 20m
-      memory: 64Mi
+      cpu: 200m
+      memory: 256Mi
   kubeConfigContextName: "my-vcluster"
   serviceAnnotations: {}
 
 # Virtual Cluster (k3s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: rancher/k3s:v1.27.3-k3s1
+  image: rancher/k3s:v1.28.2-k3s1
+  imagePullPolicy: ""
   command:
-    - /bin/k3s
+    - /k3s-binary/k3s
   baseArgs:
     - server
     - --write-kubeconfig=/data/k3s-config/kube-config.yaml
@@ -170,18 +168,28 @@ vcluster:
     - --disable-network-policy
     - --disable-agent
     - --disable-cloud-controller
+    - --egress-selector-mode=disabled
     - --flannel-backend=none
+    - --kube-apiserver-arg=bind-address=127.0.0.1
   extraArgs: []
-  volumeMounts:
-    - mountPath: /data
-      name: data
+  # Deprecated: Use syncer.extraVolumeMounts instead
+  extraVolumeMounts: []
+  # Deprecated: Use syncer.volumeMounts instead
+  volumeMounts: []
+  # Deprecated: Use syncer.env instead
   env: []
   resources:
     limits:
-      memory: 2Gi
+      cpu: 100m
+      memory: 128Mi
     requests:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 20m
+      memory: 64Mi
+
+# Embedded etcd settings
+embeddedEtcd:
+  # If embedded etcd should be enabled, this is a PRO only feature
+  enabled: false
 
 # Storage settings for the vcluster
 storage:
@@ -227,9 +235,15 @@ rbac:
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
+    # all entries in excludedApiResources will be excluded from the Role created for vcluster
+    excludedApiResources:
+      # - pods/exec
 
 # The amount of replicas to run the statefulset with
 replicas: 1
+
+# If vCluster persistent volume claims should get deleted automatically.
+autoDeletePersistentVolumeClaims: true
 
 # NodeSelector used to schedule the vcluster
 nodeSelector: {}
@@ -251,24 +265,8 @@ podLabels: {}
 annotations: {}
 podAnnotations: {}
 
-# PodDisruptionBudget settings for the vcluster
-# (takes effect only if high availability mode is enabled and more than one replica is created)
-podDisruptionBudget:
-  # Controls wether a PodDisruptionBudget will be created
-  enabled: false
-  minAvailable: 1
-  # maxUnavailable: 1
-
-# k3s token settings for the vcluster
-# (take effect only if high availability mode is enabled)
-serverToken:
-  # Shared secret used to join a k3s server to the cluster. If empty, a random token value will be generated.
-  # (Note that this token is also used to generate the encryption key for important content in the database e.g., bootstrap data)
-  value: ""
-  # Reference to an existing secret key used as value for the k3s server token
-  secretKeyRef: {}
-    # name: ""
-    # key: ""
+# The k3s token to use. If empty will generate one automatically
+k3sToken: ""
 
 # Service configurations
 service:
@@ -297,7 +295,6 @@ ingress:
   enabled: false
   # Ingress path type
   pathType: ImplementationSpecific
-  apiVersion: networking.k8s.io/v1
   ingressClassName: ""
   host: vcluster.local
   annotations:
@@ -325,10 +322,11 @@ securityContext:
   # For installation on OpenShift leave the runAsUser undefined (commented out).
   # runAsUser: 12345
   # runAsNonRoot: true
+  runAsUser: 0
+  runAsGroup: 0
 
 # PodSecurityContext holds pod-level security attributes and common container settings for the vCluster pod
-podSecurityContext:
-  {}
+podSecurityContext: {}
 
 # Set "enable" to true when running vcluster in an OpenShift host
 # This will add an extra rule to the deployed role binding in order
@@ -338,8 +336,53 @@ openshift:
 
 # If enabled will deploy the coredns configmap
 coredns:
+  integrated: false
+  plugin:
+    enabled: false
+    config: []
+    # example configuration for plugin syntax, will be documented in detail
+    # - record:
+    #     fqdn: google.com
+    #   target:
+    #     mode: url
+    #     url: google.co.in
+    # - record:
+    #     service: my-namespace/my-svc    # dns-test/nginx-svc
+    #   target:
+    #     mode: host
+    #     service: dns-test/nginx-svc
+    # - record:
+    #     service: my-namespace-lb/my-svc-lb
+    #   target:
+    #     mode: host
+    #     service: dns-test-exposed-lb/nginx-svc-exposed-lb
+    # - record:
+    #     service: my-ns-external-name/my-svc-external-name
+    #   target:
+    #     mode: host
+    #     service: dns-test-external-name/nginx-svc-external-name
+    # - record:
+    #     service: my-ns-in-vcluster/my-svc-vcluster
+    #   target:
+    #     mode: vcluster              # can be tested only manually for now
+    #     vcluster: test-vcluster-ns/test-vcluster
+    #     service: dns-test-in-vcluster-ns/test-in-vcluster-service
+    # - record:
+    #     service: my-ns-in-vcluster-mns/my-svc-mns
+    #   target:
+    #     mode: vcluster              # can be tested only manually for now
+    #     service: dns-test-in-vcluster-mns/test-in-vcluster-svc-mns
+    #     vcluster: test-vcluster-ns-mns/test-vcluster-mns
+    # - record:
+    #     service: my-self-vc-ns/my-self-vc-svc
+    #   target:
+    #     mode: self
+    #     service: dns-test/nginx-svc
   enabled: true
   replicas: 1
+  # The nodeSelector example below specifices that coredns should only be scheduled to nodes with the arm64 label
+  # nodeSelector:
+  #   kubernetes.io/arch: arm64
   # image: my-core-dns-image:latest
   # config: |-
   #   .:1053 {
@@ -432,11 +475,42 @@ init:
   # this allows you to use helm values inside, e.g.: {{ .Release.Name }}
   manifestsTemplate: ''
   helm: []
+    # - bundle: <string> - base64-encoded .tar.gz file content (optional - overrides chart.repo)
+    #   chart:
+    #     name: <string>  REQUIRED
+    #     version: <string>  REQUIRED
+    #     repo: <string>  (optional when bundle is used)
+    #     username: <string>   (if required for repo)
+    #     password: <string>   (if required for repo)
+    #     insecure: boolean    (if required for repo)
+    #   release:
+    #     name: <string> REQUIRED
+    #     namespace: <string> REQUIRED
+    #     timeout: number
+    #   values: |-  string YAML object
+    #     foo: bar
+    #   valuesTemplate: |-  string YAML object
+    #     foo: {{ .Release.Name }}
 
 multiNamespaceMode:
   enabled: false
 
 telemetry:
-  disabled: "false"
+  disabled: false
   instanceCreator: "helm"
   instanceCreatorUID: ""
+
+noopSyncer:
+  enabled: false
+  synck8sService: false
+
+  # Secret containing remote cluster configuration
+  # (should have the following keys defined)
+  #   serverCaCert: <server-ca-cert of the remote cluster>
+  #   serverCaKey: <server-ca-key of the remote cluster>
+  #   clientCaCert: <client-ca-cert of the remote cluster>
+  #   requestHeaderCaCert: <request-header-ca-cert of the remote cluster>
+  #   kubeConfig: <kubeconfig of the remote cluster>
+  #
+  #secret: ""
+

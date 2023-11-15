@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log/survey"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -44,7 +44,7 @@ vcluster disconnect
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run()
 		},
 	}
 
@@ -52,7 +52,7 @@ vcluster disconnect
 }
 
 // Run executes the functionality
-func (cmd *DisconnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *DisconnectCmd) Run() error {
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: cmd.Context,
 	}).RawConfig()
@@ -66,7 +66,11 @@ func (cmd *DisconnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// get vcluster info from context
 	vClusterName, _, otherContext := find.VClusterFromContext(cmd.Context)
 	if vClusterName == "" {
-		return fmt.Errorf("current selected context \"%s\" is not a vcluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
+		// get vcluster-pro info from context
+		vClusterName, _, otherContext = find.VClusterProFromContext(cmd.Context)
+		if vClusterName == "" {
+			return fmt.Errorf("current selected context \"%s\" is not a vcluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
+		}
 	}
 
 	if otherContext == "" {
@@ -76,18 +80,13 @@ func (cmd *DisconnectCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
-	err = switchContext(&rawConfig, otherContext)
+	err = find.SwitchContext(&rawConfig, otherContext)
 	if err != nil {
 		return errors.Wrap(err, "switch kube context")
 	}
 
 	cmd.log.Infof("Successfully disconnected from vcluster: %s and switched back to the original context: %s", vClusterName, otherContext)
 	return nil
-}
-
-func switchContext(kubeConfig *clientcmdapi.Config, otherContext string) error {
-	kubeConfig.CurrentContext = otherContext
-	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
 }
 
 func (cmd *DisconnectCmd) selectContext(kubeConfig *clientcmdapi.Config, currentContext string) (string, error) {

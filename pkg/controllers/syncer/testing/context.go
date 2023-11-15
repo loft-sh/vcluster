@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 
-	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -48,12 +48,12 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
 	return &synccontext.RegisterContext{
 		Context: context.Background(),
-		Options: &controllercontext.VirtualClusterOptions{
+		Options: &options.VirtualClusterOptions{
 			Name:            DefaultTestVclusterName,
 			ServiceName:     DefaultTestVclusterServiceName,
 			TargetNamespace: DefaultTestTargetNamespace,
 		},
-		Controllers:            controllercontext.ExistingControllers.Clone(),
+		Controllers:            options.ExistingControllers.Clone(),
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
@@ -63,32 +63,32 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 
 type fakeEventBroadcaster struct{}
 
-func (f *fakeEventBroadcaster) StartEventWatcher(eventHandler func(*corev1.Event)) watch.Interface {
+func (f *fakeEventBroadcaster) StartEventWatcher(_ func(*corev1.Event)) watch.Interface {
 	return nil
 }
 
-func (f *fakeEventBroadcaster) StartRecordingToSink(sink record.EventSink) watch.Interface {
+func (f *fakeEventBroadcaster) StartRecordingToSink(_ record.EventSink) watch.Interface {
 	return nil
 }
 
-func (f *fakeEventBroadcaster) StartLogging(logf func(format string, args ...interface{})) watch.Interface {
+func (f *fakeEventBroadcaster) StartLogging(_ func(format string, args ...interface{})) watch.Interface {
 	return nil
 }
 
-func (f *fakeEventBroadcaster) StartStructuredLogging(verbosity klog.Level) watch.Interface {
+func (f *fakeEventBroadcaster) StartStructuredLogging(_ klog.Level) watch.Interface {
 	return nil
 }
 
-func (f *fakeEventBroadcaster) NewRecorder(scheme *runtime.Scheme, source corev1.EventSource) record.EventRecorder {
+func (f *fakeEventBroadcaster) NewRecorder(_ *runtime.Scheme, _ corev1.EventSource) record.EventRecorder {
 	return f
 }
 
 func (f *fakeEventBroadcaster) Shutdown() {}
 
-func (f *fakeEventBroadcaster) Event(object runtime.Object, eventtype, reason, message string) {}
+func (f *fakeEventBroadcaster) Event(_ runtime.Object, _, _, _ string) {}
 
-func (f *fakeEventBroadcaster) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (f *fakeEventBroadcaster) Eventf(_ runtime.Object, _, _, _ string, _ ...interface{}) {
 }
 
-func (f *fakeEventBroadcaster) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+func (f *fakeEventBroadcaster) AnnotatedEventf(_ runtime.Object, _ map[string]string, _, _, _ string, _ ...interface{}) {
 }

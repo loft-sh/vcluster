@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: git fetch --force --tags
@@ -46,10 +46,10 @@ jobs:
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.14.3
       - name: Setup GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v5
         with:
           install-only: true
-          version: nightly
+          version: latest
       - name: Build and save syncer image
         run: |
           set -x
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: git fetch --force --tags
@@ -81,10 +81,9 @@ jobs:
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.14.3
       - name: Setup GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v5
         with:
           install-only: true
-          version: nightly
       - name: Build vcluster cli
         run: |
           set -x
@@ -100,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - id: set-paths-matrix
         run: |
           set -x
@@ -138,7 +137,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -146,15 +145,16 @@ jobs:
           go-version: "1.21"
           cache: false
 
+      - uses: azure/setup-helm@v3
+        name: Setup Helm
+        with:
+          version: "v3.11.0"
+
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
           version: "v0.20.0"
           image: kindest/node:v1.27.3
-
-      - name: Generate Embedded Helm Charts
-        run: |
-          go generate ./...
 
       - name: Testing kind cluster set-up
         run: |
@@ -182,9 +182,17 @@ jobs:
         run: |
           set -x
 
-          MULTINS_VALUES=""
+          extraArgs=()
           if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
-              MULTINS_VALUES="-f ./test/multins_values.yaml"
+            extraArgs+=( -f ./test/multins_values.yaml )
+          fi
+          if [ ${{ matrix.test-suite-path }} == "./test/e2e_metrics_proxy" ]; then
+            helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+            helm upgrade --install metrics-server metrics-server/metrics-server --set args={--kubelet-insecure-tls} --set containerPort=4443 -n kube-system
+          fi
+
+          if [ ${{ matrix.test-suite-path }} == "./test/e2e_target_namespace" ]; then
+            kubectl apply -f ${{ matrix.test-suite-path }}/role.yaml
           fi
 
           sudo apt-get install -y sed
@@ -203,7 +211,7 @@ jobs:
           --local-chart-dir ./charts/${{ matrix.distribution }} \
           -f ./test/commonValues.yaml \
           -f ${{ matrix.test-suite-path }}/values.yaml \
-          $MULTINS_VALUES
+          "${extraArgs[@]}"
         continue-on-error: true
 
       - name: Wait until vcluster is ready
@@ -233,7 +241,7 @@ jobs:
         working-directory: ${{ matrix.test-suite-path }}
         run: |
           set -x
-          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*'
+          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
         continue-on-error: true
 
       - name: Print logs if e2e tests fail

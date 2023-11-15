@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"gotest.tools/assert"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,10 +37,10 @@ func newFakeFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccon
 
 type fakeNodeServiceProvider struct{}
 
-func (f *fakeNodeServiceProvider) Start(ctx context.Context) {}
-func (f *fakeNodeServiceProvider) Lock()                     {}
-func (f *fakeNodeServiceProvider) Unlock()                   {}
-func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name string) (string, error) {
+func (f *fakeNodeServiceProvider) Start(context.Context) {}
+func (f *fakeNodeServiceProvider) Lock()                 {}
+func (f *fakeNodeServiceProvider) Unlock()               {}
+func (f *fakeNodeServiceProvider) GetNodeIP(context.Context, string) (string, error) {
 	return "127.0.0.1", nil
 }
 

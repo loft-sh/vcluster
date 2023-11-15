@@ -31,7 +31,7 @@ var (
 	KubeletTargetPort = 8443
 )
 
-type NodeServiceProvider interface {
+type Provider interface {
 	sync.Locker
 	// Start starts the node service garbage collector
 	Start(ctx context.Context)
@@ -39,7 +39,7 @@ type NodeServiceProvider interface {
 	GetNodeIP(ctx context.Context, name string) (string, error)
 }
 
-func NewNodeServiceProvider(serviceName, currentNamespace string, currentNamespaceClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
+func NewNodeServiceProvider(serviceName, currentNamespace string, currentNamespaceClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) Provider {
 	return &nodeServiceProvider{
 		serviceName:            serviceName,
 		currentNamespace:       currentNamespace,
@@ -166,7 +166,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "kubelet",
-					Port:       int32(KubeletPort),
+					Port:       KubeletPort,
 					TargetPort: targetPort,
 				},
 			},

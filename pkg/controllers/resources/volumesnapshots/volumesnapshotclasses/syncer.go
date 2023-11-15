@@ -4,8 +4,8 @@ import (
 	"path"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -19,7 +19,7 @@ const (
 	crdPath = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotclasses.yaml"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotClassSyncer{
 		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}),
 	}, nil

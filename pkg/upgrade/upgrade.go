@@ -6,13 +6,15 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/blang/semver"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )
+
+const DevelopmentVersion = "0.0.1"
 
 // Version holds the current version tag
 var version string
@@ -62,7 +64,7 @@ func SetVersion(verText string) {
 
 var (
 	latestVersion     string
-	latestVersionErr  error
+	errLatestVersion  error
 	latestVersionOnce sync.Once
 )
 
@@ -71,7 +73,7 @@ func CheckForNewerVersion() (string, error) {
 	latestVersionOnce.Do(func() {
 		latest, found, err := selfupdate.DetectLatest(githubSlug)
 		if err != nil {
-			latestVersionErr = err
+			errLatestVersion = err
 			return
 		}
 
@@ -83,7 +85,7 @@ func CheckForNewerVersion() (string, error) {
 		latestVersion = latest.Version.String()
 	})
 
-	return latestVersion, latestVersionErr
+	return latestVersion, errLatestVersion
 }
 
 // NewerVersionAvailable checks if there is a newer version of vcluster
@@ -124,9 +126,8 @@ func Upgrade(flagVersion string, log log.Logger) error {
 			return err
 		}
 
-		log.StartWait(fmt.Sprintf("Downloading version %s...", flagVersion))
+		log.Infof("Downloading version %s...", flagVersion)
 		err = selfupdate.DefaultUpdater().UpdateTo(release, cmdPath)
-		log.StopWait()
 		if err != nil {
 			return err
 		}
@@ -146,9 +147,8 @@ func Upgrade(flagVersion string, log log.Logger) error {
 
 	v := semver.MustParse(version)
 
-	log.StartWait("Downloading newest version...")
+	log.Info("Downloading newest version...")
 	latest, err := selfupdate.UpdateSelf(v, githubSlug)
-	log.StopWait()
 	if err != nil {
 		return err
 	}

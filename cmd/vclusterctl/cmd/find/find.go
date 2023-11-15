@@ -6,7 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	loftclientset "github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset"
+	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
@@ -17,7 +23,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const VirtualClusterSelector = "app=vcluster"
@@ -29,6 +34,7 @@ type VCluster struct {
 	Status        Status
 	Created       metav1.Time
 	Context       string
+	Version       string
 	ClientFactory clientcmd.ClientConfig `json:"-"`
 }
 
@@ -40,6 +46,11 @@ const (
 	StatusUnknown Status = "Unknown"
 )
 
+func SwitchContext(kubeConfig *api.Config, otherContext string) error {
+	kubeConfig.CurrentContext = otherContext
+	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
+}
+
 func CurrentContext() (string, *api.Config, error) {
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
@@ -49,54 +60,157 @@ func CurrentContext() (string, *api.Config, error) {
 	return rawConfig.CurrentContext, &rawConfig, nil
 }
 
-func GetVCluster(ctx context.Context, context, name, namespace string) (*VCluster, error) {
+func GetVCluster(ctx context.Context, proClient proclient.Client, context, name, namespace, project string, log log.Logger) (*VCluster, *pro.VirtualClusterInstanceProject, error) {
 	if name == "" {
-		return nil, fmt.Errorf("please specify a name")
+		return nil, nil, fmt.Errorf("please specify a name")
 	}
 
-	vclusters, err := ListVClusters(ctx, context, name, namespace)
+	// list vclusters
+	ossVClusters, proVClusters, err := ListVClusters(ctx, proClient, context, name, namespace, project, log)
 	if err != nil {
-		return nil, err
-	} else if len(vclusters) == 0 {
-		return nil, fmt.Errorf("couldn't find vcluster %s", name)
-	} else if len(vclusters) == 1 {
-		return &vclusters[0], nil
+		return nil, nil, err
 	}
 
-	return nil, fmt.Errorf("multiple vclusters with name %s found, please specify a namespace via -n", name)
+	// figure out what we want to return
+	if len(ossVClusters) == 0 && len(proVClusters) == 0 {
+		return nil, nil, fmt.Errorf("couldn't find vcluster %s", name)
+	} else if len(ossVClusters) == 1 && len(proVClusters) == 0 {
+		return &ossVClusters[0], nil, nil
+	} else if len(proVClusters) == 1 && len(ossVClusters) == 0 {
+		return nil, &proVClusters[0], nil
+	}
+
+	// check if terminal
+	if !terminal.IsTerminalIn {
+		return nil, nil, fmt.Errorf("multiple vclusters with name %s found, please specify a project via --project or a namespace via --namespace to select the correct one", name)
+	}
+
+	// ask a question
+	questionOptionsUnformatted := [][]string{}
+	for _, vCluster := range ossVClusters {
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{name, vCluster.Namespace, "false"})
+	}
+	for _, vCluster := range proVClusters {
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{name, vCluster.Project.Name, "true"})
+	}
+	questionOptions := FormatOptions("Name: %s | Namespace / Project: %s | Pro: %s ", questionOptionsUnformatted)
+	selectedVCluster, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a virtual cluster to use",
+		DefaultValue: questionOptions[0],
+		Options:      questionOptions,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// match answer
+	for idx, s := range questionOptions {
+		if s == selectedVCluster {
+			if idx < len(ossVClusters) {
+				return &ossVClusters[idx], nil, nil
+			}
+
+			return nil, &proVClusters[idx-len(ossVClusters)], nil
+		}
+	}
+
+	return nil, nil, fmt.Errorf("unexpected error searching for selected vcluster")
 }
 
-func ListVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
+func FormatOptions(format string, options [][]string) []string {
+	if len(options) == 0 {
+		return []string{}
+	}
+
+	columnLengths := make([]int, len(options[0]))
+	for _, row := range options {
+		for i, column := range row {
+			if len(column) > columnLengths[i] {
+				columnLengths[i] = len(column)
+			}
+		}
+	}
+
+	retOptions := []string{}
+	for _, row := range options {
+		columns := []interface{}{}
+		for i := range row {
+			value := row[i]
+			if columnLengths[i] > len(value) {
+				value = value + strings.Repeat(" ", columnLengths[i]-len(value))
+			}
+
+			columns = append(columns, value)
+		}
+
+		retOptions = append(retOptions, fmt.Sprintf(format, columns...))
+	}
+
+	return retOptions
+}
+
+func ListVClusters(ctx context.Context, proClient proclient.Client, context, name, namespace, project string, log log.Logger) ([]VCluster, []pro.VirtualClusterInstanceProject, error) {
+	var err error
 	if context == "" {
 		var err error
 		context, _, err = CurrentContext()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	vClusterName, _, vClusterContext := VClusterFromContext(context)
+	var ossVClusters []VCluster
+	if project == "" {
+		ossVClusters, err = ListOSSVClusters(ctx, context, name, namespace)
+		if err != nil {
+			log.Warnf("Error retrieving vclusters: %v", err)
+		}
+	}
+
+	var proVClusters []pro.VirtualClusterInstanceProject
+	if proClient != nil {
+		proVClusters, err = pro.ListVClusters(ctx, proClient, name, project)
+		if err != nil {
+			log.Warnf("Error retrieving pro vclusters: %v", err)
+		}
+	}
+
+	return ossVClusters, proVClusters, nil
+}
+
+func ListOSSVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
+	var err error
+
 	timeout := time.Minute
-	if vClusterName != "" {
-		timeout = time.Second * 5
+	vClusterName, _, vClusterContext := VClusterProFromContext(context)
+	if vClusterContext != "" {
+		timeout = time.Second * 10
+	} else {
+		vClusterName, _, vClusterContext = VClusterFromContext(context)
+		if vClusterName != "" {
+			timeout = time.Second * 5
+		}
 	}
 
 	vclusters, err := findInContext(ctx, context, name, namespace, timeout, false)
-	// In case of error in vcluster listing in vcluster context, the below check will skip the error and try searching for parent context vclusters.
 	if err != nil && vClusterName == "" {
 		return nil, errors.Wrap(err, "find vcluster")
 	}
 
 	if vClusterName != "" {
-		parentContextVclusters, err := findInContext(ctx, vClusterContext, name, namespace, time.Minute, true)
+		parentContextVClusters, err := findInContext(ctx, vClusterContext, name, namespace, time.Minute, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "find vcluster")
 		}
 
-		vclusters = append(vclusters, parentContextVclusters...)
+		vclusters = append(vclusters, parentContextVClusters...)
 	}
 
 	return vclusters, nil
+}
+
+func VClusterProContextName(vClusterName string, projectName string, currentContext string) string {
+	return "vcluster-pro_" + vClusterName + "_" + projectName + "_" + currentContext
 }
 
 func VClusterContextName(vClusterName string, vClusterNamespace string, currentContext string) string {
@@ -105,6 +219,21 @@ func VClusterContextName(vClusterName string, vClusterNamespace string, currentC
 
 func VClusterConnectBackgroundProxyName(vClusterName string, vClusterNamespace string, currentContext string) string {
 	return VClusterContextName(vClusterName, vClusterNamespace, currentContext) + "_background_proxy"
+}
+
+func VClusterProFromContext(originalContext string) (name string, project string, context string) {
+	if !strings.HasPrefix(originalContext, "vcluster-pro_") {
+		return "", "", ""
+	}
+
+	splitted := strings.Split(originalContext, "_")
+	// vcluster-pro_<name>_<namespace>_<context>
+	if len(splitted) >= 4 {
+		return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
+	}
+
+	// we don't know for sure, but most likely specified custom vcluster context name
+	return originalContext, "", ""
 }
 
 func VClusterFromContext(originalContext string) (name string, namespace string, context string) {
@@ -141,6 +270,10 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 	if err != nil {
 		return nil, errors.Wrap(err, "create kube client")
 	}
+	loftClient, err := loftclientset.NewForConfig(restConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "create new loft api client")
+	}
 
 	// statefulset based vclusters
 	statefulSets, err := getStatefulSets(ctx, kubeClient, namespace, kubeClientConfig, timeout)
@@ -169,6 +302,12 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 				continue
 			}
 
+			// skip pro clusters
+			_, err = loftClient.StorageV1().VirtualClusters(p.Namespace).Get(ctx, p.Name, metav1.GetOptions{})
+			if err == nil {
+				continue
+			}
+
 			vCluster, err := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
 			if err != nil {
 				return nil, err
@@ -186,6 +325,12 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 	for _, p := range deployments.Items {
 		if release, ok := p.Labels["release"]; ok {
 			if name != "" && name != release {
+				continue
+			}
+
+			// skip pro clusters
+			_, err = loftClient.StorageV1().VirtualClusters(p.Namespace).Get(ctx, p.Name, metav1.GetOptions{})
+			if err == nil {
 				continue
 			}
 
@@ -207,6 +352,8 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	created := object.GetCreationTimestamp()
 	releaseName := ""
 	status := ""
+	version := ""
+
 	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation] == "true" {
 		status = string(StatusPaused)
 	} else {
@@ -226,12 +373,36 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 		status = string(StatusUnknown)
 	}
 
+	switch vclusterObject := object.(type) {
+	case *appsv1.StatefulSet:
+		for _, container := range vclusterObject.Spec.Template.Spec.Containers {
+			if container.Name == "syncer" {
+				tag := strings.Split(container.Image, ":")
+				if len(tag) == 2 {
+					version = tag[1]
+				}
+				break
+			}
+		}
+	case *appsv1.Deployment:
+		for _, container := range vclusterObject.Spec.Template.Spec.Containers {
+			if container.Name == "syncer" {
+				tag := strings.Split(container.Image, ":")
+				if len(tag) == 2 {
+					version = tag[1]
+				}
+				break
+			}
+		}
+	}
+
 	return VCluster{
 		Name:          release,
 		Namespace:     namespace,
 		Status:        Status(status),
 		Created:       created,
 		Context:       context,
+		Version:       version,
 		ClientFactory: kubeClientConfig,
 	}, nil
 }

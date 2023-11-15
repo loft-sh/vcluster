@@ -51,6 +51,7 @@ Whether to create a cluster role or not
         ((index .Values.sync "legacy-storageclasses") | default (dict "enabled" false))
     "enabled")
     (include "vcluster.syncIngressclassesEnabled" . )
+    .Values.pro
     .Values.sync.nodes.enabled
     .Values.sync.persistentvolumes.enabled
     .Values.sync.storageclasses.enabled
@@ -68,21 +69,6 @@ Whether to create a cluster role or not
 
 {{- define "vcluster.clusterRoleNameMultinamespace" -}}
 {{- printf "vc-mn-%s-v-%s" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "vcluster.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
-Get
-*/}}
-{{- $}}
-{{- define "vcluster.admin.accessKey" -}}
-{{- now | unixEpoch | toString | trunc 8 | sha256sum -}}
 {{- end -}}
 
 {{/*
@@ -204,6 +190,11 @@ Corefile: |-
       ready
       rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
       kubernetes cluster.local in-addr.arpa ip6.arpa {
+          {{- if .Values.pro }}
+          {{- if .Values.coredns.integrated }}
+          kubeconfig /pki/admin.conf
+          {{- end }}
+          {{- end }}
           pods insecure
           {{- if .Values.fallbackHostDns }}
           fallthrough cluster.local in-addr.arpa ip6.arpa
@@ -211,6 +202,9 @@ Corefile: |-
           fallthrough in-addr.arpa ip6.arpa
           {{- end }}
       }
+      {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
+      vcluster {{ toYaml .Values.coredns.plugin.config | b64enc }}
+      {{- end }}
       hosts /etc/NodeHosts {
           ttl 60
           reload 15s

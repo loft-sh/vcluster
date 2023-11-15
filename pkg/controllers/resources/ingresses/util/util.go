@@ -2,10 +2,11 @@ package util
 
 import (
 	"encoding/json"
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 const AlbConditionAnnotation = "alb.ingress.kubernetes.io/conditions"
@@ -21,15 +22,20 @@ func getActionOrConditionValue(annotation, actionOrCondition string) string {
 	return ""
 }
 
+// ref https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/pkg/ingress/config_types.go
+type actionPayload struct {
+	Type                string                 `json:"type,omitempty"`
+	TargetGroupARN      *string                `json:"targetGroupARN,omitempty"`
+	FixedResponseConfig map[string]interface{} `json:"fixedResponseConfig,omitempty"`
+	ForwardConfig       struct {
+		TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
+		TargetGroupStickinessConfig map[string]interface{}   `json:"targetGroupStickinessConfig,omitempty"`
+	} `json:"forwardConfig,omitempty"`
+	RedirectConfig map[string]interface{} `json:"redirectConfig,omitempty"`
+}
+
 func ProcessAlbAnnotations(namespace string, k string, v string) (string, string) {
 	if strings.HasPrefix(k, AlbActionsAnnotation) {
-		type actionPayload struct {
-			Type          string `json:"type,omitempty"`
-			ForwardConfig struct {
-				TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
-				TargetGroupStickinessConfig map[string]interface{}   `json:"targetGroupStickinessConfig,omitempty"`
-			} `json:"forwardConfig,omitempty"`
-		}
 		// change k
 		action := getActionOrConditionValue(k, ActionsSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {

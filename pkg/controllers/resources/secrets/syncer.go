@@ -13,8 +13,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/legacy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -88,7 +88,7 @@ func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 
 var _ syncer.ControllerModifier = &secretSyncer{}
 
-func (s *secretSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *secretSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.includeIngresses {
 		if s.useLegacyIngress {
 			builder = builder.Watches(&networkingv1beta1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))

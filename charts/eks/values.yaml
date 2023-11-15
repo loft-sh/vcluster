@@ -2,7 +2,11 @@
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""
 
+# Global annotations to add to all objects
 globalAnnotations: {}
+
+# If vCluster.Pro is enabled
+pro: false
 
 # If true, will deploy vcluster in headless mode, which means no deployment
 # or statefulset is created.
@@ -107,8 +111,8 @@ mapServices:
   # as the service exists.
   # For example:
   # fromVirtual:
-  #   from: my-namespace/name
-  #   to: host-service
+  #   - from: my-namespace/name
+  #     to: host-service
   fromVirtual: []
   # Same as from virtual, but instead sync services
   # from the host cluster into the virtual cluster.
@@ -128,13 +132,11 @@ proxy:
 syncer:
   # Image to use for the syncer
   # image: ghcr.io/loft-sh/vcluster
+  imagePullPolicy: ""
   extraArgs: []
   volumeMounts:
     - mountPath: /manifests/coredns
       name: coredns
-      readOnly: true
-    - mountPath: /pki
-      name: certs
       readOnly: true
   extraVolumeMounts: []
   env: []
@@ -173,7 +175,8 @@ syncer:
 
 # Etcd settings
 etcd:
-  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.6-eks-1-24-7
+  image: public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.9-eks-1-28-6
+  imagePullPolicy: ""
   # The amount of replicas to run
   replicas: 1
   # NodeSelector used
@@ -205,10 +208,12 @@ etcd:
   priorityClassName: ""
   securityContext: {}
   serviceAnnotations: {}
+  autoDeletePersistentVolumeClaims: true
 
 # Kubernetes Controller Manager settings
 controller:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.24.9-eks-1-24-7
+  image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6
+  imagePullPolicy: ""
   # The amount of replicas to run the deployment with
   replicas: 1
   # NodeSelector used
@@ -231,7 +236,8 @@ controller:
 
 # Kubernetes API Server settings
 api:
-  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.24.9-eks-1-24-7
+  image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
+  imagePullPolicy: ""
   extraArgs: []
   # The amount of replicas to run the deployment with
   replicas: 1
@@ -257,9 +263,54 @@ api:
 
 # Core DNS settings
 coredns:
+  integrated: false
+  plugin:
+    enabled: false
+    config: []
+    # example configuration for plugin syntax, will be documented in detail
+    # - record:
+    #     fqdn: google.com
+    #   target:
+    #     mode: url
+    #     url: google.co.in
+    # - record:
+    #     service: my-namespace/my-svc    # dns-test/nginx-svc
+    #   target:
+    #     mode: host
+    #     service: dns-test/nginx-svc
+    # - record:
+    #     service: my-namespace-lb/my-svc-lb
+    #   target:
+    #     mode: host
+    #     service: dns-test-exposed-lb/nginx-svc-exposed-lb
+    # - record:
+    #     service: my-ns-external-name/my-svc-external-name
+    #   target:
+    #     mode: host
+    #     service: dns-test-external-name/nginx-svc-external-name
+    # - record:
+    #     service: my-ns-in-vcluster/my-svc-vcluster
+    #   target:
+    #     mode: vcluster              # can be tested only manually for now
+    #     vcluster: test-vcluster-ns/test-vcluster
+    #     service: dns-test-in-vcluster-ns/test-in-vcluster-service
+    # - record:
+    #     service: my-ns-in-vcluster-mns/my-svc-mns
+    #   target:
+    #     mode: vcluster              # can be tested only manually for now
+    #     service: dns-test-in-vcluster-mns/test-in-vcluster-svc-mns
+    #     vcluster: test-vcluster-ns-mns/test-vcluster-mns
+    # - record:
+    #     service: my-self-vc-ns/my-self-vc-svc
+    #   target:
+    #     mode: self
+    #     service: dns-test/nginx-svc
   enabled: true
-  image: public.ecr.aws/eks-distro/coredns/coredns:v1.8.7-eks-1-24-7
+  image: public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-28-6
   replicas: 1
+  # The nodeSelector example below specifices that coredns should only be scheduled to nodes with the arm64 label
+  # nodeSelector:
+  #   kubernetes.io/arch: arm64
   # CoreDNS service configurations
   service:
     # Extra Annotations
@@ -310,6 +361,9 @@ rbac:
     # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
     # Support for this value will be removed in a future version of the vcluster
     extended: false
+    # all entries in excludedApiResources will be excluded from the Role created for vcluster
+    excludedApiResources:
+      # - pods/exec
 
 # Syncer service configurations
 service:
@@ -332,37 +386,12 @@ service:
   # Set the loadBalancerClass if using an external load balancer controller
   loadBalancerClass: ""
 
-# job configuration
-job:
-  enabled: true
-  volumes: []
-  volumeMounts: []
-  extraArgs: []
-  priorityClassName: ""
-  nodeSelector: {}
-  affinity: {}
-  tolerations: []
-  resources: {}
-  podAnnotations: {}
-  podLabels: {}
-  # Security context configuration of the container
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 10001
-    runAsGroup: 10001
-
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
   # Enable ingress record generation
   enabled: false
   # Ingress path type
   pathType: ImplementationSpecific
-  apiVersion: networking.k8s.io/v1
   ingressClassName: ""
   host: vcluster.local
   annotations:
@@ -389,6 +418,22 @@ init:
   # this allows you to use helm values inside, e.g.: {{ .Release.Name }}
   manifestsTemplate: ''
   helm: []
+    # - bundle: <string> - base64-encoded .tar.gz file content (optional - overrides chart.repo)
+    #   chart:
+    #     name: <string>  REQUIRED
+    #     version: <string>  REQUIRED
+    #     repo: <string>  (optional when bundle is used)
+    #     username: <string>   (if required for repo)
+    #     password: <string>   (if required for repo)
+    #     insecure: boolean    (if required for repo)
+    #   release:
+    #     name: <string> REQUIRED
+    #     namespace: <string> REQUIRED
+    #     timeout: number
+    #   values: |-  string YAML object
+    #     foo: bar
+    #   valuesTemplate: |-  string YAML object
+    #     foo: {{ .Release.Name }}
 
 # If enabled will deploy vcluster in an isolated mode with pod security
 # standards, limit ranges and resource quotas
@@ -452,6 +497,6 @@ multiNamespaceMode:
   enabled: false
 
 telemetry:
-  disabled: "false"
+  disabled: false
   instanceCreator: "helm"
   instanceCreatorUID: ""

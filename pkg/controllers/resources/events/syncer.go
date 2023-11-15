@@ -7,9 +7,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
@@ -48,15 +48,15 @@ func (s *eventSyncer) Name() string {
 	return "event"
 }
 
-func (s *eventSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+func (s *eventSyncer) IsManaged(context.Context, client.Object) (bool, error) {
 	return true, nil
 }
 
-func (s *eventSyncer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *eventSyncer) VirtualToPhysical(context.Context, types.NamespacedName, client.Object) types.NamespacedName {
 	return types.NamespacedName{}
 }
 
-func (s *eventSyncer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
+func (s *eventSyncer) PhysicalToVirtual(_ context.Context, pObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      pObj.GetName(),
 		Namespace: pObj.GetNamespace(),
@@ -73,7 +73,7 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 	pObj := s.Resource()
 	err := ctx.PhysicalClient.Get(ctx.Context, req.NamespacedName, pObj)
 	if err != nil {
-		if !kerrors.IsNotFound(err) {
+		if !kerrors.IsNotFound(err) && !strings.Contains(err.Error(), "because of unknown namespace for the cache") {
 			return err
 		}
 
@@ -192,12 +192,12 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 
 var _ syncer.Syncer = &eventSyncer{}
 
-func (s *eventSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *eventSyncer) SyncDown(*synccontext.SyncContext, client.Object) (ctrl.Result, error) {
 	// Noop, we do nothing here
 	return ctrl.Result{}, nil
 }
 
-func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *eventSyncer) Sync(*synccontext.SyncContext, client.Object, client.Object) (ctrl.Result, error) {
 	// Noop, we do nothing here
 	return ctrl.Result{}, nil
 }

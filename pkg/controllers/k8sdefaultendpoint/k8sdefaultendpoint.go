@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,9 +43,11 @@ type EndpointController struct {
 	Log loghelper.Logger
 
 	provider provider
+
+	k8sDistro bool
 }
 
-func NewEndpointController(ctx *controllercontext.ControllerContext, provider provider) *EndpointController {
+func NewEndpointController(ctx *options.ControllerContext, provider provider) *EndpointController {
 	return &EndpointController{
 		LocalClient:         ctx.LocalManager.GetClient(),
 		VirtualClient:       ctx.VirtualManager.GetClient(),
@@ -51,21 +56,29 @@ func NewEndpointController(ctx *controllercontext.ControllerContext, provider pr
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),
 		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
 		provider:            provider,
+		k8sDistro:           ctx.Options.IsK8sDistro,
 	}
 }
 
 func (e *EndpointController) Register(mgr ctrl.Manager) error {
 	err := e.SetupWithManager(mgr)
 	if err != nil {
-		return fmt.Errorf("unable to setup pod security controller: %v", err)
+		return fmt.Errorf("unable to setup pod security controller: %w", err)
 	}
 	return nil
 }
 
-func (e *EndpointController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
 	err := e.syncKubernetesServiceEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: time.Second}, err
+	}
+
+	if e.k8sDistro {
+		err = e.syncMetricsServerEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
+		if err != nil {
+			return ctrl.Result{RequeueAfter: time.Second}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }
@@ -79,12 +92,26 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	pfuncs := predicate.NewPredicateFuncs(pp)
 
 	vp := func(object client.Object) bool {
-		return object.GetNamespace() == "default" && object.GetName() == "kubernetes"
+		if object.GetNamespace() == specialservices.DefaultKubernetesSvcKey.Namespace && object.GetName() == specialservices.DefaultKubernetesSvcKey.Name {
+			return true
+		}
+
+		if e.k8sDistro {
+			if object.GetNamespace() == specialservices.VclusterProxyMetricsSvcKey.Namespace &&
+				object.GetName() == specialservices.VclusterProxyMetricsSvcKey.Name {
+				return true
+			}
+		}
+
+		return false
 	}
 	vfuncs := predicate.NewPredicateFuncs(vp)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("kubernetes_default_endpoint").
+		WithOptions(controller.Options{
+			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
+		}).
 		For(&corev1.Endpoints{},
 			builder.WithPredicates(pfuncs, predicate.ResourceVersionChangedPredicate{})).
 		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}),
@@ -92,6 +119,82 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()),
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
 		Complete(e)
+}
+
+func (e *EndpointController) syncMetricsServerEndpoints(ctx context.Context, virtualClient, localClient client.Client, serviceName, serviceNamespace string) error {
+	// get physical service endpoints
+	pEndpoints := &corev1.Endpoints{}
+	err := localClient.Get(ctx, types.NamespacedName{
+		Namespace: serviceNamespace,
+		Name:      serviceName,
+	}, pEndpoints)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	vEndpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: specialservices.VclusterProxyMetricsSvcKey.Namespace,
+			Name:      specialservices.VclusterProxyMetricsSvcKey.Name,
+		},
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, virtualClient, vEndpoints, func() error {
+		if vEndpoints.Labels == nil {
+			vEndpoints.Labels = map[string]string{}
+		}
+		// vEndpoints.Labels[discoveryv1.LabelSkipMirror] = "true"
+
+		// build new subsets
+		newSubsets := []corev1.EndpointSubset{}
+		for _, subset := range pEndpoints.Subsets {
+			newPorts := []corev1.EndpointPort{}
+			for _, p := range subset.Ports {
+				if p.Name != "https" {
+					continue
+				}
+
+				newPorts = append(newPorts, p)
+			}
+
+			newAddresses := []corev1.EndpointAddress{}
+			for _, address := range subset.Addresses {
+				address.Hostname = ""
+				address.NodeName = nil
+				address.TargetRef = nil
+				newAddresses = append(newAddresses, address)
+			}
+			newNotReadyAddresses := []corev1.EndpointAddress{}
+			for _, address := range subset.NotReadyAddresses {
+				address.Hostname = ""
+				address.NodeName = nil
+				address.TargetRef = nil
+				newNotReadyAddresses = append(newNotReadyAddresses, address)
+			}
+
+			newSubsets = append(newSubsets, corev1.EndpointSubset{
+				Addresses:         newAddresses,
+				NotReadyAddresses: newNotReadyAddresses,
+				Ports:             newPorts,
+			})
+		}
+
+		vEndpoints.Subsets = newSubsets
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
+
+	if result == controllerutil.OperationResultCreated || result == controllerutil.OperationResultUpdated {
+		return e.provider.createOrPatch(ctx, virtualClient, vEndpoints)
+	}
+
+	return err
 }
 
 func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceName, serviceNamespace string) error {
@@ -120,7 +223,7 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 		if vEndpoints.Labels == nil {
 			vEndpoints.Labels = map[string]string{}
 		}
-		vEndpoints.Labels[discovery.LabelSkipMirror] = "true"
+		vEndpoints.Labels[discoveryv1.LabelSkipMirror] = "true"
 
 		// build new subsets
 		newSubsets := []corev1.EndpointSubset{}

@@ -8,88 +8,266 @@
 module.exports = {
   adminSidebar: [
     {
-      type: 'doc',
-      id: 'what-are-virtual-clusters',
+      type: "html",
+      value: `
+        <div class="pro-flex-container">
+            <a href="/docs/" class="selected">
+              Open Source
+            </a>
+
+            <a href="/pro/docs/">
+              Pro
+            </a>
+        </div>
+      `,
     },
     {
-      type: 'category',
-      label: 'Getting Started',
+      type: "doc",
+      id: "what-are-virtual-clusters",
+    },
+    {
+      type: "category",
+      label: "Getting Started",
       collapsed: false,
       items: [
+        "getting-started/setup",
+        "getting-started/deployment",
+        "getting-started/connect",
+        "getting-started/cleanup",
+      ],
+    },
+    {
+      type: "category",
+      label: "Architecture",
+      collapsed: true,
+      items: [
+        "architecture/overview",
         {
-          type: 'doc',
-          id: 'quickstart',
+          type: "category",
+          label: "Control Plane",
+          collapsed: true,
+          items: [
+            "architecture/control_plane/control_plane",
+            "architecture/control_plane/k8s_distros",
+            {
+              type: "html",
+              value: `<a href="/pro/docs/features/isolated_control_planes" class="menu__link">Isolated control planes <div class="pro-feature">p</div><div class="pro-feature pro-feature-link">l</div></a>`,
+              defaultStyle: true,
+            },
+          ],
         },
         {
-          type: 'category',
-          label: 'Full Guide',
-          collapsed: false,
+          type: "category",
+          label: "Syncer",
+          collapsed: true,
           items: [
-            'getting-started/setup',
-            'getting-started/deployment',
-            'getting-started/connect',
-            'getting-started/cleanup',
+            "architecture/syncer/syncer",
+            "architecture/syncer/single_vs_multins",
+          ],
+        },
+        "architecture/scheduling",
+        "architecture/nodes",
+      ],
+    },
+    {
+      type: "category",
+      label: "Networking",
+      collapsed: true,
+      items: [
+        "networking/networking",
+        "networking/coreDNS",
+        {
+          type: "html",
+          value: `<a href="/pro/docs/features/integrated_coredns" class="menu__link">Integrated CoreDNS <div class="pro-feature">p</div><div class="pro-feature pro-feature-link">l</div></a>`,
+          defaultStyle: true,
+        },
+        {
+          type: "category",
+          label: "Mapping Traffic",
+          collapsed: true,
+          items: [
+            "networking/internal_traffic/host_to_vcluster",
+            "networking/internal_traffic/vcluster_to_host",
+          ],
+        },
+        "networking/ingress_traffic",
+        "networking/network_policies",
+      ],
+    },
+    {
+      type: "category",
+      label: "Sync",
+      collapsed: true,
+      items: [
+        "syncer/core_resources",
+        {
+          type: "category",
+          label: "Syncer",
+          collapsed: true,
+          items: ["syncer/config"],
+        },
+        {
+          type: "category",
+          label: "Other resources",
+          collapsed: true,
+          items: [
+            "syncer/other_resources/overview",
+            "syncer/other_resources/generic_sync",
+            "syncer/other_resources/config_syntax",
+            "syncer/other_resources/multi_namespace_mode",
+          ],
+        },
+        {
+          type: "html",
+          value: `<a href="/pro/docs/features/generic_resource_patches" class="menu__link">Generic Resource Patches <div class="pro-feature">p</div><div class="pro-feature pro-feature-link">l</div></a>`,
+          defaultStyle: true,
+        },
+        {
+          type: "category",
+          label: "Plugins",
+          collapsed: true,
+          items: ["plugins/overview", "plugins/tutorial"],
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Using vclusters",
+      collapsed: true,
+      items: [
+        {
+          type: "category",
+          label: "Accessing vcluster",
+          collapsed: true,
+          items: ["using-vclusters/kube-context", "using-vclusters/access"],
+        },
+        "using-vclusters/pausing-vcluster",
+        "using-vclusters/backup-restore",
+      ],
+    },
+    {
+      type: "category",
+      label: "Deploying vclusters",
+      collapsed: true,
+      items: [
+        {
+          type: "category",
+          label: "Kubernetes Distros",
+          collapsed: true,
+          items: ["deploying-vclusters/supported-distros"],
+        },
+        {
+          type: "category",
+          label: "Persistent vclusters",
+          collapsed: true,
+          items: ["deploying-vclusters/persistence"],
+        },
+        "deploying-vclusters/high-availability",
+        {
+          type: "category",
+          label: "On Init",
+          collapsed: true,
+          items: [
+            "deploying-vclusters/init-manifests",
+            "deploying-vclusters/init-charts",
+          ],
+        },
+        {
+          type: "category",
+          label: "Integrations",
+          collapsed: true,
+          items: ["deploying-vclusters/integrations-openshift"],
+        },
+      ],
+    },
+    {
+      type: "doc",
+      id: "storage",
+    },
+    {
+      type: "category",
+      label: "Observability",
+      collapsed: true,
+      items: [
+        {
+          type: "category",
+          label: "Collecting Metrics",
+          collapsed: true,
+          items: [
+            "o11y/metrics/metrics_server_proxy",
+            "o11y/metrics/metrics_server",
+            "o11y/metrics/monitoring_vcluster",
+          ],
+        },
+        {
+          type: "category",
+          label: "Logging",
+          collapsed: true,
+          items: [
+            "o11y/logging/hpm",
+            "o11y/logging/central_hpm",
+            "o11y/logging/elk_stack",
+            "o11y/logging/grafana_loki",
           ],
         },
       ],
     },
     {
-      type: 'category',
-      label: 'Architecture',
-      collapsed: false,
+      type: "category",
+      label: "Security",
+      collapsed: true,
       items: [
-        'architecture/basics',
-        'architecture/scheduling',
-        'architecture/networking',
-        'architecture/storage',
-        'architecture/nodes',
-        'architecture/synced-resources',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Operator Guide',
-      collapsed: false,
-      items: [
-        'operator/external-access',
-        'operator/external-datastore',
-        'operator/accessing-vcluster',
-        'operator/init-manifests',
-        'operator/monitoring-logging',
-        'operator/high-availability',
-        'operator/other-distributions',
-        'operator/restricted-hosts',
-        'operator/pausing-vcluster',
-        'operator/backup',
-        'operator/security',
-        'operator/cluster-api-provider',
+        "security/rootless-mode",
+        "security/isolated-mode",
+        "security/quotas-limits",
+        "security/pod-security",
+        "security/network-isolation",
+        "security/other-topics",
       ],
     },
     {
       type: "category",
-      label: "Plugins",
-      collapsed: false,
+      label: "Advanced topics",
+      collapsed: true,
       items: [
-          'plugins/overview',
-          'plugins/tutorial',
-      ]
+        {
+          type: "category",
+          label: "Plugins",
+          collapsed: true,
+          items: [
+            "advanced-topics/plugins-overview",
+            "advanced-topics/plugins-development",
+          ],
+        },
+        "advanced-topics/telemetry",
+      ],
     },
     {
-      type: 'doc',
-      id: 'troubleshooting',
+      type: "category",
+      label: "Help and Tutorials",
+      collapsed: true,
+      items: ["help&tutorials/troubleshooting", "help&tutorials/helm-provisioning", "help&tutorials/bootstrapping"],
     },
     {
-      type: 'doc',
-      id: 'telemetry',
+      type: "doc",
+      id: "config-reference",
     },
     {
-      type: 'doc',
-      id: 'config-reference',
+      type: "category",
+      label: "CLI",
+      collapsed: true,
+      link: { type: 'doc', id: 'cli' },
+      items: [
+        {
+          type: 'autogenerated',
+          dirName: 'cli',
+        },
+      ],
     },
     {
-      type: 'link',
-      label: 'Originally created by Loft',
-      href: 'https://loft.sh/',
+      type: "link",
+      label: "Originally created by Loft",
+      href: "https://loft.sh/",
     },
   ],
 };

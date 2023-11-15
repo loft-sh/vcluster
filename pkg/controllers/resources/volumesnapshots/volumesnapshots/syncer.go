@@ -6,8 +6,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -118,7 +118,6 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			}
 		}
 		return ctrl.Result{}, nil
-
 	} else if vVS.DeletionTimestamp != nil {
 		if pVS.DeletionTimestamp == nil {
 			ctx.Log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", pVS.Namespace, pVS.Name)

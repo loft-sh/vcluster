@@ -14,6 +14,7 @@ limitations under the License.
 package certs
 
 import (
+	"strings"
 	"time"
 )
 
@@ -106,7 +107,7 @@ const (
 	// FrontProxyClientKeyName defines front proxy key name
 	FrontProxyClientKeyName = "front-proxy-client.key"
 	// FrontProxyClientCertCommonName defines front proxy certificate common name
-	FrontProxyClientCertCommonName = "front-proxy-client" //used as subject.commonname attribute (CN)
+	FrontProxyClientCertCommonName = "front-proxy-client" // used as subject.commonname attribute (CN)
 
 	// AdminKubeConfigFileName defines name for the kubeconfig aimed to be used by the superuser/admin of the cluster
 	AdminKubeConfigFileName = "admin.conf"
@@ -128,3 +129,43 @@ const (
 	// DefaultAPIServerBindAddress is the default bind address for the API Server
 	DefaultAPIServerBindAddress = "0.0.0.0"
 )
+
+// write needed files to secret
+var certMap = map[string]string{
+	AdminKubeConfigFileName:             AdminKubeConfigFileName,
+	ControllerManagerKubeConfigFileName: ControllerManagerKubeConfigFileName,
+	SchedulerKubeConfigFileName:         SchedulerKubeConfigFileName,
+
+	APIServerCertName: APIServerCertName,
+	APIServerKeyName:  APIServerKeyName,
+
+	APIServerEtcdClientCertName: APIServerEtcdClientCertName,
+	APIServerEtcdClientKeyName:  APIServerEtcdClientKeyName,
+
+	APIServerKubeletClientCertName: APIServerKubeletClientCertName,
+	APIServerKubeletClientKeyName:  APIServerKubeletClientKeyName,
+
+	CACertName: CACertName,
+	CAKeyName:  CAKeyName,
+
+	FrontProxyCACertName: FrontProxyCACertName,
+	FrontProxyCAKeyName:  FrontProxyCAKeyName,
+
+	FrontProxyClientCertName: FrontProxyClientCertName,
+	FrontProxyClientKeyName:  FrontProxyClientKeyName,
+
+	ServiceAccountPrivateKeyName: ServiceAccountPrivateKeyName,
+	ServiceAccountPublicKeyName:  ServiceAccountPublicKeyName,
+
+	EtcdCACertName: strings.ReplaceAll(EtcdCACertName, "/", "-"),
+	EtcdCAKeyName:  strings.ReplaceAll(EtcdCAKeyName, "/", "-"),
+
+	EtcdHealthcheckClientCertName: strings.ReplaceAll(EtcdHealthcheckClientCertName, "/", "-"),
+	EtcdHealthcheckClientKeyName:  strings.ReplaceAll(EtcdHealthcheckClientKeyName, "/", "-"),
+
+	EtcdPeerCertName: strings.ReplaceAll(EtcdPeerCertName, "/", "-"),
+	EtcdPeerKeyName:  strings.ReplaceAll(EtcdPeerKeyName, "/", "-"),
+
+	EtcdServerCertName: strings.ReplaceAll(EtcdServerCertName, "/", "-"),
+	EtcdServerKeyName:  strings.ReplaceAll(EtcdServerKeyName, "/", "-"),
+}

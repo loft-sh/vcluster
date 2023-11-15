@@ -28,13 +28,11 @@ func (t *translator) ensureMountPropagation(pPod *corev1.Pod) {
 			if volumeMount.MountPath == PodLoggingHostPath ||
 				volumeMount.MountPath == KubeletPodPath ||
 				volumeMount.MountPath == LogHostPath {
-
 				hostToContainer := corev1.MountPropagationHostToContainer
 				pPod.Spec.Containers[i].VolumeMounts[j].MountPropagation = &hostToContainer
 			}
 		}
 	}
-
 }
 
 func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {

@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/x509"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -71,7 +70,7 @@ func CreateJoinControlPlaneKubeConfigFiles(outDir string, cfg *InitConfiguration
 
 	for _, file := range files {
 		if externaCA {
-			fmt.Printf("[kubeconfig] External CA mode: Using user provided %s\n", file)
+			klog.Infof("[kubeconfig] External CA mode: Using user provided %s", file)
 			continue
 		}
 		if err := createKubeConfigFiles(outDir, cfg, file); err != nil {
@@ -84,7 +83,6 @@ func CreateJoinControlPlaneKubeConfigFiles(outDir string, cfg *InitConfiguration
 // createKubeConfigFiles creates all the requested kubeconfig files.
 // If kubeconfig files already exists, they are used only if evaluated equal; otherwise an error is returned.
 func createKubeConfigFiles(outDir string, cfg *InitConfiguration, kubeConfigFileNames ...string) error {
-
 	// gets the KubeConfigSpecs, actualized for the current InitConfiguration
 	specs, err := getKubeConfigSpecs(cfg)
 	if err != nil {
@@ -136,7 +134,6 @@ func getKubeConfigSpecs(cfg *InitConfiguration) (map[string]*kubeConfigSpec, err
 
 // buildKubeConfigFromSpec creates a kubeconfig object for the given kubeConfigSpec
 func buildKubeConfigFromSpec(spec *kubeConfigSpec, clustername string, notAfter *time.Time) (*clientcmdapi.Config, error) {
-
 	// If this kubeconfig should use token
 	if spec.TokenAuth != nil {
 		// create a kubeconfig with a token
@@ -243,7 +240,7 @@ func createKubeConfigFileIfNotExists(outDir, filename string, config *clientcmda
 		if !os.IsNotExist(err) {
 			return err
 		}
-		fmt.Printf("[kubeconfig] Writing %q kubeconfig file\n", filename)
+		klog.Infof("[kubeconfig] Writing %q kubeconfig file", filename)
 		err = WriteToDisk(kubeConfigFilePath, config)
 		if err != nil {
 			return errors.Wrapf(err, "failed to save kubeconfig file %q on disk", kubeConfigFilePath)
@@ -253,7 +250,7 @@ func createKubeConfigFileIfNotExists(outDir, filename string, config *clientcmda
 	// kubeadm doesn't validate the existing kubeconfig file more than this (kubeadm trusts the client certs to be valid)
 	// Basically, if we find a kubeconfig file with the same path; the same CA cert and the same server URL;
 	// kubeadm thinks those files are equal and doesn't bother writing a new file
-	fmt.Printf("[kubeconfig] Using existing kubeconfig file: %q\n", kubeConfigFilePath)
+	klog.Infof("[kubeconfig] Using existing kubeconfig file: %q", kubeConfigFilePath)
 
 	return nil
 }
