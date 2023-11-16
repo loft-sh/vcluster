@@ -26,6 +26,11 @@ rules:
     resources: [ "pods", "nodes/metrics", "nodes/stats"]
     verbs: ["get", "watch", "list"]
   {{- end }}
+  {{- if .Values.coredns.plugin.enabled }}
+  - apiGroups: [""]
+    resources: [ "pods"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
   {{- if and (or .Values.sync.nodes.enabled .Values.rbac.clusterRole.create) (or (not .Values.isolation.enabled) (and .Values.isolation.nodeProxyPermission.enabled .Values.isolation.enabled)) }}
   - apiGroups: [""]
     resources: ["nodes/proxy"]
