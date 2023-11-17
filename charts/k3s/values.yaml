@@ -8,6 +8,10 @@ pro: false
 # or statefulset is created.
 headless: false
 
+monitoring:
+  serviceMonitor:
+    enabled: false
+
 # DefaultImageRegistry will be prepended to all deployed vcluster images, such as the vcluster pod, coredns etc.. Deployed
 # images within the vcluster will not be rewritten.
 defaultImageRegistry: ""

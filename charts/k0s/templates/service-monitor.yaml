@@ -1,0 +1,31 @@
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: vcluster
+      release: "{{ .Release.Name }}"
+      chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+      heritage: "{{ .Release.Service }}"
+  endpoints:
+  - interval: 30s
+    port: https
+    path: /metrics
+    scheme: https
+    tlsConfig:
+      ca:
+        secret:
+          name: vc-{{ .Release.Name }}
+          key: certificate-authority
+      cert:
+        secret:
+          name: vc-{{ .Release.Name }}
+          key: client-certificate
+      keySecret:
+        name: vc-{{ .Release.Name }}
+        key: client-key
+{{- end }}
