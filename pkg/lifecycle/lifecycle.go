@@ -65,7 +65,11 @@ func DeleteVClusterWorkloads(ctx context.Context, kubeClient *kubernetes.Clients
 		log.Infof("Delete %d vcluster workloads", len(list.Items))
 		for _, item := range list.Items {
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, item.Name, metav1.DeleteOptions{})
+
 			if err != nil {
+				if kerrors.IsNotFound(err) {
+					continue
+				}
 				return errors.Wrapf(err, "delete pod %s/%s", namespace, item.Name)
 			}
 		}
