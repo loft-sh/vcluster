@@ -145,8 +145,6 @@ syncer:
       # readOnly: true
   extraVolumeMounts: []
   resources:
-    limits:
-      memory: 2Gi
     requests:
       cpu: 200m
       memory: 256Mi
