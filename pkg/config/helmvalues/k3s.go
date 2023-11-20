@@ -16,6 +16,14 @@ type K3s struct {
 	Syncer                           SyncerValues          `json:"syncer,omitempty"`
 }
 
+type MonitoringValues struct {
+	ServiceMonitor ServiceMonitor `json:"serviceMonitor,omitempty"`
+}
+
+type ServiceMonitor struct {
+	Enabled bool `json:"enabled,omitempty"`
+}
+
 type K3sEmbeddedEtcdValues struct {
 	Enabled bool `json:"enabled,omitempty"`
 	Migrate bool `json:"migrate,omitempty"`
@@ -80,6 +88,7 @@ type BaseHelm struct {
 	MultiNamespaceMode EnabledSwitch    `json:"multiNamespaceMode,omitempty"`
 	Telemetry          TelemetryValues  `json:"telemetry,omitempty"`
 	NoopSyncer         NoopSyncerValues `json:"noopSyncer,omitempty"`
+	Monitoring         MonitoringValues `json:"monitoring,omitempty"`
 }
 
 type SyncerValues struct {
