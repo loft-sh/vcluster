@@ -132,12 +132,12 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Using vclusters",
+      label: "Using vClusters",
       collapsed: true,
       items: [
         {
           type: "category",
-          label: "Accessing vcluster",
+          label: "Accessing vCluster",
           collapsed: true,
           items: ["using-vclusters/kube-context", "using-vclusters/access"],
         },
@@ -147,7 +147,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Deploying vclusters",
+      label: "Deploying vClusters",
       collapsed: true,
       items: [
         {
@@ -158,7 +158,7 @@ module.exports = {
         },
         {
           type: "category",
-          label: "Persistent vclusters",
+          label: "Persistent vClusters",
           collapsed: true,
           items: ["deploying-vclusters/persistence"],
         },
