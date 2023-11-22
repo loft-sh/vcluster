@@ -28,4 +28,5 @@ spec:
       keySecret:
         name: vc-{{ .Release.Name }}
         key: client-key
+      serverName: 127.0.0.1
 {{- end }}
