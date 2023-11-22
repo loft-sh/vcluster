@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -136,6 +137,17 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 		etcdService + "." + currentNamespace + ".svc",
 		"*." + etcdService + "-headless",
 		"*." + etcdService + "-headless" + "." + currentNamespace,
+	}
+
+	//expect up to 20 etcd members, number could be lower since more
+	//than 5 is generally a bad idea
+	for i := 0; i < 20; i++ {
+		// this is for embedded etcd
+		hostname := vClusterName + "-" + strconv.Itoa(i)
+		etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)
+		// this is for external etcd
+		etcdHostname := etcdService + "-" + strconv.Itoa(i)
+		etcdSans = append(etcdSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
 	}
 
 	// generate certificates
