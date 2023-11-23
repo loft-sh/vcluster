@@ -119,9 +119,16 @@ jobs:
         distribution: ["k3s", "k8s", "k0s", "eks"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
         multinamespace-mode: ["false", "true"]
+        ha: ["false","true"]
         exclude:
           - distribution: "eks"
             test-suite-path: "./test/e2e_scheduler"
+          - distribution: "eks"
+            ha: "true"
+          - distribution: "k0s"
+            ha: "true"
+          - distribution: "k3s"
+            ha: "true"
           - distribution: "k8s"
             multinamespace-mode: "true"
           - distribution: "k0s"
@@ -191,6 +198,10 @@ jobs:
             helm upgrade --install metrics-server metrics-server/metrics-server --set args={--kubelet-insecure-tls} --set containerPort=4443 -n kube-system
           fi
 
+          if [ ${{ matrix.ha }} == "true" ]; then
+            haValues="-f ./test/values_ha.yaml"
+          fi
+
           if [ ${{ matrix.test-suite-path }} == "./test/e2e_target_namespace" ]; then
             kubectl apply -f ${{ matrix.test-suite-path }}/role.yaml
           fi
@@ -210,6 +221,7 @@ jobs:
           --distro=${{ matrix.distribution }} \
           --local-chart-dir ./charts/${{ matrix.distribution }} \
           -f ./test/commonValues.yaml \
+          $haValues \
           -f ${{ matrix.test-suite-path }}/values.yaml \
           "${extraArgs[@]}"
         continue-on-error: true
