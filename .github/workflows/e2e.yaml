@@ -119,11 +119,14 @@ jobs:
         distribution: ["k3s", "k8s", "k0s", "eks"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
         multinamespace-mode: ["false", "true"]
+        ha: ["false", "true"]
         include:
           - distribution: "k8s"
             ha: "true"
             test-suite-path: "./test/e2e"
+            multinamespace-mode: "false"
         exclude:
+          - ha: "true"
           - distribution: "eks"
             test-suite-path: "./test/e2e_scheduler"
           - distribution: "k8s"
