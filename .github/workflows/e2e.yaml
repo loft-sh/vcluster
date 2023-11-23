@@ -122,7 +122,7 @@ jobs:
         include:
           - distribution: "k8s"
             ha: "true"
-            test: "./test/e2e"
+            test-suite-path: "./test/e2e"
         exclude:
           - distribution: "eks"
             test-suite-path: "./test/e2e_scheduler"
