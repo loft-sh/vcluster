@@ -151,7 +151,7 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 	}
 
 	// generate certificates
-	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans)
+	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans, "-api")
 	if err != nil {
 		return fmt.Errorf("ensure certs: %w", err)
 	}
