@@ -88,10 +88,10 @@ func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Inter
 	// check if secret exists
 	secretName := fmt.Sprintf("vc-k3s-%s", vClusterName)
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		return "", err
-	} else if err == nil {
+	if err == nil {
 		return string(secret.Data["token"]), nil
+	} else if !kerrors.IsNotFound(err) {
+		return "", err
 	}
 
 	// try to read token file (migration case)
@@ -111,14 +111,15 @@ func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Inter
 		},
 		Type: corev1.SecretTypeOpaque,
 	}, metav1.CreateOptions{})
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return "", err
-	} else if err != nil {
+
+	if kerrors.IsAlreadyExists(err) {
 		// retrieve k3s secret again
 		secret, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}
+	} else if err != nil {
+		return "", err
 	}
 
 	return string(secret.Data["token"]), nil
