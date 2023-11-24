@@ -1,0 +1,18 @@
+proxy:
+  metricsServer:
+    nodes:
+      enabled: true
+    pods:
+      enabled: true
+sync:
+  nodes:
+    enabled: true
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
+    # will sync all nodes instead of only the ones where some pods are running.
+    syncAllNodes: true
+syncer:
+  extraArgs:
+    - --mount-physical-host-paths=true
+monitoring:
+  serviceMonitor:
+    enabled: true

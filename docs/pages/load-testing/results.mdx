@@ -1,0 +1,88 @@
+---
+title: Test results
+sidebar_label: Results
+---
+
+## Summary
+
+This is a TL;DR of the test results, the detailed results are further down. During our testing, k3s with sqlite has been trailing the other distributions when running high intensity loads. For less intensive usage however, it has been a little slower than the others but staying well within the usable range. The simplicity of its deployment comes with a few downsides.
+If you plan on having high api usage in your vClusters, we recommend using an etcd backed distribution as you will most likely experience timeouts or throttling with the sqlite backed distribution. For lesser usage, the k3s sqlite will be as adequate as the others.
+
+
+## API requests response time
+
+<figure>
+  <img src="/docs/media/diagrams/api-average-baseline.svg" alt="apiserver-avg-baseline" />
+  <figcaption>APIserver average response time (baseline)</figcaption>
+</figure>
+
+During our baseline testing (300 secrets, 30qps), the k3s with sqlite has been significantly slower than the other distributions, with an average of 0.17s while the other distributions were all around 0.05s. This however should not have an impact since 0.17 is still a relatively good average.
+
+
+<figure>
+  <img src="/docs/media/diagrams/api-average-intensive.svg" alt="apiserver-avg-intensive" />
+  <figcaption>APIserver average response time (intensive)</figcaption>
+</figure>
+
+For our more intensive testing (5000 secrets, 200qps), the differences between the distributions are more visible, with the k3s with sqlite trailing with 1.4s average response time while etcd k3s (pro distro) has an average response time of around 0.35s for both single node and HA setup. k0s and k8s are the fastest here with an average of around 0.15s. Below is also the cumulative distribution of request time.
+
+
+<figure>
+  <img src="/docs/media/diagrams/api-cumu-dist-intensive.svg" alt="apiserver-cumu-dist-intensive" />
+  <figcaption>Cumulative distribution of request time during the intensive testing</figcaption>
+</figure>
+
+## CPU usage
+
+During our testing, most distribution had similar cpu usage, with the exception of k3s with sqlite which had a higher CPU usage, most likely due to having to convert etcd requests into sqlite ones.
+
+<figure>
+  <img src="/docs/media/diagrams/cpu-usage-baseline.svg" alt="cpu usage (baseline)" />
+  <figcaption>CPU usage during the baseline test</figcaption>
+</figure>
+
+<figure>
+  <img src="/docs/media/diagrams/cpu-usage-intensive.svg" alt="cpu usage (intensive)" />
+  <figcaption>CPU usage during the intensive test</figcaption>
+</figure>
+
+<figure>
+  <img src="/docs/media/diagrams/cpu-usage-intensive-ha.svg" alt="cpu usage (intensive) for ha setups" />
+  <figcaption>CPU usage during the intensive test (ha setups)</figcaption>
+</figure>
+
+## Memory usage
+
+The memory usage has been relatively similar in all setups
+
+<figure>
+  <img src="/docs/media/diagrams/memusage-baseline.svg" alt="memory usage over time sn setup" />
+  <figcaption>Memory usage during the baseline test</figcaption>
+</figure>
+
+<figure>
+  <img src="/docs/media/diagrams/memusage-intensive.svg" alt="memory usage over time sn setup" />
+  <figcaption>Memory usage during the intensive test</figcaption>
+</figure>
+
+<figure>
+  <img src="/docs/media/diagrams/memusage-intensive-ha.svg" alt="memory usage over time sn setup" />
+  <figcaption>Memory usage during the intensive test with HA setups</figcaption>
+</figure>
+
+## Filesystem use
+
+The filesystem usage has been higher in the k3s sqlite version compared to all etcd backed versions in the intensive setup. In the baseline setup there was little to no usage of the filesystem
+
+<figure>
+  <img src="/docs/media/diagrams/fs-write.svg" alt="fs usage over time" />
+  <figcaption>Filesystem writes over time</figcaption>
+</figure>
+<figure>
+  <img src="/docs/media/diagrams/fs-read.svg" alt="memory usage over time sn setup" />
+  <figcaption>Filesystem reads over time</figcaption>
+</figure>
+
+## Pod latency
+
+kube-burner calculates some statistics on pods, however it uses the status of the pods which only has a precision of seconds. With this precision all the distribution had similar p50, p99, average and max for containerReady, Initialized, podScheduled and Ready.
