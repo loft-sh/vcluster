@@ -99,8 +99,17 @@ func initialize(
 		}
 	}
 
-	// check if k3s
-	if !isK0s && certificatesDir != "/pki" {
+	// check if k0s
+	if isK0s {
+		return nil
+	}
+
+	err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+	if err != nil {
+		return err
+	}
+
+	if certificatesDir != "/pki" {
 		// its k3s, let's create the token secret
 		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
 		if err != nil {
@@ -116,12 +125,11 @@ func initialize(
 				klog.Fatalf("Error running k3s: %v", err)
 			}
 		}()
-	} else if certificatesDir != "" {
+		return nil
+	}
+
+	if certificatesDir != "" {
 		options.IsK8sDistro = true
-		err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
