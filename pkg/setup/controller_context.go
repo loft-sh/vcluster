@@ -164,7 +164,6 @@ func ValidateOptions(options *options.VirtualClusterOptions) error {
 		options.DisableFakeKubelets = true
 	}
 
-	telemetry.Collector.SetOptions(options)
 	return nil
 }
 
@@ -229,7 +228,6 @@ func WaitForClientConfig(ctx context.Context, options *options.VirtualClusterOpt
 		}
 
 		telemetry.Collector.SetVirtualClient(kubeClient)
-
 		return true, nil
 	})
 	if err != nil {

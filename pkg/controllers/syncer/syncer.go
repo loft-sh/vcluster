@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/telemetry"
-	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -15,7 +13,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -66,7 +63,6 @@ type syncerController struct {
 }
 
 func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	reconcileStart := time.Now()
 	log := loghelper.NewFromExisting(r.log.Base(), req.Name)
 	syncContext := &synccontext.SyncContext{
 		Context:                ctx,
@@ -129,7 +125,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			if vObj != nil {
 				msg := "conflict: cannot sync virtual object as unmanaged physical object exists with desired name"
 				r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
-				return captureSyncTelemetry(ctrl.Result{}, fmt.Errorf(msg))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
+				return ctrl.Result{}, fmt.Errorf(msg)
 			}
 			return ctrl.Result{}, nil
 		}
@@ -137,7 +133,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// check what function we should call
 	if vObj != nil && pObj == nil {
-		return captureSyncTelemetry(r.syncer.SyncDown(syncContext, vObj))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
+		return r.syncer.SyncDown(syncContext, vObj)
 	} else if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
@@ -148,10 +144,10 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			}
 
 			// delete physical object
-			return captureSyncTelemetry(DeleteObject(syncContext, pObj, "virtual object uid is different"))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
+			return DeleteObject(syncContext, pObj, "virtual object uid is different")
 		}
 
-		return captureSyncTelemetry(r.syncer.Sync(syncContext, pObj, vObj))(vObj.GetObjectKind().GroupVersionKind(), reconcileStart)
+		return r.syncer.Sync(syncContext, pObj, vObj)
 	} else if vObj == nil && pObj != nil {
 		if pObj.GetAnnotations() != nil {
 			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
@@ -163,10 +159,10 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// check if up syncer
 		upSyncer, ok := r.syncer.(syncertypes.UpSyncer)
 		if ok {
-			return captureSyncTelemetry(upSyncer.SyncUp(syncContext, pObj))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
+			return upSyncer.SyncUp(syncContext, pObj)
 		}
 
-		return captureSyncTelemetry(DeleteObject(syncContext, pObj, "virtual object was deleted"))(pObj.GetObjectKind().GroupVersionKind(), reconcileStart)
+		return DeleteObject(syncContext, pObj, "virtual object was deleted")
 	}
 
 	return ctrl.Result{}, nil
@@ -298,28 +294,4 @@ func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object, reason strin
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func captureSyncTelemetry(result ctrl.Result, syncError error) func(schema.GroupVersionKind, time.Time) (ctrl.Result, error) {
-	return func(gvk schema.GroupVersionKind, reconcileStart time.Time) (ctrl.Result, error) {
-		if telemetry.Collector.IsEnabled() {
-			e := telemetry.Collector.NewEvent(telemetrytypes.EventResourceSync)
-			e.ProcessingTime = int(time.Since(reconcileStart).Milliseconds())
-			if syncError != nil {
-				e.Success = false
-				e.Errors = syncError.Error()
-			} else {
-				e.Success = true
-			}
-			e.Group = gvk.Group
-			if e.Group == "" {
-				e.Group = "core"
-			}
-			e.Version = gvk.Version
-			e.Kind = gvk.Kind
-
-			telemetry.Collector.RecordEvent(e)
-		}
-		return result, syncError
-	}
 }

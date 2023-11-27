@@ -17,6 +17,7 @@ import (
 	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -288,7 +289,7 @@ func (cmd *ConnectCmd) writeKubeConfig(kubeConfig *api.Config, vClusterName stri
 			authConfig = a
 		}
 
-		err = updateKubeConfig(cmd.KubeConfigContextName, clusterConfig, authConfig, true)
+		err = clihelper.UpdateKubeConfig(cmd.KubeConfigContextName, clusterConfig, authConfig, true)
 		if err != nil {
 			return err
 		}
@@ -354,7 +355,7 @@ func (cmd *ConnectCmd) writeKubeConfig(kubeConfig *api.Config, vClusterName stri
 
 func (cmd *ConnectCmd) prepare(ctx context.Context, vCluster *find.VCluster) error {
 	if cmd.LocalPort == 0 {
-		cmd.LocalPort = randomPort()
+		cmd.LocalPort = clihelper.RandomPort()
 	}
 
 	var (
@@ -442,7 +443,7 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 	}
 
 	// build kube config
-	kubeConfig, err := GetProKubeConfig(contextOptions)
+	kubeConfig, err := clihelper.GetProKubeConfig(contextOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -508,7 +509,7 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(ctx context.Context, vclusterName s
 	}
 
 	// get the kube config from the Secret
-	kubeConfig, err := GetKubeConfig(ctx, cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
+	kubeConfig, err := clihelper.GetKubeConfig(ctx, cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse kube config")
 	}

@@ -1,4 +1,4 @@
-package cmd
+package clihelper
 
 import (
 	"context"
@@ -156,7 +156,7 @@ func CheckHelmVersion(output string) error {
 	return nil
 }
 
-func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, setActive bool) error {
+func UpdateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, setActive bool) error {
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return err
@@ -179,7 +179,7 @@ func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.Au
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), config, false)
 }
 
-func randomPort() int {
+func RandomPort() int {
 	for i := 0; i < 10; i++ {
 		port := 10000 + rand.Intn(3000)
 		s, err := checkPort(port)

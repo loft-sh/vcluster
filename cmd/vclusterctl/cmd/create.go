@@ -19,20 +19,20 @@ import (
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
-	"github.com/loft-sh/utils/pkg/helm/values"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
+	"github.com/loft-sh/vcluster/pkg/values"
 	"golang.org/x/mod/semver"
 
 	"github.com/loft-sh/log"
-	helmUtils "github.com/loft-sh/utils/pkg/helm"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -184,7 +184,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	output, err := exec.Command(helmBinaryPath, "version", "--client").CombinedOutput()
-	if errHelm := CheckHelmVersion(string(output)); errHelm != nil {
+	if errHelm := clihelper.CheckHelmVersion(string(output)); errHelm != nil {
 		return errHelm
 	} else if err != nil {
 		return err
@@ -202,7 +202,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// load the default values
-	chartOptions, err := cmd.ToChartOptions(kubernetesVersion)
+	chartOptions, err := cmd.ToChartOptions(kubernetesVersion, cmd.log)
 	if err != nil {
 		return err
 	}
@@ -401,7 +401,7 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 	return nil
 }
 
-func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtils.ChartOptions, error) {
+func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info, log log.Logger) (*values.ChartOptions, error) {
 	if !util.Contains(cmd.Distro, create.AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(create.AllowedDistros, ", "))
 	}
@@ -424,16 +424,7 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 		cmd.localCluster = true
 	}
 
-	cliConf, err := cliconfig.GetConfig()
-	if err != nil {
-		cmd.log.Debugf("Failed to load local configuration file: %v", err.Error())
-	}
-	instanceCreatorUID := ""
-	if !cliConf.TelemetryDisabled {
-		instanceCreatorUID = telemetry.GetInstanceCreatorUID()
-	}
-
-	return &helmUtils.ChartOptions{
+	return &values.ChartOptions{
 		ChartName:          cmd.ChartName,
 		ChartRepo:          cmd.ChartRepo,
 		ChartVersion:       cmd.ChartVersion,
@@ -443,13 +434,13 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info) (*helmUtil
 		SyncNodes:          cmd.localCluster,
 		NodePort:           cmd.localCluster,
 		Isolate:            cmd.Isolate,
-		KubernetesVersion: helmUtils.Version{
+		KubernetesVersion: values.Version{
 			Major: kubernetesVersion.Major,
 			Minor: kubernetesVersion.Minor,
 		},
-		DisableTelemetry:    cliConf.TelemetryDisabled,
+		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
-		InstanceCreatorUID:  instanceCreatorUID,
+		MachineID:           telemetry.GetMachineID(log),
 	}, nil
 }
 

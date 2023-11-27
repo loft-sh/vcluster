@@ -14,6 +14,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20231005145009-3a5ce22c731a
+	github.com/loft-sh/analytics-client v0.0.0-20231127155136-7f279b83227f
 	github.com/loft-sh/api/v3 v3.0.0-20231011095658-d9afe455ba0d
 	github.com/loft-sh/loftctl/v3 v3.0.0-20231011100306-69699531686b
 	github.com/loft-sh/utils v0.0.29

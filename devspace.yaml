@@ -49,9 +49,9 @@ deployments:
         multiNamespaceMode:
           enabled: false
         telemetry:
-          disabled: "false"
+          disabled: false
           instanceCreatorType: "devspace"
-          instanceCreatorUID: "devspace"
+          machineID: "devspace"
         proxy:
           metricsServer:
             nodes:

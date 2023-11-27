@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -114,7 +115,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	output, err := exec.Command(helmBinaryPath, "version", "--client").CombinedOutput()
-	if errHelm := CheckHelmVersion(string(output)); errHelm != nil {
+	if errHelm := clihelper.CheckHelmVersion(string(output)); errHelm != nil {
 		return errHelm
 	}
 	if err != nil {
