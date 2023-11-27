@@ -58,6 +58,8 @@ To learn more about vcluster, [**open the full getting started guide**](https://
 
 ### 1. Download vcluster CLI
 
+VCluster has a hard dependency on `helm`, if it is not installed on your machine, you can [install it](https://helm.sh/docs/intro/install/) beforehand or let vCluster install it for you.
+
 Use one of the following commands to download the vcluster CLI binary from GitHub:
 
 <details>
