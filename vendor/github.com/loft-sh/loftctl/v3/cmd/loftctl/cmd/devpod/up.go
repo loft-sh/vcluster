@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// UpCmd holds the cmd flags
+// UpCmd holds the cmd flags:
 type UpCmd struct {
 	*flags.GlobalFlags
 
@@ -309,7 +309,11 @@ func dialWorkspace(baseClient client.Client, workspace *managementv1.DevPodWorks
 	}
 
 	host := restConfig.Host
-	parsedURL, _ := url.Parse(restConfig.Host)
+	if workspace.Annotations != nil && workspace.Annotations[storagev1.DevPodWorkspaceRunnerEndpointAnnotation] != "" {
+		host = workspace.Annotations[storagev1.DevPodWorkspaceRunnerEndpointAnnotation]
+	}
+
+	parsedURL, _ := url.Parse(host)
 	if parsedURL != nil && parsedURL.Host != "" {
 		host = parsedURL.Host
 	}

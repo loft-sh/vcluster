@@ -9,7 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -188,12 +188,12 @@ func isInt64Different(i1, i2 *int64) (*int64, bool) {
 	if i1 == nil && i2 == nil {
 		return nil, true
 	} else if i1 != nil && i2 != nil {
-		return pointer.Int64(*i2), *i1 == *i2
+		return ptr.To(*i2), *i1 == *i2
 	}
 
 	var updated *int64
 	if i2 != nil {
-		updated = pointer.Int64(*i2)
+		updated = ptr.To(*i2)
 	}
 
 	return updated, false

@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/loft-sh/analytics-client/client"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +41,7 @@ var (
 type EventCollector interface {
 	RecordStart(ctx context.Context)
 	RecordError(ctx context.Context, severity ErrorSeverityType, err error)
+	RecordCLI(self *managementv1.Self, err error)
 
 	// Flush makes sure all events are sent to the backend
 	Flush()
@@ -47,7 +51,7 @@ type EventCollector interface {
 }
 
 // Start starts collecting events and sending them to the backend
-func Start() {
+func Start(isCli bool) {
 	c := Config{}
 	if os.Getenv(ConfigEnvVar) != "" {
 		err := json.Unmarshal([]byte(os.Getenv(ConfigEnvVar)), &c)
@@ -59,12 +63,13 @@ func Start() {
 	// if disabled, we return noop collector
 	if c.Disabled {
 		return
-	} else if SyncerVersion == "dev" {
-		client.Dry = true
+	} else if (!isCli && SyncerVersion == "dev") || (isCli && upgrade.GetVersion() == upgrade.DevelopmentVersion) {
+		// client.Dry = true
+		return
 	}
 
 	// create a new default collector
-	collector, err := NewDefaultCollector(c)
+	collector, err := NewDefaultCollector(c, isCli)
 	if err != nil {
 		// Log the problem but don't fail - use disabled Collector instead
 		loghelper.New("telemetry").Infof("%s", err.Error())
@@ -73,7 +78,7 @@ func Start() {
 	}
 }
 
-func NewDefaultCollector(config Config) (*DefaultCollector, error) {
+func NewDefaultCollector(config Config, isCli bool) (*DefaultCollector, error) {
 	defaultCollector := &DefaultCollector{
 		analyticsClient: client.NewClient(),
 
@@ -81,7 +86,9 @@ func NewDefaultCollector(config Config) (*DefaultCollector, error) {
 		log:    loghelper.New("telemetry"),
 	}
 
-	go defaultCollector.startReportStatus(context.Background())
+	if !isCli {
+		go defaultCollector.startReportStatus(context.Background())
+	}
 	return defaultCollector, nil
 }
 
@@ -108,7 +115,7 @@ func (d *DefaultCollector) startReportStatus(ctx context.Context) {
 
 	wait.Until(func() {
 		d.RecordStatus(ctx)
-	}, time.Second*30, ctx.Done())
+	}, time.Minute*5, ctx.Done())
 }
 
 func (d *DefaultCollector) Init(currentNamespaceConfig *rest.Config, currentNamespace string, options *options.VirtualClusterOptions) {
@@ -128,6 +135,43 @@ func (d *DefaultCollector) SetVirtualClient(virtualClient *kubernetes.Clientset)
 
 func (d *DefaultCollector) Flush() {
 	d.analyticsClient.Flush()
+}
+
+func (d *DefaultCollector) RecordCLI(self *managementv1.Self, err error) {
+	timezone, _ := time.Now().Zone()
+	eventProperties := map[string]interface{}{
+		"command": os.Args,
+		"version": upgrade.GetVersion(),
+	}
+	userProperties := map[string]interface{}{
+		"os_name":  runtime.GOOS,
+		"os_arch":  runtime.GOARCH,
+		"timezone": timezone,
+	}
+	if err != nil {
+		eventProperties["error"] = err.Error()
+	}
+
+	// build the event and record
+	eventPropertiesRaw, _ := json.Marshal(eventProperties)
+	userPropertiesRaw, _ := json.Marshal(userProperties)
+	d.analyticsClient.RecordEvent(client.Event{
+		"event": {
+			"type":                 "vcluster_cli",
+			"platform_user_id":     GetPlatformUserID(self),
+			"platform_instance_id": GetPlatformInstanceID(self),
+			"machine_id":           GetMachineID(log.Discard),
+			"properties":           string(eventPropertiesRaw),
+			"timestamp":            time.Now().Unix(),
+		},
+		"user": {
+			"platform_user_id":     GetPlatformUserID(self),
+			"platform_instance_id": GetPlatformInstanceID(self),
+			"machine_id":           GetMachineID(log.Discard),
+			"properties":           string(userPropertiesRaw),
+			"timestamp":            time.Now().Unix(),
+		},
+	})
 }
 
 func (d *DefaultCollector) RecordStatus(ctx context.Context) {

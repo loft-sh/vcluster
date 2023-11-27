@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -56,7 +56,7 @@ func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 		// always apply status if it's there
 		if hasAfterStatus {
 			s.log.Infof("Apply status of %s during patching", toObjCopied.GetName())
-			o := &client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: fieldManager, Force: pointer.Bool(true)}}
+			o := &client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: fieldManager, Force: ptr.To(true)}}
 			err = s.toClient.Status().Patch(ctx, toObjCopied.DeepCopy(), client.Apply, o)
 			if err != nil {
 				return nil, errors.Wrap(err, "apply status")

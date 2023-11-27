@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	loftclient "github.com/loft-sh/loftctl/v3/pkg/client"
@@ -14,6 +15,10 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var Self *managementv1.Self
+
+var selfOnce sync.Once
 
 type Client interface {
 	loftclient.Client
@@ -60,6 +65,9 @@ func CreateProClient() (Client, error) {
 		return nil, fmt.Errorf("no user or team name returned for vCluster.Pro credentials")
 	}
 
+	selfOnce.Do(func() {
+		Self = self
+	})
 	return &client{
 		Client: proClient,
 

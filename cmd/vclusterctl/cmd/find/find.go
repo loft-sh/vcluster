@@ -7,7 +7,6 @@ import (
 	"time"
 
 	loftclientset "github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset"
-	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
@@ -60,7 +59,7 @@ func CurrentContext() (string, *api.Config, error) {
 	return rawConfig.CurrentContext, &rawConfig, nil
 }
 
-func GetVCluster(ctx context.Context, proClient proclient.Client, context, name, namespace, project string, log log.Logger) (*VCluster, *pro.VirtualClusterInstanceProject, error) {
+func GetVCluster(ctx context.Context, proClient pro.Client, context, name, namespace, project string, log log.Logger) (*VCluster, *pro.VirtualClusterInstanceProject, error) {
 	if name == "" {
 		return nil, nil, fmt.Errorf("please specify a name")
 	}
@@ -149,7 +148,7 @@ func FormatOptions(format string, options [][]string) []string {
 	return retOptions
 }
 
-func ListVClusters(ctx context.Context, proClient proclient.Client, context, name, namespace, project string, log log.Logger) ([]VCluster, []pro.VirtualClusterInstanceProject, error) {
+func ListVClusters(ctx context.Context, proClient pro.Client, context, name, namespace, project string, log log.Logger) ([]VCluster, []pro.VirtualClusterInstanceProject, error) {
 	var err error
 	if context == "" {
 		var err error

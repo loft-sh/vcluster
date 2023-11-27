@@ -56,7 +56,7 @@ func CreateImporters(ctx *options.ControllerContext, cfg *config.Config) error {
 			gvk)
 		if err != nil {
 			if importConfig.Optional {
-				klog.Infof("error ensuring CRD %s(%s) from host cluster: %w. Skipping importSyncer as resource is optional", importConfig.Kind, importConfig.APIVersion, err)
+				klog.Infof("error ensuring CRD %s(%s) from host cluster: %v, Skipping importSyncer as resource is optional", importConfig.Kind, importConfig.APIVersion, err)
 				continue
 			}
 

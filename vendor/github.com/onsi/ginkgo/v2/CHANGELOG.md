@@ -1,3 +1,32 @@
+## 2.13.0
+
+### Features
+
+Add PreviewSpect() to enable programmatic preview access to the suite report (fixes #1225)
+
+## 2.12.1
+
+### Fixes
+- Print logr prefix if it exists (#1275) [90d4846]
+
+### Maintenance
+- Bump actions/checkout from 3 to 4 (#1271) [555f543]
+- Bump golang.org/x/sys from 0.11.0 to 0.12.0 (#1270) [d867b7d]
+
+## 2.12.0
+
+### Features
+
+- feat: allow MustPassRepeatedly decorator to be set at suite level (#1266) [05de518]
+
+### Fixes
+
+- fix-errors-in-readme (#1244) [27c2f5d]
+
+### Maintenance
+
+Various chores/dependency bumps.
+
 ## 2.11.0
 
 In prior versions of Ginkgo specs the CLI filter flags (e.g. `--focus`, `--label-filter`) would _override_ any programmatic focus.  This behavior has proved surprising and confusing in at least the following ways:

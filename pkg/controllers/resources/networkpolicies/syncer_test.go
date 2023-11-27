@@ -5,6 +5,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
+	"k8s.io/utils/ptr"
 
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 )
 
 func TestSync(t *testing.T) {
@@ -25,7 +25,7 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Port:    &intstr.IntOrString{Type: intstr.Int, IntVal: 1024},
-			EndPort: pointer.Int32(2 ^ 32),
+			EndPort: ptr.To(int32(2 ^ 32)),
 		},
 		{
 			Port: &intstr.IntOrString{Type: intstr.String, StrVal: "namedport"},

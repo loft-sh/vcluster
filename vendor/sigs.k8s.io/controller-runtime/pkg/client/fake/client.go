@@ -361,7 +361,7 @@ func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Ob
 	isStatus := false
 	// We apply patches using a client-go reaction that ends up calling the trackers Update. As we can't change
 	// that reaction, we use the callstack to figure out if this originated from the status client.
-	if bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeSubResourceClient).Patch")) {
+	if bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeSubResourceClient).statusPatch")) {
 		isStatus = true
 	}
 	return t.update(gvr, obj, ns, isStatus, false)
@@ -400,9 +400,14 @@ func (t versionedTracker) update(gvr schema.GroupVersionResource, obj runtime.Ob
 
 	if t.withStatusSubresource.Has(gvk) {
 		if isStatus { // copy everything but status and metadata.ResourceVersion from original object
-			if err := copyNonStatusFrom(oldObject, obj); err != nil {
+			if err := copyStatusFrom(obj, oldObject); err != nil {
 				return fmt.Errorf("failed to copy non-status field for object with status subresouce: %w", err)
 			}
+			passedRV := accessor.GetResourceVersion()
+			if err := copyFrom(oldObject, obj); err != nil {
+				return fmt.Errorf("failed to restore non-status fields: %w", err)
+			}
+			accessor.SetResourceVersion(passedRV)
 		} else { // copy status from original object
 			if err := copyStatusFrom(oldObject, obj); err != nil {
 				return fmt.Errorf("failed to copy the status for object with status subresource: %w", err)
@@ -949,45 +954,6 @@ func dryPatch(action testing.PatchActionImpl, tracker testing.ObjectTracker) (ru
 	return obj, nil
 }
 
-func copyNonStatusFrom(old, new runtime.Object) error {
-	newClientObject, ok := new.(client.Object)
-	if !ok {
-		return fmt.Errorf("%T is not a client.Object", new)
-	}
-	// The only thing other than status we have to retain
-	rv := newClientObject.GetResourceVersion()
-
-	oldMapStringAny, err := toMapStringAny(old)
-	if err != nil {
-		return fmt.Errorf("failed to convert old to *unstructured.Unstructured: %w", err)
-	}
-	newMapStringAny, err := toMapStringAny(new)
-	if err != nil {
-		return fmt.Errorf("failed to convert new to *unststructured.Unstructured: %w", err)
-	}
-
-	// delete everything other than status in case it has fields that were not present in
-	// the old object
-	for k := range newMapStringAny {
-		if k != "status" {
-			delete(newMapStringAny, k)
-		}
-	}
-	// copy everything other than status from the old object
-	for k := range oldMapStringAny {
-		if k != "status" {
-			newMapStringAny[k] = oldMapStringAny[k]
-		}
-	}
-
-	if err := fromMapStringAny(newMapStringAny, new); err != nil {
-		return fmt.Errorf("failed to convert back from map[string]any: %w", err)
-	}
-	newClientObject.SetResourceVersion(rv)
-
-	return nil
-}
-
 // copyStatusFrom copies the status from old into new
 func copyStatusFrom(old, new runtime.Object) error {
 	oldMapStringAny, err := toMapStringAny(old)
@@ -1002,6 +968,19 @@ func copyStatusFrom(old, new runtime.Object) error {
 	newMapStringAny["status"] = oldMapStringAny["status"]
 
 	if err := fromMapStringAny(newMapStringAny, new); err != nil {
+		return fmt.Errorf("failed to convert back from map[string]any: %w", err)
+	}
+
+	return nil
+}
+
+// copyFrom copies from old into new
+func copyFrom(old, new runtime.Object) error {
+	oldMapStringAny, err := toMapStringAny(old)
+	if err != nil {
+		return fmt.Errorf("failed to convert old to *unstructured.Unstructured: %w", err)
+	}
+	if err := fromMapStringAny(oldMapStringAny, new); err != nil {
 		return fmt.Errorf("failed to convert back from map[string]any: %w", err)
 	}
 
@@ -1033,6 +1012,7 @@ func fromMapStringAny(u map[string]any, target runtime.Object) error {
 		return fmt.Errorf("failed to serialize: %w", err)
 	}
 
+	zero(target)
 	if err := json.Unmarshal(serialized, &target); err != nil {
 		return fmt.Errorf("failed to deserialize: %w", err)
 	}
@@ -1125,6 +1105,15 @@ func (sw *fakeSubResourceClient) Patch(ctx context.Context, obj client.Object, p
 		body = patchOptions.SubResourceBody
 	}
 
+	// this is necessary to identify that last call was made for status patch, through stack trace.
+	if sw.subResource == "status" {
+		return sw.statusPatch(body, patch, patchOptions)
+	}
+
+	return sw.client.patch(body, patch, &patchOptions.PatchOptions)
+}
+
+func (sw *fakeSubResourceClient) statusPatch(body client.Object, patch client.Patch, patchOptions client.SubResourcePatchOptions) error {
 	return sw.client.patch(body, patch, &patchOptions.PatchOptions)
 }
 

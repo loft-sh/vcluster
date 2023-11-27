@@ -55,6 +55,23 @@ func (c *client) RecordEvent(event Event) {
 }
 
 func (c *client) Flush() {
+	// check if buffer is full
+	c.bufferMutex.Lock()
+	isFull := c.buffer.IsFull()
+	c.bufferMutex.Unlock()
+
+	// wait for remaining events if flush was triggered without being full
+	if !isFull {
+		startTime := time.Now()
+		for time.Since(startTime) < time.Millisecond*500 {
+			time.Sleep(time.Millisecond * 10)
+			if len(c.events) == 0 {
+				break
+			}
+		}
+	}
+
+	// execute upload
 	c.executeUpload(c.exchangeBuffer())
 }
 

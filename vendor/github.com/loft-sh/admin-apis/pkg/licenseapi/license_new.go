@@ -210,6 +210,11 @@ func New(product ProductName) *License {
 						Name:        string(ArgoIntegration),
 						Status:      allowedStatus,
 					},
+					{
+						DisplayName: "Rancher Integration",
+						Name:        string(RancherIntegration),
+						Status:      allowedStatus,
+					},
 				},
 			},
 			{

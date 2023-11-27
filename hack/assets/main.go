@@ -9,7 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 
-	"github.com/loft-sh/utils/pkg/helm/values"
+	"github.com/loft-sh/vcluster/pkg/values"
 )
 
 func main() {

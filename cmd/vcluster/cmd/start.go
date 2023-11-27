@@ -52,7 +52,7 @@ func NewStartCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) (err error) {
 			// start telemetry
-			telemetry.Start()
+			telemetry.Start(false)
 			defer telemetry.Collector.Flush()
 
 			// capture errors

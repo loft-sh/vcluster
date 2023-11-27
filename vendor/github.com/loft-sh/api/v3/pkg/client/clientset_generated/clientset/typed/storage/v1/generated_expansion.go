@@ -16,6 +16,8 @@ type DevPodWorkspaceInstanceExpansion interface{}
 
 type DevPodWorkspaceTemplateExpansion interface{}
 
+type NetworkPeerExpansion interface{}
+
 type ProjectExpansion interface{}
 
 type RunnerExpansion interface{}

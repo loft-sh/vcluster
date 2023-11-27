@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/pod-security-admission/api"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func TestSync(t *testing.T) {
@@ -112,8 +112,8 @@ func TestSync(t *testing.T) {
 	pPodBase := &corev1.Pod{
 		ObjectMeta: pObjectMeta,
 		Spec: corev1.PodSpec{
-			AutomountServiceAccountToken: pointer.Bool(false),
-			EnableServiceLinks:           pointer.Bool(false),
+			AutomountServiceAccountToken: ptr.To(false),
+			EnableServiceLinks:           ptr.To(false),
 			HostAliases: []corev1.HostAlias{{
 				IP:        pVclusterService.Spec.ClusterIP,
 				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
@@ -256,8 +256,8 @@ func TestSync(t *testing.T) {
 			// ResourceVersion:   "999",
 		},
 		Spec: corev1.PodSpec{
-			AutomountServiceAccountToken: pointer.Bool(false),
-			EnableServiceLinks:           pointer.Bool(false),
+			AutomountServiceAccountToken: ptr.To(false),
+			EnableServiceLinks:           ptr.To(false),
 			HostAliases: []corev1.HostAlias{{
 				IP:        pVclusterService.Spec.ClusterIP,
 				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},

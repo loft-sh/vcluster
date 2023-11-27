@@ -111,7 +111,12 @@ func (cmd *LoginCmd) RunLogin(ctx context.Context, args []string) error {
 				cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s login %s %s\n", err.Error(), os.Args[0], config.Host, insecureFlag)
 			}
 
-			cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("\nTo log in as a different user, run: %s login %s %s\n\n", os.Args[0], config.Host, insecureFlag))
+			domain := config.Host
+			if domain == "" {
+				domain = "my-loft-domain.com"
+			}
+
+			cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("\nTo log in as a different user, run: %s login %s %s\n\n", os.Args[0], domain, insecureFlag))
 
 			return nil
 		}

@@ -339,6 +339,7 @@ const (
 	AccessKeyTypeOther            AccessKeyType = "Other"
 	AccessKeyTypeReset            AccessKeyType = "Reset"
 	AccessKeyTypeOIDCRefreshToken AccessKeyType = "OIDCRefreshToken"
+	AccessKeyTypeNetworkPeer      AccessKeyType = "NetworkPeer"
 )
 
 // AccessKeyStatus holds the status of an access key

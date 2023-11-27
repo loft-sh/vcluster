@@ -33,6 +33,13 @@ func (e *eventBuffer) Full() <-chan struct{} {
 	return e.fullChan
 }
 
+func (e *eventBuffer) IsFull() bool {
+	e.m.Lock()
+	defer e.m.Unlock()
+
+	return len(e.buffer) >= e.bufferSize
+}
+
 func (e *eventBuffer) Append(ev Event) bool {
 	e.m.Lock()
 	defer e.m.Unlock()

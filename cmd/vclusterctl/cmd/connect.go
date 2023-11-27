@@ -149,7 +149,7 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 	return cmd.Connect(ctx, proClient, vClusterName, args[1:])
 }
 
-func (cmd *ConnectCmd) Connect(ctx context.Context, proClient proclient.Client, vClusterName string, command []string) error {
+func (cmd *ConnectCmd) Connect(ctx context.Context, proClient pro.Client, vClusterName string, command []string) error {
 	// validate flags
 	err := cmd.validateFlags()
 	if err != nil {

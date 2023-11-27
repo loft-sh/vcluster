@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -176,7 +176,7 @@ func failingWebhook(namespace, name string, servicePort int32) admissionregistra
 				Namespace: namespace,
 				Name:      serviceName,
 				Path:      strPtr("/configmaps"),
-				Port:      pointer.Int32(servicePort),
+				Port:      ptr.To(servicePort),
 			},
 			// Without CA bundle, the call to webhook always fails
 			CABundle: nil,
@@ -221,7 +221,7 @@ func newDenyPodWebhookFixture(certCtx *certContext, servicePort int32, namespace
 				Namespace: namespace,
 				Name:      serviceName,
 				Path:      strPtr("/pods"),
-				Port:      pointer.Int32(servicePort),
+				Port:      ptr.To(servicePort),
 			},
 			CABundle: certCtx.signingCert,
 		},
@@ -262,7 +262,7 @@ func newDenyConfigMapWebhookFixture(certCtx *certContext, servicePort int32, nam
 				Namespace: namespace,
 				Name:      serviceName,
 				Path:      strPtr("/configmaps"),
-				Port:      pointer.Int32(servicePort),
+				Port:      ptr.To(servicePort),
 			},
 			CABundle: certCtx.signingCert,
 		},
@@ -291,7 +291,7 @@ func newValidatingIsReadyWebhookFixture(certCtx *certContext, servicePort int32,
 				Namespace: namespace,
 				Name:      serviceName,
 				Path:      strPtr("/always-deny"),
-				Port:      pointer.Int32(servicePort),
+				Port:      ptr.To(servicePort),
 			},
 			CABundle: certCtx.signingCert,
 		},
@@ -743,7 +743,7 @@ func registerWebhookForAttachingPod(f *framework.Framework, configName string, c
 						Namespace: namespace,
 						Name:      serviceName,
 						Path:      strPtr("/pods/attach"),
-						Port:      pointer.Int32(servicePort),
+						Port:      ptr.To(servicePort),
 					},
 					CABundle: certCtx.signingCert,
 				},

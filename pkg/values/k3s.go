@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/loft-sh/utils/pkg/helm"
 )
 
 var K3SVersionMap = map[string]string{
@@ -129,7 +128,7 @@ telemetry:
 	return values, nil
 }
 
-func ParseKubernetesVersionInfo(versionStr string) (*helm.Version, error) {
+func ParseKubernetesVersionInfo(versionStr string) (*Version, error) {
 	if versionStr[0] == 'v' {
 		versionStr = versionStr[1:]
 	}
@@ -142,7 +141,7 @@ func ParseKubernetesVersionInfo(versionStr string) (*helm.Version, error) {
 	major := splittedVersion[0]
 	minor := splittedVersion[1]
 
-	return &helm.Version{
+	return &Version{
 		Major: major,
 		Minor: minor,
 	}, nil
