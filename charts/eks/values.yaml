@@ -150,8 +150,10 @@ syncer:
     enabled: true
   resources:
     limits:
+      ephemeral-storage: 8Gi
       memory: 1Gi
     requests:
+      ephemeral-storage: 200Mi
       cpu: 10m
       memory: 64Mi
   # Extra volumes

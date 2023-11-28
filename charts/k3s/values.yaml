@@ -149,7 +149,11 @@ syncer:
       # readOnly: true
   extraVolumeMounts: []
   resources:
+    limits:
+      ephemeral-storage: 8Gi
+      memory: 512Mi
     requests:
+      ephemeral-storage: 200Mi
       cpu: 200m
       memory: 256Mi
   kubeConfigContextName: "my-vcluster"
