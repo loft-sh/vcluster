@@ -143,11 +143,6 @@ syncer:
     enabled: true
   readinessProbe:
     enabled: true
-  volumeMounts:
-    - mountPath: /data
-      name: data
-    - mountPath: /etc/k0s
-      name: k0s-config
   extraVolumeMounts: []
   resources:
     limits:

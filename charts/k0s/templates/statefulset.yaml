@@ -115,7 +115,7 @@ spec:
       {{- end }}
       initContainers:
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
-        name: init
+        name: vcluster
         command:
           - /bin/sh
         args:
@@ -129,8 +129,6 @@ spec:
         volumeMounts:
           - name: k0s-binary
             mountPath: /k0s-binary
-          - name: k0s-config
-            mountPath: /k0s-config
       containers:
       {{- if not .Values.syncer.disabled }}
       - name: syncer
@@ -258,11 +256,6 @@ spec:
           {{- end }}
           - name: ETCD_UNSUPPORTED_ARCH
             value: arm64
-          - name: CONFIG_READY
-            valueFrom:
-              secretKeyRef:
-                name: "vc-{{ .Release.Name }}-config"
-                key: CONFIG_READY
           - name: VCLUSTER_COMMAND
             value: |-
               command:
@@ -297,6 +290,10 @@ spec:
             mountPath: /.cache/helm
           - name: k0s-binary
             mountPath: /k0s-binary
+          - name: k0s-config
+            mountPath: /etc/k0s
+          - mountPath: /data
+            name: data
           - name: run-k0s
             mountPath: /run/k0s
           - name: tmp
@@ -306,7 +303,9 @@ spec:
             mountPath: /manifests/coredns
             readOnly: true
         {{- end }}
-{{ toYaml .Values.syncer.volumeMounts | indent 10 }}
+        {{- if .Values.vcluster.volumeMounts }}
+{{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
+        {{- end }}
         {{- if .Values.syncer.extraVolumeMounts }}
 {{ toYaml .Values.syncer.extraVolumeMounts | indent 10 }}
         {{- end }}
@@ -369,10 +368,6 @@ spec:
         volumeDevices:
 {{ toYaml $container.volumeDevices | indent 10 }}
         volumeMounts:
-          - name: run-k0s
-            mountPath: /run/k0s
-          - name: k0s-binary
-            mountPath: /k0s-binary
 {{ toYaml $container.volumeMounts | indent 10 }}
         {{- if $container.resources }}
         resources:
