@@ -69,6 +69,6 @@ isolation:
           - 192.168.0.0/16
 ```
 
-:::warn
+:::warning
 In case you are using `--isolate` flag or isolated mode along with the `--expose` flag, make sure you appropriately bump up the `isolation.resourceQuotas.quota.services.nodeports` accordingly as some LoadBalancer implementations rely on `NodePorts`
 :::
