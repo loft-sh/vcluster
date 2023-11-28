@@ -1,4 +1,4 @@
-package k3s
+package loghelper
 
 import (
 	"regexp"
@@ -12,7 +12,7 @@ var klogRegEx1 = regexp.MustCompile(`^[A-Z][0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}\.
 var structuredComponent = regexp.MustCompile(`^([a-zA-Z\-_]+)=`)
 
 // https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md
-func PrintK3sLine(line string, args []interface{}) {
+func PrintKlogLine(line string, args []interface{}) {
 	if klogRegEx1.MatchString(line) {
 		matches := klogRegEx1.FindStringSubmatch(line)
 		args = append(args, "location", matches[1])

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log/scanner"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,7 +63,7 @@ func StartK3S(ctx context.Context, serviceCIDR, k3sToken string) error {
 
 			// print to our logs
 			args := []interface{}{"component", "k3s"}
-			PrintK3sLine(line, args)
+			loghelper.PrintKlogLine(line, args)
 		}
 	}()
 

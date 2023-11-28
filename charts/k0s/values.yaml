@@ -146,7 +146,8 @@ syncer:
   volumeMounts:
     - mountPath: /data
       name: data
-      readOnly: true
+    - mountPath: /etc/k0s
+      name: k0s-config
   extraVolumeMounts: []
   resources:
     limits:
@@ -163,7 +164,7 @@ vcluster:
   image: k0sproject/k0s:v1.28.2-k0s.0
   imagePullPolicy: ""
   command:
-    - k0s
+    - /k0s-binary/k0s
   baseArgs:
     - controller
     - --config=/etc/k0s/config.yaml
