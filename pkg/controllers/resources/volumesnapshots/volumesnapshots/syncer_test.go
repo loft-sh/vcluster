@@ -6,6 +6,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
+	"k8s.io/utils/ptr"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -13,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/pointer"
 )
 
 const (
@@ -32,9 +32,9 @@ func TestSync(t *testing.T) {
 		ObjectMeta: vObjectMeta,
 		Spec: volumesnapshotv1.VolumeSnapshotSpec{
 			Source: volumesnapshotv1.VolumeSnapshotSource{
-				PersistentVolumeClaimName: pointer.String("my-pv-name"),
+				PersistentVolumeClaimName: ptr.To("my-pv-name"),
 			},
-			VolumeSnapshotClassName: pointer.String("my-class-delete"),
+			VolumeSnapshotClassName: ptr.To("my-class-delete"),
 		},
 	}
 	vDeletingSnapshot := vPVSourceSnapshot.DeepCopy()
@@ -50,7 +50,7 @@ func TestSync(t *testing.T) {
 
 	vVSCSourceSnapshot := vPVSourceSnapshot.DeepCopy()
 	vVSCSourceSnapshot.Spec.Source = volumesnapshotv1.VolumeSnapshotSource{
-		VolumeSnapshotContentName: pointer.String(vVolumeSnapshotContent.Name),
+		VolumeSnapshotContentName: ptr.To(vVolumeSnapshotContent.Name),
 	}
 
 	pObjectMeta := metav1.ObjectMeta{
@@ -71,14 +71,14 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pObjectMeta,
 		Spec: volumesnapshotv1.VolumeSnapshotSpec{
 			Source: volumesnapshotv1.VolumeSnapshotSource{
-				PersistentVolumeClaimName: pointer.String(translate.Default.PhysicalName(*vPVSourceSnapshot.Spec.Source.PersistentVolumeClaimName, vObjectMeta.Namespace)),
+				PersistentVolumeClaimName: ptr.To(translate.Default.PhysicalName(*vPVSourceSnapshot.Spec.Source.PersistentVolumeClaimName, vObjectMeta.Namespace)),
 			},
 			VolumeSnapshotClassName: vPVSourceSnapshot.Spec.VolumeSnapshotClassName,
 		},
 	}
 	pVSCSourceSnapshot := pPVSourceSnapshot.DeepCopy()
 	pVSCSourceSnapshot.Spec.Source = volumesnapshotv1.VolumeSnapshotSource{
-		VolumeSnapshotContentName: pointer.String(translate.Default.PhysicalNameClusterScoped(*vVSCSourceSnapshot.Spec.Source.VolumeSnapshotContentName)),
+		VolumeSnapshotContentName: ptr.To(translate.Default.PhysicalNameClusterScoped(*vVSCSourceSnapshot.Spec.Source.VolumeSnapshotContentName)),
 	}
 
 	pWithNilClass := pPVSourceSnapshot.DeepCopy()
@@ -94,8 +94,8 @@ func TestSync(t *testing.T) {
 
 	pWithStatus := pPVSourceSnapshot.DeepCopy()
 	pWithStatus.Status = &volumesnapshotv1.VolumeSnapshotStatus{
-		ReadyToUse: pointer.Bool(false),
-		Error:      &volumesnapshotv1.VolumeSnapshotError{Message: pointer.String("random error")},
+		ReadyToUse: ptr.To(false),
+		Error:      &volumesnapshotv1.VolumeSnapshotError{Message: ptr.To("random error")},
 	}
 	vWithStatus := vPVSourceSnapshot.DeepCopy()
 	vWithStatus.Status = pWithStatus.Status

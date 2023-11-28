@@ -4,7 +4,7 @@ package licenseapi
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
 type Feature struct {
-	// Name is the name of the feature
+	// Name is the name of the feature (FeatureName)
 	// This cannot be FeatureName because it needs to be downward compatible
 	// e.g. older Loft version doesn't know a newer feature but it will still be received and still needs to be rendered in the license view
 	Name string `json:"name"`
@@ -26,8 +26,4 @@ type Feature struct {
 	// Labels contains a list of labels to be displayed for this feature (e.g. alpha, beta)
 	// +optional
 	Labels []string `json:"labels,omitempty"`
-
-	// Packages contains a list of ids of the product packages that contain this feature
-	// +optional
-	Packages []string `json:"packages,omitempty"`
 }

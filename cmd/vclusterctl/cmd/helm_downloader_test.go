@@ -19,7 +19,7 @@ func TestGetHelmBinaryPath(t *testing.T) {
 		assert.NilError(t, err)
 		home, err := homedir.Dir()
 		assert.NilError(t, err)
-		installPath := filepath.Join(home, cliconfig.VclusterFolder, "bin", "helm")
+		installPath := filepath.Join(home, cliconfig.VClusterFolder, "bin", "helm")
 		assert.Equal(t, helmBinaryPath, installPath)
 	}
 }

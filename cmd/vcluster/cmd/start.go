@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"runtime/debug"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/apis"
@@ -9,7 +11,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
-	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
@@ -49,22 +50,31 @@ func NewStartCommand() *cobra.Command {
 		Use:   "start",
 		Short: "Execute the vcluster",
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, args []string) (err error) {
+			// start telemetry
+			telemetry.Start(false)
+			defer telemetry.Collector.Flush()
+
+			// capture errors
+			defer func() {
+				if r := recover(); r != nil {
+					telemetry.Collector.RecordError(cobraCmd.Context(), telemetry.PanicSeverity, fmt.Errorf("panic: %v %s", r, string(debug.Stack())))
+					panic(r)
+				} else if err != nil {
+					telemetry.Collector.RecordError(cobraCmd.Context(), telemetry.FatalSeverity, err)
+				}
+			}()
+
+			// execute command
 			return ExecuteStart(cobraCmd.Context(), vClusterOptions)
 		},
 	}
 
 	options.AddFlags(cmd.Flags(), vClusterOptions)
-	telemetry.Collector.SetStartCommand(cmd)
 	return cmd
 }
 
 func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) error {
-	if telemetry.Collector.IsEnabled() {
-		// TODO: add code that will force events upload immediately? (in case of panic/Fail/Exit initiated from the code)
-		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventSyncerStarted))
-	}
-
 	// set suffix
 	translate.Suffix = options.Name
 	if translate.Suffix == "" {
@@ -94,6 +104,9 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 	if err != nil {
 		return err
 	}
+
+	// init telemetry
+	telemetry.Collector.Init(inClusterConfig, currentNamespace, options)
 
 	// check if we should create certs
 	err = setup.Initialize(

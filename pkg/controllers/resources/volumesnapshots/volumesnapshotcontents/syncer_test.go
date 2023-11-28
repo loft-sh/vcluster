@@ -6,6 +6,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
+	"k8s.io/utils/ptr"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -15,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -66,7 +66,7 @@ func TestSync(t *testing.T) {
 			DeletionPolicy: volumesnapshotv1.VolumeSnapshotContentRetain,
 			Driver:         "something.csi.k8s.io",
 			Source: volumesnapshotv1.VolumeSnapshotContentSource{
-				SnapshotHandle: pointer.String("some-UID-I-guess"),
+				SnapshotHandle: ptr.To("some-UID-I-guess"),
 			},
 		},
 	}
@@ -101,9 +101,9 @@ func TestSync(t *testing.T) {
 			},
 			DeletionPolicy:          volumesnapshotv1.VolumeSnapshotContentDelete,
 			Driver:                  "something.csi.k8s.io",
-			VolumeSnapshotClassName: pointer.String("classy-class"),
+			VolumeSnapshotClassName: ptr.To("classy-class"),
 			Source: volumesnapshotv1.VolumeSnapshotContentSource{
-				SnapshotHandle: pointer.String("some-UID-I-guess"),
+				SnapshotHandle: ptr.To("some-UID-I-guess"),
 			},
 		},
 	}
@@ -131,8 +131,8 @@ func TestSync(t *testing.T) {
 
 	pWithStatus := pDynamic.DeepCopy()
 	pWithStatus.Status = &volumesnapshotv1.VolumeSnapshotContentStatus{
-		ReadyToUse: pointer.Bool(false),
-		Error:      &volumesnapshotv1.VolumeSnapshotError{Message: pointer.String("the stars didn't align error")},
+		ReadyToUse: ptr.To(false),
+		Error:      &volumesnapshotv1.VolumeSnapshotError{Message: ptr.To("the stars didn't align error")},
 	}
 	vWithStatus := vWithGCFinalizer.DeepCopy()
 	vWithStatus.Status = pWithStatus.Status

@@ -6,14 +6,25 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v3/pkg/client"
+	loftclient "github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var Self *managementv1.Self
+
+var selfOnce sync.Once
+
+type Client interface {
+	loftclient.Client
+
+	Self() *managementv1.Self
+}
 
 type VirtualClusterInstanceProject struct {
 	VirtualCluster *managementv1.VirtualClusterInstance
@@ -22,7 +33,7 @@ type VirtualClusterInstanceProject struct {
 
 var ErrConfigNotFound = errors.New("couldn't find vCluster.Pro config")
 
-func CreateProClient() (client.Client, error) {
+func CreateProClient() (Client, error) {
 	configPath, err := ConfigFilePath()
 	if err != nil {
 		return nil, err
@@ -33,7 +44,7 @@ func CreateProClient() (client.Client, error) {
 		return nil, fmt.Errorf("%w: please make sure to run 'vcluster login' to connect to an existing instance or 'vcluster pro start' to deploy a new instance", ErrConfigNotFound)
 	}
 
-	proClient, err := client.NewClientFromPath(configPath)
+	proClient, err := loftclient.NewClientFromPath(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -54,10 +65,27 @@ func CreateProClient() (client.Client, error) {
 		return nil, fmt.Errorf("no user or team name returned for vCluster.Pro credentials")
 	}
 
-	return proClient, nil
+	selfOnce.Do(func() {
+		Self = self
+	})
+	return &client{
+		Client: proClient,
+
+		self: self,
+	}, nil
 }
 
-func ListVClusters(ctx context.Context, baseClient client.Client, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error) {
+type client struct {
+	loftclient.Client
+
+	self *managementv1.Self
+}
+
+func (c *client) Self() *managementv1.Self {
+	return c.self.DeepCopy()
+}
+
+func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error) {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return nil, err

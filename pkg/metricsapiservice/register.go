@@ -2,7 +2,6 @@ package metricsapiservice
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
@@ -15,15 +14,11 @@ import (
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/metrics/pkg/apis/metrics"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-)
-
-var (
-	ErrNoMetricsManifests = fmt.Errorf("no metrics server service manifests found")
 )
 
 const (
@@ -128,7 +123,7 @@ func createOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithConte
 			spec.Service = &apiregistrationv1.ServiceReference{
 				Name:      AuxVirtualSvcName,
 				Namespace: AuxVirtualSvcNamespace,
-				Port:      pointer.Int32(443),
+				Port:      ptr.To(int32(443)),
 			}
 			spec.InsecureSkipTLSVerify = true
 

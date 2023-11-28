@@ -57,6 +57,10 @@ type ClusterSpec struct {
 	// +optional
 	Local bool `json:"local,omitempty"`
 
+	// NetworkPeer specifies if the cluster is connected via tailscale, when this is specified, config is optional
+	// +optional
+	NetworkPeer bool `json:"networkPeer,omitempty"`
+
 	// The namespace where the cluster components will be installed in
 	// +optional
 	ManagementNamespace string `json:"managementNamespace,omitempty"`

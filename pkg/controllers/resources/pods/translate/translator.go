@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/component-helpers/storage/ephemeral"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -664,7 +664,7 @@ func translateDNSClusterFirstConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterD
 		Options: []corev1.PodDNSConfigOption{
 			{
 				Name:  "ndots",
-				Value: pointer.String("5"),
+				Value: ptr.To("5"),
 			},
 		},
 	}

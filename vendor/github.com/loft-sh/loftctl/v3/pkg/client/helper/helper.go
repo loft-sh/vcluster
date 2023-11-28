@@ -720,18 +720,18 @@ type ProjectSpace struct {
 }
 
 func CanAccessVirtualClusterInstance(managementClient kube.Interface, namespace, name string) (bool, error) {
-	return canAccessInstance(managementClient, namespace, name, "virtualclusterinstances")
+	return CanAccessInstance(managementClient, namespace, name, "virtualclusterinstances")
 }
 
 func CanAccessSpaceInstance(managementClient kube.Interface, namespace, name string) (bool, error) {
-	return canAccessInstance(managementClient, namespace, name, "spaceinstances")
+	return CanAccessInstance(managementClient, namespace, name, "spaceinstances")
 }
 
 func CanAccessProjectSecret(managementClient kube.Interface, namespace, name string) (bool, error) {
-	return canAccessInstance(managementClient, namespace, name, "projectsecrets")
+	return CanAccessInstance(managementClient, namespace, name, "projectsecrets")
 }
 
-func canAccessInstance(managementClient kube.Interface, namespace, name string, resource string) (bool, error) {
+func CanAccessInstance(managementClient kube.Interface, namespace, name string, resource string) (bool, error) {
 	selfSubjectAccessReview, err := managementClient.Loft().ManagementV1().SelfSubjectAccessReviews().Create(context.TODO(), &managementv1.SelfSubjectAccessReview{
 		Spec: managementv1.SelfSubjectAccessReviewSpec{
 			SelfSubjectAccessReviewSpec: authorizationv1.SelfSubjectAccessReviewSpec{

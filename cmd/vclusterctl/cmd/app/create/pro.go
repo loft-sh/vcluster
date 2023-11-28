@@ -21,13 +21,13 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
-	helmUtils "github.com/loft-sh/utils/pkg/helm"
-	"github.com/loft-sh/utils/pkg/helm/values"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"github.com/loft-sh/vcluster/pkg/values"
 	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +39,7 @@ const LoftChartRepo = "https://charts.loft.sh"
 
 var AllowedDistros = []string{"k3s", "k0s", "k8s", "eks"}
 
-func DeployProCluster(ctx context.Context, options *Options, proClient proclient.Client, virtualClusterName, targetNamespace string, log log.Logger) error {
+func DeployProCluster(ctx context.Context, options *Options, proClient pro.Client, virtualClusterName, targetNamespace string, log log.Logger) error {
 	// determine project & cluster name
 	var err error
 	options.Cluster, options.Project, err = helper.SelectProjectOrCluster(proClient, options.Cluster, options.Project, false, log)
@@ -133,14 +133,14 @@ func DeployProCluster(ctx context.Context, options *Options, proClient proclient
 	return nil
 }
 
-func createWithoutTemplate(ctx context.Context, proClient proclient.Client, options *Options, virtualClusterName, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func createWithoutTemplate(ctx context.Context, proClient pro.Client, options *Options, virtualClusterName, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	err := validateNoTemplateOptions(options)
 	if err != nil {
 		return nil, err
 	}
 
 	// merge values
-	helmValues, err := mergeValues(options, log)
+	helmValues, err := mergeValues(proClient, options, log)
 	if err != nil {
 		return nil, err
 	}
@@ -202,14 +202,14 @@ func createWithoutTemplate(ctx context.Context, proClient proclient.Client, opti
 	return virtualClusterInstance, nil
 }
 
-func upgradeWithoutTemplate(ctx context.Context, proClient proclient.Client, options *Options, virtualClusterInstance *managementv1.VirtualClusterInstance, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func upgradeWithoutTemplate(ctx context.Context, proClient pro.Client, options *Options, virtualClusterInstance *managementv1.VirtualClusterInstance, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	err := validateNoTemplateOptions(options)
 	if err != nil {
 		return nil, err
 	}
 
 	// merge values
-	helmValues, err := mergeValues(options, log)
+	helmValues, err := mergeValues(proClient, options, log)
 	if err != nil {
 		return nil, err
 	}
@@ -464,9 +464,9 @@ func validateTemplateOptions(options *Options) error {
 	return nil
 }
 
-func mergeValues(options *Options, log log.Logger) (string, error) {
+func mergeValues(proClient pro.Client, options *Options, log log.Logger) (string, error) {
 	// merge values
-	chartOptions, err := toChartOptions(options, log)
+	chartOptions, err := toChartOptions(proClient, options, log)
 	if err != nil {
 		return "", err
 	}
@@ -531,7 +531,7 @@ func parseString(str string) (map[string]interface{}, error) {
 	return out, nil
 }
 
-func toChartOptions(options *Options, log log.Logger) (*helmUtils.ChartOptions, error) {
+func toChartOptions(proClient pro.Client, options *Options, log log.Logger) (*values.ChartOptions, error) {
 	if !util.Contains(options.Distro, AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
 	}
@@ -540,16 +540,7 @@ func toChartOptions(options *Options, log log.Logger) (*helmUtils.ChartOptions, 
 		options.ChartName += "-" + options.Distro
 	}
 
-	cliConf, err := cliconfig.GetConfig()
-	if err != nil {
-		log.Debugf("Failed to load local configuration file: %v", err.Error())
-	}
-	instanceCreatorUID := ""
-	if !cliConf.TelemetryDisabled {
-		instanceCreatorUID = telemetry.GetInstanceCreatorUID()
-	}
-
-	version := helmUtils.Version{}
+	version := values.Version{}
 	if options.KubernetesVersion != "" {
 		if options.KubernetesVersion[0] != 'v' {
 			options.KubernetesVersion = "v" + options.KubernetesVersion
@@ -578,15 +569,17 @@ func toChartOptions(options *Options, log log.Logger) (*helmUtils.ChartOptions, 
 		options.ChartVersion = ""
 	}
 
-	return &helmUtils.ChartOptions{
+	return &values.ChartOptions{
 		ChartName:           options.ChartName,
 		ChartRepo:           options.ChartRepo,
 		ChartVersion:        options.ChartVersion,
 		DisableIngressSync:  options.DisableIngressSync,
 		Isolate:             options.Isolate,
 		KubernetesVersion:   version,
-		DisableTelemetry:    cliConf.TelemetryDisabled,
+		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
-		InstanceCreatorUID:  instanceCreatorUID,
+		PlatformInstanceID:  telemetry.GetPlatformInstanceID(proClient.Self()),
+		PlatformUserID:      telemetry.GetPlatformUserID(proClient.Self()),
+		MachineID:           telemetry.GetMachineID(log),
 	}, nil
 }

@@ -13,8 +13,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
-	"github.com/loft-sh/vcluster/pkg/telemetry"
-	telemetrytypes "github.com/loft-sh/vcluster/pkg/telemetry/types"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -27,10 +25,6 @@ import (
 )
 
 func StartControllers(controllerContext *options.ControllerContext) error {
-	if telemetry.Collector.IsEnabled() {
-		telemetry.Collector.RecordEvent(telemetry.Collector.NewEvent(telemetrytypes.EventLeadershipStarted))
-	}
-
 	// setup CoreDNS according to the manifest file
 	go ApplyCoreDNS(controllerContext)
 

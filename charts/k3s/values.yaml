@@ -500,7 +500,9 @@ multiNamespaceMode:
 telemetry:
   disabled: false
   instanceCreator: "helm"
-  instanceCreatorUID: ""
+  platformUserID: ""
+  platformInstanceID: ""
+  machineID: ""
 
 noopSyncer:
   enabled: false

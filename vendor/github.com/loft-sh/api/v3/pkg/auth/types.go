@@ -73,6 +73,7 @@ type Info struct {
 
 type InfoMethods struct {
 	SSO      []*MethodSSO    `json:"sso,omitempty"`
+	Rancher  *MethodRancher  `json:"rancher,omitempty"`
 	Password *MethodPassword `json:"password,omitempty"`
 }
 
@@ -93,6 +94,14 @@ type MethodSSO struct {
 type MethodPassword struct {
 	// Indicates if the authentication method is enabled
 	Enabled bool `json:"enabled,omitempty"`
+}
+
+type MethodRancher struct {
+	// Indicates if the authentication method is enabled
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Host is the rancher host to use for redirects
+	Host string `json:"host,omitempty"`
 }
 
 type Version struct {

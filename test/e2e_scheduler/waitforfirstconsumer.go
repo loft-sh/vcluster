@@ -16,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	storageutil "k8s.io/kubernetes/pkg/apis/storage/util"
 )
 
 var _ = ginkgo.Describe("Schedule a Statefulset with WaitForFirstConsumer PVCs", func() {
@@ -80,7 +79,7 @@ var _ = ginkgo.Describe("Schedule a Statefulset with WaitForFirstConsumer PVCs",
 		for _, sc := range scList.Items {
 			if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
 				scToUse = sc
-				if storageutil.IsDefaultAnnotation(sc.ObjectMeta) {
+				if framework.IsDefaultAnnotation(sc.ObjectMeta) {
 					break
 				}
 			}

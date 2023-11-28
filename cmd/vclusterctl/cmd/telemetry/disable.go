@@ -37,16 +37,7 @@ docs: https://www.vcluster.com/docs/telemetry
 }
 
 func (cmd *DisableCmd) Run(*cobra.Command) error {
-	c, err := cliconfig.GetConfig()
-	if err != nil {
-		return err
-	}
-
+	c := cliconfig.GetConfig(cmd.log)
 	c.TelemetryDisabled = true
-
-	err = cliconfig.WriteConfig(c)
-	if err != nil {
-		return err
-	}
-	return nil
+	return cliconfig.WriteConfig(c)
 }

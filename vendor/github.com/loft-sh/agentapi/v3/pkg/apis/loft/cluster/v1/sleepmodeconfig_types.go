@@ -36,6 +36,7 @@ const (
 	SleepModeIgnoreResourceVerbsAnnotation = "sleepmode.loft.sh/ignore-resource-verbs" // format: myresource.mygroup=create update delete, myresource2.mygroup=create update
 	SleepModeIgnoreResourceNamesAnnotation = "sleepmode.loft.sh/ignore-resource-names" // format: myresource.mygroup=name1 name2
 	SleepModeIgnoreActiveConnections       = "sleepmode.loft.sh/ignore-active-connections"
+	SleepModeIgnoreUserAgents              = "sleepmode.loft.sh/ignore-user-agents" // format: useragent1,useragentprefix/*,*
 
 	SleepTypeInactivity     = "inactivitySleep"
 	SleepTypeForced         = "forcedSleep"
@@ -93,11 +94,6 @@ type SleepModeConfigSpec struct {
 	// woken up via the cli or ui.
 	// +optional
 	ForceSleepDuration *int64 `json:"forceSleepDuration,omitempty"`
-
-	// If true will delete all pods on sleep in the space regardless of
-	// if they have a parent set
-	// +optional
-	DeleteAllPods bool `json:"deleteAllPods,omitempty"`
 
 	// DeleteAfter specifies after how many seconds of inactivity the space should be deleted
 	// +optional
@@ -158,6 +154,11 @@ type SleepModeConfigSpec struct {
 	// IgnoreResourceNames are ignored resources and names
 	// +optional
 	IgnoreResourceNames string `json:"ignoreResourceNames,omitempty"`
+
+	// IgnoreUseragents are ignored user agents with trailing wildcards '*' allowed.
+	// comma separated
+	// +optional
+	IgnoreUseragents string `json:"ignoreUserAgents,omitempty"`
 }
 
 type SleepModeConfigStatus struct {

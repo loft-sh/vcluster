@@ -1,186 +1,131 @@
 package telemetry
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"os"
-	"os/signal"
 	"runtime"
-	"sync"
-	"syscall"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/serviceaccount"
+	"github.com/loft-sh/analytics-client/client"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
-	"github.com/spf13/cobra"
-	"gopkg.in/square/go-jose.v2/jwt"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/clihelper"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/pkg/telemetry/types"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func init() {
-	// temporary test code for testing release workflow changes
-	endpointOverride := os.Getenv("SYNCER_TELEMETRY_ENDPOINT")
-	if endpointOverride != "" {
-		syncerTelemetryEndpoint = endpointOverride
-	}
-	//TODO: remove the code above
+type ErrorSeverityType string
 
-	c := types.SyncerTelemetryConfig{}
+const (
+	ConfigEnvVar = "VCLUSTER_TELEMETRY_CONFIG"
+
+	WarningSeverity ErrorSeverityType = "warning"
+	ErrorSeverity   ErrorSeverityType = "error"
+	FatalSeverity   ErrorSeverityType = "fatal"
+	PanicSeverity   ErrorSeverityType = "panic"
+)
+
+var (
+	Collector EventCollector = &noopCollector{}
+)
+
+type EventCollector interface {
+	RecordStart(ctx context.Context)
+	RecordError(ctx context.Context, severity ErrorSeverityType, err error)
+	RecordCLI(self *managementv1.Self, err error)
+
+	// Flush makes sure all events are sent to the backend
+	Flush()
+
+	Init(currentNamespaceConfig *rest.Config, currentNamespace string, options *options.VirtualClusterOptions)
+	SetVirtualClient(virtualClient *kubernetes.Clientset)
+}
+
+// Start starts collecting events and sending them to the backend
+func Start(isCli bool) {
+	c := Config{}
 	if os.Getenv(ConfigEnvVar) != "" {
 		err := json.Unmarshal([]byte(os.Getenv(ConfigEnvVar)), &c)
 		if err != nil {
 			loghelper.New("telemetry").Infof("failed to parse telemetry config from the %s environment variable: %v", ConfigEnvVar, err)
 		}
 	}
+
+	// if disabled, we return noop collector
 	if c.Disabled {
-		Collector = &DefaultCollector{
-			enabled: false,
-		}
+		return
+	} else if (!isCli && SyncerVersion == "dev") || (isCli && upgrade.GetVersion() == upgrade.DevelopmentVersion) {
+		// client.Dry = true
 		return
 	}
-	var err error
-	Collector, err = NewDefaultCollector(context.Background(), c)
+
+	// create a new default collector
+	collector, err := NewDefaultCollector(c, isCli)
 	if err != nil {
 		// Log the problem but don't fail - use disabled Collector instead
 		loghelper.New("telemetry").Infof("%s", err.Error())
-		Collector = &DefaultCollector{
-			enabled: false,
-		}
+	} else {
+		Collector = collector
 	}
 }
 
-var (
-	Collector EventCollector
+func NewDefaultCollector(config Config, isCli bool) (*DefaultCollector, error) {
+	defaultCollector := &DefaultCollector{
+		analyticsClient: client.NewClient(),
 
-	syncerTelemetryEndpoint = "https://admin.loft.sh/analytics/v1/vcluster/v1/syncer"
-
-	// a dummy key so this doesnt fail for dev/testing, this is set by build flag in release action
-	telemetryPrivateKey = `LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlKS1FJQkFBS0NBZ0VBdlE3cHhqYzEybzlJdXQyQkQ2TUtaWnhDY29hbXpJNVV0Wll6Wk5GZFVQYkJsSlI0ClBXOEM1STM3ZHk1cW1yMlU5UlJSbjNlOUpjSDRPS0QzenVHSkhDd0Z2TnpOYzJsYVQ0dlE5NjlVeVpmakdhT3AKVmxtSEhDaDJXajZvbHNUNmhldGJySTNpYzNvVm1XRHBhSHM4OGU3K2dzTnkyTUowNjNES0ZYM0VLV3pNQVVWZQprZUI1M29DWStCT0R0RExRcHd3eC9wQWp1bUFNS0dkNEc2a3FhcE1VZElpN1NKMzlyL2JxL2VUeWZwSUUzOW9ZCmoxanlhdkFpRFMxR1g0Mm5mU0lkck5NSDhERytSSzNVSHMycTFDOXI0Y1dzenVURktlOHprZ2ltdC9oY2sxS2sKZjZBTllyRE0vQmlrcWZoYXVDcHlMdDFhOTdHbUNNb0x1Z3NBWlB6TjhlTXk4eFlwZy9PZ3hjQ3d2a1E2SzVnTQo0Q3k5ZG5aOFVJTlBTVE02Z2xJUFR1cHpPUzYwVDlBb2VZREcwa245bEVYKzhHT1RyZ1NmaTBONEpxbzZ0YlU0Cjk0TXlvcTB2VmtaVjNGYWNKMDcwbFJQaUFxcm1BeDdMS1J0UUNoeiszY0hLcDhBUmNWS1RuT3VpSHdDNEk0SUYKUGhmbzZ4QWFQWUJ0RDRNQUtydFErS3pycVlwNHZaTVZZWUpWR1hzT2xFN1FGSUJjUk5FUTlPdmlTSHZpTEhsTApHbjhER1NxWVVBWEVPVVZBNWtkTUVwOGhYMXJkb2pyNk9FbEt5dnF1Wk9JMk9yekhDWmFCNS9nQVZwelRGcGhYCjlrN2oyU1FyNUcxbXI2TTE3VXJacnhBcUphSGo1ZnBuL2dCOW9ubkN1bmcvSTNDOEVzb0xVQnovd0xrQ0F3RUEKQVFLQ0FnRUFsMGVNcHBCZEpuTks5a1B5VnVuV2t2SVRkWUxyaTNsRXJUendDUGRDM1Z0bUVSY3drNi8xdDU4cApIZmZsVThicG42WlBuZlA1UlhKTnhqcC9zR3BtQlVYd25XeHRkYkZTazU1RWF6MC84a1A0Yy9heXRLYlU1eUkxCmVnYnpiaGxXZ2J5UDBhYURFbllaUEc4QXRoc083R1NhQVZhVjJuN1hnZUh4d25xdGNaeGVMWkl0bHpyeEthcnIKUEc2WkQ2TXR0TTJjWDU5RkI0aDlrZ01oWjdqWWVRa1I4Q0hOQXRGeFF0R292ZHJxYzM4eUtWRmlINnBENkhBWQpQMFVBTDh1d3Z2K0NrVjBYMkFwbHZwejl4Rnc4R3FlTGd0QmpjL1k1RWxJV2lQOGxNTWFxaFRRMjd1ekthVE1pCkE0TlFsN1ZrR2tQVXRFMXAwaE96MFFxamtZM21GSWpsTEhJYTBWN3QybmxrSXJNKzVLbVNqbFF4WjhMRHZGcnoKTkxFaUk5dnp1RWNHdVpPYXZHdjhzSmhXK2paQ3JQWVVyc3dPMTBsYnVsMkdnL2JBVFd2U3lVUGlyb1RsbEc5NApsVzFrMzl1MUk5d0tLaExSaE5TMlZQTW4xSE1CY0FFQXlTTWFudDdwbjQ4R1R1Q0VseUlEZTM4OW9KWHVOcXpNCjdrS2VaaG0wYzBJNmpvSThVcmNyMVZvTTErbmdtdzlxWldtOWJXekZpNW1IaTlCRXkyRGpjeHlOK1l3bFRVQW4Kd0EyblpoMVY0U1hUZUVWUzFOQ3J5dGNXSlZBdjJObWpTV3ZUQk4yaFdCZzEyVGpXZi9MSEF4eklyVzBaa0tKcgptVXdDQ0V3anhkM2JIMzluWnZkeG5xTXVISnZnUUpmM1NGQVRmZlZDWjI2OWdCZUtoZ0VDZ2dFQkFOc2IyTnZ5CmhxU2MwbW43VWtncHYvUjh0TVNsVVRId3g3cDNCZ21xR2tnU0JCR0t3cEI4Q1NzNWl4UHFGYzZaMFlBY0toL0wKZEFGTFNMN3NHRFFweGpleTFmWEtpeXdQUm5MZEZ2aTBac29UcXhsRUJweVBlQjlWSXZLckFuN3cyWVY0VnJIdQpsbGcwV0FmL2s3cTdsMXRGUmxnaFFSN084UVVtS1daUGNGRjhqR1lYZHZhWUdjZzRpSkM4djBBZ1VhQmxPMCt6CnEzaHBvQ0Q5NlRIUUNTdDQvT0E1Rmo2SzUweWk1N2FHd25vMTNBbVQ5eG9Qc0dqeldLMG1oUGp3M0NZQlYwbisKTit4OVBBcXBJdmhPbU1KZmpOWEQzYndoSFNjNUd4VjlpbUpBSk03MjhZazR5Nm9rVTdJNkJXZDNLV3pDaVRENwp5UHE4U1N3amxoaVk3WGtDZ2dFQkFOemp6NlFHZ1V5Zm5PZ1IwR2JEejAyMVQrOUkrdHZwSnVPQmZNWTVsTlo0CndHOGtoSkdFZk5CQUxqOXIzQXcxaDhEbEpSUmp2OVFFR2krYmFpRkJPWVB4VTlyczJnMmhIWkk5ZkdyRW1LUDMKRjJsNE1TNm1vVGx0RUxwZnM5R3FhQmxyRFlYODFYeEVSQTU0aUhQSmRoQjl0K0QxTFdxRXVLMVVaZ25NUlNQLwp2RHdZUEFXOHlvMGhiM0JDMTVvZ3BPRzMyMWl0QmpYVjhtN1pmN25rZjNyOEhWaG5BcytubW93bXg1dU8yanZ6CmtrajdxaC9WRmlHajcxc1ovV0NHQk9pQk0ySVVMNVhQUmpCM2lNQXMzNGtaTHdlOC9SL3NsaE81bzFucVhVeW4KLzV3UTFoYlNKOXpzNzdwYys0K2ROUHdJVzdHSnhEbENkQWZTd0RuNjNVRUNnZ0VBRnFhWFVZMk4yOENXZy94RwpNazJXbVhpMjIwbFh6bmpjdk9zSEJjSysrc3BaLzFJLzhOM1J1TlUzQ25UOWtpRVdwazdERUF4aFRxend0VVFFCjhJZU5CVDhJbldNMTVmVWlURWVNMDJNYTZUTUZVaFJWTnFRaVArTDJQTzN1MFI2bTdnUlZ1Z2szSTZFdHBJNEkKUUpxWitBWitVaWdGNm1Cc1RDTDR6cW5ScTZyYmZNWmFOdjNjVkhWN3NMTENkcWVncUpzdWVYdlNjeDFBUDRqZwpMWlViRFpKeFdlQ3M2d1JEQ3dvZ09COVFSWUFCNGorWW9Pb1VTNVUwaXBuYnp6eGZGZEszcWwrTWVuY3IyTkpKCldqQU4zTEl5QmZzOGxmRTZhVTZlL1NiQVFvM3RBRFJKSGUxd0tJT2UzMkxlSWljUWNqemVIK0Uza3F3YVNHVFoKWkd1U3lRS0NBUUVBbjREeGcyUWZJaEZ2NERSYzVKZ29yZGhyYkVLcXd2bk5WeU05MG5YcUFDVVo4Q2ZTZ3JIRQozeXc1T1JyTnZ4TTRnQlgzZkkyN0M0SWExcDNIT1ZROEVBYkhvcUs5b25IaFJLU1pudzl2bVpibmxRVnhubG84CnVaY0VLVkRLTEhCODB6MzJlZlprd21NWk1jbmYzcHh2WU9FblVvNDR5VjRsYlNRd3VvcUNzc2dNU09qSER1MlEKNWZCcTVBbWdYbStNSUdIL1JqMUs2cjBmWHVRMzB5Z28xY29QOXJJTDJaOFJmbnJTVUlZTEdKZDkzcTI3MzFpagpybzhPWEI2Y1ZJTHlNR0o3bENzM1lWcFhPTkJZTTAwejdXLytBZng2Vy84Zk1BY3c2ZERPcG5mNW45eVllOG90CmR0NnhEVVh2Y1hqM3RiYmpYNFEzNlpFTzhFZEMvNXNqQVFLQ0FRQkJSNHk5OTJyN05LOVZTZUh1TG1VSUZjd2kKS1dnMG0rVGk2TGxyeDFPS2k3b3cydDhubXlDQklNaDhGWTVJL0RsV1JpTTh0WWUrS2VBYTJCUFdpWmRVbUVQUgpKTHpBWVFjNXhYNVNSait3MDNHZjljdzBteFRNazNzbGxSUERYNEZ2bVpSRDkyRHBwWlFBbHdTU3haZHEyWERrCmMrZG9pVE9zTm04endNaFNXVTFiK2d6MjlabnVFamtMeU1HaXVlUll6bXNVdmdjL09KRzdSU2V5NzhmUWtZYm0KWnRIb3o3dFdJTFJxSVRYclFlZ2h6N2Jrc1lPMzM5QjE5bEI0blFPc2Y3MnBMVnMyTWdkRWlwUUp4VDlaVWRmaQpGZkQ1YzNlSkNINlNWQkRSdjFpV3Y5TzRSdWkvNThMcVRvYVE0bzdmRWxha2RoN3BrK3ZiWnRmNG41dlUKLS0tLS1FTkQgUlNBIFBSSVZBVEUgS0VZLS0tLS0K`
-)
-
-const (
-	eventsCountThreshold = 500
-	maxUploadInterval    = 5 * time.Minute
-	// minimum time between uploading events
-	minUploadInterval = time.Minute
-	// initialSyncIgnoreInterval after start we ignore EventResourceSync events
-	initialSyncIgnoreInterval = time.Minute
-)
-
-type EventCollector interface {
-	IsEnabled() bool
-	// RecordEvent adds the produced event to a buffer to eventually be sent to the telemetry backend
-	RecordEvent(e *types.Event)
-	// NewEvent allocates a new Event struct to be populated by the caller.
-	NewEvent(t types.EventType) *types.Event
-	SetOptions(options *options.VirtualClusterOptions)
-	SetVirtualClient(virtualClient *kubernetes.Clientset)
-	// start command object is used to determine which flags were set by the user
-	SetStartCommand(startCommand *cobra.Command)
-}
-
-func NewDefaultCollector(_ context.Context, config types.SyncerTelemetryConfig) (*DefaultCollector, error) {
-	hostConfig, err := ctrl.GetConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get host rest config: %w", err)
-	}
-	hostClient, err := kubernetes.NewForConfig(hostConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ClientSet from rest config: %w", err)
+		config: config,
+		log:    loghelper.New("telemetry"),
 	}
 
-	vclusterNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ClientSet from rest config: %w", err)
+	if !isCli {
+		go defaultCollector.startReportStatus(context.Background())
 	}
-
-	decodedCertificate, err := base64.RawStdEncoding.DecodeString(telemetryPrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode telemetry key string: %w", err)
-	}
-
-	privateKey, err := parsePrivateKey(decodedCertificate)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse telemetry key: %w", err)
-	}
-
-	tokenGenerator, err := serviceaccount.JWTTokenGenerator("vcluster-telemetry", privateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JWTTokenGenerator: %w", err)
-	}
-
-	c := &DefaultCollector{
-		config:            config,
-		log:               loghelper.New("telemetry"),
-		enabled:           true,
-		hostClient:        hostClient,
-		vclusterNamespace: vclusterNamespace,
-		startTime:         time.Now(),
-
-		// events doesn't need to match eventsCountThreshold, we just
-		// need to make sure its fast enough emptied.
-		events: make(chan *types.Event, 100),
-		buffer: newEventBuffer(eventsCountThreshold),
-
-		tokenGenerator: tokenGenerator,
-	}
-
-	go c.start()
-
-	return c, nil
+	return defaultCollector, nil
 }
 
 type DefaultCollector struct {
-	config  types.SyncerTelemetryConfig
-	log     loghelper.Logger
-	enabled bool
+	analyticsClient client.Client
 
-	events      chan *types.Event
-	buffer      *eventBuffer
-	bufferMutex sync.Mutex
+	config Config
+	log    loghelper.Logger
 
-	hostClient        *kubernetes.Clientset
-	virtualClient     *kubernetes.Clientset
-	vclusterNamespace string
-	options           *options.VirtualClusterOptions
-	startCommand      *cobra.Command
+	vClusterID            cachedValue[string]
+	hostClusterVersion    cachedValue[*KubernetesVersion]
+	virtualClusterVersion cachedValue[*KubernetesVersion]
+	chartInfo             cachedValue[*ChartInfo]
 
-	startTime time.Time
-	// lastUploadTime contains the Time of the previous upload
-	lastUploadTime time.Time
-
-	tokenGenerator       serviceaccount.TokenGenerator
-	token                string
-	tokenLastGeneratedAt time.Time
+	// everything below will be set during runtime
+	virtualClient *kubernetes.Clientset
+	options       *options.VirtualClusterOptions
+	hostClient    *kubernetes.Clientset
+	hostNamespace string
 }
 
-func (d *DefaultCollector) IsEnabled() bool {
-	return d.enabled
+func (d *DefaultCollector) startReportStatus(ctx context.Context) {
+	time.Sleep(time.Second * 30)
+
+	wait.Until(func() {
+		d.RecordStatus(ctx)
+	}, time.Minute*5, ctx.Done())
 }
 
-func (d *DefaultCollector) NewEvent(t types.EventType) *types.Event {
-	return &types.Event{Type: t}
-}
-
-func (d *DefaultCollector) RecordEvent(e *types.Event) {
-	// ignore initial reconciling events
-	if e.Type == types.EventResourceSync && time.Now().Before(d.startTime.Add(initialSyncIgnoreInterval)) {
-		return
+func (d *DefaultCollector) Init(currentNamespaceConfig *rest.Config, currentNamespace string, options *options.VirtualClusterOptions) {
+	hostClient, err := kubernetes.NewForConfig(currentNamespaceConfig)
+	if err != nil {
+		klog.V(1).ErrorS(err, "create host client")
 	}
-	e.Time = int(time.Now().UnixMicro())
-	d.events <- e
-}
 
-func (d *DefaultCollector) SetOptions(options *options.VirtualClusterOptions) {
+	d.hostClient = hostClient
+	d.hostNamespace = currentNamespace
 	d.options = options
 }
 
@@ -188,138 +133,196 @@ func (d *DefaultCollector) SetVirtualClient(virtualClient *kubernetes.Clientset)
 	d.virtualClient = virtualClient
 }
 
-func (d *DefaultCollector) SetStartCommand(startCommand *cobra.Command) {
-	d.startCommand = startCommand
+func (d *DefaultCollector) Flush() {
+	d.analyticsClient.Flush()
 }
 
-func (d *DefaultCollector) start() {
-	// constantly pull events into this buffer
-	go func() {
-		for event := range d.events {
-			d.bufferMutex.Lock()
-			d.buffer.Append(event)
-			d.bufferMutex.Unlock()
-		}
-	}()
+func (d *DefaultCollector) RecordCLI(self *managementv1.Self, err error) {
+	timezone, _ := time.Now().Zone()
+	eventProperties := map[string]interface{}{
+		"command": os.Args,
+		"version": upgrade.GetVersion(),
+	}
+	userProperties := map[string]interface{}{
+		"os_name":  runtime.GOOS,
+		"os_arch":  runtime.GOARCH,
+		"timezone": timezone,
+	}
+	if err != nil {
+		eventProperties["error"] = err.Error()
+	}
 
-	// catch termination signal in order to force metrics upload
-	terminate := false
-	terminationChannel := make(chan os.Signal, 2)
-	signal.Notify(terminationChannel, os.Interrupt, syscall.SIGTERM)
+	// build the event and record
+	eventPropertiesRaw, _ := json.Marshal(eventProperties)
+	userPropertiesRaw, _ := json.Marshal(userProperties)
+	d.analyticsClient.RecordEvent(client.Event{
+		"event": {
+			"type":                 "vcluster_cli",
+			"platform_user_id":     GetPlatformUserID(self),
+			"platform_instance_id": GetPlatformInstanceID(self),
+			"machine_id":           GetMachineID(log.Discard),
+			"properties":           string(eventPropertiesRaw),
+			"timestamp":            time.Now().Unix(),
+		},
+		"user": {
+			"platform_user_id":     GetPlatformUserID(self),
+			"platform_instance_id": GetPlatformInstanceID(self),
+			"machine_id":           GetMachineID(log.Discard),
+			"properties":           string(userPropertiesRaw),
+			"timestamp":            time.Now().Unix(),
+		},
+	})
+}
 
-	// constantly loop
-	for {
-		// either wait until buffer is full or up to 5 minutes
-		startWait := time.Now()
-		select {
-		// we don't need to lock here for the buffer, because its only
-		// exchanged below and this method can only run once at the same time
-		// so this is safe.
-		case <-d.buffer.Full():
-			timeSinceStart := time.Since(startWait)
-			if timeSinceStart < minUploadInterval {
-				select {
-				// wait the rest of the time here before proceeding
-				case <-time.After(minUploadInterval - timeSinceStart):
-				case <-terminationChannel:
-					terminate = true
-					fmt.Println("Termination signal") // dev
-				}
+func (d *DefaultCollector) RecordStatus(ctx context.Context) {
+	properties := d.getMetrics(ctx)
+
+	// build the event and record
+	propertiesRaw, _ := json.Marshal(properties)
+	d.analyticsClient.RecordEvent(client.Event{
+		"event": {
+			"type":                 "vcluster_status",
+			"vcluster_id":          d.getVClusterID(ctx),
+			"platform_user_id":     d.config.PlatformUserID,
+			"platform_instance_id": d.config.PlatformInstanceID,
+			"machine_id":           d.config.MachineID,
+			"properties":           string(propertiesRaw),
+			"timestamp":            time.Now().Unix(),
+		},
+	})
+}
+
+func (d *DefaultCollector) RecordStart(ctx context.Context) {
+	properties := map[string]interface{}{
+		"vcluster_version":            SyncerVersion,
+		"vcluster_k8s_distro":         d.getChartInfo(ctx).Name,
+		"vcluster_k8s_distro_version": d.getVirtualClusterVersion(),
+		"host_cluster_k8s_version":    d.getHostClusterVersion(),
+		"os_arch":                     runtime.GOOS + "/" + runtime.GOARCH,
+		"helm_values":                 d.getChartInfo(ctx).Values,
+		"creation_method":             d.config.InstanceCreator,
+	}
+
+	// build the event and record
+	propertiesRaw, _ := json.Marshal(properties)
+	d.analyticsClient.RecordEvent(client.Event{
+		"event": {
+			"type":                 "vcluster_start",
+			"vcluster_id":          d.getVClusterID(ctx),
+			"platform_user_id":     d.config.PlatformUserID,
+			"platform_instance_id": d.config.PlatformInstanceID,
+			"machine_id":           d.config.MachineID,
+			"timestamp":            time.Now().Unix(),
+		},
+		"vcluster_instance": {
+			"vcluster_id":          d.getVClusterID(ctx),
+			"platform_instance_id": d.config.PlatformInstanceID,
+			"properties":           string(propertiesRaw),
+			"timestamp":            time.Now().Unix(),
+		},
+	})
+}
+
+func (d *DefaultCollector) RecordError(ctx context.Context, severity ErrorSeverityType, err error) {
+	properties := map[string]interface{}{
+		"severity": string(severity),
+		"message":  err.Error(),
+	}
+
+	// if panic or fatal we add the helm values
+	if severity == PanicSeverity || severity == FatalSeverity {
+		properties["helm_values"] = d.getChartInfo(ctx).Values
+	}
+
+	// build the event and record
+	propertiesRaw, _ := json.Marshal(properties)
+	d.analyticsClient.RecordEvent(client.Event{
+		"event": {
+			"type":                 "vcluster_error",
+			"vcluster_id":          d.getVClusterID(ctx),
+			"platform_user_id":     d.config.PlatformUserID,
+			"platform_instance_id": d.config.PlatformInstanceID,
+			"machine_id":           d.config.MachineID,
+			"properties":           string(propertiesRaw),
+			"timestamp":            time.Now().Unix(),
+		},
+	})
+}
+
+func (d *DefaultCollector) getVirtualClusterVersion() *KubernetesVersion {
+	virtualVersion, err := d.virtualClusterVersion.Get(func() (*KubernetesVersion, error) {
+		return getKubernetesVersion(d.virtualClient)
+	})
+	if err != nil {
+		klog.V(1).ErrorS(err, "Error retrieving virtual cluster version")
+	}
+
+	return virtualVersion
+}
+
+func (d *DefaultCollector) getHostClusterVersion() *KubernetesVersion {
+	hostVersion, err := d.hostClusterVersion.Get(func() (*KubernetesVersion, error) {
+		return getKubernetesVersion(d.hostClient)
+	})
+	if err != nil {
+		klog.V(1).ErrorS(err, "Error retrieving host cluster version")
+	}
+
+	return hostVersion
+}
+
+func (d *DefaultCollector) getChartInfo(ctx context.Context) *ChartInfo {
+	chartInfo, err := d.chartInfo.Get(func() (*ChartInfo, error) {
+		return getChartInfo(ctx, d.hostClient, d.hostNamespace)
+	})
+	if err != nil {
+		klog.V(1).ErrorS(err, "Error retrieving chart info")
+	}
+
+	return chartInfo
+}
+
+func (d *DefaultCollector) getVClusterID(ctx context.Context) string {
+	vClusterID, err := d.vClusterID.Get(func() (string, error) {
+		return getVClusterID(ctx, d.hostClient, d.hostNamespace, d.options)
+	})
+	if err != nil {
+		klog.V(1).ErrorS(err, "Error retrieving vClusterID")
+	}
+
+	return vClusterID
+}
+
+func (d *DefaultCollector) getMetrics(ctx context.Context) map[string]interface{} {
+	// maximum 20 seconds
+	ctx, cancel := context.WithTimeout(ctx, time.Second*20)
+	defer cancel()
+
+	// metrics map
+	retMap := map[string]interface{}{}
+	if d.virtualClient == nil {
+		return retMap
+	}
+
+	// list pods
+	podList, err := d.virtualClient.CoreV1().Pods(corev1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		retMap["pods"] = len(podList.Items)
+
+		failingPods := 0
+		for _, pod := range podList.Items {
+			if clihelper.HasPodProblem(&pod) {
+				failingPods++
 			}
-		case <-time.After(maxUploadInterval):
-		case <-terminationChannel:
-			terminate = true
-			fmt.Println("Termination signal (2)") // dev
 		}
-
-		// get the currently stored events
-		events := d.exchangeBuffer()
-		d.executeUpload(context.Background(), events)
-
-		// Exit if the upload was caused by the SIGTERM
-		if terminate {
-			os.Exit(1)
-		}
-	}
-}
-
-func (d *DefaultCollector) exchangeBuffer() []*types.Event {
-	d.bufferMutex.Lock()
-	defer d.bufferMutex.Unlock()
-
-	events := d.buffer.Get()
-	d.buffer = newEventBuffer(eventsCountThreshold)
-	return events
-}
-
-// executeUpload assumes that the caller holds the Lock for the uploadMutex
-func (d *DefaultCollector) executeUpload(ctx context.Context, buffer []*types.Event) {
-	if d.token == "" || d.tokenLastGeneratedAt.Before(time.Now().Add(-time.Hour)) {
-		token, err := d.tokenGenerator.GenerateToken(&jwt.Claims{}, &jwt.Claims{})
-		if err != nil {
-			d.log.Debugf("failed to generate telemetry request signed token: %v", err)
-
-			return
-		}
-
-		d.token = token
+		retMap["pods_failing"] = failingPods
 	}
 
-	r := types.SyncerTelemetryRequest{
-		Events: buffer,
-		Token:  d.token,
-	}
-	// set TimeSinceLastUpload if this is not the first upload
-	if !d.lastUploadTime.IsZero() {
-		t := int(time.Since(d.lastUploadTime).Milliseconds())
-		r.TimeSinceLastUpload = &t
-	}
-	d.lastUploadTime = time.Now()
-
-	// call the function that will return all instance properties
-	r.InstanceProperties = d.getSyncerInstanceProperties(ctx)
-
-	marshaled, err := json.Marshal(r)
-	// handle potential Marshal errors
-	if err != nil {
-		d.log.Debugf("failed to json.Marshal telemetry request: %v", err)
-		return
+	// list namespaces
+	namespaceList, err := d.virtualClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err == nil {
+		retMap["namespaces"] = len(namespaceList.Items)
 	}
 
-	// send the telemetry data and ignore the response
-	resp, err := http.Post(
-		syncerTelemetryEndpoint,
-		"multipart/form-data",
-		bytes.NewReader(marshaled),
-	)
-	if err != nil {
-		d.log.Debugf("error sending telemetry request: %v", err)
-	} else if resp.StatusCode != http.StatusOK {
-		d.log.Debugf("telemetry request returned non 200 status code: %v", err)
-	}
-}
-
-func (d *DefaultCollector) getSyncerInstanceProperties(ctx context.Context) types.SyncerInstanceProperties {
-	p := types.SyncerInstanceProperties{
-		UID:                      getSyncerUID(ctx, d.hostClient, d.vclusterNamespace, d.options),
-		InstanceCreator:          d.config.InstanceCreator,
-		InstanceCreatorUID:       d.config.InstanceCreatorUID,
-		Arch:                     runtime.GOARCH,
-		OS:                       runtime.GOOS,
-		SyncerVersion:            SyncerVersion,
-		SyncerFlags:              getSyncerFlags(d.startCommand, d.options),
-		VirtualKubernetesVersion: getVirtualKubernetesVersion(d.virtualClient),
-		HostKubernetesVersion:    getHostKubernetesVersion(d.hostClient),
-		VclusterServiceType:      getVclusterServiceType(ctx, d.hostClient, d.vclusterNamespace, d.options),
-	}
-	// SyncerPodsReady          int    // TODO: helper function to get syncerPodsReady- not cached
-	// SyncerPodsFailing        int    // TODO: helper function to get syncerPodsFailing- not cached
-	// SyncerPodCreated         int    // TODO: helper function to get syncerPodCreated- not cached
-	// SyncerPodRestarts        int    // TODO: helper function to get syncerPodRestarts- not cached
-	// SyncerMemoryRequests     int    // TODO: use (q *Quantity) AsInt64() ? - not cached
-	// SyncerMemoryLimits       int    // TODO: use (q *Quantity) AsInt64() ? - not cached
-	// SyncerCpuRequests        int    // TODO: use (q *Quantity) AsInt64() ? - not cached
-	// SyncerCpuLimits          int    // TODO: use (q *Quantity) AsInt64() ? - not cached
-
-	return p
+	return retMap
 }

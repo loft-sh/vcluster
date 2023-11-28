@@ -38,7 +38,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/version"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
-	"github.com/pkg/errors"
+	perrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,6 +71,8 @@ type VirtualClusterCmd struct {
 	DisplayName string
 	Description string
 	Links       []string
+	Annotations []string
+	Labels      []string
 
 	User string
 	Team string
@@ -133,6 +135,8 @@ devspace create vcluster test --project myproject
 	c.Flags().StringSliceVar(&cmd.Links, "link", []string{}, linksHelpText)
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to create the virtual cluster in")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
+	c.Flags().StringSliceVarP(&cmd.Labels, "labels", "l", []string{}, "Comma separated labels to apply to the virtualcluster")
+	c.Flags().StringSliceVar(&cmd.Annotations, "annotations", []string{}, "Comma separated annotations to apply to the virtualcluster")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
@@ -237,7 +241,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 			return true, nil
 		})
 		if waitErr != nil {
-			return errors.Wrap(err, "get virtual cluster instance")
+			return perrors.Wrap(err, "get virtual cluster instance")
 		}
 
 		virtualClusterInstance = nil
@@ -300,12 +304,20 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 
 		// set links
 		SetCustomLinksAnnotation(virtualClusterInstance, cmd.Links)
+		_, err = UpdateLabels(virtualClusterInstance, cmd.Labels)
+		if err != nil {
+			return err
+		}
+		_, err = UpdateAnnotations(virtualClusterInstance, cmd.Annotations)
+		if err != nil {
+			return err
+		}
 
 		// create virtualclusterinstance
 		cmd.Log.Infof("Creating virtual cluster %s in project %s with template %s...", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(virtualClusterTemplate.Name, "white+b"))
 		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Create(ctx, virtualClusterInstance, metav1.CreateOptions{})
 		if err != nil {
-			return errors.Wrap(err, "create virtual cluster")
+			return perrors.Wrap(err, "create virtual cluster")
 		}
 	} else if cmd.Update {
 		// resolve template
@@ -332,9 +344,17 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 		paramsChanged := virtualClusterInstance.Spec.Parameters != resolvedParameters
 		versionChanged := (cmd.Version != "" && virtualClusterInstance.Spec.TemplateRef.Version != cmd.Version)
 		linksChanged := SetCustomLinksAnnotation(virtualClusterInstance, cmd.Links)
+		labelsChanged, err := UpdateLabels(virtualClusterInstance, cmd.Labels)
+		if err != nil {
+			return err
+		}
+		annotationsChanged, err := UpdateAnnotations(virtualClusterInstance, cmd.Annotations)
+		if err != nil {
+			return err
+		}
 
 		// check if update is needed
-		if templateRefChanged || paramsChanged || versionChanged || linksChanged {
+		if templateRefChanged || paramsChanged || versionChanged || linksChanged || labelsChanged || annotationsChanged {
 			virtualClusterInstance.Spec.TemplateRef.Name = virtualClusterTemplate.Name
 			virtualClusterInstance.Spec.TemplateRef.Version = cmd.Version
 			virtualClusterInstance.Spec.Parameters = resolvedParameters
@@ -342,12 +362,13 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 			patch := client2.MergeFrom(oldVirtualCluster)
 			patchData, err := patch.Data(virtualClusterInstance)
 			if err != nil {
-				return errors.Wrap(err, "calculate update patch")
+				return perrors.Wrap(err, "calculate update patch")
 			}
 			cmd.Log.Infof("Updating virtual cluster %s in project %s...", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+			cmd.Log.Debugf("Patch data:\n%s\n...", string(patchData))
 			virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Patch(ctx, virtualClusterInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 			if err != nil {
-				return errors.Wrap(err, "patch virtual cluster")
+				return perrors.Wrap(err, "patch virtual cluster")
 			}
 		} else {
 			cmd.Log.Infof("Skip updating virtual cluster...")
@@ -566,7 +587,7 @@ func (cmd *VirtualClusterCmd) legacyCreateVirtualCluster(baseClient client.Clien
 	// create space if it does not exist
 	err = cmd.createSpace(ctx, baseClient, clusterClient, managementClient, vClusterTemplate, cluster, createTask)
 	if err != nil {
-		return errors.Wrap(err, "create space")
+		return perrors.Wrap(err, "create space")
 	}
 
 	// create the object
@@ -598,7 +619,7 @@ func (cmd *VirtualClusterCmd) legacyCreateVirtualCluster(baseClient client.Clien
 	if vClusterTemplate != nil && len(vClusterTemplate.Template.Apps) > 0 {
 		vClusterApps, err := resolveVClusterApps(ctx, managementClient, vClusterTemplate.Template.Apps)
 		if err != nil {
-			return errors.Wrap(err, "resolve virtual cluster template apps")
+			return perrors.Wrap(err, "resolve virtual cluster template apps")
 		}
 
 		appsWithParameters, err := parameters.ResolveAppParameters(vClusterApps, cmd.ParametersFile, cmd.Log)
@@ -682,7 +703,7 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 		// get space template
 		spaceTemplate, err := resolveSpaceTemplate(ctx, managementClient, cluster, template)
 		if err != nil {
-			return errors.Wrap(err, "resolve space template")
+			return perrors.Wrap(err, "resolve space template")
 		} else if spaceTemplate != nil {
 			cmd.Log.Infof("Using space template %s to create space %s", clihelper.GetDisplayName(spaceTemplate.Name, spaceTemplate.Spec.DisplayName), cmd.Space)
 		}
@@ -725,7 +746,7 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 		if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
 			apps, err := resolveApps(ctx, managementClient, spaceTemplate.Spec.Template.Apps)
 			if err != nil {
-				return errors.Wrap(err, "resolve space template apps")
+				return perrors.Wrap(err, "resolve space template apps")
 			}
 
 			for _, appWithoutParameters := range apps {

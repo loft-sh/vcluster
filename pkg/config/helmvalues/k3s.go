@@ -363,7 +363,9 @@ type InitHelmCharts struct {
 type TelemetryValues struct {
 	Disabled           bool   `json:"disabled,omitempty"`
 	InstanceCreator    string `json:"instanceCreator,omitempty"`
-	InstanceCreatorUID string `json:"instanceCreatorUID,omitempty"`
+	PlatformUserID     string `json:"platformUserID,omitempty"`
+	PlatformInstanceID string `json:"platformInstanceID,omitempty"`
+	MachineID          string `json:"machineID,omitempty"`
 }
 
 type NoopSyncerValues struct {

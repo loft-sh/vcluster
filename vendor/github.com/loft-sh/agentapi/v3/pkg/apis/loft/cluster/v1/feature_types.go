@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,7 +26,14 @@ type FeatureSpec struct {
 
 // FeatureStatus holds the status
 type FeatureStatus struct {
-	// Enabled signals if the feature is currently enabled or disabled
+	// Feature contains all feature details (as typically returned by license service)
+	licenseapi.Feature `json:",inline"`
+
+	// Internal marks internal features that should not be shown on the license view
 	// +optional
-	Enabled bool `json:"enabled,omitempty"`
+	Internal bool `json:"internal,omitempty"`
+
+	// Used marks features that are currently used in the product
+	// +optional
+	Used bool `json:"used,omitempty"`
 }

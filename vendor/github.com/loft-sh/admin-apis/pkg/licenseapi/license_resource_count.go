@@ -6,11 +6,11 @@ package licenseapi
 type ResourceCount struct {
 	// Active specifies the number of currently active resource (non-sleeping).
 	// +optional
-	Active int64 `json:"active,omitempty"`
+	Active *int64 `json:"active,omitempty"`
 	// Total specifies the number of currently existing resources.
 	// +optional
-	Total int64 `json:"total,omitempty"`
+	Total *int64 `json:"total,omitempty"`
 	// TotalCreated is a continuous counter of the amount of resources ever created.
 	// +optional
-	TotalCreated int64 `json:"created,omitempty"`
+	TotalCreated *int64 `json:"created,omitempty"`
 }

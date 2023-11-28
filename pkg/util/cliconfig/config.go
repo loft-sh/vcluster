@@ -6,13 +6,20 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 
+	"github.com/loft-sh/log"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
 const (
-	VclusterFolder = ".vcluster"
+	VClusterFolder = ".vcluster"
 	ConfigFileName = "config.json"
+)
+
+var (
+	singleConfig     *CLIConfig
+	singleConfigOnce sync.Once
 )
 
 type CLIConfig struct {
@@ -26,10 +33,27 @@ func getDefaultCLIConfig() *CLIConfig {
 }
 
 func getConfigFilePath(home string) string {
-	return filepath.Join(home, VclusterFolder, ConfigFileName)
+	return filepath.Join(home, VClusterFolder, ConfigFileName)
 }
 
-func GetConfig() (*CLIConfig, error) {
+func GetConfig(log log.Logger) *CLIConfig {
+	singleConfigOnce.Do(func() {
+		var err error
+		singleConfig, err = getConfig()
+		if err != nil && log != nil {
+			log.Debugf("Failed to load local configuration file: %v", err.Error())
+		}
+
+		// set default if nil
+		if singleConfig == nil {
+			singleConfig = getDefaultCLIConfig()
+		}
+	})
+
+	return singleConfig
+}
+
+func getConfig() (*CLIConfig, error) {
 	home, err := homedir.Dir()
 	if err != nil {
 		return getDefaultCLIConfig(), fmt.Errorf("failed to open vcluster configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)

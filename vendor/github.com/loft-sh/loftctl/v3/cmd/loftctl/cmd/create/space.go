@@ -65,6 +65,8 @@ type SpaceCmd struct {
 	DisplayName string
 	Description string
 	Links       []string
+	Annotations []string
+	Labels      []string
 
 	User string
 	Team string
@@ -122,6 +124,8 @@ devspace create space myspace --project myproject --team myteam
 	c.Flags().StringSliceVar(&cmd.Links, "link", []string{}, linksHelpText)
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
+	c.Flags().StringSliceVarP(&cmd.Labels, "labels", "l", []string{}, "Comma separated labels to apply to the space")
+	c.Flags().StringSliceVar(&cmd.Annotations, "annotations", []string{}, "Comma separated annotations to apply to the space")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
 	c.Flags().Int64Var(&cmd.SleepAfter, "sleep-after", 0, "DEPRECATED: If set to non zero, will tell the space to sleep after specified seconds of inactivity")
@@ -274,6 +278,14 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, 
 			},
 		}
 		SetCustomLinksAnnotation(spaceInstance, cmd.Links)
+		_, err = UpdateLabels(spaceInstance, cmd.Labels)
+		if err != nil {
+			return err
+		}
+		_, err = UpdateAnnotations(spaceInstance, cmd.Annotations)
+		if err != nil {
+			return err
+		}
 		// create space
 		cmd.Log.Infof("Creating space %s in project %s with template %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(spaceTemplate.Name, "white+b"))
 		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Create(ctx, spaceInstance, metav1.CreateOptions{})
@@ -298,9 +310,17 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, 
 		paramsChanged := spaceInstance.Spec.Parameters != resolvedParameters
 		versionChanged := (cmd.Version != "" && spaceInstance.Spec.TemplateRef.Version != cmd.Version)
 		linksChanged := SetCustomLinksAnnotation(spaceInstance, cmd.Links)
+		labelsChanged, err := UpdateLabels(spaceInstance, cmd.Labels)
+		if err != nil {
+			return err
+		}
+		annotationsChanged, err := UpdateAnnotations(spaceInstance, cmd.Annotations)
+		if err != nil {
+			return err
+		}
 
 		// check if update is needed
-		if templateRefChanged || paramsChanged || versionChanged || linksChanged {
+		if templateRefChanged || paramsChanged || versionChanged || linksChanged || labelsChanged || annotationsChanged {
 			spaceInstance.Spec.TemplateRef.Name = spaceTemplate.Name
 			spaceInstance.Spec.TemplateRef.Version = cmd.Version
 			spaceInstance.Spec.Parameters = resolvedParameters
@@ -310,7 +330,8 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, 
 			if err != nil {
 				return errors.Wrap(err, "calculate update patch")
 			}
-			cmd.Log.Infof("Updating space %s in project %s with patch \n%s\n...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), string(patchData))
+			cmd.Log.Infof("Updating space cluster %s in project %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+			cmd.Log.Debugf("Patch data:\n%s\n...", string(patchData))
 			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Patch(ctx, spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 			if err != nil {
 				return errors.Wrap(err, "patch space")

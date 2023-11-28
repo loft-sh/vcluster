@@ -19,7 +19,7 @@ func GetHelmBinaryPath(ctx context.Context, log log.BaseLogger) (string, error) 
 	// test for helm
 	helmExecutablePath, err := exec.LookPath("helm")
 	if err != nil {
-		helmExecutablePath, err = downloader.NewDownloader(commands.NewHelmV3Command(), logger, cliconfig.VclusterFolder).EnsureCommand(ctx)
+		helmExecutablePath, err = downloader.NewDownloader(commands.NewHelmV3Command(), logger, cliconfig.VClusterFolder).EnsureCommand(ctx)
 		if err != nil {
 			return "", fmt.Errorf("error while installing helm: %w", err)
 		}

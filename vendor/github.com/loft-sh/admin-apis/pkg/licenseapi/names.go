@@ -2,7 +2,11 @@ package licenseapi
 
 type ProductName string
 type ModuleName string
+type PlanStatus string
+type PlanInterval string
+type TierMode string
 type ResourceName string
+type ResourceStatus string
 type TrialStatus string
 type FeatureStatus string
 type FeatureName string
@@ -28,6 +32,26 @@ const (
 	UIModule                  ModuleName = "ui"
 )
 
+// Plan Status
+const (
+	PlanStatusActive    PlanStatus = "active"
+	PlanStatusTrialing  PlanStatus = "trialing"
+	PlanStatusLegacy    PlanStatus = "legacy"
+	PlanStatusAvailable PlanStatus = ""
+)
+
+// Plan Interval
+const (
+	PlanIntervalMonth PlanInterval = "month"
+	PlanIntervalYear  PlanInterval = "year"
+)
+
+// Tier Modes
+const (
+	TierModeGraduated TierMode = "graduated"
+	TierModeVolume    TierMode = "volume"
+)
+
 // Resources (e.g. for limits)
 const (
 	ConnectedClusterLimit        ResourceName = "connected-cluster"
@@ -38,9 +62,17 @@ const (
 	InstanceLimit                ResourceName = "instance"
 )
 
+// Resource Status
+const (
+	ResourceStatusActive       ResourceStatus = "active"
+	ResourceStatusTotalCreated ResourceStatus = "created"
+	ResourceStatusTotal        ResourceStatus = ""
+)
+
 // Trial Status
 const (
-	TrialStatusActive FeatureStatus = "active"
+	TrialStatusExpired TrialStatus = "expired"
+	TrialStatusActive  TrialStatus = ""
 )
 
 // Feature Status
@@ -90,8 +122,9 @@ const (
 	SecretEncryption FeatureName = "secret-encryption"
 
 	// Integrations
-	ArgoIntegration  FeatureName = "argo-integration"
-	VaultIntegration FeatureName = "vault-integration"
+	ArgoIntegration    FeatureName = "argo-integration"
+	VaultIntegration   FeatureName = "vault-integration"
+	RancherIntegration FeatureName = "rancher-integration"
 
 	// HA & Other Advanced Deployment Features
 	AirGappedMode        FeatureName = "air-gapped-mode"

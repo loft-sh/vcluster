@@ -50,7 +50,7 @@ func CreateExporters(ctx *options.ControllerContext, exporterConfig *config.Conf
 				gvk)
 			if err != nil {
 				if exportConfig.Optional {
-					klog.Infof("error ensuring CRD %s(%s) from host cluster: %w. Skipping exportSyncer as resource is optional", exportConfig.Kind, exportConfig.APIVersion, err)
+					klog.Infof("error ensuring CRD %s(%s) from host cluster: %v. Skipping exportSyncer as resource is optional", exportConfig.Kind, exportConfig.APIVersion, err)
 					continue
 				}
 

@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func (f *Framework) WaitForPodRunning(podName string, ns string) error {
@@ -220,7 +220,7 @@ func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error 
 
 func (f *Framework) GetDefaultSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
-		RunAsUser: pointer.Int64(12345),
+		RunAsUser: ptr.To(int64(12345)),
 	}
 }
 

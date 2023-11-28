@@ -4,8 +4,9 @@ import (
 	"context"
 	"os"
 
+	"github.com/go-logr/logr"
+	loftlogr "github.com/loft-sh/log/logr"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd"
-	"github.com/loft-sh/vcluster/pkg/util/log"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,13 +25,21 @@ import (
 func main() {
 	// set global logger
 	if os.Getenv("DEBUG") == "true" {
-		ctrl.SetLogger(log.NewLog(0))
+		_ = os.Setenv("LOFT_LOG_LEVEL", "debug")
 	} else {
-		ctrl.SetLogger(log.NewLog(2))
+		_ = os.Setenv("LOFT_LOG_LEVEL", "info")
 	}
 
+	// set global logger
+	logger, err := loftlogr.NewLogger("vcluster")
+	if err != nil {
+		klog.Fatal(err)
+	}
+	ctrl.SetLogger(logger)
+	ctx := logr.NewContext(context.Background(), logger)
+
 	// create a new command and execute
-	err := cmd.BuildRoot().ExecuteContext(context.Background())
+	err = cmd.BuildRoot().ExecuteContext(ctx)
 	if err != nil {
 		klog.Fatal(err)
 	}

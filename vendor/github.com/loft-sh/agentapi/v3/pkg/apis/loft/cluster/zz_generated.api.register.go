@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	pkglicenseapi "github.com/loft-sh/admin-apis/pkg/licenseapi"
 	storagev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/apiserver/pkg/builders"
 	corev1 "k8s.io/api/core/v1"
@@ -326,7 +327,9 @@ type FeatureSpec struct {
 }
 
 type FeatureStatus struct {
-	Enabled bool
+	pkglicenseapi.Feature
+	Internal bool
+	Used     bool
 }
 
 // +genclient
@@ -440,7 +443,6 @@ type SleepModeConfig struct {
 type SleepModeConfigSpec struct {
 	ForceSleep              bool
 	ForceSleepDuration      *int64
-	DeleteAllPods           bool
 	DeleteAfter             int64
 	SleepAfter              int64
 	SleepSchedule           string

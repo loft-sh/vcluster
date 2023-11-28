@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	VclusterProFolder = "pro"
+	VClusterProFolder = "pro"
 )
 
 // ConfigFilePath returns the path to the loft config file
@@ -19,5 +19,5 @@ func ConfigFilePath() (string, error) {
 		return "", fmt.Errorf("failed to open vcluster pro configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
-	return filepath.Join(home, cliconfig.VclusterFolder, VclusterProFolder, cliconfig.ConfigFileName), nil
+	return filepath.Join(home, cliconfig.VClusterFolder, VClusterProFolder, cliconfig.ConfigFileName), nil
 }

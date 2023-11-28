@@ -63,6 +63,10 @@ type RunnerSpec struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Endpoint is the hostname used to connect directly to the runner
+	// +optional
+	Endpoint string `json:"endpoint,omitempty"`
+
 	// If ClusterRef is defined, Loft will schedule the runner on the given
 	// cluster.
 	// +optional
