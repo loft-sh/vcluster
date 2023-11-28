@@ -78,6 +78,8 @@ spec:
           emptyDir: {}
         - name: run-k0s
           emptyDir: {}
+        - name: k0s-binary
+          emptyDir: {}
         - name: k0s-config
           secret:
             secretName: vc-{{ .Release.Name }}-config
@@ -111,50 +113,23 @@ spec:
 {{ toYaml . | indent 8 }}
       {{- end }}
       {{- end }}
-      containers:
-      {{- if not .Values.vcluster.disabled }}
+      initContainers:
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
         name: vcluster
         command:
-          {{- range $f := .Values.vcluster.command }}
-          - {{ $f | quote }}
-          {{- end }}
+          - /bin/sh
         args:
-          {{- range $f := .Values.vcluster.baseArgs }}
-          - {{ $f | quote }}
-          {{- end }}
-          - --status-socket=/run/k0s/status.sock
-          {{- if not .Values.sync.nodes.enableScheduler }}
-          - --disable-components=konnectivity-server,kube-scheduler,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
-          {{- else }}
-          - --disable-components=konnectivity-server,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
-          {{- end }}
-          {{- range $f := .Values.vcluster.extraArgs }}
-          - {{ $f | quote }}
-          {{- end }}
-        env:
-          {{- if .Values.vcluster.env }}
-{{ toYaml .Values.vcluster.env | indent 10 }}
-          {{- end }}
-          - name: ETCD_UNSUPPORTED_ARCH
-            value: arm64
-          - name: CONFIG_READY
-            valueFrom:
-              secretKeyRef:
-                name: "vc-{{ .Release.Name }}-config"
-                key: CONFIG_READY
+          - -c
+          - "cp /usr/local/bin/k0s /k0s-binary/k0s"
         {{- if .Values.vcluster.imagePullPolicy }}
         imagePullPolicy: {{ .Values.vcluster.imagePullPolicy }}
         {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
-          - name: run-k0s
-            mountPath: /run/k0s
-{{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
-        resources:
-{{ toYaml .Values.vcluster.resources | indent 10 }}
-      {{- end }}
+          - name: k0s-binary
+            mountPath: /k0s-binary
+      containers:
       {{- if not .Values.syncer.disabled }}
       - name: syncer
         {{- if .Values.syncer.image }}
@@ -276,6 +251,30 @@ spec:
               fieldRef:
                 fieldPath: spec.nodeName
         {{- end }}
+          {{- if .Values.vcluster.env }}
+{{ toYaml .Values.vcluster.env | indent 10 }}
+          {{- end }}
+          - name: ETCD_UNSUPPORTED_ARCH
+            value: arm64
+          - name: VCLUSTER_COMMAND
+            value: |-
+              command:
+                {{- range $f := .Values.vcluster.command }}
+                - {{ $f | quote }}
+                {{- end }}
+              args:
+                {{- range $f := .Values.vcluster.baseArgs }}
+                - {{ $f | quote }}
+                {{- end }}
+                - --status-socket=/run/k0s/status.sock
+                {{- if not .Values.sync.nodes.enableScheduler }}
+                - --disable-components=konnectivity-server,kube-scheduler,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
+                {{- else }}
+                - --disable-components=konnectivity-server,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,kubelet-config
+                {{- end }}
+                {{- range $f := .Values.vcluster.extraArgs }}
+                - {{ $f | quote }}
+                {{- end }}
         {{- if .Values.syncer.env }}
 {{ toYaml .Values.syncer.env | indent 10 }}
         {{- end }}
@@ -289,6 +288,14 @@ spec:
         volumeMounts:
           - name: helm-cache
             mountPath: /.cache/helm
+          - name: k0s-binary
+            mountPath: /k0s-binary
+          - name: k0s-config
+            mountPath: /etc/k0s
+          - mountPath: /data
+            name: data
+          - name: run-k0s
+            mountPath: /run/k0s
           - name: tmp
             mountPath: /tmp
         {{- if .Values.coredns.enabled }}
@@ -296,7 +303,9 @@ spec:
             mountPath: /manifests/coredns
             readOnly: true
         {{- end }}
-{{ toYaml .Values.syncer.volumeMounts | indent 10 }}
+        {{- if .Values.vcluster.volumeMounts }}
+{{ toYaml .Values.vcluster.volumeMounts | indent 10 }}
+        {{- end }}
         {{- if .Values.syncer.extraVolumeMounts }}
 {{ toYaml .Values.syncer.extraVolumeMounts | indent 10 }}
         {{- end }}

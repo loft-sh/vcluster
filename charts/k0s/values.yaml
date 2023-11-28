@@ -143,10 +143,6 @@ syncer:
     enabled: true
   readinessProbe:
     enabled: true
-  volumeMounts:
-    - mountPath: /data
-      name: data
-      readOnly: true
   extraVolumeMounts: []
   resources:
     limits:
@@ -163,18 +159,13 @@ vcluster:
   image: k0sproject/k0s:v1.28.2-k0s.0
   imagePullPolicy: ""
   command:
-    - k0s
+    - /k0s-binary/k0s
   baseArgs:
     - controller
     - --config=/etc/k0s/config.yaml
     - --data-dir=/data/k0s
   # Extra arguments for k0s.
   extraArgs: []
-  volumeMounts:
-    - mountPath: /data
-      name: data
-    - mountPath: /etc/k0s
-      name: k0s-config
   env: []
   resources:
     limits:

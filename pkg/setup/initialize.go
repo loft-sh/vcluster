@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/certs"
+	"github.com/loft-sh/vcluster/pkg/k0s"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
@@ -100,7 +101,17 @@ func initialize(
 	}
 
 	// check if k3s
-	if !isK0s && certificatesDir != "/pki" {
+	if isK0s {
+		// start k0s
+		go func() {
+			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
+			// loop in Initialize
+			err := k0s.StartK0S(parentCtx)
+			if err != nil {
+				klog.Fatalf("Error running k0s: %v", err)
+			}
+		}()
+	} else if certificatesDir != "/pki" {
 		// its k3s, let's create the token secret
 		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
 		if err != nil {
