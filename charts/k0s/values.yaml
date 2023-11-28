@@ -166,11 +166,6 @@ vcluster:
     - --data-dir=/data/k0s
   # Extra arguments for k0s.
   extraArgs: []
-  volumeMounts:
-    - mountPath: /data
-      name: data
-    - mountPath: /etc/k0s
-      name: k0s-config
   env: []
   resources:
     limits:
