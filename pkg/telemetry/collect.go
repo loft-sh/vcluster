@@ -61,7 +61,7 @@ func Start(isCli bool) {
 	}
 
 	// if disabled, we return noop collector
-	if c.Disabled {
+	if c.Disabled == "true" {
 		return
 	} else if (!isCli && SyncerVersion == "dev") || (isCli && upgrade.GetVersion() == upgrade.DevelopmentVersion) {
 		// client.Dry = true
