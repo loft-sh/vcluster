@@ -4,7 +4,7 @@ sidebar_label: Results
 ---
 
 ## Summary
-
+This document includes performance test results of Kubernetes API using various vCluster and K8s distributions and configurations. 
 This is a TL;DR of the test results, the detailed results can be found below. During our tests, K3s with SQLite lagged behind other distributions when running high intensity loads. However, for less intensive usage and a more simple deployment, it was only marginally slower than the others while staying well within the usable range.
 If you plan on having high api usage in your vClusters, we recommend using an etcd backed distribution as you will most likely experience timeouts or throttling with the sqlite backed distribution. For lesser usage, the k3s sqlite will be as adequate as the others.
 
