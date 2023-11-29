@@ -7,6 +7,6 @@ Our testing has been done through kube-burner, with an EKS cluster as the host c
 
 To monitor the metrics, you should install the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) operator, and give it the permission to list the pods, services, endpoints and serviceMonitors by modifying the `prometheus-k8s`clusterrole in the namespace you will deploy your vClusters in (or in all namespaces for a faster edit).
 
-The APIs should be exposed (using the `--expose` vCluster option). You can either create the service monitor manually or use the helm values, to have vCluster create it for you. Make sure that prometheus has done at least one scrap to your vCluster api before running kube-burner, as it would other result in missing data for some metrics.
+The APIs should be exposed (using the `--expose` vCluster option). You can either create the service monitor manually or use the Helm values to have vCluster create it for you. Make sure that Prometheus has done at least one scrape to your vCluster API before running kube-burner, as it would otherwise result in missing data for some metrics.
 
 To run the tests, run `kubectl --namespace monitoring port-forward svc/prometheus-k8s 9090` to have the host cluster's Prometheus forwarded to your local machine, then `vcluster create --expose -f yourConfig yourCluster` to start your vCluster. Once everything is ready and Prometheus has detected your API servers, you will be able to run `kube-burner init --metrics metrics.yaml -c config.yaml -u http://localhost:9090`
