@@ -24,7 +24,7 @@ During our baseline testing (300 secrets, 30qps), K3s with SQLite was significan
   <figcaption>APIserver average response time (intensive)</figcaption>
 </figure>
 
-For our more intensive testing (5000 secrets, 200qps), the differences between the distributions are more visible, with the k3s with sqlite trailing with 1.4s average response time while etcd k3s (pro distro) has an average response time of around 0.35s for both single node and HA setup. k0s and k8s are the fastest here with an average of around 0.15s. Below is also the cumulative distribution of request time.
+For our more intensive testing (5000 secrets, 200qps), the differences between the distributions are more pronounced, where K3s with SQLite trailed behind with a 1.4s average response time while etcd K3s (vCluster.Pro distro) had an average response time of around 0.35s for both single node and HA setups. k0s and K8s were the fastest in these tests with an average of around 0.15s. Below is also the cumulative distribution of request times.
 
 
 <figure>
