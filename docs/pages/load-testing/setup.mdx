@@ -5,7 +5,7 @@ sidebar_label: Setup
 
 Our testing has been done through kube-burner, with an EKS cluster as the host cluster, in the eu-west-3 region. All the configuration files are located [here](https://github.com/loft-sh/vcluster/load-test). You will need to change the default storage class from gp2 to gp3.
 
-To monitor the metrics, you should install the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) operator, and give it the permission to list the pods, services, endpoints and serviceMonitors modifying the `prometheus-k8s`clusterrole in the namespace you will deploy your vClusters in (or in all namespaces for a faster edit).
+To monitor the metrics, you should install the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) operator, and give it the permission to list the pods, services, endpoints and serviceMonitors by modifying the `prometheus-k8s`clusterrole in the namespace you will deploy your vClusters in (or in all namespaces for a faster edit).
 
 The APIs should be exposed (using the `--expose` vCluster option). You can either create the service monitor manually or use the helm values, to have vCluster create it for you. Make sure that prometheus has done at least one scrap to your vCluster api before running kube-burner, as it would other result in missing data for some metrics.
 
