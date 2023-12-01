@@ -239,6 +239,15 @@ module.exports = {
             "advanced-topics/plugins-development",
           ],
         },
+        {
+          type: "category",
+          label: "Load Testing",
+          collapsed: true,
+          items: [
+            "advanced-topics/load-testing/setup",
+            "advanced-topics/load-testing/results",
+          ],
+        },
         "advanced-topics/telemetry",
       ],
     },
