@@ -64,7 +64,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncertypes.Object, error){
+var resourceControllers = map[string][]func(*synccontext.RegisterContext) (syncertypes.Object, error){
 	"services":               {services.New},
 	"configmaps":             {configmaps.New},
 	"secrets":                {secrets.New},
@@ -94,7 +94,7 @@ func Create(ctx *options.ControllerContext) ([]syncertypes.Object, error) {
 
 	// register controllers for resource synchronization
 	syncers := []syncertypes.Object{}
-	for k, v := range ResourceControllers {
+	for k, v := range resourceControllers {
 		for _, controllerNew := range v {
 			controllers := strings.Split(k, ",")
 			for _, controller := range controllers {
@@ -113,6 +113,15 @@ func Create(ctx *options.ControllerContext) ([]syncertypes.Object, error) {
 	}
 
 	return syncers, nil
+}
+
+func AddControllers(name string, controllers []func(*synccontext.RegisterContext) (syncertypes.Object, error)) error {
+	if _, ok := resourceControllers[name]; ok {
+		return fmt.Errorf("%s is already present", name)
+	}
+
+	resourceControllers[name] = controllers
+	return nil
 }
 
 func ExecuteInitializers(controllerCtx *options.ControllerContext, syncers []syncertypes.Object) error {
