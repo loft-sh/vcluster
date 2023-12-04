@@ -113,6 +113,8 @@ vcluster create test --namespace test
 
 	// pro flags
 	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PRO] The vCluster.Pro project to use")
+	cobraCmd.Flags().StringSliceVarP(&cmd.Labels, "labels", "l", []string{}, "[PRO] Comma separated labels to apply to the virtualclusterinstance")
+	cobraCmd.Flags().StringSliceVar(&cmd.Annotations, "annotations", []string{}, "[PRO] Comma separated annotations to apply to the virtualclusterinstance")
 	cobraCmd.Flags().StringVar(&cmd.Cluster, "cluster", "", "[PRO] The vCluster.Pro connected cluster to use")
 	cobraCmd.Flags().StringVar(&cmd.Template, "template", "", "[PRO] The vCluster.Pro template to use")
 	cobraCmd.Flags().StringVar(&cmd.TemplateVersion, "template-version", "", "[PRO] The vCluster.Pro template version to use")

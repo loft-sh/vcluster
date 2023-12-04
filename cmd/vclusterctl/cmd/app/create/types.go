@@ -31,6 +31,8 @@ type Options struct {
 	Template        string
 	TemplateVersion string
 	Links           []string
+	Annotations     []string
+	Labels          []string
 	Params          string
 	SetParams       []string
 	DisablePro      bool

@@ -186,6 +186,18 @@ func createWithoutTemplate(ctx context.Context, proClient pro.Client, options *O
 	// set links
 	create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
+	// set labels
+	_, err = create.UpdateLabels(virtualClusterInstance, options.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	// set annotations
+	_, err = create.UpdateAnnotations(virtualClusterInstance, options.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
 	// get management client
 	managementClient, err := proClient.Management()
 	if err != nil {
@@ -228,10 +240,24 @@ func upgradeWithoutTemplate(ctx context.Context, proClient pro.Client, options *
 	chartRepoChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo != options.ChartRepo
 	chartVersionChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version != options.ChartVersion
 	valuesChanged := virtualClusterInstance.Spec.Template.HelmRelease.Values != helmValues
+
+	// set links
 	linksChanged := create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
+	// set labels
+	labelsChanged, err := create.UpdateLabels(virtualClusterInstance, options.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	// set annotations
+	annotationsChanged, err := create.UpdateAnnotations(virtualClusterInstance, options.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
 	// check if update is needed
-	if chartRepoChanged || chartVersionChanged || valuesChanged || linksChanged {
+	if chartRepoChanged || chartVersionChanged || valuesChanged || linksChanged || labelsChanged || annotationsChanged {
 		virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo = options.ChartRepo
 		virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version = options.ChartVersion
 		virtualClusterInstance.Spec.Template.HelmRelease.Values = helmValues
@@ -342,6 +368,18 @@ func createWithTemplate(ctx context.Context, proClient proclient.Client, options
 	// set links
 	create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
+	// set labels
+	_, err = create.UpdateLabels(virtualClusterInstance, options.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	// set annotations
+	_, err = create.UpdateAnnotations(virtualClusterInstance, options.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
 	// get management client
 	managementClient, err := proClient.Management()
 	if err != nil {
@@ -389,8 +427,20 @@ func upgradeWithTemplate(ctx context.Context, proClient proclient.Client, option
 	versionChanged := (options.TemplateVersion != "" && virtualClusterInstance.Spec.TemplateRef.Version != options.TemplateVersion)
 	linksChanged := create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
+	// set labels
+	labelsChanged, err := create.UpdateLabels(virtualClusterInstance, options.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	// set annotations
+	annotationsChanged, err := create.UpdateAnnotations(virtualClusterInstance, options.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
 	// check if update is needed
-	if templateRefChanged || paramsChanged || versionChanged || linksChanged {
+	if templateRefChanged || paramsChanged || versionChanged || linksChanged || labelsChanged || annotationsChanged {
 		virtualClusterInstance.Spec.TemplateRef.Name = virtualClusterTemplate.Name
 		virtualClusterInstance.Spec.TemplateRef.Version = options.TemplateVersion
 		virtualClusterInstance.Spec.Parameters = resolvedParameters

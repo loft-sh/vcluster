@@ -29,6 +29,7 @@ vcluster delete test --namespace test
 
 ```
       --auto-delete-namespace   If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster (default true)
+      --delete-configmap        If enabled, vCluster will delete the ConfigMap of the vCluster
       --delete-namespace        If enabled, vcluster will delete the namespace of the vcluster. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster
   -h, --help                    help for delete
       --keep-pvc                If enabled, vcluster will not delete the persistent volume claim of the vcluster
