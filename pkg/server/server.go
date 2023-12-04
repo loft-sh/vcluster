@@ -228,6 +228,10 @@ func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile
 		})
 	}
 
+	for _, handler := range ctx.ExtraHandlers {
+		h = handler(h)
+	}
+
 	serverhelper.HandleRoute(s.handler, "/", h)
 
 	return s, nil
