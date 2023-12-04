@@ -2,6 +2,7 @@ package options
 
 import (
 	"context"
+	"net/http"
 
 	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -26,4 +27,7 @@ type ControllerContext struct {
 	AdditionalServerFilters []servertypes.Filter
 	Options                 *VirtualClusterOptions
 	StopChan                <-chan struct{}
+
+	//set of extra services that should handle the traffic or pass it along
+	ExtraHandlers []func(http.Handler) http.Handler
 }
