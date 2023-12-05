@@ -28,6 +28,7 @@ vcluster create test --namespace test
 ## Flags
 
 ```
+      --annotations strings               [PRO] Comma separated annotations to apply to the virtualclusterinstance
       --chart-name string                 The virtual cluster chart name to use (default "vcluster")
       --chart-repo string                 The virtual cluster chart repo to use (default "https://charts.loft.sh")
       --chart-version string              The virtual cluster chart version to use (e.g. v0.9.1)
@@ -42,6 +43,7 @@ vcluster create test --namespace test
       --isolate                           If true vcluster and its workloads will run in an isolated environment
       --kube-config-context-name string   If set, will override the context name of the generated virtual cluster kube config with this name
       --kubernetes-version string         The kubernetes version to use (e.g. v1.20). Patch versions are not supported
+  -l, --labels strings                    [PRO] Comma separated labels to apply to the virtualclusterinstance
       --link stringArray                  [PRO] A link to add to the vCluster. E.g. --link 'prod=http://exampleprod.com'
       --params string                     [PRO] If a template is used, this can be used to use a file for the parameters. E.g. --params path/to/my/file.yaml
       --project string                    [PRO] The vCluster.Pro project to use
