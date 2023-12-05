@@ -533,6 +533,13 @@ init:
 multiNamespaceMode:
   enabled: false
 
+
+# list of {validating/mutating}webhooks that the syncer should proxy.
+# This is a PRO only feature.
+admission:
+  validatingWebHooks: []
+  mutatingWebhooks: []
+
 telemetry:
   disabled: false
   instanceCreator: "helm"

@@ -197,6 +197,12 @@ embeddedEtcd:
   # If embedded etcd should be enabled, this is a PRO only feature
   enabled: false
 
+# list of {validating/mutating}webhooks that the syncer should proxy.
+# This is a PRO only feature.
+admission:
+  validatingWebhooks: []
+  mutatingWebhooks: []
+
 # Storage settings for the vcluster
 storage:
   # If this is disabled, vcluster will use an emptyDir instead
