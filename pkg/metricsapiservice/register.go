@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,8 +60,10 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContext
 }
 
 func deleteOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithContextFunc {
+	isK8sDistro := constants.GetVClusterDistro() == constants.K8SDistro
+
 	return func(ctx context.Context) (bool, error) {
-		if ctrlCtx.Options.IsK8sDistro {
+		if isK8sDistro {
 			auxVirtualSvc := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      AuxVirtualSvcName,
@@ -107,6 +110,8 @@ func deleteOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithConte
 }
 
 func createOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithContextFunc {
+	isK8sDistro := constants.GetVClusterDistro() == constants.K8SDistro
+
 	return func(ctx context.Context) (bool, error) {
 		spec := apiregistrationv1.APIServiceSpec{
 			Group:                metrics.GroupName,
@@ -115,7 +120,7 @@ func createOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithConte
 			VersionPriority:      100,
 		}
 
-		if ctrlCtx.Options.IsK8sDistro {
+		if isK8sDistro {
 			// in this case we register an apiservice with a service reference object
 			// this service is created as a special service and the physical-virtual
 			// pair makes sure the service discovery happens as expected in even non single

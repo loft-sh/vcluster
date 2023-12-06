@@ -45,7 +45,7 @@ func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClien
 		currentNamespace:      currentNamespace,
 		currentNamespaceCient: currentNamespaceClient,
 
-		k8sDistro: options.IsK8sDistro,
+		k8sDistro: constants.GetVClusterDistro() == constants.K8SDistro,
 	}, nil
 }
 

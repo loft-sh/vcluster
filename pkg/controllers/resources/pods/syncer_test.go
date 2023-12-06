@@ -7,7 +7,6 @@ import (
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/maps"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -22,8 +21,7 @@ import (
 
 func TestSync(t *testing.T) {
 	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
-
-	specialservices.SetDefault(&options.VirtualClusterOptions{})
+	specialservices.SetDefault()
 
 	PodLogsVolumeName := "pod-logs"
 	LogsVolumeName := "logs"

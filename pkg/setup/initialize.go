@@ -8,14 +8,13 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/certs"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/k0s"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -61,7 +60,7 @@ func Initialize(
 		return err
 	}
 
-	specialservices.SetDefault(options)
+	specialservices.SetDefault()
 	telemetry.Collector.RecordStart(ctx)
 	return nil
 }
@@ -78,16 +77,12 @@ func initialize(
 	options *options.VirtualClusterOptions,
 	certificatesDir string,
 ) error {
-	// check if k0s config Secret exists
-	_, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, servicecidr.GetK0sSecretName(vClusterName), metav1.GetOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-	isK0s := err == nil
+	var err error
+	distro := constants.GetVClusterDistro()
 
 	// if k0s secret was found ensure it contains service CIDR range
 	var serviceCIDR string
-	if isK0s {
+	if distro == constants.K0SDistro {
 		klog.Info("k0s config secret detected, syncer will ensure that it contains service CIDR")
 		serviceCIDR, err = servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
 		if err != nil {
@@ -102,7 +97,7 @@ func initialize(
 	}
 
 	// check if k3s
-	if isK0s {
+	if distro == constants.K0SDistro {
 		// start k0s
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
@@ -112,7 +107,7 @@ func initialize(
 				klog.Fatalf("Error running k0s: %v", err)
 			}
 		}()
-	} else if certificatesDir != "/pki" {
+	} else if distro == constants.K3SDistro {
 		// its k3s, let's create the token secret
 		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
 		if err != nil {
@@ -129,7 +124,7 @@ func initialize(
 			}
 		}()
 	} else if certificatesDir != "" {
-		options.IsK8sDistro = true
+		// generate k8s certificates
 		err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 		if err != nil {
 			return err
