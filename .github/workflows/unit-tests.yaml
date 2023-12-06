@@ -11,6 +11,7 @@ on:
       - "!test/**" # exclude changes in e2e tests
       - ".github/workflows/unit-tests.yaml"
       - "hack/test.sh"
+      - "charts/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
