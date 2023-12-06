@@ -56,7 +56,7 @@ func NewEndpointController(ctx *options.ControllerContext, provider provider) *E
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),
 		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
 		provider:            provider,
-		k8sDistro:           ctx.Options.IsK8sDistro,
+		k8sDistro:           constants.GetVClusterDistro() == constants.K8SDistro,
 	}
 }
 

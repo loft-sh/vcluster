@@ -1,8 +1,8 @@
 package specialservices
 
 import (
+	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -10,8 +10,8 @@ import (
 
 var Default Interface
 
-func SetDefault(ctrlCtx *options.VirtualClusterOptions) {
-	Default = defaultNameserverFinder(ctrlCtx.IsK8sDistro)
+func SetDefault() {
+	Default = defaultNameserverFinder(constants.GetVClusterDistro() == constants.K8SDistro)
 }
 
 const (
