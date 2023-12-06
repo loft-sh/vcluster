@@ -382,6 +382,6 @@ type NoopSyncerValues struct {
 }
 
 type AdmissionValues struct {
-	ValidatingWebhooks string `json:"validatingWebhooks,omitempty"`
-	MutatingWebhooks   string `json:"mutatingWebhooks,omitempty"`
+	ValidatingWebhooks []string `json:"validatingWebhooks,omitempty"`
+	MutatingWebhooks   []string `json:"mutatingWebhooks,omitempty"`
 }
