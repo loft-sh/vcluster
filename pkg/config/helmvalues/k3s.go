@@ -89,6 +89,7 @@ type BaseHelm struct {
 	Telemetry          TelemetryValues  `json:"telemetry,omitempty"`
 	NoopSyncer         NoopSyncerValues `json:"noopSyncer,omitempty"`
 	Monitoring         MonitoringValues `json:"monitoring,omitempty"`
+	Admission          AdmissionValues  `json:"admission,omitempty"`
 }
 
 type SyncerValues struct {
@@ -378,4 +379,9 @@ type NoopSyncerValues struct {
 		RequestHeaderCaCert string `json:"requestHeaderCaCert,omitempty"`
 		KubeConfig          string `json:"kubeConfig,omitempty"`
 	}
+}
+
+type AdmissionValues struct {
+	ValidatingWebhooks string `json:"validatingWebhooks,omitempty"`
+	MutatingWebhooks   string `json:"mutatingWebhooks,omitempty"`
 }
