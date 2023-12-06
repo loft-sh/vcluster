@@ -264,6 +264,16 @@ spec:
           - --sync-k8s-service=true
           {{- end }}
           {{- end }}
+          {{- if .Values.admission.validatingWebhooks }}
+          {{- range .Values.admission.validatingWebhooks }}
+          - --enforce-validating-hook={{ . | b64enc }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.admission.mutatingWebhooks }}
+          {{- range .Values.admission.mutatingWebhooks }}
+          - --enforce-mutating-hook={{ . | b64enc }}
+          {{- end }}
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}

@@ -173,6 +173,16 @@ spec:
           {{- if .Values.coredns.integrated }}
           - --integrated-coredns=true
           {{- end }}
+          {{- if .Values.admission.validatingWebhooks }}
+          {{- range .Values.admission.validatingWebhooks }}
+          - --enforce-validating-hook={{ . | b64enc }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.admission.mutatingWebhooks }}
+          {{- range .Values.admission.mutatingWebhooks }}
+          - --enforce-mutating-hook={{ . | b64enc }}
+          {{- end }}
+          {{- end }}
           {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
           - --use-coredns-plugin=true
           {{- end }}
