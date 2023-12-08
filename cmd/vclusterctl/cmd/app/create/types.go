@@ -2,6 +2,8 @@ package create
 
 // Options holds the create cmd options
 type Options struct {
+	From string
+
 	KubeConfigContextName string
 	ChartVersion          string
 	ChartName             string

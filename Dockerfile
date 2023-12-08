@@ -54,12 +54,16 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
 
 ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go"]
 
+# add kine from image
+FROM rancher/kine:v0.11.1 as kine
+
 # we use alpine for easier debugging
 FROM alpine:3.19
 
 # Set root path as working directory
 WORKDIR /
 
+COPY --from=kine /bin/kine /usr/local/bin/kine
 COPY --from=builder /vcluster .
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 

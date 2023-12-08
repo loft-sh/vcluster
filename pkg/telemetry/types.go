@@ -11,13 +11,6 @@ var (
 	ErrUnsupportedType = errors.New("unsupported type")
 )
 
-type ChartInfo struct {
-	Name    string
-	Version string
-
-	Values map[string]interface{}
-}
-
 type Config struct {
 	Disabled           StrBool `json:"disabled,omitempty"`
 	InstanceCreator    string  `json:"instanceCreator,omitempty"`

@@ -59,6 +59,7 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 	if translate.VClusterName == "" {
 		translate.VClusterName = "vcluster"
 	}
+	translate.SaveSuffix()
 
 	// set service name
 	if options.ServiceName == "" {

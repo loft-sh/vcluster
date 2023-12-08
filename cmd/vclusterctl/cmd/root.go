@@ -88,6 +88,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(NewResumeCmd(globalFlags))
 	rootCmd.AddCommand(NewDisconnectCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
+	rootCmd.AddCommand(NewPushCmd(globalFlags))
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
 	rootCmd.AddCommand(cmdtelemetry.NewTelemetryCmd())
 	rootCmd.AddCommand(versionCmd)
