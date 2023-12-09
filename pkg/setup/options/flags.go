@@ -72,6 +72,9 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.BoolVar(&options.ProxyMetricsServer, "proxy-metrics-server", false, "Proxy the host cluster metrics server")
 	flags.BoolVar(&options.ServiceAccountTokenSecrets, "service-account-token-secrets", false, "Create secrets for pod service account tokens instead of injecting it as annotations")
 
+	flags.IntVar(&options.EtcdReplicas, "etcd-replicas", 1, "The number of etcd replicas to generate certificates for")
+	flags.BoolVar(&options.EtcdEmbedded, "etcd-embedded", false, "If enabled, will generate certificates for embedded etcd")
+
 	// Deprecated Flags
 	flags.BoolVar(&options.RewriteHostPaths, "rewrite-host-paths", false, "If enabled, syncer will rewite hostpaths in synced pod volumes")
 	flags.BoolVar(&options.DeprecatedSyncNodeChanges, "sync-node-changes", false, "If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.")

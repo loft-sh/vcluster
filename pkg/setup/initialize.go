@@ -125,7 +125,7 @@ func initialize(
 		}()
 	} else if certificatesDir != "" {
 		// generate k8s certificates
-		err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+		err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain, options.EtcdReplicas, options.EtcdEmbedded)
 		if err != nil {
 			return err
 		}
@@ -134,7 +134,7 @@ func initialize(
 	return nil
 }
 
-func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
+func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string, etcdReplicaCount int, etcdEmbedded bool) error {
 	// generate etcd server and peer sans
 	etcdService := vClusterName + "-etcd"
 	etcdSans := []string{
@@ -148,13 +148,16 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 
 	//expect up to 20 etcd members, number could be lower since more
 	//than 5 is generally a bad idea
-	for i := 0; i < 20; i++ {
-		// this is for embedded etcd
-		hostname := vClusterName + "-" + strconv.Itoa(i)
-		etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)
-		// this is for external etcd
-		etcdHostname := etcdService + "-" + strconv.Itoa(i)
-		etcdSans = append(etcdSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+	for i := 0; i < etcdReplicaCount; i++ {
+		if etcdEmbedded {
+			// this is for embedded etcd
+			hostname := vClusterName + "-" + strconv.Itoa(i)
+			etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)
+		} else {
+			// this is for external etcd
+			etcdHostname := etcdService + "-" + strconv.Itoa(i)
+			etcdSans = append(etcdSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+		}
 	}
 
 	// generate certificates

@@ -186,6 +186,11 @@ spec:
           {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
           - --use-coredns-plugin=true
           {{- end }}
+          {{- if .Values.etcd.replicas }}
+          {{- if gt (int .Values.etcd.replicas) 1 }}
+          - --etcd-replicas={{ .Values.etcd.replicas }}
+          {{- end }}
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
