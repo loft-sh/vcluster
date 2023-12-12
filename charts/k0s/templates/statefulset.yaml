@@ -76,8 +76,6 @@ spec:
           emptyDir: {}
         - name: tmp
           emptyDir: {}
-        - name: run-k0s
-          emptyDir: {}
         - name: k0s-binary
           emptyDir: {}
         - name: k0s-config
@@ -304,8 +302,6 @@ spec:
             mountPath: /etc/k0s
           - mountPath: /data
             name: data
-          - name: run-k0s
-            mountPath: /run/k0s
           - name: tmp
             mountPath: /tmp
         {{- if .Values.coredns.enabled }}
