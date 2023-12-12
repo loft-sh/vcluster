@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -20,7 +21,16 @@ type k0sCommand struct {
 	Args    []string `json:"args,omitempty"`
 }
 
+const runDir = "/run/k0s"
+
 func StartK0S(ctx context.Context) error {
+	// make sure we delete the contents of /run/k0s
+	dirEntries, _ := os.ReadDir(runDir)
+	for _, entry := range dirEntries {
+		_ = os.RemoveAll(filepath.Join(runDir, entry.Name()))
+	}
+
+	// start k0s binary
 	reader, writer, err := os.Pipe()
 	if err != nil {
 		return err
