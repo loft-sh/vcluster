@@ -193,14 +193,17 @@ func (d *DefaultCollector) RecordStatus(ctx context.Context) {
 }
 
 func (d *DefaultCollector) RecordStart(ctx context.Context) {
+	chartInfo := d.getChartInfo(ctx)
 	properties := map[string]interface{}{
 		"vcluster_version":            SyncerVersion,
-		"vcluster_k8s_distro":         d.getChartInfo(ctx).Name,
 		"vcluster_k8s_distro_version": d.getVirtualClusterVersion(),
 		"host_cluster_k8s_version":    d.getHostClusterVersion(),
 		"os_arch":                     runtime.GOOS + "/" + runtime.GOARCH,
-		"helm_values":                 d.getChartInfo(ctx).Values,
 		"creation_method":             d.config.InstanceCreator,
+	}
+	if chartInfo != nil {
+		properties["vcluster_k8s_distro"] = chartInfo.Name
+		properties["helm_values"] = chartInfo.Values
 	}
 
 	// build the event and record
@@ -231,7 +234,10 @@ func (d *DefaultCollector) RecordError(ctx context.Context, severity ErrorSeveri
 
 	// if panic or fatal we add the helm values
 	if severity == PanicSeverity || severity == FatalSeverity {
-		properties["helm_values"] = d.getChartInfo(ctx).Values
+		chartInfo := d.getChartInfo(ctx)
+		if chartInfo != nil {
+			properties["helm_values"] = chartInfo.Values
+		}
 	}
 
 	// build the event and record
