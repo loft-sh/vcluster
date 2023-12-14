@@ -7,6 +7,7 @@ import (
 )
 
 var K8SAPIVersionMap = map[string]string{
+	"1.29": "registry.k8s.io/kube-apiserver:v1.29.0",
 	"1.28": "registry.k8s.io/kube-apiserver:v1.28.2",
 	"1.27": "registry.k8s.io/kube-apiserver:v1.27.6",
 	"1.26": "registry.k8s.io/kube-apiserver:v1.26.9",
@@ -14,6 +15,7 @@ var K8SAPIVersionMap = map[string]string{
 }
 
 var K8SControllerVersionMap = map[string]string{
+	"1.29": "registry.k8s.io/kube-controller-manager:v1.29.0",
 	"1.28": "registry.k8s.io/kube-controller-manager:v1.28.2",
 	"1.27": "registry.k8s.io/kube-controller-manager:v1.27.6",
 	"1.26": "registry.k8s.io/kube-controller-manager:v1.26.9",
@@ -21,6 +23,7 @@ var K8SControllerVersionMap = map[string]string{
 }
 
 var K8SSchedulerVersionMap = map[string]string{
+	"1.29": "registry.k8s.io/kube-scheduler:v1.29.0",
 	"1.28": "registry.k8s.io/kube-scheduler:v1.28.2",
 	"1.27": "registry.k8s.io/kube-scheduler:v1.27.6",
 	"1.26": "registry.k8s.io/kube-scheduler:v1.26.9",
@@ -28,6 +31,7 @@ var K8SSchedulerVersionMap = map[string]string{
 }
 
 var K8SEtcdVersionMap = map[string]string{
+	"1.29": "registry.k8s.io/etcd:3.5.10-0",
 	"1.28": "registry.k8s.io/etcd:3.5.9-0",
 	"1.27": "registry.k8s.io/etcd:3.5.7-0",
 	"1.26": "registry.k8s.io/etcd:3.5.6-0",
