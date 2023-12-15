@@ -41,6 +41,8 @@ kubectl get ns
 
 Behind the scenes a different helm chart will be deployed (`vcluster-k0s`), that holds specific configuration to support k0s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k0s) for all available chart options.
 
+Please note that dual stack networking is not supported with k0s, you will be able to deploy it on a dual stack host cluster, but it will not have all the dual stack features.
+
 ## Vanilla k8s
 
 When choosing this option, vCluster will deploy a separate etcd cluster, kubernetes controller manager and api server alongside the vCluster hypervisor.
