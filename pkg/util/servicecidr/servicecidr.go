@@ -116,6 +116,7 @@ func EnsureServiceCIDRInK0sSecret(
 	if warning != "" {
 		klog.Info(warning)
 	}
+	serviceCIDR = strings.Split(serviceCIDR, ",")[0]
 
 	// apply changes
 	originalObject := secret.DeepCopy()
