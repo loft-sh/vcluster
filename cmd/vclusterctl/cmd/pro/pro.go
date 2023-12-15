@@ -3,6 +3,7 @@ package pro
 import (
 	"fmt"
 
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro/connect"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/spf13/cobra"
@@ -32,5 +33,7 @@ func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	proCmd.AddCommand(startCmd)
 	proCmd.AddCommand(NewResetCmd(loftctlGlobalFlags))
 	proCmd.AddCommand(NewGenerateCmd())
+	proCmd.AddCommand(connect.NewConnectCmd(loftctlGlobalFlags))
+
 	return proCmd, nil
 }

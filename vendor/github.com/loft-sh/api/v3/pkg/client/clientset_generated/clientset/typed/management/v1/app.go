@@ -31,6 +31,8 @@ type AppInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*v1.AppList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.App, err error)
+	GetCredentials(ctx context.Context, appName string, options metav1.GetOptions) (*v1.AppCredentials, error)
+
 	AppExpansion
 }
 
@@ -162,6 +164,19 @@ func (c *apps) Patch(ctx context.Context, name string, pt types.PatchType, data 
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetCredentials takes name of the app, and returns the corresponding v1.AppCredentials object, and an error if there is any.
+func (c *apps) GetCredentials(ctx context.Context, appName string, options metav1.GetOptions) (result *v1.AppCredentials, err error) {
+	result = &v1.AppCredentials{}
+	err = c.client.Get().
+		Resource("apps").
+		Name(appName).
+		SubResource("credentials").
+		VersionedParams(&options, scheme.ParameterCodec).
 		Do(ctx).
 		Into(result)
 	return

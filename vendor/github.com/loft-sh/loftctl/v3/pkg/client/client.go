@@ -18,7 +18,6 @@ import (
 	"github.com/blang/semver"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
-	"k8s.io/utils/pointer"
 
 	"github.com/loft-sh/api/v3/pkg/auth"
 	"github.com/loft-sh/api/v3/pkg/product"
@@ -26,6 +25,7 @@ import (
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/loft-sh/loftctl/v3/pkg/constants"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
@@ -111,9 +111,9 @@ func NewClientFromPath(path string) (Client, error) {
 }
 
 type client struct {
-	configOnce sync.Once
-	configPath string
 	config     *Config
+	configPath string
+	configOnce sync.Once
 }
 
 // Logout implements Client.
@@ -193,7 +193,7 @@ func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster st
 		virtualCluster,
 		&managementv1.VirtualClusterInstanceKubeConfig{
 			Spec: managementv1.VirtualClusterInstanceKubeConfigSpec{
-				CertificateTTL: pointer.Int32(86_400),
+				CertificateTTL: ptr.To[int32](86_400),
 			},
 		},
 		metav1.CreateOptions{},
@@ -284,14 +284,14 @@ func (c *client) Save() error {
 	if c.config == nil {
 		return perrors.New("no config to write")
 	}
-	if c.config.TypeMeta.Kind == "" {
-		c.config.TypeMeta.Kind = "Config"
+	if c.config.Kind == "" {
+		c.config.Kind = "Config"
 	}
-	if c.config.TypeMeta.APIVersion == "" {
-		c.config.TypeMeta.APIVersion = "storage.loft.sh/v1"
+	if c.config.APIVersion == "" {
+		c.config.APIVersion = "storage.loft.sh/v1"
 	}
 
-	err := os.MkdirAll(filepath.Dir(c.configPath), 0755)
+	err := os.MkdirAll(filepath.Dir(c.configPath), 0o755)
 	if err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ func (c *client) Save() error {
 		return err
 	}
 
-	return os.WriteFile(c.configPath, out, 0660)
+	return os.WriteFile(c.configPath, out, 0o660)
 }
 
 func (c *client) ManagementConfig() (*rest.Config, error) {

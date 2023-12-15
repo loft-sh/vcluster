@@ -64,11 +64,15 @@ func (cmd *ProjectsCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("list projects: %w", err)
 	} else if len(projectList.Items) == 0 {
-		return fmt.Errorf("you don't have access to any projects within DevPod engine, please make sure you have at least access to 1 project within Loft DevPod Engine")
+		return fmt.Errorf("you don't have access to any projects within DevPod.Pro, please make sure you have at least access to 1 project")
 	}
 
 	enum := []string{}
 	for _, project := range projectList.Items {
+		// Filter out projects that don't have allowed runners
+		if project.Spec.AllowedRunners == nil || len(project.Spec.AllowedRunners) == 0 {
+			continue
+		}
 		enum = append(enum, project.Name)
 	}
 	sort.Strings(enum)
@@ -76,7 +80,7 @@ func (cmd *ProjectsCmd) Run(ctx context.Context) error {
 	return printOptions(&OptionsFormat{
 		Options: map[string]*Option{
 			"LOFT_PROJECT": {
-				Description:       "The Loft DevPod Engine project to use to create a new workspace in.",
+				Description:       "The DevPod.Pro project to use to create a new workspace in.",
 				Required:          true,
 				Enum:              enum,
 				Default:           enum[0],

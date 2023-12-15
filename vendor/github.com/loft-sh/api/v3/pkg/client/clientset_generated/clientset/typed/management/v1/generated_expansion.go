@@ -8,6 +8,8 @@ type AnnouncementExpansion interface{}
 
 type AppExpansion interface{}
 
+type BackupExpansion interface{}
+
 type ClusterExpansion interface{}
 
 type ClusterAccessExpansion interface{}

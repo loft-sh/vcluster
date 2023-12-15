@@ -11,6 +11,7 @@ import (
 // +genclient:method=ListMembers,verb=get,subresource=members,result=github.com/loft-sh/api/v3/pkg/apis/management/v1.ClusterMembers
 // +genclient:method=ListVirtualClusterDefaults,verb=get,subresource=virtualclusterdefaults,result=github.com/loft-sh/api/v3/pkg/apis/management/v1.ClusterVirtualClusterDefaults
 // +genclient:method=GetAgentConfig,verb=get,subresource=agentconfig,result=github.com/loft-sh/api/v3/pkg/apis/management/v1.ClusterAgentConfig
+// +genclient:method=GetAccessKey,verb=get,subresource=accesskey,result=github.com/loft-sh/api/v3/pkg/apis/management/v1.ClusterAccessKey
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Cluster holds the cluster information
@@ -23,6 +24,7 @@ import (
 // +subresource:request=ClusterCharts,path=charts,kind=ClusterCharts,rest=ClusterChartsREST
 // +subresource:request=ClusterVirtualClusterDefaults,path=virtualclusterdefaults,kind=ClusterVirtualClusterDefaults,rest=ClusterVirtualClusterDefaultsREST
 // +subresource:request=ClusterAgentConfig,path=agentconfig,kind=ClusterAgentConfig,rest=ClusterAgentConfigREST
+// +subresource:request=ClusterAccessKey,path=accesskey,kind=ClusterAccessKey,rest=ClusterAccessKeyREST
 type Cluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -39,6 +41,10 @@ type ClusterSpec struct {
 // ClusterStatus holds the status
 type ClusterStatus struct {
 	storagev1.ClusterStatus `json:",inline"`
+	// Online is whether the cluster is currently connected to the coordination
+	// server.
+	// +optional
+	Online bool `json:"online,omitempty"`
 }
 
 func (a *Cluster) GetOwner() *storagev1.UserOrTeam {

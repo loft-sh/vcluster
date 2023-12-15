@@ -24,36 +24,32 @@ import (
 // Options holds the cmd flags
 type Options struct {
 	*flags.GlobalFlags
-
-	Docker      bool
-	DockerArgs  []string
-	DockerImage string
-
-	LocalPort   string
-	Host        string
-	Reset       bool
-	Version     string
-	Context     string
-	Namespace   string
-	Password    string
-	Values      string
-	Email       string
-	ReuseValues bool
-	Upgrade     bool
-
-	ChartName string
-	ChartPath string
-	ChartRepo string
-
-	NoWait           bool
+	// Will be filled later
+	KubeClient       kubernetes.Interface
+	Log              log.Logger
+	RestConfig       *rest.Config
+	Context          string
+	Values           string
+	LocalPort        string
+	Version          string
+	DockerImage      string
+	Namespace        string
+	Password         string
+	Host             string
+	Email            string
+	ChartRepo        string
+	Product          string
+	ChartName        string
+	ChartPath        string
+	DockerArgs       []string
+	Reset            bool
 	NoPortForwarding bool
 	NoTunnel         bool
 	NoLogin          bool
-
-	// Will be filled later
-	KubeClient kubernetes.Interface
-	RestConfig *rest.Config
-	Log        log.Logger
+	NoWait           bool
+	Upgrade          bool
+	ReuseValues      bool
+	Docker           bool
 }
 
 func NewLoftStarter(options Options) *LoftStarter {

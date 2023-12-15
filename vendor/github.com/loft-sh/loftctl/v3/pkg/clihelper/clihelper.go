@@ -620,7 +620,7 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 	return nil
 }
 
-func GetLoftManifests(chartName, chartRepo, kubeContext, namespace string, extraArgs []string, log log.Logger) (string, error) {
+func GetLoftManifests(chartName, chartRepo, kubeContext, namespace string, extraArgs []string, _ log.Logger) (string, error) {
 	args := []string{
 		"template",
 		defaultReleaseName,

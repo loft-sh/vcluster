@@ -27,6 +27,9 @@ func (l *LoftStarter) upgradeLoft() error {
 	if l.Version != "" {
 		extraArgs = append(extraArgs, "--version", l.Version)
 	}
+	if l.Product != "" {
+		extraArgs = append(extraArgs, "--set", "product="+l.Product)
+	}
 
 	// Do not use --reuse-values if --reset flag is provided because this should be a new install and it will cause issues with `helm template`
 	if !l.Reset && l.ReuseValues {

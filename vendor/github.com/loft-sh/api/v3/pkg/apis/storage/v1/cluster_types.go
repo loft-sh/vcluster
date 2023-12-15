@@ -99,6 +99,7 @@ type ClusterStatusPhase string
 const (
 	ClusterStatusPhaseInitializing ClusterStatusPhase = ""
 	ClusterStatusPhaseInitialized  ClusterStatusPhase = "Initialized"
+	ClusterStatusPhaseUpdating     ClusterStatusPhase = "Updating"
 	ClusterStatusPhaseFailed       ClusterStatusPhase = "Failed"
 )
 

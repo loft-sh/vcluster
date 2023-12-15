@@ -140,6 +140,7 @@ type UserQuotasOptions struct {
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// +subresource-request
 type DevPodUpOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -159,6 +160,7 @@ type DevPodUpOptions struct {
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// +subresource-request
 type DevPodDeleteOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -170,6 +172,7 @@ type DevPodDeleteOptions struct {
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// +subresource-request
 type DevPodStopOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -181,6 +184,7 @@ type DevPodStopOptions struct {
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// +subresource-request
 type DevPodStatusOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -192,12 +196,20 @@ type DevPodStatusOptions struct {
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// +subresource-request
 type DevPodSshOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// Options are the options to pass.
 	// +optional
 	Options string `json:"options,omitempty"`
+}
+
+// +k8s:conversion-gen:explicit-from=net/url.Values
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type BackupApplyOptions struct {
+	metav1.TypeMeta `json:",inline"`
 }
 
 func InstallOptions(scheme *runtime.Scheme) error {
@@ -218,6 +230,7 @@ func addKnownOptionsTypes(scheme *runtime.Scheme) error {
 		&DevPodStopOptions{},
 		&DevPodStatusOptions{},
 		&DevPodSshOptions{},
+		&BackupApplyOptions{},
 	)
 	return nil
 }

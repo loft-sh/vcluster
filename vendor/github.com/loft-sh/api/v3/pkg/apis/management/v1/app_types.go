@@ -7,11 +7,13 @@ import (
 
 // +genclient
 // +genclient:nonNamespaced
+// +genclient:method=GetCredentials,verb=get,subresource=credentials,result=github.com/loft-sh/api/v3/pkg/apis/management/v1.AppCredentials
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // App holds the information
 // +k8s:openapi-gen=true
 // +resource:path=apps,rest=AppREST
+// +subresource:request=AppCredentials,path=credentials,kind=AppCredentials,rest=AppCredentialsREST
 type App struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

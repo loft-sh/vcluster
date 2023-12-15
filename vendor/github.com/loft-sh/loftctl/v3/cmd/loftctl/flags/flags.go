@@ -8,10 +8,10 @@ import (
 
 // GlobalFlags is the flags that contains the global flags
 type GlobalFlags struct {
-	Silent    bool
-	Debug     bool
 	Config    string
 	LogOutput string
+	Silent    bool
+	Debug     bool
 }
 
 // SetGlobalFlags applies the global flags

@@ -37,7 +37,7 @@ func NewRootCmd(streamLogger *log.StreamLogger) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Short:         product.Replace("Welcome to Loft!"),
-		PersistentPreRunE: func(cobraCmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			if globalFlags.Silent {
 				streamLogger.SetLevel(logrus.FatalLevel)
 			}

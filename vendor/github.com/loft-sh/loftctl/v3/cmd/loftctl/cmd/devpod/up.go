@@ -3,7 +3,9 @@ package devpod
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -329,11 +331,17 @@ func dialWorkspace(baseClient client.Client, workspace *managementv1.DevPodWorks
 		HandshakeTimeout: 45 * time.Second,
 	}
 
-	conn, _, err := dialer.Dial(loftURL, map[string][]string{
+	conn, response, err := dialer.Dial(loftURL, map[string][]string{
 		"Authorization": {"Bearer " + restConfig.BearerToken},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error dialing %s: %w", loftURL, err)
+		if response != nil {
+			out, _ := io.ReadAll(response.Body)
+			headers, _ := json.Marshal(response.Header)
+			return nil, fmt.Errorf("error dialing websocket %s (code %d): headers - %s, response - %s, error - %w", loftURL, response.StatusCode, string(headers), string(out), err)
+		}
+
+		return nil, fmt.Errorf("error dialing websocket %s: %w", loftURL, err)
 	}
 
 	return conn, nil
