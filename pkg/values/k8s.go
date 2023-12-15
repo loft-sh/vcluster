@@ -56,12 +56,12 @@ func getDefaultK8SReleaseValues(chartOptions *ChartOptions, log logr.Logger) (st
 		schedulerImage = K8SSchedulerVersionMap[serverVersionString]
 		etcdImage, ok = K8SEtcdVersionMap[serverVersionString]
 		if !ok {
-			if serverMinorInt > 28 {
-				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.28", "serverVersion", serverVersionString)
-				apiImage = K8SAPIVersionMap["1.28"]
-				controllerImage = K8SControllerVersionMap["1.28"]
-				schedulerImage = K8SSchedulerVersionMap["1.28"]
-				etcdImage = K8SEtcdVersionMap["1.28"]
+			if serverMinorInt > 29 {
+				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.29", "serverVersion", serverVersionString)
+				apiImage = K8SAPIVersionMap["1.29"]
+				controllerImage = K8SControllerVersionMap["1.29"]
+				schedulerImage = K8SSchedulerVersionMap["1.29"]
+				etcdImage = K8SEtcdVersionMap["1.29"]
 			} else {
 				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.25", "serverVersion", serverVersionString)
 				apiImage = K8SAPIVersionMap["1.25"]
