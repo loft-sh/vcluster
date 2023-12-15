@@ -524,6 +524,10 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 		if warning != "" {
 			cmd.log.Debug(warning)
 		}
+		if cmd.Distro == "k0s" {
+			// there is currently a problem with dualstack when we use k0s
+			cidr = strings.Split(cidr, ",")[0]
+		}
 		cmd.CIDR = cidr
 	}
 

@@ -116,6 +116,8 @@ func EnsureServiceCIDRInK0sSecret(
 	if warning != "" {
 		klog.Info(warning)
 	}
+	// only return the first cidr, because k0s don't accept coma separated ones
+	serviceCIDR = strings.Split(serviceCIDR, ",")[0]
 
 	// apply changes
 	originalObject := secret.DeepCopy()
