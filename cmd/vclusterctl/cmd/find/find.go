@@ -302,8 +302,8 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 			}
 
 			// skip pro clusters
-			_, err = loftClient.StorageV1().VirtualClusters(p.Namespace).Get(ctx, p.Name, metav1.GetOptions{})
-			if err == nil {
+			virtualCluster, err := loftClient.StorageV1().VirtualClusters(p.Namespace).Get(ctx, p.Name, metav1.GetOptions{})
+			if err == nil && (virtualCluster.Annotations == nil || virtualCluster.Annotations["loft.sh/skip-helm-deploy"] != "true") {
 				continue
 			}
 
@@ -328,8 +328,8 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 			}
 
 			// skip pro clusters
-			_, err = loftClient.StorageV1().VirtualClusters(p.Namespace).Get(ctx, p.Name, metav1.GetOptions{})
-			if err == nil {
+			virtualCluster, err := loftClient.StorageV1().VirtualClusters(p.Namespace).Get(ctx, p.Name, metav1.GetOptions{})
+			if err == nil && (virtualCluster.Annotations == nil || virtualCluster.Annotations["loft.sh/skip-helm-deploy"] != "true") {
 				continue
 			}
 
