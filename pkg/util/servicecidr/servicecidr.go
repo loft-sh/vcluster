@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -124,6 +125,13 @@ func EnsureServiceCIDRInK0sSecret(
 	secret.Data[K0sConfigKey] = []byte(strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, serviceCIDR))
 	secret.Data[K0sConfigReadyFlag] = []byte("true")
 
+	defer func() {
+		// write the config to file
+		err := os.WriteFile("/etc/k0s-config.yaml", secret.Data[K0sConfigKey], 0640)
+		if err != nil {
+			klog.Errorf("error while write k0s config to file: %s", err.Error())
+		}
+	}()
 	// return early if equal
 	if equality.Semantic.DeepEqual(originalObject.Data, secret.Data) {
 		return serviceCIDR, nil
