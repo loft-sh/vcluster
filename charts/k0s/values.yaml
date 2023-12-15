@@ -164,7 +164,7 @@ vcluster:
     - /k0s-binary/k0s
   baseArgs:
     - controller
-    - --config=/etc/k0s-config.yaml
+    - --config=/tmp/k0s-config.yaml
     - --data-dir=/data/k0s
   # Extra arguments for k0s.
   extraArgs: []

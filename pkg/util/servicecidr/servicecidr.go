@@ -122,7 +122,7 @@ func EnsureServiceCIDRInK0sSecret(
 	updatedConfig := []byte(strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, serviceCIDR))
 
 	// write the config to file
-	err = os.WriteFile("/etc/k0s-config.yaml", updatedConfig, 0640)
+	err = os.WriteFile("/tmp/k0s-config.yaml", updatedConfig, 0640)
 	if err != nil {
 		klog.Errorf("error while write k0s config to file: %s", err.Error())
 		return "", err
