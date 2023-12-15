@@ -30,9 +30,9 @@ func NewGenerateCmd() *cobra.Command {
 
 // GenerateKubeConfigCmd holds the cmd flags
 type GenerateKubeConfigCmd struct {
+	log            log.Logger
 	Namespace      string
 	ServiceAccount string
-	log            log.Logger
 }
 
 // NewGenerateKubeConfigCmd creates a new command
@@ -56,7 +56,7 @@ vcluster pro generate admin-kube-config
 #######################################################
 	`,
 		Args: cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 			c, err := loader.ClientConfig()
 			if err != nil {

@@ -35,6 +35,7 @@ type ClusterInterface interface {
 	ListMembers(ctx context.Context, clusterName string, options metav1.GetOptions) (*v1.ClusterMembers, error)
 	ListVirtualClusterDefaults(ctx context.Context, clusterName string, options metav1.GetOptions) (*v1.ClusterVirtualClusterDefaults, error)
 	GetAgentConfig(ctx context.Context, clusterName string, options metav1.GetOptions) (*v1.ClusterAgentConfig, error)
+	GetAccessKey(ctx context.Context, clusterName string, options metav1.GetOptions) (*v1.ClusterAccessKey, error)
 
 	ClusterExpansion
 }
@@ -218,6 +219,19 @@ func (c *clusters) GetAgentConfig(ctx context.Context, clusterName string, optio
 		Resource("clusters").
 		Name(clusterName).
 		SubResource("agentconfig").
+		VersionedParams(&options, scheme.ParameterCodec).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetAccessKey takes name of the cluster, and returns the corresponding v1.ClusterAccessKey object, and an error if there is any.
+func (c *clusters) GetAccessKey(ctx context.Context, clusterName string, options metav1.GetOptions) (result *v1.ClusterAccessKey, err error) {
+	result = &v1.ClusterAccessKey{}
+	err = c.client.Get().
+		Resource("clusters").
+		Name(clusterName).
+		SubResource("accesskey").
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do(ctx).
 		Into(result)

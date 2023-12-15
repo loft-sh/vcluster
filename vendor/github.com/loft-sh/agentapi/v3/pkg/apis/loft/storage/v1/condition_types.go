@@ -13,6 +13,9 @@ const (
 	// ControlPlaneReadyCondition defines the ready condition type if the virtual cluster is reachable.
 	ControlPlaneReadyCondition ConditionType = "ControlPlaneReady"
 
+	// AppsAndObjectsSyncedCondition defines the ready condition type if virtual cluster objects and apps were deployed correctly.
+	AppsAndObjectsSyncedCondition ConditionType = "AppsAndObjectsSynced"
+
 	// HelmChartDeployedCondition defines the helm chart deployed condition type that defines if the helm chart was deployed correctly.
 	HelmChartDeployedCondition ConditionType = "HelmChartDeployed"
 )

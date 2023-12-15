@@ -15,6 +15,7 @@ type ManagementV1Interface interface {
 	AgentAuditEventsGetter
 	AnnouncementsGetter
 	AppsGetter
+	BackupsGetter
 	ClustersGetter
 	ClusterAccessesGetter
 	ClusterConnectsGetter
@@ -65,6 +66,10 @@ func (c *ManagementV1Client) Announcements() AnnouncementInterface {
 
 func (c *ManagementV1Client) Apps() AppInterface {
 	return newApps(c)
+}
+
+func (c *ManagementV1Client) Backups() BackupInterface {
+	return newBackups(c)
 }
 
 func (c *ManagementV1Client) Clusters() ClusterInterface {

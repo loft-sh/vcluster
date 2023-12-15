@@ -35,11 +35,11 @@ type NetworkPeerSpec struct {
 }
 
 type NetworkPeerStatus struct {
-	// HomeDerpRegion is the currently preferred DERP region by the network peer
-	HomeDerpRegion int `json:"homeDerpRegion,omitempty"`
 	// LastSeen is when the network peer was last online. It is not updated when
 	// Online is true.
 	LastSeen string `json:"lastSeen,omitempty"`
+	// HomeDerpRegion is the currently preferred DERP region by the network peer
+	HomeDerpRegion int `json:"homeDerpRegion,omitempty"`
 	// Online is whether the node is currently connected to the coordination
 	// server.
 	Online bool `json:"online,omitempty"`

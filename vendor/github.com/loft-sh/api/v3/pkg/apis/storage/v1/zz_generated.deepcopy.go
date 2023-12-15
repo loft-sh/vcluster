@@ -3383,7 +3383,9 @@ func (in *SpaceTemplateDefinition) DeepCopyInto(out *SpaceTemplateDefinition) {
 	if in.Charts != nil {
 		in, out := &in.Charts, &out.Charts
 		*out = make([]storagev1.TemplateHelmChart, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Apps != nil {
 		in, out := &in.Apps, &out.Apps
@@ -4503,7 +4505,9 @@ func (in *VirtualClusterSpaceTemplateDefinition) DeepCopyInto(out *VirtualCluste
 	if in.Charts != nil {
 		in, out := &in.Charts, &out.Charts
 		*out = make([]storagev1.TemplateHelmChart, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Apps != nil {
 		in, out := &in.Apps, &out.Apps

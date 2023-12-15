@@ -31,11 +31,11 @@ var (
 )
 
 type ContainerDetails struct {
+	NetworkSettings ContainerNetworkSettings `json:"NetworkSettings,omitempty"`
+	State           ContainerDetailsState    `json:"State,omitempty"`
 	ID              string                   `json:"ID,omitempty"`
 	Created         string                   `json:"Created,omitempty"`
-	State           ContainerDetailsState    `json:"State,omitempty"`
 	Config          ContainerDetailsConfig   `json:"Config,omitempty"`
-	NetworkSettings ContainerNetworkSettings `json:"NetworkSettings,omitempty"`
 }
 
 type ContainerNetworkSettings struct {
@@ -48,10 +48,10 @@ type ContainerPort struct {
 }
 
 type ContainerDetailsConfig struct {
+	Labels map[string]string `json:"Labels,omitempty"`
 	Image  string            `json:"Image,omitempty"`
 	User   string            `json:"User,omitempty"`
 	Env    []string          `json:"Env,omitempty"`
-	Labels map[string]string `json:"Labels,omitempty"`
 }
 
 type ContainerDetailsState struct {
@@ -379,8 +379,8 @@ func WrapCommandError(stdout []byte, err error) error {
 }
 
 type Error struct {
-	stdout []byte
 	err    error
+	stdout []byte
 }
 
 func (e *Error) Error() string {

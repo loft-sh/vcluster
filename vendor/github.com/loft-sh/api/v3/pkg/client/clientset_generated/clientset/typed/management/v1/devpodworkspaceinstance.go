@@ -30,6 +30,9 @@ type DevPodWorkspaceInstanceInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*v1.DevPodWorkspaceInstanceList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.DevPodWorkspaceInstance, err error)
+	GetState(ctx context.Context, devPodWorkspaceInstanceName string, options metav1.GetOptions) (*v1.DevPodWorkspaceInstanceState, error)
+	SetState(ctx context.Context, devPodWorkspaceInstanceName string, devPodWorkspaceInstanceState *v1.DevPodWorkspaceInstanceState, opts metav1.CreateOptions) (*v1.DevPodWorkspaceInstanceState, error)
+
 	DevPodWorkspaceInstanceExpansion
 }
 
@@ -156,6 +159,35 @@ func (c *devPodWorkspaceInstances) Patch(ctx context.Context, name string, pt ty
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetState takes name of the devPodWorkspaceInstance, and returns the corresponding v1.DevPodWorkspaceInstanceState object, and an error if there is any.
+func (c *devPodWorkspaceInstances) GetState(ctx context.Context, devPodWorkspaceInstanceName string, options metav1.GetOptions) (result *v1.DevPodWorkspaceInstanceState, err error) {
+	result = &v1.DevPodWorkspaceInstanceState{}
+	err = c.client.Get().
+		Namespace(c.ns).
+		Resource("devpodworkspaceinstances").
+		Name(devPodWorkspaceInstanceName).
+		SubResource("state").
+		VersionedParams(&options, scheme.ParameterCodec).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// SetState takes the representation of a devPodWorkspaceInstanceState and creates it.  Returns the server's representation of the devPodWorkspaceInstanceState, and an error, if there is any.
+func (c *devPodWorkspaceInstances) SetState(ctx context.Context, devPodWorkspaceInstanceName string, devPodWorkspaceInstanceState *v1.DevPodWorkspaceInstanceState, opts metav1.CreateOptions) (result *v1.DevPodWorkspaceInstanceState, err error) {
+	result = &v1.DevPodWorkspaceInstanceState{}
+	err = c.client.Post().
+		Namespace(c.ns).
+		Resource("devpodworkspaceinstances").
+		Name(devPodWorkspaceInstanceName).
+		SubResource("state").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(devPodWorkspaceInstanceState).
 		Do(ctx).
 		Into(result)
 	return

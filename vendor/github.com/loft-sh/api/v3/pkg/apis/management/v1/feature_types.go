@@ -11,7 +11,7 @@ import (
 
 // Feature holds the feature information
 // +k8s:openapi-gen=true
-// +resource:path=features,rest=FeatureREST
+// +resource:path=features,rest=FeatureREST,statusRest=FeatureStatusREST
 type Feature struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

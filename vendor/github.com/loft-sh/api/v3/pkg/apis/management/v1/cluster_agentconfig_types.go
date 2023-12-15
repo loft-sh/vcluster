@@ -33,6 +33,10 @@ type ClusterAgentConfig struct {
 	// +optional
 	LoftHost string `json:"loftHost,omitempty"`
 
+	// LoftInstanceID defines the instance id from the loft instance
+	// +optional
+	LoftInstanceID string `json:"loftInstanceID,omitempty"`
+
 	// AnalyticsSpec holds info needed for the agent to send analytics data to the analytics backend.
 	AnalyticsSpec AgentAnalyticsSpec `json:"analyticsSpec"`
 }

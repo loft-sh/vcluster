@@ -1,7 +1,7 @@
 # we use alpine for easier debugging
-FROM alpine:3.18
+FROM alpine:3.19
 
-ARG HELM_VERSION="v3.12.3"
+ARG HELM_VERSION="v3.13.3"
 ARG TARGETARCH
 
 # Set root path as working directory

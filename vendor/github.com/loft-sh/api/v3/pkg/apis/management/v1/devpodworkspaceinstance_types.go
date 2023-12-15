@@ -9,16 +9,19 @@ import (
 
 // +genclient
 // +genclient:noStatus
+// +genclient:method=GetState,verb=get,subresource=state,result=github.com/loft-sh/api/v3/pkg/apis/management/v1.DevPodWorkspaceInstanceState
+// +genclient:method=SetState,verb=create,subresource=state,input=github.com/loft-sh/api/v3/pkg/apis/management/v1.DevPodWorkspaceInstanceState,result=github.com/loft-sh/api/v3/pkg/apis/management/v1.DevPodWorkspaceInstanceState
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // DevPodWorkspaceInstance holds the DevPodWorkspaceInstance information
 // +k8s:openapi-gen=true
 // +resource:path=devpodworkspaceinstances,rest=DevPodWorkspaceInstanceREST
-// +subresource:request=DevPodWorkspaceInstanceUp,path=up,kind=DevPodWorkspaceInstanceUp,rest=DevPodWorkspaceInstanceUpREST
-// +subresource:request=DevPodWorkspaceInstanceDelete,path=delete,kind=DevPodWorkspaceInstanceDelete,rest=DevPodWorkspaceInstanceDeleteREST
-// +subresource:request=DevPodWorkspaceInstanceSsh,path=ssh,kind=DevPodWorkspaceInstanceSsh,rest=DevPodWorkspaceInstanceSshREST
-// +subresource:request=DevPodWorkspaceInstanceStop,path=stop,kind=DevPodWorkspaceInstanceStop,rest=DevPodWorkspaceInstanceStopREST
-// +subresource:request=DevPodWorkspaceInstanceGetStatus,path=getstatus,kind=DevPodWorkspaceInstanceGetStatus,rest=DevPodWorkspaceInstanceGetStatusREST
+// +subresource:request=DevPodUpOptions,path=up,kind=DevPodUpOptions,rest=DevPodUpOptionsREST
+// +subresource:request=DevPodDeleteOptions,path=delete,kind=DevPodDeleteOptions,rest=DevPodDeleteOptionsREST
+// +subresource:request=DevPodSshOptions,path=ssh,kind=DevPodSshOptions,rest=DevPodSshOptionsREST
+// +subresource:request=DevPodStopOptions,path=stop,kind=DevPodStopOptions,rest=DevPodStopOptionsREST
+// +subresource:request=DevPodStatusOptions,path=getstatus,kind=DevPodStatusOptions,rest=DevPodStatusOptionsREST
+// +subresource:request=DevPodWorkspaceInstanceState,path=state,kind=DevPodWorkspaceInstanceState,rest=DevPodWorkspaceInstanceStateREST
 type DevPodWorkspaceInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

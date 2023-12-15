@@ -190,13 +190,21 @@ type JsPolicyStatus struct {
 	// +optional
 	Phase WebhookPhase `json:"phase,omitempty"`
 
-	// Reason holds the error in machine readable language if the webhook is in a failed state
+	// Reason holds the error in machine-readable language if the webhook is in a failed state
 	// +optional
 	Reason string `json:"reason,omitempty"`
 
-	// Message describes the error in human readable language if the webhook is in a failed state
+	// Message describes the error in human-readable language if the webhook is in a failed state
 	// +optional
 	Message string `json:"message,omitempty"`
+
+	// Conditions holds several conditions the virtual cluster might be in
+	// +optional
+	Conditions Conditions `json:"conditions,omitempty"`
+
+	// ObservedGeneration is the latest generation observed by the controller.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// BundleHash is used to determine if we have to re-bundle the javascript
 	// +optional
@@ -246,6 +254,16 @@ const (
 	WebhookPhaseSynced WebhookPhase = "Synced"
 	WebhookPhaseFailed WebhookPhase = "Failed"
 )
+
+// GetConditions returns the set of conditions for this object.
+func (in *JsPolicy) GetConditions() Conditions {
+	return in.Status.Conditions
+}
+
+// SetConditions sets the conditions on this object.
+func (in *JsPolicy) SetConditions(conditions Conditions) {
+	in.Status.Conditions = conditions
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
