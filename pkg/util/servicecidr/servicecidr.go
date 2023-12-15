@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -21,7 +20,6 @@ const (
 	CIDRConfigMapKey    = "cidr"
 	K0sConfigKey        = "config.yaml"
 	K0sCIDRPlaceHolder  = "CIDR_PLACEHOLDER"
-	K0sConfigReadyFlag  = "CONFIG_READY"
 
 	ErrorMessageFind = "The range of valid IPs is "
 	FallbackCIDR     = "10.96.0.0/12"
@@ -121,33 +119,13 @@ func EnsureServiceCIDRInK0sSecret(
 	serviceCIDR = strings.Split(serviceCIDR, ",")[0]
 
 	// apply changes
-	originalObject := secret.DeepCopy()
-	secret.Data[K0sConfigKey] = []byte(strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, serviceCIDR))
-	secret.Data[K0sConfigReadyFlag] = []byte("true")
+	updatedConfig := []byte(strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, serviceCIDR))
 
-	defer func() {
-		// write the config to file
-		err := os.WriteFile("/etc/k0s-config.yaml", secret.Data[K0sConfigKey], 0640)
-		if err != nil {
-			klog.Errorf("error while write k0s config to file: %s", err.Error())
-		}
-	}()
-	// return early if equal
-	if equality.Semantic.DeepEqual(originalObject.Data, secret.Data) {
-		return serviceCIDR, nil
-	}
-
-	// create patch
-	patch := client.MergeFrom(originalObject)
-	data, err := patch.Data(secret)
+	// write the config to file
+	err = os.WriteFile("/etc/k0s-config.yaml", updatedConfig, 0640)
 	if err != nil {
-		return "", fmt.Errorf("failed to create patch for the %s/%s Secret: %w", secret.Namespace, secret.Name, err)
-	}
-
-	// apply patch
-	_, err = currentNamespaceClient.CoreV1().Secrets(secret.Namespace).Patch(ctx, secret.Name, patch.Type(), data, metav1.PatchOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to patch k0s configuration secret %s/%s: %w", secret.Namespace, secret.Name, err)
+		klog.Errorf("error while write k0s config to file: %s", err.Error())
+		return "", err
 	}
 
 	return serviceCIDR, nil
