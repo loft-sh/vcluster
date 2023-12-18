@@ -80,9 +80,6 @@ spec:
           emptyDir: {}
         - name: k0s-binary
           emptyDir: {}
-        - name: k0s-config
-          secret:
-            secretName: vc-{{ .Release.Name }}-config
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
@@ -300,8 +297,6 @@ spec:
             mountPath: /.cache/helm
           - name: k0s-binary
             mountPath: /k0s-binary
-          - name: k0s-config
-            mountPath: /etc/k0s
           - mountPath: /data
             name: data
           - name: run-k0s
