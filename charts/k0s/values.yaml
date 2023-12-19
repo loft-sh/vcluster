@@ -171,10 +171,11 @@ vcluster:
   env: []
   resources:
     limits:
-      memory: 2Gi
-    requests:
-      cpu: 200m
+      cpu: 100m
       memory: 256Mi
+    requests:
+      cpu: 40m
+      memory: 64Mi
   priorityClassName: ""
   # clusterDomain: cluster.local
 

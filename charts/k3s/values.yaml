@@ -187,9 +187,9 @@ vcluster:
   resources:
     limits:
       cpu: 100m
-      memory: 128Mi
+      memory: 256Mi
     requests:
-      cpu: 20m
+      cpu: 40m
       memory: 64Mi
 
 # Embedded etcd settings
