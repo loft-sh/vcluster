@@ -13,7 +13,7 @@ metadata:
 {{ toYaml .Values.syncer.labels | indent 4 }}
 {{- end }}
   {{- $annotations := merge .Values.globalAnnotations .Values.syncer.annotations }}
-  {{- if $annotations }}
+  {{- if $annotations}}
   annotations:
 {{ toYaml $annotations | indent 4 }}
   {{- end }}
@@ -49,6 +49,38 @@ spec:
       {{- if .Values.syncer.affinity }}
       affinity:
 {{ toYaml .Values.syncer.affinity | indent 8 }}
+      {{- else if .Values.enableHA }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # if possible avoid scheduling more than one pod on one node
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vcluster
+                - key: release
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: "kubernetes.io/hostname"
+          # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vcluster
+                - key: release
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: topology.kubernetes.io/zone
       {{- end }}
       {{- if .Values.syncer.topologySpreadConstraints }}
       topologySpreadConstraints:
@@ -79,6 +111,8 @@ spec:
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
+        - name: eks-binaries
+          emptyDir: {}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
       {{- end }}
@@ -98,6 +132,58 @@ spec:
       {{- if .Values.syncer.priorityClassName }}
       priorityClassName: {{ .Values.syncer.priorityClassName }}
       {{- end }}
+      initContainers:
+      # this is needed because the k8s containers are distroless and thus we don't have any
+      # way of copying the binaries otherwise
+      - name: vcluster-copy
+        {{- if .Values.syncer.image }}
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.syncer.image }}"
+        {{- else }}
+        {{- if .Values.pro }}
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster-pro:{{ .Chart.Version }}"
+        {{- else }}
+        image: "{{ .Values.defaultImageRegistry }}ghcr.io/loft-sh/vcluster:{{ .Chart.Version }}"
+        {{- end }}
+        {{- end }}
+        volumeMounts:
+          - mountPath: /eks-binaries
+            name: eks-binaries
+        command:
+          - /bin/sh
+        args:
+          - -c
+          - "cp /vcluster /eks-binaries/vcluster"
+        {{- if .Values.syncer.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
+        {{- end }}
+      - name: kube-controller-manager
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.controller.image }}"
+        volumeMounts:
+          - mountPath: /eks-binaries
+            name: eks-binaries
+        command:
+          - /eks-binaries/vcluster
+        args:
+          - cp
+          - /usr/local/bin/kube-controller-manager
+          - /eks-binaries/kube-controller-manager
+        {{- if .Values.controller.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
+        {{- end }}
+      - name: kube-apiserver
+        image: "{{ .Values.defaultImageRegistry }}{{ .Values.api.image }}"
+        volumeMounts:
+          - mountPath: /eks-binaries
+            name: eks-binaries
+        command:
+          - /eks-binaries/vcluster
+        args:
+          - cp
+          - /usr/local/bin/kube-apiserver
+          - /eks-binaries/kube-apiserver
+        {{- if .Values.api.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.api.imagePullPolicy }}
+        {{- end }}
       containers:
       - name: syncer
         {{- if .Values.syncer.image }}
@@ -170,7 +256,7 @@ spec:
           {{- if not .Values.sync.nodes.fakeKubeletIPs }}
           - --fake-kubelet-ips=false
           {{- end }}
-          {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled}}
+          {{- if or .Values.proxy.metricsServer.nodes.enabled .Values.proxy.metricsServer.pods.enabled }}
           - --proxy-metrics-server=true
           {{- end }}
           {{- if .Values.coredns.integrated }}
@@ -241,6 +327,83 @@ spec:
         {{- end }}
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
+          {{- if not .Values.api.disabled }}
+          - name: APISERVER_COMMAND
+            value: |-
+              command:
+                - /eks-binaries/kube-apiserver
+                - '--advertise-address=127.0.0.1'
+                - '--bind-address=127.0.0.1'
+                - '--allow-privileged=true'
+                - '--authorization-mode=RBAC'
+                - '--client-ca-file=/pki/ca.crt'
+                - '--enable-bootstrap-token-auth=true'
+                - '--etcd-cafile=/pki/etcd/ca.crt'
+                - '--etcd-certfile=/pki/apiserver-etcd-client.crt'
+                - '--etcd-keyfile=/pki/apiserver-etcd-client.key'
+                - '--etcd-servers=https://{{ .Release.Name }}-etcd:2379'
+                - '--proxy-client-cert-file=/pki/front-proxy-client.crt'
+                - '--proxy-client-key-file=/pki/front-proxy-client.key'
+                - '--requestheader-allowed-names=front-proxy-client'
+                - '--requestheader-client-ca-file=/pki/front-proxy-ca.crt'
+                - '--requestheader-extra-headers-prefix=X-Remote-Extra-'
+                - '--requestheader-group-headers=X-Remote-Group'
+                - '--requestheader-username-headers=X-Remote-User'
+                - '--secure-port=6443'
+                - '--service-account-issuer=https://kubernetes.default.svc.cluster.local'
+                - '--service-account-key-file=/pki/sa.pub'
+                - '--service-account-signing-key-file=/pki/sa.key'
+                {{- if .Values.serviceCIDR }}
+                - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
+                {{- else }}
+                - '--service-cluster-ip-range=$(SERVICE_CIDR)'
+                {{- end }}
+                - '--tls-cert-file=/pki/apiserver.crt'
+                - '--tls-private-key-file=/pki/apiserver.key'
+                - '--watch-cache=false'
+                - '--endpoint-reconciler-type=none'
+                {{- range $f := .Values.api.extraArgs }}
+                - {{ $f | quote }}
+                {{- end }}
+          {{- end }}
+          {{- if not .Values.controller.disabled }}
+          - name: CONTROLLER_COMMAND
+            value: |-
+              command:
+                - /eks-binaries/kube-controller-manager
+                - '--authentication-kubeconfig=/pki/controller-manager.conf'
+                - '--authorization-kubeconfig=/pki/controller-manager.conf'
+                - '--bind-address=127.0.0.1'
+                - '--client-ca-file=/pki/ca.crt'
+                - '--cluster-name=kubernetes'
+                - '--cluster-signing-cert-file=/pki/ca.crt'
+                - '--cluster-signing-key-file=/pki/ca.key'
+                - '--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
+                - '--node-monitor-grace-period=1h'
+                - '--node-monitor-period=1h'
+                - '--horizontal-pod-autoscaler-sync-period=60s'
+                - '--kubeconfig=/pki/controller-manager.conf'
+                {{- if .Values.serviceCIDR }}
+                - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
+                {{- else }}
+                - '--service-cluster-ip-range=$(SERVICE_CIDR)'
+                {{- end }}
+                {{- if .Values.enableHA }}
+                - '--leader-elect=true'
+                {{- else }}
+                - '--leader-elect=false'
+                {{- end }}
+                - '--node-monitor-grace-period=180s'
+                - '--node-monitor-period=30s'
+                - '--pvclaimbinder-sync-period=60s'
+                - '--requestheader-client-ca-file=/pki/front-proxy-ca.crt'
+                - '--root-ca-file=/pki/ca.crt'
+                - '--service-account-private-key-file=/pki/sa.key'
+                - '--use-service-account-credentials=true'
+                {{- range $f := .Values.controller.extraArgs }}
+                - {{ $f | quote }}
+                {{- end }}
+            {{- end }}
         volumeMounts:
           - name: helm-cache
             mountPath: /.cache/helm
@@ -248,6 +411,8 @@ spec:
             mountPath: /tmp
           - mountPath: /pki
             name: certs
+          - mountPath: /eks-binaries
+            name: eks-binaries
         {{- if .Values.syncer.volumeMounts }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         {{- end }}

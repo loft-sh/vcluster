@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/k0s"
 	"github.com/loft-sh/vcluster/pkg/k3s"
+	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -96,8 +97,8 @@ func initialize(
 		}
 	}
 
-	// check if k3s
-	if distro == constants.K0SDistro {
+	switch distro {
+	case constants.K0SDistro:
 		// start k0s
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
@@ -107,7 +108,7 @@ func initialize(
 				klog.Fatalf("Error running k0s: %v", err)
 			}
 		}()
-	} else if distro == constants.K3SDistro {
+	case constants.K3SDistro:
 		// its k3s, let's create the token secret
 		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
 		if err != nil {
@@ -123,14 +124,29 @@ func initialize(
 				klog.Fatalf("Error running k3s: %v", err)
 			}
 		}()
-	} else if certificatesDir != "" {
-		// generate k8s certificates
-		err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
-		if err != nil {
-			return err
+	case constants.K8SDistro, constants.EKSDistro:
+		if certificatesDir != "" {
+			// generate k8s certificates
+			err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			if err != nil {
+				return err
+			}
+			apiUp := make(chan struct{})
+			// start k8s
+			go func() {
+				// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
+				// loop in Initialize
+				err := k8s.StartK8S(parentCtx, apiUp, options.Name)
+				if err != nil {
+					klog.Fatalf("Error running k8s: %v", err)
+				}
+			}()
+			klog.Info("waiting for the api to be up")
+			<-apiUp
 		}
 	}
 
+	klog.Info("finished running initialize")
 	return nil
 }
 
@@ -158,7 +174,7 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 	}
 
 	// generate certificates
-	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans, "-api")
+	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans)
 	if err != nil {
 		return fmt.Errorf("ensure certs: %w", err)
 	}

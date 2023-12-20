@@ -153,7 +153,7 @@ syncer:
     limits:
       ephemeral-storage: 8Gi
       cpu: 1000m
-      memory: 512Mi
+      memory: 1024Mi
     requests:
       ephemeral-storage: 200Mi
       # ensure that cpu/memory requests are high enough.
