@@ -1,6 +1,9 @@
 package cp
 
-import "os"
+import (
+	"io"
+	"os"
+)
 
 // this is a function that allows us to copy from
 // distroless containers as they don't have the
@@ -10,9 +13,23 @@ func Cp(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	bytes, err := os.ReadFile(src)
+	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dest, bytes, info.Mode())
+	defer srcFile.Close()
+	destFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		return err
+	}
+	err = destFile.Close()
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(dest, info.Mode())
 }
