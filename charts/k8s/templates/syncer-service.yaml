@@ -21,12 +21,14 @@ spec:
       {{- if not .Values.headless }}
       targetPort: 8443
       {{- end }}
+      nodePort: {{ .Values.service.httpsNodePort }}
       protocol: TCP
     - name: kubelet
       port: 10250
       {{- if not .Values.headless }}
       targetPort: 8443
       {{- end }}
+      nodePort: {{ .Values.service.kubeletNodePort }}
       protocol: TCP
   {{- if .Values.service.externalIPs }}
   externalIPs:
