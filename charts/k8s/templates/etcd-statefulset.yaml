@@ -116,7 +116,7 @@ spec:
         - name: certs
           secret:
             secretName: {{ .Release.Name }}-certs
-      {{- if .Values.volumes }}
+      {{- if .Values.etcd.volumes }}
 {{ toYaml .Values.etcd.volumes | indent 8 }}
       {{- end }}
       {{- if not .Values.etcd.storage.persistence }}

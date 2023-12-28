@@ -80,6 +80,9 @@ spec:
           emptyDir: {}
         - name: k0s-binary
           emptyDir: {}
+      {{- if .Values.syncer.volumes }}
+{{ toYaml .Values.syncer.volumes | indent 8 }}
+      {{- end }}
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
