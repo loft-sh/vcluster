@@ -25,7 +25,7 @@ const (
 	CertificateKeySecretKey = "client-key"
 )
 
-func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *api.Config) error {
+func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *api.Config, isRemote bool) error {
 	out, err := clientcmd.Write(*config)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 			kubeConfigSecret.Data[CertificateKeySecretKey] = key
 
 			// set owner reference
-			if translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
+			if !isRemote && translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
 				kubeConfigSecret.OwnerReferences = translate.GetOwnerReference(nil)
 			}
 			return nil

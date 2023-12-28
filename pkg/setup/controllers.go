@@ -55,7 +55,7 @@ func StartControllers(controllerContext *options.ControllerContext) error {
 	// write the kube config to secret
 	go func() {
 		wait.Until(func() {
-			err := WriteKubeConfigToSecret(controllerContext.Context, controllerContext.CurrentNamespace, controllerContext.CurrentNamespaceClient, controllerContext.Options, controllerContext.VirtualRawConfig)
+			err := WriteKubeConfigToSecret(controllerContext.Context, controllerContext.CurrentNamespace, controllerContext.CurrentNamespaceClient, controllerContext.Options, controllerContext.VirtualRawConfig, false)
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
 			}

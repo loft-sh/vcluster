@@ -286,7 +286,7 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *options.Virt
 	return config, nil
 }
 
-func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *options.VirtualClusterOptions, config *clientcmdapi.Config) error {
+func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *options.VirtualClusterOptions, config *clientcmdapi.Config, isRemote bool) error {
 	config, err := CreateVClusterKubeConfig(config, options)
 	if err != nil {
 		return err
@@ -334,14 +334,14 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 		}
 
 		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.KubeConfigSecret, secretNamespace, config)
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.KubeConfigSecret, secretNamespace, config, isRemote)
 		if err != nil {
 			return fmt.Errorf("creating %s secret in the %s ns failed: %w", options.KubeConfigSecret, secretNamespace, err)
 		}
 	}
 
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), currentNamespace, config)
+	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), currentNamespace, config, isRemote)
 }
 
 func InitControllerContext(
