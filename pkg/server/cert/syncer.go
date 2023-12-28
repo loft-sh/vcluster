@@ -23,6 +23,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type ExtraSANsFunc func(ctx context.Context) ([]string, error)
+
+// ExtraSANs can be used to add extra sans via a function
+var ExtraSANs []ExtraSANsFunc
+
 type Syncer interface {
 	dynamiccertificates.Notifier
 	dynamiccertificates.ControllerRunner
@@ -122,7 +127,18 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 		}
 	}
 
+	// add cluster ip
 	retSANs = append(retSANs, svc.Spec.ClusterIP)
+
+	// add extra sans
+	for _, extraSans := range ExtraSANs {
+		extraSansValues, err := extraSans(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error getting extra sans: %w", err)
+		}
+
+		retSANs = append(retSANs, extraSansValues...)
+	}
 
 	// add pod IP
 	podIP := os.Getenv("POD_IP")
