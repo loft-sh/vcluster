@@ -44,7 +44,7 @@ jobs:
       - name: Setup Just
         uses: extractions/setup-just@v1
       - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0.15.0
+        uses: anchore/sbom-action/download-syft@v0.15.1
       - name: Setup GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
@@ -79,7 +79,7 @@ jobs:
       - name: Setup Just
         uses: extractions/setup-just@v1
       - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0.15.0
+        uses: anchore/sbom-action/download-syft@v0.15.1
       - name: Setup GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
