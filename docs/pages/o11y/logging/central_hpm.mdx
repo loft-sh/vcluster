@@ -1,9 +1,9 @@
 ---
 title: Centralized Hostpath Mapper
-sidebar_label: Centralized Hostpath Mapper 
+sidebar_label: Centralized Hostpath Mapper
 ---
 
-This feature is an extension to the existing [hostpath mapper](./hpm.mdx) component of vCluster.
+This feature is an extension to the existing [hostpath mapper](./hpm.mdx) component of vCluster and requires an active vCluster.Pro license.
 Currently, when enabled, hostpath mapper can support the following usecases:
 1. [Enabling container based logging used by tools like fluentd, logstash etc.](./elk_stack.mdx) inside vCluster
 2. [Enabling pod based logging used by loki](./grafana_loki.mdx) inside vCluster
@@ -31,5 +31,4 @@ Alternatively, one can follow the instructions below:
 * Click the 'Select' button to continue.
 * Click the 'Advanced Options' configuration tab and expand the 'Host Path Mapper' section.
 * Toggle the slider 'Enable'. This will add the `loft.sh/hpm-enabled` annotation to the template metadata which will be automatically synced to the virtual cluster on creation. Secondly, it will add the `rewrite-host-paths=true` as extraArgs to the helm values for the syncer.
-* Finish configuring anything else you'd like on your virtual cluster, then click the
-button.
+* Finish configuring anything else you'd like on your virtual cluster, then click the button.
