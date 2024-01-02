@@ -57,7 +57,7 @@ jobs:
           docker build -t ${{ env.IMAGE_NAME }} -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
           docker save -o vcluster_syncer ${{ env.IMAGE_NAME }}
       - name: Upload syncer image to artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vcluster_syncer
           path: ./vcluster_syncer
@@ -89,7 +89,7 @@ jobs:
           set -x
           TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
       - name: Upload vcluster cli to artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vcluster
           path: ./vcluster
@@ -172,12 +172,12 @@ jobs:
           echo "KUBECONFIG env var:" ${KUBECONFIG}
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: vcluster
 
       - name: Download syncer image
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: vcluster_syncer
 
