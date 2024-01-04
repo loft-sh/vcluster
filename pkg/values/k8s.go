@@ -11,7 +11,6 @@ var K8SAPIVersionMap = map[string]string{
 	"1.28": "registry.k8s.io/kube-apiserver:v1.28.4",
 	"1.27": "registry.k8s.io/kube-apiserver:v1.27.8",
 	"1.26": "registry.k8s.io/kube-apiserver:v1.26.11",
-	"1.25": "registry.k8s.io/kube-apiserver:v1.25.16",
 }
 
 var K8SControllerVersionMap = map[string]string{
@@ -19,7 +18,6 @@ var K8SControllerVersionMap = map[string]string{
 	"1.28": "registry.k8s.io/kube-controller-manager:v1.28.4",
 	"1.27": "registry.k8s.io/kube-controller-manager:v1.27.8",
 	"1.26": "registry.k8s.io/kube-controller-manager:v1.26.11",
-	"1.25": "registry.k8s.io/kube-controller-manager:v1.25.16",
 }
 
 var K8SSchedulerVersionMap = map[string]string{
@@ -27,7 +25,6 @@ var K8SSchedulerVersionMap = map[string]string{
 	"1.28": "registry.k8s.io/kube-scheduler:v1.28.4",
 	"1.27": "registry.k8s.io/kube-scheduler:v1.27.8",
 	"1.26": "registry.k8s.io/kube-scheduler:v1.26.11",
-	"1.25": "registry.k8s.io/kube-scheduler:v1.25.16",
 }
 
 var K8SEtcdVersionMap = map[string]string{
@@ -35,7 +32,6 @@ var K8SEtcdVersionMap = map[string]string{
 	"1.28": "registry.k8s.io/etcd:3.5.9-0",
 	"1.27": "registry.k8s.io/etcd:3.5.7-0",
 	"1.26": "registry.k8s.io/etcd:3.5.6-0",
-	"1.25": "registry.k8s.io/etcd:3.5.6-0",
 }
 
 func getDefaultK8SReleaseValues(chartOptions *ChartOptions, log logr.Logger) (string, error) {
@@ -63,11 +59,11 @@ func getDefaultK8SReleaseValues(chartOptions *ChartOptions, log logr.Logger) (st
 				schedulerImage = K8SSchedulerVersionMap["1.29"]
 				etcdImage = K8SEtcdVersionMap["1.29"]
 			} else {
-				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.25", "serverVersion", serverVersionString)
-				apiImage = K8SAPIVersionMap["1.25"]
-				controllerImage = K8SControllerVersionMap["1.25"]
-				schedulerImage = K8SSchedulerVersionMap["1.25"]
-				etcdImage = K8SEtcdVersionMap["1.25"]
+				log.Info("officially unsupported host server version, will fallback to virtual cluster version v1.26", "serverVersion", serverVersionString)
+				apiImage = K8SAPIVersionMap["1.26"]
+				controllerImage = K8SControllerVersionMap["1.26"]
+				schedulerImage = K8SSchedulerVersionMap["1.26"]
+				etcdImage = K8SEtcdVersionMap["1.26"]
 			}
 		}
 	}
