@@ -162,7 +162,7 @@ syncer:
 # Virtual Cluster (k3s) configuration
 vcluster:
   # Image to use for the virtual cluster
-  image: rancher/k3s:v1.28.2-k3s1
+  image: rancher/k3s:v1.29.0-k3s1
   imagePullPolicy: ""
   command:
     - /k3s-binary/k3s
