@@ -87,6 +87,9 @@ type VirtualClusterOptions struct {
 	ProxyMetricsServer         bool `json:"proxyMetricsServer,omitempty"`
 	ServiceAccountTokenSecrets bool `json:"serviceAccountTokenSecrets,omitempty"`
 
+	EtcdReplicas int  `json:"etcdReplicas,omitempty"`
+	EtcdEmbedded bool `json:"etcdEmbedded,omitempty"`
+
 	// DEPRECATED FLAGS
 	RewriteHostPaths                   bool `json:"rewriteHostPaths,omitempty"`
 	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`

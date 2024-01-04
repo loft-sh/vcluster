@@ -1,0 +1,35 @@
+{{- if not .Values.headless }}
+{{- if not .Values.etcd.disabled }}
+
+{{- $releaseName := .Release.Name -}}
+{{- $releaseNamespace := .Release.Namespace }}
+
+{{ range $index := untilStep 0 (int .Values.etcd.replicas) 1 }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $releaseName }}-etcd-{{ $index }}
+  namespace: {{ $releaseNamespace }}
+  labels:
+    app: vcluster-etcd
+spec:
+  publishNotReadyAddresses: true
+  ports:
+    - name: etcd
+      protocol: TCP
+      port: 2379
+      targetPort: 2379
+    - name: peer
+      protocol: TCP
+      port: 2380
+      targetPort: 2380
+  selector:
+    app: vcluster-etcd
+    release: {{ $releaseName }}
+    statefulset.kubernetes.io/pod-name: {{ $releaseName }}-etcd-{{ $index }}
+  type: ClusterIP
+---
+{{- end}}
+{{- end}}
+{{- end}}
+
