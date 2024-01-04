@@ -57,6 +57,24 @@ kubectl apply -f ingress.yaml
 If you are using the ingress nginx controller, please make sure you have [enabled the SSL passthrough feature](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#ssl-passthrough) as it is disabled by default.
 :::
 
+To enable the SSL Passthrough Feature you can edit the nginx ingress deployment within the nginx namespace. The option that needs to be added is `- --enable-ssl-passthrough` under the container args within spec. It should end up looking something like:
+
+```yaml
+    spec:
+      containers:
+      - args:
+        - /nginx-ingress-controller
+        - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+        - --election-id=ingress-nginx-leader
+        - --controller-class=k8s.io/ingress-nginx
+        - --ingress-class=nginx
+        - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+        - --validating-webhook=:8443
+        - --validating-webhook-certificate=/usr/local/certificates/cert
+        - --validating-webhook-key=/usr/local/certificates/key
+        - --enable-ssl-passthrough
+```
+
 :::warning SSL Passthrough required
 In order for this ingress to work correctly, you will need to enable SSL passthrough as TLS termination has to happen at the vCluster level and not ingress controller level. If you cannot do that, please take a look below for using an ingress without ssl passthrough.
 :::
