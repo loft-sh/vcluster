@@ -22,7 +22,6 @@ func EnsureCerts(
 	certificateDir string,
 	clusterDomain string,
 	etcdSans []string,
-	apiSuffix string,
 ) error {
 	// we create a certificate for up to 20 etcd replicas, this should be sufficient for most use cases. Eventually we probably
 	// want to update this to the actual etcd number, but for now this is the easiest way to allow up and downscaling without
@@ -40,14 +39,14 @@ func EnsureCerts(
 	}
 
 	cfg.ClusterName = "kubernetes"
-	cfg.NodeRegistration.Name = vClusterName + apiSuffix
+	cfg.NodeRegistration.Name = vClusterName
 	cfg.Etcd.Local = &LocalEtcd{
 		ServerCertSANs: etcdSans,
 		PeerCertSANs:   etcdSans,
 	}
 	cfg.Networking.ServiceSubnet = serviceCIDR
 	cfg.Networking.DNSDomain = clusterDomain
-	cfg.ControlPlaneEndpoint = vClusterName + apiSuffix
+	cfg.ControlPlaneEndpoint = "127.0.0.1:6443"
 	cfg.CertificatesDir = certificateDir
 	cfg.LocalAPIEndpoint.AdvertiseAddress = "0.0.0.0"
 	cfg.LocalAPIEndpoint.BindPort = 443

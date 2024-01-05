@@ -151,11 +151,11 @@ syncer:
   resources:
     limits:
       ephemeral-storage: 8Gi
-      memory: 1Gi
+      memory: 2Gi
     requests:
       ephemeral-storage: 200Mi
       cpu: 10m
-      memory: 64Mi
+      memory: 256Mi
   # Extra volumes
   volumes: []
   # The amount of replicas to run the deployment with

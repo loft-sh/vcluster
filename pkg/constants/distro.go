@@ -6,6 +6,7 @@ const (
 	K3SDistro = "k3s"
 	K8SDistro = "k8s"
 	K0SDistro = "k0s"
+	EKSDistro = "eks"
 )
 
 func GetVClusterDistro() string {
@@ -19,5 +20,15 @@ func GetVClusterDistro() string {
 		return K3SDistro
 	}
 
-	return K8SDistro
+	_, err = os.Stat("/k8s-binaries")
+	if err == nil {
+		return K8SDistro
+	}
+
+	_, err = os.Stat("/eks-binaries")
+	if err == nil {
+		return EKSDistro
+	}
+
+	return "unknown"
 }
