@@ -159,7 +159,7 @@ syncer:
       # ensure that cpu/memory requests are high enough.
       # for example gke wants minimum 10m/32Mi here!
       cpu: 20m
-      memory: 1Gi
+      memory: 256Mi
   # Extra volumes
   volumes: []
   # The amount of replicas to run the deployment with
