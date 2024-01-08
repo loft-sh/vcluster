@@ -154,6 +154,7 @@ spec:
         {{- if .Values.syncer.imagePullPolicy }}
         imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
         {{- end }}
+      {{- if not .Values.controller.disabled }}
       - name: kube-controller-manager
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.controller.image }}"
         volumeMounts:
@@ -168,6 +169,8 @@ spec:
         {{- if .Values.controller.imagePullPolicy }}
         imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
         {{- end }}
+      {{- end }}
+      {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler }}
       - name: kube-scheduler-manager
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.scheduler.image }}"
         volumeMounts:
@@ -182,6 +185,8 @@ spec:
         {{- if .Values.scheduler.imagePullPolicy }}
         imagePullPolicy: {{ .Values.scheduler.imagePullPolicy }}
         {{- end }}
+      {{- end }}
+      {{- if not .Values.api.disabled }}
       - name: kube-apiserver
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.api.image }}"
         volumeMounts:
@@ -196,6 +201,7 @@ spec:
         {{- if .Values.api.imagePullPolicy }}
         imagePullPolicy: {{ .Values.api.imagePullPolicy }}
         {{- end }}
+      {{- end }}
       containers:
       - name: syncer
         {{- if .Values.syncer.image }}
@@ -232,7 +238,7 @@ spec:
           {{- end }}
           {{- include "vcluster.serviceMapping.fromHost" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
-          {{- if .Values.sync.nodes.enableScheduler }}
+          {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
           {{- end }}
           {{- if .Values.defaultImageRegistry }}
@@ -393,7 +399,7 @@ spec:
                 - '--cluster-name=kubernetes'
                 - '--cluster-signing-cert-file=/pki/ca.crt'
                 - '--cluster-signing-key-file=/pki/ca.key'
-                {{- if not .Values.sync.nodes.enableScheduler }}
+                {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler }}
                 - '--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
                 {{- else }}
                 - '--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
@@ -423,7 +429,7 @@ spec:
                 - {{ $f | quote }}
                 {{- end }}
             {{- end }}
-          {{- if and .Values.sync.nodes.enableScheduler (not .Values.scheduler.disabled) }}
+          {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler  }}
           - name: SCHEDULER_COMMAND
             value: |-
               command:

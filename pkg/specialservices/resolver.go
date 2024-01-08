@@ -1,7 +1,6 @@
 package specialservices
 
 import (
-	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
@@ -11,7 +10,7 @@ import (
 var Default Interface
 
 func SetDefault() {
-	Default = defaultNameserverFinder(constants.GetVClusterDistro() == constants.K8SDistro)
+	Default = defaultNameserverFinder()
 }
 
 const (
@@ -44,16 +43,10 @@ func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]Spec
 	return f.SpecialServices
 }
 
-func defaultNameserverFinder(k8sDistro bool) Interface {
-	specialServicesMap := map[types.NamespacedName]SpecialServiceSyncer{
-		DefaultKubernetesSvcKey: SyncKubernetesService,
-	}
-
-	if k8sDistro {
-		specialServicesMap[VclusterProxyMetricsSvcKey] = SyncVclusterProxyService
-	}
-
+func defaultNameserverFinder() Interface {
 	return &NameserverFinder{
-		SpecialServices: specialServicesMap,
+		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
+			DefaultKubernetesSvcKey: SyncKubernetesService,
+		},
 	}
 }

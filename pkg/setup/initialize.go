@@ -131,18 +131,26 @@ func initialize(
 			if err != nil {
 				return err
 			}
-			apiUp := make(chan struct{})
-			// start k8s
-			go func() {
-				// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
-				// loop in Initialize
-				err := k8s.StartK8S(parentCtx, apiUp, options.Name)
-				if err != nil {
-					klog.Fatalf("Error running k8s: %v", err)
-				}
-			}()
-			klog.Info("waiting for the api to be up")
-			<-apiUp
+		}
+		apiUp := make(chan struct{})
+		// start k8s
+		go func() {
+			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
+			// loop in Initialize
+			err := k8s.StartK8S(parentCtx, apiUp, options.Name)
+			if err != nil {
+				klog.Fatalf("Error running k8s: %v", err)
+			}
+		}()
+		klog.Info("waiting for the api to be up")
+		<-apiUp
+	case constants.Unknown:
+		if certificatesDir != "" {
+			// generate k8s certificates
+			err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

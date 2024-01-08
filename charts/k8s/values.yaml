@@ -265,6 +265,7 @@ scheduler:
     requests:
       cpu: 10m
   priorityClassName: ""
+  disabled: true
 
 # Kubernetes API Server settings
 api:
