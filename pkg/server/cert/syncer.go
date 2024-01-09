@@ -49,8 +49,6 @@ func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClien
 		serviceName:           options.ServiceName,
 		currentNamespace:      currentNamespace,
 		currentNamespaceCient: currentNamespaceClient,
-
-		k8sDistro: constants.GetVClusterDistro() == constants.K8SDistro,
 	}, nil
 }
 
@@ -74,8 +72,6 @@ type syncer struct {
 	currentCert      []byte
 	currentKey       []byte
 	currentSANs      []string
-
-	k8sDistro bool
 }
 
 func (s *syncer) Name() string {
@@ -215,7 +211,7 @@ func (s *syncer) regen(extraSANs []string) error {
 	klog.Infof("Generating serving cert for service ips: %v", extraSANs)
 
 	// GenServingCerts will write generated or updated cert/key to s.currentCert, s.currentKey
-	cert, key, _, err := GenServingCerts(s.serverCaCert, s.serverCaKey, s.currentCert, s.currentKey, s.clusterDomain, extraSANs, s.k8sDistro)
+	cert, key, _, err := GenServingCerts(s.serverCaCert, s.serverCaKey, s.currentCert, s.currentKey, s.clusterDomain, extraSANs)
 	if err != nil {
 		return err
 	}

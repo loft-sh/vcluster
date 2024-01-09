@@ -37,6 +37,7 @@ type SchedulerValues struct {
 	CommonValues
 	SyncerExORCommonValues
 	ControlPlaneCommonValues
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 type EtcdValues struct {

@@ -5,17 +5,13 @@ import (
 	"math"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/metrics/pkg/apis/metrics"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -60,37 +56,7 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContext
 }
 
 func deleteOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithContextFunc {
-	isK8sDistro := constants.GetVClusterDistro() == constants.K8SDistro
-
 	return func(ctx context.Context) (bool, error) {
-		if isK8sDistro {
-			auxVirtualSvc := &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      AuxVirtualSvcName,
-					Namespace: AuxVirtualSvcNamespace,
-				},
-			}
-			err := ctrlCtx.VirtualManager.GetClient().Delete(ctx, auxVirtualSvc)
-			if err != nil {
-				if !kerrors.IsNotFound(err) {
-					return false, nil
-				}
-			}
-
-			hostMetricsProxySvc := &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ctrlCtx.Options.ServiceName + "-metrics-proxy",
-					Namespace: ctrlCtx.CurrentNamespace,
-				},
-			}
-			err = ctrlCtx.LocalManager.GetClient().Delete(ctx, hostMetricsProxySvc)
-			if err != nil {
-				if !kerrors.IsNotFound(err) {
-					return false, nil
-				}
-			}
-		}
-
 		err := ctrlCtx.VirtualManager.GetClient().Delete(ctx, &apiregistrationv1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: MetricsAPIServiceName,
@@ -110,99 +76,12 @@ func deleteOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithConte
 }
 
 func createOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithContextFunc {
-	isK8sDistro := constants.GetVClusterDistro() == constants.K8SDistro
-
 	return func(ctx context.Context) (bool, error) {
 		spec := apiregistrationv1.APIServiceSpec{
 			Group:                metrics.GroupName,
 			GroupPriorityMinimum: 100,
 			Version:              MetricsVersion,
 			VersionPriority:      100,
-		}
-
-		if isK8sDistro {
-			// in this case we register an apiservice with a service reference object
-			// this service is created as a special service and the physical-virtual
-			// pair makes sure the service discovery happens as expected in even non single
-			// binary distros like k8s and eks
-			spec.Service = &apiregistrationv1.ServiceReference{
-				Name:      AuxVirtualSvcName,
-				Namespace: AuxVirtualSvcNamespace,
-				Port:      ptr.To(int32(443)),
-			}
-			spec.InsecureSkipTLSVerify = true
-
-			// create aux metrics server service in vcluster
-			auxVirtualSvc := &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      AuxVirtualSvcName,
-					Namespace: AuxVirtualSvcNamespace,
-					Labels: map[string]string{
-						"k8s-app": "metrics-server",
-					},
-				},
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "https",
-							Port:       443,
-							Protocol:   "TCP",
-							TargetPort: intstr.FromInt(8443),
-						},
-					},
-					Selector: map[string]string{
-						"k8s-app": "metrics-server",
-					},
-					SessionAffinity: corev1.ServiceAffinityNone,
-					Type:            corev1.ServiceTypeClusterIP,
-				},
-			}
-			err := ctrlCtx.VirtualManager.GetClient().Create(ctx, auxVirtualSvc)
-			if err != nil {
-				if !kerrors.IsAlreadyExists(err) {
-					klog.Errorf("error creating metrics server service inside vcluster %v", err)
-					return false, nil
-				}
-			}
-
-			// create aux metrics service in host cluster
-			hostMetricsProxySvc := &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ctrlCtx.Options.ServiceName + "-metrics-proxy",
-					Namespace: ctrlCtx.CurrentNamespace,
-					Labels: map[string]string{
-						"app":     "vcluster-metrics-proxy",
-						"release": ctrlCtx.Options.Name,
-					},
-				},
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "https",
-							Port:       443,
-							Protocol:   "TCP",
-							TargetPort: intstr.FromInt(8443),
-						},
-						{
-							Name:       "kubelet",
-							Port:       10250,
-							Protocol:   "TCP",
-							TargetPort: intstr.FromInt(8443),
-						},
-					},
-					Selector: map[string]string{
-						"app":     "vcluster",
-						"release": ctrlCtx.Options.Name,
-					},
-				},
-			}
-			err = ctrlCtx.LocalManager.GetClient().Create(ctx, hostMetricsProxySvc)
-			if err != nil {
-				if !kerrors.IsAlreadyExists(err) {
-					klog.Errorf("error create host metrics proxy service %v", err)
-					return false, nil
-				}
-			}
 		}
 
 		apiService := &apiregistrationv1.APIService{

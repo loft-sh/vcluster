@@ -7,6 +7,7 @@ const (
 	K8SDistro = "k8s"
 	K0SDistro = "k0s"
 	EKSDistro = "eks"
+	Unknown   = "unknown"
 )
 
 func GetVClusterDistro() string {
@@ -30,5 +31,5 @@ func GetVClusterDistro() string {
 		return EKSDistro
 	}
 
-	return "unknown"
+	return Unknown
 }

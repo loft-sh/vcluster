@@ -43,8 +43,6 @@ type EndpointController struct {
 	Log loghelper.Logger
 
 	provider provider
-
-	k8sDistro bool
 }
 
 func NewEndpointController(ctx *options.ControllerContext, provider provider) *EndpointController {
@@ -56,7 +54,6 @@ func NewEndpointController(ctx *options.ControllerContext, provider provider) *E
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),
 		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
 		provider:            provider,
-		k8sDistro:           constants.GetVClusterDistro() == constants.K8SDistro,
 	}
 }
 
@@ -74,12 +71,6 @@ func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 		return ctrl.Result{RequeueAfter: time.Second}, err
 	}
 
-	if e.k8sDistro {
-		err = e.syncMetricsServerEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
-		if err != nil {
-			return ctrl.Result{RequeueAfter: time.Second}, err
-		}
-	}
 	return ctrl.Result{}, nil
 }
 
@@ -94,13 +85,6 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	vp := func(object client.Object) bool {
 		if object.GetNamespace() == specialservices.DefaultKubernetesSvcKey.Namespace && object.GetName() == specialservices.DefaultKubernetesSvcKey.Name {
 			return true
-		}
-
-		if e.k8sDistro {
-			if object.GetNamespace() == specialservices.VclusterProxyMetricsSvcKey.Namespace &&
-				object.GetName() == specialservices.VclusterProxyMetricsSvcKey.Name {
-				return true
-			}
 		}
 
 		return false
@@ -119,82 +103,6 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()),
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
 		Complete(e)
-}
-
-func (e *EndpointController) syncMetricsServerEndpoints(ctx context.Context, virtualClient, localClient client.Client, serviceName, serviceNamespace string) error {
-	// get physical service endpoints
-	pEndpoints := &corev1.Endpoints{}
-	err := localClient.Get(ctx, types.NamespacedName{
-		Namespace: serviceNamespace,
-		Name:      serviceName,
-	}, pEndpoints)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-
-		return err
-	}
-
-	vEndpoints := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: specialservices.VclusterProxyMetricsSvcKey.Namespace,
-			Name:      specialservices.VclusterProxyMetricsSvcKey.Name,
-		},
-	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, virtualClient, vEndpoints, func() error {
-		if vEndpoints.Labels == nil {
-			vEndpoints.Labels = map[string]string{}
-		}
-		// vEndpoints.Labels[discoveryv1.LabelSkipMirror] = "true"
-
-		// build new subsets
-		newSubsets := []corev1.EndpointSubset{}
-		for _, subset := range pEndpoints.Subsets {
-			newPorts := []corev1.EndpointPort{}
-			for _, p := range subset.Ports {
-				if p.Name != "https" {
-					continue
-				}
-
-				newPorts = append(newPorts, p)
-			}
-
-			newAddresses := []corev1.EndpointAddress{}
-			for _, address := range subset.Addresses {
-				address.Hostname = ""
-				address.NodeName = nil
-				address.TargetRef = nil
-				newAddresses = append(newAddresses, address)
-			}
-			newNotReadyAddresses := []corev1.EndpointAddress{}
-			for _, address := range subset.NotReadyAddresses {
-				address.Hostname = ""
-				address.NodeName = nil
-				address.TargetRef = nil
-				newNotReadyAddresses = append(newNotReadyAddresses, address)
-			}
-
-			newSubsets = append(newSubsets, corev1.EndpointSubset{
-				Addresses:         newAddresses,
-				NotReadyAddresses: newNotReadyAddresses,
-				Ports:             newPorts,
-			})
-		}
-
-		vEndpoints.Subsets = newSubsets
-		return nil
-	})
-	if err != nil {
-		return nil
-	}
-
-	if result == controllerutil.OperationResultCreated || result == controllerutil.OperationResultUpdated {
-		return e.provider.createOrPatch(ctx, virtualClient, vEndpoints)
-	}
-
-	return err
 }
 
 func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceName, serviceNamespace string) error {
