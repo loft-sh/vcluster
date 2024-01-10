@@ -78,7 +78,7 @@ spec:
           emptyDir: {}
         - name: run-k0s
           emptyDir: {}
-        - name: k0s-binary
+        - name: binaries
           emptyDir: {}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
@@ -120,15 +120,15 @@ spec:
           - /bin/sh
         args:
           - -c
-          - "cp /usr/local/bin/k0s /k0s-binary/k0s"
+          - "cp /usr/local/bin/k0s /binaries/k0s"
         {{- if .Values.vcluster.imagePullPolicy }}
         imagePullPolicy: {{ .Values.vcluster.imagePullPolicy }}
         {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
-          - name: k0s-binary
-            mountPath: /k0s-binary
+          - name: binaries
+            mountPath: /binaries
       containers:
       {{- if not .Values.syncer.disabled }}
       - name: syncer
@@ -255,6 +255,8 @@ spec:
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         env:
+          - name: VCLUSTER_DISTRO
+            value: k0s
         {{- if eq (.Values.replicas | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
@@ -298,8 +300,8 @@ spec:
         volumeMounts:
           - name: helm-cache
             mountPath: /.cache/helm
-          - name: k0s-binary
-            mountPath: /k0s-binary
+          - name: binaries
+            mountPath: /binaries
           - mountPath: /data
             name: data
           - name: run-k0s

@@ -111,7 +111,7 @@ spec:
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
-        - name: eks-binaries
+        - name: binaries
           emptyDir: {}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
@@ -146,13 +146,13 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
-          - mountPath: /eks-binaries
-            name: eks-binaries
+          - mountPath: /binaries
+            name: binaries
         command:
           - /bin/sh
         args:
           - -c
-          - "cp /vcluster /eks-binaries/vcluster"
+          - "cp /vcluster /binaries/vcluster"
         {{- if .Values.syncer.imagePullPolicy }}
         imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
         {{- end }}
@@ -160,14 +160,14 @@ spec:
       - name: kube-controller-manager
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.controller.image }}"
         volumeMounts:
-          - mountPath: /eks-binaries
-            name: eks-binaries
+          - mountPath: /binaries
+            name: binaries
         command:
-          - /eks-binaries/vcluster
+          - /binaries/vcluster
         args:
           - cp
           - /usr/local/bin/kube-controller-manager
-          - /eks-binaries/kube-controller-manager
+          - /binaries/kube-controller-manager
         {{- if .Values.controller.imagePullPolicy }}
         imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
         {{- end }}
@@ -176,14 +176,14 @@ spec:
       - name: kube-apiserver
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.api.image }}"
         volumeMounts:
-          - mountPath: /eks-binaries
-            name: eks-binaries
+          - mountPath: /binaries
+            name: binaries
         command:
-          - /eks-binaries/vcluster
+          - /binaries/vcluster
         args:
           - cp
           - /usr/local/bin/kube-apiserver
-          - /eks-binaries/kube-apiserver
+          - /binaries/kube-apiserver
         {{- if .Values.api.imagePullPolicy }}
         imagePullPolicy: {{ .Values.api.imagePullPolicy }}
         {{- end }}
@@ -315,6 +315,8 @@ spec:
         securityContext:
 {{ toYaml .Values.syncer.securityContext | indent 10 }}
         env:
+          - name: VCLUSTER_DISTRO
+            value: eks
         {{- if eq (.Values.syncer.replicas | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
@@ -335,7 +337,7 @@ spec:
           - name: APISERVER_COMMAND
             value: |-
               command:
-                - /eks-binaries/kube-apiserver
+                - /binaries/kube-apiserver
                 - '--advertise-address=127.0.0.1'
                 - '--bind-address=127.0.0.1'
                 - '--allow-privileged=true'
@@ -374,7 +376,7 @@ spec:
           - name: CONTROLLER_COMMAND
             value: |-
               command:
-                - /eks-binaries/kube-controller-manager
+                - /binaries/kube-controller-manager
                 - '--authentication-kubeconfig=/pki/controller-manager.conf'
                 - '--authorization-kubeconfig=/pki/controller-manager.conf'
                 - '--bind-address=127.0.0.1'
@@ -415,8 +417,8 @@ spec:
             mountPath: /tmp
           - mountPath: /pki
             name: certs
-          - mountPath: /eks-binaries
-            name: eks-binaries
+          - mountPath: /binaries
+            name: binaries
         {{- if .Values.syncer.volumeMounts }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         {{- end }}
