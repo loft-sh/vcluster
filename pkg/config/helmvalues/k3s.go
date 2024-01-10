@@ -228,6 +228,7 @@ type ServiceValues struct {
 	LoadBalancerIP           string                              `json:"loadBalancerIP,omitempty"`
 	LoadBalancerSourceRanges []string                            `json:"loadBalancerSourceRanges,omitempty"`
 	LoadBalancerClass        string                              `json:"loadBalancerClass,omitempty"`
+	LoadBalancerAnnotation   map[string]string                   `json:"loadBalancerAnnotations,omitempty"`
 }
 
 type IngressValues struct {
@@ -273,8 +274,10 @@ type Record struct {
 	Namespace  *string    `json:"namespace,omitempty"`
 }
 
-type RecordType string
-type TargetMode string
+type (
+	RecordType string
+	TargetMode string
+)
 
 type Target struct {
 	Mode      TargetMode `json:"mode,omitempty"`
