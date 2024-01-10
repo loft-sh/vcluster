@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // CriticalStatus container status
@@ -40,26 +40,26 @@ var SortPodsByNewest = func(pods []corev1.Pod, i, j int) bool {
 }
 
 // GetProKubeConfig builds a pro kube config from options and client
-func GetProKubeConfig(options loftkubeconfig.ContextOptions) (*api.Config, error) {
+func GetProKubeConfig(options loftkubeconfig.ContextOptions) (*clientcmdapi.Config, error) {
 	contextName := options.Name
-	cluster := api.NewCluster()
+	cluster := clientcmdapi.NewCluster()
 	cluster.Server = options.Server
 	cluster.CertificateAuthorityData = options.CaData
 	cluster.InsecureSkipTLSVerify = options.InsecureSkipTLSVerify
 
-	authInfo := api.NewAuthInfo()
+	authInfo := clientcmdapi.NewAuthInfo()
 	if options.Token != "" || options.ClientCertificateData != nil || options.ClientKeyData != nil {
 		authInfo.Token = options.Token
 		authInfo.ClientKeyData = options.ClientKeyData
 		authInfo.ClientCertificateData = options.ClientCertificateData
 	}
 
-	config := api.NewConfig()
+	config := clientcmdapi.NewConfig()
 	config.Clusters[contextName] = cluster
 	config.AuthInfos[contextName] = authInfo
 
 	// Update kube context
-	kubeContext := api.NewContext()
+	kubeContext := clientcmdapi.NewContext()
 	kubeContext.Cluster = contextName
 	kubeContext.AuthInfo = contextName
 	kubeContext.Namespace = options.CurrentNamespace
@@ -79,8 +79,8 @@ func GetProKubeConfig(options loftkubeconfig.ContextOptions) (*api.Config, error
 // can be eventually removed in the future.
 //
 // This is retried until the kube config is successfully retrieve, or until 10 minute timeout is reached.
-func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclusterName string, namespace string, log log.Logger) (*api.Config, error) {
-	var kubeConfig *api.Config
+func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclusterName string, namespace string, log log.Logger) (*clientcmdapi.Config, error) {
+	var kubeConfig *clientcmdapi.Config
 
 	printedWaiting := false
 	podInfoPrinter := podprinter.PodInfoPrinter{LastWarning: time.Now().Add(time.Second * 6)}
@@ -156,7 +156,7 @@ func CheckHelmVersion(output string) error {
 	return nil
 }
 
-func UpdateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, setActive bool) error {
+func UpdateKubeConfig(contextName string, cluster *clientcmdapi.Cluster, authInfo *clientcmdapi.AuthInfo, setActive bool) error {
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return err
@@ -166,7 +166,7 @@ func UpdateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.Au
 	config.AuthInfos[contextName] = authInfo
 
 	// Update kube context
-	newContext := api.NewContext()
+	newContext := clientcmdapi.NewContext()
 	newContext.Cluster = contextName
 	newContext.AuthInfo = contextName
 
