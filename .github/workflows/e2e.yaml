@@ -109,9 +109,46 @@ jobs:
     outputs:
       matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
 
+  build-e2e:
+    name: Build e2e binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build e2e binary
+        run: |
+          go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo build --require-suite -r --mod vendor $(ls -d ./test/e2e* | jq -R . | jq -rcs '. | join(" \\\n")')
+        env:
+          GOWORK: off
+
+      - name: Upload e2e binaries to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-binaries
+          path: ./test/*/*.test
+          retention-days: 7
+
   e2e-tests:
     name: Execute test suites
-    needs: [build-and-push-syncer-image, build-vcluster-cli, get-testsuites-dir]
+    needs:
+      - build-and-push-syncer-image
+      - build-vcluster-cli
+      - get-testsuites-dir
+      - build-e2e
+
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -146,12 +183,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.21"
-          cache: false
-
       - uses: azure/setup-helm@v3
         name: Setup Helm
         with:
@@ -180,6 +211,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vcluster_syncer
+
+      - name: Download e2e binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-binaries
+          path: ./test
 
       # - name: Setup upterm session for debugging
       #   uses: lhotari/action-upterm@v1
@@ -253,7 +290,11 @@ jobs:
         working-directory: ${{ matrix.test-suite-path }}
         run: |
           set -x
-          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
+
+          sudo chmod +x $(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test
+
+          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} ./$(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast
+
         continue-on-error: true
 
       - name: Print logs if e2e tests fail
