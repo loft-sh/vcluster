@@ -274,6 +274,10 @@ module.exports = {
       ],
     },
     {
+        type: "doc",
+        id: "licenses/vcluster",
+    },
+    {
       type: "link",
       label: "Originally created by Loft",
       href: "https://loft.sh/",
