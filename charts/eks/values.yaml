@@ -391,6 +391,8 @@ service:
   loadBalancerSourceRanges: []
   # Set the loadBalancerClass if using an external load balancer controller
   loadBalancerClass: ""
+  # Set loadBalancer specific annotations on the Kubernetes service
+  loadBalancerAnnotations: {}
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:
