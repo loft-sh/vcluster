@@ -11,25 +11,11 @@ const (
 )
 
 func GetVClusterDistro() string {
-	_, err := os.Stat("/k0s-binary/k0s")
-	if err == nil {
-		return K0SDistro
+	distro := os.Getenv("VCLUSTER_DISTRO")
+	switch distro {
+	case K3SDistro, K8SDistro, K0SDistro, EKSDistro:
+		return distro
+	default:
+		return Unknown
 	}
-
-	_, err = os.Stat("/k3s-binary/k3s")
-	if err == nil {
-		return K3SDistro
-	}
-
-	_, err = os.Stat("/k8s-binaries")
-	if err == nil {
-		return K8SDistro
-	}
-
-	_, err = os.Stat("/eks-binaries")
-	if err == nil {
-		return EKSDistro
-	}
-
-	return Unknown
 }

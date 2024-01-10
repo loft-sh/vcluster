@@ -108,7 +108,7 @@ spec:
       volumes:
         - name: helm-cache
           emptyDir: {}
-        - name: k3s-binary
+        - name: binaries
           emptyDir: {}
         - name: tmp
           emptyDir: {}
@@ -164,15 +164,15 @@ spec:
           - /bin/sh
         args:
           - -c
-          - "cp /bin/k3s /k3s-binary/k3s"
+          - "cp /bin/k3s /binaries/k3s"
         {{- if .Values.vcluster.imagePullPolicy }}
         imagePullPolicy: {{ .Values.vcluster.imagePullPolicy }}
         {{- end }}
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         volumeMounts:
-          - name: k3s-binary
-            mountPath: /k3s-binary
+          - name: binaries
+            mountPath: /binaries
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
       {{- end }}
@@ -315,6 +315,8 @@ spec:
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         env:
+          - name: VCLUSTER_DISTRO
+            value: k3s
           {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
           {{- end }}
@@ -374,8 +376,8 @@ spec:
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
         volumeMounts:
-          - name: k3s-binary
-            mountPath: /k3s-binary
+          - name: binaries
+            mountPath: /binaries
           - name: helm-cache
             mountPath: /.cache/helm
           - name: config

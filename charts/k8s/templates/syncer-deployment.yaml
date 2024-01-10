@@ -109,7 +109,7 @@ spec:
       {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 8 }}
       {{- end }}
-        - name: k8s-binaries
+        - name: binaries
           emptyDir: {}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
@@ -144,13 +144,13 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
-          - mountPath: /k8s-binaries
-            name: k8s-binaries
+          - mountPath: /binaries
+            name: binaries
         command:
           - /bin/sh
         args:
           - -c
-          - "cp /vcluster /k8s-binaries/vcluster"
+          - "cp /vcluster /binaries/vcluster"
         {{- if .Values.syncer.imagePullPolicy }}
         imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
         {{- end }}
@@ -158,14 +158,14 @@ spec:
       - name: kube-controller-manager
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.controller.image }}"
         volumeMounts:
-          - mountPath: /k8s-binaries
-            name: k8s-binaries
+          - mountPath: /binaries
+            name: binaries
         command:
-          - /k8s-binaries/vcluster
+          - /binaries/vcluster
         args:
           - cp
           - /usr/local/bin/kube-controller-manager
-          - /k8s-binaries/kube-controller-manager
+          - /binaries/kube-controller-manager
         {{- if .Values.controller.imagePullPolicy }}
         imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
         {{- end }}
@@ -174,14 +174,14 @@ spec:
       - name: kube-scheduler-manager
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.scheduler.image }}"
         volumeMounts:
-          - mountPath: /k8s-binaries
-            name: k8s-binaries
+          - mountPath: /binaries
+            name: binaries
         command:
-          - /k8s-binaries/vcluster
+          - /binaries/vcluster
         args:
           - cp
           - /usr/local/bin/kube-scheduler
-          - /k8s-binaries/kube-scheduler
+          - /binaries/kube-scheduler
         {{- if .Values.scheduler.imagePullPolicy }}
         imagePullPolicy: {{ .Values.scheduler.imagePullPolicy }}
         {{- end }}
@@ -190,14 +190,14 @@ spec:
       - name: kube-apiserver
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.api.image }}"
         volumeMounts:
-          - mountPath: /k8s-binaries
-            name: k8s-binaries
+          - mountPath: /binaries
+            name: binaries
         command:
-          - /k8s-binaries/vcluster
+          - /binaries/vcluster
         args:
           - cp
           - /usr/local/bin/kube-apiserver
-          - /k8s-binaries/kube-apiserver
+          - /binaries/kube-apiserver
         {{- if .Values.api.imagePullPolicy }}
         imagePullPolicy: {{ .Values.api.imagePullPolicy }}
         {{- end }}
@@ -332,6 +332,8 @@ spec:
         securityContext:
 {{ toYaml .Values.syncer.securityContext | indent 10 }}
         env:
+          - name: VCLUSTER_DISTRO
+            value: k8s
         {{- if eq (.Values.syncer.replicas | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
@@ -352,7 +354,7 @@ spec:
           - name: APISERVER_COMMAND
             value: |-
               command:
-                - /k8s-binaries/kube-apiserver
+                - /binaries/kube-apiserver
                 - '--advertise-address=127.0.0.1'
                 - '--bind-address=127.0.0.1'
                 - '--allow-privileged=true'
@@ -391,7 +393,7 @@ spec:
           - name: CONTROLLER_COMMAND
             value: |-
               command:
-                - /k8s-binaries/kube-controller-manager
+                - /binaries/kube-controller-manager
                 - '--authentication-kubeconfig=/pki/controller-manager.conf'
                 - '--authorization-kubeconfig=/pki/controller-manager.conf'
                 - '--bind-address=127.0.0.1'
@@ -433,7 +435,7 @@ spec:
           - name: SCHEDULER_COMMAND
             value: |-
               command:
-                - /k8s-binaries/kube-scheduler
+                - /binaries/kube-scheduler
                 - '--authentication-kubeconfig=/pki/scheduler.conf'
                 - '--authorization-kubeconfig=/pki/scheduler.conf'
                 - '--bind-address=127.0.0.1'
@@ -454,8 +456,8 @@ spec:
             mountPath: /tmp
           - mountPath: /pki
             name: certs
-          - mountPath: /k8s-binaries
-            name: k8s-binaries
+          - mountPath: /binaries
+            name: binaries
         {{- if .Values.coredns.enabled }}
           - name: coredns
             mountPath: /manifests/coredns

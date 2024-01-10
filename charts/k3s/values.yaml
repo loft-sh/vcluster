@@ -165,7 +165,7 @@ vcluster:
   image: rancher/k3s:v1.29.0-k3s1
   imagePullPolicy: ""
   command:
-    - /k3s-binary/k3s
+    - /binaries/k3s
   baseArgs:
     - server
     - --write-kubeconfig=/data/k3s-config/kube-config.yaml

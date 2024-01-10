@@ -161,7 +161,7 @@ vcluster:
   image: k0sproject/k0s:v1.28.2-k0s.0
   imagePullPolicy: ""
   command:
-    - /k0s-binary/k0s
+    - /binaries/k0s
   baseArgs:
     - controller
     - --config=/tmp/k0s-config.yaml
