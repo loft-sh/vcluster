@@ -96,7 +96,6 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.9.1)")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", create.LoftChartRepo, "The virtual cluster chart repo to use")
-	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k3s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(create.AllowedDistros, ", ")))
 	cobraCmd.Flags().StringVar(&cmd.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cobraCmd.Flags().StringArrayVarP(&cmd.Values, "values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().StringArrayVar(&cmd.SetValues, "set", []string{}, "Set values for helm. E.g. --set 'persistence.enabled=true'")
@@ -130,6 +129,9 @@ vcluster create test --namespace test
 	_ = cobraCmd.Flags().MarkHidden("local-chart-dir")
 	_ = cobraCmd.Flags().MarkHidden("disable-ingress-sync")
 	_ = cobraCmd.Flags().MarkHidden("expose-local")
+
+	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(create.AllowedDistros, ", ")))
+	_ = cobraCmd.Flags().MarkDeprecated("distro", "distro is deprecated, for new clusters please use the 'distro' helm value")
 	return cobraCmd
 }
 
