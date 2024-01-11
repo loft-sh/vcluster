@@ -1,0 +1,74 @@
+{{- if and .Values.isolation.enabled .Values.isolation.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-workloads
+  namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      vcluster.loft.sh/managed-by: {{ .Release.Name }}
+  egress:
+    # Allows outgoing connections to the vcluster control plane
+    - ports:
+        - port: 443
+        - port: 8443
+      to:
+        - podSelector:
+            matchLabels:
+              release: {{ .Release.Name }}
+    # Allows outgoing connections to DNS server
+    - ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+    # Allows outgoing connections to the internet or
+    # other vcluster workloads
+    - to:
+        - podSelector:
+            matchLabels:
+              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+        - ipBlock:
+            cidr: {{ .Values.isolation.networkPolicy.outgoingConnections.ipBlock.cidr }}
+            except:
+              {{- range .Values.isolation.networkPolicy.outgoingConnections.ipBlock.except }}
+              - {{ . }}
+              {{- end }}
+  policyTypes:
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-control-plane
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      release: {{ .Release.Name }}
+  egress:
+    # Allows outgoing connections to all pods with
+    # port 443, 8443 or 6443. This is needed for host Kubernetes
+    # access
+    - ports:
+        - port: 443
+        - port: 8443
+        - port: 6443
+    # Allows outgoing connections to all vcluster workloads
+    # or kube system dns server
+    - to:
+        - podSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: 'kube-system'
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+  policyTypes:
+    - Egress
+{{- end }}

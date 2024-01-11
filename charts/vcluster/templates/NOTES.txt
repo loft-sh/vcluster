@@ -1,0 +1,10 @@
+Thank you for installing vcluster.
+
+Your vcluster is named {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+To connect to the vcluster, use vcluster CLI (https://www.vcluster.com/docs/getting-started/setup):
+  $ vcluster connect {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ vcluster connect {{ .Release.Name }} -n {{ .Release.Namespace }} -- kubectl get ns
+
+
+For more information, please take a look at the vcluster docs at https://www.vcluster.com/docs

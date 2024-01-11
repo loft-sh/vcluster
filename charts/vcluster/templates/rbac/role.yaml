@@ -1,0 +1,103 @@
+{{- if .Values.rbac.role.create }}
+{{- if .Values.multiNamespaceMode.enabled }}
+kind: ClusterRole
+{{- else -}}
+kind: Role
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+{{- if .Values.multiNamespaceMode.enabled }}
+  name: {{ template "vcluster.clusterRoleNameMultinamespace" . }}
+{{- else }}
+  name: {{ .Release.Name }}
+{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
+rules:
+  {{- if .Values.pro }}
+  - apiGroups: [""]
+    {{- $resources := list "configmaps" "secrets" "services" "pods" "pods/attach" "pods/portforward" "pods/exec" "persistentvolumeclaims" }}
+    {{- range $excluded := .Values.rbac.role.excludedApiResources }}
+      {{- $resources = without $resources $excluded }}
+    {{- end}}
+    resources: {{ $resources | toJson }}
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- else }}
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.pods.status .Values.rbac.role.extended }}
+  - apiGroups: [""]
+    resources: ["pods/status"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.pods.ephemeralContainers .Values.rbac.role.extended }}
+  - apiGroups: [""]
+    resources: ["pods/ephemeralcontainers"]
+    verbs: ["patch", "update"]
+  {{- end }}
+  {{- if or .Values.sync.endpoints.enabled .Values.rbac.role.extended .Values.headless }}
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["create", "delete", "patch", "update"]
+  {{- end }}
+  {{- if or (gt (int .Values.replicas) 1) .Values.rbac.role.extended }}
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  - apiGroups: [""]
+    resources: ["endpoints", "events", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  {{- if or .Values.sync.ingresses.enabled}}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "replicasets", "deployments"]
+    verbs: ["get", "list", "watch"]
+  {{- if or .Values.sync.networkpolicies.enabled .Values.rbac.role.extended }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.volumesnapshots.enabled .Values.rbac.role.extended }}
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.serviceaccounts.enabled .Values.rbac.role.extended }}
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.poddisruptionbudgets.enabled .Values.rbac.role.extended }}
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.openshift.enable }}
+  {{- if .Values.sync.endpoints.enabled }}
+  - apiGroups: [""]
+    resources: ["endpoints/restricted"]
+    verbs: ["create"]
+  {{- end }}
+  {{- end }}
+  {{- if .Values.proxy.metricsServer.pods.enabled }}
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  {{- end }}
+  {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
+  {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
+{{- end }}

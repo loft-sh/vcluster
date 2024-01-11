@@ -1,0 +1,22 @@
+{{- if and .Values.isolation.enabled .Values.isolation.limitRange.enabled }}
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ .Release.Name }}-limit-range
+  namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
+spec:
+  limits:
+  - default:
+      {{- range $key, $val := .Values.isolation.limitRange.default }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
+    defaultRequest:
+      {{- range $key, $val := .Values.isolation.limitRange.defaultRequest }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
+    type: Container
+{{- end }}

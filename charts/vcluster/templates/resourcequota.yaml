@@ -1,0 +1,28 @@
+{{- if and .Values.isolation.enabled .Values.isolation.resourceQuota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name:  {{ .Release.Name }}-quota
+  namespace: {{ .Values.isolation.namespace | default .Release.Namespace }}
+  {{- if .Values.globalAnnotations }}
+  annotations:
+{{ toYaml .Values.globalAnnotations | indent 4 }}
+  {{- end }}
+spec:
+  hard:
+    {{- range $key, $val := .Values.isolation.resourceQuota.quota }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+
+  {{- if .Values.isolation.resourceQuota.scopeSelector.matchExpressions }}
+  scopeSelector:
+    matchExpressions:
+     {{- toYaml .Values.isolation.resourceQuota.scopeSelector.matchExpressions | nindent 4 }}
+  {{- end}}
+
+  {{- if .Values.isolation.resourceQuota.scopes }}
+  scopes:
+    {{- toYaml .Values.isolation.resourceQuota.scopes | nindent 4 }}
+  {{- end}}
+
+{{- end }}
