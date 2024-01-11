@@ -1,7 +1,5 @@
 package helmvalues
 
-import corev1 "k8s.io/api/core/v1"
-
 type K8s struct {
 	BaseHelm
 	Syncer     K8sSyncerValues  `json:"syncer,omitempty"`
@@ -14,15 +12,15 @@ type K8s struct {
 type K8sSyncerValues struct {
 	SyncerValues
 	CommonValues
-	SecurityContext    corev1.SecurityContext    `json:"securityContext,omitempty"`
-	PodSecurityContext corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	SecurityContext    map[string]interface{} `json:"securityContext,omitempty"`
+	PodSecurityContext map[string]interface{} `json:"podSecurityContext,omitempty"`
 }
 
 type APIServerValues struct {
 	CommonValues
 	SyncerExORCommonValues
 	ControlPlaneCommonValues
-	SecurityContext    corev1.SecurityContext `json:"securityContext,omitempty"`
+	SecurityContext    map[string]interface{} `json:"securityContext,omitempty"`
 	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`
 }
 
@@ -30,7 +28,7 @@ type ControllerValues struct {
 	CommonValues
 	SyncerExORCommonValues
 	ControlPlaneCommonValues
-	SecurityContext corev1.SecurityContext `json:"securityContext,omitempty"`
+	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
 }
 
 type SchedulerValues struct {
@@ -50,7 +48,7 @@ type EtcdValues struct {
 		Persistence bool   `json:"persistence,omitempty"`
 		Size        string `json:"size,omitempty"`
 	} `json:"storage,omitempty"`
-	SecurityContext                  corev1.SecurityContext `json:"securityContext,omitempty"`
+	SecurityContext                  map[string]interface{} `json:"securityContext,omitempty"`
 	ServiceAnnotations               map[string]string      `json:"serviceAnnotations,omitempty"`
 	AutoDeletePersistentVolumeClaims bool                   `json:"autoDeletePersistentVolumeClaims,omitempty"`
 }
@@ -64,17 +62,17 @@ type ControlPlaneCommonValues struct {
 }
 
 type SyncerExORCommonValues struct {
-	VolumeMounts []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
-	ExtraArgs    []string                    `json:"extraArgs,omitempty"`
-	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
+	VolumeMounts []map[string]interface{} `json:"volumeMounts,omitempty"`
+	ExtraArgs    []string                 `json:"extraArgs,omitempty"`
+	Resources    map[string]interface{}   `json:"resources,omitempty"`
 }
 
 type CommonValues struct {
-	Volumes           []corev1.Volume     `json:"volumes,omitempty"`
-	PriorityClassName string              `json:"priorityClassName,omitempty"`
-	NodeSelector      corev1.NodeSelector `json:"nodeSelector,omitempty"`
-	Affinity          corev1.Affinity     `json:"affinity,omitempty"`
-	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
-	PodAnnotations    map[string]string   `json:"podAnnotations,omitempty"`
-	PodLabels         map[string]string   `json:"podLabels,omitempty"`
+	Volumes           []map[string]interface{} `json:"volumes,omitempty"`
+	PriorityClassName string                   `json:"priorityClassName,omitempty"`
+	NodeSelector      map[string]interface{}   `json:"nodeSelector,omitempty"`
+	Affinity          map[string]interface{}   `json:"affinity,omitempty"`
+	Tolerations       []map[string]interface{} `json:"tolerations,omitempty"`
+	PodAnnotations    map[string]string        `json:"podAnnotations,omitempty"`
+	PodLabels         map[string]string        `json:"podLabels,omitempty"`
 }

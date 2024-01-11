@@ -7,7 +7,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-logr/logr v1.3.0
+	github.com/go-logr/logr v1.4.1
 	github.com/go-openapi/loads v0.21.2
 	github.com/google/go-github/v53 v53.2.1-0.20230815134205-bb00f570d301
 	github.com/gorilla/websocket v1.5.1
@@ -18,6 +18,7 @@ require (
 	github.com/loft-sh/api/v3 v3.0.0-20231211114614-0ed78b022fde
 	github.com/loft-sh/loftctl/v3 v3.0.0-20231214140848-05fde273d935
 	github.com/loft-sh/utils v0.0.29
+	github.com/loft-sh/vcluster-values v0.0.0-20240111090139-51fcf51d7ba9
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.0
