@@ -25,11 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/vcluster-values/values"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
-	"github.com/loft-sh/vcluster/pkg/values"
 	"golang.org/x/mod/semver"
 
 	"github.com/loft-sh/log"

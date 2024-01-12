@@ -17,6 +17,7 @@ package resource // import "go.opentelemetry.io/otel/sdk/resource"
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"go.opentelemetry.io/otel"
@@ -36,6 +37,7 @@ type Resource struct {
 }
 
 var (
+	emptyResource       Resource
 	defaultResource     *Resource
 	defaultResourceOnce sync.Once
 )
@@ -49,8 +51,17 @@ func New(ctx context.Context, opts ...Option) (*Resource, error) {
 		cfg = opt.apply(cfg)
 	}
 
-	r := &Resource{schemaURL: cfg.schemaURL}
-	return r, detect(ctx, r, cfg.detectors)
+	resource, err := Detect(ctx, cfg.detectors...)
+
+	var err2 error
+	resource, err2 = Merge(resource, &Resource{schemaURL: cfg.schemaURL})
+	if err == nil {
+		err = err2
+	} else if err2 != nil {
+		err = fmt.Errorf("detecting resources: %s", []string{err.Error(), err2.Error()})
+	}
+
+	return resource, err
 }
 
 // NewWithAttributes creates a resource from attrs and associates the resource with a
@@ -69,18 +80,18 @@ func NewWithAttributes(schemaURL string, attrs ...attribute.KeyValue) *Resource 
 // of the attrs is known use NewWithAttributes instead.
 func NewSchemaless(attrs ...attribute.KeyValue) *Resource {
 	if len(attrs) == 0 {
-		return &Resource{}
+		return &emptyResource
 	}
 
 	// Ensure attributes comply with the specification:
-	// https://github.com/open-telemetry/opentelemetry-specification/blob/v1.20.0/specification/common/README.md#attribute
+	// https://github.com/open-telemetry/opentelemetry-specification/blob/v1.0.1/specification/common/common.md#attributes
 	s, _ := attribute.NewSetWithFiltered(attrs, func(kv attribute.KeyValue) bool {
 		return kv.Valid()
 	})
 
 	// If attrs only contains invalid entries do not allocate a new resource.
 	if s.Len() == 0 {
-		return &Resource{}
+		return &emptyResource
 	}
 
 	return &Resource{attrs: s} //nolint
@@ -153,7 +164,7 @@ func (r *Resource) Equal(eq *Resource) bool {
 // if resource b's value is empty.
 //
 // The SchemaURL of the resources will be merged according to the spec rules:
-// https://github.com/open-telemetry/opentelemetry-specification/blob/v1.20.0/specification/resource/sdk.md#merge
+// https://github.com/open-telemetry/opentelemetry-specification/blob/bad49c714a62da5493f2d1d9bafd7ebe8c8ce7eb/specification/resource/sdk.md#merge
 // If the resources have different non-empty schemaURL an empty resource and an error
 // will be returned.
 func Merge(a, b *Resource) (*Resource, error) {
@@ -194,7 +205,7 @@ func Merge(a, b *Resource) (*Resource, error) {
 // Empty returns an instance of Resource with no attributes. It is
 // equivalent to a `nil` Resource.
 func Empty() *Resource {
-	return &Resource{}
+	return &emptyResource
 }
 
 // Default returns an instance of Resource with a default
@@ -213,7 +224,7 @@ func Default() *Resource {
 		}
 		// If Detect did not return a valid resource, fall back to emptyResource.
 		if defaultResource == nil {
-			defaultResource = &Resource{}
+			defaultResource = &emptyResource
 		}
 	})
 	return defaultResource

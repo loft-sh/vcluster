@@ -33,7 +33,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 		defer log.Donef("Successfully woken up space %s", name)
 		err := wakeup(ctx, managementClient, spaceInstance)
 		if err != nil {
-			return nil, fmt.Errorf("Error waking up space %s: %s", name, util.GetCause(err))
+			return nil, fmt.Errorf("error waking up space %s: %s", name, util.GetCause(err))
 		}
 	}
 

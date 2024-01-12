@@ -41,6 +41,7 @@ type ClusterSpec struct {
 // ClusterStatus holds the status
 type ClusterStatus struct {
 	storagev1.ClusterStatus `json:",inline"`
+
 	// Online is whether the cluster is currently connected to the coordination
 	// server.
 	// +optional

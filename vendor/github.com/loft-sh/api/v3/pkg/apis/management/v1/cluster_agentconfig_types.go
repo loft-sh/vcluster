@@ -12,6 +12,10 @@ type ClusterAgentConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	ClusterAgentConfigCommon `json:",inline"`
+}
+
+type ClusterAgentConfigCommon struct {
 	// Cluster is the cluster the agent is running in.
 	// +optional
 	Cluster string `json:"cluster,omitempty"`

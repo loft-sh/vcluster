@@ -11,22 +11,22 @@ It provides a set of APIs to directly measure performance and behavior of your s
 
 ## Project Status
 
-| Signal  | Status     |
-|---------|------------|
-| Traces  | Stable     |
-| Metrics | Stable     |
-| Logs    | Design [1] |
+| Signal  | Status     | Project |
+| ------- | ---------- | ------- |
+| Traces  | Stable     | N/A     |
+| Metrics | Alpha      | N/A     |
+| Logs    | Frozen [1] | N/A     |
 
-- [1]: Currently the logs signal development is in a design phase ([#4696](https://github.com/open-telemetry/opentelemetry-go/issues/4696)).
+- [1]: The Logs signal development is halted for this project while we develop both Traces and Metrics.
    No Logs Pull Requests are currently being accepted.
 
-Progress and status specific to this repository is tracked in our
+Progress and status specific to this repository is tracked in our local
 [project boards](https://github.com/open-telemetry/opentelemetry-go/projects)
 and
 [milestones](https://github.com/open-telemetry/opentelemetry-go/milestones).
 
 Project versioning information and stability guarantees can be found in the
-[versioning documentation](VERSIONING.md).
+[versioning documentation](./VERSIONING.md).
 
 ### Compatibility
 
@@ -49,17 +49,17 @@ stop ensuring compatibility with these versions in the following manner:
 Currently, this project supports the following environments.
 
 | OS      | Go Version | Architecture |
-|---------|------------|--------------|
-| Ubuntu  | 1.21       | amd64        |
-| Ubuntu  | 1.20       | amd64        |
-| Ubuntu  | 1.21       | 386          |
-| Ubuntu  | 1.20       | 386          |
-| MacOS   | 1.21       | amd64        |
-| MacOS   | 1.20       | amd64        |
-| Windows | 1.21       | amd64        |
-| Windows | 1.20       | amd64        |
-| Windows | 1.21       | 386          |
-| Windows | 1.20       | 386          |
+| ------- | ---------- | ------------ |
+| Ubuntu  | 1.19       | amd64        |
+| Ubuntu  | 1.18       | amd64        |
+| Ubuntu  | 1.19       | 386          |
+| Ubuntu  | 1.18       | 386          |
+| MacOS   | 1.19       | amd64        |
+| MacOS   | 1.18       | amd64        |
+| Windows | 1.19       | amd64        |
+| Windows | 1.18       | amd64        |
+| Windows | 1.19       | 386          |
+| Windows | 1.18       | 386          |
 
 While this project should work for other systems, no compatibility guarantees
 are made for those systems currently.
@@ -97,11 +97,12 @@ export pipeline to send that telemetry to an observability platform.
 All officially supported exporters for the OpenTelemetry project are contained in the [exporters directory](./exporters).
 
 | Exporter                              | Metrics | Traces |
-|---------------------------------------|:-------:|:------:|
-| [OTLP](./exporters/otlp/)             |    ✓    |   ✓    |
-| [Prometheus](./exporters/prometheus/) |    ✓    |        |
-| [stdout](./exporters/stdout/)         |    ✓    |   ✓    |
-| [Zipkin](./exporters/zipkin/)         |         |   ✓    |
+| :-----------------------------------: | :-----: | :----: |
+| [Jaeger](./exporters/jaeger/)         |         | ✓      |
+| [OTLP](./exporters/otlp/)             | ✓       | ✓      |
+| [Prometheus](./exporters/prometheus/) | ✓       |        |
+| [stdout](./exporters/stdout/)         | ✓       | ✓      |
+| [Zipkin](./exporters/zipkin/)         |         | ✓      |
 
 ## Contributing
 

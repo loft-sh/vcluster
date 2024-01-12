@@ -30,9 +30,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/internal"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/embedded"
 )
 
 // ReadOnlySpan allows reading information from the data structure underlying a
@@ -109,8 +108,6 @@ type ReadWriteSpan interface {
 // recordingSpan is an implementation of the OpenTelemetry Span API
 // representing the individual component of a trace that is sampled.
 type recordingSpan struct {
-	embedded.Span
-
 	// mu protects the contents of this span.
 	mu sync.Mutex
 
@@ -161,10 +158,8 @@ type recordingSpan struct {
 	tracer *tracer
 }
 
-var (
-	_ ReadWriteSpan = (*recordingSpan)(nil)
-	_ runtimeTracer = (*recordingSpan)(nil)
-)
+var _ ReadWriteSpan = (*recordingSpan)(nil)
+var _ runtimeTracer = (*recordingSpan)(nil)
 
 // SpanContext returns the SpanContext of this span.
 func (s *recordingSpan) SpanContext() trace.SpanContext {
@@ -307,7 +302,7 @@ func (s *recordingSpan) addOverCapAttrs(limit int, attrs []attribute.KeyValue) {
 // most a length of limit. Each string slice value is truncated in this fashion
 // (the slice length itself is unaffected).
 //
-// No truncation is performed for a negative limit.
+// No truncation is perfromed for a negative limit.
 func truncateAttr(limit int, attr attribute.KeyValue) attribute.KeyValue {
 	if limit < 0 {
 		return attr
@@ -388,14 +383,14 @@ func (s *recordingSpan) End(options ...trace.SpanEndOption) {
 		defer panic(recovered)
 		opts := []trace.EventOption{
 			trace.WithAttributes(
-				semconv.ExceptionType(typeStr(recovered)),
-				semconv.ExceptionMessage(fmt.Sprint(recovered)),
+				semconv.ExceptionTypeKey.String(typeStr(recovered)),
+				semconv.ExceptionMessageKey.String(fmt.Sprint(recovered)),
 			),
 		}
 
 		if config.StackTrace() {
 			opts = append(opts, trace.WithAttributes(
-				semconv.ExceptionStacktrace(recordStackTrace()),
+				semconv.ExceptionStacktraceKey.String(recordStackTrace()),
 			))
 		}
 
@@ -415,7 +410,7 @@ func (s *recordingSpan) End(options ...trace.SpanEndOption) {
 	}
 	s.mu.Unlock()
 
-	sps := s.tracer.provider.getSpanProcessors()
+	sps := s.tracer.provider.spanProcessors.Load().(spanProcessorStates)
 	if len(sps) == 0 {
 		return
 	}
@@ -435,14 +430,14 @@ func (s *recordingSpan) RecordError(err error, opts ...trace.EventOption) {
 	}
 
 	opts = append(opts, trace.WithAttributes(
-		semconv.ExceptionType(typeStr(err)),
-		semconv.ExceptionMessage(err.Error()),
+		semconv.ExceptionTypeKey.String(typeStr(err)),
+		semconv.ExceptionMessageKey.String(err.Error()),
 	))
 
 	c := trace.NewEventConfig(opts...)
 	if c.StackTrace() {
 		opts = append(opts, trace.WithAttributes(
-			semconv.ExceptionStacktrace(recordStackTrace()),
+			semconv.ExceptionStacktraceKey.String(recordStackTrace()),
 		))
 	}
 
@@ -777,8 +772,6 @@ func (s *recordingSpan) runtimeTrace(ctx context.Context) context.Context {
 // that wraps a SpanContext. It performs no operations other than to return
 // the wrapped SpanContext or TracerProvider that created it.
 type nonRecordingSpan struct {
-	embedded.Span
-
 	// tracer is the SDK tracer that created this span.
 	tracer *tracer
 	sc     trace.SpanContext

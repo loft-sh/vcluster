@@ -118,6 +118,10 @@ type ProjectSpec struct {
 	// +optional
 	NamespacePattern *NamespacePattern `json:"namespacePattern,omitempty"`
 
+	// AutomaticImport imports vClusters & Namespace automatically
+	// +optional
+	AutomaticImport AutomaticImport `json:"automaticImport,omitempty"`
+
 	// ArgoIntegration holds information about ArgoCD Integration
 	// +optional
 	ArgoIntegration *ArgoIntegrationSpec `json:"argoCD,omitempty"`
@@ -129,6 +133,18 @@ type ProjectSpec struct {
 	// RancherIntegration holds information about Rancher Integration
 	// +optional
 	RancherIntegration *RancherIntegrationSpec `json:"rancher,omitempty"`
+}
+
+type AutomaticImport struct {
+	// VirtualClusters defines automatic virtual cluster import options.
+	// +optional
+	VirtualClusters AutomaticImportVirtualClusters `json:"virtualClusters,omitempty"`
+}
+
+type AutomaticImportVirtualClusters struct {
+	// Enabled specifies if automatic virtual cluster import should be enabled for this project.
+	// +optional
+	Enabled bool `json:"enabled"`
 }
 
 type RequireTemplate struct {
@@ -302,22 +318,27 @@ type ArgoIntegrationSpec struct {
 	// creation (see subsequent spec sections!).
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Cluster defines the name of the cluster that ArgoCD is deployed into -- if not provided this
 	// will default to 'loft-cluster'.
 	// +optional
 	Cluster string `json:"cluster,omitempty"`
+
 	// VirtualClusterInstance defines the name of *virtual cluster* (instance) that ArgoCD is
 	// deployed into. If provided, Cluster will be ignored and Loft will assume that ArgoCD is
 	// running in the specified virtual cluster.
 	// +optional
 	VirtualClusterInstance string `json:"virtualClusterInstance,omitempty"`
+
 	// Namespace defines the namespace in which ArgoCD is running in the cluster.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+
 	// SSO defines single-sign-on related values for the ArgoCD Integration. Enabling SSO will allow
 	// users to authenticate to ArgoCD via Loft.
 	// +optional
 	SSO *ArgoSSOSpec `json:"sso,omitempty"`
+
 	// Project defines project related values for the ArgoCD Integration. Enabling Project
 	// integration will cause Loft to generate and manage an ArgoCD appProject that corresponds to
 	// the Loft Project.

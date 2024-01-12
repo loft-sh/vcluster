@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // SpaceCmd holds the cmd flags
@@ -115,6 +116,7 @@ func (cmd *SpaceCmd) sleepSpace(ctx context.Context, baseClient client.Client, s
 		return err
 	}
 
+	patch := client2.MergeFrom(spaceInstance.DeepCopy())
 	if spaceInstance.Annotations == nil {
 		spaceInstance.Annotations = map[string]string{}
 	}
@@ -122,8 +124,12 @@ func (cmd *SpaceCmd) sleepSpace(ctx context.Context, baseClient client.Client, s
 	if cmd.ForceDuration >= 0 {
 		spaceInstance.Annotations[clusterv1.SleepModeForceDurationAnnotation] = strconv.FormatInt(cmd.ForceDuration, 10)
 	}
+	patchData, err := patch.Data(spaceInstance)
+	if err != nil {
+		return err
+	}
 
-	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Update(ctx, spaceInstance, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Patch(ctx, spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 	if err != nil {
 		return err
 	}

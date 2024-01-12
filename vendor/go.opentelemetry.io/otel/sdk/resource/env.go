@@ -23,19 +23,21 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 )
 
 const (
 	// resourceAttrKey is the environment variable name OpenTelemetry Resource information will be read from.
-	resourceAttrKey = "OTEL_RESOURCE_ATTRIBUTES" //nolint:gosec // False positive G101: Potential hardcoded credentials
+	resourceAttrKey = "OTEL_RESOURCE_ATTRIBUTES"
 
 	// svcNameKey is the environment variable name that Service Name information will be read from.
 	svcNameKey = "OTEL_SERVICE_NAME"
 )
 
-// errMissingValue is returned when a resource value is missing.
-var errMissingValue = fmt.Errorf("%w: missing value", ErrPartialResource)
+var (
+	// errMissingValue is returned when a resource value is missing.
+	errMissingValue = fmt.Errorf("%w: missing value", ErrPartialResource)
+)
 
 // fromEnv is a Detector that implements the Detector and collects
 // resources from environment.  This Detector is included as a
@@ -57,7 +59,7 @@ func (fromEnv) Detect(context.Context) (*Resource, error) {
 	var res *Resource
 
 	if svcName != "" {
-		res = NewSchemaless(semconv.ServiceName(svcName))
+		res = NewSchemaless(semconv.ServiceNameKey.String(svcName))
 	}
 
 	r2, err := constructOTResources(attrs)
@@ -80,23 +82,23 @@ func constructOTResources(s string) (*Resource, error) {
 		return Empty(), nil
 	}
 	pairs := strings.Split(s, ",")
-	var attrs []attribute.KeyValue
+	attrs := []attribute.KeyValue{}
 	var invalid []string
 	for _, p := range pairs {
-		k, v, found := strings.Cut(p, "=")
-		if !found {
+		field := strings.SplitN(p, "=", 2)
+		if len(field) != 2 {
 			invalid = append(invalid, p)
 			continue
 		}
-		key := strings.TrimSpace(k)
-		val, err := url.PathUnescape(strings.TrimSpace(v))
+		k := strings.TrimSpace(field[0])
+		v, err := url.QueryUnescape(strings.TrimSpace(field[1]))
 		if err != nil {
 			// Retain original value if decoding fails, otherwise it will be
 			// an empty string.
-			val = v
+			v = field[1]
 			otel.Handle(err)
 		}
-		attrs = append(attrs, attribute.String(key, val))
+		attrs = append(attrs, attribute.String(k, v))
 	}
 	var err error
 	if len(invalid) > 0 {

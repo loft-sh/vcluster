@@ -19,13 +19,12 @@ import (
 	"sync"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/internal/global"
 )
 
 // simpleSpanProcessor is a SpanProcessor that synchronously sends all
 // completed Spans to a trace.Exporter immediately.
 type simpleSpanProcessor struct {
-	exporterMu sync.Mutex
+	exporterMu sync.RWMutex
 	exporter   SpanExporter
 	stopOnce   sync.Once
 }
@@ -44,8 +43,6 @@ func NewSimpleSpanProcessor(exporter SpanExporter) SpanProcessor {
 	ssp := &simpleSpanProcessor{
 		exporter: exporter,
 	}
-	global.Warn("SimpleSpanProcessor is not recommended for production use, consider using BatchSpanProcessor instead.")
-
 	return ssp
 }
 
@@ -54,8 +51,8 @@ func (ssp *simpleSpanProcessor) OnStart(context.Context, ReadWriteSpan) {}
 
 // OnEnd immediately exports a ReadOnlySpan.
 func (ssp *simpleSpanProcessor) OnEnd(s ReadOnlySpan) {
-	ssp.exporterMu.Lock()
-	defer ssp.exporterMu.Unlock()
+	ssp.exporterMu.RLock()
+	defer ssp.exporterMu.RUnlock()
 
 	if ssp.exporter != nil && s.SpanContext().TraceFlags().IsSampled() {
 		if err := ssp.exporter.ExportSpans(context.Background(), []ReadOnlySpan{s}); err != nil {

@@ -32,12 +32,10 @@ const LoftUrl = "LOFT_URL"
 // LoginCmd holds the login cmd flags
 type LoginCmd struct {
 	*flags.GlobalFlags
-
-	AccessKey string
-	Insecure  bool
-
-	DockerLogin bool
 	Log         log.Logger
+	AccessKey   string
+	Insecure    bool
+	DockerLogin bool
 }
 
 // NewLoginCmd creates a new open command
@@ -200,9 +198,6 @@ func dockerLogin(ctx context.Context, loader client.Client, log log.Logger) erro
 		dockerConfigs = append(dockerConfigs, collectImagePullSecrets(ctx, managementClient, user.Spec.ImagePullSecrets, log)...)
 
 		// get image pull secrets from teams
-		if err != nil {
-			return err
-		}
 		for _, teamName := range user.Status.Teams {
 			team, err := managementClient.Loft().ManagementV1().Teams().Get(ctx, teamName, metav1.GetOptions{})
 			if err != nil {

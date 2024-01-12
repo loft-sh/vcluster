@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
@@ -28,7 +29,6 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -37,11 +37,19 @@ type ClusterCmd struct {
 	Log log.Logger
 	*flags.GlobalFlags
 	Namespace      string
+	Project        string
 	ServiceAccount string
 	DisplayName    string
 	Context        string
 	Wait           bool
 	Experimental   bool
+
+	HelmSet       []string
+	HelmValues    []string
+	HelmChartPath string
+
+	Insecure    bool
+	Development bool
 }
 
 // NewClusterCmd creates a new command
@@ -76,7 +84,7 @@ devspace connect cluster my-cluster
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+			loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{CurrentContext: cmd.Context})
 			c, err := loader.ClientConfig()
 			if err != nil {
 				return fmt.Errorf("get kube config: %w", err)
@@ -95,14 +103,22 @@ devspace connect cluster my-cluster
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the cluster is initialized")
 	c.Flags().BoolVar(&cmd.Experimental, "experimental", false, "If true, will use a new, experimental, egress-only cluster enrollment feature")
 	c.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
+	c.Flags().StringVar(&cmd.Project, "project", "", "The project name to use for the project cluster")
 
+	c.Flags().StringVar(&cmd.HelmChartPath, "helm-chart-path", "", "The agent chart to deploy")
+	c.Flags().StringArrayVar(&cmd.HelmSet, "helm-set", []string{}, "Extra helm values for the agent chart")
+	c.Flags().StringArrayVar(&cmd.HelmValues, "helm-values", []string{}, "Extra helm values for the agent chart")
+
+	c.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If true, deploys the agent in insecure mode")
+	c.Flags().BoolVar(&cmd.Development, "development", os.Getenv("DEVELOPMENT") == "true", "If the development chart should be deployed")
+
+	_ = c.Flags().MarkHidden("development")
 	return c
 }
 
-func (cmd *ClusterCmd) Run(ctx context.Context, c *rest.Config, args []string) error {
+func (cmd *ClusterCmd) Run(ctx context.Context, localConfig *rest.Config, args []string) error {
 	// Get clusterName from command argument
 	clusterName := args[0]
-
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
@@ -124,128 +140,22 @@ func (cmd *ClusterCmd) Run(ctx context.Context, c *rest.Config, args []string) e
 		return fmt.Errorf("get user or team: %w", err)
 	}
 
-	if cmd.Experimental {
-		loftVersion, err := baseClient.Version()
+	// check if we should connect via the new way
+	if cmd.Project != "" || cmd.Experimental {
+		// create new kube client
+		kubeClient, err := kubernetes.NewForConfig(localConfig)
 		if err != nil {
-			return fmt.Errorf("get loft version: %w", err)
+			return nil
 		}
 
-		// TODO(ThomasK33): Eventually change this into an Apply instead of a Create call
-		_, err = managementClient.Loft().ManagementV1().Clusters().Create(ctx, &managementv1.Cluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: clusterName,
-			},
-			Spec: managementv1.ClusterSpec{
-				ClusterSpec: storagev1.ClusterSpec{
-					DisplayName: cmd.DisplayName,
-					Owner: &storagev1.UserOrTeam{
-						User: user,
-						Team: team,
-					},
-					NetworkPeer: true,
-					Access:      getAccess(user, team),
-				},
-			},
-		}, metav1.CreateOptions{})
-		if err != nil && !kerrors.IsAlreadyExists(err) {
-			return fmt.Errorf("create cluster: %w", err)
-		}
-
-		accessKey, err := managementClient.Loft().ManagementV1().Clusters().GetAccessKey(ctx, clusterName, metav1.GetOptions{})
+		// connect cluster
+		err = cmd.connectCluster(ctx, baseClient, managementClient, kubeClient, clusterName, user, team)
 		if err != nil {
-			return fmt.Errorf("get cluster access key: %w", err)
-		}
-
-		namespace := cmd.Namespace
-
-		args := []string{
-			"upgrade", "--install", "loft", "loft",
-			"--repo", "https://charts.loft.sh",
-			"--create-namespace",
-			"--namespace", namespace,
-			"--set", "agentOnly=true",
-		}
-
-		if os.Getenv("DEVELOPMENT") == "true" {
-			args = []string{
-				"upgrade", "--install", "loft", "./chart",
-				"--create-namespace",
-				"--namespace", namespace,
-				"--set", "agentOnly=true",
-				"--set", "image=ghcr.io/loft-sh/enterprise:release-test",
-			}
-		} else if loftVersion.Version != "" {
-			args = append(args, "--version", loftVersion.Version)
-		}
-
-		if accessKey.LoftHost != "" {
-			args = append(args, "--set", "url="+accessKey.LoftHost)
-		}
-
-		if accessKey.AccessKey != "" {
-			args = append(args, "--set", "token="+accessKey.AccessKey)
-		}
-
-		if accessKey.Insecure {
-			args = append(args, "--set", "insecureSkipVerify=true")
-		}
-
-		if accessKey.CaCert != "" {
-			args = append(args, "--set", "additionalCA="+accessKey.CaCert)
-		}
-
-		if cmd.Wait {
-			args = append(args, "--wait")
-		}
-
-		kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-
-		if cmd.Context != "" {
-			kubeConfig, err := kubeClientConfig.RawConfig()
-			if err != nil {
-				return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-			}
-
-			kubeClientConfig = clientcmd.NewNonInteractiveClientConfig(kubeConfig, cmd.Context, &clientcmd.ConfigOverrides{}, clientcmd.NewDefaultClientConfigLoadingRules())
-		}
-
-		config, err := kubeClientConfig.ClientConfig()
-		if err != nil {
-			return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-		}
-
-		clientset, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			return fmt.Errorf("create kube client: %w", err)
-		}
-
-		errChan := make(chan error)
-
-		go func() {
-			helmCmd := exec.CommandContext(ctx, "helm", args...)
-
-			helmCmd.Stdout = cmd.Log.Writer(logrus.DebugLevel, true)
-			helmCmd.Stderr = cmd.Log.Writer(logrus.DebugLevel, true)
-			helmCmd.Stdin = os.Stdin
-
-			cmd.Log.Info("Installing Loft agent...")
-			cmd.Log.Debugf("Running helm command: %v", helmCmd.Args)
-
-			err = helmCmd.Run()
-			if err != nil {
-				errChan <- fmt.Errorf("failed to install loft chart: %w", err)
-			}
-
-			close(errChan)
-		}()
-
-		_, err = clihelper.WaitForReadyLoftPod(ctx, clientset, namespace, cmd.Log)
-		if err = errors.Join(err, <-errChan); err != nil {
-			return fmt.Errorf("wait for loft pod: %w", err)
+			return err
 		}
 	} else {
 		// get cluster config
-		clusterConfig, err := getClusterKubeConfig(ctx, c, cmd.Namespace, cmd.ServiceAccount)
+		clusterConfig, err := getClusterKubeConfig(ctx, localConfig, cmd.Namespace, cmd.ServiceAccount)
 		if err != nil {
 			return fmt.Errorf("get cluster kubeconfig: %w", err)
 		}
@@ -297,6 +207,116 @@ func (cmd *ClusterCmd) Run(ctx context.Context, c *rest.Config, args []string) e
 	return nil
 }
 
+func (cmd *ClusterCmd) connectCluster(ctx context.Context, baseClient client.Client, managementClient kube.Interface, kubeClient kubernetes.Interface, clusterName string, user, team string) error {
+	loftVersion, err := baseClient.Version()
+	if err != nil {
+		return fmt.Errorf("get loft version: %w", err)
+	}
+
+	_, err = managementClient.Loft().ManagementV1().Clusters().Create(ctx, &managementv1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterName,
+		},
+		Spec: managementv1.ClusterSpec{
+			ClusterSpec: storagev1.ClusterSpec{
+				DisplayName: cmd.DisplayName,
+				Owner: &storagev1.UserOrTeam{
+					User: user,
+					Team: team,
+				},
+				NetworkPeer: true,
+				Access:      getAccess(user, team),
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil && !kerrors.IsAlreadyExists(err) {
+		return fmt.Errorf("create cluster: %w", err)
+	}
+
+	accessKey, err := managementClient.Loft().ManagementV1().Clusters().GetAccessKey(ctx, clusterName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get cluster access key: %w", err)
+	}
+
+	return cmd.deployAgent(ctx, kubeClient, loftVersion.Version, accessKey.LoftHost, accessKey.AccessKey, accessKey.Insecure, accessKey.CaCert)
+}
+
+func (cmd *ClusterCmd) deployAgent(ctx context.Context, kubeClient kubernetes.Interface, loftVersion, loftHost, accessKey string, insecure bool, caCert string) error {
+	args := []string{
+		"upgrade", "loft",
+	}
+
+	// check what type of deployment is it
+	if cmd.Development {
+		args = append(args, "./chart", "--set", "image=ghcr.io/loft-sh/enterprise:release-test")
+	} else if cmd.HelmChartPath != "" {
+		args = append(args, cmd.HelmChartPath)
+	} else {
+		args = append(args, "loft", "--repo", "https://charts.loft.sh")
+
+		// set version
+		if loftVersion != "" {
+			args = append(args, "--version", loftVersion)
+		}
+	}
+
+	// general args
+	args = append(args, "--install", "--create-namespace", "--namespace", cmd.Namespace, "--set", "agentOnly=true")
+
+	// set host etc.
+	if loftHost != "" {
+		args = append(args, "--set", "url="+loftHost)
+	}
+	if accessKey != "" {
+		args = append(args, "--set", "token="+accessKey)
+	}
+
+	// check if insecure
+	if cmd.Insecure || insecure {
+		args = append(args, "--set", "insecureSkipVerify=true")
+	} else if caCert != "" {
+		args = append(args, "--set", "additionalCA="+caCert)
+	}
+
+	for _, set := range cmd.HelmSet {
+		args = append(args, "--set", set)
+	}
+	for _, values := range cmd.HelmValues {
+		args = append(args, "--values", values)
+	}
+	if cmd.Wait {
+		args = append(args, "--wait")
+	}
+	if cmd.Context != "" {
+		args = append(args, "--kube-context", cmd.Context)
+	}
+
+	errChan := make(chan error)
+	go func() {
+		defer close(errChan)
+
+		helmCmd := exec.CommandContext(ctx, "helm", args...)
+		helmCmd.Stdout = cmd.Log.Writer(logrus.DebugLevel, true)
+		helmCmd.Stderr = cmd.Log.Writer(logrus.DebugLevel, true)
+		helmCmd.Stdin = os.Stdin
+
+		cmd.Log.Infof("Installing Loft agent to connect to %s...", loftHost)
+		cmd.Log.Debugf("Running helm command: %v", helmCmd.Args)
+
+		err := helmCmd.Run()
+		if err != nil {
+			errChan <- fmt.Errorf("failed to install loft chart: %w", err)
+		}
+	}()
+
+	_, err := clihelper.WaitForReadyLoftPod(ctx, kubeClient, cmd.Namespace, cmd.Log)
+	if err = errors.Join(err, <-errChan); err != nil {
+		return fmt.Errorf("wait for loft pod: %w", err)
+	}
+
+	return nil
+}
+
 func getUserOrTeam(ctx context.Context, managementClient kube.Interface) (string, string, error) {
 	var user, team string
 
@@ -321,7 +341,6 @@ func getAccess(user, team string) []storagev1.Access {
 			Subresources: []string{"*"},
 		},
 	}
-
 	if team != "" {
 		access[0].Teams = []string{team}
 	} else {

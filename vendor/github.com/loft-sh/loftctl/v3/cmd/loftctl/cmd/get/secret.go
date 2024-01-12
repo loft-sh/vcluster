@@ -31,12 +31,12 @@ const (
 // SecretCmd holds the flags
 type SecretCmd struct {
 	*flags.GlobalFlags
+
+	log       log.Logger
 	Namespace string
 	Project   string
-	All       bool
 	Output    string
-
-	log log.Logger
+	All       bool
 }
 
 // NewSecretCmd creates a new command

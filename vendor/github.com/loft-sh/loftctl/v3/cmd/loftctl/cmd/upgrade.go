@@ -10,9 +10,8 @@ import (
 
 // UpgradeCmd is a struct that defines a command call for "upgrade"
 type UpgradeCmd struct {
+	log     log.Logger
 	Version string
-
-	log log.Logger
 }
 
 // NewUpgradeCmd creates a new upgrade command

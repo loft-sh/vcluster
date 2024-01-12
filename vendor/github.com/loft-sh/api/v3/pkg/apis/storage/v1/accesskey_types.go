@@ -122,10 +122,20 @@ type AccessKeyScope struct {
 	// +optional
 	VirtualClusters []AccessKeyScopeVirtualCluster `json:"virtualClusters,omitempty"`
 
+	// Clusters specifies the project cluster the access key is allowed to access.
+	// +optional
+	Clusters []AccessKeyScopeCluster `json:"clusters,omitempty"`
+
 	// DEPRECATED: Use Projects, Spaces and VirtualClusters instead
 	// Rules specifies the rules that should apply to the access key.
 	// +optional
 	Rules []AccessKeyScopeRule `json:"rules,omitempty"`
+}
+
+type AccessKeyScopeCluster struct {
+	// Cluster is the name of the cluster to access. You can specify * to select all clusters.
+	// +optional
+	Cluster string `json:"cluster,omitempty"`
 }
 
 type AccessKeyScopeVirtualCluster struct {

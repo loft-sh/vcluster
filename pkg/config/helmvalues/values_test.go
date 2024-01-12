@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/loft-sh/vcluster-values/helmvalues"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -26,11 +27,11 @@ func TestHelmValues(t *testing.T) {
 
 		switch k {
 		case "k0s":
-			helmValues = &K0s{}
+			helmValues = &helmvalues.K0s{}
 		case "k3s":
-			helmValues = &K3s{}
+			helmValues = &helmvalues.K3s{}
 		case "k8s", "eks":
-			helmValues = &K8s{}
+			helmValues = &helmvalues.K8s{}
 		}
 
 		err = yaml.UnmarshalStrict(sourceValuesRaw, helmValues)
