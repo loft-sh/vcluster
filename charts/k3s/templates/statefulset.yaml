@@ -415,8 +415,8 @@ spec:
         securityContext:
 {{ toYaml .Values.securityContext | indent 10 }}
         env:
-        - name: VCLUSTER_DISTRO
-          value: {{- .Values.distro -}}
+          - name: VCLUSTER_DISTRO
+            value: {{ .Values.distro -}}
         {{- if or $isK8s $isEks}}
           {{- if not .Values.api.disabled }}
           - name: APISERVER_COMMAND
@@ -645,7 +645,6 @@ spec:
             mountPath: /data/server/cred/admin.kubeconfig
             subPath: kubeConfig
         {{- end }}
-{{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         {{- if .Values.syncer.extraVolumeMounts }}
 {{ toYaml .Values.syncer.extraVolumeMounts | indent 10 }}
         {{- end }}

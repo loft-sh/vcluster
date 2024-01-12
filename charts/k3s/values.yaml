@@ -1,5 +1,6 @@
 # These annotations will be applied to all objects created in this chart
 globalAnnotations: {}
+distro: k3s
 
 # If vCluster.Pro is enabled
 pro: false
