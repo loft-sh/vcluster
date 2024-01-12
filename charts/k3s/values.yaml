@@ -143,10 +143,6 @@ syncer:
     enabled: true
   readinessProbe:
     enabled: true
-  volumeMounts:
-    - mountPath: /data
-      name: data
-      # readOnly: true
   extraVolumeMounts: []
   resources:
     limits:
@@ -165,7 +161,7 @@ vcluster:
   image: rancher/k3s:v1.29.0-k3s1
   imagePullPolicy: ""
   command:
-    - /binaries/k3s
+    - /k3s-binary/k3s
   baseArgs:
     - server
     - --write-kubeconfig=/data/k3s-config/kube-config.yaml
@@ -300,8 +296,6 @@ service:
   loadBalancerSourceRanges: []
   # Set the loadBalancerClass if using an external load balancer controller
   loadBalancerClass: ""
-  # Set loadBalancer specific annotations on the Kubernetes service
-  loadBalancerAnnotations: {}
 
 # Configure the ingress resource that allows you to access the vcluster
 ingress:

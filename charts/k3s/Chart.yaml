@@ -1,5 +1,5 @@
 apiVersion: v2
-name: vcluster
+name: vcluster-chart
 description: vcluster - Virtual Kubernetes Clusters
 home: https://vcluster.com
 icon: https://static.loft.sh/branding/logos/vcluster/vertical/vcluster_vertical.svg
