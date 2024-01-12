@@ -532,7 +532,7 @@ spec:
         {{- end }}
           - name: ETCD_UNSUPPORTED_ARCH
             value: arm64
-        {{- end}
+        {{- end }}
           {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
           {{- end }}
