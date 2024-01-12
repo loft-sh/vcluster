@@ -14,6 +14,7 @@ type K3s struct {
 	Etcd                             K3SEtcdValues         `json:"etcd,omitempty"`
 	VCluster                         VClusterValues        `json:"vcluster,omitempty"`
 	Syncer                           SyncerValues          `json:"syncer,omitempty"`
+	Distro                           string                `json:"distro,omitempty"`
 }
 
 type MonitoringValues struct {
