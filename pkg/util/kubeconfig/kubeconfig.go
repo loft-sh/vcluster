@@ -10,8 +10,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -25,7 +26,7 @@ const (
 	CertificateKeySecretKey = "client-key"
 )
 
-func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *api.Config, isRemote bool) error {
+func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, isRemote bool) error {
 	out, err := clientcmd.Write(*config)
 	if err != nil {
 		return err
@@ -88,7 +89,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 	return nil
 }
 
-func ReadKubeConfig(ctx context.Context, client *kubernetes.Clientset, suffix, namespace string) (*api.Config, error) {
+func ReadKubeConfig(ctx context.Context, client *kubernetes.Clientset, suffix, namespace string) (*clientcmdapi.Config, error) {
 	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, GetDefaultSecretName(suffix), metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not Get the %s secret in order to read kubeconfig: %w", GetDefaultSecretName(suffix), err)
@@ -102,4 +103,74 @@ func ReadKubeConfig(ctx context.Context, client *kubernetes.Clientset, suffix, n
 
 func GetDefaultSecretName(suffix string) string {
 	return DefaultSecretPrefix + suffix
+}
+
+func ConvertRestConfigToClientConfig(config *rest.Config) (clientcmd.ClientConfig, error) {
+	contextName := "local"
+	kubeConfig := clientcmdapi.NewConfig()
+	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
+		contextName: {
+			Cluster:  contextName,
+			AuthInfo: contextName,
+		},
+	}
+	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
+		contextName: {
+			Server:                   config.Host,
+			InsecureSkipTLSVerify:    config.Insecure,
+			CertificateAuthorityData: config.CAData,
+			CertificateAuthority:     config.CAFile,
+		},
+	}
+	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
+		contextName: {
+			Token:                 config.BearerToken,
+			TokenFile:             config.BearerTokenFile,
+			Impersonate:           config.Impersonate.UserName,
+			ImpersonateGroups:     config.Impersonate.Groups,
+			ImpersonateUserExtra:  config.Impersonate.Extra,
+			ClientCertificate:     config.CertFile,
+			ClientCertificateData: config.CertData,
+			ClientKey:             config.KeyFile,
+			ClientKeyData:         config.KeyData,
+			Username:              config.Username,
+			Password:              config.Password,
+			AuthProvider:          config.AuthProvider,
+			Exec:                  config.ExecProvider,
+		},
+	}
+	kubeConfig.CurrentContext = contextName
+
+	// resolve certificate
+	if kubeConfig.Clusters[contextName].CertificateAuthorityData == nil && kubeConfig.Clusters[contextName].CertificateAuthority != "" {
+		o, err := os.ReadFile(kubeConfig.Clusters[contextName].CertificateAuthority)
+		if err != nil {
+			return nil, err
+		}
+
+		kubeConfig.Clusters[contextName].CertificateAuthority = ""
+		kubeConfig.Clusters[contextName].CertificateAuthorityData = o
+	}
+
+	// fill in data
+	if kubeConfig.AuthInfos[contextName].ClientCertificateData == nil && kubeConfig.AuthInfos[contextName].ClientCertificate != "" {
+		o, err := os.ReadFile(kubeConfig.AuthInfos[contextName].ClientCertificate)
+		if err != nil {
+			return nil, err
+		}
+
+		kubeConfig.AuthInfos[contextName].ClientCertificate = ""
+		kubeConfig.AuthInfos[contextName].ClientCertificateData = o
+	}
+	if kubeConfig.AuthInfos[contextName].ClientKeyData == nil && kubeConfig.AuthInfos[contextName].ClientKey != "" {
+		o, err := os.ReadFile(kubeConfig.AuthInfos[contextName].ClientKey)
+		if err != nil {
+			return nil, err
+		}
+
+		kubeConfig.AuthInfos[contextName].ClientKey = ""
+		kubeConfig.AuthInfos[contextName].ClientKeyData = o
+	}
+
+	return clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{}), nil
 }

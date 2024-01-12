@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const VirtualClusterSelector = "app=vcluster"
@@ -45,12 +45,12 @@ const (
 	StatusUnknown Status = "Unknown"
 )
 
-func SwitchContext(kubeConfig *api.Config, otherContext string) error {
+func SwitchContext(kubeConfig *clientcmdapi.Config, otherContext string) error {
 	kubeConfig.CurrentContext = otherContext
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
 }
 
-func CurrentContext() (string, *api.Config, error) {
+func CurrentContext() (string, *clientcmdapi.Config, error) {
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return "", nil, err

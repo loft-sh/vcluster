@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -64,7 +65,10 @@ func StartControllers(controllerContext *options.ControllerContext) error {
 
 	// set leader
 	if !controllerContext.Options.DisablePlugins {
-		plugin.DefaultManager.SetLeader(true)
+		err = plugin.DefaultManager.SetLeader(controllerContext.Context)
+		if err != nil {
+			return fmt.Errorf("plugin set leader: %w", err)
+		}
 	}
 
 	return nil

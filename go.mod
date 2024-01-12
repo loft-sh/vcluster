@@ -11,6 +11,7 @@ require (
 	github.com/go-openapi/loads v0.21.2
 	github.com/google/go-github/v53 v53.2.1-0.20230815134205-bb00f570d301
 	github.com/gorilla/websocket v1.5.1
+	github.com/hashicorp/go-plugin v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/agentapi/v3 v3.4.0-beta.11
@@ -75,16 +76,21 @@ require (
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.7.0 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
+	github.com/fatih/color v1.12.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/cel-go v0.16.1 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1 // indirect
+	github.com/hashicorp/go-hclog v0.14.1 // indirect
+	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/loft-sh/admin-apis v0.0.0-20231102064836-7a6574be5f16 // indirect
 	github.com/loft-sh/apiserver v0.0.0-20240110162222-7923cde3a92d // indirect
 	github.com/loft-sh/jspolicy v0.2.2 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
+	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
+	github.com/oklog/run v1.0.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/otiai10/copy v1.11.0 // indirect

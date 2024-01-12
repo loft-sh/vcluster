@@ -3,7 +3,7 @@ syntax = "proto3";
 
 package remote;
 
-option go_package = "github.com/loft-sh/vcluster/pkg/plugin/remote";
+option go_package = "github.com/loft-sh/vcluster/pkg/plugin/v1/remote";
 
 service VCluster {
     // Deprecated: Use GetContext & RegisterPlugin instead

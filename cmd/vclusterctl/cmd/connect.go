@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
@@ -72,7 +72,7 @@ type ConnectCmd struct {
 	kubeClientConfig clientcmd.ClientConfig
 	kubeClient       *kubernetes.Clientset
 	restConfig       *rest.Config
-	rawConfig        api.Config
+	rawConfig        clientcmdapi.Config
 
 	portForwarding bool
 	interruptChan  chan struct{}
@@ -270,7 +270,7 @@ func (cmd *ConnectCmd) connectOss(ctx context.Context, vCluster *find.VCluster, 
 	return cmd.writeKubeConfig(kubeConfig, vCluster.Name)
 }
 
-func (cmd *ConnectCmd) writeKubeConfig(kubeConfig *api.Config, vClusterName string) error {
+func (cmd *ConnectCmd) writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string) error {
 	// write kube config to buffer
 	out, err := clientcmd.Write(*kubeConfig)
 	if err != nil {
@@ -279,12 +279,12 @@ func (cmd *ConnectCmd) writeKubeConfig(kubeConfig *api.Config, vClusterName stri
 
 	// write kube config to file
 	if cmd.UpdateCurrent {
-		var clusterConfig *api.Cluster
+		var clusterConfig *clientcmdapi.Cluster
 		for _, c := range kubeConfig.Clusters {
 			clusterConfig = c
 		}
 
-		var authConfig *api.AuthInfo
+		var authConfig *clientcmdapi.AuthInfo
 		for _, a := range kubeConfig.AuthInfos {
 			authConfig = a
 		}
@@ -404,7 +404,7 @@ func (cmd *ConnectCmd) prepare(ctx context.Context, vCluster *find.VCluster) err
 	return nil
 }
 
-func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject) (*api.Config, error) {
+func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
 	contextOptions, err := use.CreateVirtualClusterInstanceOptions(ctx, proClient, "", vCluster.Project.Name, vCluster.VirtualCluster, false, false, cmd.Log)
 	if err != nil {
 		return nil, fmt.Errorf("prepare vCluster kube config: %w", err)
@@ -463,7 +463,7 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 
 		// set service account token
 		for k := range kubeConfig.AuthInfos {
-			kubeConfig.AuthInfos[k] = &api.AuthInfo{
+			kubeConfig.AuthInfos[k] = &clientcmdapi.AuthInfo{
 				Token:                token,
 				Extensions:           make(map[string]runtime.Object),
 				ImpersonateUserExtra: make(map[string][]string),
@@ -474,7 +474,7 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 	return kubeConfig, nil
 }
 
-func (cmd *ConnectCmd) getVClusterKubeConfig(ctx context.Context, vclusterName string, command []string) (*api.Config, error) {
+func (cmd *ConnectCmd) getVClusterKubeConfig(ctx context.Context, vclusterName string, command []string) (*clientcmdapi.Config, error) {
 	var err error
 	podName := cmd.PodName
 	if podName == "" {
@@ -587,7 +587,7 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(ctx context.Context, vclusterName s
 
 		// set service account token
 		for k := range kubeConfig.AuthInfos {
-			kubeConfig.AuthInfos[k] = &api.AuthInfo{
+			kubeConfig.AuthInfos[k] = &clientcmdapi.AuthInfo{
 				Token:                token,
 				Extensions:           make(map[string]runtime.Object),
 				ImpersonateUserExtra: make(map[string][]string),
@@ -598,7 +598,7 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(ctx context.Context, vclusterName s
 	return kubeConfig, nil
 }
 
-func (cmd *ConnectCmd) setServerIfExposed(ctx context.Context, vClusterName string, vClusterConfig *api.Config) error {
+func (cmd *ConnectCmd) setServerIfExposed(ctx context.Context, vClusterName string, vClusterConfig *clientcmdapi.Config) error {
 	printedWaiting := false
 	err := wait.PollUntilContextTimeout(ctx, time.Second*2, time.Minute*5, true, func(ctx context.Context) (done bool, err error) {
 		// first check for load balancer service, look for the other service if it's not there
@@ -665,7 +665,7 @@ func (cmd *ConnectCmd) setServerIfExposed(ctx context.Context, vClusterName stri
 // exchangeContextName switches the context name specified in the remote kubeconfig with
 // the context name specified by the user. It cannot correctly handle kubeconfigs with multiple entries
 // for clusters, authInfos, contexts, but ideally this is pointed at a secret created by us.
-func (cmd *ConnectCmd) exchangeContextName(kubeConfig *api.Config, vclusterName string) error {
+func (cmd *ConnectCmd) exchangeContextName(kubeConfig *clientcmdapi.Config, vclusterName string) error {
 	if cmd.KubeConfigContextName == "" {
 		if vclusterName != "" {
 			cmd.KubeConfigContextName = find.VClusterContextName(vclusterName, cmd.Namespace, cmd.rawConfig.CurrentContext)
@@ -712,7 +712,7 @@ func (cmd *ConnectCmd) exchangeContextName(kubeConfig *api.Config, vclusterName 
 	return nil
 }
 
-func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string) error {
+func (cmd *ConnectCmd) executeCommand(vKubeConfig clientcmdapi.Config, command []string) error {
 	// convert to local kube config
 	out, err := clientcmd.Write(vKubeConfig)
 	if err != nil {
@@ -774,7 +774,7 @@ func (cmd *ConnectCmd) executeCommand(vKubeConfig api.Config, command []string) 
 	}
 }
 
-func (cmd *ConnectCmd) getLocalVClusterConfig(vKubeConfig api.Config) api.Config {
+func (cmd *ConnectCmd) getLocalVClusterConfig(vKubeConfig clientcmdapi.Config) clientcmdapi.Config {
 	// wait until we can access the virtual cluster
 	vKubeConfig = *vKubeConfig.DeepCopy()
 	for k := range vKubeConfig.Clusters {
@@ -783,7 +783,7 @@ func (cmd *ConnectCmd) getLocalVClusterConfig(vKubeConfig api.Config) api.Config
 	return vKubeConfig
 }
 
-func (cmd *ConnectCmd) getLocalVClusterClient(vKubeConfig api.Config) (kubernetes.Interface, error) {
+func (cmd *ConnectCmd) getLocalVClusterClient(vKubeConfig clientcmdapi.Config) (kubernetes.Interface, error) {
 	vRestConfig, err := clientcmd.NewDefaultClientConfig(cmd.getLocalVClusterConfig(vKubeConfig), &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
 		return nil, errors.Wrap(err, "create virtual rest config")
@@ -797,7 +797,7 @@ func (cmd *ConnectCmd) getLocalVClusterClient(vKubeConfig api.Config) (kubernete
 	return vKubeClient, nil
 }
 
-func (cmd *ConnectCmd) waitForVCluster(ctx context.Context, vKubeConfig api.Config, errorChan chan error) error {
+func (cmd *ConnectCmd) waitForVCluster(ctx context.Context, vKubeConfig clientcmdapi.Config, errorChan chan error) error {
 	vKubeClient, err := cmd.getLocalVClusterClient(vKubeConfig)
 	if err != nil {
 		return err
@@ -820,7 +820,7 @@ func (cmd *ConnectCmd) waitForVCluster(ctx context.Context, vKubeConfig api.Conf
 	return nil
 }
 
-func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeConfig api.Config) (string, error) {
+func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeConfig clientcmdapi.Config) (string, error) {
 	vKubeClient, err := cmd.getLocalVClusterClient(vKubeConfig)
 	if err != nil {
 		return "", err

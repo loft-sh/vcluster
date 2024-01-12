@@ -10,6 +10,7 @@ import (
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -19,7 +20,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/helm"
-	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -251,7 +251,7 @@ func RegisterGenericSyncController(ctx *options.ControllerContext) error {
 }
 
 func RegisterInitManifestsController(controllerCtx *options.ControllerContext) error {
-	vconfig, err := plugin.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
+	vconfig, err := kubeconfig.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
 	if err != nil {
 		return err
 	}
