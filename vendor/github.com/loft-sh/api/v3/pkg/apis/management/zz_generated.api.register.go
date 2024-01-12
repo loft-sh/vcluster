@@ -1644,6 +1644,10 @@ type ClusterAccounts struct {
 type ClusterAgentConfig struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
+	ClusterAgentConfigCommon
+}
+
+type ClusterAgentConfigCommon struct {
 	Cluster              string
 	Audit                *AgentAuditConfig
 	DefaultImageRegistry string
@@ -2009,7 +2013,7 @@ type KioskStatus struct {
 }
 
 // +genclient
-// +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type License struct {
@@ -2215,12 +2219,14 @@ type ProjectImportVirtualCluster struct {
 	metav1.ObjectMeta
 	SourceVirtualCluster ProjectImportVirtualClusterSource
 	UpgradeToPro         bool
+	SkipHelmDeploy       bool
 }
 
 type ProjectImportVirtualClusterSource struct {
 	Name       string
 	Namespace  string
 	Cluster    string
+	Owner      *storagev1.UserOrTeam
 	ImportName string
 }
 
@@ -2717,7 +2723,7 @@ type VirtualClusterInstanceWorkloadKubeConfig struct {
 }
 
 // +genclient
-// +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterTemplate struct {

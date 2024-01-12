@@ -25,18 +25,11 @@ type TracerConfig struct {
 	instrumentationVersion string
 	// Schema URL of the telemetry emitted by the Tracer.
 	schemaURL string
-	attrs     attribute.Set
 }
 
 // InstrumentationVersion returns the version of the library providing instrumentation.
 func (t *TracerConfig) InstrumentationVersion() string {
 	return t.instrumentationVersion
-}
-
-// InstrumentationAttributes returns the attributes associated with the library
-// providing instrumentation.
-func (t *TracerConfig) InstrumentationAttributes() attribute.Set {
-	return t.attrs
 }
 
 // SchemaURL returns the Schema URL of the telemetry emitted by the Tracer.
@@ -268,7 +261,6 @@ func (o stackTraceOption) applyEvent(c EventConfig) EventConfig {
 	c.stackTrace = bool(o)
 	return c
 }
-
 func (o stackTraceOption) applySpan(c SpanConfig) SpanConfig {
 	c.stackTrace = bool(o)
 	return c
@@ -312,16 +304,6 @@ func WithInstrumentationVersion(version string) TracerOption {
 	return tracerOptionFunc(func(cfg TracerConfig) TracerConfig {
 		cfg.instrumentationVersion = version
 		return cfg
-	})
-}
-
-// WithInstrumentationAttributes sets the instrumentation attributes.
-//
-// The passed attributes will be de-duplicated.
-func WithInstrumentationAttributes(attr ...attribute.KeyValue) TracerOption {
-	return tracerOptionFunc(func(config TracerConfig) TracerConfig {
-		config.attrs = attribute.NewSet(attr...)
-		return config
 	})
 }
 

@@ -16,6 +16,7 @@ package trace // import "go.opentelemetry.io/otel/sdk/trace"
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -83,7 +84,6 @@ type batchSpanProcessor struct {
 	stopWait   sync.WaitGroup
 	stopOnce   sync.Once
 	stopCh     chan struct{}
-	stopped    atomic.Bool
 }
 
 var _ SpanProcessor = (*batchSpanProcessor)(nil)
@@ -91,7 +91,7 @@ var _ SpanProcessor = (*batchSpanProcessor)(nil)
 // NewBatchSpanProcessor creates a new SpanProcessor that will send completed
 // span batches to the exporter with the supplied options.
 //
-// If the exporter is nil, the span processor will perform no action.
+// If the exporter is nil, the span processor will preform no action.
 func NewBatchSpanProcessor(exporter SpanExporter, options ...BatchSpanProcessorOption) SpanProcessor {
 	maxQueueSize := env.BatchSpanProcessorMaxQueueSize(DefaultMaxQueueSize)
 	maxExportBatchSize := env.BatchSpanProcessorMaxExportBatchSize(DefaultMaxExportBatchSize)
@@ -137,11 +137,6 @@ func (bsp *batchSpanProcessor) OnStart(parent context.Context, s ReadWriteSpan) 
 
 // OnEnd method enqueues a ReadOnlySpan for later processing.
 func (bsp *batchSpanProcessor) OnEnd(s ReadOnlySpan) {
-	// Do not enqueue spans after Shutdown.
-	if bsp.stopped.Load() {
-		return
-	}
-
 	// Do not enqueue spans if we are just going to drop them.
 	if bsp.e == nil {
 		return
@@ -154,7 +149,6 @@ func (bsp *batchSpanProcessor) OnEnd(s ReadOnlySpan) {
 func (bsp *batchSpanProcessor) Shutdown(ctx context.Context) error {
 	var err error
 	bsp.stopOnce.Do(func() {
-		bsp.stopped.Store(true)
 		wait := make(chan struct{})
 		go func() {
 			close(bsp.stopCh)
@@ -187,24 +181,11 @@ func (f forceFlushSpan) SpanContext() trace.SpanContext {
 
 // ForceFlush exports all ended spans that have not yet been exported.
 func (bsp *batchSpanProcessor) ForceFlush(ctx context.Context) error {
-	// Interrupt if context is already canceled.
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	// Do nothing after Shutdown.
-	if bsp.stopped.Load() {
-		return nil
-	}
-
 	var err error
 	if bsp.e != nil {
 		flushCh := make(chan struct{})
 		if bsp.enqueueBlockOnQueueFull(ctx, forceFlushSpan{flushed: flushCh}) {
 			select {
-			case <-bsp.stopCh:
-				// The batchSpanProcessor is Shutdown.
-				return nil
 			case <-flushCh:
 				// Processed any items in queue prior to ForceFlush being called
 			case <-ctx.Done():
@@ -345,9 +326,11 @@ func (bsp *batchSpanProcessor) drainQueue() {
 	for {
 		select {
 		case sd := <-bsp.queue:
-			if _, ok := sd.(forceFlushSpan); ok {
-				// Ignore flush requests as they are not valid spans.
-				continue
+			if sd == nil {
+				if err := bsp.exportSpans(ctx); err != nil {
+					otel.Handle(err)
+				}
+				return
 			}
 
 			bsp.batchMutex.Lock()
@@ -361,11 +344,7 @@ func (bsp *batchSpanProcessor) drainQueue() {
 				}
 			}
 		default:
-			// There are no more enqueued spans. Make final export.
-			if err := bsp.exportSpans(ctx); err != nil {
-				otel.Handle(err)
-			}
-			return
+			close(bsp.queue)
 		}
 	}
 }
@@ -379,9 +358,32 @@ func (bsp *batchSpanProcessor) enqueue(sd ReadOnlySpan) {
 	}
 }
 
+func recoverSendOnClosedChan() {
+	x := recover()
+	switch err := x.(type) {
+	case nil:
+		return
+	case runtime.Error:
+		if err.Error() == "send on closed channel" {
+			return
+		}
+	}
+	panic(x)
+}
+
 func (bsp *batchSpanProcessor) enqueueBlockOnQueueFull(ctx context.Context, sd ReadOnlySpan) bool {
 	if !sd.SpanContext().IsSampled() {
 		return false
+	}
+
+	// This ensures the bsp.queue<- below does not panic as the
+	// processor shuts down.
+	defer recoverSendOnClosedChan()
+
+	select {
+	case <-bsp.stopCh:
+		return false
+	default:
 	}
 
 	select {
@@ -395,6 +397,16 @@ func (bsp *batchSpanProcessor) enqueueBlockOnQueueFull(ctx context.Context, sd R
 func (bsp *batchSpanProcessor) enqueueDrop(ctx context.Context, sd ReadOnlySpan) bool {
 	if !sd.SpanContext().IsSampled() {
 		return false
+	}
+
+	// This ensures the bsp.queue<- below does not panic as the
+	// processor shuts down.
+	defer recoverSendOnClosedChan()
+
+	select {
+	case <-bsp.stopCh:
+		return false
+	default:
 	}
 
 	select {

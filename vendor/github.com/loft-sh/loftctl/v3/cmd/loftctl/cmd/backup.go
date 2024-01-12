@@ -29,12 +29,10 @@ var (
 // BackupCmd holds the cmd flags
 type BackupCmd struct {
 	*flags.GlobalFlags
-
+	Log       log.Logger
 	Namespace string
-	Skip      []string
 	Filename  string
-
-	Log log.Logger
+	Skip      []string
 }
 
 // NewBackupCmd creates a new command

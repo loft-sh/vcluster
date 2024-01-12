@@ -25,10 +25,9 @@ import (
 // AdminKubeConfigCmd holds the cmd flags
 type AdminKubeConfigCmd struct {
 	*flags.GlobalFlags
-
+	log            log.Logger
 	Namespace      string
 	ServiceAccount string
-	log            log.Logger
 }
 
 // NewAdminKubeConfigCmd creates a new command

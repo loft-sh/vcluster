@@ -21,12 +21,14 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
-// ScopeName is the instrumentation scope name.
-const ScopeName = "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+const (
+	instrumentationName = "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+)
 
 // config represents the configuration options available for the http.Handler
 // and http.Transport types.
@@ -63,7 +65,7 @@ func (o optionFunc) apply(c *config) {
 func newConfig(opts ...Option) *config {
 	c := &config{
 		Propagators:   otel.GetTextMapPropagator(),
-		MeterProvider: otel.GetMeterProvider(),
+		MeterProvider: global.MeterProvider(),
 	}
 	for _, opt := range opts {
 		opt.apply(c)
@@ -75,8 +77,8 @@ func newConfig(opts ...Option) *config {
 	}
 
 	c.Meter = c.MeterProvider.Meter(
-		ScopeName,
-		metric.WithInstrumentationVersion(Version()),
+		instrumentationName,
+		metric.WithInstrumentationVersion(SemVersion()),
 	)
 
 	return c

@@ -9,7 +9,6 @@ const (
 	SleepModeForceDurationAnnotation  = "sleepmode.loft.sh/force-duration"
 	SleepModeSleepAfterAnnotation     = "sleepmode.loft.sh/sleep-after"
 	SleepModeDeleteAfterAnnotation    = "sleepmode.loft.sh/delete-after"
-	SleepModeDeleteAllPodsAnnotation  = "sleepmode.loft.sh/delete-all-pods"
 	SleepModeSleepScheduleAnnotation  = "sleepmode.loft.sh/sleep-schedule"
 	SleepModeWakeupScheduleAnnotation = "sleepmode.loft.sh/wakeup-schedule"
 	SleepModeTimezoneAnnotation       = "sleepmode.loft.sh/timezone"

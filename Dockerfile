@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.21 as builder
+FROM golang:1.21.5 as builder
 
 WORKDIR /vcluster-dev
 ARG TARGETOS

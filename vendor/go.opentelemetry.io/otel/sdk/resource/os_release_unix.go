@@ -85,14 +85,14 @@ func skip(line string) bool {
 // parse attempts to split the provided line on the first '=' character, and then
 // sanitize each side of the split before returning them as a key-value pair.
 func parse(line string) (string, string, bool) {
-	k, v, found := strings.Cut(line, "=")
+	parts := strings.SplitN(line, "=", 2)
 
-	if !found || len(k) == 0 {
+	if len(parts) != 2 || len(parts[0]) == 0 {
 		return "", "", false
 	}
 
-	key := strings.TrimSpace(k)
-	value := unescape(unquote(strings.TrimSpace(v)))
+	key := strings.TrimSpace(parts[0])
+	value := unescape(unquote(strings.TrimSpace(parts[1])))
 
 	return key, value, true
 }
