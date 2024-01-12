@@ -1,12 +1,16 @@
-{{- $isK3s := (eq .Values.distro "k3s")}}
-{{- $isK0s := (eq .Values.distro "k0s")}}
-{{- $isK8s := (eq .Values.distro "k8s")}}
-{{- $isEks := (eq .Values.distro "eks")}}
+{{ $isK3s := (eq .Values.distro "k3s") }}
+{{ $isK0s := (eq .Values.distro "k0s") }}
+{{ $isK8s := (eq .Values.distro "k8s") }}
+{{ $isEks := (eq .Values.distro "eks") }}
+
 
 {{- if not .Values.headless }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  {{ if $isK3s }}
+  name2: stuff
+  {{ end }}
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels:
@@ -234,7 +238,7 @@ spec:
         imagePullPolicy: {{ .Values.api.imagePullPolicy }}
         {{- end }}
       {{- end }}
-
+      {{- end }}
       {{- if or $isK3s $isK0s }}
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
         name: vcluster
@@ -261,7 +265,6 @@ spec:
             mountPath: /binaries
         resources:
 {{ toYaml .Values.vcluster.resources | indent 10 }}
-      {{- end }}
       {{- end }}
       containers:
       {{- if not .Values.syncer.disabled }}
