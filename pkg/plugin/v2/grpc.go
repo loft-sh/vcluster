@@ -35,6 +35,6 @@ func (p *GRPCProviderPlugin) GRPCClient(_ context.Context, _ *plugin.GRPCBroker,
 
 // GRPCServer registers the gRPC provider server with the gRPC server that
 // go-plugin is standing up.
-func (p *GRPCProviderPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
+func (p *GRPCProviderPlugin) GRPCServer(_ *plugin.GRPCBroker, _ *grpc.Server) error {
 	return errors.New("vcluster-plugin only implements gRPC clients")
 }
