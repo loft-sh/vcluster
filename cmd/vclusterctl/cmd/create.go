@@ -131,7 +131,7 @@ vcluster create test --namespace test
 	_ = cobraCmd.Flags().MarkHidden("expose-local")
 
 	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(create.AllowedDistros, ", ")))
-	_ = cobraCmd.Flags().MarkDeprecated("distro", "distro is deprecated, for new clusters please use the 'distro' helm value")
+	_ = cobraCmd.Flags().MarkDeprecated("distro", "for new clusters please use the 'distro' helm value")
 	return cobraCmd
 }
 
