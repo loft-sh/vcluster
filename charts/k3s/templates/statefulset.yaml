@@ -613,8 +613,10 @@ spec:
           {{- end }}
           - mountPath: /data
             name: data
+          {{- if $isK0s }}
           - name: run-k0s
             mountPath: /run/k0s
+          {{- end }}
           - name: tmp
             mountPath: /tmp
         {{- if or .Values.coredns.enabled .Values.coredns.integrated }}
