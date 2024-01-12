@@ -234,11 +234,6 @@ spec:
         imagePullPolicy: {{ .Values.api.imagePullPolicy }}
         {{- end }}
       {{- end }}
-      {{- end }}
-
-      {{- if $isEks }}
-
-      {{- end }}
 
       {{- if or $isK3s $isK0s }}
       - image: {{ .Values.defaultImageRegistry }}{{ .Values.vcluster.image }}
