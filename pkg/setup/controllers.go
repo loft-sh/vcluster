@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func StartControllers(controllerContext *options.ControllerContext) error {
@@ -90,17 +91,18 @@ func ApplyCoreDNS(controllerContext *options.ControllerContext) {
 	})
 }
 
-func FindOwner(ctx *options.ControllerContext) error {
-	if ctx.CurrentNamespace != ctx.Options.TargetNamespace {
-		if ctx.Options.SetOwner {
-			klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", ctx.CurrentNamespace, ctx.Options.TargetNamespace)
+func SetGlobalOwner(ctx context.Context, currentNamespaceClient client.Client, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
+	if currentNamespace != targetNamespace {
+		if setOwner {
+			klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", currentNamespace, targetNamespace)
 		}
+
 		return nil
 	}
 
-	if ctx.Options.SetOwner {
+	if setOwner {
 		service := &corev1.Service{}
-		err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Namespace: ctx.CurrentNamespace, Name: ctx.Options.ServiceName}, service)
+		err := currentNamespaceClient.Get(ctx, types.NamespacedName{Namespace: currentNamespace, Name: serviceName}, service)
 		if err != nil {
 			return errors.Wrap(err, "get vcluster service")
 		}
@@ -180,7 +182,14 @@ func StartManagers(controllerContext *options.ControllerContext, syncers []synce
 	go RegisterOrDeregisterAPIService(controllerContext)
 
 	// make sure owner is set if it is there
-	err = FindOwner(controllerContext)
+	err = SetGlobalOwner(
+		controllerContext.Context,
+		controllerContext.CurrentNamespaceClient,
+		controllerContext.CurrentNamespace,
+		controllerContext.Options.TargetNamespace,
+		controllerContext.Options.SetOwner,
+		controllerContext.Options.ServiceName,
+	)
 	if err != nil {
 		return errors.Wrap(err, "finding vcluster pod owner")
 	}

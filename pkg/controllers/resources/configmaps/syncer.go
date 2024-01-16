@@ -40,7 +40,7 @@ type configMapSyncer struct {
 func ConfigMapNameTranslator(vNN types.NamespacedName, _ client.Object) string {
 	name := translate.Default.PhysicalName(vNN.Name, vNN.Namespace)
 	if name == "kube-root-ca.crt" {
-		name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.Suffix)
+		name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
 	}
 	return name
 }

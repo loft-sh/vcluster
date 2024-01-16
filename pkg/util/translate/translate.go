@@ -29,15 +29,16 @@ var (
 	MarkerLabel     = "vcluster.loft.sh/managed-by"
 	LabelPrefix     = "vcluster.loft.sh/label"
 	ControllerLabel = "vcluster.loft.sh/controlled-by"
-	// Suffix is the vcluster name, usually set at start time
-	Suffix = "suffix"
+
+	// VClusterName is the vcluster name, usually set at start time
+	VClusterName = "suffix"
 
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
 )
 
 const (
-	SkipBacksyncInMultiNamespaceMode = "vcluster.loft.sh/skip-backsync"
+	SkipBackSyncInMultiNamespaceMode = "vcluster.loft.sh/skip-backsync"
 )
 
 var Owner client.Object

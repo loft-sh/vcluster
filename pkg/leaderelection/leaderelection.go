@@ -50,7 +50,7 @@ func StartLeaderElection(ctx *options.ControllerContext, scheme *runtime.Scheme,
 	rl, err := resourcelock.New(
 		resourcelock.LeasesResourceLock,
 		ctx.CurrentNamespace,
-		translate.SafeConcatName("vcluster", translate.Suffix, "controller"),
+		translate.SafeConcatName("vcluster", translate.VClusterName, "controller"),
 		leaderElectionClient.CoreV1(),
 		leaderElectionClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{

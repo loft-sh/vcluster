@@ -450,7 +450,7 @@ func (t *translator) translateProjectedVolume(
 		if projectedVolume.Sources[i].ConfigMap != nil {
 			projectedVolume.Sources[i].ConfigMap.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].ConfigMap.Name, vPod.Namespace)
 			if projectedVolume.Sources[i].ConfigMap.Name == "kube-root-ca.crt" {
-				projectedVolume.Sources[i].ConfigMap.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.Suffix)
+				projectedVolume.Sources[i].ConfigMap.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
 			}
 		}
 		if projectedVolume.Sources[i].DownwardAPI != nil {
@@ -782,7 +782,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 		if newAffinityTerm.LabelSelector.MatchLabels == nil {
 			newAffinityTerm.LabelSelector.MatchLabels = map[string]string{}
 		}
-		newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
+		newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 	}
 	return newAffinityTerm
 }
@@ -797,7 +797,7 @@ func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 				pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels = map[string]string{}
 			}
 			pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels[translate.NamespaceLabel] = vPod.Namespace
-			pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
+			pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 		}
 	}
 }

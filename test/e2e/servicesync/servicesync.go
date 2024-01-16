@@ -119,7 +119,7 @@ func testMapping(ctx context.Context, fromClient kubernetes.Interface, fromNames
 		framework.ExpectEqual(toService.Spec.Ports[0].Port, int32(8080))
 		framework.ExpectEqual(len(toService.Spec.Selector), 3)
 		framework.ExpectEqual(toService.Spec.Selector[translate.NamespaceLabel], fromNamespace)
-		framework.ExpectEqual(toService.Spec.Selector[translate.MarkerLabel], translate.Suffix)
+		framework.ExpectEqual(toService.Spec.Selector[translate.MarkerLabel], translate.VClusterName)
 		framework.ExpectEqual(toService.Spec.Selector[translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, "test")], "test")
 	}
 

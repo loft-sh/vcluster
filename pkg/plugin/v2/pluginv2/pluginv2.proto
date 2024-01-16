@@ -6,38 +6,26 @@ package pluginv2;
 option go_package = "github.com/loft-sh/vcluster/pkg/plugin/v2/pluginv2";
 
 service Plugin {
-	rpc Start(Start.Request) returns (Start.Response);
-	rpc GetClientHooks(GetClientHooks.Request) returns (GetClientHooks.Response);
-	rpc Mutate(Mutate.Request) returns (Mutate.Response);
+	rpc Initialize(Initialize.Request) returns (Initialize.Response);
 	rpc SetLeader(SetLeader.Request) returns (SetLeader.Response);
+	rpc GetPluginConfig(GetPluginConfig.Request) returns (GetPluginConfig.Response);
+
+	rpc Mutate(Mutate.Request) returns (Mutate.Response);
 }
 
-message Start {
+message Initialize {
 	message Request {
-		string virtualClusterConfig = 1;
-		string physicalClusterConfig = 2;
-		string syncerConfig = 3;
-
-		string targetNamespace = 4;
-		string currentNamespace = 5;
-
-		string options = 6;
+		string config = 1;
 	}
 
 	message Response {}
 }
 
-message GetClientHooks {
+message GetPluginConfig {
 	message Request {}
 
 	message Response {
-		repeated ClientHook clientHooks = 1;
-	}
-
-	message ClientHook {
-		string apiVersion = 1;
-		string kind = 2;
-		repeated string types = 3;
+		string config = 1;
 	}
 }
 

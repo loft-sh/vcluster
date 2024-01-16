@@ -153,7 +153,7 @@ func (s *importer) ExcludePhysical(pObj client.Object) bool {
 func (s *importer) excludeObject(obj client.Object) bool {
 	// check if back sync is disabled eg. for service account token secrets
 	if obj.GetAnnotations() != nil &&
-		obj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode] == "true" {
+		obj.GetAnnotations()[translate.SkipBackSyncInMultiNamespaceMode] == "true" {
 		return true
 	}
 

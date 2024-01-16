@@ -280,7 +280,7 @@ func RegisterInitManifestsController(controllerCtx *options.ControllerContext) e
 				result, err := controller.Reconcile(ctx, ctrl.Request{
 					NamespacedName: types.NamespacedName{
 						Namespace: controllerCtx.CurrentNamespace,
-						Name:      translate.Suffix + manifests.InitManifestSuffix,
+						Name:      translate.VClusterName + manifests.InitManifestSuffix,
 					},
 				})
 				if err != nil {

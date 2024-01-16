@@ -341,7 +341,7 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 	}
 
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.Suffix), currentNamespace, config, isRemote)
+	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, config, isRemote)
 }
 
 func InitControllerContext(
@@ -367,7 +367,7 @@ func InitControllerContext(
 	klog.Infof("Can connect to virtual cluster with version " + virtualClusterVersion.GitVersion)
 
 	// create a new current namespace client
-	currentNamespaceClient, err := newCurrentNamespaceClient(ctx, currentNamespace, localManager, vClusterOptions)
+	currentNamespaceClient, err := NewCurrentNamespaceClient(ctx, currentNamespace, localManager, vClusterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +404,7 @@ func InitControllerContext(
 	}, nil
 }
 
-func newCurrentNamespaceClient(ctx context.Context, currentNamespace string, localManager ctrl.Manager, options *options.VirtualClusterOptions) (client.Client, error) {
+func NewCurrentNamespaceClient(ctx context.Context, currentNamespace string, localManager ctrl.Manager, options *options.VirtualClusterOptions) (client.Client, error) {
 	var err error
 
 	// currentNamespaceCache is needed for tasks such as finding out fake kubelet ips

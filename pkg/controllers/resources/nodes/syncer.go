@@ -99,7 +99,7 @@ var _ syncertypes.ControllerModifier = &nodeSyncer{}
 
 func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *builder.Builder) (*builder.Builder, error) {
 	if s.enableScheduler {
-		notManagedSelector, err := labels.NewRequirement(translate.MarkerLabel, selection.NotEquals, []string{translate.Suffix})
+		notManagedSelector, err := labels.NewRequirement(translate.MarkerLabel, selection.NotEquals, []string{translate.VClusterName})
 		if err != nil {
 			return bld, fmt.Errorf("constructing label selector for non-vcluster pods: %w", err)
 		}
