@@ -60,7 +60,7 @@ type InitManifestsConfigMapReconciler struct {
 
 func (r *InitManifestsConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	// TODO: implement better filtration through predicates
-	if req.Name != translate.Suffix+InitManifestSuffix {
+	if req.Name != translate.VClusterName+InitManifestSuffix {
 		return ctrl.Result{}, nil
 	}
 

@@ -33,7 +33,7 @@ func TestSync(t *testing.T) {
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
-			translate.MarkerLabel:    translate.Suffix,
+			translate.MarkerLabel:    translate.VClusterName,
 		},
 		ResourceVersion: generictesting.FakeClientResourceVersion,
 	}

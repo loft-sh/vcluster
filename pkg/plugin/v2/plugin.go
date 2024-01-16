@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/hashicorp/go-plugin"
@@ -81,28 +82,34 @@ func (m *Manager) Start(
 		}
 	}
 
-	// build the start request
-	startRequest, err := m.buildStartRequest(currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, options)
-	if err != nil {
-		return fmt.Errorf("build start request: %w", err)
-	}
-
 	// after loading all plugins we start them
 	for _, vClusterPlugin := range m.Plugins {
+		// build the start request
+		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, options)
+		if err != nil {
+			return fmt.Errorf("build start request: %w", err)
+		}
+
 		// start the plugin
-		_, err = vClusterPlugin.GRPCClient.Start(ctx, startRequest)
+		_, err = vClusterPlugin.GRPCClient.Initialize(ctx, initRequest)
 		if err != nil {
 			return fmt.Errorf("error starting plugin %s: %w", vClusterPlugin.Path, err)
 		}
 
-		// get client hooks
-		clientHooks, err := vClusterPlugin.GRPCClient.GetClientHooks(ctx, &pluginv2.GetClientHooks_Request{})
+		// get plugin config
+		pluginConfigResponse, err := vClusterPlugin.GRPCClient.GetPluginConfig(ctx, &pluginv2.GetPluginConfig_Request{})
 		if err != nil {
 			return fmt.Errorf("error retrieving client hooks for plugin %s: %w", vClusterPlugin.Path, err)
 		}
 
-		// add client hooks
-		err = m.addClientHooks(vClusterPlugin, clientHooks.ClientHooks)
+		// parse plugin config
+		pluginConfig, err := parsePluginConfig(pluginConfigResponse.Config)
+		if err != nil {
+			return fmt.Errorf("error parsing plugin config: %w", err)
+		}
+
+		// register client hooks
+		err = m.registerClientHooks(vClusterPlugin, pluginConfig.ClientHooks)
 		if err != nil {
 			return fmt.Errorf("error adding client hook for plugin %s: %w", vClusterPlugin.Path, err)
 		}
@@ -192,7 +199,7 @@ func (m *Manager) HasPlugins() bool {
 	return len(m.Plugins) > 0
 }
 
-func (m *Manager) addClientHooks(vClusterPlugin *vClusterPlugin, clientHooks []*pluginv2.GetClientHooks_ClientHook) error {
+func (m *Manager) registerClientHooks(vClusterPlugin *vClusterPlugin, clientHooks []*ClientHook) error {
 	for _, clientHookInfo := range clientHooks {
 		if clientHookInfo.ApiVersion == "" {
 			return fmt.Errorf("api version is empty in plugin %s hook", vClusterPlugin.Path)
@@ -220,13 +227,15 @@ func (m *Manager) addClientHooks(vClusterPlugin *vClusterPlugin, clientHooks []*
 	return nil
 }
 
-func (m *Manager) buildStartRequest(
-	currentNamespace, targetNamespace string,
+func (m *Manager) buildInitRequest(
+	workingDir,
+	currentNamespace,
+	targetNamespace string,
 	virtualKubeConfig *rest.Config,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
 	options *options.VirtualClusterOptions,
-) (*pluginv2.Start_Request, error) {
+) (*pluginv2.Initialize_Request, error) {
 	// Context options
 	encodedOptions, err := json.Marshal(options)
 	if err != nil {
@@ -267,13 +276,22 @@ func (m *Manager) buildStartRequest(
 		return nil, fmt.Errorf("marshal syncer client config: %w", err)
 	}
 
-	return &pluginv2.Start_Request{
-		VirtualClusterConfig:  string(virtualConfigBytes),
-		PhysicalClusterConfig: string(phyisicalConfigBytes),
-		SyncerConfig:          string(syncerConfigBytes),
+	// marshal init config
+	initConfig, err := json.Marshal(&InitConfig{
+		VirtualClusterConfig:  virtualConfigBytes,
+		PhysicalClusterConfig: phyisicalConfigBytes,
+		SyncerConfig:          syncerConfigBytes,
 		TargetNamespace:       targetNamespace,
 		CurrentNamespace:      currentNamespace,
-		Options:               string(encodedOptions),
+		Options:               encodedOptions,
+		WorkingDir:            workingDir,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error encoding init config: %w", err)
+	}
+
+	return &pluginv2.Initialize_Request{
+		Config: string(initConfig),
 	}, nil
 }
 

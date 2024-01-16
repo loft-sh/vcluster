@@ -69,7 +69,7 @@ func TestSync(t *testing.T) {
 			ClusterIP: "1.2.3.4",
 		},
 	}
-	translate.Suffix = generictesting.DefaultTestVclusterName
+	translate.VClusterName = generictesting.DefaultTestVclusterName
 	pDNSService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.Default.PhysicalName("kube-dns", "kube-system"),
@@ -104,7 +104,7 @@ func TestSync(t *testing.T) {
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
-			translate.MarkerLabel:    translate.Suffix,
+			translate.MarkerLabel:    translate.VClusterName,
 		},
 	}
 	pPodBase := &corev1.Pod{
@@ -248,7 +248,7 @@ func TestSync(t *testing.T) {
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: vHostPathPod.Namespace,
-				translate.MarkerLabel:    translate.Suffix,
+				translate.MarkerLabel:    translate.VClusterName,
 			},
 			// CreationTimestamp: metav1.Time{},
 			// ResourceVersion:   "999",

@@ -168,14 +168,14 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 		// append hostnames for load balancer service
 		retSANs = append(retSANs,
 			lbSVCName,
-			lbSVCName+"."+s.currentNamespace, "*."+translate.Suffix+"."+s.currentNamespace+"."+constants.NodeSuffix,
+			lbSVCName+"."+s.currentNamespace, "*."+translate.VClusterName+"."+s.currentNamespace+"."+constants.NodeSuffix,
 		)
 	}
 
 	if s.fakeKubeletIPs {
 		// get cluster ips of node services
 		svcs := &corev1.ServiceList{}
-		err = s.currentNamespaceCient.List(ctx, svcs, client.InNamespace(s.currentNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.Suffix})
+		err = s.currentNamespaceCient.List(ctx, svcs, client.InNamespace(s.currentNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.VClusterName})
 		if err != nil {
 			return nil, err
 		}

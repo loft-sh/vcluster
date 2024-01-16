@@ -66,7 +66,7 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 				Namespace: translate.Default.PhysicalNamespace(vPod.Namespace),
 
 				Annotations: map[string]string{
-					translate.SkipBacksyncInMultiNamespaceMode: "true",
+					translate.SkipBackSyncInMultiNamespaceMode: "true",
 				},
 			},
 			Type:       corev1.SecretTypeOpaque,

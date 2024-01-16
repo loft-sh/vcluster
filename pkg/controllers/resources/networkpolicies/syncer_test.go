@@ -52,7 +52,7 @@ func TestSync(t *testing.T) {
 			MatchLabels: map[string]string{
 				translate.Default.ConvertLabelKey("mykey"): "mylabel",
 				translate.NamespaceLabel:                   vObjectMeta.Namespace,
-				translate.MarkerLabel:                      translate.Suffix,
+				translate.MarkerLabel:                      translate.VClusterName,
 			},
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
@@ -72,7 +72,7 @@ func TestSync(t *testing.T) {
 			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
-			translate.MarkerLabel:    translate.Suffix,
+			translate.MarkerLabel:    translate.VClusterName,
 			translate.NamespaceLabel: vObjectMeta.Namespace,
 		},
 	}
@@ -92,7 +92,7 @@ func TestSync(t *testing.T) {
 	pnetworkPolicyNoPodSelector.Spec.PodSelector = metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
-			translate.MarkerLabel:    translate.Suffix,
+			translate.MarkerLabel:    translate.VClusterName,
 		},
 	}
 
@@ -125,7 +125,7 @@ func TestSync(t *testing.T) {
 			From: []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					translate.Default.ConvertLabelKey("random-key"): "value",
-					translate.MarkerLabel:                           translate.Suffix,
+					translate.MarkerLabel:                           translate.VClusterName,
 					translate.NamespaceLabel:                        vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
 				},
 				MatchExpressions: []metav1.LabelSelectorRequirement{},
@@ -196,7 +196,7 @@ func TestSync(t *testing.T) {
 			From: []networkingv1.NetworkPolicyPeer{{
 				PodSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						translate.MarkerLabel: translate.Suffix,
+						translate.MarkerLabel: translate.VClusterName,
 					},
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{

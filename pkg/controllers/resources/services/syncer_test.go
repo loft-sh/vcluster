@@ -34,7 +34,7 @@ func TestSync(t *testing.T) {
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
-			translate.MarkerLabel:    translate.Suffix,
+			translate.MarkerLabel:    translate.VClusterName,
 		},
 	}
 	vKubernetesObjectMeta := metav1.ObjectMeta{
@@ -295,7 +295,7 @@ func TestSync(t *testing.T) {
 			Selector: map[string]string{
 				translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, selectorKey): vServiceNodePortFromExternal.Spec.Selector[selectorKey],
 				translate.NamespaceLabel: vServiceNodePortFromExternal.Namespace,
-				translate.MarkerLabel:    translate.Suffix,
+				translate.MarkerLabel:    translate.VClusterName,
 			},
 			Type:  corev1.ServiceTypeNodePort,
 			Ports: vServiceNodePortFromExternal.Spec.Ports,

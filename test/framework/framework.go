@@ -114,7 +114,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		//TODO: maybe implement some autodiscovery of the suffix value that would work with dev and prod setups
 		suffix = "vcluster"
 	}
-	translate.Suffix = suffix
+	translate.VClusterName = suffix
 
 	var multiNamespaceMode bool
 	if os.Getenv("MULTINAMESPACE_MODE") == "true" {

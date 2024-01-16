@@ -150,7 +150,7 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.syncer.Sync(syncContext, pObj, vObj)
 	} else if vObj == nil && pObj != nil {
 		if pObj.GetAnnotations() != nil {
-			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBacksyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
+			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBackSyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
 				// do not delete
 				return ctrl.Result{}, nil
 			}
@@ -174,13 +174,10 @@ func (r *syncerController) excludePhysical(pObj client.Object) bool {
 		return excluder.ExcludePhysical(pObj)
 	}
 
-	if pObj.GetLabels() != nil &&
-		pObj.GetLabels()[translate.ControllerLabel] != "" {
+	if pObj.GetLabels() != nil && pObj.GetLabels()[translate.ControllerLabel] != "" {
 		return true
 	}
-	if pObj.GetAnnotations() != nil &&
-		pObj.GetAnnotations()[translate.ControllerLabel] != "" &&
-		pObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
+	if pObj.GetAnnotations() != nil && pObj.GetAnnotations()[translate.ControllerLabel] != "" && pObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
 		return true
 	}
 
@@ -193,13 +190,10 @@ func (r *syncerController) excludeVirtual(vObj client.Object) bool {
 		return excluder.ExcludeVirtual(vObj)
 	}
 
-	if vObj.GetLabels() != nil &&
-		vObj.GetLabels()[translate.ControllerLabel] != "" {
+	if vObj.GetLabels() != nil && vObj.GetLabels()[translate.ControllerLabel] != "" {
 		return true
 	}
-	if vObj.GetAnnotations() != nil &&
-		vObj.GetAnnotations()[translate.ControllerLabel] != "" &&
-		vObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
+	if vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
 		return true
 	}
 

@@ -56,6 +56,12 @@ type ControllerModifier interface {
 	ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error)
 }
 
+// ControllerStarter is a generic controller that can be used if the syncer abstraction does not fit
+// the use case
+type ControllerStarter interface {
+	Register(ctx *synccontext.RegisterContext) error
+}
+
 // Initializer is used to create and update the prerequisites of the syncer before the controller is started
 type Initializer interface {
 	Init(registerContext *synccontext.RegisterContext) error

@@ -72,7 +72,7 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 	// add selector for namespace as NetworkPolicy podSelector applies to pods within it's namespace
 	outSpec.PodSelector.MatchLabels[translate.NamespaceLabel] = namespace
 	// add selector for the marker label to select only from pods belonging this vcluster instance
-	outSpec.PodSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
+	outSpec.PodSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 
 	outSpec.PolicyTypes = spec.PolicyTypes
 	return outSpec
@@ -99,7 +99,7 @@ func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespa
 				newPeer.PodSelector.MatchLabels[translate.NamespaceLabel] = namespace
 			}
 			// add selector for the marker label to select only from pods belonging this vcluster instance
-			newPeer.PodSelector.MatchLabels[translate.MarkerLabel] = translate.Suffix
+			newPeer.PodSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 		} else {
 			newPeer.IPBlock = peer.IPBlock.DeepCopy()
 		}

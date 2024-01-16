@@ -28,7 +28,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
 			Labels: map[string]string{
-				translate.MarkerLabel: translate.Suffix,
+				translate.MarkerLabel: translate.VClusterName,
 			},
 			Annotations: map[string]string{
 				translate.NameAnnotation: "testsc",
@@ -48,7 +48,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
 			Labels: map[string]string{
-				translate.MarkerLabel: translate.Suffix,
+				translate.MarkerLabel: translate.VClusterName,
 			},
 			Annotations: map[string]string{
 				translate.NameAnnotation: "testsc",

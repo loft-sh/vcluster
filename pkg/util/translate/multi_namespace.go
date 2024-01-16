@@ -53,7 +53,7 @@ func (s *multiNamespace) PhysicalNameClusterScoped(name string) string {
 	if name == "" {
 		return ""
 	}
-	return SafeConcatName("vcluster", name, "x", s.currentNamespace, "x", Suffix)
+	return SafeConcatName("vcluster", name, "x", s.currentNamespace, "x", VClusterName)
 }
 
 func (s *multiNamespace) IsManaged(obj runtime.Object) bool {
@@ -86,16 +86,16 @@ func (s *multiNamespace) IsManagedCluster(obj runtime.Object) bool {
 		return false
 	}
 
-	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.currentNamespace, "x", Suffix)
+	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.currentNamespace, "x", VClusterName)
 }
 
 func (s *multiNamespace) IsTargetedNamespace(ns string) bool {
-	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, getNamespaceSuffix(s.currentNamespace, Suffix))
+	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, getNamespaceSuffix(s.currentNamespace, VClusterName))
 }
 
 func (s *multiNamespace) convertLabelKey(key string) string {
 	digest := sha256.Sum256([]byte(key))
-	return SafeConcatName(LabelPrefix, s.currentNamespace, "x", Suffix, "x", hex.EncodeToString(digest[0:])[0:10])
+	return SafeConcatName(LabelPrefix, s.currentNamespace, "x", VClusterName, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
 func (s *multiNamespace) getNamespacePrefix() string {
@@ -103,7 +103,7 @@ func (s *multiNamespace) getNamespacePrefix() string {
 }
 
 func (s *multiNamespace) PhysicalNamespace(vNamespace string) string {
-	return PhysicalNamespace(s.currentNamespace, vNamespace, s.getNamespacePrefix(), Suffix)
+	return PhysicalNamespace(s.currentNamespace, vNamespace, s.getNamespacePrefix(), VClusterName)
 }
 
 func PhysicalNamespace(currentNamespace, vNamespace, prefix, suffix string) string {
@@ -147,7 +147,7 @@ func (s *multiNamespace) TranslateLabelsCluster(vObj client.Object, pObj client.
 			newLabels[ControllerLabel] = pObjLabels[ControllerLabel]
 		}
 	}
-	newLabels[MarkerLabel] = SafeConcatName(s.currentNamespace, "x", Suffix)
+	newLabels[MarkerLabel] = SafeConcatName(s.currentNamespace, "x", VClusterName)
 	return newLabels
 }
 

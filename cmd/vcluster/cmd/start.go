@@ -76,17 +76,17 @@ func NewStartCommand() *cobra.Command {
 
 func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) error {
 	// set suffix
-	translate.Suffix = options.Name
-	if translate.Suffix == "" {
-		translate.Suffix = options.DeprecatedSuffix
+	translate.VClusterName = options.Name
+	if translate.VClusterName == "" {
+		translate.VClusterName = options.DeprecatedSuffix
 	}
-	if translate.Suffix == "" {
-		translate.Suffix = "vcluster"
+	if translate.VClusterName == "" {
+		translate.VClusterName = "vcluster"
 	}
 
 	// set service name
 	if options.ServiceName == "" {
-		options.ServiceName = translate.Suffix
+		options.ServiceName = translate.VClusterName
 	}
 
 	// get current namespace
@@ -115,7 +115,7 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 		inClusterClient,
 		currentNamespace,
 		currentNamespace,
-		translate.Suffix,
+		translate.VClusterName,
 		options,
 	)
 	if err != nil {

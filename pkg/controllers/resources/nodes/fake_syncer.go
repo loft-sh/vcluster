@@ -326,7 +326,7 @@ func GetNodeHost(nodeName string) string {
 // GetNodeHostLegacy returns Node hostname in a format used in 0.14.x release.
 // This function is added for backwards compatibility and may be removed in a future release.
 func GetNodeHostLegacy(nodeName, currentNamespace string) string {
-	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + translate.Suffix + "." + currentNamespace + "." + constants.NodeSuffix
+	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + translate.VClusterName + "." + currentNamespace + "." + constants.NodeSuffix
 	log := loghelper.New("GetNodeHostLegacy()")
 	log.Debugf("translating nodename %q into hostname: %q", nodeName, hostname)
 	return hostname

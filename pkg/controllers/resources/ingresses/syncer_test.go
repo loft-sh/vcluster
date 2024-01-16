@@ -111,7 +111,7 @@ func TestSync(t *testing.T) {
 			translate.UIDAnnotation:       "",
 		},
 		Labels: map[string]string{
-			translate.MarkerLabel:    translate.Suffix,
+			translate.MarkerLabel:    translate.VClusterName,
 			translate.NamespaceLabel: vObjectMeta.Namespace,
 		},
 	}

@@ -75,7 +75,7 @@ func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
 
 	serviceList := &corev1.ServiceList{}
 	err := n.currentNamespaceClient.List(ctx, serviceList, client.InNamespace(n.currentNamespace), client.MatchingLabels{
-		ServiceClusterLabel: translate.Suffix,
+		ServiceClusterLabel: translate.VClusterName,
 	})
 	if err != nil {
 		return errors.Wrap(err, "list services")
@@ -124,7 +124,7 @@ func (n *nodeServiceProvider) Unlock() {
 }
 
 func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (string, error) {
-	serviceName := translate.SafeConcatName(translate.Suffix, "node", strings.ReplaceAll(name, ".", "-"))
+	serviceName := translate.SafeConcatName(translate.VClusterName, "node", strings.ReplaceAll(name, ".", "-"))
 
 	service := &corev1.Service{}
 	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: n.currentNamespace}, service)
@@ -158,7 +158,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 			Namespace: n.currentNamespace,
 			Name:      serviceName,
 			Labels: map[string]string{
-				ServiceClusterLabel: translate.Suffix,
+				ServiceClusterLabel: translate.VClusterName,
 				ServiceNodeLabel:    name,
 			},
 		},

@@ -29,7 +29,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 	for k, v := range basicSelector.MatchLabels {
 		basicSelectorTranslatedWithMarker.MatchLabels[translate.Default.ConvertLabelKey(k)] = v
 	}
-	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.Suffix
+	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 
 	testCases := []translatePodAffinityTermTestCase{
 		{
@@ -97,7 +97,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 					MatchLabels: map[string]string{
 						translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey): "good-value",
 					},
-				}, translate.MarkerLabel, translate.Suffix),
+				}, translate.MarkerLabel, translate.VClusterName),
 			},
 		},
 		{
@@ -123,7 +123,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 							Values:   []string{"bad-value"},
 						},
 					},
-				}, translate.MarkerLabel, translate.Suffix),
+				}, translate.MarkerLabel, translate.VClusterName),
 			},
 		},
 	}

@@ -240,7 +240,7 @@ test2: {}`,
 				targetNamespace: "vcluster",
 			},
 			obj1:     `name: abc`,
-			expected: fmt.Sprint(`name: abc-x-default-x-`, translate.Suffix),
+			expected: fmt.Sprint(`name: abc-x-default-x-`, translate.VClusterName),
 		},
 		{
 			name: "rewrite name - invalid object",
@@ -271,9 +271,9 @@ test2: {}`,
       ns: xyz`,
 			expected: `root:
     list:
-        - nm: abc-x-pqr-x-` + fmt.Sprint(translate.Suffix) + `
+        - nm: abc-x-pqr-x-` + fmt.Sprint(translate.VClusterName) + `
           ns: vcluster
-        - nm: def-x-xyz-x-` + fmt.Sprint(translate.Suffix) + `
+        - nm: def-x-xyz-x-` + fmt.Sprint(translate.VClusterName) + `
           ns: vcluster`,
 		},
 		{
@@ -295,9 +295,9 @@ test2: {}`,
       ns: pqr`,
 			expected: `root:
     list:
-        - nm: abc-x-default-x-` + fmt.Sprint(translate.Suffix) + `
+        - nm: abc-x-default-x-` + fmt.Sprint(translate.VClusterName) + `
           ns: pqr
-        - nm: def-x-default-x-` + fmt.Sprint(translate.Suffix) + `
+        - nm: def-x-default-x-` + fmt.Sprint(translate.VClusterName) + `
           ns: pqr`,
 		},
 		{
@@ -321,8 +321,8 @@ test2: {}`,
 			expected: `root:
     includes:
         - names:
-            - nm: abc-x-pqr-x-` + fmt.Sprint(translate.Suffix) + `
-            - nm: def-x-pqr-x-` + fmt.Sprint(translate.Suffix) + `
+            - nm: abc-x-pqr-x-` + fmt.Sprint(translate.VClusterName) + `
+            - nm: def-x-pqr-x-` + fmt.Sprint(translate.VClusterName) + `
           namespace: vcluster`,
 		},
 		{
@@ -343,7 +343,7 @@ test2: {}`,
     namespace: pqr`,
 			expected: `root:
     includes:
-        nm: abc-x-pqr-x-` + fmt.Sprint(translate.Suffix) + `
+        nm: abc-x-pqr-x-` + fmt.Sprint(translate.VClusterName) + `
         namespace: vcluster`,
 		},
 		{

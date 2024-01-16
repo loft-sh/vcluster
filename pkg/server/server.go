@@ -100,7 +100,7 @@ func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile
 		if ctx.Options.FakeKubeletIPs {
 			err := cache.IndexField(ctx.Context, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
 				svc := object.(*corev1.Service)
-				if len(svc.Labels) == 0 || svc.Labels[nodeservice.ServiceClusterLabel] != translate.Suffix {
+				if len(svc.Labels) == 0 || svc.Labels[nodeservice.ServiceClusterLabel] != translate.VClusterName {
 					return nil
 				}
 
