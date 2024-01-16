@@ -201,7 +201,7 @@ func (m *Manager) HasPlugins() bool {
 
 func (m *Manager) registerClientHooks(vClusterPlugin *vClusterPlugin, clientHooks []*ClientHook) error {
 	for _, clientHookInfo := range clientHooks {
-		if clientHookInfo.ApiVersion == "" {
+		if clientHookInfo.APIVersion == "" {
 			return fmt.Errorf("api version is empty in plugin %s hook", vClusterPlugin.Path)
 		} else if clientHookInfo.Kind == "" {
 			return fmt.Errorf("kind is empty in plugin %s hook", vClusterPlugin.Path)
@@ -213,7 +213,7 @@ func (m *Manager) registerClientHooks(vClusterPlugin *vClusterPlugin, clientHook
 			}
 
 			versionKindType := plugintypes.VersionKindType{
-				APIVersion: clientHookInfo.ApiVersion,
+				APIVersion: clientHookInfo.APIVersion,
 				Kind:       clientHookInfo.Kind,
 				Type:       t,
 			}
@@ -221,7 +221,7 @@ func (m *Manager) registerClientHooks(vClusterPlugin *vClusterPlugin, clientHook
 			m.ClientHooks[versionKindType] = append(m.ClientHooks[versionKindType], vClusterPlugin)
 		}
 
-		klog.Infof("Register client hook for %s %s in plugin %s", clientHookInfo.ApiVersion, clientHookInfo.Kind, vClusterPlugin.Path)
+		klog.Infof("Register client hook for %s %s in plugin %s", clientHookInfo.APIVersion, clientHookInfo.Kind, vClusterPlugin.Path)
 	}
 
 	return nil

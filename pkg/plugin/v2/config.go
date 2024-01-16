@@ -19,7 +19,7 @@ type PluginConfig struct {
 }
 
 type ClientHook struct {
-	ApiVersion string   `json:"apiVersion,omitempty"`
+	APIVersion string   `json:"apiVersion,omitempty"`
 	Kind       string   `json:"kind,omitempty"`
 	Types      []string `json:"types,omitempty"`
 }

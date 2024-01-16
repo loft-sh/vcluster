@@ -80,6 +80,14 @@ archives:
     builds_info:
       group: root
       owner: root
+  - id: syncer_archives
+    format: binary
+    builds:
+      - vcluster
+    name_template: "syncer-{{ .Os }}-{{ .Arch }}"
+    builds_info:
+      group: root
+      owner: root
 
 sboms:
   - id: vcluster_sbom
