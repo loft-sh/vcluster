@@ -10,6 +10,13 @@ import (
 	"google.golang.org/grpc"
 )
 
+var HandshakeConfig = plugin.HandshakeConfig{
+	ProtocolVersion: 1,
+
+	MagicCookieKey:   "VCLUSTER_PLUGIN",
+	MagicCookieValue: "vcluster",
+}
+
 // GRPCProviderPlugin is an implementation of the
 // github.com/hashicorp/go-plugin#Plugin and
 // github.com/hashicorp/go-plugin#GRPCPlugin interfaces

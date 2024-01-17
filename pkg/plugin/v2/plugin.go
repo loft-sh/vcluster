@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	"github.com/loft-sh/vcluster/pkg/plugin/v2/pluginv2"
@@ -296,36 +297,44 @@ func (m *Manager) buildInitRequest(
 }
 
 func (m *Manager) loadPlugin(pluginPath string) error {
+	// Create an hclog.Logger
+	logger := hclog.New(&hclog.LoggerOptions{
+		Name:   "plugin",
+		Output: os.Stdout,
+		Level:  hclog.Info,
+	})
+
 	// connect to plugin
-	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: plugin.HandshakeConfig{
-			ProtocolVersion: 1,
-		},
+	pluginClient := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig: HandshakeConfig,
+		Logger:          logger,
 		Plugins: map[string]plugin.Plugin{
 			"plugin": &GRPCProviderPlugin{},
 		},
 		Cmd:              exec.Command(pluginPath),
+		SyncStdout:       os.Stdout,
+		SyncStderr:       os.Stderr,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 
 	// Connect via RPC
-	rpcClient, err := client.Client()
+	rpcClient, err := pluginClient.Client()
 	if err != nil {
-		client.Kill()
+		pluginClient.Kill()
 		return err
 	}
 
 	// Request the plugin
 	raw, err := rpcClient.Dispense("plugin")
 	if err != nil {
-		client.Kill()
+		pluginClient.Kill()
 		return err
 	}
 
 	// add to loaded plugins
 	m.Plugins = append(m.Plugins, &vClusterPlugin{
 		Path:       pluginPath,
-		Client:     client,
+		Client:     pluginClient,
 		GRPCClient: raw.(pluginv2.PluginClient),
 	})
 

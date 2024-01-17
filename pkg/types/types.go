@@ -9,13 +9,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Object interface {
+type Base interface {
 	Name() string
+}
+
+type Object interface {
+	Base
 	Resource() client.Object
 }
 
 type Exporter interface {
-	Name() string
+	Base
 	Register()
 }
 
