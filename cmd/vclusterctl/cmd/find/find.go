@@ -45,6 +45,14 @@ const (
 	StatusUnknown Status = "Unknown"
 )
 
+type VclusterNotFoundError struct {
+	Name string
+}
+
+func (e *VclusterNotFoundError) Error() string {
+	return fmt.Sprintf("couldn't find vcluster %s", e.Name)
+}
+
 func SwitchContext(kubeConfig *clientcmdapi.Config, otherContext string) error {
 	kubeConfig.CurrentContext = otherContext
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
@@ -72,7 +80,7 @@ func GetVCluster(ctx context.Context, proClient pro.Client, context, name, names
 
 	// figure out what we want to return
 	if len(ossVClusters) == 0 && len(proVClusters) == 0 {
-		return nil, nil, fmt.Errorf("couldn't find vcluster %s", name)
+		return nil, nil, &VclusterNotFoundError{Name: name}
 	} else if len(ossVClusters) == 1 && len(proVClusters) == 0 {
 		return &ossVClusters[0], nil, nil
 	} else if len(proVClusters) == 1 && len(ossVClusters) == 0 {

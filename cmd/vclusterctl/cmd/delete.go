@@ -39,6 +39,7 @@ type DeleteCmd struct {
 	DeleteNamespace     bool
 	DeleteConfigMap     bool
 	AutoDeleteNamespace bool
+	IgnoreNotFound      bool
 
 	rawConfig  *clientcmdapi.Config
 	restConfig *rest.Config
@@ -80,6 +81,7 @@ vcluster delete test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.KeepPVC, "keep-pvc", false, "If enabled, vcluster will not delete the persistent volume claim of the vcluster")
 	cobraCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", false, "If enabled, vcluster will delete the namespace of the vcluster. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster")
 	cobraCmd.Flags().BoolVar(&cmd.AutoDeleteNamespace, "auto-delete-namespace", true, "If enabled, vcluster will delete the namespace of the vcluster if it was created by vclusterctl. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster")
+	cobraCmd.Flags().BoolVar(&cmd.IgnoreNotFound, "ignore-not-found", false, "If enabled, vcluster will not error out in case the target vcluster does not exist")
 	return cobraCmd
 }
 
@@ -97,7 +99,14 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	vClusterName := args[0]
 	vCluster, proVCluster, err := find.GetVCluster(ctx, proClient, cmd.Context, vClusterName, cmd.Namespace, cmd.Project, cmd.log)
 	if err != nil {
-		return err
+		if !cmd.IgnoreNotFound {
+			return err
+		}
+		var errorNotFound *find.VclusterNotFoundError
+		if !errors.As(err, &errorNotFound) {
+			return err
+		}
+		return nil
 	} else if proVCluster != nil {
 		return cmd.deleteProVCluster(cobraCmd.Context(), proClient, proVCluster)
 	}
