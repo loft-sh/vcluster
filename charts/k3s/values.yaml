@@ -160,6 +160,16 @@ syncer:
       memory: 256Mi
   kubeConfigContextName: "my-vcluster"
   serviceAnnotations: {}
+  # Storage settings for the vcluster
+  storage:
+    # If this is disabled, vcluster will use an emptyDir instead
+    # of a PersistentVolumeClaim
+    persistence: true
+    # Size of the persistent volume claim
+    size: 5Gi
+    # Optional StorageClass used for the pvc
+    # if empty default StorageClass defined in your host cluster will be used
+    #className:
 
 # Virtual Cluster (k3s) configuration
 vcluster:
@@ -205,16 +215,6 @@ admission:
   validatingWebhooks: []
   mutatingWebhooks: []
 
-# Storage settings for the vcluster
-storage:
-  # If this is disabled, vcluster will use an emptyDir instead
-  # of a PersistentVolumeClaim
-  persistence: true
-  # Size of the persistent volume claim
-  size: 5Gi
-  # Optional StorageClass used for the pvc
-  # if empty default StorageClass defined in your host cluster will be used
-  #className:
 
 # Extra volumes that should be created for the StatefulSet
 volumes: []

@@ -1,6 +1,6 @@
 {{- if not .Values.headless }}
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ include "vcluster.kind" . }}
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -18,16 +18,10 @@ metadata:
 {{ toYaml $annotations | indent 4 }}
   {{- end }}
 spec:
+  {{- include "vcluster.deployment.strategy" . | indent 2 }}
+  {{- include "vcluster.statefulset.serviceName" . | indent 2 }}
+  {{- include "vcluster.statefulset.volumeClaimTemplate" . | indent 2 }}
   replicas: {{ .Values.syncer.replicas }}
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      {{- if (eq (int .Values.syncer.replicas) 1) }}
-      maxUnavailable: 0
-      {{- else }}
-      maxUnavailable: 1
-      {{- end }}
-    type: RollingUpdate
   selector:
     matchLabels:
       app: vcluster
@@ -227,6 +221,12 @@ spec:
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
+          {{- if .Values.pro }}
+          {{- if .Values.embeddedEtcd.enabled }}
+          - --etcd-embedded
+          - --etcd-replicas={{ .Values.syncer.replicas }}
+          {{- end }}
+          {{- end }}
           {{- if .Values.enableHA }}
           - --leader-elect=true
           {{- else }}
@@ -311,6 +311,10 @@ spec:
         {{- include "vcluster.plugins.config" . | indent 10 }}
           - name: VCLUSTER_DISTRO
             value: eks
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
         {{- if eq (.Values.syncer.replicas | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
@@ -341,7 +345,11 @@ spec:
                 - '--etcd-cafile=/pki/etcd/ca.crt'
                 - '--etcd-certfile=/pki/apiserver-etcd-client.crt'
                 - '--etcd-keyfile=/pki/apiserver-etcd-client.key'
+                {{- if .Values.embeddedEtcd.enabled }}
+                - '--etcd-servers=https://127.0.0.1:2379'
+                {{- else }}
                 - '--etcd-servers=https://{{ .Release.Name }}-etcd:2379'
+                {{- end }}
                 - '--proxy-client-cert-file=/pki/front-proxy-client.crt'
                 - '--proxy-client-key-file=/pki/front-proxy-client.key'
                 - '--requestheader-allowed-names=front-proxy-client'

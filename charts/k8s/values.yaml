@@ -8,6 +8,11 @@ globalAnnotations: {}
 # If vCluster.Pro is enabled
 pro: false
 
+# Embedded etcd settings
+embeddedEtcd:
+  # If embedded etcd should be enabled, this is a PRO only feature
+  enabled: false
+
 # If true, will deploy vcluster in headless mode, which means no deployment
 # or statefulset is created.
 headless: false
@@ -15,10 +20,6 @@ headless: false
 monitoring:
   serviceMonitor:
     enabled: false
-
-# If the control plane is deployed in high availability mode
-# Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
-enableHA: false
 
 # Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
 plugin: {}
@@ -31,6 +32,10 @@ plugin: {}
 #       extraRules: ...
 #     role:
 #       extraRules: ...
+
+# Extra Annotations for the stateful set
+annotations: {}
+podAnnotations: {}
 
 # Resource syncers that should be enabled/disabled.
 # Enabling syncers will impact RBAC Role and ClusterRole permissions.
@@ -182,6 +187,16 @@ syncer:
   securityContext: {}
   podSecurityContext: {}
   serviceAnnotations: {}
+  # Storage settings for the vcluster
+  storage:
+    # If this is disabled, vcluster will use an emptyDir instead
+    # of a PersistentVolumeClaim
+    persistence: true
+    # Size of the persistent volume claim
+    size: 5Gi
+    # Optional StorageClass used for the pvc
+    # if empty default StorageClass defined in your host cluster will be used
+    #className:
 
 # Etcd settings
 etcd:
@@ -224,47 +239,11 @@ etcd:
 controller:
   image: registry.k8s.io/kube-controller-manager:v1.29.0
   imagePullPolicy: ""
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used
-  nodeSelector: {}
-  # Affinity to apply
-  affinity: {}
-  # Tolerations to apply
-  tolerations: []
-  # Extra Labels
-  labels: {}
-  # Extra Annotations
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 15m
-  priorityClassName: ""
-  securityContext: {}
+
 # Kubernetes Scheduler settings. Only enabled if sync.nodes.enableScheduler is true
 scheduler:
   image: registry.k8s.io/kube-scheduler:v1.29.0
   imagePullPolicy: ""
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used
-  nodeSelector: {}
-  # Affinity to apply
-  affinity: {}
-  # Tolerations to apply
-  tolerations: []
-  # Extra Labels
-  labels: {}
-  # Extra Annotations
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 10m
-  priorityClassName: ""
   disabled: true
 
 # Kubernetes API Server settings
@@ -272,27 +251,6 @@ api:
   image: registry.k8s.io/kube-apiserver:v1.29.0
   imagePullPolicy: ""
   extraArgs: []
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used to schedule the syncer
-  nodeSelector: {}
-  # Affinity to apply to the syncer deployment
-  affinity: {}
-  # Tolerations to apply to the syncer deployment
-  tolerations: []
-  # Extra Labels for the syncer deployment
-  labels: {}
-  # Extra Annotations for the syncer deployment
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 40m
-      memory: 300Mi
-  priorityClassName: ""
-  securityContext: {}
-  serviceAnnotations: {}
 
 # Service account that should be used by the vcluster
 serviceAccount:
@@ -549,3 +507,4 @@ telemetry:
   platformUserID: ""
   platformInstanceID: ""
   machineID: ""
+
