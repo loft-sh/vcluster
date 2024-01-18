@@ -54,7 +54,7 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.StringVar(&options.DefaultImageRegistry, "default-image-registry", "", "This address will be prepended to all deployed system images by vcluster")
 
 	flags.StringVar(&options.EnforcePodSecurityStandard, "enforce-pod-security-standard", "", "This can be set to 'privileged', 'baseline', or 'restricted' to make vcluster enforce these policies during translation.")
-	flags.StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions.")
+	flags.StringSliceVar(&options.SyncLabels, "sync-labels", []string{}, "The specified labels will be synced to physical resources, in addition to their vcluster translated versions. Supports wildcards, e.g --sync-labels=my.company/* will sync all labels that match the given prefix.")
 	flags.StringSliceVar(&options.Plugins, "plugins", []string{}, "The plugins to wait for during startup")
 
 	flags.StringSliceVar(&options.MapVirtualServices, "map-virtual-service", []string{}, "Maps a given service inside the virtual cluster to a service inside the host cluster. E.g. default/test=physical-service")
