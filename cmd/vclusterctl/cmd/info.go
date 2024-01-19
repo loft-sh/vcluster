@@ -3,29 +3,20 @@ package cmd
 import (
 	"os"
 	"runtime"
-	"text/template"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
-const cliInfoTemplate = `CLI Info:
-- Version: {{ .Version }}
-- OS: {{ .OS }}
-- Arch: {{ .Arch }}
-- Machine ID: {{ .MachineID }}
-{{- if .InstanceID }}
-- Instance ID: {{ .InstanceID }}
-{{ end }}`
-
 type cliInfo struct {
-	Version    string
-	OS         string
-	Arch       string
-	MachineID  string
-	InstanceID string
+	Version    string `yaml:"version,omitempty"`
+	OS         string `yaml:"os,omitempty"`
+	Arch       string `yaml:"arch,omitempty"`
+	MachineID  string `yaml:"machineID,omitempty"`
+	InstanceID string `yaml:"instanceID,omitempty"`
 }
 
 // NewCreateCmd creates a new command
@@ -44,8 +35,8 @@ vcluster info
 #######################################################
 	`,
 		Args: cobra.NoArgs,
-		Run: func(cobraCmd *cobra.Command, args []string) {
-			cliInfo := cliInfo{
+		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			infos := cliInfo{
 				Version:   cobraCmd.Root().Version,
 				OS:        runtime.GOOS,
 				Arch:      runtime.GOARCH,
@@ -53,10 +44,9 @@ vcluster info
 			}
 			proClient, err := pro.CreateProClient()
 			if err == nil {
-				cliInfo.InstanceID = proClient.Self().Status.InstanceID
+				infos.InstanceID = proClient.Self().Status.InstanceID
 			}
-			tmpl := template.Must(template.New("info").Parse(string(cliInfoTemplate)))
-			_ = tmpl.Execute(os.Stdout, cliInfo)
+			return yaml.NewEncoder(os.Stdout).Encode(struct{ Info cliInfo }{infos})
 		},
 	}
 
