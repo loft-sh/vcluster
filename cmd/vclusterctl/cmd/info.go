@@ -19,7 +19,7 @@ type cliInfo struct {
 	InstanceID string `yaml:"instanceID,omitempty"`
 }
 
-// NewCreateCmd creates a new command
+// NewInfoCmd creates a new info command
 func NewInfoCmd() *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "info",
