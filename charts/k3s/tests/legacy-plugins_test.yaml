@@ -1,0 +1,77 @@
+suite: Legacy Plugins
+templates:
+  - syncer.yaml
+
+tests:
+  - it: should check legacy plugin rendering
+    set:
+      plugin:
+        bootstrap-with-deployment:
+          image: test
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--plugins=bootstrap-with-deployment"
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: bootstrap-with-deployment
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: test
+      - equal:
+          path: spec.template.spec.containers[1].env[0]
+          value:
+            name: VCLUSTER_PLUGIN_ADDRESS
+            value: localhost:14000
+
+  - it: should check legacy plugin rendering
+    set:
+      plugin:
+        bootstrap-with-deployment:
+          image: test
+        bootstrap-with-deployment2:
+          image: test
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--plugins=bootstrap-with-deployment"
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--plugins=bootstrap-with-deployment2"
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: bootstrap-with-deployment
+      - equal:
+          path: spec.template.spec.containers[2].name
+          value: bootstrap-with-deployment2
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: test
+      - equal:
+          path: spec.template.spec.containers[2].image
+          value: test
+      - equal:
+          path: spec.template.spec.containers[1].env[0]
+          value:
+            name: VCLUSTER_PLUGIN_ADDRESS
+            value: localhost:14000
+      - equal:
+          path: spec.template.spec.containers[2].env[0]
+          value:
+            name: VCLUSTER_PLUGIN_ADDRESS
+            value: localhost:14001
+
+  - it: should check no legacy plugin rendering
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1

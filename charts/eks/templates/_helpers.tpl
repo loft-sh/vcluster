@@ -100,7 +100,7 @@ Prints only the flags that modify the defaults:
 {{- end -}}
 
 {{/*
-Cluster role rules defined by plugins
+  Cluster role rules defined by plugins
 */}}
 {{- define "vcluster.plugin.clusterRoleExtraRules" -}}
 {{- range $key, $container := .Values.plugin }}
@@ -117,7 +117,7 @@ Cluster role rules defined by plugins
 {{- end -}}
 
 {{/*
-Cluster role rules defined in generic syncer
+  Cluster role rules defined in generic syncer
 */}}
 {{- define "vcluster.generic.clusterRoleExtraRules" -}}
 {{- if .Values.sync.generic.clusterRole }}
@@ -130,7 +130,7 @@ Cluster role rules defined in generic syncer
 {{- end -}}
 
 {{/*
-Role rules defined by plugins
+  Role rules defined by plugins
 */}}
 {{- define "vcluster.plugin.roleExtraRules" -}}
 {{- range $key, $container := .Values.plugin }}
@@ -147,7 +147,7 @@ Role rules defined by plugins
 {{- end -}}
 
 {{/*
-Role rules defined in generic syncer
+  Role rules defined in generic syncer
 */}}
 {{- define "vcluster.generic.roleExtraRules" -}}
 {{- if .Values.sync.generic.role }}
@@ -160,7 +160,7 @@ Role rules defined in generic syncer
 {{- end -}}
 
 {{/*
-Virtual cluster service mapping
+  Virtual cluster service mapping
 */}}
 {{- define "vcluster.serviceMapping.fromVirtual" -}}
 {{- range $key, $value := .Values.mapServices.fromVirtual }}
@@ -169,63 +169,10 @@ Virtual cluster service mapping
 {{- end -}}
 
 {{/*
-Host cluster service mapping
+  Host cluster service mapping
 */}}
 {{- define "vcluster.serviceMapping.fromHost" -}}
 {{- range $key, $value := .Values.mapServices.fromHost }}
 - '--map-host-service={{ $value.from }}={{ $value.to }}'
 {{- end }}
-{{- end -}}
-
-{{/*
-Define a common coredns config
-*/}}
-{{- define "vcluster.corefile" -}}
-Corefile: |-
-  {{- if .Values.coredns.config }}
-{{ .Values.coredns.config | indent 8 }}
-  {{- else }}
-  .:1053 {
-      errors
-      health
-      ready
-      rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
-      kubernetes cluster.local in-addr.arpa ip6.arpa {
-          {{- if .Values.pro }}
-          {{- if .Values.coredns.integrated }}
-          kubeconfig /pki/admin.conf
-          {{- end }}
-          {{- end }}
-          pods insecure
-          {{- if .Values.fallbackHostDns }}
-          fallthrough cluster.local in-addr.arpa ip6.arpa
-          {{- else }}
-          fallthrough in-addr.arpa ip6.arpa
-          {{- end }}
-      }
-      {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
-      vcluster {{ toYaml .Values.coredns.plugin.config | b64enc }}
-      {{- end }}
-      hosts /etc/NodeHosts {
-          ttl 60
-          reload 15s
-          fallthrough
-      }
-      prometheus :9153
-      {{- if .Values.fallbackHostDns }}
-      forward . {{`{{.HOST_CLUSTER_DNS}}`}}
-      {{- else if and .Values.isolation.enabled  .Values.isolation.networkPolicy.enabled }}
-      forward . /etc/resolv.conf 8.8.8.8 {
-          policy sequential
-      }
-      {{- else }}
-      forward . /etc/resolv.conf
-      {{- end }}
-      cache 30
-      loop
-      loadbalance
-  }
-
-  import /etc/coredns/custom/*.server
-  {{- end }}
 {{- end -}}

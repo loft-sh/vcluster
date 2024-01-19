@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
@@ -24,6 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
+
+const PluginConfigEnv = "PLUGIN_CONFIG"
 
 func NewManager() *Manager {
 	pluginFolder := os.Getenv("PLUGIN_FOLDER")
@@ -304,6 +307,12 @@ func (m *Manager) loadPlugin(pluginPath string) error {
 		Level:  hclog.Info,
 	})
 
+	// build command
+	cmd, err := buildCommand(pluginPath)
+	if err != nil {
+		return err
+	}
+
 	// connect to plugin
 	pluginClient := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: HandshakeConfig,
@@ -311,7 +320,7 @@ func (m *Manager) loadPlugin(pluginPath string) error {
 		Plugins: map[string]plugin.Plugin{
 			"plugin": &GRPCProviderPlugin{},
 		},
-		Cmd:              exec.Command(pluginPath),
+		Cmd:              cmd,
 		SyncStdout:       os.Stdout,
 		SyncStderr:       os.Stderr,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
@@ -356,21 +365,54 @@ func (m *Manager) findPlugins(ctx context.Context) ([]string, error) {
 
 	pluginPaths := []string{}
 	for _, pluginName := range plugins {
-		// is dir or executable?
-		if pluginName.IsDir() {
-			// check if plugin binary is there
-			pluginPath := path.Join(m.PluginFolder, pluginName.Name(), "plugin")
-			_, err := os.Stat(pluginPath)
-			if err != nil {
-				klog.FromContext(ctx).Error(fmt.Errorf("error loading plugin %s: %w", pluginPath, err), "error loading plugin")
-				continue
-			}
-
-			pluginPaths = append(pluginPaths, pluginPath)
-		} else {
-			pluginPaths = append(pluginPaths, path.Join(m.PluginFolder, pluginName.Name()))
+		// is dir?
+		if !pluginName.IsDir() {
+			continue
 		}
+
+		// check if plugin binary is there
+		pluginPath := path.Join(m.PluginFolder, pluginName.Name(), "plugin")
+		_, err := os.Stat(pluginPath)
+		if err != nil {
+			klog.FromContext(ctx).Error(fmt.Errorf("error loading plugin %s: %w", pluginPath, err), "error loading plugin")
+			continue
+		}
+
+		pluginPaths = append(pluginPaths, pluginPath)
 	}
 
 	return pluginPaths, nil
+}
+
+func buildCommand(pluginPath string) (*exec.Cmd, error) {
+	cmd := exec.Command(pluginPath)
+
+	// check for plugin config
+	pluginName := filepath.Base(filepath.Dir(pluginPath))
+	pluginConfig := os.Getenv(PluginConfigEnv)
+	if pluginConfig == "" {
+		return cmd, nil
+	}
+
+	// try to parse yaml
+	parsedConfig := map[string]interface{}{}
+	err := yaml.Unmarshal([]byte(pluginConfig), &parsedConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing %s: %w", PluginConfigEnv, err)
+	}
+
+	// check if plugin is there
+	pluginConfigEncoded := ""
+	if parsedConfig[pluginName] != nil {
+		pluginConfigRaw, err := yaml.Marshal(parsedConfig[pluginName])
+		if err != nil {
+			return nil, fmt.Errorf("error marshalling plugin config: %w", err)
+		}
+
+		pluginConfigEncoded = string(pluginConfigRaw)
+	}
+
+	// add to plugin environment
+	cmd.Env = append(os.Environ(), PluginConfigEnv+"="+pluginConfigEncoded)
+	return cmd, nil
 }

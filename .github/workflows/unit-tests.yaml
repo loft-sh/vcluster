@@ -18,8 +18,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-test:
-    name: Execute all tests
+  helm-unit-tests:
+    name: Execute all helm tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Helm Unit Test Plugin
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest
+      - name: Run Helm Unit Tests
+        run: |
+          helm unittest charts/eks -d
+          helm unittest charts/k3s -d
+          helm unittest charts/k0s -d
+          helm unittest charts/k8s -d
+
+  go-unit-test:
+    name: Execute all go tests
     runs-on: ubuntu-22.04
     steps:
       - name: Set up Go 1.21
