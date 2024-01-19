@@ -88,6 +88,8 @@ spec:
       {{- end }}
       nodeSelector:
 {{ toYaml .Values.syncer.nodeSelector | indent 8 }}
+      affinity:
+{{ toYaml .Values.syncer.affinity | indent 8 }}
       tolerations:
 {{ toYaml .Values.syncer.tolerations | indent 8 }}
       {{- if .Values.serviceAccount.name }}
@@ -100,6 +102,7 @@ spec:
 {{ toYaml .Values.syncer.podSecurityContext | indent 8 }}
       {{- end }}
       volumes:
+      {{- include "vcluster.plugins.volumes" . | indent 8 }}
         - name: helm-cache
           emptyDir: {}
         - name: tmp
@@ -131,6 +134,7 @@ spec:
       priorityClassName: {{ .Values.syncer.priorityClassName }}
       {{- end }}
       initContainers:
+      {{- include "vcluster.plugins.initContainers" . | indent 6 }}
       # this is needed because the k8s containers are distroless and thus we don't have any
       # way of copying the binaries otherwise
       - name: vcluster-copy
@@ -168,22 +172,6 @@ spec:
           - /binaries/kube-controller-manager
         {{- if .Values.controller.imagePullPolicy }}
         imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
-        {{- end }}
-      {{- end }}
-      {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler }}
-      - name: kube-scheduler-manager
-        image: "{{ .Values.defaultImageRegistry }}{{ .Values.scheduler.image }}"
-        volumeMounts:
-          - mountPath: /binaries
-            name: binaries
-        command:
-          - /binaries/vcluster
-        args:
-          - cp
-          - /usr/local/bin/kube-scheduler
-          - /binaries/kube-scheduler
-        {{- if .Values.scheduler.imagePullPolicy }}
-        imagePullPolicy: {{ .Values.scheduler.imagePullPolicy }}
         {{- end }}
       {{- end }}
       {{- if not .Values.api.disabled }}
@@ -231,16 +219,9 @@ spec:
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
           - --service-account=vc-workload-{{ .Release.Name }}
-          {{- range $key, $container := .Values.plugin }}
-          {{- if not $container.optional }}
-          - --plugins={{ $key }}
-          {{- end }}
-          {{- end }}
+          {{- include "vcluster.legacyPlugins.args" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromHost" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
-          {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler }}
-          - --enable-scheduler
-          {{- end }}
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}
@@ -255,13 +236,13 @@ spec:
           {{- if .Values.ingress.enabled }}
           - --tls-san={{ .Values.ingress.host }}
           {{- end }}
-          {{- if .Values.isolation.enabled }}
-          - --enforce-pod-security-standard={{ .Values.isolation.podSecurityStandard }}
-          {{- end}}
           {{- include "vcluster.syncer.syncArgs" . | indent 10 -}}
           {{- if .Values.sync.nodes.syncAllNodes }}
           - --sync-all-nodes
           {{- end }}
+          {{- if .Values.isolation.enabled }}
+          - --enforce-pod-security-standard={{ .Values.isolation.podSecurityStandard }}
+          {{- end}}
           {{- if .Values.sync.nodes.nodeSelector }}
           - --node-selector={{ .Values.sync.nodes.nodeSelector }}
           {{- end }}
@@ -283,9 +264,6 @@ spec:
           {{- if .Values.coredns.integrated }}
           - --integrated-coredns=true
           {{- end }}
-          {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
-          - --use-coredns-plugin=true
-          {{- end }}
           {{- if .Values.admission.validatingWebhooks }}
           {{- range .Values.admission.validatingWebhooks }}
           - --enforce-validating-hook={{ . | b64enc }}
@@ -295,6 +273,9 @@ spec:
           {{- range .Values.admission.mutatingWebhooks }}
           - --enforce-mutating-hook={{ . | b64enc }}
           {{- end }}
+          {{- end }}
+          {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
+          - --use-coredns-plugin=true
           {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
@@ -332,8 +313,9 @@ spec:
         securityContext:
 {{ toYaml .Values.syncer.securityContext | indent 10 }}
         env:
+        {{- include "vcluster.plugins.config" . | indent 10 }}
           - name: VCLUSTER_DISTRO
-            value: k8s
+            value: eks
         {{- if eq (.Values.syncer.replicas | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
@@ -401,13 +383,9 @@ spec:
                 - '--cluster-name=kubernetes'
                 - '--cluster-signing-cert-file=/pki/ca.crt'
                 - '--cluster-signing-key-file=/pki/ca.key'
-                {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler }}
-                - '--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
-                {{- else }}
                 - '--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
                 - '--node-monitor-grace-period=1h'
                 - '--node-monitor-period=1h'
-                {{- end }}
                 - '--horizontal-pod-autoscaler-sync-period=60s'
                 - '--kubeconfig=/pki/controller-manager.conf'
                 {{- if .Values.serviceCIDR }}
@@ -431,25 +409,8 @@ spec:
                 - {{ $f | quote }}
                 {{- end }}
             {{- end }}
-          {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler  }}
-          - name: SCHEDULER_COMMAND
-            value: |-
-              command:
-                - /binaries/kube-scheduler
-                - '--authentication-kubeconfig=/pki/scheduler.conf'
-                - '--authorization-kubeconfig=/pki/scheduler.conf'
-                - '--bind-address=127.0.0.1'
-                - '--kubeconfig=/pki/scheduler.conf'
-                {{- if .Values.enableHA }}
-                - '--leader-elect=true'
-                {{- else }}
-                - '--leader-elect=false'
-                {{- end }}
-                {{- range $f := .Values.scheduler.extraArgs }}
-                - {{ $f | quote }}
-                {{- end }}
-          {{- end }}
         volumeMounts:
+        {{- include "vcluster.plugins.volumeMounts" . | indent 10 }}
           - name: helm-cache
             mountPath: /.cache/helm
           - name: tmp
@@ -458,11 +419,6 @@ spec:
             name: certs
           - mountPath: /binaries
             name: binaries
-        {{- if .Values.coredns.enabled }}
-          - name: coredns
-            mountPath: /manifests/coredns
-            readOnly: true
-        {{- end }}
         {{- if .Values.syncer.volumeMounts }}
 {{ toYaml .Values.syncer.volumeMounts | indent 10 }}
         {{- end }}
@@ -471,66 +427,5 @@ spec:
         {{- end }}
         resources:
 {{ toYaml .Values.syncer.resources | indent 10 }}
-      {{- $counter := -1 -}}
-      {{- range $key, $container := .Values.plugin }}
-      {{- $counter = add1 $counter }}
-      - image: {{ $.Values.defaultImageRegistry }}{{ $container.image }}
-        {{- if $container.name }}
-        name: {{ $container.name | quote }}
-        {{- else }}
-        name: {{ $key | quote }}
-        {{- end }}
-        {{- if $container.imagePullPolicy }}
-        imagePullPolicy: {{ $container.imagePullPolicy }}
-        {{- end }}
-        {{- if $container.workingDir }}
-        workingDir: {{ $container.workingDir }}
-        {{- end }}
-        {{- if $container.command }}
-        command:
-          {{- range $commandIndex, $command := $container.command }}
-          - {{ $command | quote }}
-          {{- end }}
-        {{- end }}
-        {{- if $container.args }}
-        args:
-          {{- range $argIndex, $arg := $container.args }}
-          - {{ $arg | quote }}
-          {{- end }}
-        {{- end }}
-        {{- if $container.terminationMessagePath }}
-        terminationMessagePath: {{ $container.terminationMessagePath }}
-        {{- end }}
-        {{- if $container.terminationMessagePolicy }}
-        terminationMessagePolicy: {{ $container.terminationMessagePolicy }}
-        {{- end }}
-        env:
-          - name: VCLUSTER_PLUGIN_ADDRESS
-            value: "localhost:{{ add 14000 $counter }}"
-          - name: VCLUSTER_PLUGIN_NAME
-            value: "{{ $key }}"
-        {{- if $container.env }}
-{{ toYaml $container.env | indent 10 }}
-        {{- end }}
-        envFrom:
-{{ toYaml $container.envFrom | indent 10 }}
-        securityContext:
-{{ toYaml $container.securityContext | indent 10 }}
-        lifecycle:
-{{ toYaml $container.lifecycle | indent 10 }}
-        livenessProbe:
-{{ toYaml $container.livenessProbe | indent 10 }}
-        readinessProbe:
-{{ toYaml $container.readinessProbe | indent 10 }}
-        startupProbe:
-{{ toYaml $container.startupProbe | indent 10 }}
-        volumeDevices:
-{{ toYaml $container.volumeDevices | indent 10 }}
-        volumeMounts:
-{{ toYaml $container.volumeMounts | indent 10 }}
-        {{- if $container.resources }}
-        resources:
-{{ toYaml $container.resources | indent 10 }}
-        {{- end }}
-        {{- end }}
+{{- include "vcluster.legacyPlugins.containers" . | indent 6 }}
 {{- end }}

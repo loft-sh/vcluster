@@ -13,3 +13,4 @@ profile.out
 /pkg/embed/charts/vcluster-*
 /dist
 *.test
+tests/__snapshot__
