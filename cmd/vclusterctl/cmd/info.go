@@ -34,7 +34,8 @@ Example:
 vcluster info
 #######################################################
 	`,
-		Args: cobra.NoArgs,
+		Args:   cobra.NoArgs,
+		Hidden: true,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			infos := cliInfo{
 				Version:   cobraCmd.Root().Version,
