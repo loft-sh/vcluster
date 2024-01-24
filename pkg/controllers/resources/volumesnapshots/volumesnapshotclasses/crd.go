@@ -1,4 +1,6 @@
+package volumesnapshotclasses
 
+var volumeSnapshotClassesCRD = `
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -117,3 +119,4 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
+`

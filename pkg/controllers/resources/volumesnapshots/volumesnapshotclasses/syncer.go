@@ -1,9 +1,6 @@
 package volumesnapshotclasses
 
 import (
-	"path"
-
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
@@ -12,11 +9,6 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	// file path relative to the manifests folder in the container
-	crdPath = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotclasses.yaml"
 )
 
 func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
@@ -32,7 +24,7 @@ type volumeSnapshotClassSyncer struct {
 var _ syncer.Initializer = &volumeSnapshotClassSyncer{}
 
 func (s *volumeSnapshotClassSyncer) Init(registerContext *synccontext.RegisterContext) error {
-	return util.EnsureCRDFromFile(registerContext.Context, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotClass"))
+	return util.EnsureCRD(registerContext.Context, registerContext.VirtualManager.GetConfig(), []byte(volumeSnapshotClassesCRD), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotClass"))
 }
 
 var _ syncer.UpSyncer = &volumeSnapshotClassSyncer{}

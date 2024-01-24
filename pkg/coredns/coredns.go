@@ -117,7 +117,7 @@ func GetUserID() int64 {
 }
 
 func processManifestTemplate(vars map[string]interface{}) ([]byte, error) {
-	manifestInputPath := path.Join(constants.ContainerManifestsFolder, ManifestRelativePath)
+	manifestInputPath := path.Join("/manifests", ManifestRelativePath)
 	// check if the manifestInputPath exists
 	if _, err := os.Stat(manifestInputPath); os.IsNotExist(err) {
 		return nil, ErrNoCoreDNSManifests

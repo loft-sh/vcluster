@@ -29,7 +29,6 @@ ENV DEBUG true
 RUN mkdir -p /.cache
 ENV GOCACHE=/.cache
 
-
 # Build cmd
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -tags embed_charts -o /vcluster cmd/vclusterctl/main.go
 
