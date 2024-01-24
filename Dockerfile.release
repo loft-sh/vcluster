@@ -22,6 +22,5 @@ WORKDIR /
 
 COPY vcluster .
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
-COPY manifests/volumesnapshots /manifests/volumesnapshots
 
 ENTRYPOINT ["/vcluster", "start"]

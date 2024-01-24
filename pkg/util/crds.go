@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath string, groupVersionKind schema.GroupVersionKind) error {
+func EnsureCRD(ctx context.Context, config *rest.Config, manifest []byte, groupVersionKind schema.GroupVersionKind) error {
 	exists, err := KindExists(config, groupVersionKind)
 	if err != nil {
 		return err
@@ -25,9 +25,9 @@ func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath str
 	}
 
 	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: 5 * time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
-		err := applier.ApplyManifestFile(ctx, config, crdFilePath)
+		err := applier.ApplyManifest(ctx, config, manifest)
 		if err != nil {
-			loghelper.Infof("Failed to apply CRD %s from the manifest file %s: %v", groupVersionKind.String(), crdFilePath, err)
+			loghelper.Infof("Failed to apply CRD %s: %v", groupVersionKind.String(), err)
 			return false, nil
 		}
 		return true, nil

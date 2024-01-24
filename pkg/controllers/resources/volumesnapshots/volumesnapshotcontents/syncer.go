@@ -2,7 +2,6 @@ package volumesnapshotcontents
 
 import (
 	"context"
-	"path"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -24,8 +23,6 @@ import (
 )
 
 const (
-	crdPath = "volumesnapshots/snapshot.storage.k8s.io_volumesnapshotcontents.yaml"
-
 	HostClusterVSCAnnotation              = "vcluster.loft.sh/host-volumesnapshotcontent"
 	PhysicalVSCGarbageCollectionFinalizer = "vcluster.loft.sh/physical-volumesnapshotcontent-gc"
 )
@@ -47,7 +44,7 @@ type volumeSnapshotContentSyncer struct {
 var _ syncer.Initializer = &volumeSnapshotContentSyncer{}
 
 func (s *volumeSnapshotContentSyncer) Init(registerContext *synccontext.RegisterContext) error {
-	return util.EnsureCRDFromFile(registerContext.Context, registerContext.VirtualManager.GetConfig(), path.Join(constants.ContainerManifestsFolder, crdPath), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"))
+	return util.EnsureCRD(registerContext.Context, registerContext.VirtualManager.GetConfig(), []byte(volumeSnapshotContentsCRD), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"))
 }
 
 func NewVolumeSnapshotContentTranslator() translate.PhysicalNameTranslator {

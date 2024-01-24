@@ -27,9 +27,6 @@ COPY cmd/vcluster cmd/vcluster
 COPY cmd/vclusterctl cmd/vclusterctl
 COPY pkg/ pkg/
 
-# Symlink /manifests folder to the synced location for development purposes
-RUN ln -s "$(pwd)/manifests" /manifests
-
 ENV GO111MODULE on
 ENV DEBUG true
 
@@ -65,7 +62,6 @@ WORKDIR /
 
 COPY --from=builder /vcluster .
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
-COPY manifests/ /manifests/
 
 # RUN useradd -u 12345 nonroot
 # USER nonroot
