@@ -2,6 +2,8 @@ package scheme
 
 import (
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	agentclusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/vcluster/pkg/apis"
 	apidiscoveryv2beta1 "k8s.io/api/apidiscovery/v2beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -31,4 +33,8 @@ func init() {
 
 	// Register VolumeSnapshot CRDs
 	_ = volumesnapshotv1.AddToScheme(Scheme)
+
+	// Register Loft CRDs
+	_ = agentstoragev1.AddToScheme(Scheme)
+	_ = agentclusterv1.AddToScheme(Scheme)
 }
