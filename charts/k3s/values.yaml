@@ -125,6 +125,7 @@ mapServices:
   # also create the namespace for the service.
   fromHost: []
 
+# Proxy metrics server from host to virtual
 proxy:
   metricsServer:
     nodes:

@@ -208,8 +208,17 @@ func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile
 	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, s.redirectResources)
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
 
+	// is metrics proxy enabled?
 	if ctx.Options.ProxyMetricsServer {
-		h = filters.WithMetricsServerProxy(ctx, h, cachedLocalClient, cachedVirtualClient, localConfig)
+		h = filters.WithMetricsServerProxy(
+			h,
+			ctx.Options.TargetNamespace,
+			cachedLocalClient,
+			cachedVirtualClient,
+			localConfig,
+			virtualConfig,
+			ctx.Options.MultiNamespaceMode,
+		)
 	}
 
 	if ctx.Options.DeprecatedSyncNodeChanges {

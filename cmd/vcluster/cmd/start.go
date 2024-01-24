@@ -5,44 +5,18 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	"github.com/loft-sh/vcluster/pkg/apis"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
-
-var (
-	scheme = runtime.NewScheme()
-)
-
-func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-	// API extensions are not in the above scheme set,
-	// and must thus be added separately.
-	_ = apiextensionsv1beta1.AddToScheme(scheme)
-	_ = apiextensionsv1.AddToScheme(scheme)
-	_ = apiregistrationv1.AddToScheme(scheme)
-
-	// Register the fake conversions
-	_ = apis.RegisterConversions(scheme)
-
-	// Register VolumeSnapshot CRDs
-	_ = volumesnapshotv1.AddToScheme(scheme)
-}
 
 func NewStartCommand() *cobra.Command {
 	vClusterOptions := &options.VirtualClusterOptions{}
@@ -128,7 +102,7 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 		options,
 		currentNamespace,
 		inClusterConfig,
-		scheme,
+		scheme.Scheme,
 	)
 	if err != nil {
 		return err
@@ -155,7 +129,7 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 func StartLeaderElection(ctx *options.ControllerContext, startLeading func() error) error {
 	var err error
 	if ctx.Options.LeaderElect {
-		err = leaderelection.StartLeaderElection(ctx, scheme, func() error {
+		err = leaderelection.StartLeaderElection(ctx, scheme.Scheme, func() error {
 			return startLeading()
 		})
 	} else {

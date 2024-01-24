@@ -2,26 +2,29 @@ package filters
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/server/handler"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	apidiscoveryv2beta1 "k8s.io/api/apidiscovery/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apiserver/pkg/audit"
+	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/apiserver/pkg/endpoints/metrics"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	apirest "k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -33,125 +36,45 @@ const (
 	RequestVerbGet  = "get"
 	NodeResource    = "nodes"
 	PodResource     = "pods"
-	APIVersion      = "v1beta1"
 
-	HeaderContentType = "Content-Type"
-
+	HeaderContentType       = "Content-Type"
 	LabelSelectorQueryParam = "labelSelector"
 )
 
-var ErrNodeNotInVcluster = errors.New("node not present in vcluster")
-
-func WithMetricsServerProxy(ctx *options.ControllerContext, h http.Handler, cacheHostClient, cachedVirtualClient client.Client, hostConfig *rest.Config) http.Handler {
+func WithMetricsServerProxy(
+	h http.Handler,
+	targetNamespace string,
+	cachedHostClient,
+	cachedVirtualClient client.Client,
+	hostConfig,
+	virtualConfig *rest.Config,
+	multiNamespaceMode bool,
+) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// first get request info
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
 			requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, fmt.Errorf("request info is missing"))
 			return
 		}
 
+		// is regular metrics request?
 		if isMetricsServerProxyRequest(info) {
-			splitted := strings.Split(req.URL.Path, "/")
-
-			err := translateLabelSelectors(req)
-			if err != nil {
-				klog.Infof("error translating label selectors %v", err)
-				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
-				return
-			}
-
-			metricsServerProxy := &MetricsServerProxy{
-				codecFactory:   serializer.NewCodecFactory(cachedVirtualClient.Scheme()),
-				request:        req,
-				requestInfo:    info,
-				responseWriter: w,
-				resourceType:   NodeResource,
-				verb:           info.Verb,
-
-				client: cacheHostClient,
-			}
-
-			// request is for get particular pod
-			if info.Resource == PodResource && info.Verb == RequestVerbGet {
-				klog.Infof("physical namespace: %s", translate.Default.PhysicalNamespace(info.Namespace))
-				klog.Infof("physical name: %s", translate.Default.PhysicalName(info.Name, info.Namespace))
-				namespace := translate.Default.PhysicalNamespace(info.Namespace)
-				name := translate.Default.PhysicalName(info.Name, info.Namespace)
-
-				metricsServerProxy.resourceType = PodResource
-
-				// replace the translated name and namespace
-				splitted[5] = namespace
-				splitted[7] = name
-
-				req.URL.Path = strings.Join(splitted, "/")
-			}
-
-			// request is for list pods
-			if info.Resource == PodResource && info.Verb == RequestVerbList {
-				// check if its a list request across all namespaces
-				if info.Namespace != "" {
-					namespace := translate.Default.PhysicalNamespace(info.Namespace)
-					splitted[5] = namespace
-				} else if !ctx.Options.MultiNamespaceMode {
-					// limit to current namespace in host cluster
-					splitted = append(splitted[:4], append([]string{"namespaces", ctx.CurrentNamespace}, splitted[4:]...)...)
-				}
-
-				metricsServerProxy.resourceType = PodResource
-				vPodList, err := getVirtualPodObjectsInNamespace(req.Context(), cachedVirtualClient, info.Namespace)
-				if err != nil {
-					klog.Infof("error getting vpods in namespace %v", err)
-					requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
-					return
-				}
-				metricsServerProxy.podsInNamespace = vPodList
-
-				req.URL.Path = strings.Join(splitted, "/")
-			}
-
-			acceptHeader := req.Header.Get("Accept")
-			if info.Resource == NodeResource {
-				if strings.Contains(acceptHeader, "as=Table;") {
-					// respond a 403 for now as we don't want to expose all host nodes with the table response
-					// TODO: rewrite node table response to only show nodes synced in the vcluster
-					requestpkg.FailWithStatus(w, req, http.StatusForbidden, fmt.Errorf("cannot list nodes in table response format"))
-					return
-				}
-
-				// fetch and fill vcluster synced nodes
-				nodeList, err := getVirtualNodes(req.Context(), cachedVirtualClient)
-				if err != nil {
-					requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
-					return
-				}
-
-				metricsServerProxy.nodesInVcluster = nodeList
-			}
-
-			proxyHandler, err := handler.Handler("", hostConfig, nil)
-			if err != nil {
-				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
-				return
-			}
-
-			req.Header.Del("Authorization")
-			metricsServerProxy.handler = proxyHandler
-
-			metricsServerProxy.HandleRequest()
-
+			handleMetricsServerProxyRequest(
+				w,
+				req,
+				targetNamespace,
+				cachedHostClient,
+				cachedVirtualClient,
+				info,
+				hostConfig,
+				multiNamespaceMode,
+			)
 			return
 		}
 
+		// is list request?
 		if isAPIResourceListRequest(info) {
-			apiResourceListProxy := &APIResourceListProxy{
-				codecFactory:   serializer.NewCodecFactory(cachedVirtualClient.Scheme()),
-				request:        req,
-				requestInfo:    info,
-				responseWriter: w,
-				resourceType:   NodeResource,
-			}
-
 			proxyHandler, err := handler.Handler("", hostConfig, nil)
 			if err != nil {
 				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
@@ -159,39 +82,30 @@ func WithMetricsServerProxy(ctx *options.ControllerContext, h http.Handler, cach
 			}
 
 			req.Header.Del("Authorization")
-			apiResourceListProxy.handler = proxyHandler
-			apiResourceListProxy.HandleRequest()
-
+			handleAPIResourceListRequest(w, req, proxyHandler, serializer.NewCodecFactory(cachedVirtualClient.Scheme()))
 			return
+		}
+
+		// is new aggregated list request?
+		if isNewAPIResourceListRequest(info, req) {
+			proxyHandler, err := handler.Handler("", virtualConfig, nil)
+			if err != nil {
+				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
+				return
+			}
+
+			// check if we handled the request
+			if handleNewAPIResourceListRequest(w, req, proxyHandler, cachedVirtualClient.Scheme()) {
+				return
+			}
 		}
 
 		h.ServeHTTP(w, req)
 	})
 }
 
-func translateLabelSelectors(req *http.Request) error {
-	translatedSelectors := make(map[string]string)
-
-	query := req.URL.Query()
-	labelSelectors := query.Get(LabelSelectorQueryParam)
-
-	if labelSelectors != "" {
-		selectors, err := labels.ConvertSelectorToLabelsMap(labelSelectors)
-		if err != nil {
-			return err
-		}
-
-		for k, v := range selectors {
-			translatedKey := translate.Default.ConvertLabelKey(k)
-			translatedSelectors[translatedKey] = v
-		}
-	}
-
-	translatedLabelSelectors := labels.SelectorFromSet(translatedSelectors)
-	query.Set(LabelSelectorQueryParam, translatedLabelSelectors.String())
-	req.URL.RawQuery = query.Encode()
-
-	return nil
+func isNewAPIResourceListRequest(r *request.RequestInfo, req *http.Request) bool {
+	return r.Path == "/apis" && strings.Contains(req.Header.Get("Accept"), "application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList")
 }
 
 func isAPIResourceListRequest(r *request.RequestInfo) bool {
@@ -208,40 +122,196 @@ func isMetricsServerProxyRequest(r *request.RequestInfo) bool {
 		(r.Resource == NodeResource || r.Resource == PodResource)
 }
 
-type APIResourceListProxy struct {
-	codecFactory   serializer.CodecFactory
-	handler        http.Handler
-	request        *http.Request
-	requestInfo    *request.RequestInfo
-	responseWriter http.ResponseWriter
-	resourceType   string
-}
-
-func (p *APIResourceListProxy) HandleRequest() {
-	code, header, data, err := executeRequest(p.request, p.handler)
+func handleMetricsServerProxyRequest(
+	w http.ResponseWriter,
+	req *http.Request,
+	targetNamespace string,
+	cachedHostClient,
+	cachedVirtualClient client.Client,
+	info *request.RequestInfo,
+	hostConfig *rest.Config,
+	multiNamespaceMode bool,
+) {
+	splitted := strings.Split(req.URL.Path, "/")
+	err := translateLabelSelectors(req)
 	if err != nil {
-		klog.Infof("error executing request %v", err)
-		responsewriters.ErrorNegotiated(err, p.codecFactory, corev1.SchemeGroupVersion, p.responseWriter, p.request)
-		return
-	} else if code != http.StatusOK {
-		klog.Infof("error status not ok %v", err)
-		writeWithHeader(p.responseWriter, code, header, data)
+		klog.Infof("error translating label selectors %v", err)
+		requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 		return
 	}
 
-	newData := data
+	metricsServerProxy := &MetricsServerProxy{
+		request:        req,
+		requestInfo:    info,
+		responseWriter: w,
+		resourceType:   NodeResource,
+		verb:           info.Verb,
 
-	p.responseWriter.Header().Set(HeaderContentType, header.Get(HeaderContentType))
-	_, err = p.responseWriter.Write(newData)
+		client: cachedHostClient,
+	}
+
+	// request is for get particular pod
+	if info.Resource == PodResource && info.Verb == RequestVerbGet {
+		namespace := translate.Default.PhysicalNamespace(info.Namespace)
+		name := translate.Default.PhysicalName(info.Name, info.Namespace)
+		metricsServerProxy.resourceType = PodResource
+
+		// replace the translated name and namespace
+		splitted[5] = namespace
+		splitted[7] = name
+
+		req.URL.Path = strings.Join(splitted, "/")
+	}
+
+	// request is for list pods
+	if info.Resource == PodResource && info.Verb == RequestVerbList {
+		// check if its a list request across all namespaces
+		if info.Namespace != "" {
+			splitted[5] = translate.Default.PhysicalNamespace(info.Namespace)
+		} else if !multiNamespaceMode {
+			// limit to current namespace in host cluster
+			splitted = append(splitted[:4], append([]string{"namespaces", targetNamespace}, splitted[4:]...)...)
+		}
+
+		metricsServerProxy.resourceType = PodResource
+		vPodList, err := getVirtualPodObjectsInNamespace(req.Context(), cachedVirtualClient, info.Namespace)
+		if err != nil {
+			klog.Infof("error getting vpods in namespace %v", err)
+			requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
+			return
+		}
+
+		metricsServerProxy.podsInNamespace = vPodList
+		req.URL.Path = strings.Join(splitted, "/")
+	}
+
+	acceptHeader := req.Header.Get("Accept")
+	if info.Resource == NodeResource {
+		if strings.Contains(acceptHeader, "as=Table;") {
+			// respond a 403 for now as we don't want to expose all host nodes with the table response
+			// TODO: rewrite node table response to only show nodes synced in the vcluster
+			requestpkg.FailWithStatus(w, req, http.StatusForbidden, fmt.Errorf("cannot list nodes in table response format"))
+			return
+		}
+
+		// fetch and fill vcluster synced nodes
+		nodeList, err := getVirtualNodes(req.Context(), cachedVirtualClient)
+		if err != nil {
+			requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
+			return
+		}
+
+		metricsServerProxy.nodesInVCluster = nodeList
+	}
+
+	proxyHandler, err := handler.Handler("", hostConfig, nil)
+	if err != nil {
+		requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
+		return
+	}
+
+	req.Header.Del("Authorization")
+	metricsServerProxy.handler = proxyHandler
+	metricsServerProxy.HandleRequest()
+}
+
+func handleNewAPIResourceListRequest(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	handler http.Handler,
+	scheme *runtime.Scheme,
+) bool {
+	// execute the request
+	code, _, data, err := executeRequest(request, handler)
+	if err != nil {
+		klog.Infof("error executing request %v", err)
+		return false
+	} else if code != http.StatusOK {
+		klog.Infof("error status not ok %v", err)
+		return false
+	}
+
+	// try parsing data
+	response := &apidiscoveryv2beta1.APIGroupDiscoveryList{}
+	codecFactory := serializer.NewCodecFactory(scheme)
+	_, _, err = codecFactory.UniversalDeserializer().Decode(data, nil, response)
+	if err != nil {
+		klog.Infof("error unmarshalling discovery list %v", err)
+		return false
+	} else if response.Kind != "APIGroupDiscoveryList" || response.APIVersion != apidiscoveryv2beta1.SchemeGroupVersion.String() {
+		klog.Infof("error retrieving discovery list: unexpected kind or apiversion %s %s", response.Kind, response.APIVersion)
+		return false
+	}
+
+	// inject metrics api
+	response.Items = append(response.Items, apidiscoveryv2beta1.APIGroupDiscovery{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "metrics.k8s.io",
+		},
+		Versions: []apidiscoveryv2beta1.APIVersionDiscovery{
+			{
+				Version: "v1beta1",
+				Resources: []apidiscoveryv2beta1.APIResourceDiscovery{
+					{
+						Resource: NodeResource,
+						ResponseKind: &metav1.GroupVersionKind{
+							Kind: "NodeMetrics",
+						},
+						Scope: apidiscoveryv2beta1.ScopeCluster,
+						Verbs: []string{"get", "list"},
+					},
+					{
+						Resource: PodResource,
+						ResponseKind: &metav1.GroupVersionKind{
+							Kind: "PodMetrics",
+						},
+						Scope: apidiscoveryv2beta1.ScopeNamespace,
+						Verbs: []string{"get", "list"},
+					},
+				},
+				Freshness: apidiscoveryv2beta1.DiscoveryFreshnessCurrent,
+			},
+		},
+	})
+
+	// return new data
+	WriteObjectNegotiatedWithMediaType(
+		responseWriter,
+		request,
+		response,
+		scheme,
+		"application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList",
+	)
+	return true
+}
+
+func handleAPIResourceListRequest(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	handler http.Handler,
+	codecFactory serializer.CodecFactory,
+) {
+	code, header, data, err := executeRequest(request, handler)
+	if err != nil {
+		klog.Infof("error executing request %v", err)
+		responsewriters.ErrorNegotiated(err, codecFactory, corev1.SchemeGroupVersion, responseWriter, request)
+		return
+	} else if code != http.StatusOK {
+		klog.Infof("error status not ok %v", err)
+		writeWithHeader(responseWriter, code, header, data)
+		return
+	}
+
+	responseWriter.Header().Set(HeaderContentType, header.Get(HeaderContentType))
+	_, err = responseWriter.Write(data)
 	if err != nil {
 		klog.Infof("error writing response %v", err)
-		requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+		requestpkg.FailWithStatus(responseWriter, request, http.StatusInternalServerError, err)
 		return
 	}
 }
 
 type MetricsServerProxy struct {
-	codecFactory   serializer.CodecFactory
 	handler        http.Handler
 	request        *http.Request
 	requestInfo    *request.RequestInfo
@@ -251,7 +321,7 @@ type MetricsServerProxy struct {
 	podsInNamespace      []corev1.Pod
 	verb                 string
 	tableFormatRequested bool
-	nodesInVcluster      []corev1.Node
+	nodesInVCluster      []corev1.Node
 
 	client client.Client
 }
@@ -270,75 +340,54 @@ func (p *MetricsServerProxy) HandleRequest() {
 			p.tableFormatRequested = true
 		}
 	}
+
+	// execute request in host cluster
 	code, header, data, err := executeRequest(p.request, p.handler)
 	if err != nil {
-		responsewriters.ErrorNegotiated(err, p.codecFactory, corev1.SchemeGroupVersion, p.responseWriter, p.request)
+		responsewriters.ErrorNegotiated(err, serializer.NewCodecFactory(p.client.Scheme()), corev1.SchemeGroupVersion, p.responseWriter, p.request)
 		return
 	} else if code != http.StatusOK {
 		writeWithHeader(p.responseWriter, code, header, data)
 		return
 	}
 
-	newData := data
+	// is pod resource?
 	if p.resourceType == PodResource {
 		if p.verb == RequestVerbGet {
-			newData, err = p.rewritePodMetricsGetData(data)
-			if err != nil {
-				requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
-				return
-			}
-		} else if p.verb == RequestVerbList && !p.tableFormatRequested {
-			newData, err = p.rewritePodMetricsListData(data)
-			if err != nil {
-				requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
-				return
-			}
-		} else {
-			newData, err = p.rewritePodMetricsTableData(data)
-			if err != nil {
-				requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
-				return
-			}
-		}
-	} else if p.resourceType == NodeResource {
-		// filter nodes synced with vcluster
-		newData, err = p.filterVirtualNodes(data)
-		if err != nil {
-			if errors.Is(err, ErrNodeNotInVcluster) {
-				requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusNotFound, err)
-				return
-			}
-
-			requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+			p.rewritePodMetricsGetData(data)
+			return
+		} else if p.verb == RequestVerbList && p.tableFormatRequested {
+			p.rewritePodMetricsTableData(data)
 			return
 		}
-	}
 
-	p.responseWriter.Header().Set(HeaderContentType, header.Get(HeaderContentType))
-	_, err = p.responseWriter.Write(newData)
-	if err != nil {
-		requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+		p.rewritePodMetricsListData(data)
+		return
+	} else if p.resourceType == NodeResource {
+		// filter nodes synced with vcluster
+		p.rewriteNodeMetricsList(data)
 		return
 	}
+
+	requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, fmt.Errorf("unrecognized resource type: %s", p.resourceType))
 }
 
-func (p *MetricsServerProxy) filterVirtualNodes(data []byte) ([]byte, error) {
-	var newData []byte
-
+func (p *MetricsServerProxy) rewriteNodeMetricsList(data []byte) {
 	virtualNodeMap := make(map[string]corev1.Node)
-	for _, node := range p.nodesInVcluster {
+	for _, node := range p.nodesInVCluster {
 		virtualNodeMap[node.Name] = node
 	}
 
+	codecFactory := serializer.NewCodecFactory(p.client.Scheme())
 	if p.verb == RequestVerbList {
 		nodeMetricsList := &metricsv1beta1.NodeMetricsList{}
-		err := json.Unmarshal(data, nodeMetricsList)
+		_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, nodeMetricsList)
 		if err != nil {
-			return nil, err
+			requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+			return
 		}
 
 		filteredNodeMetricsList := []metricsv1beta1.NodeMetrics{}
-
 		for _, nodeMetrics := range nodeMetricsList.Items {
 			if vNode, ok := virtualNodeMap[nodeMetrics.Name]; ok {
 				// reset node metrics labels
@@ -346,70 +395,81 @@ func (p *MetricsServerProxy) filterVirtualNodes(data []byte) ([]byte, error) {
 				filteredNodeMetricsList = append(filteredNodeMetricsList, nodeMetrics)
 			}
 		}
-
 		nodeMetricsList.Items = filteredNodeMetricsList
-		newData, err = json.Marshal(nodeMetricsList)
-		if err != nil {
-			klog.Errorf("error marshalling node metrics back to response %v", err)
-			return nil, err
-		}
+
+		// return new data
+		WriteObjectNegotiated(
+			p.responseWriter,
+			p.request,
+			nodeMetricsList,
+			p.client.Scheme(),
+		)
 	} else if p.verb == RequestVerbGet {
+		// decode metrics
 		nodeMetric := &metricsv1beta1.NodeMetrics{}
-		err := json.Unmarshal(data, nodeMetric)
+		_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, nodeMetric)
 		if err != nil {
-			return nil, err
+			requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+			return
 		}
 
-		if vNode, ok := virtualNodeMap[nodeMetric.Name]; ok {
-			nodeMetric.Labels = vNode.Labels
-
-			newData, err = json.Marshal(nodeMetric)
-			if err != nil {
-				klog.Errorf("error marshalling node metrics back to response %v", err)
-				return nil, err
-			}
-
-			return newData, nil
+		// is node found?
+		vNode, ok := virtualNodeMap[nodeMetric.Name]
+		if !ok {
+			requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusNotFound, err)
+			return
 		}
 
-		return newData, ErrNodeNotInVcluster
+		// exchange labels
+		nodeMetric.Labels = vNode.Labels
+
+		// return new data
+		WriteObjectNegotiated(
+			p.responseWriter,
+			p.request,
+			nodeMetric,
+			p.client.Scheme(),
+		)
 	}
-
-	return newData, nil
 }
 
-func (p *MetricsServerProxy) rewritePodMetricsGetData(data []byte) ([]byte, error) {
+func (p *MetricsServerProxy) rewritePodMetricsGetData(data []byte) {
+	codecFactory := serializer.NewCodecFactory(p.client.Scheme())
 	podMetrics := &metricsv1beta1.PodMetrics{}
-	err := json.Unmarshal(data, podMetrics)
+	_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, podMetrics)
 	if err != nil {
-		return nil, err
+		requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+		return
 	}
 
 	podMetrics.Name = p.requestInfo.Name
 	podMetrics.Namespace = p.requestInfo.Namespace
 
-	newData, err := json.Marshal(podMetrics)
-	if err != nil {
-		klog.Errorf("error marshalling pod metrics back to response %v", err)
-		return nil, err
-	}
-
-	return newData, nil
+	// return new data
+	WriteObjectNegotiated(
+		p.responseWriter,
+		p.request,
+		podMetrics,
+		p.client.Scheme(),
+	)
 }
 
-func (p *MetricsServerProxy) rewritePodMetricsTableData(data []byte) ([]byte, error) {
+func (p *MetricsServerProxy) rewritePodMetricsTableData(data []byte) {
+	codecFactory := serializer.NewCodecFactory(p.client.Scheme())
 	table := &metav1.Table{}
-	err := json.Unmarshal(data, table)
+	_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, table)
 	if err != nil {
-		return nil, err
+		requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+		return
 	}
 
 	hostPodMap := make(map[types.NamespacedName]*RowData)
 	for i, row := range table.Rows {
 		pom := &metav1.PartialObjectMetadata{}
-		err = json.Unmarshal(row.Object.Raw, pom)
+		_, _, err := codecFactory.UniversalDeserializer().Decode(row.Object.Raw, nil, pom)
 		if err != nil {
 			klog.Infof("can't convert to partial object %v", err)
+			continue
 		}
 
 		hostPodMap[types.NamespacedName{
@@ -436,16 +496,12 @@ func (p *MetricsServerProxy) rewritePodMetricsTableData(data []byte) ([]byte, er
 			rowData.Pom.Name = vPod.Name
 			rowData.Pom.Namespace = vPod.Namespace
 
-			rawExtData, err := json.Marshal(rowData.Pom)
-			if err != nil {
-				klog.Infof("can't convert partial object to raw extension %v", err)
-			}
-
+			// print table rows
 			filteredTableRows = append(filteredTableRows, metav1.TableRow{
 				Cells:      rowData.Cells,
 				Conditions: table.Rows[rowData.Index].Conditions,
 				Object: runtime.RawExtension{
-					Raw: rawExtData,
+					Object: &rowData.Pom,
 				},
 			})
 		}
@@ -454,21 +510,23 @@ func (p *MetricsServerProxy) rewritePodMetricsTableData(data []byte) ([]byte, er
 	// rewrite the filtered rows back to original table
 	table.Rows = filteredTableRows
 
-	newData, err := json.Marshal(table)
-	if err != nil {
-		klog.Errorf("error marshalling pod metrics back to response %v", err)
-		return nil, err
-	}
-
-	return newData, nil
+	// return new data
+	WriteObjectNegotiated(
+		p.responseWriter,
+		p.request,
+		table,
+		p.client.Scheme(),
+	)
 }
 
-func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) ([]byte, error) {
+func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) {
+	codecFactory := serializer.NewCodecFactory(p.client.Scheme())
 	podMetricsList := &metricsv1beta1.PodMetricsList{}
-	err := json.Unmarshal(data, podMetricsList)
+	_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, podMetricsList)
 	if err != nil {
-		klog.Infof("error unmarshalling pod metrics list %v", err)
-		return nil, err
+		klog.Infof("error unmarshalling pod metrics list %s %v", string(data), err)
+		requestpkg.FailWithStatus(p.responseWriter, p.request, http.StatusInternalServerError, err)
+		return
 	}
 
 	hostPodMap := make(map[types.NamespacedName]metricsv1beta1.PodMetrics)
@@ -504,13 +562,13 @@ func (p *MetricsServerProxy) rewritePodMetricsListData(data []byte) ([]byte, err
 		}
 	}
 
-	newData, err := json.Marshal(filteredBackTranslatedList)
-	if err != nil {
-		klog.Errorf("error marshalling pod metrics back to response %v", err)
-		return nil, err
-	}
-
-	return newData, nil
+	// write object back
+	WriteObjectNegotiated(
+		p.responseWriter,
+		p.request,
+		filteredBackTranslatedList,
+		p.client.Scheme(),
+	)
 }
 
 // returns the types.NamespacedName list of pods for the given namespace
@@ -528,11 +586,74 @@ func getVirtualPodObjectsInNamespace(ctx context.Context, vClient client.Client,
 
 func getVirtualNodes(ctx context.Context, vClient client.Client) ([]corev1.Node, error) {
 	nodeList := &corev1.NodeList{}
-
 	err := vClient.List(ctx, nodeList)
 	if err != nil {
 		return nil, err
 	}
 
 	return nodeList.Items, nil
+}
+
+func translateLabelSelectors(req *http.Request) error {
+	translatedSelectors := make(map[string]string)
+
+	query := req.URL.Query()
+	labelSelectors := query.Get(LabelSelectorQueryParam)
+	if labelSelectors != "" {
+		selectors, err := labels.ConvertSelectorToLabelsMap(labelSelectors)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range selectors {
+			translatedKey := translate.Default.ConvertLabelKey(k)
+			translatedSelectors[translatedKey] = v
+		}
+	}
+
+	translatedLabelSelectors := labels.SelectorFromSet(translatedSelectors)
+	query.Set(LabelSelectorQueryParam, translatedLabelSelectors.String())
+	req.URL.RawQuery = query.Encode()
+	return nil
+}
+
+func WriteObjectNegotiated(w http.ResponseWriter, req *http.Request, object runtime.Object, scheme *runtime.Scheme) {
+	WriteObjectNegotiatedWithMediaType(w, req, object, scheme, "")
+}
+
+func WriteObjectNegotiatedWithMediaType(w http.ResponseWriter, req *http.Request, object runtime.Object, scheme *runtime.Scheme, overrideMediaType string) {
+	s := serializer.NewCodecFactory(scheme)
+	statusCode := http.StatusOK
+	gvk, err := apiutil.GVKForObject(object, scheme)
+	if err != nil {
+		responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
+		return
+	}
+
+	stream, ok := object.(apirest.ResourceStreamer)
+	if ok {
+		requestInfo, _ := request.RequestInfoFrom(req.Context())
+		metrics.RecordLongRunning(req, requestInfo, metrics.APIServerComponent, func() {
+			responsewriters.StreamObject(statusCode, gvk.GroupVersion(), s, stream, w, req)
+		})
+		return
+	}
+
+	_, serializer, err := negotiation.NegotiateOutputMediaType(req, s, negotiation.DefaultEndpointRestrictions)
+	if err != nil {
+		status := responsewriters.ErrorToAPIStatus(err)
+		responsewriters.WriteRawJSON(int(status.Code), status, w)
+		return
+	}
+
+	audit.LogResponseObject(req.Context(), object, gvk.GroupVersion(), s)
+
+	encoder := s.EncoderForVersion(serializer.Serializer, gvk.GroupVersion())
+	request.TrackSerializeResponseObjectLatency(req.Context(), func() {
+		if overrideMediaType != "" {
+			responsewriters.SerializeObject(overrideMediaType, encoder, w, req, statusCode, object)
+		} else {
+			responsewriters.SerializeObject(serializer.MediaType, encoder, w, req, statusCode, object)
+		}
+	})
 }
