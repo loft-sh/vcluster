@@ -34,7 +34,7 @@ type VersionedApiBuilder struct {
 
 func NewApiVersion(group, version string) *VersionedApiBuilder {
 	b := &VersionedApiBuilder{
-		GroupVersion: schema.GroupVersion{group, version},
+		GroupVersion: schema.GroupVersion{Group: group, Version: version},
 	}
 	return b
 }
@@ -73,7 +73,7 @@ type UnVersionedApiBuilder struct {
 
 func NewApiGroup(group string) *UnVersionedApiBuilder {
 	b := &UnVersionedApiBuilder{
-		GroupVersion: schema.GroupVersion{group, runtime.APIVersionInternal},
+		GroupVersion: schema.GroupVersion{Group: group, Version: runtime.APIVersionInternal},
 	}
 	//b.SchemaBuilder = runtime.NewSchemeBuilder(b.registerTypes)
 	return b

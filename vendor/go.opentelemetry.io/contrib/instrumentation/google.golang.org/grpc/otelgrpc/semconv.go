@@ -41,7 +41,7 @@ const (
 // Semantic conventions for common RPC attributes.
 var (
 	// Semantic convention for gRPC as the remoting system.
-	RPCSystemGRPC = semconv.RPCSystemKey.String("grpc")
+	RPCSystemGRPC = semconv.RPCSystemGRPC
 
 	// Semantic convention for a message named message.
 	RPCNameMessage = RPCNameKey.String("message")

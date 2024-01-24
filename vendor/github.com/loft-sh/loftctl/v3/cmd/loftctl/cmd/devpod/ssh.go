@@ -3,6 +3,7 @@ package devpod
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
@@ -17,14 +18,14 @@ import (
 type SshCmd struct {
 	*flags.GlobalFlags
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewSshCmd creates a new command
 func NewSshCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &SshCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 	c := &cobra.Command{
 		Use:   "ssh",
@@ -36,14 +37,14 @@ func NewSshCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd.Context())
+			return cmd.Run(cobraCmd.Context(), os.Stdin, os.Stdout, os.Stderr)
 		},
 	}
 
 	return c
 }
 
-func (cmd *SshCmd) Run(ctx context.Context) error {
+func (cmd *SshCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -61,7 +62,7 @@ func (cmd *SshCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	_, err = remotecommand.ExecuteConn(ctx, conn, os.Stdin, os.Stdout, os.Stderr, cmd.log.ErrorStreamOnly())
+	_, err = remotecommand.ExecuteConn(ctx, conn, stdin, stdout, stderr, cmd.Log.ErrorStreamOnly())
 	if err != nil {
 		return fmt.Errorf("error executing: %w", err)
 	}

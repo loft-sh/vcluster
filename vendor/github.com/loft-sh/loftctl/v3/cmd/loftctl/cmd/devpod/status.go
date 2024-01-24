@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
@@ -18,14 +19,14 @@ import (
 type StatusCmd struct {
 	*flags.GlobalFlags
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewStatusCmd creates a new command
 func NewStatusCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &StatusCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 	c := &cobra.Command{
 		Use:   "status",
@@ -37,14 +38,14 @@ func NewStatusCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd.Context())
+			return cmd.Run(cobraCmd.Context(), os.Stdin, os.Stdout, os.Stderr)
 		},
 	}
 
 	return c
 }
 
-func (cmd *StatusCmd) Run(ctx context.Context) error {
+func (cmd *StatusCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -73,7 +74,7 @@ func (cmd *StatusCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	_, err = remotecommand.ExecuteConn(ctx, conn, os.Stdin, os.Stdout, os.Stderr, cmd.log.ErrorStreamOnly())
+	_, err = remotecommand.ExecuteConn(ctx, conn, stdin, stdout, stderr, cmd.Log.ErrorStreamOnly())
 	if err != nil {
 		return fmt.Errorf("error executing: %w", err)
 	}
