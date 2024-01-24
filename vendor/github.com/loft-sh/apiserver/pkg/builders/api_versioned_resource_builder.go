@@ -158,7 +158,7 @@ func (b *versionedResourceBuilder) GetStandardStorage() rest.StandardStorage {
 // getGroupResource returns the GroupResource for this Resource and the provided Group
 // group is the group the resource belongs to
 func (b *versionedResourceBuilder) getGroupResource(group string) schema.GroupResource {
-	return schema.GroupResource{group, b.Unversioned.GetName()}
+	return schema.GroupResource{Group: group, Resource: b.Unversioned.GetName()}
 
 }
 

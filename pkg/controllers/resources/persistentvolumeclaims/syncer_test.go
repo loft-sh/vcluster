@@ -37,7 +37,7 @@ func TestSync(t *testing.T) {
 			translate.NamespaceLabel: vObjectMeta.Namespace,
 		},
 	}
-	changedResources := corev1.ResourceRequirements{
+	changedResources := corev1.VolumeResourceRequirements{
 		Requests: map[corev1.ResourceName]resource.Quantity{
 			"storage": {
 				Format: "teststoragerequest",

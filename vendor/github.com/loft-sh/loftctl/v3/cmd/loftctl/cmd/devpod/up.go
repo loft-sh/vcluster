@@ -33,14 +33,14 @@ import (
 type UpCmd struct {
 	*flags.GlobalFlags
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewUpCmd creates a new command
 func NewUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &UpCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 	c := &cobra.Command{
 		Use:   "up",
@@ -52,14 +52,14 @@ func NewUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd.Context(), log.GetInstance().ErrorStreamOnly())
+			return cmd.Run(cobraCmd.Context(), os.Stdin, os.Stdout, os.Stderr)
 		},
 	}
 
 	return c
 }
 
-func (cmd *UpCmd) Run(ctx context.Context, log log.Logger) error {
+func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func (cmd *UpCmd) Run(ctx context.Context, log log.Logger) error {
 
 	// create workspace if doesn't exist
 	if workspace == nil {
-		workspace, err = createWorkspace(ctx, baseClient, log)
+		workspace, err = createWorkspace(ctx, baseClient, cmd.Log.ErrorStreamOnly())
 		if err != nil {
 			return fmt.Errorf("create workspace: %w", err)
 		}
@@ -83,7 +83,7 @@ func (cmd *UpCmd) Run(ctx context.Context, log log.Logger) error {
 		return err
 	}
 
-	_, err = remotecommand.ExecuteConn(ctx, conn, os.Stdin, os.Stdout, os.Stderr, cmd.log.ErrorStreamOnly())
+	_, err = remotecommand.ExecuteConn(ctx, conn, stdin, stdout, stderr, cmd.Log.ErrorStreamOnly())
 	if err != nil {
 		return fmt.Errorf("error executing: %w", err)
 	}

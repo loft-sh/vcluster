@@ -3,7 +3,6 @@ package connect
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -34,22 +33,20 @@ import (
 )
 
 type ClusterCmd struct {
-	Log log.Logger
 	*flags.GlobalFlags
+	Log            log.Logger
+	Context        string
+	DisplayName    string
+	HelmChartPath  string
 	Namespace      string
 	Project        string
 	ServiceAccount string
-	DisplayName    string
-	Context        string
-	Wait           bool
+	HelmSet        []string
+	HelmValues     []string
+	Development    bool
 	Experimental   bool
-
-	HelmSet       []string
-	HelmValues    []string
-	HelmChartPath string
-
-	Insecure    bool
-	Development bool
+	Insecure       bool
+	Wait           bool
 }
 
 // NewClusterCmd creates a new command
@@ -248,7 +245,11 @@ func (cmd *ClusterCmd) deployAgent(ctx context.Context, kubeClient kubernetes.In
 
 	// check what type of deployment is it
 	if cmd.Development {
-		args = append(args, "./chart", "--set", "image=ghcr.io/loft-sh/enterprise:release-test")
+		image := "ghcr.io/loft-sh/enterprise:release-test"
+		if overrideImage, ok := os.LookupEnv("DEVELOPMENT_IMAGE"); ok {
+			image = overrideImage
+		}
+		args = append(args, "./chart", "--set", "image="+image)
 	} else if cmd.HelmChartPath != "" {
 		args = append(args, cmd.HelmChartPath)
 	} else {
@@ -291,9 +292,9 @@ func (cmd *ClusterCmd) deployAgent(ctx context.Context, kubeClient kubernetes.In
 		args = append(args, "--kube-context", cmd.Context)
 	}
 
-	errChan := make(chan error)
+	errChanHelm := make(chan error)
 	go func() {
-		defer close(errChan)
+		defer close(errChanHelm)
 
 		helmCmd := exec.CommandContext(ctx, "helm", args...)
 		helmCmd.Stdout = cmd.Log.Writer(logrus.DebugLevel, true)
@@ -305,16 +306,32 @@ func (cmd *ClusterCmd) deployAgent(ctx context.Context, kubeClient kubernetes.In
 
 		err := helmCmd.Run()
 		if err != nil {
-			errChan <- fmt.Errorf("failed to install loft chart: %w", err)
+			errChanHelm <- fmt.Errorf("failed to install loft chart: %w", err)
 		}
 	}()
 
-	_, err := clihelper.WaitForReadyLoftPod(ctx, kubeClient, cmd.Namespace, cmd.Log)
-	if err = errors.Join(err, <-errChan); err != nil {
-		return fmt.Errorf("wait for loft pod: %w", err)
-	}
+	errChannWait := make(chan error)
+	go func() {
+		defer close(errChannWait)
 
-	return nil
+		_, err := clihelper.WaitForReadyLoftPod(ctx, kubeClient, cmd.Namespace, cmd.Log)
+		if err != nil {
+			errChannWait <- fmt.Errorf("wait ready: %w", err)
+		}
+	}()
+
+	select {
+	case err := <-errChanHelm:
+		if err != nil {
+			return err
+		}
+		return <-errChannWait
+	case err := <-errChannWait:
+		if err != nil {
+			return err
+		}
+		return <-errChanHelm
+	}
 }
 
 func getUserOrTeam(ctx context.Context, managementClient kube.Interface) (string, string, error) {
