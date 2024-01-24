@@ -51,43 +51,85 @@ func NewControllerContext(
 		return nil, err
 	}
 
-	// load virtual config
-	virtualConfig, virtualRawConfig, err := LoadVirtualConfig(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-
-	// start plugins
-	err = StartPlugins(ctx, currentNamespace, inClusterConfig, virtualConfig, virtualRawConfig, options)
-	if err != nil {
-		return nil, err
-	}
-
-	// create managers
-	klog.Info("Using physical cluster at " + inClusterConfig.Host)
-	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
-		Scheme:         scheme,
-		Metrics:        metricsserver.Options{BindAddress: options.HostMetricsBindAddress},
-		LeaderElection: false,
-		Cache:          cache.Options{DefaultNamespaces: GetDefaultNamespaces(currentNamespace, options)},
-		NewClient:      pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	virtualClusterManager, err := ctrl.NewManager(virtualConfig, ctrl.Options{
-		Scheme:         scheme,
-		Metrics:        metricsserver.Options{BindAddress: options.VirtualMetricsBindAddress},
-		LeaderElection: false,
-		NewClient:      pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
-	})
+	// init managers
+	localManager, virtualClusterManager, virtualRawConfig, err := InitManagers(
+		ctx,
+		options,
+		currentNamespace,
+		inClusterConfig,
+		scheme,
+		pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
+		pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	// create controller context
 	return InitControllerContext(ctx, currentNamespace, localManager, virtualClusterManager, virtualRawConfig, options)
+}
+
+func InitManagers(
+	ctx context.Context,
+	options *options.VirtualClusterOptions,
+	currentNamespace string,
+	inClusterConfig *rest.Config,
+	scheme *runtime.Scheme,
+	newPhysicalClient client.NewClientFunc,
+	newVirtualClient client.NewClientFunc,
+) (ctrl.Manager, ctrl.Manager, *clientcmdapi.Config, error) {
+	// load virtual config
+	virtualConfig, virtualRawConfig, err := LoadVirtualConfig(ctx, options)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// is multi namespace mode?
+	var defaultNamespaces map[string]cache.Config
+	if options.MultiNamespaceMode {
+		// set options.TargetNamespace to empty because it will later be used in Manager
+		options.TargetNamespace = ""
+		translate.Default = translate.NewMultiNamespaceTranslator(currentNamespace)
+	} else {
+		// ensure target namespace
+		if options.TargetNamespace == "" {
+			options.TargetNamespace = currentNamespace
+		}
+		translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
+		defaultNamespaces = map[string]cache.Config{options.TargetNamespace: {}}
+	}
+
+	// start plugins
+	err = StartPlugins(ctx, currentNamespace, inClusterConfig, virtualConfig, virtualRawConfig, options)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// create physical manager
+	klog.Info("Using physical cluster at " + inClusterConfig.Host)
+	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
+		Scheme:         scheme,
+		Metrics:        metricsserver.Options{BindAddress: options.HostMetricsBindAddress},
+		LeaderElection: false,
+		Cache:          cache.Options{DefaultNamespaces: defaultNamespaces},
+		NewClient:      newPhysicalClient,
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// create virtual manager
+	virtualClusterManager, err := ctrl.NewManager(virtualConfig, ctrl.Options{
+		Scheme:         scheme,
+		Metrics:        metricsserver.Options{BindAddress: options.VirtualMetricsBindAddress},
+		LeaderElection: false,
+		NewClient:      newVirtualClient,
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return localManager, virtualClusterManager, virtualRawConfig, nil
 }
 
 func StartPlugins(
@@ -165,25 +207,6 @@ func ValidateOptions(options *options.VirtualClusterOptions) error {
 	}
 
 	return nil
-}
-
-func GetDefaultNamespaces(currentNamespace string, options *options.VirtualClusterOptions) map[string]cache.Config {
-	// is multi namespace mode?
-	var defaultNamespaces map[string]cache.Config
-	if options.MultiNamespaceMode {
-		// set options.TargetNamespace to empty because it will later be used in Manager
-		options.TargetNamespace = ""
-		translate.Default = translate.NewMultiNamespaceTranslator(currentNamespace)
-	} else {
-		// ensure target namespace
-		if options.TargetNamespace == "" {
-			options.TargetNamespace = currentNamespace
-		}
-		translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
-		defaultNamespaces = map[string]cache.Config{options.TargetNamespace: {}}
-	}
-
-	return defaultNamespaces
 }
 
 func WaitForClientConfig(ctx context.Context, options *options.VirtualClusterOptions) (clientcmd.ClientConfig, error) {

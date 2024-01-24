@@ -19,12 +19,8 @@ import (
 )
 
 const (
-	ManifestRelativePath  = "metrics-server/service.yaml"
 	MetricsVersion        = "v1beta1"
 	MetricsAPIServiceName = MetricsVersion + "." + metrics.GroupName // "v1beta1.metrics.k8s.io"
-
-	AuxVirtualSvcName      = "metrics-server"
-	AuxVirtualSvcNamespace = "kube-system"
 )
 
 func checkExistingAPIService(ctx context.Context, client client.Client) bool {
