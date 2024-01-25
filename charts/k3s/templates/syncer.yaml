@@ -199,7 +199,6 @@ spec:
         - {{ $f | quote }}
         {{- end }}
         {{- end }}
-        {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
           - --kube-config=/data/k3s-config/kube-config.yaml
@@ -280,10 +279,6 @@ spec:
           {{- end }}
           {{- include "vcluster.serviceMapping.fromHost" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
-        {{- else }}
-        args:
-{{ toYaml .Values.syncer.extraArgs | indent 10 }}
-        {{- end }}
         {{- if .Values.syncer.livenessProbe }}
         {{- if .Values.syncer.livenessProbe.enabled }}
         livenessProbe:

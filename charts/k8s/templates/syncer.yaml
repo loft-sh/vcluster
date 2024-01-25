@@ -224,7 +224,6 @@ spec:
         - {{ $f | quote }}
         {{- end }}
         {{- end }}
-        {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
           - --request-header-ca-cert=/pki/front-proxy-ca.crt
@@ -297,10 +296,6 @@ spec:
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
-        {{- else }}
-        args:
-{{ toYaml .Values.syncer.extraArgs | indent 10 }}
-        {{- end }}
         {{- if .Values.syncer.livenessProbe }}
         {{- if .Values.syncer.livenessProbe.enabled }}
         livenessProbe:
