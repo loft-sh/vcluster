@@ -16,10 +16,6 @@ monitoring:
   serviceMonitor:
     enabled: false
 
-# If the control plane is deployed in high availability mode
-# Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
-enableHA: false
-
 # Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
 plugin: {}
 # Manually configure a plugin called test

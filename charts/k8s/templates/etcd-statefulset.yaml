@@ -65,7 +65,7 @@ spec:
       {{- if .Values.etcd.affinity }}
       affinity:
 {{ toYaml .Values.etcd.affinity | indent 8 }}
-      {{- else if .Values.enableHA }}
+      {{- else }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

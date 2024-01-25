@@ -49,7 +49,7 @@ spec:
       {{- if .Values.syncer.affinity }}
       affinity:
 {{ toYaml .Values.syncer.affinity | indent 8 }}
-      {{- else if .Values.enableHA }}
+      {{- else if (gt (int .Values.syncer.replicas) 1) }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -228,7 +228,7 @@ spec:
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
-          {{- if .Values.enableHA }}
+          {{- if (gt (int .Values.syncer.replicas) 1) }}
           - --leader-elect=true
           {{- else }}
           - --leader-elect=false
@@ -393,7 +393,7 @@ spec:
                 {{- else }}
                 - '--service-cluster-ip-range=$(SERVICE_CIDR)'
                 {{- end }}
-                {{- if .Values.enableHA }}
+                {{- if (gt (int .Values.syncer.replicas) 1) }}
                 - '--leader-elect=true'
                 {{- else }}
                 - '--leader-elect=false'
