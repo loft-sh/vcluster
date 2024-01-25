@@ -220,52 +220,12 @@ etcd:
 controller:
   image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6
   imagePullPolicy: ""
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used
-  nodeSelector: {}
-  # Affinity to apply
-  affinity: {}
-  # Tolerations to apply
-  tolerations: []
-  # Extra Labels
-  labels: {}
-  # Extra Annotations
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 15m
-  priorityClassName: ""
-  securityContext: {}
 
 # Kubernetes API Server settings
 api:
   image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
   imagePullPolicy: ""
   extraArgs: []
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used to schedule the syncer
-  nodeSelector: {}
-  # Affinity to apply to the syncer deployment
-  affinity: {}
-  # Tolerations to apply to the syncer deployment
-  tolerations: []
-  # Extra Labels for the syncer deployment
-  labels: {}
-  # Extra Annotations for the syncer deployment
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 40m
-      memory: 300Mi
-  priorityClassName: ""
-  securityContext: {}
-  serviceAnnotations: {}
 
 # Core DNS settings
 coredns:

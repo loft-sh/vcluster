@@ -224,47 +224,11 @@ etcd:
 controller:
   image: registry.k8s.io/kube-controller-manager:v1.29.0
   imagePullPolicy: ""
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used
-  nodeSelector: {}
-  # Affinity to apply
-  affinity: {}
-  # Tolerations to apply
-  tolerations: []
-  # Extra Labels
-  labels: {}
-  # Extra Annotations
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 15m
-  priorityClassName: ""
-  securityContext: {}
+
 # Kubernetes Scheduler settings. Only enabled if sync.nodes.enableScheduler is true
 scheduler:
   image: registry.k8s.io/kube-scheduler:v1.29.0
   imagePullPolicy: ""
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used
-  nodeSelector: {}
-  # Affinity to apply
-  affinity: {}
-  # Tolerations to apply
-  tolerations: []
-  # Extra Labels
-  labels: {}
-  # Extra Annotations
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 10m
-  priorityClassName: ""
   disabled: true
 
 # Kubernetes API Server settings
@@ -272,27 +236,6 @@ api:
   image: registry.k8s.io/kube-apiserver:v1.29.0
   imagePullPolicy: ""
   extraArgs: []
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used to schedule the syncer
-  nodeSelector: {}
-  # Affinity to apply to the syncer deployment
-  affinity: {}
-  # Tolerations to apply to the syncer deployment
-  tolerations: []
-  # Extra Labels for the syncer deployment
-  labels: {}
-  # Extra Annotations for the syncer deployment
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 40m
-      memory: 300Mi
-  priorityClassName: ""
-  securityContext: {}
-  serviceAnnotations: {}
 
 # Service account that should be used by the vcluster
 serviceAccount:
