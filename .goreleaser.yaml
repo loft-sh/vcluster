@@ -197,8 +197,6 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-    extra_files:
-      - manifests
 
   - image_templates:
       - ghcr.io/loft-sh/vcluster:{{ .Version }}-arm64v8
@@ -221,8 +219,6 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-    extra_files:
-      - manifests
 
   # --- Vcluster-cli images ---
   - image_templates:
@@ -245,8 +241,6 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-    extra_files:
-      - manifests
 
   - image_templates:
       - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-arm64v8
@@ -269,8 +263,6 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-    extra_files:
-      - manifests
 
 docker_manifests:
   # --- Vcluster multi arch ---
