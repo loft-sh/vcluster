@@ -62,6 +62,20 @@ func (e *ServiceSyncer) Register() error {
 
 			return []reconcile.Request{{NamespacedName: from}}
 		})).
+		WatchesRawSource(source.Kind(e.From.GetCache(), &corev1.Endpoints{}), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
+			if object == nil {
+				return nil
+			}
+
+			_, ok := e.SyncServices[object.GetNamespace()+"/"+object.GetName()]
+			if !ok {
+				return nil
+			}
+
+			return []reconcile.Request{{
+				NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: object.GetName()},
+			}}
+		})).
 		Complete(e)
 }
 
@@ -81,7 +95,7 @@ func (e *ServiceSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 
 		// make sure the to service is deleted
-		e.Log.Infof("Delete target service %s/%s because from service is missing", to.Name, to.Namespace)
+		e.Log.Infof("Delete target service %s/%s because from service is missing", to.Namespace, to.Name)
 		err = e.To.GetClient().Delete(ctx, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      to.Name,
@@ -281,16 +295,32 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 	}
 
 	// check if update is needed
-	expectedSubsets := []corev1.EndpointSubset{
-		{
-			Addresses: []corev1.EndpointAddress{
-				{
-					IP: fromService.Spec.ClusterIP,
+	var expectedSubsets []corev1.EndpointSubset
+	if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
+		// fetch the corresponding endpoint and assign address from there to here
+		fromEndpoint := &corev1.Endpoints{}
+		err = e.From.GetClient().Get(ctx, types.NamespacedName{
+			Name:      fromService.GetName(),
+			Namespace: fromService.GetNamespace(),
+		}, fromEndpoint)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		expectedSubsets = fromEndpoint.Subsets
+	} else {
+		expectedSubsets = []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: fromService.Spec.ClusterIP,
+					},
 				},
+				Ports: convertPorts(toService.Spec.Ports),
 			},
-			Ports: convertPorts(toService.Spec.Ports),
-		},
+		}
 	}
+
 	if !apiequality.Semantic.DeepEqual(toEndpoints.Subsets, expectedSubsets) {
 		e.Log.Infof("Update target endpoints %s/%s because subsets are different", to.Namespace, to.Name)
 		toEndpoints.Subsets = expectedSubsets
