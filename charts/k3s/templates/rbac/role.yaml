@@ -50,7 +50,7 @@ rules:
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]
   {{- end }}
-  {{- if or (gt (int .Values.replicas) 1) .Values.rbac.role.extended }}
+  {{- if or (gt (int .Values.replicas) 1) (gt (int .Values.syncer.replicas) 1) .Values.rbac.role.extended }}
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
