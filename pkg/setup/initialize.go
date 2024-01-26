@@ -3,8 +3,8 @@ package setup
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/certs"
@@ -31,12 +31,6 @@ func Initialize(
 	vClusterName string,
 	options *options.VirtualClusterOptions,
 ) error {
-	// check if we should create certificates
-	certificatesDir := ""
-	if strings.HasPrefix(options.ServerCaCert, "/pki/") {
-		certificatesDir = "/pki"
-	}
-
 	// Ensure that service CIDR range is written into the expected location
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
 		err := initialize(
@@ -48,7 +42,6 @@ func Initialize(
 			currentNamespace,
 			vClusterName,
 			options,
-			certificatesDir,
 		)
 		if err != nil {
 			klog.Errorf("error initializing service cidr, certs and token: %v", err)
@@ -76,7 +69,6 @@ func initialize(
 	currentNamespace,
 	vClusterName string,
 	options *options.VirtualClusterOptions,
-	certificatesDir string,
 ) error {
 	distro := constants.GetVClusterDistro()
 
@@ -125,8 +117,9 @@ func initialize(
 			}
 		}()
 	case constants.K8SDistro, constants.EKSDistro:
-		if certificatesDir != "" {
-			// generate k8s certificates
+		// try to generate k8s certificates
+		certificatesDir := filepath.Dir(options.ServerCaCert)
+		if certificatesDir == "/pki" {
 			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 			if err != nil {
 				return err
@@ -134,19 +127,17 @@ func initialize(
 		}
 
 		// start k8s
-		apiUp := make(chan struct{})
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
 			// loop in Initialize
-			err := k8s.StartK8S(parentCtx, apiUp, options.Name, serviceCIDR)
+			err := k8s.StartK8S(parentCtx, serviceCIDR)
 			if err != nil {
 				klog.Fatalf("Error running k8s: %v", err)
 			}
 		}()
-		klog.Info("waiting for the api to be up")
-		<-apiUp
 	case constants.Unknown:
-		if certificatesDir != "" {
+		certificatesDir := filepath.Dir(options.ServerCaCert)
+		if certificatesDir == "/pki" {
 			// generate k8s certificates
 			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 			if err != nil {
