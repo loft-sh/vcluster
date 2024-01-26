@@ -11,8 +11,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
-	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -44,6 +42,8 @@ func NewControllerContext(
 	currentNamespace string,
 	inClusterConfig *rest.Config,
 	scheme *runtime.Scheme,
+	newPhysicalClient client.NewClientFunc,
+	newVirtualClient client.NewClientFunc,
 ) (*options.ControllerContext, error) {
 	// validate options
 	err := ValidateOptions(options)
@@ -51,22 +51,16 @@ func NewControllerContext(
 		return nil, err
 	}
 
-	// init managers
-	localManager, virtualClusterManager, virtualRawConfig, err := InitManagers(
+	// create controller context
+	return InitManagers(
 		ctx,
 		options,
 		currentNamespace,
 		inClusterConfig,
 		scheme,
-		pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
-		pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
+		newPhysicalClient,
+		newVirtualClient,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	// create controller context
-	return InitControllerContext(ctx, currentNamespace, localManager, virtualClusterManager, virtualRawConfig, options)
 }
 
 func InitManagers(
@@ -77,11 +71,11 @@ func InitManagers(
 	scheme *runtime.Scheme,
 	newPhysicalClient client.NewClientFunc,
 	newVirtualClient client.NewClientFunc,
-) (ctrl.Manager, ctrl.Manager, *clientcmdapi.Config, error) {
+) (*options.ControllerContext, error) {
 	// load virtual config
 	virtualConfig, virtualRawConfig, err := LoadVirtualConfig(ctx, options)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// is multi namespace mode?
@@ -102,7 +96,7 @@ func InitManagers(
 	// start plugins
 	err = StartPlugins(ctx, currentNamespace, inClusterConfig, virtualConfig, virtualRawConfig, options)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// create physical manager
@@ -115,7 +109,7 @@ func InitManagers(
 		NewClient:      newPhysicalClient,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// create virtual manager
@@ -126,10 +120,11 @@ func InitManagers(
 		NewClient:      newVirtualClient,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	return localManager, virtualClusterManager, virtualRawConfig, nil
+	// init controller context
+	return InitControllerContext(ctx, currentNamespace, localManager, virtualClusterManager, virtualRawConfig, options)
 }
 
 func StartPlugins(
@@ -140,6 +135,7 @@ func StartPlugins(
 	virtualRawConfig *clientcmdapi.Config,
 	options *options.VirtualClusterOptions,
 ) error {
+	// start plugins only if they are not disabled
 	if !options.DisablePlugins {
 		klog.Infof("Start Plugins Manager...")
 		syncerConfig, err := CreateVClusterKubeConfig(virtualRawConfig, options)
@@ -307,64 +303,6 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *options.Virt
 	}
 
 	return config, nil
-}
-
-func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *options.VirtualClusterOptions, config *clientcmdapi.Config, isRemote bool) error {
-	config, err := CreateVClusterKubeConfig(config, options)
-	if err != nil {
-		return err
-	}
-
-	if options.KubeConfigContextName != "" {
-		config.CurrentContext = options.KubeConfigContextName
-		// update authInfo
-		for k := range config.AuthInfos {
-			config.AuthInfos[options.KubeConfigContextName] = config.AuthInfos[k]
-			if k != options.KubeConfigContextName {
-				delete(config.AuthInfos, k)
-			}
-			break
-		}
-
-		// update cluster
-		for k := range config.Clusters {
-			config.Clusters[options.KubeConfigContextName] = config.Clusters[k]
-			if k != options.KubeConfigContextName {
-				delete(config.Clusters, k)
-			}
-			break
-		}
-
-		// update context
-		for k := range config.Contexts {
-			tmpCtx := config.Contexts[k]
-			tmpCtx.Cluster = options.KubeConfigContextName
-			tmpCtx.AuthInfo = options.KubeConfigContextName
-			config.Contexts[options.KubeConfigContextName] = tmpCtx
-			if k != options.KubeConfigContextName {
-				delete(config.Contexts, k)
-			}
-			break
-		}
-	}
-
-	// check if we need to write the kubeconfig secrete to the default location as well
-	if options.KubeConfigSecret != "" {
-		// which namespace should we create the additional secret in?
-		secretNamespace := options.KubeConfigSecretNamespace
-		if secretNamespace == "" {
-			secretNamespace = currentNamespace
-		}
-
-		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.KubeConfigSecret, secretNamespace, config, isRemote)
-		if err != nil {
-			return fmt.Errorf("creating %s secret in the %s ns failed: %w", options.KubeConfigSecret, secretNamespace, err)
-		}
-	}
-
-	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, config, isRemote)
 }
 
 func InitControllerContext(
