@@ -44,7 +44,7 @@ func StartK8S(ctx context.Context, apiUp chan struct{}, releaseName, serviceCIDR
 		if err != nil {
 			return fmt.Errorf("parsing apiserver command %s: %w", apiEnv, err)
 		}
-		apiCommand.Command = append(apiCommand.Command, fmt.Sprintf(serviceCIDRarg))
+		apiCommand.Command = append(apiCommand.Command, serviceCIDRarg)
 		eg.Go(func() error {
 			_, err := etcd.WaitForEtcdClient(ctx, "/pki", "https://"+releaseName+"-etcd:2379")
 			if err != nil {
@@ -67,7 +67,7 @@ func StartK8S(ctx context.Context, apiUp chan struct{}, releaseName, serviceCIDR
 		if err != nil {
 			return fmt.Errorf("parsing controller command %s: %w", controllerEnv, err)
 		}
-		controllerCommand.Command = append(controllerCommand.Command, fmt.Sprintf(serviceCIDRarg))
+		controllerCommand.Command = append(controllerCommand.Command, serviceCIDRarg)
 		eg.Go(func() error {
 			return RunCommand(ctx, *controllerCommand, "controller")
 		})
