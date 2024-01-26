@@ -358,11 +358,6 @@ spec:
                 - '--service-account-issuer=https://kubernetes.default.svc.cluster.local'
                 - '--service-account-key-file=/pki/sa.pub'
                 - '--service-account-signing-key-file=/pki/sa.key'
-                {{- if .Values.serviceCIDR }}
-                - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
-                {{- else }}
-                - '--service-cluster-ip-range=$(SERVICE_CIDR)'
-                {{- end }}
                 - '--tls-cert-file=/pki/apiserver.crt'
                 - '--tls-private-key-file=/pki/apiserver.key'
                 - '--watch-cache=false'
@@ -388,11 +383,6 @@ spec:
                 - '--node-monitor-period=1h'
                 - '--horizontal-pod-autoscaler-sync-period=60s'
                 - '--kubeconfig=/pki/controller-manager.conf'
-                {{- if .Values.serviceCIDR }}
-                - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
-                {{- else }}
-                - '--service-cluster-ip-range=$(SERVICE_CIDR)'
-                {{- end }}
                 {{- if .Values.enableHA }}
                 - '--leader-elect=true'
                 {{- else }}
