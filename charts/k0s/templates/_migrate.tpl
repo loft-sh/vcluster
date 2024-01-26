@@ -2,5 +2,5 @@
   handles both replicas and syncer.replicas
 */}}
 {{- define "vcluster.replicas" -}}
-{{ if .Values.syncer.replicas }}{{ .Values.syncer.replicas }}{{ else }}{{ .Values.replicas }}{{ end }}
+{{ if .Values.replicas }}{{ .Values.replicas }}{{ else }}{{ .Values.syncer.replicas }}{{ end }}
 {{- end }}
