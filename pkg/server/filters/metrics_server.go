@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/audit"
@@ -37,7 +38,6 @@ const (
 	NodeResource    = "nodes"
 	PodResource     = "pods"
 
-	HeaderContentType       = "Content-Type"
 	LabelSelectorQueryParam = "labelSelector"
 )
 
@@ -81,13 +81,24 @@ func WithMetricsServerProxy(
 				return
 			}
 
-			req.Header.Del("Authorization")
-			handleAPIResourceListRequest(w, req, proxyHandler, serializer.NewCodecFactory(cachedVirtualClient.Scheme()))
+			handleAPIResourceListRequest(w, req, proxyHandler, cachedVirtualClient.Scheme())
+			return
+		}
+
+		// is version request?
+		if isAPIResourceVersionListRequest(info) {
+			proxyHandler, err := handler.Handler("", hostConfig, nil)
+			if err != nil {
+				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
+				return
+			}
+
+			handleAPIResourceVersionListRequest(w, req, proxyHandler, cachedVirtualClient.Scheme())
 			return
 		}
 
 		// is new aggregated list request?
-		if isNewAPIResourceListRequest(info, req) {
+		if isNewAPIResourceListRequest(info) {
 			proxyHandler, err := handler.Handler("", virtualConfig, nil)
 			if err != nil {
 				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
@@ -104,12 +115,16 @@ func WithMetricsServerProxy(
 	})
 }
 
-func isNewAPIResourceListRequest(r *request.RequestInfo, req *http.Request) bool {
-	return r.Path == "/apis" && strings.Contains(req.Header.Get("Accept"), "application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList")
+func isNewAPIResourceListRequest(r *request.RequestInfo) bool {
+	return r.Path == "/apis"
 }
 
 func isAPIResourceListRequest(r *request.RequestInfo) bool {
 	return r.Path == "/apis/metrics.k8s.io/v1beta1"
+}
+
+func isAPIResourceVersionListRequest(r *request.RequestInfo) bool {
+	return r.Path == "/apis/metrics.k8s.io"
 }
 
 func isMetricsServerProxyRequest(r *request.RequestInfo) bool {
@@ -120,6 +135,190 @@ func isMetricsServerProxyRequest(r *request.RequestInfo) bool {
 	return (r.APIGroup == metricsv1beta1.SchemeGroupVersion.Group &&
 		r.APIVersion == metricsv1beta1.SchemeGroupVersion.Version) &&
 		(r.Resource == NodeResource || r.Resource == PodResource)
+}
+
+func handleNewAPIResourceListRequest(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	handler http.Handler,
+	scheme *runtime.Scheme,
+) bool {
+	// try parsing data into api group discovery list
+	if strings.Contains(request.Header.Get("Accept"), "application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList") {
+		// execute the request
+		code, _, data, err := executeRequest(request, handler)
+		if err != nil {
+			klog.Infof("error executing request %v", err)
+			return false
+		} else if code != http.StatusOK {
+			klog.Infof("error status not ok %v", err)
+			return false
+		}
+
+		if handleAPIGroupDiscoveryList(responseWriter, request, data, scheme) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func handleAPIGroupDiscoveryList(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	data []byte,
+	scheme *runtime.Scheme,
+) bool {
+	response := &apidiscoveryv2beta1.APIGroupDiscoveryList{}
+	codecFactory := serializer.NewCodecFactory(scheme)
+	_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, response)
+	if err != nil {
+		klog.Infof("error unmarshalling discovery list %v", err)
+		return false
+	} else if response.Kind != "APIGroupDiscoveryList" || response.APIVersion != apidiscoveryv2beta1.SchemeGroupVersion.String() {
+		klog.Infof("error retrieving discovery list: unexpected kind or apiversion %s %s %s", response.Kind, response.APIVersion, string(data))
+		return false
+	}
+
+	// inject metrics api
+	response.Items = append(response.Items, apidiscoveryv2beta1.APIGroupDiscovery{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "metrics.k8s.io",
+		},
+		Versions: []apidiscoveryv2beta1.APIVersionDiscovery{
+			{
+				Version: "v1beta1",
+				Resources: []apidiscoveryv2beta1.APIResourceDiscovery{
+					{
+						Resource: NodeResource,
+						ResponseKind: &metav1.GroupVersionKind{
+							Kind: "NodeMetrics",
+						},
+						Scope: apidiscoveryv2beta1.ScopeCluster,
+						Verbs: []string{"get", "list"},
+					},
+					{
+						Resource: PodResource,
+						ResponseKind: &metav1.GroupVersionKind{
+							Kind: "PodMetrics",
+						},
+						Scope: apidiscoveryv2beta1.ScopeNamespace,
+						Verbs: []string{"get", "list"},
+					},
+				},
+				Freshness: apidiscoveryv2beta1.DiscoveryFreshnessCurrent,
+			},
+		},
+	})
+
+	// return new data
+	WriteObjectNegotiatedWithMediaType(
+		responseWriter,
+		request,
+		response,
+		scheme,
+		"application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList",
+	)
+	return true
+}
+
+func handleAPIResourceVersionListRequest(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	handler http.Handler,
+	scheme *runtime.Scheme,
+) {
+	codecFactory := serializer.NewCodecFactory(scheme)
+	code, header, data, err := executeRequest(request, handler)
+	if err != nil {
+		klog.Infof("error executing request %v", err)
+		responsewriters.ErrorNegotiated(err, codecFactory, corev1.SchemeGroupVersion, responseWriter, request)
+		return
+	} else if code != http.StatusOK {
+		klog.Infof("error status not ok %v", err)
+		writeWithHeader(responseWriter, code, header, data)
+		return
+	}
+
+	response := &metav1.APIGroup{}
+	_, _, err = codecFactory.UniversalDeserializer().Decode(data, nil, response)
+	if err != nil {
+		klog.Infof("error unmarshalling resource list %v", err)
+		responsewriters.ErrorNegotiated(err, codecFactory, corev1.SchemeGroupVersion, responseWriter, request)
+		return
+	} else if response.Kind != "APIGroup" {
+		err = fmt.Errorf("error retrieving resource version list: unexpected kind or apiversion %s %s %s", response.Kind, response.APIVersion, string(data))
+		klog.Info(err.Error())
+		responsewriters.ErrorNegotiated(err, codecFactory, corev1.SchemeGroupVersion, responseWriter, request)
+		return
+	}
+
+	// return new data
+	WriteObjectNegotiatedWithGVK(
+		responseWriter,
+		request,
+		response,
+		scheme,
+		corev1.SchemeGroupVersion,
+		"",
+	)
+}
+
+func handleAPIResourceListRequest(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	handler http.Handler,
+	scheme *runtime.Scheme,
+) {
+	codecFactory := serializer.NewCodecFactory(scheme)
+	code, header, data, err := executeRequest(request, handler)
+	if err != nil {
+		klog.Infof("error executing request %v", err)
+		responsewriters.ErrorNegotiated(err, codecFactory, corev1.SchemeGroupVersion, responseWriter, request)
+		return
+	} else if code != http.StatusOK {
+		klog.Infof("error status not ok %v", err)
+		writeWithHeader(responseWriter, code, header, data)
+		return
+	}
+
+	response := &metav1.APIResourceList{}
+	_, _, err = codecFactory.UniversalDeserializer().Decode(data, nil, response)
+	if err != nil {
+		klog.Infof("error unmarshalling resource list %v", err)
+		responsewriters.ErrorNegotiated(err, codecFactory, corev1.SchemeGroupVersion, responseWriter, request)
+		return
+	} else if response.Kind != "APIResourceList" {
+		err = fmt.Errorf("error retrieving resource list: unexpected kind or apiversion %s %s %s", response.Kind, response.APIVersion, string(data))
+		klog.Info(err.Error())
+		responsewriters.ErrorNegotiated(err, codecFactory, corev1.SchemeGroupVersion, responseWriter, request)
+		return
+	}
+
+	// return new data
+	WriteObjectNegotiatedWithGVK(
+		responseWriter,
+		request,
+		response,
+		scheme,
+		corev1.SchemeGroupVersion,
+		"",
+	)
+}
+
+type MetricsServerProxy struct {
+	handler        http.Handler
+	request        *http.Request
+	requestInfo    *request.RequestInfo
+	responseWriter http.ResponseWriter
+	resourceType   string
+
+	podsInNamespace      []corev1.Pod
+	verb                 string
+	tableFormatRequested bool
+	nodesInVCluster      []corev1.Node
+
+	client client.Client
 }
 
 func handleMetricsServerProxyRequest(
@@ -213,117 +412,6 @@ func handleMetricsServerProxyRequest(
 	req.Header.Del("Authorization")
 	metricsServerProxy.handler = proxyHandler
 	metricsServerProxy.HandleRequest()
-}
-
-func handleNewAPIResourceListRequest(
-	responseWriter http.ResponseWriter,
-	request *http.Request,
-	handler http.Handler,
-	scheme *runtime.Scheme,
-) bool {
-	// execute the request
-	code, _, data, err := executeRequest(request, handler)
-	if err != nil {
-		klog.Infof("error executing request %v", err)
-		return false
-	} else if code != http.StatusOK {
-		klog.Infof("error status not ok %v", err)
-		return false
-	}
-
-	// try parsing data
-	response := &apidiscoveryv2beta1.APIGroupDiscoveryList{}
-	codecFactory := serializer.NewCodecFactory(scheme)
-	_, _, err = codecFactory.UniversalDeserializer().Decode(data, nil, response)
-	if err != nil {
-		klog.Infof("error unmarshalling discovery list %v", err)
-		return false
-	} else if response.Kind != "APIGroupDiscoveryList" || response.APIVersion != apidiscoveryv2beta1.SchemeGroupVersion.String() {
-		klog.Infof("error retrieving discovery list: unexpected kind or apiversion %s %s", response.Kind, response.APIVersion)
-		return false
-	}
-
-	// inject metrics api
-	response.Items = append(response.Items, apidiscoveryv2beta1.APIGroupDiscovery{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "metrics.k8s.io",
-		},
-		Versions: []apidiscoveryv2beta1.APIVersionDiscovery{
-			{
-				Version: "v1beta1",
-				Resources: []apidiscoveryv2beta1.APIResourceDiscovery{
-					{
-						Resource: NodeResource,
-						ResponseKind: &metav1.GroupVersionKind{
-							Kind: "NodeMetrics",
-						},
-						Scope: apidiscoveryv2beta1.ScopeCluster,
-						Verbs: []string{"get", "list"},
-					},
-					{
-						Resource: PodResource,
-						ResponseKind: &metav1.GroupVersionKind{
-							Kind: "PodMetrics",
-						},
-						Scope: apidiscoveryv2beta1.ScopeNamespace,
-						Verbs: []string{"get", "list"},
-					},
-				},
-				Freshness: apidiscoveryv2beta1.DiscoveryFreshnessCurrent,
-			},
-		},
-	})
-
-	// return new data
-	WriteObjectNegotiatedWithMediaType(
-		responseWriter,
-		request,
-		response,
-		scheme,
-		"application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList",
-	)
-	return true
-}
-
-func handleAPIResourceListRequest(
-	responseWriter http.ResponseWriter,
-	request *http.Request,
-	handler http.Handler,
-	codecFactory serializer.CodecFactory,
-) {
-	code, header, data, err := executeRequest(request, handler)
-	if err != nil {
-		klog.Infof("error executing request %v", err)
-		responsewriters.ErrorNegotiated(err, codecFactory, corev1.SchemeGroupVersion, responseWriter, request)
-		return
-	} else if code != http.StatusOK {
-		klog.Infof("error status not ok %v", err)
-		writeWithHeader(responseWriter, code, header, data)
-		return
-	}
-
-	responseWriter.Header().Set(HeaderContentType, header.Get(HeaderContentType))
-	_, err = responseWriter.Write(data)
-	if err != nil {
-		klog.Infof("error writing response %v", err)
-		requestpkg.FailWithStatus(responseWriter, request, http.StatusInternalServerError, err)
-		return
-	}
-}
-
-type MetricsServerProxy struct {
-	handler        http.Handler
-	request        *http.Request
-	requestInfo    *request.RequestInfo
-	responseWriter http.ResponseWriter
-	resourceType   string
-
-	podsInNamespace      []corev1.Pod
-	verb                 string
-	tableFormatRequested bool
-	nodesInVCluster      []corev1.Node
-
-	client client.Client
 }
 
 type RowData struct {
@@ -621,20 +709,14 @@ func WriteObjectNegotiated(w http.ResponseWriter, req *http.Request, object runt
 	WriteObjectNegotiatedWithMediaType(w, req, object, scheme, "")
 }
 
-func WriteObjectNegotiatedWithMediaType(w http.ResponseWriter, req *http.Request, object runtime.Object, scheme *runtime.Scheme, overrideMediaType string) {
+func WriteObjectNegotiatedWithGVK(w http.ResponseWriter, req *http.Request, object runtime.Object, scheme *runtime.Scheme, groupVersion schema.GroupVersion, overrideMediaType string) {
 	s := serializer.NewCodecFactory(scheme)
 	statusCode := http.StatusOK
-	gvk, err := apiutil.GVKForObject(object, scheme)
-	if err != nil {
-		responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
-		return
-	}
-
 	stream, ok := object.(apirest.ResourceStreamer)
 	if ok {
 		requestInfo, _ := request.RequestInfoFrom(req.Context())
 		metrics.RecordLongRunning(req, requestInfo, metrics.APIServerComponent, func() {
-			responsewriters.StreamObject(statusCode, gvk.GroupVersion(), s, stream, w, req)
+			responsewriters.StreamObject(statusCode, groupVersion, s, stream, w, req)
 		})
 		return
 	}
@@ -646,9 +728,9 @@ func WriteObjectNegotiatedWithMediaType(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	audit.LogResponseObject(req.Context(), object, gvk.GroupVersion(), s)
+	audit.LogResponseObject(req.Context(), object, groupVersion, s)
 
-	encoder := s.EncoderForVersion(serializer.Serializer, gvk.GroupVersion())
+	encoder := s.EncoderForVersion(serializer.Serializer, groupVersion)
 	request.TrackSerializeResponseObjectLatency(req.Context(), func() {
 		if overrideMediaType != "" {
 			responsewriters.SerializeObject(overrideMediaType, encoder, w, req, statusCode, object)
@@ -656,4 +738,15 @@ func WriteObjectNegotiatedWithMediaType(w http.ResponseWriter, req *http.Request
 			responsewriters.SerializeObject(serializer.MediaType, encoder, w, req, statusCode, object)
 		}
 	})
+}
+
+func WriteObjectNegotiatedWithMediaType(w http.ResponseWriter, req *http.Request, object runtime.Object, scheme *runtime.Scheme, overrideMediaType string) {
+	s := serializer.NewCodecFactory(scheme)
+	gvk, err := apiutil.GVKForObject(object, scheme)
+	if err != nil {
+		responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
+		return
+	}
+
+	WriteObjectNegotiatedWithGVK(w, req, object, scheme, gvk.GroupVersion(), overrideMediaType)
 }
