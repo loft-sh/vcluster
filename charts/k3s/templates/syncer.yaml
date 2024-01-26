@@ -25,7 +25,7 @@ spec:
     whenDeleted: Delete
   {{- end }}
   {{- end }}
-  replicas: {{ .Values.replicas }}
+  replicas: {{include "vcluster.replicas" .}}
   selector:
     matchLabels:
       app: vcluster

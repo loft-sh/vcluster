@@ -135,6 +135,7 @@ proxy:
 
 # Syncer configuration
 syncer:
+  replicas: 1
   # Image to use for the syncer
   # image: ghcr.io/loft-sh/vcluster
   extraArgs: []
@@ -251,9 +252,6 @@ rbac:
     # all entries in excludedApiResources will be excluded from the Role created for vcluster
     excludedApiResources:
       # - pods/exec
-
-# The amount of replicas to run the statefulset with
-replicas: 1
 
 # If vCluster persistent volume claims should get deleted automatically.
 autoDeletePersistentVolumeClaims: true
