@@ -253,10 +253,6 @@ rbac:
     excludedApiResources:
       # - pods/exec
 
-# The amount of replicas to run the statefulset with
-# THIS IS DEPRECATED. Please use syncer.replicas instead
-# replicas: 1
-
 # If vCluster persistent volume claims should get deleted automatically.
 autoDeletePersistentVolumeClaims: true
 
