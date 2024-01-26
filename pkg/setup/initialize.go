@@ -81,24 +81,20 @@ func initialize(
 	var err error
 	distro := constants.GetVClusterDistro()
 
-	// if k0s secret was found ensure it contains service CIDR range
-	var serviceCIDR string
-	if distro == constants.K0SDistro {
-		klog.Info("k0s config secret detected, syncer will ensure that it contains service CIDR")
-		serviceCIDR, err = servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
-		if err != nil {
-			return err
-		}
-	} else {
-		// in all other cases ensure that a valid CIDR range is in the designated ConfigMap
-		serviceCIDR, err = servicecidr.EnsureServiceCIDRConfigmap(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
-		if err != nil {
-			return fmt.Errorf("failed to ensure that service CIDR range is written into the expected location: %w", err)
+	var serviceCIDR, warning string
+	if distro != constants.K0SDistro {
+		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, currentNamespaceClient, currentNamespace)
+		if warning != "" {
+			klog.Warning(warning)
 		}
 	}
 
 	switch distro {
 	case constants.K0SDistro:
+		serviceCIDR, err = servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+		if err != nil {
+			return err
+		}
 		// start k0s
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
@@ -132,12 +128,16 @@ func initialize(
 				return err
 			}
 		}
+		serviceCIDR, warning := servicecidr.GetServiceCIDR(ctx, currentNamespaceClient, currentNamespace)
+		if warning != "" {
+			klog.Warning(warning)
+		}
 		apiUp := make(chan struct{})
 		// start k8s
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
 			// loop in Initialize
-			err := k8s.StartK8S(parentCtx, apiUp, options.Name)
+			err := k8s.StartK8S(parentCtx, apiUp, options.Name, serviceCIDR)
 			if err != nil {
 				klog.Fatalf("Error running k8s: %v", err)
 			}

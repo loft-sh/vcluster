@@ -8,11 +8,9 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -25,70 +23,8 @@ const (
 	FallbackCIDR     = "10.96.0.0/12"
 )
 
-func GetCIDRConfigMapName(vClusterName string) string {
-	return fmt.Sprintf("%s%s", CIDRConfigMapPrefix, vClusterName)
-}
-
 func GetK0sSecretName(vClusterName string) string {
 	return fmt.Sprintf("vc-%s-config", vClusterName)
-}
-
-func EnsureServiceCIDRConfigmap(ctx context.Context, workspaceNamespaceClient, currentNamespaceClient kubernetes.Interface, workspaceNamespace, currentNamespace string, vClusterName string) (string, error) {
-	cm, err := currentNamespaceClient.CoreV1().ConfigMaps(currentNamespace).Get(ctx, GetCIDRConfigMapName(vClusterName), metav1.GetOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		return "", err
-	}
-
-	exists := !kerrors.IsNotFound(err)
-	if !exists {
-		cm = &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      GetCIDRConfigMapName(vClusterName),
-				Namespace: currentNamespace,
-			},
-		}
-	}
-
-	// do nothing if a valid CIDR is already present in the expected Configmap data key
-	cidrData, ok := cm.Data[CIDRConfigMapKey]
-	if exists && ok {
-		_, _, err = net.ParseCIDR(cidrData)
-		if err == nil {
-			return cidrData, nil
-		}
-	}
-
-	// find out correct cidr
-	cidr, warning := GetServiceCIDR(ctx, workspaceNamespaceClient, workspaceNamespace)
-	if warning != "" {
-		klog.Info(warning)
-	}
-
-	if !exists {
-		cm.Data = map[string]string{
-			CIDRConfigMapKey: cidr,
-		}
-		_, err = currentNamespaceClient.CoreV1().ConfigMaps(currentNamespace).Create(ctx, cm, metav1.CreateOptions{})
-		if err != nil {
-			return "", err
-		}
-
-		return cidr, err
-	}
-
-	// create and execute a Patch call for the ConfigMap
-	originalObject := cm.DeepCopy()
-	patch := client.MergeFrom(originalObject)
-	if cm.Data == nil {
-		cm.Data = make(map[string]string)
-	}
-	cm.Data[CIDRConfigMapKey] = cidr
-	data, err := patch.Data(cm)
-	if err != nil {
-		return "", fmt.Errorf("failed to create patch for the %s/%s Configmap: %w", cm.Namespace, cm.Name, err)
-	}
-	_, err = currentNamespaceClient.CoreV1().ConfigMaps(currentNamespace).Patch(ctx, cm.Name, patch.Type(), data, metav1.PatchOptions{})
-	return cidr, err
 }
 
 func EnsureServiceCIDRInK0sSecret(

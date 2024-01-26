@@ -28,12 +28,13 @@ type command struct {
 	Command []string `json:"command,omitempty"`
 }
 
-func StartK8S(ctx context.Context, apiUp chan struct{}, releaseName string) error {
+func StartK8S(ctx context.Context, apiUp chan struct{}, releaseName, serviceCIDR string) error {
 	// we need to retry the functions because etcd is started after the syncer, so
 	// the apiservers always fail when we start until etcd is up and running
 	// the controller needs the apiserver service to respond to start successfully
 	// and the service can only be reachable once the syncer can reach the api servers
 
+	serviceCIDRarg := fmt.Sprintf("--service-cluster-ip-range=%s", serviceCIDR)
 	eg := &errgroup.Group{}
 
 	apiCommand := &command{}
@@ -43,6 +44,7 @@ func StartK8S(ctx context.Context, apiUp chan struct{}, releaseName string) erro
 		if err != nil {
 			return fmt.Errorf("parsing apiserver command %s: %w", apiEnv, err)
 		}
+		apiCommand.Command = append(apiCommand.Command, fmt.Sprintf(serviceCIDRarg))
 		eg.Go(func() error {
 			_, err := etcd.WaitForEtcdClient(ctx, "/pki", "https://"+releaseName+"-etcd:2379")
 			if err != nil {
@@ -65,6 +67,7 @@ func StartK8S(ctx context.Context, apiUp chan struct{}, releaseName string) erro
 		if err != nil {
 			return fmt.Errorf("parsing controller command %s: %w", controllerEnv, err)
 		}
+		controllerCommand.Command = append(controllerCommand.Command, fmt.Sprintf(serviceCIDRarg))
 		eg.Go(func() error {
 			return RunCommand(ctx, *controllerCommand, "controller")
 		})

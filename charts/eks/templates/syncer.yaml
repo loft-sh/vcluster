@@ -332,13 +332,6 @@ spec:
         {{- end }}
           - name: VCLUSTER_TELEMETRY_CONFIG
             value: {{ .Values.telemetry | toJson | quote }}
-          {{- if not .Values.serviceCIDR }}
-          - name: SERVICE_CIDR
-            valueFrom:
-              configMapKeyRef:
-                name: "vc-cidr-{{ .Release.Name }}"
-                key: cidr
-          {{- end }}
           {{- if not .Values.api.disabled }}
           - name: APISERVER_COMMAND
             value: |-
