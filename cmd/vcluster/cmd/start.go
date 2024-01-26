@@ -10,7 +10,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -103,6 +105,8 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 		currentNamespace,
 		inClusterConfig,
 		scheme.Scheme,
+		pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
+		pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
 	)
 	if err != nil {
 		return err

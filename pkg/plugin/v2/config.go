@@ -4,10 +4,8 @@ import "encoding/json"
 
 // InitConfig is the config the syncer sends to the plugin
 type InitConfig struct {
-	VirtualClusterConfig  []byte `json:"virtualClusterConfig,omitempty"`
 	PhysicalClusterConfig []byte `json:"physicalClusterConfig,omitempty"`
 	SyncerConfig          []byte `json:"syncerConfig,omitempty"`
-	TargetNamespace       string `json:"targetNamespace,omitempty"`
 	CurrentNamespace      string `json:"currentNamespace,omitempty"`
 	Options               []byte `json:"options,omitempty"`
 	WorkingDir            string `json:"workingDir,omitempty"`

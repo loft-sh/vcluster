@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
+	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -22,6 +23,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -202,4 +204,62 @@ func RegisterOrDeregisterAPIService(ctx *options.ControllerContext) {
 	if err != nil {
 		klog.Errorf("Error registering metrics apiservice: %v", err)
 	}
+}
+
+func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *options.VirtualClusterOptions, config *clientcmdapi.Config, isRemote bool) error {
+	config, err := CreateVClusterKubeConfig(config, options)
+	if err != nil {
+		return err
+	}
+
+	if options.KubeConfigContextName != "" {
+		config.CurrentContext = options.KubeConfigContextName
+		// update authInfo
+		for k := range config.AuthInfos {
+			config.AuthInfos[options.KubeConfigContextName] = config.AuthInfos[k]
+			if k != options.KubeConfigContextName {
+				delete(config.AuthInfos, k)
+			}
+			break
+		}
+
+		// update cluster
+		for k := range config.Clusters {
+			config.Clusters[options.KubeConfigContextName] = config.Clusters[k]
+			if k != options.KubeConfigContextName {
+				delete(config.Clusters, k)
+			}
+			break
+		}
+
+		// update context
+		for k := range config.Contexts {
+			tmpCtx := config.Contexts[k]
+			tmpCtx.Cluster = options.KubeConfigContextName
+			tmpCtx.AuthInfo = options.KubeConfigContextName
+			config.Contexts[options.KubeConfigContextName] = tmpCtx
+			if k != options.KubeConfigContextName {
+				delete(config.Contexts, k)
+			}
+			break
+		}
+	}
+
+	// check if we need to write the kubeconfig secrete to the default location as well
+	if options.KubeConfigSecret != "" {
+		// which namespace should we create the additional secret in?
+		secretNamespace := options.KubeConfigSecretNamespace
+		if secretNamespace == "" {
+			secretNamespace = currentNamespace
+		}
+
+		// write the extra secret
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.KubeConfigSecret, secretNamespace, config, isRemote)
+		if err != nil {
+			return fmt.Errorf("creating %s secret in the %s ns failed: %w", options.KubeConfigSecret, secretNamespace, err)
+		}
+	}
+
+	// write the default Secret
+	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, config, isRemote)
 }

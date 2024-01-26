@@ -78,23 +78,27 @@ func initialize(
 	options *options.VirtualClusterOptions,
 	certificatesDir string,
 ) error {
-	var err error
 	distro := constants.GetVClusterDistro()
 
-	var serviceCIDR, warning string
+	// retrieve service cidr
+	var serviceCIDR string
 	if distro != constants.K0SDistro {
+		var warning string
 		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, currentNamespaceClient, currentNamespace)
 		if warning != "" {
 			klog.Warning(warning)
 		}
 	}
 
+	// check what distro are we running
 	switch distro {
 	case constants.K0SDistro:
-		serviceCIDR, err = servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+		// ensure service cidr
+		_, err := servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
 		if err != nil {
 			return err
 		}
+
 		// start k0s
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
@@ -123,17 +127,14 @@ func initialize(
 	case constants.K8SDistro, constants.EKSDistro:
 		if certificatesDir != "" {
 			// generate k8s certificates
-			err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 			if err != nil {
 				return err
 			}
 		}
-		serviceCIDR, warning := servicecidr.GetServiceCIDR(ctx, currentNamespaceClient, currentNamespace)
-		if warning != "" {
-			klog.Warning(warning)
-		}
-		apiUp := make(chan struct{})
+
 		// start k8s
+		apiUp := make(chan struct{})
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
 			// loop in Initialize
@@ -147,7 +148,7 @@ func initialize(
 	case constants.Unknown:
 		if certificatesDir != "" {
 			// generate k8s certificates
-			err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 			if err != nil {
 				return err
 			}
