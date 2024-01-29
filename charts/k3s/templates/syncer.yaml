@@ -33,18 +33,18 @@ spec:
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-  {{- else if .Values.storage.persistence }}
+  {{- else if ( include "vcluster.storage.persistence" . ) }}
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
-        {{- if .Values.storage.className }}
-        storageClassName: {{ .Values.storage.className }}
+        {{- if ( include "vcluster.storage.className" . ) }}
+        storageClassName: {{ include "vcluster.storage.className" . }}
         {{- end }}
         resources:
           requests:
-            storage: {{ .Values.storage.size }}
+            storage: {{ include "vcluster.storage.size" . }}
   {{- end }}
   template:
     metadata:
@@ -134,7 +134,7 @@ spec:
           configMap:
             name: coredns-custom
             optional: true
-      {{- if not .Values.storage.persistence }}
+      {{- if not ( include "vcluster.storage.persistence" . ) }}
         - name: data
           emptyDir: {}
       {{- end }}

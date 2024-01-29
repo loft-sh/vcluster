@@ -8,17 +8,20 @@ globalAnnotations: {}
 # If vCluster.Pro is enabled
 pro: false
 
-# If true, will deploy vcluster in headless mode, which means no deployment
-# or statefulset is created.
+# Embedded etcd settings
+embeddedEtcd:
+ # If embedded etcd should be enabled, this is a PRO only feature
+ enabled: false
+
+# Extra Annotations for the stateful set
+annotations: {}
+podAnnotations: {}
+
 headless: false
 
 monitoring:
   serviceMonitor:
     enabled: false
-
-# If the control plane is deployed in high availability mode
-# Make sure to scale up the syncer.replicas, etcd.replicas, api.replicas & controller.replicas
-enableHA: false
 
 # Plugins that should get loaded. Usually you want to apply those via 'vcluster create ... -f https://.../plugin.yaml'
 plugin: {}
@@ -178,6 +181,16 @@ syncer:
   securityContext: {}
   podSecurityContext: {}
   serviceAnnotations: {}
+  # Storage settings for the vcluster
+  storage:
+   # If this is disabled, vcluster will use an emptyDir instead
+   # of a PersistentVolumeClaim
+   persistence: true
+   # Size of the persistent volume claim
+   size: 5Gi
+   # Optional StorageClass used for the pvc
+   # if empty default StorageClass defined in your host cluster will be used
+   #className:
 
 # Etcd settings
 etcd:
@@ -220,52 +233,12 @@ etcd:
 controller:
   image: public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6
   imagePullPolicy: ""
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used
-  nodeSelector: {}
-  # Affinity to apply
-  affinity: {}
-  # Tolerations to apply
-  tolerations: []
-  # Extra Labels
-  labels: {}
-  # Extra Annotations
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 15m
-  priorityClassName: ""
-  securityContext: {}
 
 # Kubernetes API Server settings
 api:
   image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
   imagePullPolicy: ""
   extraArgs: []
-  # The amount of replicas to run the deployment with
-  replicas: 1
-  # NodeSelector used to schedule the syncer
-  nodeSelector: {}
-  # Affinity to apply to the syncer deployment
-  affinity: {}
-  # Tolerations to apply to the syncer deployment
-  tolerations: []
-  # Extra Labels for the syncer deployment
-  labels: {}
-  # Extra Annotations for the syncer deployment
-  annotations: {}
-  podAnnotations: {}
-  podLabels: {}
-  resources:
-    requests:
-      cpu: 40m
-      memory: 300Mi
-  priorityClassName: ""
-  securityContext: {}
-  serviceAnnotations: {}
 
 # Core DNS settings
 coredns:
