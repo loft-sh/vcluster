@@ -404,6 +404,10 @@ spec:
             {{- end }}
         volumeMounts:
         {{- include "vcluster.plugins.volumeMounts" . | indent 10 }}
+          {{- if eq ( include "vcluster.kind" . ) "StatefulSet" }}
+          - name: data
+            mountPath: /data
+          {{- end }}
           - name: helm-cache
             mountPath: /.cache/helm
           - name: tmp
