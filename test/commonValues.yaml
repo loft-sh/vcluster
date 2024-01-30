@@ -34,9 +34,13 @@ mapServices:
   fromVirtual:
   - from: test/test
     to: test
+  - from: test/nginx
+    to: nginx
   fromHost:
   - from: test/test
     to: default/test
+  - from: test/nginx
+    to: default/nginx
 
 init:
   helm:

@@ -83,7 +83,7 @@ rules:
   {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
   {{- if (not (empty (include "vcluster.serviceMapping.fromHost" . ))) }}
   - apiGroups: [""]
-    resources: ["services"]
+    resources: ["services", "endpoints"]
     verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if .Values.multiNamespaceMode.enabled }}
