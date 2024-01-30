@@ -116,6 +116,8 @@ func (m *Manager) Start(
 		if err != nil {
 			return fmt.Errorf("error adding client hook for plugin %s: %w", vClusterPlugin.Path, err)
 		}
+
+		klog.FromContext(ctx).Info("Successfully loaded plugin", "plugin", vClusterPlugin.Path)
 	}
 
 	return nil
