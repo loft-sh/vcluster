@@ -30,11 +30,11 @@ func NewVirtualPluginClientFactory(delegate client.NewClientFunc) client.NewClie
 }
 
 func NewPluginClient(virtual bool, delegate client.NewClientFunc) client.NewClientFunc {
-	if !plugin.DefaultManager.HasPlugins() {
-		return delegate
-	}
-
 	return func(config *rest.Config, options client.Options) (client.Client, error) {
+		if !plugin.DefaultManager.HasPlugins() {
+			return delegate(config, options)
+		}
+
 		innerClient, err := delegate(config, options)
 		if err != nil {
 			return nil, err
