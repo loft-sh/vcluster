@@ -3,9 +3,6 @@
 In order to run vCluster in high availability mode, create a `values.yaml` in the following form:
 
 ```
-# Enable HA mode
-enableHA: true
-
 # Scale up syncer replicas
 syncer:
   replicas: 3
@@ -69,9 +66,6 @@ You can find more about rootless mode [here](../security/rootless-mode.mdx).
 
 Below is HA configuration for running rootless vCluster with vanilla Kubernetes distribution.
 ```
-# Enable HA mode
-enableHA: true
-
 # Scale up syncer replicas
 syncer:
   replicas: 3

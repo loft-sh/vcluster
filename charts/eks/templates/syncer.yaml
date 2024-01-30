@@ -43,7 +43,7 @@ spec:
       {{- if .Values.syncer.affinity }}
       affinity:
 {{ toYaml .Values.syncer.affinity | indent 8 }}
-      {{- else if .Values.enableHA }}
+      {{- else if (gt (int .Values.syncer.replicas) 1) }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -227,7 +227,7 @@ spec:
           - --etcd-replicas={{ .Values.syncer.replicas }}
           {{- end }}
           {{- end }}
-          {{- if .Values.enableHA }}
+          {{- if (gt (int .Values.syncer.replicas) 1) }}
           - --leader-elect=true
           {{- else }}
           - --leader-elect=false
@@ -386,7 +386,7 @@ spec:
                 - '--node-monitor-period=1h'
                 - '--horizontal-pod-autoscaler-sync-period=60s'
                 - '--kubeconfig=/pki/controller-manager.conf'
-                {{- if .Values.enableHA }}
+                {{- if (gt (int .Values.syncer.replicas) 1) }}
                 - '--leader-elect=true'
                 {{- else }}
                 - '--leader-elect=false'

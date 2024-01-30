@@ -8,11 +8,8 @@ In order to run vCluster with k3s as Kubernetes distribution in high availabilit
 First create a `values.yaml` in the following form and make sure to change the connection string in `K3S_DATASTORE_ENDPOINT`:
 
 ```
-# Enable HA mode
-enableHA: true
-
-# Scale up k3s replicas
-replicas: 2
+syncer:
+  replicas: 3
 
 # Set external datastore endpoint
 vcluster:
