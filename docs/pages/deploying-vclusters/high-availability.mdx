@@ -26,8 +26,8 @@ A distro in vcluster is the Kubernetes distribution that runs inside the virtual
 - k8s (a Kubernetes with etcd)
 The vcluster HA feature is only supported by the k3s and k8s distros. You need to choose one of those to take advantage of HA.
 
-For this tutorial, we will use the k8s distro. 
-If you're interested in enabling HA in rootless mode, or using the k3s distro, see some examples at the bottom of this page. 
+For this tutorial, we will use the k8s distro.
+If you're interested in enabling HA in rootless mode, or using the k3s distro, see some examples at the bottom of this page.
 
 # 3. Create a values.yaml file
 The values.yaml file is used to specify configuration options for the virtual cluster. In the case of the HA feature, we will specify the number of replicas we want to run for each vCluster component.
@@ -35,9 +35,6 @@ The values.yaml file is used to specify configuration options for the virtual cl
 Create the file called values.yaml on the computer that the vcluster client is installed on with these contents:
 
 ```
-# Enable HA mode
-enableHA: true
-
 # Scale up syncer replicas
 syncer:
   replicas: 3
@@ -68,7 +65,7 @@ NAME           STATUS   ROLES           AGE    VERSION
 minikube       Ready    control-plane   2m5s   v1.26.3
 minikube-m02   Ready    <none>          105s   v1.26.3
 minikube-m03   Ready    <none>          93s    v1.26.3
-minikube-m04   Ready    <none>          83s    v1.26.3 
+minikube-m04   Ready    <none>          83s    v1.26.3
 ```
 
 # 4. Create the HA virtual cluster
@@ -174,11 +171,9 @@ In order to run vCluster with k3s as Kubernetes distribution in high availabilit
 First create a `values.yaml` in the following form and make sure to change the connection string in `K3S_DATASTORE_ENDPOINT`:
 
 ```
-# Enable HA mode
-enableHA: true
-
 # Scale up k3s replicas
-replicas: 2
+syncer:
+  replicas: 2
 
 # Set external datastore endpoint
 vcluster:
@@ -232,9 +227,6 @@ Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/char
 In order to run vCluster in high availability mode, create a `values.yaml` in the following form:
 
 ```
-# Enable HA mode
-enableHA: true
-
 # Scale up syncer replicas
 syncer:
   replicas: 3
@@ -298,9 +290,6 @@ You can find more about rootless mode [here](../security/rootless-mode.mdx).
 
 Below is HA configuration for running rootless vCluster with vanilla Kubernetes distribution.
 ```
-# Enable HA mode
-enableHA: true
-
 # Scale up syncer replicas
 syncer:
   replicas: 3

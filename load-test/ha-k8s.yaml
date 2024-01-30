@@ -1,7 +1,3 @@
-
-# Enable HA mode
-enableHA: true
-
 # Scale up syncer replicas
 syncer:
   replicas: 3
