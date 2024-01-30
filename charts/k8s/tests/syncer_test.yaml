@@ -19,6 +19,9 @@ tests:
           path: spec.volumeClaimTemplates
       - notExists:
           path: spec.strategy
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].mountPath
+          value: /data
 
   - it: should be a deployment when embeddedEtcd is disabled
     set:
