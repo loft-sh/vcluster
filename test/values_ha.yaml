@@ -1,12 +1,6 @@
 # this is for k3s pro
 replicas: 3
 
-
-# this is for k8s
-#
-# Enable HA mode
-enableHA: true
-
 # Scale up syncer replicas
 syncer:
   replicas: 3
