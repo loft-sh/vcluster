@@ -41,7 +41,7 @@ func (m *manager) Start(
 		return fmt.Errorf("start legacy plugins: %w", err)
 	}
 
-	err = m.pluginManager.Start(ctx, currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, options)
+	err = m.pluginManager.Start(ctx, currentNamespace, physicalKubeConfig, syncerConfig, options)
 	if err != nil {
 		return fmt.Errorf("start plugins: %w", err)
 	}

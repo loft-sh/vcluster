@@ -3,8 +3,8 @@ package setup
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/certs"
@@ -31,12 +31,6 @@ func Initialize(
 	vClusterName string,
 	options *options.VirtualClusterOptions,
 ) error {
-	// check if we should create certificates
-	certificatesDir := ""
-	if strings.HasPrefix(options.ServerCaCert, "/pki/") {
-		certificatesDir = "/pki"
-	}
-
 	// Ensure that service CIDR range is written into the expected location
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
 		err := initialize(
@@ -48,7 +42,6 @@ func Initialize(
 			currentNamespace,
 			vClusterName,
 			options,
-			certificatesDir,
 		)
 		if err != nil {
 			klog.Errorf("error initializing service cidr, certs and token: %v", err)
@@ -76,29 +69,28 @@ func initialize(
 	currentNamespace,
 	vClusterName string,
 	options *options.VirtualClusterOptions,
-	certificatesDir string,
 ) error {
-	var err error
 	distro := constants.GetVClusterDistro()
 
-	// if k0s secret was found ensure it contains service CIDR range
+	// retrieve service cidr
 	var serviceCIDR string
-	if distro == constants.K0SDistro {
-		klog.Info("k0s config secret detected, syncer will ensure that it contains service CIDR")
-		serviceCIDR, err = servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
-		if err != nil {
-			return err
-		}
-	} else {
-		// in all other cases ensure that a valid CIDR range is in the designated ConfigMap
-		serviceCIDR, err = servicecidr.EnsureServiceCIDRConfigmap(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
-		if err != nil {
-			return fmt.Errorf("failed to ensure that service CIDR range is written into the expected location: %w", err)
+	if distro != constants.K0SDistro {
+		var warning string
+		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, currentNamespaceClient, currentNamespace)
+		if warning != "" {
+			klog.Warning(warning)
 		}
 	}
 
+	// check what distro are we running
 	switch distro {
 	case constants.K0SDistro:
+		// ensure service cidr
+		_, err := servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+		if err != nil {
+			return err
+		}
+
 		// start k0s
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
@@ -125,29 +117,29 @@ func initialize(
 			}
 		}()
 	case constants.K8SDistro, constants.EKSDistro:
-		if certificatesDir != "" {
-			// generate k8s certificates
-			err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+		// try to generate k8s certificates
+		certificatesDir := filepath.Dir(options.ServerCaCert)
+		if certificatesDir == "/pki" {
+			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 			if err != nil {
 				return err
 			}
 		}
-		apiUp := make(chan struct{})
+
 		// start k8s
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
 			// loop in Initialize
-			err := k8s.StartK8S(parentCtx, apiUp, options.Name)
+			err := k8s.StartK8S(parentCtx, serviceCIDR)
 			if err != nil {
 				klog.Fatalf("Error running k8s: %v", err)
 			}
 		}()
-		klog.Info("waiting for the api to be up")
-		<-apiUp
 	case constants.Unknown:
-		if certificatesDir != "" {
+		certificatesDir := filepath.Dir(options.ServerCaCert)
+		if certificatesDir == "/pki" {
 			// generate k8s certificates
-			err = GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 			if err != nil {
 				return err
 			}

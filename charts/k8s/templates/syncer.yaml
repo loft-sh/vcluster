@@ -1,6 +1,6 @@
 {{- if not .Values.headless }}
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ include "vcluster.kind" . }}
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -19,15 +19,9 @@ metadata:
   {{- end }}
 spec:
   replicas: {{ .Values.syncer.replicas }}
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      {{- if (eq (int .Values.syncer.replicas) 1) }}
-      maxUnavailable: 0
-      {{- else }}
-      maxUnavailable: 1
-      {{- end }}
-    type: RollingUpdate
+  {{- include "vcluster.deployment.strategy" . | indent 2 }}
+  {{- include "vcluster.statefulset.serviceName" . | indent 2 }}
+  {{- include "vcluster.statefulset.volumeClaimTemplate" . | indent 2 }}
   selector:
     matchLabels:
       app: vcluster
@@ -224,7 +218,6 @@ spec:
         - {{ $f | quote }}
         {{- end }}
         {{- end }}
-        {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
           - --request-header-ca-cert=/pki/front-proxy-ca.crt
@@ -244,6 +237,12 @@ spec:
           {{- end }}
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
+          {{- end }}
+          {{- if .Values.pro }}
+          {{- if .Values.embeddedEtcd.enabled }}
+          - --etcd-embedded
+          - --etcd-replicas={{ .Values.syncer.replicas }}
+          {{- end }}
           {{- end }}
           {{- if (gt (int .Values.syncer.replicas) 1)}}
           - --leader-elect=true
@@ -297,10 +296,6 @@ spec:
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
-        {{- else }}
-        args:
-{{ toYaml .Values.syncer.extraArgs | indent 10 }}
-        {{- end }}
         {{- if .Values.syncer.livenessProbe }}
         {{- if .Values.syncer.livenessProbe.enabled }}
         livenessProbe:
@@ -333,6 +328,10 @@ spec:
         {{- include "vcluster.plugins.config" . | indent 10 }}
           - name: VCLUSTER_DISTRO
             value: k8s
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
         {{- if eq (.Values.syncer.replicas | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
@@ -363,7 +362,11 @@ spec:
                 - '--etcd-cafile=/pki/etcd/ca.crt'
                 - '--etcd-certfile=/pki/apiserver-etcd-client.crt'
                 - '--etcd-keyfile=/pki/apiserver-etcd-client.key'
+                {{- if .Values.embeddedEtcd.enabled }}
+                - '--etcd-servers=https://127.0.0.1:2379'
+                {{- else }}
                 - '--etcd-servers=https://{{ .Release.Name }}-etcd:2379'
+                {{- end }}
                 - '--proxy-client-cert-file=/pki/front-proxy-client.crt'
                 - '--proxy-client-key-file=/pki/front-proxy-client.key'
                 - '--requestheader-allowed-names=front-proxy-client'
@@ -375,11 +378,6 @@ spec:
                 - '--service-account-issuer=https://kubernetes.default.svc.cluster.local'
                 - '--service-account-key-file=/pki/sa.pub'
                 - '--service-account-signing-key-file=/pki/sa.key'
-                {{- if .Values.serviceCIDR }}
-                - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
-                {{- else }}
-                - '--service-cluster-ip-range=$(SERVICE_CIDR)'
-                {{- end }}
                 - '--tls-cert-file=/pki/apiserver.crt'
                 - '--tls-private-key-file=/pki/apiserver.key'
                 - '--watch-cache=false'
@@ -409,11 +407,6 @@ spec:
                 {{- end }}
                 - '--horizontal-pod-autoscaler-sync-period=60s'
                 - '--kubeconfig=/pki/controller-manager.conf'
-                {{- if .Values.serviceCIDR }}
-                - '--service-cluster-ip-range={{ .Values.serviceCIDR }}'
-                {{- else }}
-                - '--service-cluster-ip-range=$(SERVICE_CIDR)'
-                {{- end }}
                 {{- if (gt (int .Values.syncer.replicas) 1) }}
                 - '--leader-elect=true'
                 {{- else }}
@@ -450,6 +443,10 @@ spec:
           {{- end }}
         volumeMounts:
         {{- include "vcluster.plugins.volumeMounts" . | indent 10 }}
+          {{- if eq ( include "vcluster.kind" . ) "StatefulSet" }}
+          - name: data
+            mountPath: /data
+          {{- end }}
           - name: helm-cache
             mountPath: /.cache/helm
           - name: tmp

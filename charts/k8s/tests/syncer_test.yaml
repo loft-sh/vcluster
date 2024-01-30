@@ -1,0 +1,41 @@
+suite: Syncer
+templates:
+  - syncer.yaml
+
+tests:
+  - it: should be a statefulset when embeddedEtcd is enabled
+    set:
+      pro: true
+      embeddedEtcd:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: StatefulSet
+      - exists:
+          path: spec.serviceName
+      - exists:
+          path: spec.volumeClaimTemplates
+      - notExists:
+          path: spec.strategy
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].mountPath
+          value: /data
+
+  - it: should be a deployment when embeddedEtcd is disabled
+    set:
+      pro: true
+      embeddedEtcd:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Deployment
+      - notExists:
+          path: spec.serviceName
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - exists:
+          path: spec.strategy

@@ -134,6 +134,7 @@ proxy:
 
 # Syncer configuration
 syncer:
+  replicas: 1
   # Image to use for the syncer
   # image: ghcr.io/loft-sh/vcluster
   imagePullPolicy: ""
@@ -154,6 +155,16 @@ syncer:
       memory: 64Mi
   kubeConfigContextName: "my-vcluster"
   serviceAnnotations: {}
+  # Storage settings for the vcluster
+  storage:
+    # If this is disabled, vcluster will use an emptyDir instead
+    # of a PersistentVolumeClaim
+    persistence: true
+    # Size of the persistent volume claim
+    size: 5Gi
+    # Optional StorageClass used for the pvc
+    # if empty default StorageClass defined in your host cluster will be used
+    #className:
 
 # Virtual Cluster (k0s) configuration
 vcluster:
@@ -179,16 +190,6 @@ vcluster:
   priorityClassName: ""
   # clusterDomain: cluster.local
 
-# Storage settings for the vcluster
-storage:
-  # If this is disabled, vcluster will use an emptyDir instead
-  # of a PersistentVolumeClaim
-  persistence: true
-  # Size of the persistent volume claim
-  size: 5Gi
-  # Optional StorageClass used for the pvc
-  # if empty default StorageClass defined in your host cluster will be used
-  #className:
 
 # Extra volumes that should be created for the StatefulSet
 volumes: []
@@ -226,9 +227,6 @@ rbac:
     # all entries in excludedApiResources will be excluded from the Role created for vcluster
     excludedApiResources:
       # - pods/exec
-
-# The amount of replicas to run the statefulset with
-replicas: 1
 
 # If vCluster persistent volume claims should get deleted automatically.
 autoDeletePersistentVolumeClaims: true

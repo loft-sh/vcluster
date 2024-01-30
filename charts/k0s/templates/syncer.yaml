@@ -25,7 +25,7 @@ spec:
     whenDeleted: Delete
   {{- end }}
   {{- end }}
-  replicas: {{ .Values.replicas }}
+  replicas: {{ include "vcluster.replicas" . }}
   selector:
     matchLabels:
       app: vcluster
@@ -33,18 +33,18 @@ spec:
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-  {{- else if .Values.storage.persistence }}
+  {{- else if ( include "vcluster.storage.persistence" . ) }}
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
-        {{- if .Values.storage.className }}
-        storageClassName: {{ .Values.storage.className }}
+        {{- if (include "vcluster.storage.className" . ) }}
+        storageClassName: {{ include "vcluster.storage.className" . }}
         {{- end }}
         resources:
           requests:
-            storage: {{ .Values.storage.size }}
+            storage: {{ include "vcluster.storage.size" . }}
   {{- end }}
   template:
     metadata:
@@ -100,7 +100,7 @@ spec:
           configMap:
             name: coredns-custom
             optional: true
-      {{- if not .Values.storage.persistence }}
+      {{- if not (include "vcluster.storage.persistence" . ) }}
         - name: data
           emptyDir: {}
       {{- end }}
@@ -152,7 +152,6 @@ spec:
         - {{ $f | quote }}
         {{- end }}
         {{- end }}
-        {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
           - --service-account=vc-workload-{{ .Release.Name }}
@@ -220,10 +219,6 @@ spec:
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
-        {{- else }}
-        args:
-{{ toYaml .Values.syncer.extraArgs | indent 10 }}
-        {{- end }}
         {{- if .Values.syncer.livenessProbe }}
         {{- if .Values.syncer.livenessProbe.enabled }}
         livenessProbe:
@@ -256,7 +251,7 @@ spec:
         {{- include "vcluster.plugins.config" . | indent 10 }}
           - name: VCLUSTER_DISTRO
             value: k0s
-        {{- if eq (.Values.replicas | toString | atoi) 1 }}
+        {{- if eq ( ( include "vcluster.replicas" . ) | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
               fieldRef:

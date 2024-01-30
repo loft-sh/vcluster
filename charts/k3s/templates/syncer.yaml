@@ -25,7 +25,7 @@ spec:
     whenDeleted: Delete
   {{- end }}
   {{- end }}
-  replicas: {{ .Values.replicas }}
+  replicas: {{include "vcluster.replicas" .}}
   selector:
     matchLabels:
       app: vcluster
@@ -33,18 +33,18 @@ spec:
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-  {{- else if .Values.storage.persistence }}
+  {{- else if ( include "vcluster.storage.persistence" . ) }}
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
-        {{- if .Values.storage.className }}
-        storageClassName: {{ .Values.storage.className }}
+        {{- if ( include "vcluster.storage.className" . ) }}
+        storageClassName: {{ include "vcluster.storage.className" . }}
         {{- end }}
         resources:
           requests:
-            storage: {{ .Values.storage.size }}
+            storage: {{ include "vcluster.storage.size" . }}
   {{- end }}
   template:
     metadata:
@@ -65,7 +65,7 @@ spec:
       {{- if .Values.affinity }}
       affinity:
 {{ toYaml .Values.affinity | indent 8 }}
-      {{- else if (gt (int .Values.replicas) 1) }}
+      {{- else if (gt (int ( include "vcluster.replicas" . )) 1) }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -134,7 +134,7 @@ spec:
           configMap:
             name: coredns-custom
             optional: true
-      {{- if not .Values.storage.persistence }}
+      {{- if not ( include "vcluster.storage.persistence" . ) }}
         - name: data
           emptyDir: {}
       {{- end }}
@@ -199,7 +199,6 @@ spec:
         - {{ $f | quote }}
         {{- end }}
         {{- end }}
-        {{- if not .Values.syncer.noArgs }}
         args:
           - --name={{ .Release.Name }}
           - --kube-config=/data/k3s-config/kube-config.yaml
@@ -208,7 +207,7 @@ spec:
           {{- if .Values.pro }}
           {{- if .Values.embeddedEtcd.enabled }}
           - --etcd-embedded
-          - --etcd-replicas={{ .Values.replicas }}
+          - --etcd-replicas={{ include "vcluster.replicas" . }}
           {{- end }}
           {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}
@@ -220,7 +219,7 @@ spec:
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
-          {{- if (gt (int .Values.replicas) 1) }}
+          {{- if (gt (int ( include "vcluster.replicas" . )) 1) }}
           - --leader-elect=true
           {{- else }}
           - --leader-elect=false
@@ -280,10 +279,6 @@ spec:
           {{- end }}
           {{- include "vcluster.serviceMapping.fromHost" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
-        {{- else }}
-        args:
-{{ toYaml .Values.syncer.extraArgs | indent 10 }}
-        {{- end }}
         {{- if .Values.syncer.livenessProbe }}
         {{- if .Values.syncer.livenessProbe.enabled }}
         livenessProbe:
@@ -361,7 +356,7 @@ spec:
               {{- range $f := .Values.vcluster.extraArgs }}
               - {{ $f }}
               {{- end }}
-          {{- if eq (.Values.replicas | toString | atoi) 1 }}
+          {{- if eq ( ( include "vcluster.replicas" . ) | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
               fieldRef:

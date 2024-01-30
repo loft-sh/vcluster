@@ -20,7 +20,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const apiserverCmd = "APISERVER_COMMAND"
+const apiServerCmd = "APISERVER_COMMAND"
 const schedulerCmd = "SCHEDULER_COMMAND"
 const controllerCmd = "CONTROLLER_COMMAND"
 
@@ -28,72 +28,84 @@ type command struct {
 	Command []string `json:"command,omitempty"`
 }
 
-func StartK8S(ctx context.Context, apiUp chan struct{}, releaseName string) error {
-	// we need to retry the functions because etcd is started after the syncer, so
-	// the apiservers always fail when we start until etcd is up and running
-	// the controller needs the apiserver service to respond to start successfully
-	// and the service can only be reachable once the syncer can reach the api servers
-
+func StartK8S(ctx context.Context, serviceCIDR string) error {
+	serviceCIDRArg := fmt.Sprintf("--service-cluster-ip-range=%s", serviceCIDR)
 	eg := &errgroup.Group{}
 
-	apiCommand := &command{}
-	apiEnv, ok := os.LookupEnv(apiserverCmd)
+	// start api server first
+	apiEnv, ok := os.LookupEnv(apiServerCmd)
 	if ok {
+		apiCommand := &command{}
 		err := yaml.Unmarshal([]byte(apiEnv), apiCommand)
 		if err != nil {
 			return fmt.Errorf("parsing apiserver command %s: %w", apiEnv, err)
 		}
+
+		apiCommand.Command = append(apiCommand.Command, serviceCIDRArg)
 		eg.Go(func() error {
-			_, err := etcd.WaitForEtcdClient(ctx, "/pki", "https://"+releaseName+"-etcd:2379")
+			// get etcd endpoints and certificates from flags
+			endpoints, certificates, err := etcd.EndpointsAndCertificatesFromFlags(apiCommand.Command)
+			if err != nil {
+				return fmt.Errorf("get etcd certificates and endpoint: %w", err)
+			}
+
+			// wait until etcd is up and running
+			_, err = etcd.WaitForEtcdClient(ctx, certificates, endpoints...)
 			if err != nil {
 				return err
 			}
-			return RunCommand(ctx, *apiCommand, "apiserver")
+
+			// now start the api server
+			return RunCommand(ctx, apiCommand, "apiserver")
 		})
 	}
 
+	// wait for api server to be up as otherwise controller and scheduler might fail
 	isUp := waitForAPI(ctx)
 	if !isUp {
 		return errors.New("waited until timeout for the api to be up, but it never did")
 	}
-	close(apiUp)
 
-	controllerCommand := &command{}
+	// start controller command
 	controllerEnv, ok := os.LookupEnv(controllerCmd)
 	if ok {
+		controllerCommand := &command{}
 		err := yaml.Unmarshal([]byte(controllerEnv), controllerCommand)
 		if err != nil {
 			return fmt.Errorf("parsing controller command %s: %w", controllerEnv, err)
 		}
+
+		controllerCommand.Command = append(controllerCommand.Command, serviceCIDRArg)
 		eg.Go(func() error {
-			return RunCommand(ctx, *controllerCommand, "controller")
+			return RunCommand(ctx, controllerCommand, "controller")
 		})
 	}
 
-	schedulerCommand := &command{}
+	// start scheduler command
 	schedulerEnv, ok := os.LookupEnv(schedulerCmd)
 	if ok {
+		schedulerCommand := &command{}
 		err := yaml.Unmarshal([]byte(schedulerEnv), schedulerCommand)
 		if err != nil {
 			return fmt.Errorf("parsing scheduler command %s: %w", schedulerEnv, err)
 		}
+
 		eg.Go(func() error {
-			return RunCommand(ctx, *schedulerCommand, "scheduler")
+			return RunCommand(ctx, schedulerCommand, "scheduler")
 		})
 	}
-
-	err := eg.Wait()
 
 	// regular stop case, will return as soon as a component returns an error.
 	// we don't expect the components to stop by themselves since they're supposed
 	// to run until killed or until they fail
+	err := eg.Wait()
 	if err == nil || err.Error() == "signal: killed" {
 		return nil
 	}
 	return err
 }
 
-func RunCommand(ctx context.Context, command command, component string) error {
+func RunCommand(ctx context.Context, command *command, component string) error {
 	reader, writer := io.Pipe()
 
 	done := make(chan struct{})

@@ -8,8 +8,15 @@ globalAnnotations: {}
 # If vCluster.Pro is enabled
 pro: false
 
-# If true, will deploy vcluster in headless mode, which means no deployment
-# or statefulset is created.
+# Embedded etcd settings
+embeddedEtcd:
+ # If embedded etcd should be enabled, this is a PRO only feature
+ enabled: false
+
+# Extra Annotations for the stateful set
+annotations: {}
+podAnnotations: {}
+
 headless: false
 
 monitoring:
@@ -174,6 +181,16 @@ syncer:
   securityContext: {}
   podSecurityContext: {}
   serviceAnnotations: {}
+  # Storage settings for the vcluster
+  storage:
+   # If this is disabled, vcluster will use an emptyDir instead
+   # of a PersistentVolumeClaim
+   persistence: true
+   # Size of the persistent volume claim
+   size: 5Gi
+   # Optional StorageClass used for the pvc
+   # if empty default StorageClass defined in your host cluster will be used
+   #className:
 
 # Etcd settings
 etcd:

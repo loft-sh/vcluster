@@ -64,8 +64,7 @@ type vClusterPlugin struct {
 
 func (m *Manager) Start(
 	ctx context.Context,
-	currentNamespace, targetNamespace string,
-	virtualKubeConfig *rest.Config,
+	currentNamespace string,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
 	options *options.VirtualClusterOptions,
@@ -89,7 +88,7 @@ func (m *Manager) Start(
 	// after loading all plugins we start them
 	for _, vClusterPlugin := range m.Plugins {
 		// build the start request
-		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, options)
+		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), currentNamespace, physicalKubeConfig, syncerConfig, options)
 		if err != nil {
 			return fmt.Errorf("build start request: %w", err)
 		}
@@ -117,6 +116,8 @@ func (m *Manager) Start(
 		if err != nil {
 			return fmt.Errorf("error adding client hook for plugin %s: %w", vClusterPlugin.Path, err)
 		}
+
+		klog.FromContext(ctx).Info("Successfully loaded plugin", "plugin", vClusterPlugin.Path)
 	}
 
 	return nil
@@ -233,9 +234,7 @@ func (m *Manager) registerClientHooks(vClusterPlugin *vClusterPlugin, clientHook
 
 func (m *Manager) buildInitRequest(
 	workingDir,
-	currentNamespace,
-	targetNamespace string,
-	virtualKubeConfig *rest.Config,
+	currentNamespace string,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
 	options *options.VirtualClusterOptions,
@@ -244,20 +243,6 @@ func (m *Manager) buildInitRequest(
 	encodedOptions, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("marshal options: %w", err)
-	}
-
-	// Virtual client config
-	convertedVirtualConfig, err := kubeconfig.ConvertRestConfigToClientConfig(virtualKubeConfig)
-	if err != nil {
-		return nil, fmt.Errorf("convert virtual client config: %w", err)
-	}
-	rawVirtualConfig, err := convertedVirtualConfig.RawConfig()
-	if err != nil {
-		return nil, fmt.Errorf("convert virtual client config: %w", err)
-	}
-	virtualConfigBytes, err := clientcmd.Write(rawVirtualConfig)
-	if err != nil {
-		return nil, fmt.Errorf("marshal virtual client config: %w", err)
 	}
 
 	// Physical client config
@@ -282,10 +267,8 @@ func (m *Manager) buildInitRequest(
 
 	// marshal init config
 	initConfig, err := json.Marshal(&InitConfig{
-		VirtualClusterConfig:  virtualConfigBytes,
 		PhysicalClusterConfig: phyisicalConfigBytes,
 		SyncerConfig:          syncerConfigBytes,
-		TargetNamespace:       targetNamespace,
 		CurrentNamespace:      currentNamespace,
 		Options:               encodedOptions,
 		WorkingDir:            workingDir,

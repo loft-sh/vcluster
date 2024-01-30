@@ -1,3 +1,4 @@
+{{- if not .Values.embeddedEtcd.enabled }}
 {{- if not .Values.headless }}
 {{- if not .Values.etcd.disabled }}
 apiVersion: v1
@@ -30,5 +31,6 @@ spec:
   selector:
     app: vcluster-etcd
     release: "{{ .Release.Name }}"
+{{- end }}
 {{- end }}
 {{- end }}
