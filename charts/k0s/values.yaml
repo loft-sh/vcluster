@@ -229,7 +229,7 @@ rbac:
       # - pods/exec
 
 # If vCluster persistent volume claims should get deleted automatically.
-autoDeletePersistentVolumeClaims: true
+autoDeletePersistentVolumeClaims: false
 
 # NodeSelector used to schedule the vcluster
 nodeSelector: {}
