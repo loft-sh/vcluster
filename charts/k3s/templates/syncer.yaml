@@ -65,7 +65,7 @@ spec:
       {{- if .Values.affinity }}
       affinity:
 {{ toYaml .Values.affinity | indent 8 }}
-      {{- else if (gt (int .Values.replicas) 1) }}
+      {{- else if (gt (int ( include "vcluster.replicas" . )) 1) }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -207,7 +207,7 @@ spec:
           {{- if .Values.pro }}
           {{- if .Values.embeddedEtcd.enabled }}
           - --etcd-embedded
-          - --etcd-replicas={{ .Values.replicas }}
+          - --etcd-replicas={{ include "vcluster.replicas" . }}
           {{- end }}
           {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}
@@ -219,7 +219,7 @@ spec:
           {{- if .Values.syncer.kubeConfigContextName }}
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
-          {{- if (gt (int .Values.replicas) 1) }}
+          {{- if (gt (int ( include "vcluster.replicas" . )) 1) }}
           - --leader-elect=true
           {{- else }}
           - --leader-elect=false
@@ -356,7 +356,7 @@ spec:
               {{- range $f := .Values.vcluster.extraArgs }}
               - {{ $f }}
               {{- end }}
-          {{- if eq (.Values.replicas | toString | atoi) 1 }}
+          {{- if eq ( ( include "vcluster.replicas" . ) | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:
               fieldRef:
