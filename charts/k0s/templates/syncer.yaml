@@ -33,7 +33,7 @@ spec:
   {{- if (hasKey .Values "volumeClaimTemplates") }}
   volumeClaimTemplates:
 {{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-  {{- else if ( include "vcluster.storage.persistence" . ) }}
+  {{- else if ( eq ( include "vcluster.storage.persistence" . ) "true" ) }}
   volumeClaimTemplates:
     - metadata:
         name: data
