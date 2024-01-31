@@ -71,7 +71,7 @@ func (s *multiNamespace) IsManaged(obj runtime.Object) bool {
 	}
 
 	_, isCM := obj.(*corev1.ConfigMap)
-	if metaAccessor.GetName() == "kube-root-ca.crt" && isCM {
+	if isCM && metaAccessor.GetName() == "kube-root-ca.crt" {
 		return false
 	}
 

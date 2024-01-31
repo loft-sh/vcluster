@@ -75,5 +75,5 @@ type Translator interface {
 // PhysicalNameTranslator transforms a virtual cluster name to a physical name
 type PhysicalNameTranslator func(vName string, vObj client.Object) string
 
-// PhysicalNameTranslator transforms a virtual cluster name to a physical name
+// PhysicalNamespacedNameTranslator transforms a virtual cluster name to a physical name
 type PhysicalNamespacedNameTranslator func(vNN types.NamespacedName, vObj client.Object) string
