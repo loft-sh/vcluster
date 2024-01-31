@@ -8,8 +8,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/loft-sh/log/scanner"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,14 +27,8 @@ type k3sCommand struct {
 }
 
 func StartK3S(ctx context.Context, serviceCIDR, k3sToken string) error {
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		return err
-	}
-	defer writer.Close()
-
 	command := &k3sCommand{}
-	err = yaml.Unmarshal([]byte(os.Getenv(VClusterCommandEnv)), command)
+	err := yaml.Unmarshal([]byte(os.Getenv(VClusterCommandEnv)), command)
 	if err != nil {
 		return fmt.Errorf("parsing k3s command %s: %w", os.Getenv(VClusterCommandEnv), err)
 	}
@@ -48,35 +41,22 @@ func StartK3S(ctx context.Context, serviceCIDR, k3sToken string) error {
 	)
 	args := append(command.Command, command.Args...)
 
-	// start func
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-
-		// make sure we scan the output correctly
-		scan := scanner.NewScanner(reader)
-		for scan.Scan() {
-			line := scan.Text()
-			if len(line) == 0 {
-				continue
-			}
-
-			// print to our logs
-			args := []interface{}{"component", "k3s"}
-			loghelper.PrintKlogLine(line, args)
-		}
-	}()
+	// check what writer we should use
+	writer, err := commandwriter.NewCommandWriter("k3s")
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
 
 	// start the command
 	klog.InfoS("Starting k3s", "args", strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	cmd.Stdout = writer
-	cmd.Stderr = writer
+	cmd.Stdout = writer.Writer()
+	cmd.Stderr = writer.Writer()
 	err = cmd.Run()
 
 	// make sure we wait for scanner to be done
-	_ = writer.Close()
-	<-done
+	writer.CloseAndWait(ctx, err)
 
 	// regular stop case
 	if err != nil && err.Error() != "signal: killed" {
