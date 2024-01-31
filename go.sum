@@ -647,6 +647,8 @@ github.com/loft-sh/vcluster-values v0.0.0-20240130155043-8f8ed98566fb h1:5ykSuRv
 github.com/loft-sh/vcluster-values v0.0.0-20240130155043-8f8ed98566fb/go.mod h1:J34xtWyMbjM+NRgVWxO0IVDB5XYUaX52jPQNqEAhu4M=
 github.com/loft-sh/vcluster-values v0.0.0-20240131102942-9de6e2694279 h1:GCY9QS317jJIIsnfJ8ZoJ8axHRStIJ+fbsqOS+Fuy2o=
 github.com/loft-sh/vcluster-values v0.0.0-20240131102942-9de6e2694279/go.mod h1:J34xtWyMbjM+NRgVWxO0IVDB5XYUaX52jPQNqEAhu4M=
+github.com/loft-sh/vcluster-values v0.0.0-20240131133548-d47237f9bcbe h1:F1jR+Gs8q2VH0MVVn5TFV8YuNvue/piLmg12zQlDYns=
+github.com/loft-sh/vcluster-values v0.0.0-20240131133548-d47237f9bcbe/go.mod h1:J34xtWyMbjM+NRgVWxO0IVDB5XYUaX52jPQNqEAhu4M=
 github.com/magiconair/properties v1.8.1/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/magiconair/properties v1.8.5/go.mod h1:y3VJvCyxH9uVvJTWEGAELF3aiYNyPKd5NZ3oSwXrF60=
 github.com/mailru/easyjson v0.0.0-20160728113105-d5b7844b561a/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=

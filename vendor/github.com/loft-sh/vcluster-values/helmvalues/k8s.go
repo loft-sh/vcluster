@@ -49,23 +49,3 @@ type EtcdValues struct {
 	Annotations                      map[string]string      `json:"annotations,omitempty"`
 	Storage                          Storage                `json:"storage,omitempty"`
 }
-
-type ControlPlaneCommonValues struct {
-	Image           string `json:"image,omitempty"`
-	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
-}
-
-type SyncerExORCommonValues struct {
-	ExtraArgs []string               `json:"extraArgs,omitempty"`
-	Resources map[string]interface{} `json:"resources,omitempty"`
-}
-
-type CommonValues struct {
-	Volumes           []map[string]interface{} `json:"volumes,omitempty"`
-	PriorityClassName string                   `json:"priorityClassName,omitempty"`
-	NodeSelector      map[string]interface{}   `json:"nodeSelector,omitempty"`
-	Affinity          map[string]interface{}   `json:"affinity,omitempty"`
-	Tolerations       []map[string]interface{} `json:"tolerations,omitempty"`
-	PodAnnotations    map[string]string        `json:"podAnnotations,omitempty"`
-	PodLabels         map[string]string        `json:"podLabels,omitempty"`
-}
