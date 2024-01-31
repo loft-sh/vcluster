@@ -9,8 +9,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/loft-sh/log/scanner"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"k8s.io/klog/v2"
 )
 
@@ -29,51 +28,31 @@ func StartK0S(ctx context.Context) error {
 	for _, entry := range dirEntries {
 		_ = os.RemoveAll(filepath.Join(runDir, entry.Name()))
 	}
-
-	// start k0s binary
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		return err
-	}
-	defer writer.Close()
-
+	// create command
 	command := &k0sCommand{}
-	err = yaml.Unmarshal([]byte(os.Getenv(VClusterCommandEnv)), command)
+	err := yaml.Unmarshal([]byte(os.Getenv(VClusterCommandEnv)), command)
 	if err != nil {
 		return fmt.Errorf("parsing k0s command %s: %w", os.Getenv(VClusterCommandEnv), err)
 	}
 
 	args := append(command.Command, command.Args...)
 
-	// start func
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-
-		// make sure we scan the output correctly
-		scan := scanner.NewScanner(reader)
-		for scan.Scan() {
-			line := scan.Text()
-			if len(line) == 0 {
-				continue
-			}
-
-			// print to our logs
-			args := []interface{}{"component", "k0s"}
-			loghelper.PrintKlogLine(line, args)
-		}
-	}()
+	// check what writer we should use
+	writer, err := commandwriter.NewCommandWriter("k0s")
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
 
 	// start the command
 	klog.InfoS("Starting k0s", "args", strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	cmd.Stdout = writer
-	cmd.Stderr = writer
+	cmd.Stdout = writer.Writer()
+	cmd.Stderr = writer.Writer()
 	err = cmd.Run()
 
 	// make sure we wait for scanner to be done
-	_ = writer.Close()
-	<-done
+	writer.CloseAndWait(ctx, err)
 
 	// regular stop case
 	if err != nil && err.Error() != "signal: killed" {

@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -13,9 +12,8 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/loft-sh/log/scanner"
 	"github.com/loft-sh/vcluster/pkg/etcd"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 )
@@ -106,40 +104,21 @@ func StartK8S(ctx context.Context, serviceCIDR string) error {
 }
 
 func RunCommand(ctx context.Context, command *command, component string) error {
-	reader, writer := io.Pipe()
-
-	done := make(chan struct{})
-	// start func
-	go func() {
-		defer close(done)
-		// make sure we scan the output correctly
-		scan := scanner.NewScanner(reader)
-		for scan.Scan() {
-			line := scan.Text()
-			if len(line) == 0 {
-				continue
-			}
-
-			// print to our logs
-			args := []interface{}{"component", component}
-			loghelper.PrintKlogLine(line, args)
-		}
-	}()
+	writer, err := commandwriter.NewCommandWriter(component)
+	if err != nil {
+		return err
+	}
+	defer writer.Writer()
 
 	// start the command
 	klog.InfoS("Starting "+component, "args", strings.Join(command.Command, " "))
 	cmd := exec.CommandContext(ctx, command.Command[0], command.Command[1:]...)
-	cmd.Stdout = writer
-	cmd.Stderr = writer
-
-	err := cmd.Run()
-	errPipe := writer.Close()
-	if errPipe != nil {
-		klog.Errorf("could not close the pipe %s", err.Error())
-	}
+	cmd.Stdout = writer.Writer()
+	cmd.Stderr = writer.Writer()
+	err = cmd.Run()
 
 	// make sure we wait for scanner to be done
-	<-done
+	writer.CloseAndWait(ctx, err)
 	return err
 }
 
