@@ -50,17 +50,19 @@ func (n *clusterTranslator) VirtualToPhysical(_ context2.Context, req types.Name
 	}
 }
 
-func (n *clusterTranslator) PhysicalToVirtual(ctx context2.Context, pObj client.Object) types.NamespacedName {
-	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
-		return types.NamespacedName{
-			Namespace: pAnnotations[translate.NamespaceAnnotation],
-			Name:      pAnnotations[translate.NameAnnotation],
+func (n *clusterTranslator) PhysicalToVirtual(ctx context2.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+	if pObj != nil {
+		pAnnotations := pObj.GetAnnotations()
+		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
+			return types.NamespacedName{
+				Namespace: pAnnotations[translate.NamespaceAnnotation],
+				Name:      pAnnotations[translate.NameAnnotation],
+			}
 		}
 	}
 
 	vObj := n.obj.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(ctx, n.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
+	err := clienthelper.GetByIndex(ctx, n.virtualClient, vObj, constants.IndexByPhysicalName, req.Name)
 	if err != nil {
 		return types.NamespacedName{}
 	}

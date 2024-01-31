@@ -31,13 +31,13 @@ func (s *csistoragecapacitySyncer) IsManaged(context.Context, client.Object) (bo
 
 func (s *csistoragecapacitySyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx.Context, &storagev1.CSIStorageCapacity{}, constants.IndexByVirtualName, func(rawObj client.Object) []string {
-		return []string{s.PhysicalToVirtual(ctx.Context, rawObj).Name}
+		return []string{s.PhysicalToVirtual(ctx.Context, types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj).Name}
 	})
 }
 
 // translate namespace
-func (s *csistoragecapacitySyncer) PhysicalToVirtual(_ context.Context, pObj client.Object) types.NamespacedName {
-	return types.NamespacedName{Name: translate.SafeConcatName(pObj.GetName(), "x", pObj.GetNamespace()), Namespace: "kube-system"}
+func (s *csistoragecapacitySyncer) PhysicalToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+	return types.NamespacedName{Name: translate.SafeConcatName(req.Name, "x", req.Namespace), Namespace: "kube-system"}
 }
 func (s *csistoragecapacitySyncer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	// if the virtual object is annotated with the physical name and namespace, return that
@@ -66,7 +66,7 @@ func (s *csistoragecapacitySyncer) VirtualToPhysical(ctx context.Context, req ty
 
 // TranslateMetadata translates the object's metadata
 func (s *csistoragecapacitySyncer) TranslateMetadata(ctx context.Context, pObj client.Object) (client.Object, error) {
-	name := s.PhysicalToVirtual(ctx, pObj)
+	name := s.PhysicalToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj)
 	pObjCopy := pObj.DeepCopyObject()
 	vObj, ok := pObjCopy.(client.Object)
 	if !ok {

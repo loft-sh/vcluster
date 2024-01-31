@@ -7,6 +7,10 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
+	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
@@ -15,13 +19,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) error {
@@ -83,52 +84,10 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
-	// get virtual resource
-	vObj := r.syncer.Resource()
-	err := r.virtualClient.Get(ctx, req.NamespacedName, vObj)
+	// retrieve the objects
+	vObj, pObj, err := r.getObjects(syncContext, req)
 	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			return ctrl.Result{}, err
-		}
-
-		vObj = nil
-	}
-
-	// check if we should skip resource
-	// this is to distinguish generic and plugin syncers with the core syncers
-	if vObj != nil && r.excludeVirtual(vObj) {
-		return ctrl.Result{}, nil
-	}
-
-	// translate to physical name
-	pObj := r.syncer.Resource()
-	err = r.physicalClient.Get(ctx, r.syncer.VirtualToPhysical(ctx, req.NamespacedName, vObj), pObj)
-	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			return ctrl.Result{}, err
-		}
-		pObj = nil
-	}
-
-	// check if we should skip resource
-	if pObj != nil {
-		// this is to distinguish generic and plugin syncers with the core syncers
-		if r.excludePhysical(pObj) {
-			return ctrl.Result{}, nil
-		}
-
-		// check if physical object is actually managed by vcluster or just coincidentally named
-		isManaged, err := r.syncer.IsManaged(ctx, pObj)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to check if physical object is managed: %w", err)
-		} else if !isManaged {
-			if vObj != nil {
-				msg := "conflict: cannot sync virtual object as unmanaged physical object exists with desired name"
-				r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
-				return ctrl.Result{}, fmt.Errorf(msg)
-			}
-			return ctrl.Result{}, nil
-		}
+		return ctrl.Result{}, err
 	}
 
 	// check what function we should call
@@ -168,20 +127,128 @@ func (r *syncerController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *syncerController) excludePhysical(pObj client.Object) bool {
+func (r *syncerController) getObjects(ctx *synccontext.SyncContext, req ctrl.Request) (vObj client.Object, pObj client.Object, err error) {
+	// if we watch on host we get virtual first and then physical
+	if r.watchOnHost() {
+		return r.getObjectsFromPhysical(ctx, req)
+	}
+
+	return r.getObjectsFromVirtual(ctx, req)
+}
+
+func (r *syncerController) getObjectsFromPhysical(ctx *synccontext.SyncContext, req ctrl.Request) (vObj, pObj client.Object, err error) {
+	// get physical resource
+	pObj = r.syncer.Resource()
+	err = r.physicalClient.Get(ctx.Context, req.NamespacedName, pObj)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return nil, nil, fmt.Errorf("get physical object: %w", err)
+		}
+
+		pObj = nil
+	}
+
+	// check if we should skip resource
+	// this is to distinguish generic and plugin syncers with the core syncers
+	if pObj != nil {
+		excluded, err := r.excludePhysical(ctx.Context, pObj, nil)
+		if err != nil {
+			return nil, nil, err
+		} else if excluded {
+			return nil, nil, nil
+		}
+	}
+
+	// get virtual resource
+	vObj = r.syncer.Resource()
+	err = r.virtualClient.Get(ctx.Context, r.syncer.PhysicalToVirtual(ctx.Context, req.NamespacedName, pObj), vObj)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return nil, nil, fmt.Errorf("get virtual object: %w", err)
+		}
+
+		vObj = nil
+	}
+
+	// check if we should skip resource
+	// this is to distinguish generic and plugin syncers with the core syncers
+	if vObj != nil && r.excludeVirtual(vObj) {
+		return nil, nil, nil
+	}
+
+	return vObj, pObj, nil
+}
+
+func (r *syncerController) getObjectsFromVirtual(ctx *synccontext.SyncContext, req ctrl.Request) (vObj, pObj client.Object, err error) {
+	// get virtual resource
+	vObj = r.syncer.Resource()
+	err = r.virtualClient.Get(ctx.Context, req.NamespacedName, vObj)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return nil, nil, fmt.Errorf("get virtual object: %w", err)
+		}
+
+		vObj = nil
+	}
+
+	// check if we should skip resource
+	// this is to distinguish generic and plugin syncers with the core syncers
+	if vObj != nil && r.excludeVirtual(vObj) {
+		return nil, nil, nil
+	}
+
+	// get physical resource
+	pObj = r.syncer.Resource()
+	err = r.physicalClient.Get(ctx.Context, r.syncer.VirtualToPhysical(ctx.Context, req.NamespacedName, vObj), pObj)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return nil, nil, fmt.Errorf("get physical object: %w", err)
+		}
+
+		pObj = nil
+	}
+
+	// check if we should skip resource
+	// this is to distinguish generic and plugin syncers with the core syncers
+	if pObj != nil {
+		excluded, err := r.excludePhysical(ctx.Context, pObj, vObj)
+		if err != nil {
+			return nil, nil, err
+		} else if excluded {
+			return nil, nil, nil
+		}
+	}
+
+	return vObj, pObj, nil
+}
+
+func (r *syncerController) excludePhysical(ctx context.Context, pObj, vObj client.Object) (bool, error) {
+	isManaged, err := r.syncer.IsManaged(ctx, pObj)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if physical object is managed: %w", err)
+	} else if !isManaged {
+		if vObj != nil {
+			msg := "conflict: cannot sync virtual object as unmanaged physical object exists with desired name"
+			r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
+			return false, fmt.Errorf(msg)
+		}
+
+		return true, nil
+	}
+
 	excluder, ok := r.syncer.(syncertypes.ObjectExcluder)
 	if ok {
-		return excluder.ExcludePhysical(pObj)
+		return excluder.ExcludePhysical(pObj), nil
 	}
 
 	if pObj.GetLabels() != nil && pObj.GetLabels()[translate.ControllerLabel] != "" {
-		return true
+		return true, nil
 	}
 	if pObj.GetAnnotations() != nil && pObj.GetAnnotations()[translate.ControllerLabel] != "" && pObj.GetAnnotations()[translate.ControllerLabel] != r.syncer.Name() {
-		return true
+		return true, nil
 	}
 
-	return false
+	return false, nil
 }
 
 func (r *syncerController) excludeVirtual(vObj client.Object) bool {
@@ -202,57 +269,77 @@ func (r *syncerController) excludeVirtual(vObj client.Object) bool {
 
 // Create is called in response to an create event - e.g. Pod Creation.
 func (r *syncerController) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(ctx, evt.Object, q)
+	r.enqueue(ctx, evt.Object, q)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
 func (r *syncerController) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(ctx, evt.ObjectNew, q)
+	r.enqueue(ctx, evt.ObjectNew, q)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
 func (r *syncerController) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(ctx, evt.Object, q)
+	r.enqueue(ctx, evt.Object, q)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile Autoscaling, or a Webhook.
 func (r *syncerController) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
-	r.enqueuePhysical(ctx, evt.Object, q)
+	r.enqueue(ctx, evt.Object, q)
 }
 
-func (r *syncerController) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
+func (r *syncerController) enqueue(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
 	if obj == nil {
 		return
 	}
 
-	managed, err := r.syncer.IsManaged(ctx, obj)
-	if err != nil {
-		klog.Errorf("error checking object %v if managed: %v", obj, err)
-		return
-	} else if !managed {
-		return
+	// do we watch on host? then obj is a vObj
+	var name types.NamespacedName
+	if r.watchOnHost() {
+		// we have a virtual object here
+		name = r.syncer.VirtualToPhysical(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+	} else {
+		// we have a physical object here
+		managed, err := r.syncer.IsManaged(ctx, obj)
+		if err != nil {
+			klog.Errorf("error checking object %v if managed: %v", obj, err)
+			return
+		} else if !managed {
+			return
+		}
+
+		name = r.syncer.PhysicalToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 	}
 
-	name := r.syncer.PhysicalToVirtual(ctx, obj)
+	// enqueue object
 	if name.Name != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}
 }
 
 func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
-	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
+	// do we watch on host or virtual?
+	controllerManager := ctx.VirtualManager
+	watchManager := ctx.PhysicalManager
+	if r.watchOnHost() {
+		controllerManager = ctx.PhysicalManager
+		watchManager = ctx.VirtualManager
+	}
+
+	// build the basic controller
+	controller := ctrl.NewControllerManagedBy(controllerManager).
 		WithOptions(controller2.Options{
 			MaxConcurrentReconciles: 10,
 			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 		}).
 		Named(r.syncer.Name()).
-		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource()), r).
+		WatchesRawSource(source.Kind(watchManager.GetCache(), r.syncer.Resource()), r).
 		For(r.syncer.Resource())
 
-	var err error
-	modifier, ok := r.syncer.(syncertypes.ControllerModifier)
-	if ok {
+	// should add extra stuff?
+	modifier, isControllerModifier := r.syncer.(syncertypes.ControllerModifier)
+	if isControllerModifier {
+		var err error
 		controller, err = modifier.ModifyController(ctx, controller)
 		if err != nil {
 			return err
@@ -260,6 +347,15 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 	}
 
 	return controller.Complete(r)
+}
+
+func (r *syncerController) watchOnHost() bool {
+	watchOnHost, ok := r.syncer.(syncertypes.WatchOnHost)
+	if ok {
+		return watchOnHost.WatchOnHost()
+	}
+
+	return false
 }
 
 func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object, reason string) (ctrl.Result, error) {

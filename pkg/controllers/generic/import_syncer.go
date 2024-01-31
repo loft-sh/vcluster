@@ -358,20 +358,20 @@ func (s *importer) VirtualToPhysical(_ context.Context, req types.NamespacedName
 	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
 }
 
-func (s *importer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
+func (s *importer) PhysicalToVirtual(ctx context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return types.NamespacedName{
-			Name: pObj.GetName(),
+			Name: req.Name,
 		}
 	}
 
 	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(ctx, s.virtualClient, vNamespace, constants.IndexByPhysicalName, pObj.GetNamespace())
+	err := clienthelper.GetByIndex(ctx, s.virtualClient, vNamespace, constants.IndexByPhysicalName, req.Namespace)
 	if err != nil {
 		return types.NamespacedName{}
 	}
 
-	return types.NamespacedName{Name: pObj.GetName(), Namespace: vNamespace.GetName()}
+	return types.NamespacedName{Name: req.Name, Namespace: vNamespace.GetName()}
 }
 
 func (s *importer) TranslateMetadata(ctx context.Context, pObj client.Object) client.Object {
@@ -382,7 +382,7 @@ func (s *importer) TranslateMetadata(ctx context.Context, pObj client.Object) cl
 	vObj.SetOwnerReferences(nil)
 	vObj.SetFinalizers(nil)
 	vObj.SetAnnotations(s.updateVirtualAnnotations(vObj.GetAnnotations()))
-	nn := s.PhysicalToVirtual(ctx, pObj)
+	nn := s.PhysicalToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj)
 	vObj.SetName(nn.Name)
 	vObj.SetNamespace(nn.Namespace)
 

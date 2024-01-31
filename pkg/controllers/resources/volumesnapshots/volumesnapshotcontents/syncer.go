@@ -245,22 +245,24 @@ func (s *volumeSnapshotContentSyncer) VirtualToPhysical(_ context.Context, req t
 	return types.NamespacedName{Name: translateVolumeSnapshotContentName(req.Name, vObj)}
 }
 
-func (s *volumeSnapshotContentSyncer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
-	pAnnotations := pObj.GetAnnotations()
-	if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
-		return types.NamespacedName{
-			Name: pAnnotations[translate.NameAnnotation],
+func (s *volumeSnapshotContentSyncer) PhysicalToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+	if pObj != nil {
+		pAnnotations := pObj.GetAnnotations()
+		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
+			return types.NamespacedName{
+				Name: pAnnotations[translate.NameAnnotation],
+			}
 		}
 	}
 
 	vObj := &volumesnapshotv1.VolumeSnapshotContent{}
-	err := clienthelper.GetByIndex(ctx, s.virtualClient, vObj, constants.IndexByPhysicalName, pObj.GetName())
+	err := clienthelper.GetByIndex(ctx, s.virtualClient, vObj, constants.IndexByPhysicalName, req.Name)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return types.NamespacedName{}
 		}
 
-		return types.NamespacedName{Name: pObj.GetName()}
+		return types.NamespacedName{Name: req.Name}
 	}
 
 	return types.NamespacedName{Name: vObj.GetName()}

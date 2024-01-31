@@ -56,11 +56,8 @@ func (s *eventSyncer) VirtualToPhysical(context.Context, types.NamespacedName, c
 	return types.NamespacedName{}
 }
 
-func (s *eventSyncer) PhysicalToVirtual(_ context.Context, pObj client.Object) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      pObj.GetName(),
-		Namespace: pObj.GetNamespace(),
-	}
+func (s *eventSyncer) PhysicalToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+	return req
 }
 
 var _ syncer.Starter = &eventSyncer{}

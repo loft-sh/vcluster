@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -108,7 +109,7 @@ func (s *csistoragecapacitySyncer) enqueuePhysical(ctx context.Context, obj clie
 		return
 	}
 
-	name := s.PhysicalToVirtual(ctx, obj)
+	name := s.PhysicalToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 	if name.Name != "" && name.Namespace != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}
