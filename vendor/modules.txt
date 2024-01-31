@@ -431,7 +431,7 @@ github.com/loft-sh/utils/pkg/command
 github.com/loft-sh/utils/pkg/downloader
 github.com/loft-sh/utils/pkg/downloader/commands
 github.com/loft-sh/utils/pkg/extract
-# github.com/loft-sh/vcluster-values v0.0.0-20240126141411-ad63b49fe451
+# github.com/loft-sh/vcluster-values v0.0.0-20240131102942-9de6e2694279
 ## explicit; go 1.21.5
 github.com/loft-sh/vcluster-values/helmvalues
 github.com/loft-sh/vcluster-values/values

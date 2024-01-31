@@ -1,6 +1,4 @@
-{{ if not .Values.embeddedEtcd.enabled }}
-{{- if not .Values.headless }}
-{{- if not .Values.etcd.disabled }}
+{{ if or (and (not .Values.embeddedEtcd.enabled) (not .Values.headless) (not .Values.etcd.disabled)) .Values.embeddedEtcd.migrate }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -31,6 +29,4 @@ spec:
   selector:
     app: vcluster-etcd
     release: "{{ .Release.Name }}"
-{{- end }}
-{{- end }}
 {{ end }}

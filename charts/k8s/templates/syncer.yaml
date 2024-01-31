@@ -226,6 +226,9 @@ spec:
           - --server-ca-key=/pki/ca.key
           - --kube-config=/pki/admin.conf
           - --service-account=vc-workload-{{ .Release.Name }}
+          {{- if .Values.embeddedEtcd.migrate }}
+          - --migrate-etcd
+          {{- end }}
           {{- include "vcluster.legacyPlugins.args" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromHost" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}

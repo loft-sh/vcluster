@@ -12,6 +12,9 @@ pro: false
 embeddedEtcd:
   # If embedded etcd should be enabled, this is a PRO only feature
   enabled: false
+  # To use if embeddedEtcd is enabled and you want to migrate the data
+  # from the external etcd
+  migrate: false
 
 # If true, will deploy vcluster in headless mode, which means no deployment
 # or statefulset is created.
