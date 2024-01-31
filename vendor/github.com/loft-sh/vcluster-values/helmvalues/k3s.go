@@ -2,12 +2,12 @@ package helmvalues
 
 type K3s struct {
 	BaseHelm
-	AutoDeletePersistentVolumeClaims bool                  `json:"autoDeletePersistentVolumeClaims,omitempty"`
-	K3sToken                         string                `json:"k3sToken,omitempty"`
-	EmbeddedEtcd                     K3sEmbeddedEtcdValues `json:"embeddedEtcd,omitempty"`
-	Etcd                             K3SEtcdValues         `json:"etcd,omitempty"`
-	VCluster                         VClusterValues        `json:"vcluster,omitempty"`
-	Syncer                           SyncerValues          `json:"syncer,omitempty"`
+	AutoDeletePersistentVolumeClaims bool               `json:"autoDeletePersistentVolumeClaims,omitempty"`
+	K3sToken                         string             `json:"k3sToken,omitempty"`
+	EmbeddedEtcd                     EmbeddedEtcdValues `json:"embeddedEtcd,omitempty"`
+	Etcd                             K3SEtcdValues      `json:"etcd,omitempty"`
+	VCluster                         VClusterValues     `json:"vcluster,omitempty"`
+	Syncer                           SyncerValues       `json:"syncer,omitempty"`
 }
 
 type MonitoringValues struct {
@@ -18,8 +18,9 @@ type ServiceMonitor struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
-type K3sEmbeddedEtcdValues struct {
+type EmbeddedEtcdValues struct {
 	Enabled bool `json:"enabled,omitempty"`
+	Migrate bool `json:"migrate,omitempty"`
 }
 
 type Storage struct {
