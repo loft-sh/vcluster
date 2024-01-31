@@ -28,7 +28,7 @@ type NameTranslator interface {
 	VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName
 
 	// PhysicalToVirtual translates a physical name to a virtual name
-	PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName
+	PhysicalToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName
 }
 
 // MetadataTranslator is used to convert metadata between virtual and physical objects and vice versa

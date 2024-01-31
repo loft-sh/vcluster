@@ -51,9 +51,6 @@ func (n *mirrorPhysicalTranslator) VirtualToPhysical(_ context.Context, req type
 	return req
 }
 
-func (n *mirrorPhysicalTranslator) PhysicalToVirtual(_ context.Context, pObj client.Object) types.NamespacedName {
-	return types.NamespacedName{
-		Namespace: pObj.GetNamespace(),
-		Name:      pObj.GetName(),
-	}
+func (n *mirrorPhysicalTranslator) PhysicalToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+	return req
 }

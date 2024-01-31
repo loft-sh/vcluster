@@ -255,8 +255,8 @@ func (s *nodeSyncer) VirtualToPhysical(_ context.Context, req types.NamespacedNa
 	return req
 }
 
-func (s *nodeSyncer) PhysicalToVirtual(_ context.Context, pObj client.Object) types.NamespacedName {
-	return types.NamespacedName{Name: pObj.GetName()}
+func (s *nodeSyncer) PhysicalToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+	return types.NamespacedName{Name: req.Name}
 }
 
 func (s *nodeSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
