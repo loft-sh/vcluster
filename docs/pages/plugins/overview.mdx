@@ -22,10 +22,10 @@ In order to better understand how vCluster plugins work, it is recommended to re
 
 ## Architecture
 
-Each plugin will run as a sidecar container inside the vCluster pod.
+Each plugin will run as a binary inside the vCluster syncer container. It is by default copied over from an init container.
 This is done to allow easier communication between vCluster and the plugins as well as provide certain capabilities such as high-availability out of the box.
-The plugin itself will contact the vCluster pod during startup to obtain the access credentials to the virtual and host cluster.
-The plugin controllers are started with these credentials, similar to how vCluster itself starts its resource syncers.
+The plugin itself uses [go-plugin](https://github.com/hashicorp/go-plugin), which is used by many popular open-source projects to extend their functionality. The vCluster syncer container will call the plugin binary during startup and pass all relevant information to the plugin.
+The plugin controllers are then started with these credentials, similar to how vCluster itself starts its resource syncers.
 
 ### Plugin Controllers
 
@@ -75,6 +75,8 @@ If you develop a plugin of your own, we recommend creating a `plugin.yaml` (the 
 # with the other vCluster values during vCluster create or helm install.
 plugin:
   myPlugin:
+    # Version v2 is required to use the new plugin api
+    version: v2
     image: plugin-image
     # Other optional sidecar values below
     # command: ...
@@ -91,7 +93,7 @@ plugin:
     #        ...
 ```
 
-The `plugin.yaml` is a valid helm values file used to define the plugin's sidecar configuration and additional RBAC rules needed to function properly. If you want to distribute that plugin for others, it's also possible to install a plugin through an URL:
+The `plugin.yaml` is a valid helm values file used to define the plugin's init container configuration and additional RBAC rules needed to function properly. If you want to distribute that plugin for others, it's also possible to install a plugin through an URL:
 
 ```
 # Install a plugin with a local plugin.yaml
