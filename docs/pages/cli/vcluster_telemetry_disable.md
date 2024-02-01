@@ -20,7 +20,7 @@ vcluster telemetry disable [flags]
 Disables collection of anonymized vcluster telemetry.
 
 More information about the collected telmetry is in the
-docs: https://www.vcluster.com/docs/telemetry
+docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 
 #######################################################
 ```
