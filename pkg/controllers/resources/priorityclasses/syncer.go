@@ -31,7 +31,7 @@ func (s *priorityClassSyncer) RegisterIndices(ctx *synccontext.RegisterContext) 
 
 var _ syncer.Syncer = &priorityClassSyncer{}
 
-func (s *priorityClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	newPriorityClass := s.translate(ctx.Context, vObj.(*schedulingv1.PriorityClass))
 	ctx.Log.Infof("create physical priority class %s", newPriorityClass.Name)
 	err := ctx.PhysicalClient.Create(ctx.Context, newPriorityClass)

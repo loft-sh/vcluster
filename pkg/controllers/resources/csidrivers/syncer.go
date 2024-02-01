@@ -19,10 +19,10 @@ type csidriverSyncer struct {
 	translator.Translator
 }
 
-var _ syncer.UpSyncer = &csidriverSyncer{}
+var _ syncer.ToVirtualSyncer = &csidriverSyncer{}
 var _ syncer.Syncer = &csidriverSyncer{}
 
-func (s *csidriverSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj := s.translateBackwards(ctx.Context, pObj.(*storagev1.CSIDriver))
 	ctx.Log.Infof("create CSIDriver %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
@@ -40,7 +40,7 @@ func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 	return ctrl.Result{}, nil
 }
 
-func (s *csidriverSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *csidriverSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual CSIDriver %s, because physical object is missing", vObj.GetName())
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 }

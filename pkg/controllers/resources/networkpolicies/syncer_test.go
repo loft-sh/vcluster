@@ -227,7 +227,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vBaseNetworkPolicy.DeepCopy())
+				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vBaseNetworkPolicy.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -242,7 +242,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyNoPodSelector.DeepCopy())
+				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyNoPodSelector.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -310,7 +310,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithIPBlock.DeepCopy())
+				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithIPBlock.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -325,7 +325,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithPodSelectorNoNs.DeepCopy())
+				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithPodSelectorNoNs.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -340,7 +340,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithPodSelectorEmptyNs.DeepCopy())
+				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithPodSelectorEmptyNs.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -355,7 +355,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithPodSelectorNsSelector.DeepCopy())
+				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithPodSelectorNsSelector.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -370,7 +370,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyWithMatchExpressions.DeepCopy())
+				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithMatchExpressions.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -385,7 +385,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*networkPolicySyncer).SyncDown(syncCtx, vnetworkPolicyEgressWithPodSelectorNoNs.DeepCopy())
+				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyEgressWithPodSelectorNoNs.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

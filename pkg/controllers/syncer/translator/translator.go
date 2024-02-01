@@ -24,11 +24,11 @@ type NameTranslator interface {
 	// IsManaged determines if a physical object is managed by the vcluster
 	IsManaged(context.Context, client.Object) (bool, error)
 
-	// VirtualToPhysical translates a virtual name to a physical name
-	VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName
+	// VirtualToHost translates a virtual name to a physical name
+	VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName
 
-	// PhysicalToVirtual translates a physical name to a virtual name
-	PhysicalToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName
+	// HostToVirtual translates a physical name to a virtual name
+	HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName
 }
 
 // MetadataTranslator is used to convert metadata between virtual and physical objects and vice versa
@@ -57,6 +57,6 @@ type NamespacedTranslator interface {
 	// SyncDownUpdate updates the given pObj (if not nil) in the target namespace
 	SyncDownUpdate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
 
-	// Function to override default VirtualToPhysical name translation
+	// Function to override default VirtualToHost name translation
 	SetNameTranslator(nameTranslator translate.PhysicalNamespacedNameTranslator)
 }

@@ -27,21 +27,21 @@ type Syncer interface {
 	Object
 	translator.NameTranslator
 
-	// SyncDown is called when a virtual object was created and needs to be synced down to the physical cluster
-	SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error)
+	// SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
+	SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error)
 	// Sync is called to sync a virtual object with a physical object
 	Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error)
 }
 
-type UpSyncer interface {
-	// SyncUp is called when a physical object exists but the virtual object does not exist
-	SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error)
+type ToVirtualSyncer interface {
+	// SyncToVirtual is called when a host object exists but the virtual object does not exist
+	SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error)
 }
 
 type FakeSyncer interface {
 	Object
 
-	FakeSyncUp(ctx *synccontext.SyncContext, req types.NamespacedName) (ctrl.Result, error)
+	FakeSyncToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName) (ctrl.Result, error)
 	FakeSync(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error)
 }
 

@@ -113,7 +113,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).SyncDown(syncCtx, vPVSourceSnapshot.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).SyncToHost(syncCtx, vPVSourceSnapshot.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -129,7 +129,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).SyncDown(syncCtx, vVSCSourceSnapshot.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).SyncToHost(syncCtx, vVSCSourceSnapshot.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

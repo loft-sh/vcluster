@@ -314,7 +314,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).SyncDown(syncCtx, baseService)
+				_, err := syncer.(*serviceSyncer).SyncToHost(syncCtx, baseService)
 				assert.NilError(t, err)
 			},
 		},

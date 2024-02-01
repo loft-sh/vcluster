@@ -62,7 +62,7 @@ func (s *persistentVolumeClaimSyncer) WithOptions() *syncer.Options {
 
 var _ syncer.Syncer = &persistentVolumeClaimSyncer{}
 
-func (s *persistentVolumeClaimSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPvc := vObj.(*corev1.PersistentVolumeClaim)
 	if vPvc.DeletionTimestamp != nil {
 		// delete pvc immediately

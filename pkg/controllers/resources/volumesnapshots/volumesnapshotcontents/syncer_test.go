@@ -178,7 +178,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncUp(syncCtx, pDynamic.DeepCopy())
+				_, err := syncer.SyncToVirtual(syncCtx, pDynamic.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -194,7 +194,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncDown(syncCtx, vPreProvisioned.DeepCopy())
+				_, err := syncer.SyncToHost(syncCtx, vPreProvisioned.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -288,7 +288,7 @@ func TestSync(t *testing.T) {
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {}},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncDown(syncCtx, vDeletingWithGCFinalizer.DeepCopy())
+				_, err := syncer.SyncToHost(syncCtx, vDeletingWithGCFinalizer.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

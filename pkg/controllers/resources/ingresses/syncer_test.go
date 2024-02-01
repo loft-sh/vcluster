@@ -168,7 +168,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
-				_, err := syncer.(*ingressSyncer).SyncDown(syncCtx, baseIngress.DeepCopy())
+				_, err := syncer.(*ingressSyncer).SyncToHost(syncCtx, baseIngress.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

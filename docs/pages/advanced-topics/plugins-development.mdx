@@ -40,7 +40,7 @@ func main() {
 
 Let's break down what is happening in the `main()` function above.
 
-`ctx := plugin.MustInit("sync-all-configmaps-plugin")` - SDK will contact the vCluster backend server and retrieve it's configuration. The returned struct of type [`RegisterContext`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer/context#RegisterContext) contains information about vCluster flags, namespace, vCluster client config, controller manager objects, etc. 
+`ctx := plugin.MustInit("sync-all-configmaps-plugin")` - SDK will contact the vCluster backend server and retrieve it's configuration. The returned struct of type [`RegisterContext`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer/context#RegisterContext) contains information about vCluster flags, namespace, vCluster client config, controller manager objects, etc.
 
 `plugin.MustRegister(syncers.NewConfigMapSyncer(ctx))` - we will implement the `NewConfigMapSyncer` function below, but for now, all we need to know is that it should return a struct that implements [`Base`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer#Base) interface, which is accepted by the [`MustRegister`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/plugin#MustRegister) function. We should call [`MustRegister`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/plugin#MustRegister) function for each syncer that we wish to be managed by the plugins controller manager.
 
@@ -77,7 +77,7 @@ type configMapSyncer struct {
 
 After an import block, we see the `NewConfigMapSyncer` function, which is being called from the `main.go`. It returns a new instance of the `configMapSyncer` struct, which is defined by a single nested anonymous struct of type [`NamespacedTranslator`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer/translator#NamespacedTranslator). The [`NamespacedTranslator`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer/translator#NamespacedTranslator) implements many functions of the [`Syncer`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer#Syncer) interface for us, and we will implement the remaining ones - `SyncDown` and `Sync`.
 
-:::info 
+:::info
 You can get more familiar with the interfaces mentioned above by reading the SDK source files on GitHub - [vcluster-sdk/syncer/types.go](https://github.com/loft-sh/vcluster-sdk/blob/main/syncer/types.go) and [vcluster-sdk/syncer/translator/translator.go](https://github.com/loft-sh/vcluster-sdk/blob/main/syncer/translator/translator.go), or by using pkg.go.dev website - [Syncer](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer#Syncer) and [NamespacedTranslator](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer/translator#NamespacedTranslator).
 :::
 
@@ -85,7 +85,7 @@ You can get more familiar with the interfaces mentioned above by reading the SDK
 The `SyncDown` function mentioned above is called by the vCluster SDK when a given resource, e.g. a ConfigMap, is created in the vCluster, but it doesn't exist in the host cluster yet. To create a ConfigMap in the host cluster we will call the `SyncDownCreate` function with the output of the `translate` function as a third parameter. This demonstrates a typical pattern used in the vCluster syncer implementations.
 
 ```
-func (s *configMapSyncer) SyncDown(ctx *syncercontext.syncercontext, vObj client.Object) (ctrl.Result, error) {
+func (s *configMapSyncer) SyncToHost(ctx *syncercontext.syncercontext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.translate(vObj.(*corev1.ConfigMap)))
 }
 
@@ -298,7 +298,7 @@ You can now change a file locally in your IDE and then restart the command in th
 
 DevSpace will create a development vCluster which will execute your plugin. Any changes made within the vCluster created by DevSpace will execute against your plugin.
 ```
-vcluster list                
+vcluster list
 
  NAME       NAMESPACE       STATUS    CONNECTED   CREATED                          AGE
  vcluster   vcluster        Running   True        2022-09-06 20:33:20 +1000 AEST   2h26m8s

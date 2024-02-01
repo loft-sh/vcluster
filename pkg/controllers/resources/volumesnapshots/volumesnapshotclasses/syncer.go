@@ -27,9 +27,9 @@ func (s *volumeSnapshotClassSyncer) Init(registerContext *synccontext.RegisterCo
 	return util.EnsureCRD(registerContext.Context, registerContext.VirtualManager.GetConfig(), []byte(volumeSnapshotClassesCRD), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotClass"))
 }
 
-var _ syncer.UpSyncer = &volumeSnapshotClassSyncer{}
+var _ syncer.ToVirtualSyncer = &volumeSnapshotClassSyncer{}
 
-func (s *volumeSnapshotClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pVolumeSnapshotClass := pObj.(*volumesnapshotv1.VolumeSnapshotClass)
 	vObj := s.translateBackwards(ctx.Context, pVolumeSnapshotClass)
 	ctx.Log.Infof("create VolumeSnapshotClass %s, because it does not exist in the virtual cluster", vObj.Name)
@@ -38,7 +38,7 @@ func (s *volumeSnapshotClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj cl
 
 var _ syncer.Syncer = &volumeSnapshotClassSyncer{}
 
-func (s *volumeSnapshotClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// We are not doing any syncing Forward for the VolumeSnapshotClasses
 	// if this method is called it means that VolumeSnapshotClass was deleted in host or
 	// a new VolumeSnapshotClass was created in vcluster, and it should be deleted to avoid confusion

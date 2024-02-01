@@ -63,7 +63,7 @@ func (r *fakePersistentVolumeSyncer) ModifyController(_ *synccontext.RegisterCon
 
 var _ syncer.FakeSyncer = &fakePersistentVolumeSyncer{}
 
-func (r *fakePersistentVolumeSyncer) FakeSyncUp(ctx *synccontext.SyncContext, req types.NamespacedName) (ctrl.Result, error) {
+func (r *fakePersistentVolumeSyncer) FakeSyncToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName) (ctrl.Result, error) {
 	needed, err := r.pvNeeded(ctx, req.Name)
 	if err != nil {
 		return ctrl.Result{}, err

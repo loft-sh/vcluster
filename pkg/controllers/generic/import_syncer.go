@@ -177,9 +177,9 @@ func (s *importer) excludeObject(obj client.Object) bool {
 	return false
 }
 
-var _ syncertypes.UpSyncer = &importer{}
+var _ syncertypes.ToVirtualSyncer = &importer{}
 
-func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// check if annotation is already present
 	if pObj.GetAnnotations() != nil {
 		if pObj.GetAnnotations()[translate.ControllerLabel] == s.Name() &&
@@ -234,7 +234,7 @@ func (s *importer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctr
 
 var _ syncertypes.Syncer = &importer{}
 
-func (s *importer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *importer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// ignore all virtual resources that were not created by this controller
 	if !s.IsVirtualManaged(vObj) {
 		return ctrl.Result{}, nil
@@ -354,11 +354,11 @@ func (s *importer) IsVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) VirtualToPhysical(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (s *importer) VirtualToHost(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
 }
 
-func (s *importer) PhysicalToVirtual(ctx context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (s *importer) HostToVirtual(ctx context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return types.NamespacedName{
 			Name: req.Name,
@@ -382,7 +382,7 @@ func (s *importer) TranslateMetadata(ctx context.Context, pObj client.Object) cl
 	vObj.SetOwnerReferences(nil)
 	vObj.SetFinalizers(nil)
 	vObj.SetAnnotations(s.updateVirtualAnnotations(vObj.GetAnnotations()))
-	nn := s.PhysicalToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj)
+	nn := s.HostToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj)
 	vObj.SetName(nn.Name)
 	vObj.SetNamespace(nn.Namespace)
 

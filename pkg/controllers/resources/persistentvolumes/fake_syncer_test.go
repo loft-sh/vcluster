@@ -93,7 +93,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeFakeSyncer(t, ctx)
-				_, err := syncer.FakeSyncUp(syncContext, basePvName)
+				_, err := syncer.FakeSyncToVirtual(syncContext, basePvName)
 				assert.NilError(t, err)
 			},
 		},
@@ -106,7 +106,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeFakeSyncer(t, ctx)
-				_, err := syncer.FakeSyncUp(syncContext, basePvName)
+				_, err := syncer.FakeSyncToVirtual(syncContext, basePvName)
 				assert.NilError(t, err)
 			},
 		},

@@ -132,7 +132,7 @@ type exporter struct {
 	name     string
 }
 
-func (f *exporter) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// check if selector matches
 	if !f.objectMatches(vObj) {
 		return ctrl.Result{}, nil
@@ -261,9 +261,9 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	return ctrl.Result{}, nil
 }
 
-var _ syncertypes.UpSyncer = &exporter{}
+var _ syncertypes.ToVirtualSyncer = &exporter{}
 
-func (f *exporter) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (f *exporter) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	if !translate.Default.IsManaged(pObj) {
 		return ctrl.Result{}, nil
 	}

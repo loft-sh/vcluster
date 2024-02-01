@@ -85,7 +85,7 @@ func (s *persistentVolumeSyncer) ModifyController(_ *synccontext.RegisterContext
 
 var _ syncertypes.Syncer = &persistentVolumeSyncer{}
 
-func (s *persistentVolumeSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPv := vObj.(*corev1.PersistentVolume)
 	if vPv.DeletionTimestamp != nil || (vPv.Annotations != nil && vPv.Annotations[HostClusterPersistentVolumeAnnotation] != "") {
 		if len(vPv.Finalizers) > 0 {
@@ -217,9 +217,9 @@ func (s *persistentVolumeSyncer) WithOptions() *syncertypes.Options {
 	return &syncertypes.Options{DisableUIDDeletion: true}
 }
 
-var _ syncertypes.UpSyncer = &persistentVolumeSyncer{}
+var _ syncertypes.ToVirtualSyncer = &persistentVolumeSyncer{}
 
-func (s *persistentVolumeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
 	sync, vPvc, err := s.shouldSync(ctx.Context, pPersistentVolume)
 	if err != nil {
@@ -283,11 +283,11 @@ func (s *persistentVolumeSyncer) IsManaged(ctx context.Context, pObj client.Obje
 	return sync, nil
 }
 
-func (s *persistentVolumeSyncer) VirtualToPhysical(_ context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *persistentVolumeSyncer) VirtualToHost(_ context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translatePersistentVolumeName(req.Name, vObj)}
 }
 
-func (s *persistentVolumeSyncer) PhysicalToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+func (s *persistentVolumeSyncer) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {

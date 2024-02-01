@@ -71,7 +71,7 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 
-		return r.syncer.FakeSyncUp(syncContext, req.NamespacedName)
+		return r.syncer.FakeSyncToVirtual(syncContext, req.NamespacedName)
 	}
 
 	// check if we should skip resource

@@ -44,7 +44,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotClassSyncer).SyncUp(syncCtx, vBaseVSC.DeepCopy())
+				_, err := syncer.(*volumeSnapshotClassSyncer).SyncToVirtual(syncCtx, vBaseVSC.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -88,7 +88,7 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotClassSyncer).SyncDown(syncCtx, vBaseVSC.DeepCopy())
+				_, err := syncer.(*volumeSnapshotClassSyncer).SyncToHost(syncCtx, vBaseVSC.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

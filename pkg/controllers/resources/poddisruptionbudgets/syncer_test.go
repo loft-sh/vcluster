@@ -92,7 +92,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*pdbSyncer).SyncDown(syncCtx, vclusterPDB)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, vclusterPDB)
 				assert.NilError(t, err)
 			},
 		},

@@ -23,7 +23,7 @@ type ingressSyncer struct {
 
 var _ syncertypes.Syncer = &ingressSyncer{}
 
-func (s *ingressSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1beta1.Ingress)))
 }
 

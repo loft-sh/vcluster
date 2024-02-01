@@ -50,7 +50,7 @@ func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Obje
 	return ctrl.Result{}, nil
 }
 
-func (s *storageClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	newStorageClass := s.translate(ctx.Context, vObj.(*storagev1.StorageClass))
 	ctx.Log.Infof("create physical storage class %s", newStorageClass.Name)
 	err := ctx.PhysicalClient.Create(ctx.Context, newStorageClass)
