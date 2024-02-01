@@ -24,7 +24,7 @@ type ingressSyncer struct {
 var _ syncertypes.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1beta1.Ingress)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1beta1.Ingress)))
 }
 
 func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -63,7 +63,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		translator.PrintChanges(pObj, newIngress, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vObj, newIngress)
+	return s.SyncToHostUpdate(ctx, vObj, newIngress)
 }
 
 func SecretNamesFromIngress(ingress *networkingv1beta1.Ingress) []string {

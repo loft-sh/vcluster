@@ -25,7 +25,7 @@ type endpointsSyncer struct {
 }
 
 func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj))
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -34,7 +34,7 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		translator.PrintChanges(pObj, newEndpoints, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vObj, newEndpoints)
+	return s.SyncToHostUpdate(ctx, vObj, newEndpoints)
 }
 
 var _ syncer.Starter = &endpointsSyncer{}

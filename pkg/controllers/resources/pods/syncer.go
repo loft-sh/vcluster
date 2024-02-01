@@ -220,7 +220,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object)
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownCreate(ctx, vPod, pPod)
+	return s.SyncToHostCreate(ctx, vPod, pPod)
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -348,7 +348,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		translator.PrintChanges(pPod, updatedPod, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vPod, updatedPod)
+	return s.SyncToHostUpdate(ctx, vPod, updatedPod)
 }
 
 func syncEphemeralContainers(vPod *corev1.Pod, pPod *corev1.Pod) bool {

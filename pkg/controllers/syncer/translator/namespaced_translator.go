@@ -66,7 +66,7 @@ func (n *namespacedTranslator) RegisterIndices(ctx *context.RegisterContext) err
 	})
 }
 
-func (n *namespacedTranslator) SyncDownCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
+func (n *namespacedTranslator) SyncToHostCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("create physical %s %s/%s", n.name, pObj.GetNamespace(), pObj.GetName())
 	err := ctx.PhysicalClient.Create(ctx.Context, pObj)
 	if err != nil {
@@ -82,7 +82,7 @@ func (n *namespacedTranslator) SyncDownCreate(ctx *context.SyncContext, vObj, pO
 	return ctrl.Result{}, nil
 }
 
-func (n *namespacedTranslator) SyncDownUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
+func (n *namespacedTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
 	// this is needed because of interface nil check
 	if !(pObj == nil || (reflect.ValueOf(pObj).Kind() == reflect.Ptr && reflect.ValueOf(pObj).IsNil())) {
 		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), n.name)

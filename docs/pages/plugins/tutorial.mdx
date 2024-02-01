@@ -90,26 +90,26 @@ type carSyncer struct {
 
 After an import block, we see the `NewCarSyncer` function, which is being called from the `main.go`. It returns a new instance of the `carSyncer` struct, which is defined by a single nested anonymous struct of type `NamespacedTranslator`. The `NamespacedTranslator` implements many functions of the [`Syncer`](https://pkg.go.dev/github.com/loft-sh/vcluster-sdk/syncer#Syncer) interface for us, and we will implement the remaining ones - `SyncDown` and `Sync`.
 
-The `SyncDown` function mentioned above is called by the vCluster SDK when a given resource, e.g. a Car, is created in the vCluster, but it doesn't exist in the host cluster yet. To create a ConfigMap in the host cluster we will call the `SyncDownCreate` function with the output of the `translate` function as third parameter. This demonstrates a typical pattern used in the vCluster syncer implementations.
+The `SyncDown` function mentioned above is called by the vCluster SDK when a given resource, e.g. a Car, is created in the vCluster, but it doesn't exist in the host cluster yet. To create a ConfigMap in the host cluster we will call the `SyncToHostCreate` function with the output of the `translate` function as third parameter. This demonstrates a typical pattern used in the vCluster syncer implementations.
 
 ```
 func (s *carSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.TranslateMetadata(ctx.Context, vObj).(*examplev1.Car))
+	return s.SyncToHostCreate(ctx, vObj, s.TranslateMetadata(ctx.Context, vObj).(*examplev1.Car))
 }
 
 func (s *carSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(ctx.Context, pObj.(*examplev1.Car), vObj.(*examplev1.Car)))
+	return s.SyncToHostUpdate(ctx, vObj, s.translateUpdate(ctx.Context, pObj.(*examplev1.Car), vObj.(*examplev1.Car)))
 }
 ```
 The `TranslateMetadata` function used above produces a Car object that will be created in the host cluster. It is a deep copy of the Car from vCluster, but with certain metadata modifications - the name and labels are transformed, some vCluster labels and annotations are added, many metadata fields are stripped (uid, resourceVersion, etc.).
 
 
-Next, we need to implement code that will handle the updates of the Car. When a CAr in vCluster or host cluster is updated, the vCluster SDK will call the `Sync` function of the syncer. Current Car resource from the host cluster and from vCluster are passed as the second and third parameters respectively. In the implementation below, you can see another pattern used by the vCluster syncers. The `translateUpdate` function will return nil when no change to the Car in the host cluster is needed, and the `SyncDownUpdate` function will not do an unnecessary update API call in such case.
+Next, we need to implement code that will handle the updates of the Car. When a CAr in vCluster or host cluster is updated, the vCluster SDK will call the `Sync` function of the syncer. Current Car resource from the host cluster and from vCluster are passed as the second and third parameters respectively. In the implementation below, you can see another pattern used by the vCluster syncers. The `translateUpdate` function will return nil when no change to the Car in the host cluster is needed, and the `SyncToHostUpdate` function will not do an unnecessary update API call in such case.
 
 ```
 
 func (s *carSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownUpdate(ctx, vObj, s.translateUpdate(ctx.Context, pObj.(*examplev1.Car), vObj.(*examplev1.Car)))
+	return s.SyncToHostUpdate(ctx, vObj, s.translateUpdate(ctx.Context, pObj.(*examplev1.Car), vObj.(*examplev1.Car)))
 }
 
 func (s *carSyncer) translateUpdate(ctx context.Context, pObj, vObj *examplev1.Car) *examplev1.Car {

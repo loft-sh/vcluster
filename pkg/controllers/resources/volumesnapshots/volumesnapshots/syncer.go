@@ -60,7 +60,7 @@ func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj cli
 		return ctrl.Result{}, err
 	}
 
-	return s.SyncDownCreate(ctx, vObj, pObj)
+	return s.SyncToHostCreate(ctx, vObj, pObj)
 }
 
 func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -153,5 +153,5 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 		translator.PrintChanges(pVS, updated, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vVS, updated)
+	return s.SyncToHostUpdate(ctx, vVS, updated)
 }

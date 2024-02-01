@@ -74,7 +74,7 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ConfigMap)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ConfigMap)))
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -99,7 +99,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 	}
 
 	// did the configmap change?
-	return s.SyncDownUpdate(ctx, vObj, newConfigMap)
+	return s.SyncToHostUpdate(ctx, vObj, newConfigMap)
 }
 
 func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {
