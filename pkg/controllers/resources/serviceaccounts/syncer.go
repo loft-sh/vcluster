@@ -20,7 +20,7 @@ type serviceAccountSyncer struct {
 	translator.NamespacedTranslator
 }
 
-func (s *serviceAccountSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ServiceAccount)))
 }
 

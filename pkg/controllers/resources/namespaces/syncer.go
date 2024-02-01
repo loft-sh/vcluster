@@ -62,7 +62,7 @@ func (s *namespaceSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 
 var _ syncertypes.Syncer = &namespaceSyncer{}
 
-func (s *namespaceSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	newNamespace := s.translate(ctx.Context, vObj.(*corev1.Namespace))
 	ctx.Log.Infof("create physical namespace %s", newNamespace.Name)
 	err := ctx.PhysicalClient.Create(ctx.Context, newNamespace)

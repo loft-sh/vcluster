@@ -52,11 +52,11 @@ func (s *eventSyncer) IsManaged(context.Context, client.Object) (bool, error) {
 	return true, nil
 }
 
-func (s *eventSyncer) VirtualToPhysical(context.Context, types.NamespacedName, client.Object) types.NamespacedName {
+func (s *eventSyncer) VirtualToHost(context.Context, types.NamespacedName, client.Object) types.NamespacedName {
 	return types.NamespacedName{}
 }
 
-func (s *eventSyncer) PhysicalToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (s *eventSyncer) HostToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	return req
 }
 
@@ -189,7 +189,7 @@ func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) 
 
 var _ syncer.Syncer = &eventSyncer{}
 
-func (s *eventSyncer) SyncDown(*synccontext.SyncContext, client.Object) (ctrl.Result, error) {
+func (s *eventSyncer) SyncToHost(*synccontext.SyncContext, client.Object) (ctrl.Result, error) {
 	// Noop, we do nothing here
 	return ctrl.Result{}, nil
 }

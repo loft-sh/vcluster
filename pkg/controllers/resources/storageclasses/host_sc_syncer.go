@@ -19,9 +19,9 @@ type hostStorageClassSyncer struct {
 	translator.Translator
 }
 
-var _ syncer.UpSyncer = &hostStorageClassSyncer{}
+var _ syncer.ToVirtualSyncer = &hostStorageClassSyncer{}
 
-func (s *hostStorageClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj := s.translateBackwards(ctx.Context, pObj.(*storagev1.StorageClass))
 	ctx.Log.Infof("create storage class %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
@@ -41,7 +41,7 @@ func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	return ctrl.Result{}, nil
 }
 
-func (s *hostStorageClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *hostStorageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual storage class %s, because physical object is missing", vObj.GetName())
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 }

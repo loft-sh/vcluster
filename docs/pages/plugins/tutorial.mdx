@@ -93,7 +93,7 @@ After an import block, we see the `NewCarSyncer` function, which is being called
 The `SyncDown` function mentioned above is called by the vCluster SDK when a given resource, e.g. a Car, is created in the vCluster, but it doesn't exist in the host cluster yet. To create a ConfigMap in the host cluster we will call the `SyncDownCreate` function with the output of the `translate` function as third parameter. This demonstrates a typical pattern used in the vCluster syncer implementations.
 
 ```
-func (s *carSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *carSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.TranslateMetadata(ctx.Context, vObj).(*examplev1.Car))
 }
 

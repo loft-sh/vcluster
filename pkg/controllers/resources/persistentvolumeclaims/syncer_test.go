@@ -146,7 +146,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*persistentVolumeClaimSyncer).SyncDown(syncCtx, basePvc)
+				_, err := syncer.(*persistentVolumeClaimSyncer).SyncToHost(syncCtx, basePvc)
 				assert.NilError(t, err)
 			},
 		},
@@ -162,7 +162,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*persistentVolumeClaimSyncer).SyncDown(syncCtx, deletePvc)
+				_, err := syncer.(*persistentVolumeClaimSyncer).SyncToHost(syncCtx, deletePvc)
 				assert.NilError(t, err)
 			},
 		},

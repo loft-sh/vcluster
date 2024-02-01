@@ -454,7 +454,7 @@ func TestSync(t *testing.T) {
 				ctx.Options.EnforceNodeSelector = true
 				ctx.Options.NodeSelector = nodeSelectorOption
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodWithNodeSelector.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodWithNodeSelector.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -470,7 +470,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSS.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSS.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -487,7 +487,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Options.EnforcePodSecurityStandard = string(api.LevelPrivileged)
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSS.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSS.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -504,7 +504,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Options.EnforcePodSecurityStandard = string(api.LevelRestricted)
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSSR.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSSR.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -521,7 +521,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Options.MountPhysicalHostPaths = true
 				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(synccontext, vHostPathPod.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -553,7 +553,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Options.SyncLabels = []string{syncLabelsWildcard}
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodWithLabels.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodWithLabels.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

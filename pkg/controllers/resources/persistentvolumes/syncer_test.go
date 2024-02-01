@@ -209,7 +209,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncUp(syncContext, basePPv)
+				_, err := syncer.SyncToVirtual(syncContext, basePPv)
 				assert.NilError(t, err)
 			},
 		},
@@ -226,7 +226,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncUp(syncContext, wrongNsPPv)
+				_, err := syncer.SyncToVirtual(syncContext, wrongNsPPv)
 				assert.NilError(t, err)
 			},
 		},
@@ -243,7 +243,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncUp(syncContext, noPvcPPv)
+				_, err := syncer.SyncToVirtual(syncContext, noPvcPPv)
 				assert.NilError(t, err)
 			},
 		},

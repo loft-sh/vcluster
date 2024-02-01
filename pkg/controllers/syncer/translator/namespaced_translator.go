@@ -103,7 +103,7 @@ func (n *namespacedTranslator) IsManaged(_ context2.Context, pObj client.Object)
 	return translate.Default.IsManaged(pObj), nil
 }
 
-func (n *namespacedTranslator) VirtualToPhysical(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (n *namespacedTranslator) VirtualToHost(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	name := translate.Default.PhysicalName(req.Name, req.Namespace)
 	if n.nameTranslator != nil {
 		name = n.nameTranslator(req, vObj)
@@ -115,7 +115,7 @@ func (n *namespacedTranslator) VirtualToPhysical(_ context2.Context, req types.N
 	}
 }
 
-func (n *namespacedTranslator) PhysicalToVirtual(_ context2.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+func (n *namespacedTranslator) HostToVirtual(_ context2.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
@@ -147,7 +147,7 @@ func (n *namespacedTranslator) TranslateMetadata(ctx context2.Context, vObj clie
 
 	// reset metadata & translate name and namespace
 	translate.ResetObjectMetadata(m)
-	m.SetName(n.VirtualToPhysical(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj).Name)
+	m.SetName(n.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj).Name)
 	if vObj.GetNamespace() != "" {
 		m.SetNamespace(translate.Default.PhysicalNamespace(vObj.GetNamespace()))
 

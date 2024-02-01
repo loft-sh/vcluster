@@ -24,10 +24,10 @@ type csinodeSyncer struct {
 	virtualClient client.Client
 }
 
-var _ syncertypes.UpSyncer = &csinodeSyncer{}
+var _ syncertypes.ToVirtualSyncer = &csinodeSyncer{}
 var _ syncertypes.Syncer = &csinodeSyncer{}
 
-func (s *csinodeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// look up matching node name, don't sync if not found
 	node := &corev1.Node{}
 	err := s.virtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.GetName()}, node)
@@ -62,7 +62,7 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	return ctrl.Result{}, nil
 }
 
-func (s *csinodeSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual CSINode %s, because physical object is missing", vObj.GetName())
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 }

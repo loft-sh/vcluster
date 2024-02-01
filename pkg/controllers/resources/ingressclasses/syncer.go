@@ -19,10 +19,10 @@ type ingressClassSyncer struct {
 	translator.Translator
 }
 
-var _ syncer.UpSyncer = &ingressClassSyncer{}
+var _ syncer.ToVirtualSyncer = &ingressClassSyncer{}
 var _ syncer.Syncer = &ingressClassSyncer{}
 
-func (i *ingressClassSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj := i.translateBackwards(ctx.Context, pObj.(*networkingv1.IngressClass))
 	ctx.Log.Infof("create ingress class %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
@@ -39,7 +39,7 @@ func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, pObj, vObj clien
 	return ctrl.Result{}, nil
 }
 
-func (i *ingressClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (i *ingressClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual ingress class %s, because physical object is missing", vObj.GetName())
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 }

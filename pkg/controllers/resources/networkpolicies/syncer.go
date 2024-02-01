@@ -22,7 +22,7 @@ type networkPolicySyncer struct {
 
 var _ syncertypes.Syncer = &networkPolicySyncer{}
 
-func (s *networkPolicySyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1.NetworkPolicy)))
 }
 

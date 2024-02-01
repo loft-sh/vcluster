@@ -73,7 +73,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*storageClassSyncer).SyncDown(syncCtx, vObject)
+				_, err := syncer.(*storageClassSyncer).SyncToHost(syncCtx, vObject)
 				assert.NilError(t, err)
 			},
 		},

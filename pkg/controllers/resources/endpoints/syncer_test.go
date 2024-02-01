@@ -77,7 +77,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*endpointsSyncer).SyncDown(syncCtx, baseEndpoints)
+				_, err := syncer.(*endpointsSyncer).SyncToHost(syncCtx, baseEndpoints)
 				assert.NilError(t, err)
 			},
 		},

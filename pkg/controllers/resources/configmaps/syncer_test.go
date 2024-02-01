@@ -77,7 +77,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*configMapSyncer).SyncDown(syncCtx, baseConfigMap)
+				_, err := syncer.(*configMapSyncer).SyncToHost(syncCtx, baseConfigMap)
 				assert.NilError(t, err)
 			},
 		},
@@ -94,7 +94,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*configMapSyncer).SyncDown(syncCtx, baseConfigMap)
+				_, err := syncer.(*configMapSyncer).SyncToHost(syncCtx, baseConfigMap)
 				assert.NilError(t, err)
 			},
 		},

@@ -66,7 +66,7 @@ func (s *configMapSyncer) ModifyController(_ *synccontext.RegisterContext, build
 	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
 }
 
-func (s *configMapSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	createNeeded, err := s.isConfigMapUsed(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err

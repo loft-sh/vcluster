@@ -92,7 +92,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*ingressClassSyncer).SyncUp(syncCtx, pObj)
+				_, err := syncer.(*ingressClassSyncer).SyncToVirtual(syncCtx, pObj)
 				assert.NilError(t, err)
 			},
 		},
@@ -103,7 +103,7 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*ingressClassSyncer).SyncDown(syncCtx, vObj)
+				_, err := syncer.(*ingressClassSyncer).SyncToHost(syncCtx, vObj)
 				assert.NilError(t, err)
 			},
 		},

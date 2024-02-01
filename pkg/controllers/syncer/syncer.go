@@ -117,7 +117,7 @@ func (r *syncerController) Reconcile(ctx context.Context, origReq ctrl.Request) 
 
 	// check what function we should call
 	if vObj != nil && pObj == nil {
-		return r.syncer.SyncDown(syncContext, vObj)
+		return r.syncer.SyncToHost(syncContext, vObj)
 	} else if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
@@ -140,10 +140,10 @@ func (r *syncerController) Reconcile(ctx context.Context, origReq ctrl.Request) 
 			}
 		}
 
-		// check if up syncer
-		upSyncer, ok := r.syncer.(syncertypes.UpSyncer)
+		// check if virtual syncer
+		toVirtual, ok := r.syncer.(syncertypes.ToVirtualSyncer)
 		if ok {
-			return upSyncer.SyncUp(syncContext, pObj)
+			return toVirtual.SyncToVirtual(syncContext, pObj)
 		}
 
 		return DeleteObject(syncContext, pObj, "virtual object was deleted")
@@ -172,7 +172,7 @@ func (r *syncerController) getObjectsFromPhysical(ctx *synccontext.SyncContext, 
 	}
 
 	// get virtual object
-	exclude, vObj, err = r.getVirtualObject(ctx.Context, r.syncer.PhysicalToVirtual(ctx.Context, req.NamespacedName, pObj))
+	exclude, vObj, err = r.getVirtualObject(ctx.Context, r.syncer.HostToVirtual(ctx.Context, req.NamespacedName, pObj))
 	if err != nil {
 		return nil, nil, err
 	} else if exclude {
@@ -192,7 +192,7 @@ func (r *syncerController) getObjectsFromVirtual(ctx *synccontext.SyncContext, r
 	}
 
 	// get physical object
-	exclude, pObj, err = r.getPhysicalObject(ctx.Context, r.syncer.VirtualToPhysical(ctx.Context, req.NamespacedName, vObj), vObj)
+	exclude, pObj, err = r.getPhysicalObject(ctx.Context, r.syncer.VirtualToHost(ctx.Context, req.NamespacedName, vObj), vObj)
 	if err != nil {
 		return nil, nil, err
 	} else if exclude {
@@ -319,7 +319,7 @@ func (r *syncerController) extractRequest(ctx context.Context, req ctrl.Request)
 		}
 
 		// try to get virtual name from physical
-		req.NamespacedName = r.syncer.PhysicalToVirtual(ctx, pReq.NamespacedName, pObj)
+		req.NamespacedName = r.syncer.HostToVirtual(ctx, pReq.NamespacedName, pObj)
 	}
 
 	return req, pReq, nil
@@ -332,7 +332,7 @@ func (r *syncerController) enqueueVirtual(ctx context.Context, obj client.Object
 
 	// add a new request for the host object as otherwise this information might be lost after a delete event
 	if isDelete {
-		name := r.syncer.VirtualToPhysical(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+		name := r.syncer.VirtualToHost(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
 			q.Add(toHostRequest(reconcile.Request{
 				NamespacedName: name,
@@ -365,7 +365,7 @@ func (r *syncerController) enqueuePhysical(ctx context.Context, obj client.Objec
 
 	// add a new request for the virtual object as otherwise this information might be lost after a delete event
 	if isDelete {
-		name := r.syncer.PhysicalToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+		name := r.syncer.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
 			q.Add(reconcile.Request{
 				NamespacedName: name,

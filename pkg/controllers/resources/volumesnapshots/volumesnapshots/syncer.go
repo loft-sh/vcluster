@@ -43,7 +43,7 @@ func (s *volumeSnapshotSyncer) Init(registerContext *synccontext.RegisterContext
 
 var _ syncer.Syncer = &volumeSnapshotSyncer{}
 
-func (s *volumeSnapshotSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vVS := vObj.(*volumesnapshotv1.VolumeSnapshot)
 	if vVS.DeletionTimestamp != nil {
 		// delete volume snapshot immediately

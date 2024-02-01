@@ -48,7 +48,7 @@ func (s *mockSyncer) naiveTranslateUpdate(ctx *synccontext.SyncContext, vObj cli
 }
 
 // SyncDown is called when a virtual object was created and needs to be synced down to the physical cluster
-func (s *mockSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncDownCreate(ctx, vObj, s.naiveTranslateCreate(ctx, vObj))
 }
 

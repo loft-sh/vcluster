@@ -151,7 +151,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeFakeSyncer(t, ctx)
-				_, err := syncer.FakeSyncUp(syncContext, baseName)
+				_, err := syncer.FakeSyncToVirtual(syncContext, baseName)
 				assert.NilError(t, err)
 			},
 			Compare: func(obj1 runtime.Object, obj2 runtime.Object) bool {

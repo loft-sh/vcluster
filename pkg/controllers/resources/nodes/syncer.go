@@ -251,11 +251,11 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 	})
 }
 
-func (s *nodeSyncer) VirtualToPhysical(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (s *nodeSyncer) VirtualToHost(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	return req
 }
 
-func (s *nodeSyncer) PhysicalToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (s *nodeSyncer) HostToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: req.Name}
 }
 
@@ -270,7 +270,7 @@ func (s *nodeSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, e
 
 var _ syncertypes.Syncer = &nodeSyncer{}
 
-func (s *nodeSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vNode := vObj.(*corev1.Node)
 	ctx.Log.Infof("delete virtual node %s, because it is not needed anymore", vNode.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
@@ -314,9 +314,9 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 	return ctrl.Result{}, nil
 }
 
-var _ syncertypes.UpSyncer = &nodeSyncer{}
+var _ syncertypes.ToVirtualSyncer = &nodeSyncer{}
 
-func (s *nodeSyncer) SyncUp(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *nodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pNode := pObj.(*corev1.Node)
 	shouldSync, err := s.shouldSync(ctx.Context, pNode)
 	if err != nil {
