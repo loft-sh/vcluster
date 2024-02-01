@@ -328,6 +328,8 @@ openshift:
 coredns:
   # Pro only feature
   integrated: false
+  # only used if isolation is enabled
+  fallback: 8.8.8.8
   plugin:
     enabled: false
     config: []
