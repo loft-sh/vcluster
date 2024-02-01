@@ -1,0 +1,26 @@
+suite: Etcd
+templates:
+  - etcd-statefulset.yaml
+  - etcd-service.yaml
+  - etcd-statefulset-service.yaml
+
+tests:
+  - it: should have etcd when migratefrometcd is true
+    set:
+      pro: true
+      embeddedEtcd:
+        enabled: true
+        migrateFromEtcd: true
+    asserts:
+      - hasDocuments:
+          count: 1
+  - it: shouldn't have etcd when migratefrometcd is false
+    set:
+      pro: true
+      embeddedEtcd:
+        enabled: true
+        migrateFromEtcd: false
+    asserts:
+      - hasDocuments:
+          count: 0
+

@@ -14,7 +14,7 @@ embeddedEtcd:
  enabled: false
  # To use if embeddedEtcd is enabled and you want to migrate the data
  # from the external etcd
- migrate: false
+ migrateFromEtcd: false
 
 # Extra Annotations for the stateful set
 annotations: {}

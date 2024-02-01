@@ -1,4 +1,4 @@
-{{- if or (and (not .Values.embeddedEtcd.enabled) (not .Values.headless) (not .Values.etcd.disabled)) .Values.embeddedEtcd.migrate }}
+{{- if or (and (not .Values.embeddedEtcd.enabled) (not .Values.headless) (not .Values.etcd.disabled)) .Values.embeddedEtcd.migrateFromEtcd }}
 apiVersion: v1
 kind: Service
 metadata:
