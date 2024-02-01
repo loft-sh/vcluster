@@ -23,6 +23,7 @@ require (
 	github.com/loft-sh/vcluster-values v0.0.0-20240131102942-9de6e2694279
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/moby/locker v1.0.1
 	github.com/moby/term v0.5.0
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0

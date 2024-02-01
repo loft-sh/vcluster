@@ -55,11 +55,6 @@ type IndicesRegisterer interface {
 	RegisterIndices(ctx *synccontext.RegisterContext) error
 }
 
-// WatchOnHost is used to tell the syncer to watch on the host instead of the virtual cluster
-type WatchOnHost interface {
-	WatchOnHost() bool
-}
-
 // ControllerModifier is used to modify the created controller for the syncer
 type ControllerModifier interface {
 	ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error)

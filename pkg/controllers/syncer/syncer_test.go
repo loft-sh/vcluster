@@ -7,6 +7,7 @@ import (
 
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/moby/locker"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
@@ -278,6 +279,8 @@ func TestReconcile(t *testing.T) {
 
 			virtualClient: vClient,
 			options:       options,
+
+			locker: locker.New(),
 		}
 
 		// execute
