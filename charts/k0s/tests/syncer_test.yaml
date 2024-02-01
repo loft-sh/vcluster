@@ -1,0 +1,54 @@
+suite: Syncer
+templates:
+  - syncer.yaml
+
+tests:
+  - it: should have pvc if persistence is on
+    set:
+      storage:
+        persistence: true
+
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isNotEmpty:
+          path: spec.volumeClaimTemplates
+
+  - it: should not have pvc if persistence is off
+    set:
+      storage:
+        persistence: false
+
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isNull:
+          path: spec.volumeClaimTemplates
+
+  - it: should not have emptyDir data volume if persistence is on
+    set:
+      storage:
+        persistence: true
+
+    asserts:
+      - hasDocuments:
+          count: 1
+      - notContains:
+          path: .spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: should have emptyDir data volume if persistence is off
+    set:
+      storage:
+        persistence: false
+
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: .spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
