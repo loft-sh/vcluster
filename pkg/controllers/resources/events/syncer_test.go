@@ -12,8 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -103,10 +101,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, registerContext)
-				_, err := syncer.ReconcileStart(syncContext, ctrl.Request{NamespacedName: types.NamespacedName{
-					Namespace: pEvent.Namespace,
-					Name:      pEvent.Name,
-				}})
+				_, err := syncer.SyncToVirtual(syncContext, pEvent)
 				assert.NilError(t, err)
 			},
 		},
@@ -128,10 +123,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, registerContext)
-				_, err := syncer.ReconcileStart(syncContext, ctrl.Request{NamespacedName: types.NamespacedName{
-					Namespace: pEvent.Namespace,
-					Name:      pEvent.Name,
-				}})
+				_, err := syncer.Sync(syncContext, pEventUpdated, vEvent)
 				assert.NilError(t, err)
 			},
 		},
