@@ -16,7 +16,7 @@ Sets your vcluster telemetry preferences.
 Default: enabled.
 
 More information about the collected telmetry is in the
-docs: https://www.vcluster.com/docs/telemetry
+docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 	`,
 		Args: cobra.NoArgs,
 	}
