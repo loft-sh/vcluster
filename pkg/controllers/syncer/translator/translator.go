@@ -51,12 +51,12 @@ type NamespacedTranslator interface {
 	// RegisterIndices registers the default indices for the syncer
 	RegisterIndices(ctx *syncercontext.RegisterContext) error
 
-	// SyncDownCreate creates the given pObj in the target namespace
-	SyncDownCreate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
+	// SyncToHostCreate creates the given pObj in the target namespace
+	SyncToHostCreate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
 
-	// SyncDownUpdate updates the given pObj (if not nil) in the target namespace
-	SyncDownUpdate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
+	// SyncToHostUpdate updates the given pObj (if not nil) in the target namespace
+	SyncToHostUpdate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
 
-	// Function to override default VirtualToHost name translation
+	// SetNameTranslator is a function to override default VirtualToHost name translation
 	SetNameTranslator(nameTranslator translate.PhysicalNamespacedNameTranslator)
 }

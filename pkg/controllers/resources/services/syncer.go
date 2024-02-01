@@ -45,7 +45,7 @@ func (s *serviceSyncer) WithOptions() *syncertypes.Options {
 }
 
 func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Service)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Service)))
 }
 
 func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -103,7 +103,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		translator.PrintChanges(pService, newService, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vObj, newService)
+	return s.SyncToHostUpdate(ctx, vObj, newService)
 }
 
 func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Service) bool {

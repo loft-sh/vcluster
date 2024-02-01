@@ -82,7 +82,7 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, v
 		return ctrl.Result{}, err
 	}
 
-	return s.SyncDownCreate(ctx, vObj, newPvc)
+	return s.SyncToHostCreate(ctx, vObj, newPvc)
 }
 
 func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -163,7 +163,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 		translator.PrintChanges(pPvc, newPvc, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vPvc, newPvc)
+	return s.SyncToHostUpdate(ctx, vPvc, newPvc)
 }
 
 func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) (bool, error) {

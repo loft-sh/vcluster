@@ -21,7 +21,7 @@ type serviceAccountSyncer struct {
 }
 
 func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ServiceAccount)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ServiceAccount)))
 }
 
 func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -31,5 +31,5 @@ func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 		translator.PrintChanges(pObj, newServiceAccount, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vObj, newServiceAccount)
+	return s.SyncToHostUpdate(ctx, vObj, newServiceAccount)
 }

@@ -108,7 +108,7 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obje
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Secret)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Secret)))
 }
 
 func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -132,7 +132,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 		translator.PrintChanges(pObj, newSecret, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vObj, newSecret)
+	return s.SyncToHostUpdate(ctx, vObj, newSecret)
 }
 
 func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {
