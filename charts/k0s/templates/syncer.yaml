@@ -100,7 +100,7 @@ spec:
           configMap:
             name: coredns-custom
             optional: true
-      {{- if not (include "vcluster.storage.persistence" . ) }}
+      {{- if not (eq ( include "vcluster.storage.persistence" . ) "true" ) }}
         - name: data
           emptyDir: {}
       {{- end }}
