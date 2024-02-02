@@ -20,7 +20,7 @@ require (
 	github.com/loft-sh/api/v3 v3.0.0-20240123094839-7e1855cd6ad7
 	github.com/loft-sh/loftctl/v3 v3.0.0-20240123132211-f09474d1f54c
 	github.com/loft-sh/utils v0.0.29
-	github.com/loft-sh/vcluster-values v0.0.0-20240202080304-a3a5b74a4bfb
+	github.com/loft-sh/vcluster-values v0.0.0-20240202091012-8385efc731ba
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/locker v1.0.1
