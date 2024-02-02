@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -156,9 +157,9 @@ func CreateFakeNode(ctx context.Context,
 			Name: name,
 			Labels: map[string]string{
 				"vcluster.loft.sh/fake-node": "true",
-				"beta.kubernetes.io/arch":    "amd64",
+				"beta.kubernetes.io/arch":    runtime.GOARCH,
 				"beta.kubernetes.io/os":      "linux",
-				"kubernetes.io/arch":         "amd64",
+				"kubernetes.io/arch":         runtime.GOARCH,
 				"kubernetes.io/hostname":     translate.SafeConcatName("fake", name),
 				"kubernetes.io/os":           "linux",
 			},
