@@ -212,6 +212,7 @@ type IngressValues struct {
 
 type CoreDNSValues struct {
 	Integrated     bool                   `json:"integrated,omitempty"`
+	Fallback       string                 `json:"fallback,omitempty"`
 	Plugin         CoreDNSPluginValues    `json:"plugin,omitempty"`
 	Enabled        bool                   `json:"enabled,omitempty"`
 	Replicas       uint32                 `json:"replicas,omitempty"`

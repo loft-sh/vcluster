@@ -36,7 +36,7 @@ Corefile: |-
       {{- if .Values.fallbackHostDns }}
       forward . {{`{{.HOST_CLUSTER_DNS}}`}}
       {{- else if and .Values.isolation.enabled  .Values.isolation.networkPolicy.enabled }}
-      forward . /etc/resolv.conf 8.8.8.8 {
+      forward . /etc/resolv.conf {{ .Values.coredns.fallback }} {
           policy sequential
       }
       {{- else }}
