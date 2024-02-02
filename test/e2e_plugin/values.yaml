@@ -4,3 +4,11 @@ plugin:
   bootstrap-with-deployment:
     image: ghcr.io/loft-sh/vcluster-example-bootstrap-with-deployment:v2
     imagePullPolicy: IfNotPresent
+  import-secrets:
+    version: v2
+    image: ghcr.io/loft-sh/vcluster-example-import-secrets:v1
+    imagePullPolicy: IfNotPresent
+  hooks:
+    version: v2
+    image: ghcr.io/loft-sh/vcluster-example-hooks:v1
+    imagePullPolicy: IfNotPresent
