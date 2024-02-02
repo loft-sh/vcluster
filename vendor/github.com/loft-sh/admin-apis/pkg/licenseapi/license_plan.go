@@ -1,5 +1,7 @@
 package licenseapi
 
+import "github.com/loft-sh/admin-apis/pkg/features"
+
 // Plan definition
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
@@ -15,7 +17,7 @@ type Plan struct {
 	// There should only be 1 active plan at the top-level (not including AddOns)
 	// The respective price in Prices will have the active status as well
 	// +optional
-	Status PlanStatus `json:"status,omitempty"`
+	Status features.PlanStatus `json:"status,omitempty"`
 
 	// Period provides information about the plan's current period
 	// This is nil unless this is the active plan
@@ -84,11 +86,11 @@ type PlanPrice struct {
 	// Status is the status of the price (PlanStatus)
 	// If the plan is active, one of its prices must be active as well
 	// +optional
-	Status PlanStatus `json:"status,omitempty"`
+	Status features.PlanStatus `json:"status,omitempty"`
 
 	// Interval contains the time span of each period (e.g. month, year)
 	// +optional
-	Interval PlanInterval `json:"interval,omitempty"`
+	Interval features.PlanInterval `json:"interval,omitempty"`
 
 	// IntervalCount specifies if the number of intervals (e.g. 3 [months])
 	// +optional
@@ -110,7 +112,7 @@ type PlanPrice struct {
 
 	// TierMode defines how tiers should be used
 	// +optional
-	TierMode TierMode `json:"tierMode,omitempty"`
+	TierMode features.TierMode `json:"tierMode,omitempty"`
 
 	// Tiers is a list of tiers in this plan
 	// +optional
@@ -126,7 +128,7 @@ type TierResource struct {
 
 	// Status defines which resources will be counted towards the limit (e.g. active, total, total created etc.)
 	// +optional
-	Status ResourceStatus `json:"status,omitempty"`
+	Status features.ResourceStatus `json:"status,omitempty"`
 }
 
 // PriceTier defines a tier within a plan

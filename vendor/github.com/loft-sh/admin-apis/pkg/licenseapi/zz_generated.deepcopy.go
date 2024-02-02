@@ -404,6 +404,9 @@ func (in *LicenseAPIRoutes) DeepCopyInto(out *LicenseAPIRoutes) {
 	out.ChatAuth = in.ChatAuth
 	out.FeatureDetails = in.FeatureDetails
 	out.FeatureSetup = in.FeatureSetup
+	out.FeaturePreview = in.FeaturePreview
+	out.ModuleActivation = in.ModuleActivation
+	out.ModulePreview = in.ModulePreview
 	out.Checkout = in.Checkout
 	out.Portal = in.Portal
 	return

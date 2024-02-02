@@ -5,6 +5,10 @@ package licenseapi
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
 type Button struct {
+	// Name is the name of the button (ButtonName). Optional.
+	// +optional
+	Name string `json:"name,omitempty"`
+
 	// URL is the link at the other end of the button.
 	ActionURL string `json:"url"`
 	// DisplayText is the text to display on the button. If display text is unset the button will

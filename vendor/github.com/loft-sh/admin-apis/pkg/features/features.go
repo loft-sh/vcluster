@@ -1,4 +1,4 @@
-package licenseapi
+package features
 
 type ProductName string
 type ModuleName string
@@ -10,6 +10,7 @@ type ResourceStatus string
 type TrialStatus string
 type FeatureStatus string
 type FeatureName string
+type ButtonName string
 
 // Products
 const (
@@ -75,6 +76,12 @@ const (
 	TrialStatusActive  TrialStatus = ""
 )
 
+// Buttons
+const (
+	ButtonContactSales  ButtonName = "contact-sales"
+	ButtonManageBilling ButtonName = "manage-billing"
+)
+
 // Feature Status
 const (
 	FeatureStatusActive     FeatureStatus = "active"
@@ -90,14 +97,17 @@ const (
 	DevPod FeatureName = "devpod"
 
 	// Virtual Clusters
-	VirtualCluster                              FeatureName = "vclusters"
-	VirtualClusterSleepMode                     FeatureName = "vcluster-sleep-mode"
-	VirtualClusterCentralHostPathMapper         FeatureName = "vcluster-host-path-mapper"
-	VirtualClusterProDistroImage                FeatureName = "vcp-distro-image"
-	VirtualClusterProDistroAdmissionControl     FeatureName = "vcp-distro-admission-control"
-	VirtualClusterProDistroBuiltInCoreDNS       FeatureName = "vcp-distro-built-in-coredns"
-	VirtualClusterProDistroIsolatedControlPlane FeatureName = "vcp-distro-isolated-cp"
-	VirtualClusterProDistroSyncPatches          FeatureName = "vcp-distro-sync-patches"
+	// when adding a new vCluster feature, add it to GetVClusterFeatures() as well
+	VirtualCluster                                     FeatureName = "vclusters"
+	VirtualClusterSleepMode                            FeatureName = "vcluster-sleep-mode"
+	VirtualClusterCentralHostPathMapper                FeatureName = "vcluster-host-path-mapper"
+	VirtualClusterProDistroImage                       FeatureName = "vcp-distro-image"
+	VirtualClusterProDistroAdmissionControl            FeatureName = "vcp-distro-admission-control"
+	VirtualClusterProDistroBuiltInCoreDNS              FeatureName = "vcp-distro-built-in-coredns"
+	VirtualClusterProDistroIsolatedControlPlane        FeatureName = "vcp-distro-isolated-cp"
+	VirtualClusterProDistroSyncPatches                 FeatureName = "vcp-distro-sync-patches"
+	VirtualClusterProDistroCentralizedAdmissionControl FeatureName = "vcp-distro-centralized-admission-control"
+	VirtualClusterProEmbeddedEtcd                      FeatureName = "vcp-distro-embedded-etcd"
 
 	// Spaces & Clusters
 	ConnectedClusters  FeatureName = "connected-clusters"
@@ -141,3 +151,18 @@ const (
 	ConnectLocalCluster    FeatureName = "connect-local-cluster"
 	PasswordAuthentication FeatureName = "password-auth"
 )
+
+func GetVClusterFeatures() []FeatureName {
+	return []FeatureName{
+		VirtualCluster,
+		VirtualClusterSleepMode,
+		VirtualClusterCentralHostPathMapper,
+		VirtualClusterProDistroImage,
+		VirtualClusterProDistroAdmissionControl,
+		VirtualClusterProDistroBuiltInCoreDNS,
+		VirtualClusterProDistroIsolatedControlPlane,
+		VirtualClusterProDistroSyncPatches,
+		VirtualClusterProDistroCentralizedAdmissionControl,
+		VirtualClusterProEmbeddedEtcd,
+	}
+}

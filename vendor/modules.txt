@@ -332,10 +332,11 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
-# github.com/loft-sh/admin-apis v0.0.0-20231102064836-7a6574be5f16
+# github.com/loft-sh/admin-apis v0.0.0-20240202092301-43d989db6f95
 ## explicit; go 1.21.1
+github.com/loft-sh/admin-apis/pkg/features
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v3 v3.4.0-beta.11.0.20240123094803-669b6def4eb6
+# github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240202135812-bc4ecf58f665
 ## explicit; go 1.21.5
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1
@@ -347,7 +348,7 @@ github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typ
 # github.com/loft-sh/analytics-client v0.0.0-20231127192707-f76e263f6c83
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v3 v3.0.0-20240123094839-7e1855cd6ad7
+# github.com/loft-sh/api/v3 v3.0.0-20240202135831-33c4357035e6
 ## explicit; go 1.21.5
 github.com/loft-sh/api/v3/pkg/apis/audit/v1
 github.com/loft-sh/api/v3/pkg/apis/management
@@ -365,13 +366,13 @@ github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset/typed/storage
 github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset/typed/virtualcluster/v1
 github.com/loft-sh/api/v3/pkg/managerfactory
 github.com/loft-sh/api/v3/pkg/product
-# github.com/loft-sh/apiserver v0.0.0-20240122115656-e1a690b2e2d8
+# github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1
 ## explicit; go 1.21.5
 github.com/loft-sh/apiserver/pkg/builders
 # github.com/loft-sh/jspolicy v0.2.2
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v3 v3.0.0-20240123132211-f09474d1f54c
+# github.com/loft-sh/loftctl/v3 v3.0.0-20240202135933-6548c1e817a7
 ## explicit; go 1.21.5
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect

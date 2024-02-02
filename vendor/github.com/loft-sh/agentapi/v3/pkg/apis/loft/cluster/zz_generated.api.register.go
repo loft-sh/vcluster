@@ -246,15 +246,15 @@ type NamespacePhase string
 type Status string
 
 type AppliedObject struct {
-	APIVersion string
-	Kind       string
-	Name       string
+	APIVersion string `json:"apiVersion,omitempty"`
+	Kind       string `json:"kind,omitempty"`
+	Name       string `json:"name,omitempty"`
 }
 
 type Bash struct {
-	Script      string
-	Image       string
-	ClusterRole string
+	Script      string `json:"script,omitempty"`
+	Image       string `json:"image,omitempty"`
+	ClusterRole string `json:"clusterRole,omitempty"`
 }
 
 // +genclient
@@ -262,20 +262,20 @@ type Bash struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ChartInfo struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ChartInfoSpec
-	Status ChartInfoStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ChartInfoSpec   `json:"spec,omitempty"`
+	Status            ChartInfoStatus `json:"status,omitempty"`
 }
 
 type ChartInfoSpec struct {
-	Chart storagev1.Chart
+	Chart storagev1.Chart `json:"chart,omitempty"`
 }
 
 type ChartInfoStatus struct {
-	Metadata *Metadata
-	Readme   string
-	Values   string
+	Metadata *Metadata `json:"metadata,omitempty"`
+	Readme   string    `json:"readme,omitempty"`
+	Values   string    `json:"values,omitempty"`
 }
 
 // +genclient
@@ -283,33 +283,33 @@ type ChartInfoStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterQuota struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ClusterQuotaSpec
-	Status ClusterQuotaStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ClusterQuotaSpec   `json:"spec,omitempty"`
+	Status            ClusterQuotaStatus `json:"status,omitempty"`
 }
 
 type ClusterQuotaSpec struct {
-	storagev1.ClusterQuotaSpec
+	storagev1.ClusterQuotaSpec `json:",inline"`
 }
 
 type ClusterQuotaStatus struct {
-	storagev1.ClusterQuotaStatus
-	Owner *UserOrTeam
+	storagev1.ClusterQuotaStatus `json:",inline"`
+	Owner                        *UserOrTeam `json:"owner,omitempty"`
 }
 
 type EntityInfo struct {
-	Name        string
-	DisplayName string
-	Icon        string
-	Username    string
-	Email       string
-	Subject     string
+	Name        string `json:"name,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	Username    string `json:"username,omitempty"`
+	Email       string `json:"email,omitempty"`
+	Subject     string `json:"subject,omitempty"`
 }
 
 type EpochInfo struct {
-	Start int64
-	Slept int64
+	Start int64 `json:"start,omitempty"`
+	Slept int64 `json:"slept,omitempty"`
 }
 
 // +genclient
@@ -317,19 +317,19 @@ type EpochInfo struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Feature struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   FeatureSpec
-	Status FeatureStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              FeatureSpec   `json:"spec,omitempty"`
+	Status            FeatureStatus `json:"status,omitempty"`
 }
 
 type FeatureSpec struct {
 }
 
 type FeatureStatus struct {
-	pkglicenseapi.Feature
-	Internal bool
-	Used     bool
+	pkglicenseapi.Feature `json:",inline"`
+	Internal              bool `json:"internal,omitempty"`
+	Used                  bool `json:"used,omitempty"`
 }
 
 // +genclient
@@ -337,49 +337,49 @@ type FeatureStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type HelmRelease struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   HelmReleaseSpec
-	Status HelmReleaseStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              HelmReleaseSpec   `json:"spec,omitempty"`
+	Status            HelmReleaseStatus `json:"status,omitempty"`
 }
 
 type HelmReleaseConfig struct {
-	Chart       storagev1.Chart
-	Manifests   string
-	Bash        *Bash
-	Values      string
-	Parameters  string
-	Annotations map[string]string
+	Chart       storagev1.Chart   `json:"chart,omitempty"`
+	Manifests   string            `json:"manifests,omitempty"`
+	Bash        *Bash             `json:"bash,omitempty"`
+	Values      string            `json:"values,omitempty"`
+	Parameters  string            `json:"parameters,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 type HelmReleaseSpec struct {
-	HelmReleaseConfig
+	HelmReleaseConfig `json:",inline"`
 }
 
 type HelmReleaseStatus struct {
-	Revision int
-	Info     *Info
-	Metadata *Metadata
+	Revision int       `json:"version,omitempty"`
+	Info     *Info     `json:"info,omitempty"`
+	Metadata *Metadata `json:"metadata,omitempty"`
 }
 
 type Info struct {
-	FirstDeployed metav1.Time
-	LastDeployed  metav1.Time
-	Deleted       metav1.Time
-	Description   string
-	Status        Status
-	Notes         string
+	FirstDeployed metav1.Time `json:"first_deployed,omitempty"`
+	LastDeployed  metav1.Time `json:"last_deployed,omitempty"`
+	Deleted       metav1.Time `json:"deleted"`
+	Description   string      `json:"description,omitempty"`
+	Status        Status      `json:"status,omitempty"`
+	Notes         string      `json:"notes,omitempty"`
 }
 
 type LastActivityInfo struct {
-	Subject        string
-	Host           string
-	Verb           string
-	APIGroup       string
-	Resource       string
-	Subresource    string
-	Name           string
-	VirtualCluster string
+	Subject        string `json:"subject,omitempty"`
+	Host           string `json:"host,omitempty"`
+	Verb           string `json:"verb,omitempty"`
+	APIGroup       string `json:"apiGroup,omitempty"`
+	Resource       string `json:"resource,omitempty"`
+	Subresource    string `json:"subresource,omitempty"`
+	Name           string `json:"name,omitempty"`
+	VirtualCluster string `json:"virtualCluster,omitempty"`
 }
 
 // +genclient
@@ -387,46 +387,46 @@ type LastActivityInfo struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LocalClusterAccess struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   LocalClusterAccessSpec
-	Status LocalClusterAccessStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              LocalClusterAccessSpec   `json:"spec,omitempty"`
+	Status            LocalClusterAccessStatus `json:"status,omitempty"`
 }
 
 type LocalClusterAccessSpec struct {
-	storagev1.LocalClusterAccessSpec
+	storagev1.LocalClusterAccessSpec `json:",inline"`
 }
 
 type LocalClusterAccessStatus struct {
-	storagev1.LocalClusterAccessStatus
-	Users []*UserOrTeam
-	Teams []*EntityInfo
+	storagev1.LocalClusterAccessStatus `json:",inline"`
+	Users                              []*UserOrTeam `json:"users,omitempty"`
+	Teams                              []*EntityInfo `json:"teams,omitempty"`
 }
 
 type Maintainer struct {
-	Name  string
-	Email string
-	URL   string
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+	URL   string `json:"url,omitempty"`
 }
 
 type Metadata struct {
-	Name        string
-	Home        string
-	Sources     []string
-	Version     string
-	Description string
-	Keywords    []string
-	Maintainers []*Maintainer
-	Icon        string
-	APIVersion  string
-	Condition   string
-	Tags        string
-	AppVersion  string
-	Deprecated  bool
-	Annotations map[string]string
-	KubeVersion string
-	Type        string
-	Urls        []string
+	Name        string            `json:"name,omitempty"`
+	Home        string            `json:"home,omitempty"`
+	Sources     []string          `json:"sources,omitempty"`
+	Version     string            `json:"version,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Keywords    []string          `json:"keywords,omitempty"`
+	Maintainers []*Maintainer     `json:"maintainers,omitempty"`
+	Icon        string            `json:"icon,omitempty"`
+	APIVersion  string            `json:"apiVersion,omitempty"`
+	Condition   string            `json:"condition,omitempty"`
+	Tags        string            `json:"tags,omitempty"`
+	AppVersion  string            `json:"appVersion,omitempty"`
+	Deprecated  bool              `json:"deprecated,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	KubeVersion string            `json:"kubeVersion,omitempty"`
+	Type        string            `json:"type,omitempty"`
+	Urls        []string          `json:"urls,omitempty"`
 }
 
 // +genclient
@@ -434,43 +434,43 @@ type Metadata struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SleepModeConfig struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SleepModeConfigSpec
-	Status SleepModeConfigStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SleepModeConfigSpec   `json:"spec,omitempty"`
+	Status            SleepModeConfigStatus `json:"status,omitempty"`
 }
 
 type SleepModeConfigSpec struct {
-	ForceSleep              bool
-	ForceSleepDuration      *int64
-	DeleteAfter             int64
-	SleepAfter              int64
-	SleepSchedule           string
-	WakeupSchedule          string
-	Timezone                string
-	IgnoreActiveConnections bool
-	IgnoreAll               bool
-	IgnoreIngresses         bool
-	IgnoreVClusters         bool
-	IgnoreGroups            string
-	IgnoreVerbs             string
-	IgnoreResources         string
-	IgnoreResourceVerbs     string
-	IgnoreResourceNames     string
-	IgnoreUseragents        string
+	ForceSleep              bool   `json:"forceSleep,omitempty"`
+	ForceSleepDuration      *int64 `json:"forceSleepDuration,omitempty"`
+	DeleteAfter             int64  `json:"deleteAfter,omitempty"`
+	SleepAfter              int64  `json:"sleepAfter,omitempty"`
+	SleepSchedule           string `json:"sleepSchedule,omitempty"`
+	WakeupSchedule          string `json:"wakeupSchedule,omitempty"`
+	Timezone                string `json:"timezone,omitempty"`
+	IgnoreActiveConnections bool   `json:"ignoreActiveConnections,omitempty"`
+	IgnoreAll               bool   `json:"ignoreAll,omitempty"`
+	IgnoreIngresses         bool   `json:"ignoreIngresses,omitempty"`
+	IgnoreVClusters         bool   `json:"ignoreVClusters,omitempty"`
+	IgnoreGroups            string `json:"ignoreGroups,omitempty"`
+	IgnoreVerbs             string `json:"ignoreVerbs,omitempty"`
+	IgnoreResources         string `json:"ignoreResources,omitempty"`
+	IgnoreResourceVerbs     string `json:"ignoreResourceVerbs,omitempty"`
+	IgnoreResourceNames     string `json:"ignoreResourceNames,omitempty"`
+	IgnoreUseragents        string `json:"ignoreUserAgents,omitempty"`
 }
 
 type SleepModeConfigStatus struct {
-	LastActivity        int64
-	LastActivityInfo    *LastActivityInfo
-	SleepingSince       int64
-	CurrentEpoch        *EpochInfo
-	LastEpoch           *EpochInfo
-	SleptLastThirtyDays *float64
-	SleptLastSevenDays  *float64
-	ScheduledSleep      *int64
-	ScheduledWakeup     *int64
-	SleepType           string
+	LastActivity        int64             `json:"lastActivity,omitempty"`
+	LastActivityInfo    *LastActivityInfo `json:"lastActivityInfo,omitempty"`
+	SleepingSince       int64             `json:"sleepingSince,omitempty"`
+	CurrentEpoch        *EpochInfo        `json:"currentEpoch,omitempty"`
+	LastEpoch           *EpochInfo        `json:"lastEpoch,omitempty"`
+	SleptLastThirtyDays *float64          `json:"sleptLastThirtyDays,omitempty"`
+	SleptLastSevenDays  *float64          `json:"sleptLastSevenDays,omitempty"`
+	ScheduledSleep      *int64            `json:"scheduledSleep,omitempty"`
+	ScheduledWakeup     *int64            `json:"scheduledWakeup,omitempty"`
+	SleepType           string            `json:"sleepType,omitempty"`
 }
 
 // +genclient
@@ -478,42 +478,42 @@ type SleepModeConfigStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Space struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SpaceSpec
-	Status SpaceStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SpaceSpec   `json:"spec,omitempty"`
+	Status            SpaceStatus `json:"status,omitempty"`
 }
 
 type SpaceObjectsNamespaceStatus struct {
-	Phase          string
-	Reason         string
-	Message        string
-	AppliedObjects []AppliedObject
+	Phase          string          `json:"phase,omitempty"`
+	Reason         string          `json:"reason,omitempty"`
+	Message        string          `json:"message,omitempty"`
+	AppliedObjects []AppliedObject `json:"appliedObjects,omitempty"`
 }
 
 type SpaceSpec struct {
-	User       string
-	Team       string
-	Objects    string
-	Finalizers []corev1.FinalizerName
+	User       string                 `json:"user,omitempty"`
+	Team       string                 `json:"team,omitempty"`
+	Objects    string                 `json:"objects,omitempty"`
+	Finalizers []corev1.FinalizerName `json:"finalizers,omitempty"`
 }
 
 type SpaceStatus struct {
-	Phase              corev1.NamespacePhase
-	SleepModeConfig    *SleepModeConfig
-	Owner              *UserOrTeam
-	SpaceObjectsStatus *SpaceObjectsNamespaceStatus
-	TemplateSyncStatus *TemplateSyncStatus
+	Phase              corev1.NamespacePhase        `json:"phase,omitempty"`
+	SleepModeConfig    *SleepModeConfig             `json:"sleepModeConfig,omitempty"`
+	Owner              *UserOrTeam                  `json:"owner,omitempty"`
+	SpaceObjectsStatus *SpaceObjectsNamespaceStatus `json:"spaceObjectsStatus,omitempty"`
+	TemplateSyncStatus *TemplateSyncStatus          `json:"templateSyncStatus,omitempty"`
 }
 
 type TemplateSyncStatus struct {
-	Template string
-	Phase    string
+	Template string `json:"template,omitempty"`
+	Phase    string `json:"phase,omitempty"`
 }
 
 type UserOrTeam struct {
-	User *EntityInfo
-	Team *EntityInfo
+	User *EntityInfo `json:"user,omitempty"`
+	Team *EntityInfo `json:"team,omitempty"`
 }
 
 // +genclient
@@ -521,22 +521,22 @@ type UserOrTeam struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualCluster struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   VirtualClusterSpec
-	Status VirtualClusterStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualClusterSpec   `json:"spec,omitempty"`
+	Status            VirtualClusterStatus `json:"status,omitempty"`
 }
 
 type VirtualClusterSpec struct {
-	storagev1.VirtualClusterSpec
+	storagev1.VirtualClusterSpec `json:",inline"`
 }
 
 type VirtualClusterStatus struct {
-	storagev1.VirtualClusterStatus
-	SyncerPod          *corev1.Pod
-	ClusterPod         *corev1.Pod
-	SleepModeConfig    *SleepModeConfig
-	TemplateSyncStatus *TemplateSyncStatus
+	storagev1.VirtualClusterStatus `json:",inline"`
+	SyncerPod                      *corev1.Pod         `json:"syncerPod,omitempty"`
+	ClusterPod                     *corev1.Pod         `json:"clusterPod,omitempty"`
+	SleepModeConfig                *SleepModeConfig    `json:"sleepModeConfig,omitempty"`
+	TemplateSyncStatus             *TemplateSyncStatus `json:"templateSyncStatus,omitempty"`
 }
 
 // ChartInfo Functions and Structs
@@ -554,9 +554,9 @@ type ChartInfoStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ChartInfoList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ChartInfo
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ChartInfo `json:"items"`
 }
 
 func (ChartInfo) NewStatus() interface{} {
@@ -673,9 +673,9 @@ type ClusterQuotaStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterQuotaList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterQuota
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterQuota `json:"items"`
 }
 
 func (ClusterQuota) NewStatus() interface{} {
@@ -792,9 +792,9 @@ type FeatureStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type FeatureList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Feature
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Feature `json:"items"`
 }
 
 func (Feature) NewStatus() interface{} {
@@ -911,9 +911,9 @@ type HelmReleaseStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type HelmReleaseList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []HelmRelease
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []HelmRelease `json:"items"`
 }
 
 func (HelmRelease) NewStatus() interface{} {
@@ -1030,9 +1030,9 @@ type LocalClusterAccessStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LocalClusterAccessList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []LocalClusterAccess
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []LocalClusterAccess `json:"items"`
 }
 
 func (LocalClusterAccess) NewStatus() interface{} {
@@ -1149,9 +1149,9 @@ type SleepModeConfigStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SleepModeConfigList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []SleepModeConfig
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SleepModeConfig `json:"items"`
 }
 
 func (SleepModeConfig) NewStatus() interface{} {
@@ -1268,9 +1268,9 @@ type SpaceStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SpaceList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Space
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Space `json:"items"`
 }
 
 func (Space) NewStatus() interface{} {
@@ -1387,9 +1387,9 @@ type VirtualClusterStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []VirtualCluster
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualCluster `json:"items"`
 }
 
 func (VirtualCluster) NewStatus() interface{} {

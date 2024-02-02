@@ -75,18 +75,18 @@ func Resource(resource string) schema.GroupResource {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type HelmRelease struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   HelmReleaseSpec
-	Status HelmReleaseStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              HelmReleaseSpec   `json:"spec,omitempty"`
+	Status            HelmReleaseStatus `json:"status,omitempty"`
 }
 
 type HelmReleaseSpec struct {
-	clusterv1.HelmReleaseSpec
+	clusterv1.HelmReleaseSpec `json:",inline"`
 }
 
 type HelmReleaseStatus struct {
-	clusterv1.HelmReleaseStatus
+	clusterv1.HelmReleaseStatus `json:",inline"`
 }
 
 // HelmRelease Functions and Structs
@@ -104,9 +104,9 @@ type HelmReleaseStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type HelmReleaseList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []HelmRelease
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []HelmRelease `json:"items"`
 }
 
 func (HelmRelease) NewStatus() interface{} {
