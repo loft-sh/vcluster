@@ -1326,19 +1326,19 @@ type RequestTarget string
 type Stage string
 
 type AgentAnalyticsSpec struct {
-	AnalyticsEndpoint string
+	AnalyticsEndpoint string `json:"analyticsEndpoint,omitempty"`
 }
 
 type AgentAuditConfig struct {
-	Enabled              bool
-	DisableAgentSyncBack bool
-	Level                int
-	Policy               AuditPolicy
-	Path                 string
-	MaxAge               int
-	MaxBackups           int
-	MaxSize              int
-	Compress             bool
+	Enabled              bool        `json:"enabled,omitempty"`
+	DisableAgentSyncBack bool        `json:"disableAgentSyncBack,omitempty"`
+	Level                int         `json:"level,omitempty"`
+	Policy               AuditPolicy `json:"policy,omitempty"`
+	Path                 string      `json:"path,omitempty"`
+	MaxAge               int         `json:"maxAge,omitempty"`
+	MaxBackups           int         `json:"maxBackups,omitempty"`
+	MaxSize              int         `json:"maxSize,omitempty"`
+	Compress             bool        `json:"compress,omitempty"`
 }
 
 // +genclient
@@ -1346,14 +1346,14 @@ type AgentAuditConfig struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AgentAuditEvent struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   AgentAuditEventSpec
-	Status AgentAuditEventStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              AgentAuditEventSpec   `json:"spec,omitempty"`
+	Status            AgentAuditEventStatus `json:"status,omitempty"`
 }
 
 type AgentAuditEventSpec struct {
-	Events []*auditv1.Event
+	Events []*auditv1.Event `json:"events,omitempty"`
 }
 
 type AgentAuditEventStatus struct {
@@ -1364,17 +1364,17 @@ type AgentAuditEventStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Announcement struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   AnnouncementSpec
-	Status AnnouncementStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              AnnouncementSpec   `json:"spec,omitempty"`
+	Status            AnnouncementStatus `json:"status,omitempty"`
 }
 
 type AnnouncementSpec struct {
 }
 
 type AnnouncementStatus struct {
-	Announcement pkglicenseapi.Announcement
+	Announcement pkglicenseapi.Announcement `json:"announcement,omitempty"`
 }
 
 // +genclient
@@ -1382,181 +1382,181 @@ type AnnouncementStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type App struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   AppSpec
-	Status AppStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              AppSpec   `json:"spec,omitempty"`
+	Status            AppStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AppCredentials struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	ProjectSecretRefs map[string]string
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	ProjectSecretRefs map[string]string `json:"projectSecretRefs,omitempty"`
 }
 
 type AppSpec struct {
-	storagev1.AppSpec
+	storagev1.AppSpec `json:",inline"`
 }
 
 type AppStatus struct {
-	storagev1.AppStatus
+	storagev1.AppStatus `json:",inline"`
 }
 
 type Apps struct {
-	NoDefault      bool
-	Repositories   []storagev1.HelmChartRepository
-	PredefinedApps []PredefinedApp
+	NoDefault      bool                            `json:"noDefault,omitempty"`
+	Repositories   []storagev1.HelmChartRepository `json:"repositories,omitempty"`
+	PredefinedApps []PredefinedApp                 `json:"predefinedApps,omitempty"`
 }
 
 type Audit struct {
-	Enabled              bool
-	DisableAgentSyncBack bool
-	Level                int
-	Policy               AuditPolicy
-	DataStoreEndpoint    string
-	DataStoreMaxAge      *int
-	Path                 string
-	MaxAge               int
-	MaxBackups           int
-	MaxSize              int
-	Compress             bool
+	Enabled              bool        `json:"enabled,omitempty"`
+	DisableAgentSyncBack bool        `json:"disableAgentSyncBack,omitempty"`
+	Level                int         `json:"level,omitempty"`
+	Policy               AuditPolicy `json:"policy,omitempty"`
+	DataStoreEndpoint    string      `json:"dataStoreEndpoint,omitempty"`
+	DataStoreMaxAge      *int        `json:"dataStoreTTL,omitempty"`
+	Path                 string      `json:"path,omitempty"`
+	MaxAge               int         `json:"maxAge,omitempty"`
+	MaxBackups           int         `json:"maxBackups,omitempty"`
+	MaxSize              int         `json:"maxSize,omitempty"`
+	Compress             bool        `json:"compress,omitempty"`
 }
 
 type AuditPolicy struct {
-	Rules      []AuditPolicyRule
-	OmitStages []auditv1.Stage
+	Rules      []AuditPolicyRule `json:"rules,omitempty"`
+	OmitStages []auditv1.Stage   `json:"omitStages,omitempty"`
 }
 
 type AuditPolicyRule struct {
-	Level           auditv1.Level
-	Users           []string
-	UserGroups      []string
-	Verbs           []string
-	Resources       []GroupResources
-	Namespaces      []string
-	NonResourceURLs []string
-	OmitStages      []auditv1.Stage
-	RequestTargets  []auditv1.RequestTarget
-	Clusters        []string
+	Level           auditv1.Level           `json:"level"`
+	Users           []string                `json:"users,omitempty"`
+	UserGroups      []string                `json:"userGroups,omitempty"`
+	Verbs           []string                `json:"verbs,omitempty"`
+	Resources       []GroupResources        `json:"resources,omitempty"`
+	Namespaces      []string                `json:"namespaces,omitempty"`
+	NonResourceURLs []string                `json:"nonResourceURLs,omitempty"`
+	OmitStages      []auditv1.Stage         `json:"omitStages,omitempty" protobuf:"bytes,8,rep,name=omitStages"`
+	RequestTargets  []auditv1.RequestTarget `json:"requestTargets,omitempty"`
+	Clusters        []string                `json:"clusters,omitempty"`
 }
 
 type Authentication struct {
-	Connector
-	Rancher                  *AuthenticationRancher
-	Password                 *AuthenticationPassword
-	Connectors               []ConnectorWithName
-	DisableTeamCreation      bool
-	AccessKeyMaxTTLSeconds   int64
-	LoginAccessKeyTTLSeconds *int64
-	CustomHttpHeaders        map[string]string
+	Connector                `json:",inline"`
+	Rancher                  *AuthenticationRancher  `json:"rancher,omitempty"`
+	Password                 *AuthenticationPassword `json:"password,omitempty"`
+	Connectors               []ConnectorWithName     `json:"connectors,omitempty"`
+	DisableTeamCreation      bool                    `json:"disableTeamCreation,omitempty"`
+	AccessKeyMaxTTLSeconds   int64                   `json:"accessKeyMaxTTLSeconds,omitempty"`
+	LoginAccessKeyTTLSeconds *int64                  `json:"loginAccessKeyTTLSeconds,omitempty"`
+	CustomHttpHeaders        map[string]string       `json:"customHttpHeaders,omitempty"`
 }
 
 type AuthenticationClusterAccountTemplates struct {
-	ClusterAccountTemplates      []storagev1.UserClusterAccountTemplate
-	GroupClusterAccountTemplates []AuthenticationGroupClusterAccountTemplate
+	ClusterAccountTemplates      []storagev1.UserClusterAccountTemplate      `json:"clusterAccountTemplates,omitempty"`
+	GroupClusterAccountTemplates []AuthenticationGroupClusterAccountTemplate `json:"groupClusterAccountTemplates,omitempty"`
 }
 
 type AuthenticationGithub struct {
-	ClientID     string
-	ClientSecret string
-	RedirectURI  string
-	Orgs         []AuthenticationGithubOrg
-	HostName     string
-	RootCA       string
-	AuthenticationClusterAccountTemplates
+	ClientID                              string                    `json:"clientId,omitempty"`
+	ClientSecret                          string                    `json:"clientSecret"`
+	RedirectURI                           string                    `json:"redirectURI"`
+	Orgs                                  []AuthenticationGithubOrg `json:"orgs,omitempty"`
+	HostName                              string                    `json:"hostName,omitempty"`
+	RootCA                                string                    `json:"rootCA,omitempty"`
+	AuthenticationClusterAccountTemplates `json:",inline"`
 }
 
 type AuthenticationGithubOrg struct {
-	Name  string
-	Teams []string
+	Name  string   `json:"name"`
+	Teams []string `json:"teams,omitempty"`
 }
 
 type AuthenticationGitlab struct {
-	ClientID     string
-	ClientSecret string
-	RedirectURI  string
-	BaseURL      string
-	Groups       []string
-	AuthenticationClusterAccountTemplates
+	ClientID                              string   `json:"clientId"`
+	ClientSecret                          string   `json:"clientSecret"`
+	RedirectURI                           string   `json:"redirectURI"`
+	BaseURL                               string   `json:"baseURL,omitempty"`
+	Groups                                []string `json:"groups,omitempty"`
+	AuthenticationClusterAccountTemplates `json:",inline"`
 }
 
 type AuthenticationGoogle struct {
-	ClientID               string
-	ClientSecret           string
-	RedirectURI            string
-	Scopes                 []string
-	HostedDomains          []string
-	Groups                 []string
-	ServiceAccountFilePath string
-	AdminEmail             string
-	AuthenticationClusterAccountTemplates
+	ClientID                              string   `json:"clientId"`
+	ClientSecret                          string   `json:"clientSecret"`
+	RedirectURI                           string   `json:"redirectURI"`
+	Scopes                                []string `json:"scopes,omitempty"`
+	HostedDomains                         []string `json:"hostedDomains,omitempty"`
+	Groups                                []string `json:"groups,omitempty"`
+	ServiceAccountFilePath                string   `json:"serviceAccountFilePath,omitempty"`
+	AdminEmail                            string   `json:"adminEmail,omitempty"`
+	AuthenticationClusterAccountTemplates `json:",inline"`
 }
 
 type AuthenticationGroupClusterAccountTemplate struct {
-	Group                   string
-	ClusterAccountTemplates []storagev1.UserClusterAccountTemplate
+	Group                   string                                 `json:"group"`
+	ClusterAccountTemplates []storagev1.UserClusterAccountTemplate `json:"clusterAccountTemplates,omitempty"`
 }
 
 type AuthenticationMicrosoft struct {
-	ClientID             string
-	ClientSecret         string
-	RedirectURI          string
-	Tenant               string
-	Groups               []string
-	OnlySecurityGroups   bool
-	UseGroupsAsWhitelist bool
-	AuthenticationClusterAccountTemplates
+	ClientID                              string   `json:"clientId"`
+	ClientSecret                          string   `json:"clientSecret"`
+	RedirectURI                           string   `json:"redirectURI"`
+	Tenant                                string   `json:"tenant,omitempty"`
+	Groups                                []string `json:"groups,omitempty"`
+	OnlySecurityGroups                    bool     `json:"onlySecurityGroups,omitempty"`
+	UseGroupsAsWhitelist                  bool     `json:"useGroupsAsWhitelist,omitempty"`
+	AuthenticationClusterAccountTemplates `json:",inline"`
 }
 
 type AuthenticationOIDC struct {
-	IssuerURL              string
-	ClientID               string
-	ClientSecret           string
-	RedirectURI            string
-	PostLogoutRedirectURI  string
-	CAFile                 string
-	InsecureCA             bool
-	PreferredUsernameClaim string
-	LoftUsernameClaim      string
-	UsernameClaim          string
-	EmailClaim             string
-	UsernamePrefix         string
-	GroupsClaim            string
-	Groups                 []string
-	Scopes                 []string
-	GetUserInfo            bool
-	GroupsPrefix           string
-	Type                   string
-	AuthenticationClusterAccountTemplates
+	IssuerURL                             string   `json:"issuerUrl,omitempty"`
+	ClientID                              string   `json:"clientId,omitempty"`
+	ClientSecret                          string   `json:"clientSecret,omitempty"`
+	RedirectURI                           string   `json:"redirectURI,omitempty"`
+	PostLogoutRedirectURI                 string   `json:"postLogoutRedirectURI,omitempty"`
+	CAFile                                string   `json:"caFile,omitempty"`
+	InsecureCA                            bool     `json:"insecureCa,omitempty"`
+	PreferredUsernameClaim                string   `json:"preferredUsername,omitempty"`
+	LoftUsernameClaim                     string   `json:"loftUsernameClaim,omitempty"`
+	UsernameClaim                         string   `json:"usernameClaim,omitempty"`
+	EmailClaim                            string   `json:"emailClaim,omitempty"`
+	UsernamePrefix                        string   `json:"usernamePrefix,omitempty"`
+	GroupsClaim                           string   `json:"groupsClaim,omitempty"`
+	Groups                                []string `json:"groups,omitempty"`
+	Scopes                                []string `json:"scopes,omitempty"`
+	GetUserInfo                           bool     `json:"getUserInfo,omitempty"`
+	GroupsPrefix                          string   `json:"groupsPrefix,omitempty"`
+	Type                                  string   `json:"type,omitempty"`
+	AuthenticationClusterAccountTemplates `json:",inline"`
 }
 
 type AuthenticationPassword struct {
-	Disabled bool
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 type AuthenticationRancher struct {
-	Host        string
-	BearerToken string
-	Insecure    bool
+	Host        string `json:"host,omitempty"`
+	BearerToken string `json:"bearerToken,omitempty"`
+	Insecure    bool   `json:"insecure,omitempty"`
 }
 
 type AuthenticationSAML struct {
-	RedirectURI                     string
-	SSOURL                          string
-	CAData                          []byte
-	UsernameAttr                    string
-	EmailAttr                       string
-	GroupsAttr                      string
-	CA                              string
-	InsecureSkipSignatureValidation bool
-	EntityIssuer                    string
-	SSOIssuer                       string
-	GroupsDelim                     string
-	AllowedGroups                   []string
-	FilterGroups                    bool
-	NameIDPolicyFormat              string
+	RedirectURI                     string   `json:"redirectURI,omitempty"`
+	SSOURL                          string   `json:"ssoURL,omitempty"`
+	CAData                          []byte   `json:"caData,omitempty"`
+	UsernameAttr                    string   `json:"usernameAttr,omitempty"`
+	EmailAttr                       string   `json:"emailAttr,omitempty"`
+	GroupsAttr                      string   `json:"groupsAttr,omitempty"`
+	CA                              string   `json:"ca,omitempty"`
+	InsecureSkipSignatureValidation bool     `json:"insecureSkipSignatureValidation,omitempty"`
+	EntityIssuer                    string   `json:"entityIssuer,omitempty"`
+	SSOIssuer                       string   `json:"ssoIssuer,omitempty"`
+	GroupsDelim                     string   `json:"groupsDelim,omitempty"`
+	AllowedGroups                   []string `json:"allowedGroups,omitempty"`
+	FilterGroups                    bool     `json:"filterGroups,omitempty"`
+	NameIDPolicyFormat              string   `json:"nameIDPolicyFormat,omitempty"`
 }
 
 // +genclient
@@ -1564,40 +1564,40 @@ type AuthenticationSAML struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Backup struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   BackupSpec
-	Status BackupStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              BackupSpec   `json:"spec,omitempty"`
+	Status            BackupStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type BackupApply struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec BackupApplySpec
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              BackupApplySpec `json:"spec,omitempty"`
 }
 
 type BackupApplySpec struct {
-	Raw string
+	Raw string `json:"raw,omitempty"`
 }
 
 type BackupSpec struct {
 }
 
 type BackupStatus struct {
-	RawBackup string
+	RawBackup string `json:"rawBackup,omitempty"`
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Cluster struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ClusterSpec
-	Status ClusterStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ClusterSpec   `json:"spec,omitempty"`
+	Status            ClusterStatus `json:"status,omitempty"`
 }
 
 // +genclient
@@ -1605,65 +1605,65 @@ type Cluster struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterAccess struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ClusterAccessSpec
-	Status ClusterAccessStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ClusterAccessSpec   `json:"spec,omitempty"`
+	Status            ClusterAccessStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterAccessKey struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	AccessKey string
-	LoftHost  string
-	Insecure  bool
-	CaCert    string
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	AccessKey         string `json:"accessKey,omitempty"`
+	LoftHost          string `json:"loftHost,omitempty"`
+	Insecure          bool   `json:"insecure,omitempty"`
+	CaCert            string `json:"caCert,omitempty"`
 }
 
 type ClusterAccessSpec struct {
-	storagev1.ClusterAccessSpec
+	storagev1.ClusterAccessSpec `json:",inline"`
 }
 
 type ClusterAccessStatus struct {
-	storagev1.ClusterAccessStatus
-	Clusters        []*clusterv1.EntityInfo
-	Users           []*clusterv1.UserOrTeam
-	Teams           []*clusterv1.EntityInfo
-	SpaceConstraint *clusterv1.EntityInfo
+	storagev1.ClusterAccessStatus `json:",inline"`
+	Clusters                      []*clusterv1.EntityInfo `json:"clusters,omitempty"`
+	Users                         []*clusterv1.UserOrTeam `json:"users,omitempty"`
+	Teams                         []*clusterv1.EntityInfo `json:"teams,omitempty"`
+	SpaceConstraint               *clusterv1.EntityInfo   `json:"spaceConstraint,omitempty"`
 }
 
 type ClusterAccounts struct {
-	Accounts []string
-	Cluster  storagev1.Cluster
+	Accounts []string          `json:"accounts,omitempty"`
+	Cluster  storagev1.Cluster `json:"cluster,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterAgentConfig struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	ClusterAgentConfigCommon
+	metav1.TypeMeta          `json:",inline"`
+	metav1.ObjectMeta        `json:"metadata,omitempty"`
+	ClusterAgentConfigCommon `json:",inline"`
 }
 
 type ClusterAgentConfigCommon struct {
-	Cluster              string
-	Audit                *AgentAuditConfig
-	DefaultImageRegistry string
-	TokenCaCert          []byte
-	LoftHost             string
-	LoftInstanceID       string
-	AnalyticsSpec        AgentAnalyticsSpec
+	Cluster              string             `json:"cluster,omitempty"`
+	Audit                *AgentAuditConfig  `json:"audit,omitempty"`
+	DefaultImageRegistry string             `json:"defaultImageRegistry,omitempty"`
+	TokenCaCert          []byte             `json:"tokenCaCert,omitempty"`
+	LoftHost             string             `json:"loftHost,omitempty"`
+	LoftInstanceID       string             `json:"loftInstanceID,omitempty"`
+	AnalyticsSpec        AgentAnalyticsSpec `json:"analyticsSpec"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterCharts struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Charts []storagev1.HelmChart
-	Busy   bool
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Charts            []storagev1.HelmChart `json:"charts"`
+	Busy              bool                  `json:"busy,omitempty"`
 }
 
 // +genclient
@@ -1671,62 +1671,62 @@ type ClusterCharts struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterConnect struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ClusterConnectSpec
-	Status ClusterConnectStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ClusterConnectSpec   `json:"spec,omitempty"`
+	Status            ClusterConnectStatus `json:"status,omitempty"`
 }
 
 type ClusterConnectSpec struct {
-	Config          string
-	AdminUser       string
-	ClusterTemplate Cluster
+	Config          string  `json:"config,omitempty"`
+	AdminUser       string  `json:"adminUser,omitempty"`
+	ClusterTemplate Cluster `json:"clusterTemplate,omitempty"`
 }
 
 type ClusterConnectStatus struct {
-	Failed  bool
-	Reason  string
-	Message string
+	Failed  bool   `json:"failed,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterDomain struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Target string
-	Domain string
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Target            string `json:"target,omitempty"`
+	Domain            string `json:"domain,omitempty"`
 }
 
 type ClusterMember struct {
-	Info clusterv1.EntityInfo
+	Info clusterv1.EntityInfo `json:"info,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterMemberAccess struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Teams []ClusterMember
-	Users []ClusterMember
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Teams             []ClusterMember `json:"teams,omitempty"`
+	Users             []ClusterMember `json:"users,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterMembers struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Teams []ClusterMember
-	Users []ClusterMember
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Teams             []ClusterMember `json:"teams,omitempty"`
+	Users             []ClusterMember `json:"users,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterReset struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Agent bool
-	RBAC  bool
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Agent             bool `json:"agent,omitempty"`
+	RBAC              bool `json:"rbac,omitempty"`
 }
 
 // +genclient
@@ -1734,39 +1734,39 @@ type ClusterReset struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterRoleTemplate struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ClusterRoleTemplateSpec
-	Status ClusterRoleTemplateStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ClusterRoleTemplateSpec   `json:"spec,omitempty"`
+	Status            ClusterRoleTemplateStatus `json:"status,omitempty"`
 }
 
 type ClusterRoleTemplateSpec struct {
-	storagev1.ClusterRoleTemplateSpec
+	storagev1.ClusterRoleTemplateSpec `json:",inline"`
 }
 
 type ClusterRoleTemplateStatus struct {
-	storagev1.ClusterRoleTemplateStatus
-	Clusters []*clusterv1.EntityInfo
+	storagev1.ClusterRoleTemplateStatus `json:",inline"`
+	Clusters                            []*clusterv1.EntityInfo `json:"clusters,omitempty"`
 }
 
 type ClusterSpec struct {
-	storagev1.ClusterSpec
+	storagev1.ClusterSpec `json:",inline"`
 }
 
 type ClusterStatus struct {
-	storagev1.ClusterStatus
-	Online bool
+	storagev1.ClusterStatus `json:",inline"`
+	Online                  bool `json:"online,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterVirtualClusterDefaults struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	DefaultTemplate *storagev1.VirtualClusterTemplate
-	LatestVersion   string
-	Values          string
-	Warning         string
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	DefaultTemplate   *storagev1.VirtualClusterTemplate `json:"defaultTemplate,omitempty"`
+	LatestVersion     string                            `json:"latestVersion,omitempty"`
+	Values            string                            `json:"values,omitempty"`
+	Warning           string                            `json:"warning,omitempty"`
 }
 
 // +genclient
@@ -1774,77 +1774,77 @@ type ClusterVirtualClusterDefaults struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Config struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ConfigSpec
-	Status ConfigStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ConfigSpec   `json:"spec,omitempty"`
+	Status            ConfigStatus `json:"status,omitempty"`
 }
 
 type ConfigSpec struct {
-	Raw []byte
+	Raw []byte `json:"raw,omitempty"`
 }
 
 type ConfigStatus struct {
-	Authentication   Authentication
-	OIDC             *OIDC
-	Apps             *Apps
-	Audit            *Audit
-	LoftHost         string
-	DevPodSubDomain  string
-	UISettings       *uiv1.UISettingsConfig
-	VaultIntegration *storagev1.VaultIntegrationSpec
+	Authentication   Authentication                  `json:"auth,omitempty"`
+	OIDC             *OIDC                           `json:"oidc,omitempty"`
+	Apps             *Apps                           `json:"apps,omitempty"`
+	Audit            *Audit                          `json:"audit,omitempty"`
+	LoftHost         string                          `json:"loftHost,omitempty"`
+	DevPodSubDomain  string                          `json:"devPodSubDomain,omitempty"`
+	UISettings       *uiv1.UISettingsConfig          `json:"uiSettings,omitempty"`
+	VaultIntegration *storagev1.VaultIntegrationSpec `json:"vault,omitempty"`
 }
 
 type Connector struct {
-	OIDC      *AuthenticationOIDC
-	Github    *AuthenticationGithub
-	Gitlab    *AuthenticationGitlab
-	Google    *AuthenticationGoogle
-	Microsoft *AuthenticationMicrosoft
-	SAML      *AuthenticationSAML
+	OIDC      *AuthenticationOIDC      `json:"oidc,omitempty"`
+	Github    *AuthenticationGithub    `json:"github,omitempty"`
+	Gitlab    *AuthenticationGitlab    `json:"gitlab,omitempty"`
+	Google    *AuthenticationGoogle    `json:"google,omitempty"`
+	Microsoft *AuthenticationMicrosoft `json:"microsoft,omitempty"`
+	SAML      *AuthenticationSAML      `json:"saml,omitempty"`
 }
 
 type ConnectorWithName struct {
-	ID          string
-	DisplayName string
-	Connector
+	ID          string `json:"id,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
+	Connector   `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodDeleteOptions struct {
-	metav1.TypeMeta
-	Options string
+	metav1.TypeMeta `json:",inline"`
+	Options         string `json:"options,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodSshOptions struct {
-	metav1.TypeMeta
-	Options string
+	metav1.TypeMeta `json:",inline"`
+	Options         string `json:"options,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodStatusOptions struct {
-	metav1.TypeMeta
-	Options string
+	metav1.TypeMeta `json:",inline"`
+	Options         string `json:"options,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodStopOptions struct {
-	metav1.TypeMeta
-	Options string
+	metav1.TypeMeta `json:",inline"`
+	Options         string `json:"options,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodUpOptions struct {
-	metav1.TypeMeta
-	WebMode bool
-	Debug   bool
-	Options string
+	metav1.TypeMeta `json:",inline"`
+	WebMode         bool   `json:"webMode,omitempty"`
+	Debug           bool   `json:"debug,omitempty"`
+	Options         string `json:"options,omitempty"`
 }
 
 // +genclient
@@ -1852,27 +1852,27 @@ type DevPodUpOptions struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodWorkspaceInstance struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   DevPodWorkspaceInstanceSpec
-	Status DevPodWorkspaceInstanceStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              DevPodWorkspaceInstanceSpec   `json:"spec,omitempty"`
+	Status            DevPodWorkspaceInstanceStatus `json:"status,omitempty"`
 }
 
 type DevPodWorkspaceInstanceSpec struct {
-	storagev1.DevPodWorkspaceInstanceSpec
+	storagev1.DevPodWorkspaceInstanceSpec `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodWorkspaceInstanceState struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	State string
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	State             string `json:"state,omitempty"`
 }
 
 type DevPodWorkspaceInstanceStatus struct {
-	storagev1.DevPodWorkspaceInstanceStatus
-	SleepModeConfig *clusterv1.SleepModeConfig
+	storagev1.DevPodWorkspaceInstanceStatus `json:",inline"`
+	SleepModeConfig                         *clusterv1.SleepModeConfig `json:"sleepModeConfig,omitempty"`
 }
 
 // +genclient
@@ -1880,18 +1880,18 @@ type DevPodWorkspaceInstanceStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodWorkspaceTemplate struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   DevPodWorkspaceTemplateSpec
-	Status DevPodWorkspaceTemplateStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              DevPodWorkspaceTemplateSpec   `json:"spec,omitempty"`
+	Status            DevPodWorkspaceTemplateStatus `json:"status,omitempty"`
 }
 
 type DevPodWorkspaceTemplateSpec struct {
-	storagev1.DevPodWorkspaceTemplateSpec
+	storagev1.DevPodWorkspaceTemplateSpec `json:",inline"`
 }
 
 type DevPodWorkspaceTemplateStatus struct {
-	storagev1.DevPodWorkspaceTemplateStatus
+	storagev1.DevPodWorkspaceTemplateStatus `json:",inline"`
 }
 
 // +genclient
@@ -1899,19 +1899,19 @@ type DevPodWorkspaceTemplateStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DirectClusterEndpointToken struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   DirectClusterEndpointTokenSpec
-	Status DirectClusterEndpointTokenStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              DirectClusterEndpointTokenSpec   `json:"spec,omitempty"`
+	Status            DirectClusterEndpointTokenStatus `json:"status,omitempty"`
 }
 
 type DirectClusterEndpointTokenSpec struct {
-	TTL   int64
-	Scope *storagev1.AccessKeyScope
+	TTL   int64                     `json:"ttl,omitempty"`
+	Scope *storagev1.AccessKeyScope `json:"scope,omitempty"`
 }
 
 type DirectClusterEndpointTokenStatus struct {
-	Token string
+	Token string `json:"token,omitempty"`
 }
 
 // +genclient
@@ -1919,17 +1919,17 @@ type DirectClusterEndpointTokenStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Event struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   EventSpec
-	Status EventStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              EventSpec   `json:"spec,omitempty"`
+	Status            EventStatus `json:"status,omitempty"`
 }
 
 type EventSpec struct {
 }
 
 type EventStatus struct {
-	auditv1.Event
+	auditv1.Event `json:",inline"`
 }
 
 // +genclient
@@ -1937,25 +1937,25 @@ type EventStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Feature struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   FeatureSpec
-	Status FeatureStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              FeatureSpec   `json:"spec,omitempty"`
+	Status            FeatureStatus `json:"status,omitempty"`
 }
 
 type FeatureSpec struct {
 }
 
 type FeatureStatus struct {
-	pkglicenseapi.Feature
-	Internal bool
-	Used     bool
+	pkglicenseapi.Feature `json:",inline"`
+	Internal              bool `json:"internal,omitempty"`
+	Used                  bool `json:"used,omitempty"`
 }
 
 type GroupResources struct {
-	Group         string
-	Resources     []string
-	ResourceNames []string
+	Group         string   `json:"group,omitempty" protobuf:"bytes,1,opt,name=group"`
+	Resources     []string `json:"resources,omitempty" protobuf:"bytes,2,rep,name=resources"`
+	ResourceNames []string `json:"resourceNames,omitempty" protobuf:"bytes,3,rep,name=resourceNames"`
 }
 
 // +genclient
@@ -1963,19 +1963,19 @@ type GroupResources struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type IngressAuthToken struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   IngressAuthTokenSpec
-	Status IngressAuthTokenStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              IngressAuthTokenSpec   `json:"spec,omitempty"`
+	Status            IngressAuthTokenStatus `json:"status,omitempty"`
 }
 
 type IngressAuthTokenSpec struct {
-	Host      string
-	Signature string
+	Host      string `json:"host,omitempty"`
+	Signature string `json:"signature,omitempty"`
 }
 
 type IngressAuthTokenStatus struct {
-	Token string
+	Token string `json:"token,omitempty"`
 }
 
 // +genclient
@@ -1983,30 +1983,30 @@ type IngressAuthTokenStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Kiosk struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   KioskSpec
-	Status KioskStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              KioskSpec   `json:"spec,omitempty"`
+	Status            KioskStatus `json:"status,omitempty"`
 }
 
 type KioskSpec struct {
-	JsPolicy              policyv1beta1.JsPolicy
-	JsPolicyBundle        policyv1beta1.JsPolicyBundle
-	JsPolicyViolations    policyv1beta1.JsPolicyViolations
-	HelmRelease           clusterv1.HelmRelease
-	SleepModeConfig       clusterv1.SleepModeConfig
-	Space                 clusterv1.Space
-	VirtualCluster        clusterv1.VirtualCluster
-	LocalClusterAccess    clusterv1.LocalClusterAccess
-	ClusterQuota          clusterv1.ClusterQuota
-	ChartInfo             clusterv1.ChartInfo
-	StorageClusterAccess  agentstoragev1.LocalClusterAccess
-	StorageClusterQuota   agentstoragev1.ClusterQuota
-	StorageVirtualCluster agentstoragev1.VirtualCluster
-	LocalUser             agentstoragev1.LocalUser
-	LocalTeam             agentstoragev1.LocalTeam
-	UISettings            uiv1.UISettings
-	License               License
+	JsPolicy              policyv1beta1.JsPolicy            `json:"jsPolicy,omitempty"`
+	JsPolicyBundle        policyv1beta1.JsPolicyBundle      `json:"jsPolicyBundle,omitempty"`
+	JsPolicyViolations    policyv1beta1.JsPolicyViolations  `json:"jsPolicyViolations,omitempty"`
+	HelmRelease           clusterv1.HelmRelease             `json:"helmRelease,omitempty"`
+	SleepModeConfig       clusterv1.SleepModeConfig         `json:"sleepModeConfig,omitempty"`
+	Space                 clusterv1.Space                   `json:"space,omitempty"`
+	VirtualCluster        clusterv1.VirtualCluster          `json:"virtualCluster,omitempty"`
+	LocalClusterAccess    clusterv1.LocalClusterAccess      `json:"localClusterAccess,omitempty"`
+	ClusterQuota          clusterv1.ClusterQuota            `json:"clusterQuota,omitempty"`
+	ChartInfo             clusterv1.ChartInfo               `json:"chartInfo,omitempty"`
+	StorageClusterAccess  agentstoragev1.LocalClusterAccess `json:"localStorageClusterAccess,omitempty"`
+	StorageClusterQuota   agentstoragev1.ClusterQuota       `json:"storageClusterQuota,omitempty"`
+	StorageVirtualCluster agentstoragev1.VirtualCluster     `json:"storageVirtualCluster,omitempty"`
+	LocalUser             agentstoragev1.LocalUser          `json:"localUser,omitempty"`
+	LocalTeam             agentstoragev1.LocalTeam          `json:"localTeam,omitempty"`
+	UISettings            uiv1.UISettings                   `json:"UISettings,omitempty"`
+	License               License                           `json:"license,omitempty"`
 }
 
 type KioskStatus struct {
@@ -2017,36 +2017,36 @@ type KioskStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type License struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   LicenseSpec
-	Status LicenseStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              LicenseSpec   `json:"spec,omitempty"`
+	Status            LicenseStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LicenseRequest struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   LicenseRequestSpec
-	Status LicenseRequestStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              LicenseRequestSpec   `json:"spec,omitempty"`
+	Status            LicenseRequestStatus `json:"status,omitempty"`
 }
 
 type LicenseRequestSpec struct {
-	URL   string
-	Input pkglicenseapi.GenericRequestInput
+	URL   string                            `json:"url,omitempty"`
+	Input pkglicenseapi.GenericRequestInput `json:"input,omitempty"`
 }
 
 type LicenseRequestStatus struct {
-	Output *pkglicenseapi.GenericRequestOutput
+	Output *pkglicenseapi.GenericRequestOutput `json:"output,omitempty"`
 }
 
 type LicenseSpec struct {
 }
 
 type LicenseStatus struct {
-	License       *pkglicenseapi.License
-	ResourceUsage map[string]pkglicenseapi.ResourceCount
+	License       *pkglicenseapi.License                 `json:"license,omitempty"`
+	ResourceUsage map[string]pkglicenseapi.ResourceCount `json:"resourceUsage,omitempty"`
 }
 
 // +genclient
@@ -2054,19 +2054,19 @@ type LicenseStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LicenseToken struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   LicenseTokenSpec
-	Status LicenseTokenStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              LicenseTokenSpec   `json:"spec,omitempty"`
+	Status            LicenseTokenStatus `json:"status,omitempty"`
 }
 
 type LicenseTokenSpec struct {
-	URL     string
-	Payload string
+	URL     string `json:"url,omitempty"`
+	Payload string `json:"payload,omitempty"`
 }
 
 type LicenseTokenStatus struct {
-	Token *pkglicenseapi.InstanceTokenAuth
+	Token *pkglicenseapi.InstanceTokenAuth `json:"token,omitempty"`
 }
 
 // +genclient
@@ -2074,32 +2074,32 @@ type LicenseTokenStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LoftUpgrade struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   LoftUpgradeSpec
-	Status LoftUpgradeStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              LoftUpgradeSpec   `json:"spec,omitempty"`
+	Status            LoftUpgradeStatus `json:"status,omitempty"`
 }
 
 type LoftUpgradeSpec struct {
-	Namespace string
-	Release   string
-	Version   string
+	Namespace string `json:"namespace,omitempty"`
+	Release   string `json:"release,omitempty"`
+	Version   string `json:"version,omitempty"`
 }
 
 type LoftUpgradeStatus struct {
 }
 
 type OIDC struct {
-	Enabled          bool
-	WildcardRedirect bool
-	Clients          []OIDCClient
+	Enabled          bool         `json:"enabled,omitempty"`
+	WildcardRedirect bool         `json:"wildcardRedirect,omitempty"`
+	Clients          []OIDCClient `json:"clients,omitempty"`
 }
 
 type OIDCClient struct {
-	Name         string
-	ClientID     string
-	ClientSecret string
-	RedirectURIs []string
+	Name         string   `json:"name,omitempty"`
+	ClientID     string   `json:"clientId,omitempty"`
+	ClientSecret string   `json:"clientSecret,omitempty"`
+	RedirectURIs []string `json:"redirectURIs"`
 }
 
 // +genclient
@@ -2107,18 +2107,18 @@ type OIDCClient struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type OwnedAccessKey struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   OwnedAccessKeySpec
-	Status OwnedAccessKeyStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              OwnedAccessKeySpec   `json:"spec,omitempty"`
+	Status            OwnedAccessKeyStatus `json:"status,omitempty"`
 }
 
 type OwnedAccessKeySpec struct {
-	storagev1.AccessKeySpec
+	storagev1.AccessKeySpec `json:",inline"`
 }
 
 type OwnedAccessKeyStatus struct {
-	storagev1.AccessKeyStatus
+	storagev1.AccessKeyStatus `json:",inline"`
 }
 
 // +genclient
@@ -2126,30 +2126,30 @@ type OwnedAccessKeyStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type PolicyViolation struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   PolicyViolationSpec
-	Status PolicyViolationStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              PolicyViolationSpec   `json:"spec,omitempty"`
+	Status            PolicyViolationStatus `json:"status,omitempty"`
 }
 
 type PolicyViolationSpec struct {
 }
 
 type PolicyViolationStatus struct {
-	Policy    string
-	Cluster   string
-	User      *clusterv1.EntityInfo
-	Violation policyv1beta1.PolicyViolation
+	Policy    string                        `json:"policy,omitempty"`
+	Cluster   string                        `json:"cluster,omitempty"`
+	User      *clusterv1.EntityInfo         `json:"user,omitempty"`
+	Violation policyv1beta1.PolicyViolation `json:"violation,omitempty"`
 }
 
 type PredefinedApp struct {
-	Chart          string
-	InitialVersion string
-	InitialValues  string
-	Clusters       []string
-	Title          string
-	IconURL        string
-	ReadmeURL      string
+	Chart          string   `json:"chart"`
+	InitialVersion string   `json:"initialVersion,omitempty"`
+	InitialValues  string   `json:"initialValues,omitempty"`
+	Clusters       []string `json:"clusters,omitempty"`
+	Title          string   `json:"title,omitempty"`
+	IconURL        string   `json:"iconUrl,omitempty"`
+	ReadmeURL      string   `json:"readmeUrl,omitempty"`
 }
 
 // +genclient
@@ -2157,116 +2157,116 @@ type PredefinedApp struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Project struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ProjectSpec
-	Status ProjectStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ProjectSpec   `json:"spec,omitempty"`
+	Status            ProjectStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectChartInfo struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ProjectChartInfoSpec
-	Status ProjectChartInfoStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ProjectChartInfoSpec   `json:"spec,omitempty"`
+	Status            ProjectChartInfoStatus `json:"status,omitempty"`
 }
 
 type ProjectChartInfoSpec struct {
-	clusterv1.ChartInfoSpec
+	clusterv1.ChartInfoSpec `json:",inline"`
 }
 
 type ProjectChartInfoStatus struct {
-	clusterv1.ChartInfoStatus
+	clusterv1.ChartInfoStatus `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectCharts struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Charts []storagev1.HelmChart
-	Busy   bool
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Charts            []storagev1.HelmChart `json:"charts"`
+	Busy              bool                  `json:"busy,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectClusters struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Clusters []Cluster
-	Runners  []Runner
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Clusters          []Cluster `json:"clusters,omitempty"`
+	Runners           []Runner  `json:"runners,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectImportSpace struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	SourceSpace ProjectImportSpaceSource
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	SourceSpace       ProjectImportSpaceSource `json:"sourceSpace"`
 }
 
 type ProjectImportSpaceSource struct {
-	Name       string
-	Cluster    string
-	ImportName string
+	Name       string `json:"name,omitempty"`
+	Cluster    string `json:"cluster,omitempty"`
+	ImportName string `json:"importName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectImportVirtualCluster struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	SourceVirtualCluster ProjectImportVirtualClusterSource
-	UpgradeToPro         bool
-	SkipHelmDeploy       bool
+	metav1.TypeMeta      `json:",inline"`
+	metav1.ObjectMeta    `json:"metadata,omitempty"`
+	SourceVirtualCluster ProjectImportVirtualClusterSource `json:"sourceVirtualCluster"`
+	UpgradeToPro         bool                              `json:"upgradeToPro,omitempty"`
+	SkipHelmDeploy       bool                              `json:"skipHelmDeploy,omitempty"`
 }
 
 type ProjectImportVirtualClusterSource struct {
-	Name       string
-	Namespace  string
-	Cluster    string
-	Owner      *storagev1.UserOrTeam
-	ImportName string
+	Name       string                `json:"name,omitempty"`
+	Namespace  string                `json:"namespace,omitempty"`
+	Cluster    string                `json:"cluster,omitempty"`
+	Owner      *storagev1.UserOrTeam `json:"owner,omitempty"`
+	ImportName string                `json:"importName,omitempty"`
 }
 
 type ProjectMember struct {
-	Info clusterv1.EntityInfo
+	Info clusterv1.EntityInfo `json:"info,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectMembers struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Teams []ProjectMember
-	Users []ProjectMember
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Teams             []ProjectMember `json:"teams,omitempty"`
+	Users             []ProjectMember `json:"users,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectMigrateSpaceInstance struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	SourceSpaceInstance ProjectMigrateSpaceInstanceSource
+	metav1.TypeMeta     `json:",inline"`
+	metav1.ObjectMeta   `json:"metadata,omitempty"`
+	SourceSpaceInstance ProjectMigrateSpaceInstanceSource `json:"sourceSpaceInstance"`
 }
 
 type ProjectMigrateSpaceInstanceSource struct {
-	Name      string
-	Namespace string
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectMigrateVirtualClusterInstance struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	SourceVirtualClusterInstance ProjectMigrateVirtualClusterInstanceSource
+	metav1.TypeMeta              `json:",inline"`
+	metav1.ObjectMeta            `json:"metadata,omitempty"`
+	SourceVirtualClusterInstance ProjectMigrateVirtualClusterInstanceSource `json:"sourceVirtualClusterInstance"`
 }
 
 type ProjectMigrateVirtualClusterInstanceSource struct {
-	Name      string
-	Namespace string
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // +genclient
@@ -2274,43 +2274,43 @@ type ProjectMigrateVirtualClusterInstanceSource struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectSecret struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ProjectSecretSpec
-	Status ProjectSecretStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ProjectSecretSpec   `json:"spec,omitempty"`
+	Status            ProjectSecretStatus `json:"status,omitempty"`
 }
 
 type ProjectSecretSpec struct {
-	DisplayName string
-	Description string
-	Owner       *storagev1.UserOrTeam
-	Data        map[string][]byte
-	Access      []storagev1.Access
+	DisplayName string                `json:"displayName,omitempty"`
+	Description string                `json:"description,omitempty"`
+	Owner       *storagev1.UserOrTeam `json:"owner,omitempty"`
+	Data        map[string][]byte     `json:"data,omitempty"`
+	Access      []storagev1.Access    `json:"access,omitempty"`
 }
 
 type ProjectSecretStatus struct {
-	Conditions agentstoragev1.Conditions
+	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
 }
 
 type ProjectSpec struct {
-	storagev1.ProjectSpec
+	storagev1.ProjectSpec `json:",inline"`
 }
 
 type ProjectStatus struct {
-	storagev1.ProjectStatus
+	storagev1.ProjectStatus `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectTemplates struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	DefaultVirtualClusterTemplate  string
-	VirtualClusterTemplates        []VirtualClusterTemplate
-	DefaultSpaceTemplate           string
-	SpaceTemplates                 []SpaceTemplate
-	DefaultDevPodWorkspaceTemplate string
-	DevPodWorkspaceTemplates       []DevPodWorkspaceTemplate
+	metav1.TypeMeta                `json:",inline"`
+	metav1.ObjectMeta              `json:"metadata,omitempty"`
+	DefaultVirtualClusterTemplate  string                    `json:"defaultVirtualClusterTemplate,omitempty"`
+	VirtualClusterTemplates        []VirtualClusterTemplate  `json:"virtualClusterTemplates,omitempty"`
+	DefaultSpaceTemplate           string                    `json:"defaultSpaceTemplate,omitempty"`
+	SpaceTemplates                 []SpaceTemplate           `json:"spaceTemplates,omitempty"`
+	DefaultDevPodWorkspaceTemplate string                    `json:"defaultDevPodWorkspaceTemplate,omitempty"`
+	DevPodWorkspaceTemplates       []DevPodWorkspaceTemplate `json:"devPodWorkspaceTemplates,omitempty"`
 }
 
 // +genclient
@@ -2318,18 +2318,18 @@ type ProjectTemplates struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RedirectToken struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   RedirectTokenSpec
-	Status RedirectTokenStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              RedirectTokenSpec   `json:"spec,omitempty"`
+	Status            RedirectTokenStatus `json:"status,omitempty"`
 }
 
 type RedirectTokenSpec struct {
-	Token string
+	Token string `json:"token,omitempty"`
 }
 
 type RedirectTokenStatus struct {
-	RedirectURL string
+	RedirectURL string `json:"redirectURL,omitempty"`
 }
 
 // +genclient
@@ -2337,18 +2337,18 @@ type RedirectTokenStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ResetAccessKey struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   ResetAccessKeySpec
-	Status ResetAccessKeyStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ResetAccessKeySpec   `json:"spec,omitempty"`
+	Status            ResetAccessKeyStatus `json:"status,omitempty"`
 }
 
 type ResetAccessKeySpec struct {
-	storagev1.AccessKeySpec
+	storagev1.AccessKeySpec `json:",inline"`
 }
 
 type ResetAccessKeyStatus struct {
-	storagev1.AccessKeyStatus
+	storagev1.AccessKeyStatus `json:",inline"`
 }
 
 // +genclient
@@ -2356,34 +2356,34 @@ type ResetAccessKeyStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Runner struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   RunnerSpec
-	Status RunnerStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              RunnerSpec   `json:"spec,omitempty"`
+	Status            RunnerStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RunnerAccessKey struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	AccessKey string
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	AccessKey         string `json:"accessKey,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RunnerConfig struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	TokenCaCert []byte
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	TokenCaCert       []byte `json:"tokenCaCert,omitempty"`
 }
 
 type RunnerSpec struct {
-	storagev1.RunnerSpec
+	storagev1.RunnerSpec `json:",inline"`
 }
 
 type RunnerStatus struct {
-	storagev1.RunnerStatus
+	storagev1.RunnerStatus `json:",inline"`
 }
 
 // +genclient
@@ -2391,27 +2391,27 @@ type RunnerStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Self struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SelfSpec
-	Status SelfStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SelfSpec   `json:"spec,omitempty"`
+	Status            SelfStatus `json:"status,omitempty"`
 }
 
 type SelfSpec struct {
-	AccessKey string
+	AccessKey string `json:"accessKey,omitempty"`
 }
 
 type SelfStatus struct {
-	User           *UserInfo
-	Team           *clusterv1.EntityInfo
-	AccessKey      string
-	AccessKeyScope *storagev1.AccessKeyScope
-	AccessKeyType  storagev1.AccessKeyType
-	Subject        string
-	UID            string
-	Groups         []string
-	ChatAuthToken  string
-	InstanceID     string
+	User           *UserInfo                 `json:"user,omitempty"`
+	Team           *clusterv1.EntityInfo     `json:"team,omitempty"`
+	AccessKey      string                    `json:"accessKey,omitempty"`
+	AccessKeyScope *storagev1.AccessKeyScope `json:"accessKeyScope,omitempty"`
+	AccessKeyType  storagev1.AccessKeyType   `json:"accessKeyType,omitempty"`
+	Subject        string                    `json:"subject,omitempty"`
+	UID            string                    `json:"uid,omitempty"`
+	Groups         []string                  `json:"groups,omitempty"`
+	ChatAuthToken  string                    `json:"chatAuthToken"`
+	InstanceID     string                    `json:"instanceID"`
 }
 
 // +genclient
@@ -2419,18 +2419,18 @@ type SelfStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SelfSubjectAccessReview struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SelfSubjectAccessReviewSpec
-	Status SelfSubjectAccessReviewStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SelfSubjectAccessReviewSpec   `json:"spec,omitempty"`
+	Status            SelfSubjectAccessReviewStatus `json:"status,omitempty"`
 }
 
 type SelfSubjectAccessReviewSpec struct {
-	authorizationv1.SelfSubjectAccessReviewSpec
+	authorizationv1.SelfSubjectAccessReviewSpec `json:",inline"`
 }
 
 type SelfSubjectAccessReviewStatus struct {
-	authorizationv1.SubjectAccessReviewStatus
+	authorizationv1.SubjectAccessReviewStatus `json:",inline"`
 }
 
 // +genclient
@@ -2438,18 +2438,18 @@ type SelfSubjectAccessReviewStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SharedSecret struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SharedSecretSpec
-	Status SharedSecretStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SharedSecretSpec   `json:"spec,omitempty"`
+	Status            SharedSecretStatus `json:"status,omitempty"`
 }
 
 type SharedSecretSpec struct {
-	storagev1.SharedSecretSpec
+	storagev1.SharedSecretSpec `json:",inline"`
 }
 
 type SharedSecretStatus struct {
-	storagev1.SharedSecretStatus
+	storagev1.SharedSecretStatus `json:",inline"`
 }
 
 // +genclient
@@ -2457,20 +2457,20 @@ type SharedSecretStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SpaceConstraint struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SpaceConstraintSpec
-	Status SpaceConstraintStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SpaceConstraintSpec   `json:"spec,omitempty"`
+	Status            SpaceConstraintStatus `json:"status,omitempty"`
 }
 
 type SpaceConstraintSpec struct {
-	storagev1.SpaceConstraintSpec
+	storagev1.SpaceConstraintSpec `json:",inline"`
 }
 
 type SpaceConstraintStatus struct {
-	storagev1.SpaceConstraintStatus
-	ClusterRole *clusterv1.EntityInfo
-	Clusters    []*clusterv1.EntityInfo
+	storagev1.SpaceConstraintStatus `json:",inline"`
+	ClusterRole                     *clusterv1.EntityInfo   `json:"clusterRole,omitempty"`
+	Clusters                        []*clusterv1.EntityInfo `json:"clusters,omitempty"`
 }
 
 // +genclient
@@ -2478,21 +2478,21 @@ type SpaceConstraintStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SpaceInstance struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SpaceInstanceSpec
-	Status SpaceInstanceStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SpaceInstanceSpec   `json:"spec,omitempty"`
+	Status            SpaceInstanceStatus `json:"status,omitempty"`
 }
 
 type SpaceInstanceSpec struct {
-	storagev1.SpaceInstanceSpec
+	storagev1.SpaceInstanceSpec `json:",inline"`
 }
 
 type SpaceInstanceStatus struct {
-	storagev1.SpaceInstanceStatus
-	SleepModeConfig *clusterv1.SleepModeConfig
-	CanUse          bool
-	CanUpdate       bool
+	storagev1.SpaceInstanceStatus `json:",inline"`
+	SleepModeConfig               *clusterv1.SleepModeConfig `json:"sleepModeConfig,omitempty"`
+	CanUse                        bool                       `json:"canUse,omitempty"`
+	CanUpdate                     bool                       `json:"canUpdate,omitempty"`
 }
 
 // +genclient
@@ -2500,19 +2500,19 @@ type SpaceInstanceStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SpaceTemplate struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SpaceTemplateSpec
-	Status SpaceTemplateStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SpaceTemplateSpec   `json:"spec,omitempty"`
+	Status            SpaceTemplateStatus `json:"status,omitempty"`
 }
 
 type SpaceTemplateSpec struct {
-	storagev1.SpaceTemplateSpec
+	storagev1.SpaceTemplateSpec `json:",inline"`
 }
 
 type SpaceTemplateStatus struct {
-	storagev1.SpaceTemplateStatus
-	Apps []*clusterv1.EntityInfo
+	storagev1.SpaceTemplateStatus `json:",inline"`
+	Apps                          []*clusterv1.EntityInfo `json:"apps,omitempty"`
 }
 
 // +genclient
@@ -2520,18 +2520,18 @@ type SpaceTemplateStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SubjectAccessReview struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   SubjectAccessReviewSpec
-	Status SubjectAccessReviewStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SubjectAccessReviewSpec   `json:"spec,omitempty"`
+	Status            SubjectAccessReviewStatus `json:"status,omitempty"`
 }
 
 type SubjectAccessReviewSpec struct {
-	authorizationv1.SubjectAccessReviewSpec
+	authorizationv1.SubjectAccessReviewSpec `json:",inline"`
 }
 
 type SubjectAccessReviewStatus struct {
-	authorizationv1.SubjectAccessReviewStatus
+	authorizationv1.SubjectAccessReviewStatus `json:",inline"`
 }
 
 // +genclient
@@ -2539,27 +2539,27 @@ type SubjectAccessReviewStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Task struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   TaskSpec
-	Status TaskStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              TaskSpec   `json:"spec,omitempty"`
+	Status            TaskStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type TaskLog struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
 type TaskSpec struct {
-	storagev1.TaskSpec
+	storagev1.TaskSpec `json:",inline"`
 }
 
 type TaskStatus struct {
-	storagev1.TaskStatus
-	Owner   *clusterv1.UserOrTeam
-	Cluster *clusterv1.EntityInfo
+	storagev1.TaskStatus `json:",inline"`
+	Owner                *clusterv1.UserOrTeam `json:"owner,omitempty"`
+	Cluster              *clusterv1.EntityInfo `json:"cluster,omitempty"`
 }
 
 // +genclient
@@ -2567,34 +2567,34 @@ type TaskStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Team struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   TeamSpec
-	Status TeamStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              TeamSpec   `json:"spec,omitempty"`
+	Status            TeamStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type TeamAccessKeys struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	AccessKeys []OwnedAccessKey
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	AccessKeys        []OwnedAccessKey `json:"accessKeys,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type TeamClusters struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Clusters []ClusterAccounts
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Clusters          []ClusterAccounts `json:"clusters,omitempty"`
 }
 
 type TeamSpec struct {
-	storagev1.TeamSpec
+	storagev1.TeamSpec `json:",inline"`
 }
 
 type TeamStatus struct {
-	storagev1.TeamStatus
+	storagev1.TeamStatus `json:",inline"`
 }
 
 // +genclient
@@ -2602,69 +2602,69 @@ type TeamStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type User struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   UserSpec
-	Status UserStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              UserSpec   `json:"spec,omitempty"`
+	Status            UserStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserAccessKeys struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	AccessKeys []OwnedAccessKey
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	AccessKeys        []OwnedAccessKey `json:"accessKeys,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserClusters struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Clusters []ClusterAccounts
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Clusters          []ClusterAccounts `json:"clusters,omitempty"`
 }
 
 type UserInfo struct {
-	clusterv1.EntityInfo
-	Teams []*clusterv1.EntityInfo
+	clusterv1.EntityInfo `json:",inline"`
+	Teams                []*clusterv1.EntityInfo `json:"teams,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserPermissions struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	ClusterRoles   []UserPermissionsRole
-	NamespaceRoles []UserPermissionsRole
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	ClusterRoles      []UserPermissionsRole `json:"clusterRoles,omitempty"`
+	NamespaceRoles    []UserPermissionsRole `json:"namespaceRoles,omitempty"`
 }
 
 type UserPermissionsRole struct {
-	ClusterRole string
-	Role        string
-	Namespace   string
-	Rules       []rbacv1.PolicyRule
+	ClusterRole string              `json:"clusterRole,omitempty"`
+	Role        string              `json:"role,omitempty"`
+	Namespace   string              `json:"namespace,omitempty"`
+	Rules       []rbacv1.PolicyRule `json:"rules,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserProfile struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	DisplayName     string
-	Username        string
-	Password        string
-	CurrentPassword string
-	Email           string
-	Icon            *string
-	Custom          string
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	DisplayName       string  `json:"displayName,omitempty"`
+	Username          string  `json:"username,omitempty"`
+	Password          string  `json:"password,omitempty"`
+	CurrentPassword   string  `json:"currentPassword,omitempty"`
+	Email             string  `json:"email,omitempty"`
+	Icon              *string `json:"icon,omitempty"`
+	Custom            string  `json:"custom,omitempty"`
 }
 
 type UserSpec struct {
-	storagev1.UserSpec
+	storagev1.UserSpec `json:",inline"`
 }
 
 type UserStatus struct {
-	storagev1.UserStatus
+	storagev1.UserStatus `json:",inline"`
 }
 
 // +genclient
@@ -2672,54 +2672,54 @@ type UserStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterInstance struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   VirtualClusterInstanceSpec
-	Status VirtualClusterInstanceStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualClusterInstanceSpec   `json:"spec,omitempty"`
+	Status            VirtualClusterInstanceStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterInstanceKubeConfig struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   VirtualClusterInstanceKubeConfigSpec
-	Status VirtualClusterInstanceKubeConfigStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualClusterInstanceKubeConfigSpec   `json:"spec,omitempty"`
+	Status            VirtualClusterInstanceKubeConfigStatus `json:"status,omitempty"`
 }
 
 type VirtualClusterInstanceKubeConfigSpec struct {
-	CertificateTTL *int32
+	CertificateTTL *int32 `json:"certificateTTL,omitempty"`
 }
 
 type VirtualClusterInstanceKubeConfigStatus struct {
-	KubeConfig string
+	KubeConfig string `json:"kubeConfig,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterInstanceLog struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
 type VirtualClusterInstanceSpec struct {
-	storagev1.VirtualClusterInstanceSpec
+	storagev1.VirtualClusterInstanceSpec `json:",inline"`
 }
 
 type VirtualClusterInstanceStatus struct {
-	storagev1.VirtualClusterInstanceStatus
-	SleepModeConfig *clusterv1.SleepModeConfig
-	CanUse          bool
-	CanUpdate       bool
+	storagev1.VirtualClusterInstanceStatus `json:",inline"`
+	SleepModeConfig                        *clusterv1.SleepModeConfig `json:"sleepModeConfig,omitempty"`
+	CanUse                                 bool                       `json:"canUse,omitempty"`
+	CanUpdate                              bool                       `json:"canUpdate,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterInstanceWorkloadKubeConfig struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	KubeConfig string
-	Token      string
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	KubeConfig        string `json:"kubeConfig,omitempty"`
+	Token             string `json:"token,omitempty"`
 }
 
 // +genclient
@@ -2727,19 +2727,19 @@ type VirtualClusterInstanceWorkloadKubeConfig struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterTemplate struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	Spec   VirtualClusterTemplateSpec
-	Status VirtualClusterTemplateStatus
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualClusterTemplateSpec   `json:"spec,omitempty"`
+	Status            VirtualClusterTemplateStatus `json:"status,omitempty"`
 }
 
 type VirtualClusterTemplateSpec struct {
-	storagev1.VirtualClusterTemplateSpec
+	storagev1.VirtualClusterTemplateSpec `json:",inline"`
 }
 
 type VirtualClusterTemplateStatus struct {
-	storagev1.VirtualClusterTemplateStatus
-	Apps []*clusterv1.EntityInfo
+	storagev1.VirtualClusterTemplateStatus `json:",inline"`
+	Apps                                   []*clusterv1.EntityInfo `json:"apps,omitempty"`
 }
 
 // AgentAuditEvent Functions and Structs
@@ -2757,9 +2757,9 @@ type AgentAuditEventStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AgentAuditEventList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []AgentAuditEvent
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []AgentAuditEvent `json:"items"`
 }
 
 func (AgentAuditEvent) NewStatus() interface{} {
@@ -2876,9 +2876,9 @@ type AnnouncementStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AnnouncementList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Announcement
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Announcement `json:"items"`
 }
 
 func (Announcement) NewStatus() interface{} {
@@ -2995,17 +2995,17 @@ type AppStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AppList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []App
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []App `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AppCredentialsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []AppCredentials
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []AppCredentials `json:"items"`
 }
 
 func (App) NewStatus() interface{} {
@@ -3122,17 +3122,17 @@ type BackupStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type BackupList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Backup
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Backup `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type BackupApplyList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []BackupApply
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []BackupApply `json:"items"`
 }
 
 func (Backup) NewStatus() interface{} {
@@ -3249,73 +3249,73 @@ type ClusterStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Cluster
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Cluster `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterAccessKeyList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterAccessKey
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterAccessKey `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterAgentConfigList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterAgentConfig
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterAgentConfig `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterChartsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterCharts
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterCharts `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterDomainList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterDomain
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterDomain `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterMemberAccessList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterMemberAccess
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterMemberAccess `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterMembersList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterMembers
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterMembers `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterResetList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterReset
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterReset `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterVirtualClusterDefaultsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterVirtualClusterDefaults
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterVirtualClusterDefaults `json:"items"`
 }
 
 func (Cluster) NewStatus() interface{} {
@@ -3432,9 +3432,9 @@ type ClusterAccessStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterAccessList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterAccess
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterAccess `json:"items"`
 }
 
 func (ClusterAccess) NewStatus() interface{} {
@@ -3551,9 +3551,9 @@ type ClusterConnectStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterConnectList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterConnect
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterConnect `json:"items"`
 }
 
 func (ClusterConnect) NewStatus() interface{} {
@@ -3670,9 +3670,9 @@ type ClusterRoleTemplateStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ClusterRoleTemplateList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ClusterRoleTemplate
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterRoleTemplate `json:"items"`
 }
 
 func (ClusterRoleTemplate) NewStatus() interface{} {
@@ -3789,9 +3789,9 @@ type ConfigStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ConfigList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Config
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Config `json:"items"`
 }
 
 func (Config) NewStatus() interface{} {
@@ -3908,57 +3908,57 @@ type DevPodWorkspaceInstanceStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodWorkspaceInstanceList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DevPodWorkspaceInstance
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DevPodWorkspaceInstance `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodDeleteOptionsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DevPodDeleteOptions
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DevPodDeleteOptions `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodStatusOptionsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DevPodStatusOptions
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DevPodStatusOptions `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodSshOptionsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DevPodSshOptions
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DevPodSshOptions `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodWorkspaceInstanceStateList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DevPodWorkspaceInstanceState
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DevPodWorkspaceInstanceState `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodStopOptionsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DevPodStopOptions
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DevPodStopOptions `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodUpOptionsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DevPodUpOptions
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DevPodUpOptions `json:"items"`
 }
 
 func (DevPodWorkspaceInstance) NewStatus() interface{} {
@@ -4075,9 +4075,9 @@ type DevPodWorkspaceTemplateStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodWorkspaceTemplateList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DevPodWorkspaceTemplate
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DevPodWorkspaceTemplate `json:"items"`
 }
 
 func (DevPodWorkspaceTemplate) NewStatus() interface{} {
@@ -4194,9 +4194,9 @@ type DirectClusterEndpointTokenStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DirectClusterEndpointTokenList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []DirectClusterEndpointToken
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []DirectClusterEndpointToken `json:"items"`
 }
 
 func (DirectClusterEndpointToken) NewStatus() interface{} {
@@ -4313,9 +4313,9 @@ type EventStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type EventList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Event
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Event `json:"items"`
 }
 
 func (Event) NewStatus() interface{} {
@@ -4432,9 +4432,9 @@ type FeatureStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type FeatureList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Feature
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Feature `json:"items"`
 }
 
 func (Feature) NewStatus() interface{} {
@@ -4551,9 +4551,9 @@ type IngressAuthTokenStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type IngressAuthTokenList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []IngressAuthToken
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []IngressAuthToken `json:"items"`
 }
 
 func (IngressAuthToken) NewStatus() interface{} {
@@ -4670,9 +4670,9 @@ type KioskStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type KioskList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Kiosk
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Kiosk `json:"items"`
 }
 
 func (Kiosk) NewStatus() interface{} {
@@ -4789,17 +4789,17 @@ type LicenseStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LicenseList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []License
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []License `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LicenseRequestList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []LicenseRequest
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []LicenseRequest `json:"items"`
 }
 
 func (License) NewStatus() interface{} {
@@ -4916,9 +4916,9 @@ type LicenseTokenStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LicenseTokenList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []LicenseToken
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []LicenseToken `json:"items"`
 }
 
 func (LicenseToken) NewStatus() interface{} {
@@ -5035,9 +5035,9 @@ type LoftUpgradeStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type LoftUpgradeList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []LoftUpgrade
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []LoftUpgrade `json:"items"`
 }
 
 func (LoftUpgrade) NewStatus() interface{} {
@@ -5154,9 +5154,9 @@ type OwnedAccessKeyStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type OwnedAccessKeyList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []OwnedAccessKey
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []OwnedAccessKey `json:"items"`
 }
 
 func (OwnedAccessKey) NewStatus() interface{} {
@@ -5273,9 +5273,9 @@ type PolicyViolationStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type PolicyViolationList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []PolicyViolation
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []PolicyViolation `json:"items"`
 }
 
 func (PolicyViolation) NewStatus() interface{} {
@@ -5392,81 +5392,81 @@ type ProjectStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Project
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Project `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectChartInfoList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectChartInfo
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectChartInfo `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectChartsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectCharts
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectCharts `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectClustersList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectClusters
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectClusters `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectImportSpaceList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectImportSpace
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectImportSpace `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectImportVirtualClusterList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectImportVirtualCluster
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectImportVirtualCluster `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectMembersList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectMembers
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectMembers `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectMigrateSpaceInstanceList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectMigrateSpaceInstance
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectMigrateSpaceInstance `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectMigrateVirtualClusterInstanceList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectMigrateVirtualClusterInstance
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectMigrateVirtualClusterInstance `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectTemplatesList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectTemplates
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectTemplates `json:"items"`
 }
 
 func (Project) NewStatus() interface{} {
@@ -5583,9 +5583,9 @@ type ProjectSecretStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectSecretList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ProjectSecret
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectSecret `json:"items"`
 }
 
 func (ProjectSecret) NewStatus() interface{} {
@@ -5702,9 +5702,9 @@ type RedirectTokenStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RedirectTokenList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []RedirectToken
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []RedirectToken `json:"items"`
 }
 
 func (RedirectToken) NewStatus() interface{} {
@@ -5821,9 +5821,9 @@ type ResetAccessKeyStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ResetAccessKeyList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ResetAccessKey
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ResetAccessKey `json:"items"`
 }
 
 func (ResetAccessKey) NewStatus() interface{} {
@@ -5940,25 +5940,25 @@ type RunnerStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RunnerList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Runner
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Runner `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RunnerAccessKeyList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []RunnerAccessKey
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []RunnerAccessKey `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RunnerConfigList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []RunnerConfig
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []RunnerConfig `json:"items"`
 }
 
 func (Runner) NewStatus() interface{} {
@@ -6075,9 +6075,9 @@ type SelfStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SelfList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Self
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Self `json:"items"`
 }
 
 func (Self) NewStatus() interface{} {
@@ -6194,9 +6194,9 @@ type SelfSubjectAccessReviewStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SelfSubjectAccessReviewList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []SelfSubjectAccessReview
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SelfSubjectAccessReview `json:"items"`
 }
 
 func (SelfSubjectAccessReview) NewStatus() interface{} {
@@ -6313,9 +6313,9 @@ type SharedSecretStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SharedSecretList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []SharedSecret
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SharedSecret `json:"items"`
 }
 
 func (SharedSecret) NewStatus() interface{} {
@@ -6432,9 +6432,9 @@ type SpaceConstraintStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SpaceConstraintList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []SpaceConstraint
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SpaceConstraint `json:"items"`
 }
 
 func (SpaceConstraint) NewStatus() interface{} {
@@ -6551,9 +6551,9 @@ type SpaceInstanceStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SpaceInstanceList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []SpaceInstance
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SpaceInstance `json:"items"`
 }
 
 func (SpaceInstance) NewStatus() interface{} {
@@ -6670,9 +6670,9 @@ type SpaceTemplateStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SpaceTemplateList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []SpaceTemplate
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SpaceTemplate `json:"items"`
 }
 
 func (SpaceTemplate) NewStatus() interface{} {
@@ -6789,9 +6789,9 @@ type SubjectAccessReviewStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SubjectAccessReviewList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []SubjectAccessReview
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SubjectAccessReview `json:"items"`
 }
 
 func (SubjectAccessReview) NewStatus() interface{} {
@@ -6908,17 +6908,17 @@ type TaskStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type TaskList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Task
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Task `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type TaskLogList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []TaskLog
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []TaskLog `json:"items"`
 }
 
 func (Task) NewStatus() interface{} {
@@ -7035,25 +7035,25 @@ type TeamStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type TeamList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Team
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Team `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type TeamAccessKeysList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []TeamAccessKeys
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []TeamAccessKeys `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type TeamClustersList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []TeamClusters
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []TeamClusters `json:"items"`
 }
 
 func (Team) NewStatus() interface{} {
@@ -7170,41 +7170,41 @@ type UserStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []User
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []User `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserAccessKeysList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []UserAccessKeys
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []UserAccessKeys `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserClustersList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []UserClusters
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []UserClusters `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserPermissionsList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []UserPermissions
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []UserPermissions `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type UserProfileList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []UserProfile
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []UserProfile `json:"items"`
 }
 
 func (User) NewStatus() interface{} {
@@ -7321,33 +7321,33 @@ type VirtualClusterInstanceStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterInstanceList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []VirtualClusterInstance
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstance `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterInstanceKubeConfigList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []VirtualClusterInstanceKubeConfig
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstanceKubeConfig `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterInstanceLogList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []VirtualClusterInstanceLog
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstanceLog `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterInstanceWorkloadKubeConfigList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []VirtualClusterInstanceWorkloadKubeConfig
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstanceWorkloadKubeConfig `json:"items"`
 }
 
 func (VirtualClusterInstance) NewStatus() interface{} {
@@ -7464,9 +7464,9 @@ type VirtualClusterTemplateStatusStrategy struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterTemplateList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []VirtualClusterTemplate
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterTemplate `json:"items"`
 }
 
 func (VirtualClusterTemplate) NewStatus() interface{} {

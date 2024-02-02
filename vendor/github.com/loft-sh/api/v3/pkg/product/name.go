@@ -5,30 +5,30 @@ import (
 	"os"
 	"sync"
 
-	"github.com/loft-sh/admin-apis/pkg/licenseapi"
+	"github.com/loft-sh/admin-apis/pkg/features"
 	"k8s.io/klog/v2"
 )
 
 // Product is the global variable to be set at build time
-var productName string = string(licenseapi.Loft)
+var productName string = string(features.Loft)
 var once sync.Once
 
 func loadProductVar() {
 	productEnv := os.Getenv("PRODUCT")
-	if productEnv == string(licenseapi.DevPodPro) {
-		productName = string(licenseapi.DevPodPro)
-	} else if productEnv == string(licenseapi.VClusterPro) {
-		productName = string(licenseapi.VClusterPro)
-	} else if productEnv == string(licenseapi.Loft) {
-		productName = string(licenseapi.Loft)
+	if productEnv == string(features.DevPodPro) {
+		productName = string(features.DevPodPro)
+	} else if productEnv == string(features.VClusterPro) {
+		productName = string(features.VClusterPro)
+	} else if productEnv == string(features.Loft) {
+		productName = string(features.Loft)
 	} else if productEnv != "" {
 		klog.TODO().Error(fmt.Errorf("unrecognized product %s", productEnv), "error parsing product", "product", productEnv)
 	}
 }
 
-func Name() licenseapi.ProductName {
+func Name() features.ProductName {
 	once.Do(loadProductVar)
-	return licenseapi.ProductName(productName)
+	return features.ProductName(productName)
 }
 
 // Name returns the name of the product
@@ -36,11 +36,11 @@ func DisplayName() string {
 	loftDisplayName := "Loft"
 
 	switch Name() {
-	case licenseapi.DevPodPro:
+	case features.DevPodPro:
 		return "DevPod Pro"
-	case licenseapi.VClusterPro:
+	case features.VClusterPro:
 		return "vCluster.Pro"
-	case licenseapi.Loft:
+	case features.Loft:
 	}
 
 	return loftDisplayName
