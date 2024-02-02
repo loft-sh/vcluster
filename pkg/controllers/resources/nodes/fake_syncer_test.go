@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	goruntime "runtime"
 	"testing"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -63,9 +64,9 @@ func TestFakeSync(t *testing.T) {
 			Name: baseName.Name,
 			Labels: map[string]string{
 				"vcluster.loft.sh/fake-node": "true",
-				"beta.kubernetes.io/arch":    "amd64",
+				"beta.kubernetes.io/arch":    goruntime.GOARCH,
 				"beta.kubernetes.io/os":      "linux",
-				"kubernetes.io/arch":         "amd64",
+				"kubernetes.io/arch":         goruntime.GOARCH,
 				"kubernetes.io/hostname":     "fake-" + baseName.Name,
 				"kubernetes.io/os":           "linux",
 			},
