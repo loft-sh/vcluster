@@ -15,6 +15,11 @@ pro: false
 # secrets within the cluster.
 proLicenseSecret: ""
 
+# Embedded etcd settings
+embeddedEtcd:
+  # If embedded etcd should be enabled, this is a PRO only feature
+  enabled: false
+
 # If true, will deploy vcluster in headless mode, which means no deployment
 # or statefulset is created.
 headless: false

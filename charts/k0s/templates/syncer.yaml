@@ -160,6 +160,15 @@ spec:
           - --server-ca-cert=/data/k0s/pki/ca.crt
           - --server-ca-key=/data/k0s/pki/ca.key
           - --kube-config=/data/k0s/pki/admin.conf
+          {{- if and .Values.embeddedEtcd.enabled .Values.pro }}
+          - --etcd-embedded
+          - --etcd-replicas={{ .Values.syncer.replicas }}
+          {{- end }}
+          {{- if (gt (int .Values.syncer.replicas ) 1) }}
+          - --leader-elect=true
+          {{- else }}
+          - --leader-elect=false
+          {{- end }}
           {{- include "vcluster.legacyPlugins.args" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromHost" . | indent 10 }}
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
@@ -256,6 +265,10 @@ spec:
         {{- include "vcluster.plugins.config" . | indent 10 }}
           - name: VCLUSTER_DISTRO
             value: k0s
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
         {{- if eq ( ( include "vcluster.replicas" . ) | toString | atoi) 1 }}
           - name: VCLUSTER_NODE_NAME
             valueFrom:

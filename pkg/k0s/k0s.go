@@ -13,7 +13,9 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const VClusterCommandEnv = "VCLUSTER_COMMAND"
+const (
+	VClusterCommandEnv = "VCLUSTER_COMMAND"
+)
 
 type k0sCommand struct {
 	Command []string `json:"command,omitempty"`
@@ -22,7 +24,11 @@ type k0sCommand struct {
 
 const runDir = "/run/k0s"
 
-func StartK0S(ctx context.Context) error {
+func StartK0S(ctx context.Context, cancel context.CancelFunc) error {
+	// this is not really useful but go isn't happy if we don't cancel the context
+	// everywhere
+	defer cancel()
+
 	// make sure we delete the contents of /run/k0s
 	dirEntries, _ := os.ReadDir(runDir)
 	for _, entry := range dirEntries {

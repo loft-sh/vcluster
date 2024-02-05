@@ -86,20 +86,39 @@ func initialize(
 	switch distro {
 	case constants.K0SDistro:
 		// ensure service cidr
-		_, err := servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+		serviceCIDR, err := servicecidr.EnsureServiceCIDRInK0sSecret(ctx, workspaceNamespaceClient, currentNamespaceClient, workspaceNamespace, currentNamespace, vClusterName)
+		if err != nil {
+			return err
+		}
+
+		err = certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, "/data/k0s/pki", "", nil)
 		if err != nil {
 			return err
 		}
 
 		// start k0s
+		parentCtxWithCancel, cancel := context.WithCancel(parentCtx)
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
 			// loop in Initialize
-			err := k0s.StartK0S(parentCtx)
+			err := k0s.StartK0S(parentCtxWithCancel, cancel)
 			if err != nil {
 				klog.Fatalf("Error running k0s: %v", err)
 			}
 		}()
+		files, err := certs.WaitForK0sFiles(ctx, "/data/k0s/pki")
+		if err != nil {
+			klog.Info(err)
+			cancel()
+			return err
+		}
+
+		err = certs.UpdateSecretWithK0sCerts(ctx, currentNamespaceClient, currentNamespace, vClusterName, files)
+		if err != nil {
+			cancel()
+			klog.Info(err)
+			return err
+		}
 	case constants.K3SDistro:
 		// its k3s, let's create the token secret
 		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName)
@@ -146,7 +165,6 @@ func initialize(
 		}
 	}
 
-	klog.Info("finished running initialize")
 	return nil
 }
 
