@@ -338,8 +338,10 @@ openshift:
 
 # If enabled will deploy the coredns configmap
 coredns:
-  integrated: false
+  # If CoreDns is enabled
   enabled: true
+  # Pro only feature
+  integrated: false
   # only used if isolation is enabled
   fallback: 8.8.8.8
   plugin:

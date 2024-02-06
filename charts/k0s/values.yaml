@@ -326,6 +326,8 @@ openshift:
 
 # If enabled will deploy the coredns configmap
 coredns:
+  # If CoreDns is enabled
+  enabled: true
   # Pro only feature
   integrated: false
   # only used if isolation is enabled
@@ -371,8 +373,6 @@ coredns:
     #   target:
     #     mode: self
     #     service: dns-test/nginx-svc
-  # If CoreDns is enabled
-  enabled: true
   replicas: 1
   # The nodeSelector example below specifices that coredns should only be scheduled to nodes with the arm64 label
   # nodeSelector:

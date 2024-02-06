@@ -245,6 +245,9 @@ api:
 
 # Core DNS settings
 coredns:
+  # If CoreDns is enabled
+  enabled: true
+  # Pro only feature
   integrated: false
   # only used if isolation is enabled
   fallback: 8.8.8.8
@@ -289,7 +292,6 @@ coredns:
     #   target:
     #     mode: self
     #     service: dns-test/nginx-svc
-  enabled: true
   image: public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-28-6
   replicas: 1
   # The nodeSelector example below specifices that coredns should only be scheduled to nodes with the arm64 label
