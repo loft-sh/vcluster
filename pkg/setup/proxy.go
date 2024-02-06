@@ -1,8 +1,8 @@
 package setup
 
 import (
+	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/server"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"k8s.io/klog/v2"
 )
 

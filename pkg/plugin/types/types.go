@@ -3,7 +3,7 @@ package types
 import (
 	"context"
 
-	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/options"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -35,6 +35,9 @@ type Manager interface {
 
 	// HasPlugins returns if there are any plugins to start
 	HasPlugins() bool
+
+	// SetProFeatures is used by vCluster.Pro to signal what pro features are enabled
+	SetProFeatures(proFeatures map[string]bool)
 }
 
 type VersionKindType struct {

@@ -122,12 +122,6 @@ module.exports = {
           value: `<a href="/pro/docs/features/generic_resource_patches" class="menu__link">Generic Resource Patches <div class="pro-feature">p</div><div class="pro-feature pro-feature-link">l</div></a>`,
           defaultStyle: true,
         },
-        {
-          type: "category",
-          label: "Plugins",
-          collapsed: true,
-          items: ["plugins/overview", "plugins/tutorial"],
-        },
       ],
     },
     {

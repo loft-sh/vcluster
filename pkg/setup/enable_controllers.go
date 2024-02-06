@@ -1,60 +1,15 @@
-package options
+package setup
 
 import (
 	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/options"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
-)
-
-var ExistingControllers = sets.New(
-	"services",
-	"configmaps",
-	"secrets",
-	"endpoints",
-	"pods",
-	"events",
-	"fake-nodes",
-	"fake-persistentvolumes",
-	"persistentvolumeclaims",
-	"ingresses",
-	"ingressclasses",
-	"nodes",
-	"persistentvolumes",
-	"storageclasses",
-	"hoststorageclasses",
-	"priorityclasses",
-	"networkpolicies",
-	"volumesnapshots",
-	"poddisruptionbudgets",
-	"serviceaccounts",
-	"csinodes",
-	"csidrivers",
-	"csistoragecapacities",
-	"namespaces",
-)
-
-var DefaultEnabledControllers = sets.New(
-	// helm charts need to be updated when changing this!
-	// values.yaml and template/_helpers.tpl reference these
-	"services",
-	"configmaps",
-	"secrets",
-	"endpoints",
-	"pods",
-	"events",
-	"persistentvolumeclaims",
-	"fake-nodes",
-	"fake-persistentvolumes",
-)
-
-var schedulerRequiredControllers = sets.New(
-	"csinodes",
-	"csidrivers",
-	"csistoragecapacities",
 )
 
 const (
@@ -64,11 +19,11 @@ const (
 // map from groupversion to list of resources in that groupversion
 // the syncers will be disabled unless that resource is advertised in that groupversion
 var possibleMissing = map[string][]string{
-	storageV1GroupVersion: schedulerRequiredControllers.UnsortedList(),
+	storageV1GroupVersion: constants.SchedulerRequiredControllers.UnsortedList(),
 }
 
-func ParseControllers(options *VirtualClusterOptions) (sets.Set[string], error) {
-	enabledControllers := DefaultEnabledControllers.Clone()
+func ParseControllers(options *options.VirtualClusterOptions) (sets.Set[string], error) {
+	enabledControllers := constants.DefaultEnabledControllers.Clone()
 	disabledControllers := sets.New[string]()
 
 	// migrate deprecated flags
@@ -101,7 +56,7 @@ func ParseControllers(options *VirtualClusterOptions) (sets.Set[string], error) 
 			enabledControllers.Insert(controller)
 		}
 
-		if !ExistingControllers.Has(controller) {
+		if !constants.ExistingControllers.Has(controller) {
 			return nil, fmt.Errorf("unrecognized controller %s, available controllers: %s", controller, availableControllers())
 		}
 	}
@@ -119,9 +74,9 @@ func ParseControllers(options *VirtualClusterOptions) (sets.Set[string], error) 
 
 	// enable additional controllers required for scheduling with storage
 	if options.EnableScheduler && enabledControllers.Has("persistentvolumeclaims") {
-		klog.Infof("persistentvolumeclaim syncing and scheduler enabled, enabling required controllers: %q", schedulerRequiredControllers)
-		enabledControllers = enabledControllers.Union(schedulerRequiredControllers)
-		requiredButDisabled := disabledControllers.Intersection(schedulerRequiredControllers)
+		klog.Infof("persistentvolumeclaim syncing and scheduler enabled, enabling required controllers: %q", constants.SchedulerRequiredControllers)
+		enabledControllers = enabledControllers.Union(constants.SchedulerRequiredControllers)
+		requiredButDisabled := disabledControllers.Intersection(constants.SchedulerRequiredControllers)
 		if requiredButDisabled.Len() > 0 {
 			klog.Warningf("persistentvolumeclaim syncing and scheduler enabled, but required syncers explicitly disabled: %q. This may result in incorrect pod scheduling.", sets.List(requiredButDisabled))
 		}
@@ -153,7 +108,7 @@ func ParseControllers(options *VirtualClusterOptions) (sets.Set[string], error) 
 }
 
 func availableControllers() string {
-	return strings.Join(sets.List(ExistingControllers), ", ")
+	return strings.Join(sets.List(constants.ExistingControllers), ", ")
 }
 
 // DisableMissingAPIs checks if the  apis are enabled, if any are missing, disable the syncer and print a log

@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/util/log"
@@ -53,7 +54,7 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 			ServiceName:     DefaultTestVclusterServiceName,
 			TargetNamespace: DefaultTestTargetNamespace,
 		},
-		Controllers:            options.ExistingControllers.Clone(),
+		Controllers:            constants.ExistingControllers.Clone(),
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),

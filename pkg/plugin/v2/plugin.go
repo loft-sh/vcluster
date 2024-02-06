@@ -13,9 +13,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/loft-sh/vcluster/pkg/options"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	"github.com/loft-sh/vcluster/pkg/plugin/v2/pluginv2"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -49,6 +49,9 @@ type Manager struct {
 
 	// ClientHooks that were loaded
 	ClientHooks map[plugintypes.VersionKindType][]*vClusterPlugin
+
+	// ProFeatures are pro features to hand-over to the plugin
+	ProFeatures map[string]bool
 }
 
 type vClusterPlugin struct {
@@ -267,6 +270,10 @@ func (m *Manager) buildInitRequest(
 
 	// marshal init config
 	initConfig, err := json.Marshal(&InitConfig{
+		Pro: InitConfigPro{
+			Enabled:  m.ProFeatures != nil,
+			Features: m.ProFeatures,
+		},
 		PhysicalClusterConfig: phyisicalConfigBytes,
 		SyncerConfig:          syncerConfigBytes,
 		CurrentNamespace:      currentNamespace,

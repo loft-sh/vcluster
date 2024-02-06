@@ -3,8 +3,8 @@ package v2
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/options"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
