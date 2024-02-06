@@ -30,7 +30,8 @@ func NewClient() Client {
 		buffer:   newEventBuffer(eventsCountThreshold),
 		overflow: newEventBuffer(eventsCountThreshold),
 
-		events: make(chan Event, 100),
+		events:     make(chan Event, 100),
+		httpClient: http.Client{Timeout: time.Second * 3},
 	}
 
 	// start sending events in an interval
@@ -48,6 +49,8 @@ type client struct {
 	events chan Event
 
 	endpoint string
+
+	httpClient http.Client
 }
 
 func (c *client) RecordEvent(event Event) {
@@ -143,11 +146,19 @@ func (c *client) executeUpload(buffer []Event) {
 	}
 
 	// send the telemetry data and ignore the response
-	resp, err := http.Post(c.endpoint, "application/json", bytes.NewReader(marshaled))
+	resp, err := c.httpClient.Post(c.endpoint, "application/json", bytes.NewReader(marshaled))
 	if err != nil {
 		klog.V(1).ErrorS(err, "error sending analytics request")
-	} else if resp.StatusCode != http.StatusOK {
-		out, _ := io.ReadAll(resp.Body)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		out, err := io.ReadAll(resp.Body)
+		if err != nil {
+			klog.Error("error while reading the body")
+			return
+		}
 		klog.V(1).ErrorS(fmt.Errorf("%s%w", string(out), err), "analytics request returned non 200 status code")
 	}
 }
