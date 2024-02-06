@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/options"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/loft-sh/vcluster/pkg/specialservices"

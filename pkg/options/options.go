@@ -7,6 +7,10 @@ const (
 
 // VirtualClusterOptions holds the cmd flags
 type VirtualClusterOptions struct {
+	// PRO Options
+	ProOptions VirtualClusterProOptions `json:",inline"`
+
+	// OSS Options below
 	Controllers []string `json:"controllers,omitempty"`
 
 	ServerCaCert        string   `json:"serverCaCert,omitempty"`

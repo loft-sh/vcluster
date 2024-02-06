@@ -2,7 +2,7 @@ package util
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/options"
 )
 
 func ToRegisterContext(ctx *options.ControllerContext) *synccontext.RegisterContext {

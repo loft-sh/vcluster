@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/options"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	pluginv1 "github.com/loft-sh/vcluster/pkg/plugin/v1"
 	pluginv2 "github.com/loft-sh/vcluster/pkg/plugin/v2"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -78,4 +78,8 @@ func (m *manager) HasClientHooksForType(versionKindType plugintypes.VersionKindT
 
 func (m *manager) HasPlugins() bool {
 	return m.legacyManager.HasPlugins() || m.pluginManager.HasPlugins()
+}
+
+func (m *manager) SetProFeatures(proFeatures map[string]bool) {
+	m.pluginManager.ProFeatures = proFeatures
 }

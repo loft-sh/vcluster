@@ -1,7 +1,7 @@
 package k8sdefaultendpoint
 
 import (
-	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/options"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"

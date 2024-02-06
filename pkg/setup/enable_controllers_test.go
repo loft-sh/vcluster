@@ -1,8 +1,10 @@
-package options
+package setup
 
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/spf13/pflag"
 	"gotest.tools/v3/assert"
 	is "gotest.tools/v3/assert/cmp"
@@ -15,7 +17,7 @@ import (
 func TestEnableControllers(t *testing.T) {
 	testTable := []struct {
 		desc           string
-		optsModifier   func(*VirtualClusterOptions)
+		optsModifier   func(*options.VirtualClusterOptions)
 		expectEnabled  []string
 		expectDisabled []string
 		expectError    bool
@@ -24,14 +26,14 @@ func TestEnableControllers(t *testing.T) {
 	}{
 		{
 			desc:           "default case",
-			optsModifier:   func(v *VirtualClusterOptions) {},
-			expectEnabled:  sets.List(DefaultEnabledControllers),
-			expectDisabled: sets.List(ExistingControllers.Difference(DefaultEnabledControllers)),
+			optsModifier:   func(v *options.VirtualClusterOptions) {},
+			expectEnabled:  sets.List(constants.DefaultEnabledControllers),
+			expectDisabled: sets.List(constants.ExistingControllers.Difference(constants.DefaultEnabledControllers)),
 			expectError:    false,
 		},
 		{
 			desc: "scheduler with pvc enabled, nodes not enabled",
-			optsModifier: func(v *VirtualClusterOptions) {
+			optsModifier: func(v *options.VirtualClusterOptions) {
 				v.Controllers = []string{"persistentvolumeclaims"}
 				v.EnableScheduler = true
 			},
@@ -39,46 +41,46 @@ func TestEnableControllers(t *testing.T) {
 		},
 		{
 			desc: "scheduler with pvc enabled, storageclasses not enabled",
-			optsModifier: func(v *VirtualClusterOptions) {
+			optsModifier: func(v *options.VirtualClusterOptions) {
 				v.Controllers = []string{"persistentvolumeclaims", "nodes"}
 				v.EnableScheduler = true
 			},
-			expectEnabled:  append([]string{"hoststorageclasses"}, sets.List(schedulerRequiredControllers)...),
+			expectEnabled:  append([]string{"hoststorageclasses"}, sets.List(constants.SchedulerRequiredControllers)...),
 			expectDisabled: []string{"storageclasses"},
 			expectError:    false,
 		},
 		{
 			desc: "scheduler with pvc enabled, storageclasses enabled",
-			optsModifier: func(v *VirtualClusterOptions) {
+			optsModifier: func(v *options.VirtualClusterOptions) {
 				v.Controllers = []string{"persistentvolumeclaims", "nodes", "storageclasses"}
 				v.EnableScheduler = true
 			},
-			expectEnabled:  append([]string{"storageclasses"}, sets.List(schedulerRequiredControllers)...),
+			expectEnabled:  append([]string{"storageclasses"}, sets.List(constants.SchedulerRequiredControllers)...),
 			expectDisabled: []string{"hoststorageclasses"},
 			expectError:    false,
 		},
 		{
 			desc: "scheduler with pvc enabled, hoststorageclasses enabled",
-			optsModifier: func(v *VirtualClusterOptions) {
+			optsModifier: func(v *options.VirtualClusterOptions) {
 				v.Controllers = []string{"persistentvolumeclaims", "nodes"}
 				v.EnableScheduler = true
 			},
-			expectEnabled:  append([]string{"hoststorageclasses"}, sets.List(schedulerRequiredControllers)...),
+			expectEnabled:  append([]string{"hoststorageclasses"}, sets.List(constants.SchedulerRequiredControllers)...),
 			expectDisabled: []string{"storageclasses"},
 			expectError:    false,
 		},
 		{
 			desc: "scheduler disabled, storageclasses not enabled",
-			optsModifier: func(v *VirtualClusterOptions) {
+			optsModifier: func(v *options.VirtualClusterOptions) {
 				v.Controllers = []string{"persistentvolumeclaims"}
 			},
 			expectEnabled:  []string{},
-			expectDisabled: append([]string{"storageclasses", "hoststorageclasses"}, sets.List(schedulerRequiredControllers)...),
+			expectDisabled: append([]string{"storageclasses", "hoststorageclasses"}, sets.List(constants.SchedulerRequiredControllers)...),
 			expectError:    false,
 		},
 		{
 			desc: "storageclasses and hoststorageclasses enabled",
-			optsModifier: func(v *VirtualClusterOptions) {
+			optsModifier: func(v *options.VirtualClusterOptions) {
 				v.Controllers = []string{"storageclasses", "hoststorageclasses"}
 			},
 			expectEnabled:  []string{},
@@ -87,7 +89,7 @@ func TestEnableControllers(t *testing.T) {
 		},
 		{
 			desc: "syncAllNodes true, nodes not enabled",
-			optsModifier: func(v *VirtualClusterOptions) {
+			optsModifier: func(v *options.VirtualClusterOptions) {
 				v.Controllers = []string{}
 				v.SyncAllNodes = true
 			},
@@ -98,7 +100,7 @@ func TestEnableControllers(t *testing.T) {
 		},
 		{
 			desc: "syncAllNodes true, nodes enabled",
-			optsModifier: func(v *VirtualClusterOptions) {
+			optsModifier: func(v *options.VirtualClusterOptions) {
 				v.Controllers = []string{"nodes"}
 				v.SyncAllNodes = true
 			},
@@ -112,8 +114,8 @@ func TestEnableControllers(t *testing.T) {
 		if tc.pause {
 			t.Log("you can put a breakpoint here")
 		}
-		var opts VirtualClusterOptions
-		AddFlags(pflag.NewFlagSet("test", pflag.PanicOnError), &opts)
+		var opts options.VirtualClusterOptions
+		options.AddFlags(pflag.NewFlagSet("test", pflag.PanicOnError), &opts)
 		t.Logf("test case: %q", tc.desc)
 		if tc.optsModifier != nil {
 			tc.optsModifier(&opts)
@@ -171,7 +173,7 @@ func TestDisableMissingAPIs(t *testing.T) {
 		{
 			name:             "K8s 1.21 or lower",
 			apis:             map[string][]metav1.APIResource{},
-			expectedNotFound: schedulerRequiredControllers,
+			expectedNotFound: constants.SchedulerRequiredControllers,
 			expectedFound:    sets.New[string](),
 		},
 		{
@@ -202,7 +204,7 @@ func TestDisableMissingAPIs(t *testing.T) {
 		fakeDisoveryClient := &fakeDiscovery.FakeDiscovery{Fake: &clientTesting.Fake{Resources: resourceLists}}
 
 		// run function
-		actualControllers, err := DisableMissingAPIs(fakeDisoveryClient, ExistingControllers.Clone())
+		actualControllers, err := DisableMissingAPIs(fakeDisoveryClient, constants.ExistingControllers.Clone())
 		assert.NilError(t, err)
 
 		// unexpectedly not disabled

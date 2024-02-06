@@ -10,7 +10,7 @@ import (
 	"github.com/loft-sh/analytics-client/client"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	corev1 "k8s.io/api/core/v1"

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/util/wait"

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/plugin"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
@@ -334,7 +334,7 @@ func InitControllerContext(
 	}
 
 	// parse enabled controllers
-	controllers, err := options.ParseControllers(vClusterOptions)
+	controllers, err := ParseControllers(vClusterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +344,7 @@ func InitControllerContext(
 		return nil, err
 	}
 
-	controllers, err = options.DisableMissingAPIs(localDiscoveryClient, controllers)
+	controllers, err = DisableMissingAPIs(localDiscoveryClient, controllers)
 	if err != nil {
 		return nil, err
 	}

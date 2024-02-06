@@ -22,10 +22,10 @@ In order to better understand how vCluster plugins work, it is recommended to re
 
 ## Architecture
 
-Each plugin will run as a sidecar container inside the vCluster pod.
+Each plugin will run as a binary inside the vCluster syncer container. It is by default copied over from an init container.
 This is done to allow easier communication between vCluster and the plugins as well as provide certain capabilities such as high-availability out of the box.
-The plugin itself will contact the vCluster pod during startup to obtain the access credentials to the virtual and host cluster.
-The plugin controllers are started with these credentials, similar to how vCluster itself starts its resource syncers.
+The plugin itself uses [go-plugin](https://github.com/hashicorp/go-plugin), which is used by many popular open-source projects to extend their functionality. The vCluster syncer container will call the plugin binary during startup and pass all relevant information to the plugin.
+The plugin controllers are then started with these credentials, similar to how vCluster itself starts its resource syncers.
 
 ### Plugin Controllers
 
@@ -45,9 +45,9 @@ For this use case you can label resources vCluster should ignore either on the p
 
 ### Plugin Hooks
 
-Plugin hooks are a great feature to adjust the current syncing behaviour of vCluster without the need to override an already existing syncer in vCluster completely.
+Plugin hooks are a great feature to adjust current syncing behaviour of vCluster without the need to override an already existing syncer in vCluster completely.
 They allow you to change outgoing objects of vCluster similar to an mutating admission controller in Kubernetes.
-The requirement for a hook to work correctly is that vCluster itself would sync the resource, so hooks only work for the core resources that are synced by vCluster such as pods, services, secrets etc.
+Requirement for an hook to work correctly is that vCluster itself would sync the resource, so hooks only work for the core resources that are synced by vCluster such as pods, services, secrets etc.
 
 If a plugin registers a hook to a specific resource, vCluster will forward all requests that match the plugin's defined hooks to the plugin and the plugin can then adjust or even deny the request completely.
 This opens up a wide variety of adjustment possibilities for plugins, where you for example only want to add a custom label or annotation.
@@ -59,7 +59,7 @@ If you want to start developing your own vCluster plugins, it is recommended tha
 :::
 
 vCluster provides an [SDK](https://github.com/loft-sh/vcluster-sdk) for writing plugin controllers that abstracts a lot of the syncer complexity away from the user, but still gives you access to the underlying structures if you need it.
-Internally, the vCluster SDK uses the popular [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) project, which is used by vCluster itself to create the controllers.
+Internally, the vCluster SDK uses the popular [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) project, that is used by vCluster itself to create the controllers.
 The vCluster SDK lets you write custom plugin controllers with just a few lines of code.
 
 Since the plugin SDK interfaces are mostly compatible with the vCluster syncers, you can also take a look at how those are implemented in [the vCluster itself](https://github.com/loft-sh/vcluster/tree/main/pkg/controllers/resources), which work in most cases the same way as if those would be implemented in a plugin.
@@ -75,6 +75,8 @@ If you develop a plugin of your own, we recommend creating a `plugin.yaml` (the 
 # with the other vCluster values during vCluster create or helm install.
 plugin:
   myPlugin:
+    # Version v2 is required to use the new plugin api
+    version: v2
     image: plugin-image
     # Other optional sidecar values below
     # command: ...
@@ -91,7 +93,7 @@ plugin:
     #        ...
 ```
 
-The `plugin.yaml` is a valid helm values file used to define the plugin's sidecar configuration and additional RBAC rules needed to function properly. If you want to distribute that plugin to others, it's also possible to install a plugin through a URL:
+The `plugin.yaml` is a valid helm values file used to define the plugin's init container configuration and additional RBAC rules needed to function properly. If you want to distribute that plugin for others, it's also possible to install a plugin through an URL:
 
 ```
 # Install a plugin with a local plugin.yaml

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/options"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"

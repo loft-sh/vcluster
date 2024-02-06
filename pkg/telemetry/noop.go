@@ -4,7 +4,7 @@ import (
 	"context"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
-	"github.com/loft-sh/vcluster/pkg/setup/options"
+	"github.com/loft-sh/vcluster/pkg/options"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
