@@ -115,8 +115,11 @@ func GetPlatformUserID(self *managementv1.Self) string {
 	if cliconfig.GetConfig(log.Discard).TelemetryDisabled || self == nil {
 		return ""
 	}
-
-	return self.Status.Subject
+	platformID := self.Status.Subject
+	if self.Status.User != nil && self.Status.User.Email != "" {
+		platformID = self.Status.User.Email
+	}
+	return platformID
 }
 
 // GetPlatformInstanceID returns the loft instance id
