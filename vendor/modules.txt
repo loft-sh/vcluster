@@ -345,7 +345,7 @@ github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/scheme
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/cluster/v1
 github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typed/storage/v1
-# github.com/loft-sh/analytics-client v0.0.0-20231127192707-f76e263f6c83
+# github.com/loft-sh/analytics-client v0.0.0-20240206084604-1302688c3d4c
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
 # github.com/loft-sh/api/v3 v3.0.0-20240202135831-33c4357035e6
