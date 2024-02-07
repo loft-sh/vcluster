@@ -313,6 +313,7 @@ func (m *Manager) loadPlugin(pluginPath string) error {
 		Cmd:              cmd,
 		SyncStdout:       os.Stdout,
 		SyncStderr:       os.Stderr,
+		SkipHostEnv:      true,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 
@@ -381,6 +382,7 @@ func buildCommand(pluginPath string) (*exec.Cmd, error) {
 	pluginName := filepath.Base(filepath.Dir(pluginPath))
 	pluginConfig := os.Getenv(PluginConfigEnv)
 	if pluginConfig == "" {
+		cmd.Env = os.Environ()
 		return cmd, nil
 	}
 
