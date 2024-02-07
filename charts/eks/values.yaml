@@ -8,6 +8,13 @@ globalAnnotations: {}
 # If vCluster.Pro is enabled
 pro: false
 
+# Defines where vCluster should search for a license secret. If you are using the vCluster.Pro control-plane,
+# this is optional. vCluster by default will lookout for a secret called vc-VCLUSTER_NAME-license and if found use that.
+# You can also use a secret within another namespace by using the format NAMESPACE/NAME. If the secret is in another
+# namespace, please enable clusterRole.create and define an extra clusterRole.extraRules to allow vCluster to retrieve
+# secrets within the cluster.
+proLicenseSecret: ""
+
 # Embedded etcd settings
 embeddedEtcd:
  # If embedded etcd should be enabled, this is a PRO only feature

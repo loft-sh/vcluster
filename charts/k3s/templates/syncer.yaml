@@ -205,6 +205,9 @@ spec:
           - --service-account=vc-workload-{{ .Release.Name }}
           {{- include "vcluster.legacyPlugins.args" . | indent 10 }}
           {{- if .Values.pro }}
+          {{- if .Values.proLicenseSecret }}
+          - --pro-license-secret={{ .Values.proLicenseSecret }}
+          {{- end }}
           {{- if .Values.embeddedEtcd.enabled }}
           - --etcd-embedded
           - --etcd-replicas={{ include "vcluster.replicas" . }}

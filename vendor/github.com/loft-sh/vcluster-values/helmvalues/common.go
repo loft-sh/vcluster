@@ -21,6 +21,7 @@ type Storage struct {
 type BaseHelm struct {
 	GlobalAnnotations    map[string]string        `json:"globalAnnotations,omitempty"`
 	Pro                  bool                     `json:"pro,omitempty"`
+	ProLicenseSecret     string                   `json:"proLicenseSecret,omitempty"`
 	Headless             bool                     `json:"headless,omitempty"`
 	DefaultImageRegistry string                   `json:"defaultImageRegistry,omitempty"`
 	Plugin               map[string]interface{}   `json:"plugin,omitempty"`

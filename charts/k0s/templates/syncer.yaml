@@ -166,6 +166,11 @@ spec:
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
           {{- end }}
+          {{- if .Values.pro }}
+          {{- if .Values.proLicenseSecret }}
+          - --pro-license-secret={{ .Values.proLicenseSecret }}
+          {{- end }}
+          {{- end }}
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}
