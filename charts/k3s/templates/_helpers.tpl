@@ -39,17 +39,12 @@ Whether to create a cluster role or not
 */}}
 {{- define "vcluster.createClusterRole" -}}
 {{- if or
-    (not
-        (empty (include "vcluster.serviceMapping.fromHost" . )))
-    (not
-        (empty (include "vcluster.plugin.clusterRoleExtraRules" . )))
-    (not
-        (empty (include "vcluster.generic.clusterRoleExtraRules" . )))
+    (not (empty (include "vcluster.serviceMapping.fromHost" . )))
+    (not (empty (include "vcluster.plugin.clusterRoleExtraRules" . )))
+    (not (empty (include "vcluster.generic.clusterRoleExtraRules" . )))
     .Values.rbac.clusterRole.create
     .Values.sync.hoststorageclasses.enabled
-    (index
-        ((index .Values.sync "legacy-storageclasses") | default (dict "enabled" false))
-    "enabled")
+    (index ((index .Values.sync "legacy-storageclasses") | default (dict "enabled" false)) "enabled")
     (include "vcluster.syncIngressclassesEnabled" . )
 	.Values.pro
     .Values.sync.nodes.enabled
@@ -60,7 +55,7 @@ Whether to create a cluster role or not
     .Values.proxy.metricsServer.nodes.enabled
     .Values.multiNamespaceMode.enabled
     .Values.coredns.plugin.enabled -}}
-    {{- true -}}
+{{- true -}}
 {{- end -}}
 {{- end -}}
 
@@ -125,6 +120,29 @@ Prints only the flags that modify the defaults:
 {{- range $ruleIndex, $rule := .Values.sync.generic.clusterRole.extraRules }}
 - {{ toJson $rule }}
 {{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
+  Cluster role rules defined on global level
+*/}}
+{{- define "vcluster.rbac.clusterRoleExtraRules" -}}
+{{- if .Values.rbac.clusterRole.extraRules }}
+{{- range $ruleIndex, $rule := .Values.rbac.clusterRole.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+
+{{/*
+  Role rules defined on global level
+*/}}
+{{- define "vcluster.rbac.roleExtraRules" -}}
+{{- if .Values.rbac.role.extraRules }}
+{{- range $ruleIndex, $rule := .Values.rbac.role.extraRules }}
+- {{ toJson $rule }}
 {{- end }}
 {{- end }}
 {{- end -}}

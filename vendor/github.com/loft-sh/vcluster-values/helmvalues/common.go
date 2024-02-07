@@ -175,14 +175,39 @@ type VClusterValues struct {
 
 // These should be remove from the chart first as they are deprecated there
 type RBACValues struct {
-	ClusterRole struct {
-		Create bool `json:"create,omitempty"`
-	} `json:"clusterRole,omitempty"`
-	Role struct {
-		Create               bool     `json:"create,omitempty"`
-		Extended             bool     `json:"extended,omitempty"`
-		ExcludedAPIResources []string `json:"excludedAPIResources,omitempty"`
-	} `json:"role,omitempty"`
+	ClusterRole RBACClusterRoleValues `json:"clusterRole,omitempty"`
+	Role        RBACRoleValues        `json:"role,omitempty"`
+}
+
+type RBACClusterRoleValues struct {
+	Create     bool       `json:"create,omitempty"`
+	ExtraRules []RBACRule `json:"extraRules,omitempty"`
+}
+
+type RBACRoleValues struct {
+	Create               bool       `json:"create,omitempty"`
+	ExtraRules           []RBACRule `json:"extraRules,omitempty"`
+	ExcludedAPIResources []string   `json:"excludedAPIResources,omitempty"`
+}
+
+type RBACRule struct {
+	// Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+	Verbs []string `json:"verbs" protobuf:"bytes,1,rep,name=verbs"`
+	// APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+	// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+	// +optional
+	APIGroups []string `json:"apiGroups,omitempty" protobuf:"bytes,2,rep,name=apiGroups"`
+	// Resources is a list of resources this rule applies to. '*' represents all resources.
+	// +optional
+	Resources []string `json:"resources,omitempty" protobuf:"bytes,3,rep,name=resources"`
+	// ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+	// +optional
+	ResourceNames []string `json:"resourceNames,omitempty" protobuf:"bytes,4,rep,name=resourceNames"`
+	// NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+	// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+	// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+	// +optional
+	NonResourceURLs []string `json:"nonResourceURLs,omitempty" protobuf:"bytes,5,rep,name=nonResourceURLs"`
 }
 
 type PDBValues struct {

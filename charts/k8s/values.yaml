@@ -272,22 +272,19 @@ workloadServiceAccount:
 # Roles & ClusterRoles for the vcluster
 rbac:
   clusterRole:
-    # Deprecated !
-    # Necessary cluster roles are created based on the enabled syncers (.sync.*.enabled)
-    # Support for this value will be removed in a future version of the vcluster
+    # You don't need to toggle this as necessary cluster roles are created based on the enabled syncers (.sync.*.enabled).
+    # This only makes sense to enable if you want to use the extraRules below.
     create: false
+    # Extra Rules for the cluster role
+    extraRules: []
   role:
-    # Deprecated !
-    # Support for this value will be removed in a future version of the vcluster
-    # and basic role will always be created
+    # Disable this only if you don't want vCluster to create a role. This will break most functionality if disabled.
     create: true
-    # Deprecated !
-    # Necessary extended roles are created based on the enabled syncers (.sync.*.enabled)
-    # Support for this value will be removed in a future version of the vcluster
-    extended: false
+    # Extra Rules for the role
+    extraRules: []
     # all entries in excludedApiResources will be excluded from the Role created for vcluster
     excludedApiResources:
-      # - pods/exec
+    # - pods/exec
 
 # Syncer service configurations
 service:
