@@ -155,7 +155,7 @@ spec:
         args:
           - --name={{ .Release.Name }}
           - --service-account=vc-workload-{{ .Release.Name }}
-          - --request-header-ca-cert=/data/k0s/pki/ca.crt
+          - --request-header-ca-cert=/data/k0s/pki/front-proxy-ca.crt
           - --client-ca-cert=/data/k0s/pki/ca.crt
           - --server-ca-cert=/data/k0s/pki/ca.crt
           - --server-ca-key=/data/k0s/pki/ca.key
