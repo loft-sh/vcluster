@@ -3,6 +3,17 @@ templates:
   - syncer.yaml
 
 tests:
+  - it: should pass pro license secret as a flag
+    set:
+      pro: true
+      proLicenseSecret: "my-test-secret"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--pro-license-secret=my-test-secret"
+          count: 1
   - it: should have pvc if persistence is on
     set:
       storage:

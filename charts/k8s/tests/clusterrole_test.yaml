@@ -1,0 +1,41 @@
+suite: ClusterRole
+templates:
+  - rbac/clusterrole.yaml
+
+tests:
+  - it: should create clusterrole
+    set:
+      rbac:
+        clusterRole:
+          create: true
+    asserts:
+      - hasDocuments:
+          count: 1
+  - it: should not create clusterrole
+    set:
+      rbac:
+        clusterRole:
+          create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: should contain extra rule
+    set:
+      rbac:
+        clusterRole:
+          create: true
+          extraRules:
+            - apiGroups: ["test"]
+              resources: ["tests"]
+              verbs: ["test"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["test"]
+            resources: ["tests"]
+            verbs: ["test"]
+          count: 1
+

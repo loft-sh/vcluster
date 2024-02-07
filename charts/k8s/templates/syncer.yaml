@@ -242,6 +242,9 @@ spec:
           - --kube-config-context-name={{ .Values.syncer.kubeConfigContextName }}
           {{- end }}
           {{- if .Values.pro }}
+          {{- if .Values.proLicenseSecret }}
+          - --pro-license-secret={{ .Values.proLicenseSecret }}
+          {{- end }}
           {{- if .Values.embeddedEtcd.enabled }}
           - --etcd-embedded
           - --etcd-replicas={{ .Values.syncer.replicas }}

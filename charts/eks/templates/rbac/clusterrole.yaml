@@ -18,7 +18,7 @@ rules:
     resources: ["features", "virtualclusters"]
     verbs: ["get", "list", "watch"]
 {{- end }}
-  {{- if or .Values.pro .Values.sync.nodes.enabled .Values.rbac.clusterRole.create }}
+  {{- if or .Values.pro .Values.sync.nodes.enabled }}
   - apiGroups: [""]
     resources: ["nodes", "nodes/status"]
     verbs: ["get", "watch", "list"]
@@ -31,17 +31,17 @@ rules:
     resources: [ "pods"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if and (or .Values.sync.nodes.enabled .Values.rbac.clusterRole.create) (or (not .Values.isolation.enabled) (and .Values.isolation.nodeProxyPermission.enabled .Values.isolation.enabled)) }}
+  {{- if and .Values.sync.nodes.enabled (or (not .Values.isolation.enabled) (and .Values.isolation.nodeProxyPermission.enabled .Values.isolation.enabled)) }}
   - apiGroups: [""]
     resources: ["nodes/proxy"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if or (and .Values.sync.nodes.enabled .Values.sync.nodes.syncNodeChanges) .Values.rbac.clusterRole.create }}
+  {{- if and .Values.sync.nodes.enabled .Values.sync.nodes.syncNodeChanges }}
   - apiGroups: [""]
     resources: ["nodes", "nodes/status"]
     verbs: ["update", "patch"]
   {{- end }}
-  {{- if or .Values.sync.persistentvolumes.enabled .Values.rbac.clusterRole.create }}
+  {{- if .Values.sync.persistentvolumes.enabled }}
   - apiGroups: [""]
     resources: ["persistentvolumes"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
@@ -56,7 +56,7 @@ rules:
     resources: ["ingressclasses"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if or .Values.sync.storageclasses.enabled .Values.rbac.clusterRole.create }}
+  {{- if .Values.sync.storageclasses.enabled }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
@@ -66,12 +66,12 @@ rules:
     resources: ["storageclasses"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if or .Values.sync.priorityclasses.enabled .Values.rbac.clusterRole.create }}
+  {{- if .Values.sync.priorityclasses.enabled }}
   - apiGroups: ["scheduling.k8s.io"]
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
-  {{- if or .Values.sync.volumesnapshots.enabled .Values.rbac.clusterRole.create }}
+  {{- if .Values.sync.volumesnapshots.enabled }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotclasses"]
     verbs: ["get", "list", "watch"]
@@ -79,8 +79,6 @@ rules:
     resources: ["volumesnapshotcontents"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
-  {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
-  {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
   {{- if (not (empty (include "vcluster.serviceMapping.fromHost" . ))) }}
   - apiGroups: [""]
     resources: ["services", "endpoints"]
@@ -99,4 +97,7 @@ rules:
     resources: ["nodes"]
     verbs: ["get", "list"]
   {{- end }}
+  {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.rbac.clusterRoleExtraRules" . | indent 2 }}
 {{- end }}

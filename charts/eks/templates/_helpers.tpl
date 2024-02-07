@@ -39,17 +39,12 @@ Whether to create a cluster role or not
 */}}
 {{- define "vcluster.createClusterRole" -}}
 {{- if or
-    (not
-        (empty (include "vcluster.serviceMapping.fromHost" . )))
-    (not
-        (empty (include "vcluster.plugin.clusterRoleExtraRules" . )))
-    (not
-        (empty (include "vcluster.generic.clusterRoleExtraRules" . )))
+    (not (empty (include "vcluster.serviceMapping.fromHost" . )))
+    (not (empty (include "vcluster.plugin.clusterRoleExtraRules" . )))
+    (not (empty (include "vcluster.generic.clusterRoleExtraRules" . )))
     .Values.rbac.clusterRole.create
     .Values.sync.hoststorageclasses.enabled
-    (index
-        ((index .Values.sync "legacy-storageclasses") | default (dict "enabled" false))
-    "enabled")
+    (index ((index .Values.sync "legacy-storageclasses") | default (dict "enabled" false)) "enabled")
     (include "vcluster.syncIngressclassesEnabled" . )
 	.Values.pro
     .Values.sync.nodes.enabled
@@ -60,7 +55,7 @@ Whether to create a cluster role or not
     .Values.proxy.metricsServer.nodes.enabled
     .Values.multiNamespaceMode.enabled
     .Values.coredns.plugin.enabled -}}
-    {{- true -}}
+{{- true -}}
 {{- end -}}
 {{- end -}}
 
@@ -130,6 +125,29 @@ Prints only the flags that modify the defaults:
 {{- end -}}
 
 {{/*
+  Cluster role rules defined on global level
+*/}}
+{{- define "vcluster.rbac.clusterRoleExtraRules" -}}
+{{- if .Values.rbac.clusterRole.extraRules }}
+{{- range $ruleIndex, $rule := .Values.rbac.clusterRole.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+
+{{/*
+  Role rules defined on global level
+*/}}
+{{- define "vcluster.rbac.roleExtraRules" -}}
+{{- if .Values.rbac.role.extraRules }}
+{{- range $ruleIndex, $rule := .Values.rbac.role.extraRules }}
+- {{ toJson $rule }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
   Role rules defined by plugins
 */}}
 {{- define "vcluster.plugin.roleExtraRules" -}}
@@ -174,70 +192,5 @@ Prints only the flags that modify the defaults:
 {{- define "vcluster.serviceMapping.fromHost" -}}
 {{- range $key, $value := .Values.mapServices.fromHost }}
 - '--map-host-service={{ $value.from }}={{ $value.to }}'
-{{- end }}
-{{- end -}}
-
-
-{{/*
-  deployment kind
-*/}}
-{{- define "vcluster.kind" -}}
-{{ if and .Values.embeddedEtcd.enabled .Values.pro }}StatefulSet{{ else }}Deployment{{ end }}
-{{- end -}}
-
-{{/*
-  service name for statefulset
-*/}}
-{{- define "vcluster.statefulset.serviceName" }}
-{{- if .Values.embeddedEtcd.enabled }}
-serviceName: {{ .Release.Name }}-headless
-{{- end }}
-{{- end -}}
-
-{{/*
-  volumeClaimTemplate
-*/}}
-{{- define "vcluster.statefulset.volumeClaimTemplate" }}
-{{- if .Values.embeddedEtcd.enabled }}
-{{- if .Values.autoDeletePersistentVolumeClaims }}
-{{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
-persistentVolumeClaimRetentionPolicy:
-  whenDeleted: Delete
-{{- end }}
-{{- end }}
-{{- if (hasKey .Values "volumeClaimTemplates") }}
-volumeClaimTemplates:
-{{ toYaml .Values.volumeClaimTemplates | indent 4 }}
-{{- else if .Values.syncer.storage.persistence }}
-volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      {{- if .Values.syncer.storage.className }}
-      storageClassName: {{ .Values.syncer.storage.className }}
-      {{- end }}
-      resources:
-        requests:
-          storage: {{ .Values.syncer.storage.size }}
-{{- end }}
-{{- end }}
-{{- end -}}
-
-
-{{/*
-  deployment strategy
-*/}}
-{{- define "vcluster.deployment.strategy" }}
-{{- if not .Values.embeddedEtcd.enabled }}
-strategy:
-  rollingUpdate:
-    maxSurge: 1
-    {{- if (eq (int .Values.syncer.replicas) 1) }}
-    maxUnavailable: 0
-    {{- else }}
-    maxUnavailable: 1
-    {{- end }}
-  type: RollingUpdate
 {{- end }}
 {{- end -}}
