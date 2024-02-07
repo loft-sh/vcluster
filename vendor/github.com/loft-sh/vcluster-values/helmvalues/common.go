@@ -60,7 +60,7 @@ type BaseHelm struct {
 	Telemetry          TelemetryValues  `json:"telemetry,omitempty"`
 	NoopSyncer         NoopSyncerValues `json:"noopSyncer,omitempty"`
 	Monitoring         MonitoringValues `json:"monitoring,omitempty"`
-	Admission          AdmissionValues  `json:"admission,omitempty"`
+	CentralAdmission   AdmissionValues  `json:"centralAdmission,omitempty"`
 }
 
 type SyncerValues struct {
@@ -354,8 +354,8 @@ type NoopSyncerValues struct {
 }
 
 type AdmissionValues struct {
-	ValidatingWebhooks []string `json:"validatingWebhooks,omitempty"`
-	MutatingWebhooks   []string `json:"mutatingWebhooks,omitempty"`
+	ValidatingWebhooks []map[string]interface{} `json:"validatingWebhooks,omitempty"`
+	MutatingWebhooks   []map[string]interface{} `json:"mutatingWebhooks,omitempty"`
 }
 
 type ControlPlaneCommonValues struct {

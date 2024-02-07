@@ -266,14 +266,14 @@ spec:
           {{- if .Values.coredns.integrated }}
           - --integrated-coredns=true
           {{- end }}
-          {{- if .Values.admission.validatingWebhooks }}
-          {{- range .Values.admission.validatingWebhooks }}
-          - --enforce-validating-hook={{ . | b64enc }}
+          {{- if .Values.centralAdmission.validatingWebhooks }}
+          {{- range .Values.centralAdmission.validatingWebhooks }}
+          - --enforce-validating-hook={{ . | toYaml | b64enc }}
           {{- end }}
           {{- end }}
-          {{- if .Values.admission.mutatingWebhooks }}
-          {{- range .Values.admission.mutatingWebhooks }}
-          - --enforce-mutating-hook={{ . | b64enc }}
+          {{- if .Values.centralAdmission.mutatingWebhooks }}
+          {{- range .Values.centralAdmission.mutatingWebhooks }}
+          - --enforce-mutating-hook={{ . | toYaml | b64enc }}
           {{- end }}
           {{- end }}
           {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
