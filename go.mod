@@ -15,10 +15,10 @@ require (
 	github.com/hashicorp/go-plugin v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240202135812-bc4ecf58f665
+	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240207094449-7adc00ae1265
 	github.com/loft-sh/analytics-client v0.0.0-20240206084604-1302688c3d4c
-	github.com/loft-sh/api/v3 v3.0.0-20240202135831-33c4357035e6
-	github.com/loft-sh/loftctl/v3 v3.0.0-20240202135933-6548c1e817a7
+	github.com/loft-sh/api/v3 v3.0.0-20240207094436-f23808d5a185
+	github.com/loft-sh/loftctl/v3 v3.0.0-20240207094551-f600825cc6f5
 	github.com/loft-sh/utils v0.0.29
 	github.com/loft-sh/vcluster-values v0.0.0-20240207093538-4bbb24e9f699
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -85,7 +85,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
-	github.com/loft-sh/admin-apis v0.0.0-20240202092301-43d989db6f95 // indirect
+	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8 // indirect
 	github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1 // indirect
 	github.com/loft-sh/jspolicy v0.2.2 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect

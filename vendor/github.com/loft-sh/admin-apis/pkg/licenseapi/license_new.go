@@ -1,288 +1,284 @@
 package licenseapi
 
-import "github.com/loft-sh/admin-apis/pkg/features"
-
-// TODO: move this out of this package
-
-var Limits = map[features.ResourceName]*Limit{
-	features.ConnectedClusterLimit: {
+var Limits = map[ResourceName]*Limit{
+	ConnectedClusterLimit: {
 		DisplayName: "Connected Clusters",
-		Name:        string(features.ConnectedClusterLimit),
+		Name:        string(ConnectedClusterLimit),
 	},
-	features.VirtualClusterInstanceLimit: {
+	VirtualClusterInstanceLimit: {
 		DisplayName: "Virtual Clusters",
-		Name:        string(features.VirtualClusterInstanceLimit),
+		Name:        string(VirtualClusterInstanceLimit),
 	},
-	features.DevPodWorkspaceInstanceLimit: {
+	DevPodWorkspaceInstanceLimit: {
 		DisplayName: "Dev Environments",
-		Name:        string(features.DevPodWorkspaceInstanceLimit),
+		Name:        string(DevPodWorkspaceInstanceLimit),
 	},
-	features.UserLimit: {
+	UserLimit: {
 		DisplayName: "Users",
-		Name:        string(features.UserLimit),
+		Name:        string(UserLimit),
 	},
-	features.InstanceLimit: {
+	InstanceLimit: {
 		DisplayName: "Instances",
-		Name:        string(features.InstanceLimit),
+		Name:        string(InstanceLimit),
 	},
 }
 
-func New(product features.ProductName) *License {
-	allowedStatus := string(features.FeatureStatusActive)
+func New(product ProductName) *License {
+	allowedStatus := string(FeatureStatusActive)
 
-	connectedClusterStatus := string(features.FeatureStatusActive)
-	if product != features.VClusterPro && product != features.Loft {
-		connectedClusterStatus = string(features.FeatureStatusDisallowed)
+	connectedClusterStatus := string(FeatureStatusActive)
+	if product != VClusterPro && product != Loft {
+		connectedClusterStatus = string(FeatureStatusDisallowed)
 	}
 
-	namespaceStatus := string(features.FeatureStatusActive)
-	if product != features.Loft {
-		namespaceStatus = string(features.FeatureStatusDisallowed)
+	namespaceStatus := string(FeatureStatusActive)
+	if product != Loft {
+		namespaceStatus = string(FeatureStatusDisallowed)
 	}
 
-	virtualClusterStatus := string(features.FeatureStatusActive)
-	if product != features.VClusterPro && product != features.Loft {
-		virtualClusterStatus = string(features.FeatureStatusDisallowed)
+	virtualClusterStatus := string(FeatureStatusActive)
+	if product != VClusterPro && product != Loft {
+		virtualClusterStatus = string(FeatureStatusDisallowed)
 	}
 
-	devpodStatus := string(features.FeatureStatusActive)
-	if product != features.DevPodPro {
-		devpodStatus = string(features.FeatureStatusDisallowed)
+	devpodStatus := string(FeatureStatusActive)
+	if product != DevPodPro {
+		devpodStatus = string(FeatureStatusDisallowed)
 	}
 
 	return &License{
 		Modules: []*Module{
 			{
 				DisplayName: "Virtual Clusters",
-				Name:        string(features.VirtualClusterModule),
+				Name:        string(VirtualClusterModule),
 				Limits: []*Limit{
-					Limits[features.VirtualClusterInstanceLimit],
+					Limits[VirtualClusterInstanceLimit],
 				},
 				Features: []*Feature{
 					{
 						DisplayName: "Virtual Cluster Management",
-						Name:        string(features.VirtualCluster),
+						Name:        string(VirtualCluster),
 						Status:      virtualClusterStatus,
 					},
 					{
 						DisplayName: "Sleep Mode for Virtual Clusters",
-						Name:        string(features.VirtualClusterSleepMode),
+						Name:        string(VirtualClusterSleepMode),
 						Status:      virtualClusterStatus,
 					},
 					{
 						DisplayName: "Central HostPath Mapper",
-						Name:        string(features.VirtualClusterCentralHostPathMapper),
+						Name:        string(VirtualClusterCentralHostPathMapper),
 						Status:      virtualClusterStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "vCluster.Pro Distro",
-				Name:        string(features.VClusterProDistroModule),
+				Name:        string(VClusterProDistroModule),
 				Features: []*Feature{
 					{
 						DisplayName: "Security-Hardened vCluster Image",
-						Name:        string(features.VirtualClusterProDistroImage),
+						Name:        string(VirtualClusterProDistroImage),
 						Status:      virtualClusterStatus,
 					},
 					{
 						DisplayName: "Built-In CoreDNS",
-						Name:        string(features.VirtualClusterProDistroBuiltInCoreDNS),
+						Name:        string(VirtualClusterProDistroBuiltInCoreDNS),
 						Status:      virtualClusterStatus,
 					},
 					{
 						DisplayName: "Virtual Admission Control",
-						Name:        string(features.VirtualClusterProDistroAdmissionControl),
-						Status:      string(features.FeatureStatusHidden),
+						Name:        string(VirtualClusterProDistroAdmissionControl),
+						Status:      string(FeatureStatusHidden),
 					},
 					{
 						DisplayName: "Sync Patches",
-						Name:        string(features.VirtualClusterProDistroSyncPatches),
+						Name:        string(VirtualClusterProDistroSyncPatches),
 						Status:      virtualClusterStatus,
 					},
 					{
 						DisplayName: "Isolated Control Plane",
-						Name:        string(features.VirtualClusterProDistroIsolatedControlPlane),
+						Name:        string(VirtualClusterProDistroIsolatedControlPlane),
 						Status:      virtualClusterStatus,
 					},
 					{
 						DisplayName: "Centralized Admission Control",
-						Name:        string(features.VirtualClusterProDistroCentralizedAdmissionControl),
+						Name:        string(VirtualClusterProDistroCentralizedAdmissionControl),
 						Status:      virtualClusterStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "Dev Environments",
-				Name:        string(features.DevPodModule),
+				Name:        string(DevPodModule),
 				Limits: []*Limit{
-					Limits[features.DevPodWorkspaceInstanceLimit],
+					Limits[DevPodWorkspaceInstanceLimit],
 				},
 				Features: []*Feature{
 					{
 						DisplayName: "Dev Environment Management",
-						Name:        string(features.DevPod),
+						Name:        string(DevPod),
 						Status:      devpodStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "Kubernetes Namespaces",
-				Name:        string(features.KubernetesNamespaceModule),
+				Name:        string(KubernetesNamespaceModule),
 				Features: []*Feature{
 					{
 						DisplayName: "Namespace Management",
-						Name:        string(features.Namespace),
+						Name:        string(Namespace),
 						Status:      namespaceStatus,
 					},
 					{
 						DisplayName: "Sleep Mode for Namespaces",
-						Name:        string(features.NamespaceSleepMode),
+						Name:        string(NamespaceSleepMode),
 						Status:      namespaceStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "Kubernetes Clusters",
-				Name:        string(features.KubernetesClusterModule),
+				Name:        string(KubernetesClusterModule),
 				Limits: []*Limit{
-					Limits[features.ConnectedClusterLimit],
+					Limits[ConnectedClusterLimit],
 				},
 				Features: []*Feature{
 					{
 						DisplayName: "Connected Clusters",
-						Name:        string(features.ConnectedClusters),
+						Name:        string(ConnectedClusters),
 						Status:      connectedClusterStatus,
 					},
 					{
 						DisplayName: "Cluster Access",
-						Name:        string(features.ClusterAccess),
+						Name:        string(ClusterAccess),
 						Status:      connectedClusterStatus,
 					},
 					{
 						DisplayName: "Cluster Role Management",
-						Name:        string(features.ClusterRoles),
+						Name:        string(ClusterRoles),
 						Status:      connectedClusterStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "Authentication & Audit Logging",
-				Name:        string(features.AuthModule),
+				Name:        string(AuthModule),
 				Limits: []*Limit{
-					Limits[features.UserLimit],
+					Limits[UserLimit],
 				},
 				Features: []*Feature{
 					{
 						DisplayName: "Single Sign-On",
-						Name:        string(features.SSOAuth),
+						Name:        string(SSOAuth),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Audit Logging",
-						Name:        string(features.AuditLogging),
+						Name:        string(AuditLogging),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Automatic Auth For Ingresses",
-						Name:        string(features.AutomaticIngressAuth),
+						Name:        string(AutomaticIngressAuth),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Loft as OIDC Provider",
-						Name:        string(features.OIDCProvider),
+						Name:        string(OIDCProvider),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Multiple SSO Providers",
-						Name:        string(features.MultipleSSOProviders),
+						Name:        string(MultipleSSOProviders),
 						Status:      allowedStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "Templating & GitOps",
-				Name:        string(features.TemplatingModule),
+				Name:        string(TemplatingModule),
 				Features: []*Feature{
 					{
 						DisplayName: "Apps",
-						Name:        string(features.Apps),
+						Name:        string(Apps),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Template Versioning",
-						Name:        string(features.TemplateVersioning),
+						Name:        string(TemplateVersioning),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Argo Integration",
-						Name:        string(features.ArgoIntegration),
+						Name:        string(ArgoIntegration),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Rancher Integration",
-						Name:        string(features.RancherIntegration),
+						Name:        string(RancherIntegration),
 						Status:      allowedStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "Secrets Management",
-				Name:        string(features.SecretsModule),
+				Name:        string(SecretsModule),
 				Features: []*Feature{
 					{
 						DisplayName: "Secrets Sync",
-						Name:        string(features.Secrets),
+						Name:        string(Secrets),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Secrets Encryption",
-						Name:        string(features.SecretEncryption),
+						Name:        string(SecretEncryption),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "HashiCorp Vault Integration",
-						Name:        string(features.VaultIntegration),
+						Name:        string(VaultIntegration),
 						Status:      allowedStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "Deployment Modes",
-				Name:        string(features.DeploymentModesModule),
+				Name:        string(DeploymentModesModule),
 				Limits: []*Limit{
-					Limits[features.InstanceLimit],
+					Limits[InstanceLimit],
 				},
 				Features: []*Feature{
 					{
 						DisplayName: "High-Availability Mode",
-						Name:        string(features.HighAvailabilityMode),
+						Name:        string(HighAvailabilityMode),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Multi-Region Mode",
-						Name:        string(features.MultiRegionMode),
+						Name:        string(MultiRegionMode),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Air-Gapped Mode",
-						Name:        string(features.AirGappedMode),
+						Name:        string(AirGappedMode),
 						Status:      allowedStatus,
 					},
 				},
 			},
 			{
 				DisplayName: "UI Customization",
-				Name:        string(features.UIModule),
+				Name:        string(UIModule),
 				Features: []*Feature{
 					{
 						DisplayName: "Custom Branding",
-						Name:        string(features.CustomBranding),
+						Name:        string(CustomBranding),
 						Status:      allowedStatus,
 					},
 					{
 						DisplayName: "Advanced UI Customizations",
-						Name:        string(features.AdvancedUICustomizations),
+						Name:        string(AdvancedUICustomizations),
 						Status:      allowedStatus,
 					},
 				},

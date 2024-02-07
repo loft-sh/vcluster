@@ -1,6 +1,8 @@
 package options
 
 type VirtualClusterProOptions struct {
+	ProLicenseSecret string `json:"proLicenseSecret,omitempty"`
+
 	RemoteKubeConfig       string   `json:"remoteKubeConfig,omitempty"`
 	RemoteNamespace        string   `json:"remoteNamespace,omitempty"`
 	RemoteServiceName      string   `json:"remoteServiceName,omitempty"`

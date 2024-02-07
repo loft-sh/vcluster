@@ -1,7 +1,7 @@
 package product
 
 import (
-	"github.com/loft-sh/admin-apis/pkg/features"
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 )
 
 // LoginCmd returns the login command for the product
@@ -9,11 +9,11 @@ func LoginCmd() string {
 	loginCmd := "loft login"
 
 	switch Name() {
-	case features.DevPodPro:
+	case licenseapi.DevPodPro:
 		return "devpod login"
-	case features.VClusterPro:
+	case licenseapi.VClusterPro:
 		return "vcluster login"
-	case features.Loft:
+	case licenseapi.Loft:
 	}
 
 	return loginCmd
@@ -24,11 +24,11 @@ func StartCmd() string {
 	loginCmd := "loft start"
 
 	switch Name() {
-	case features.DevPodPro:
+	case licenseapi.DevPodPro:
 		loginCmd = "devpod pro start"
-	case features.VClusterPro:
+	case licenseapi.VClusterPro:
 		loginCmd = "vcluster pro start"
-	case features.Loft:
+	case licenseapi.Loft:
 	}
 
 	return loginCmd
@@ -39,11 +39,11 @@ func Url() string {
 	loginCmd := "loft-url"
 
 	switch Name() {
-	case features.DevPodPro:
+	case licenseapi.DevPodPro:
 		loginCmd = "devpod-pro-url"
-	case features.VClusterPro:
+	case licenseapi.VClusterPro:
 		loginCmd = "vcluster-pro-url"
-	case features.Loft:
+	case licenseapi.Loft:
 	}
 
 	return loginCmd
@@ -54,11 +54,11 @@ func ResetPassword() string {
 	resetPassword := "loft reset password"
 
 	switch Name() {
-	case features.DevPodPro:
+	case licenseapi.DevPodPro:
 		return "devpod pro reset password"
-	case features.VClusterPro:
+	case licenseapi.VClusterPro:
 		return "vcluster pro reset password"
-	case features.Loft:
+	case licenseapi.Loft:
 	}
 
 	return resetPassword
