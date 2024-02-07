@@ -95,7 +95,7 @@ func (cmd *TemplatesCmd) Run(ctx context.Context) error {
 	return printOptions(&OptionsFormat{
 		Options: map[string]*Option{
 			"LOFT_RUNNER": {
-				Description: "The Loft DevPod Engine runner to use for a new workspace.",
+				Description: "The DevPod.Pro runner to use for a new workspace.",
 				Enum:        runners,
 			},
 			"LOFT_TEMPLATE": {
