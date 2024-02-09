@@ -148,7 +148,7 @@ module.exports = {
           type: "category",
           label: "Kubernetes Distros",
           collapsed: true,
-          items: ["deploying-vclusters/supported-distros"],
+          items: ["deploying-vclusters/supported-distros", "deploying-vclusters/compat-matrix"],
         },
         {
           type: "category",

@@ -126,3 +126,9 @@ cli version="0.0.0" *ARGS="":
 # Version the docs for the given version
 docs-version id="pro" version="1.0.0":
   yarn docusaurus docs:version {{version}}
+
+generate-compatibility:
+  go run hack/compat-matrix/main.go generate docs/pages/deploying-vclusters/compat-matrix.mdx
+
+validate-compat-matrix:
+  go run hack/compat-matrix/main.go validate docs/pages/deploying-vclusters/compat-matrix.mdx
