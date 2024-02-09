@@ -171,7 +171,7 @@ func (s *singleNamespace) LegacyGetTargetNamespace() (string, error) {
 }
 
 func (s *singleNamespace) ApplyMetadata(vObj client.Object, syncedLabels []string, excludedAnnotations ...string) client.Object {
-	pObj, err := s.SetupMetadataWithName(vObj, func(vName string, vObj client.Object) string {
+	pObj, err := s.SetupMetadataWithName(vObj, func(_ string, vObj client.Object) string {
 		return s.objectPhysicalName(vObj)
 	})
 	if err != nil {

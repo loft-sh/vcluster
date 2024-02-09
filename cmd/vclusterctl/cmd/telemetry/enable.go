@@ -29,7 +29,7 @@ docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 
 #######################################################
 	`,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			return cmd.Run(cobraCmd)
 		}}
 

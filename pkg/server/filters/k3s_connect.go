@@ -41,7 +41,7 @@ func WithK3sConnect(h http.Handler) http.Handler {
 		HandshakeTimeout: 45 * time.Second,
 		TLSClientConfig:  tlsCfg,
 	}
-	proxy.Backend = func(r *http.Request) *url.URL {
+	proxy.Backend = func(_ *http.Request) *url.URL {
 		u := *serverURL
 		u.Path = K3sConnectPath
 		return &u

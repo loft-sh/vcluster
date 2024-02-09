@@ -59,7 +59,7 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Obj
 }
 
 func NewPriorityClassTranslator() translate.PhysicalNameTranslator {
-	return func(vName string, vObj client.Object) string {
+	return func(vName string, _ client.Object) string {
 		return translatePriorityClassName(vName)
 	}
 }
