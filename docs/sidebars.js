@@ -152,6 +152,12 @@ module.exports = {
         },
         {
           type: "category",
+          label: "Compatibility Matrix",
+          collapsed: true,
+          items: ["deploying-vclusters/compat-matrix"],
+        },
+        {
+          type: "category",
           label: "Persistent vClusters",
           collapsed: true,
           items: ["deploying-vclusters/persistence"],

@@ -185,6 +185,8 @@ github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.22.7
 ## explicit; go 1.19
 github.com/go-openapi/swag
+# github.com/go-spectest/markdown v0.0.7
+## explicit; go 1.18
 # github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
 ## explicit; go 1.13
 github.com/go-task/slim-sprig
@@ -323,6 +325,8 @@ github.com/json-iterator/go
 # github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 ## explicit
 github.com/k0kubun/go-ansi
+# github.com/karrick/godirwalk v1.17.0
+## explicit; go 1.13
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 ## explicit
 github.com/kballard/go-shellquote

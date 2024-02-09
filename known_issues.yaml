@@ -1,0 +1,5 @@
+#k3s:
+#  1.29:
+#    rancher/k3s:v1.27.9-k3s1: there is some issue there
+#  1.28:
+#    rancher/k3s:v1.27.9-k3s1: there is some issue there
