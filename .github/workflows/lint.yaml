@@ -18,15 +18,19 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version: "1.21"
           cache: false
-      - uses: actions/checkout@v4
       - name: Generate Embedded Helm Charts
         run: |
           go generate ./...
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          args: -v --config=.golangci.yml
+          args: -v --config=.golangci.yml --whole-files
+          only-new-issues: true
