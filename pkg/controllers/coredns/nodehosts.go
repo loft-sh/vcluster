@@ -100,7 +100,7 @@ func (r *NodeHostsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	funcs := predicate.NewPredicateFuncs(p)
 
 	// use modified handler to avoid triggering reconcile for each Node
-	eventHandler := handler.EnqueueRequestsFromMapFunc(func(_ context.Context, o client.Object) []reconcile.Request {
+	eventHandler := handler.EnqueueRequestsFromMapFunc(func(_ context.Context, _ client.Object) []reconcile.Request {
 		return []reconcile.Request{{
 			NamespacedName: types.NamespacedName{Namespace: Namespace, Name: ConfigMapName},
 		}}

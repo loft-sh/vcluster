@@ -169,3 +169,20 @@ var certMap = map[string]string{
 	EtcdServerCertName: strings.ReplaceAll(EtcdServerCertName, "/", "-"),
 	EtcdServerKeyName:  strings.ReplaceAll(EtcdServerKeyName, "/", "-"),
 }
+
+var K0sFiles = map[string]bool{
+	"admin.crt":         true,
+	"admin.key":         true,
+	"ccm.conf":          true,
+	"ccm.crt":           true,
+	"ccm.key":           true,
+	"konnectivity.key":  true,
+	"k0s-api.crt":       true,
+	"scheduler.crt":     true,
+	"k0s-api.key":       true,
+	"scheduler.key":     true,
+	"konnectivity.conf": true,
+	"server.crt":        true,
+	"konnectivity.crt":  true,
+	"server.key":        true,
+}

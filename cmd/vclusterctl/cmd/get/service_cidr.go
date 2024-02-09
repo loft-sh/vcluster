@@ -37,7 +37,7 @@ vcluster get service-cidr
 10.96.0.0/12
 #######################################################
 	`,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			return cmd.Run(cobraCmd)
 		}}
 

@@ -37,7 +37,7 @@ func EnsureCRD(ctx context.Context, config *rest.Config, manifest []byte, groupV
 	}
 
 	var lastErr error
-	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
+	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(_ context.Context) (bool, error) {
 		var found bool
 		found, lastErr = KindExists(config, groupVersionKind)
 		return found, nil
