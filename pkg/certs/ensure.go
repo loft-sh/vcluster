@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"time"
 
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
@@ -37,35 +36,13 @@ func EnsureCerts(
 		return downloadCertsFromSecret(secret, certificateDir)
 	}
 
-	// init config
-	cfg, err := SetInitDynamicDefaults()
-	if err != nil {
-		return err
-	}
-
-	cfg.ClusterName = "kubernetes"
-	cfg.NodeRegistration.Name = vClusterName
-	cfg.Etcd.Local = &LocalEtcd{
-		ServerCertSANs: etcdSans,
-		PeerCertSANs:   etcdSans,
-	}
-	cfg.Networking.ServiceSubnet = serviceCIDR
-	cfg.Networking.DNSDomain = clusterDomain
-	cfg.ControlPlaneEndpoint = "127.0.0.1:6443"
-	cfg.CertificatesDir = certificateDir
-	cfg.LocalAPIEndpoint.AdvertiseAddress = "0.0.0.0"
-	cfg.LocalAPIEndpoint.BindPort = 443
-	// the directory alone already exists on new install for k8s and eks
-	_, err = os.Stat(filepath.Join(certificateDir, "sa.key"))
+	// we check if the files are already there
+	_, err = os.Stat(filepath.Join(certificateDir, CAKeyName))
 	if errors.Is(err, fs.ErrNotExist) {
-		// only create the files if there is no directory there already
-		err = CreatePKIAssets(cfg)
+		// try to generate the certificates
+		err = generateCertificates(serviceCIDR, vClusterName, certificateDir, clusterDomain, etcdSans)
 		if err != nil {
-			return fmt.Errorf("create pki assets: %w", err)
-		}
-		err = CreateJoinControlPlaneKubeConfigFiles(cfg.CertificatesDir, cfg)
-		if err != nil {
-			return fmt.Errorf("create kube configs: %w", err)
+			return err
 		}
 	}
 
@@ -85,6 +62,8 @@ func EnsureCerts(
 
 		secret.Data[toName] = data
 	}
+
+	// find extra files in the folder and add them to the secret
 	extraFiles, err := extraFiles(certificateDir)
 	if err != nil {
 		return fmt.Errorf("read extra file: %w", err)
@@ -110,6 +89,46 @@ func EnsureCerts(
 	}
 
 	return downloadCertsFromSecret(secret, certificateDir)
+}
+
+func generateCertificates(
+	serviceCIDR string,
+	vClusterName string,
+	certificateDir string,
+	clusterDomain string,
+	etcdSans []string,
+) error {
+	// init config
+	cfg, err := SetInitDynamicDefaults()
+	if err != nil {
+		return err
+	}
+
+	cfg.ClusterName = "kubernetes"
+	cfg.NodeRegistration.Name = vClusterName
+	cfg.Etcd.Local = &LocalEtcd{
+		ServerCertSANs: etcdSans,
+		PeerCertSANs:   etcdSans,
+	}
+	cfg.Networking.ServiceSubnet = serviceCIDR
+	cfg.Networking.DNSDomain = clusterDomain
+	cfg.ControlPlaneEndpoint = "127.0.0.1:6443"
+	cfg.CertificatesDir = certificateDir
+	cfg.LocalAPIEndpoint.AdvertiseAddress = "0.0.0.0"
+	cfg.LocalAPIEndpoint.BindPort = 443
+
+	// only create the files if the files are not there yet
+	err = CreatePKIAssets(cfg)
+	if err != nil {
+		return fmt.Errorf("create pki assets: %w", err)
+	}
+
+	err = CreateJoinControlPlaneKubeConfigFiles(cfg.CertificatesDir, cfg)
+	if err != nil {
+		return fmt.Errorf("create kube configs: %w", err)
+	}
+
+	return nil
 }
 
 // downloadCertsFromSecret writes to the filesystem the content of each field in the secret
@@ -151,121 +170,32 @@ func downloadCertsFromSecret(
 	return nil
 }
 
-func extraFiles(
-	certificateDir string,
-) (map[string][]byte, error) {
+func extraFiles(certificateDir string) (map[string][]byte, error) {
 	files := make(map[string][]byte)
 	entries, err := os.ReadDir(certificateDir)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, v := range entries {
 		if v.IsDir() {
 			// ignore subdirectories for now
 			// etcd files should be picked up by the map
 			continue
 		}
-		name := v.Name()
 
 		// if it's not in the cert map, add to the map
+		name := v.Name()
 		_, ok := certMap[name]
 		if !ok {
 			b, err := os.ReadFile(filepath.Join(certificateDir, name))
 			if err != nil {
 				return nil, err
 			}
+
 			files[name] = b
 		}
 	}
+
 	return files, err
-}
-
-func WaitForK0sFiles(ctx context.Context, certDir string) (map[string][]byte, error) {
-	for {
-		fileFounds := 0
-		for file := range k0sFiles {
-			_, err := os.ReadFile(filepath.Join(certDir, file))
-			if errors.Is(err, fs.ErrNotExist) {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-			fileFounds++
-		}
-		if fileFounds == len(k0sFiles) {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return nil, context.DeadlineExceeded
-		case <-time.After(time.Second):
-		}
-	}
-	return readK0sFiles(certDir)
-}
-
-func readK0sFiles(certDir string) (map[string][]byte, error) {
-	files := make(map[string][]byte)
-	for file := range k0sFiles {
-		b, err := os.ReadFile(filepath.Join(certDir, file))
-		if err != nil {
-			return nil, err
-		}
-		files[file] = b
-	}
-
-	return files, nil
-}
-
-func secretContainsK0sCerts(secret corev1.Secret) bool {
-	if secret.Data == nil {
-		return false
-	}
-	for k := range secret.Data {
-		if k0sFiles[k] {
-			return true
-		}
-	}
-	return false
-}
-
-func secretIsUpToDate(secret corev1.Secret, files map[string][]byte) bool {
-	for fileName, content := range files {
-		if !slices.Equal(secret.Data[fileName], content) {
-			return false
-		}
-	}
-	return true
-}
-
-func UpdateSecretWithK0sCerts(
-	ctx context.Context,
-	currentNamespaceClient kubernetes.Interface,
-	currentNamespace, vclusterName string,
-	files map[string][]byte,
-) error {
-	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, vclusterName+"-certs", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if secret.Data == nil {
-		return fmt.Errorf("error while trying to update the secret, data was empty, will try to fetch it again")
-	}
-
-	if secretContainsK0sCerts(*secret) {
-		if secretIsUpToDate(*secret, files) {
-			return nil
-		}
-		return fmt.Errorf("error while trying to update the secret, it was already updated, will try to fetch it again")
-	}
-	for fileName, content := range files {
-		secret.Data[fileName] = content
-	}
-
-	// if any error we will retry from the poll loop
-	_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Update(ctx, secret, metav1.UpdateOptions{})
-
-	return err
 }

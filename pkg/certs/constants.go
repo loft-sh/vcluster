@@ -170,7 +170,7 @@ var certMap = map[string]string{
 	EtcdServerKeyName:  strings.ReplaceAll(EtcdServerKeyName, "/", "-"),
 }
 
-var k0sFiles = map[string]bool{
+var K0sFiles = map[string]bool{
 	"admin.crt":         true,
 	"admin.key":         true,
 	"ccm.conf":          true,

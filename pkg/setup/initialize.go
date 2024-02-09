@@ -3,7 +3,10 @@ package setup
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -16,6 +19,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -91,6 +97,7 @@ func initialize(
 			return err
 		}
 
+		// create certificates if they are not there yet
 		err = certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, "/data/k0s/pki", "", nil)
 		if err != nil {
 			return err
@@ -106,17 +113,11 @@ func initialize(
 				klog.Fatalf("Error running k0s: %v", err)
 			}
 		}()
-		files, err := certs.WaitForK0sFiles(ctx, "/data/k0s/pki")
-		if err != nil {
-			klog.Info(err)
-			cancel()
-			return err
-		}
 
-		err = certs.UpdateSecretWithK0sCerts(ctx, currentNamespaceClient, currentNamespace, vClusterName, files)
+		// try to update the certs secret with the k0s certificates
+		err = UpdateSecretWithK0sCerts(ctx, currentNamespaceClient, currentNamespace, vClusterName)
 		if err != nil {
 			cancel()
-			klog.Info(err)
 			return err
 		}
 	case constants.K3SDistro:
@@ -198,4 +199,103 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 	}
 
 	return nil
+}
+
+func UpdateSecretWithK0sCerts(
+	ctx context.Context,
+	currentNamespaceClient kubernetes.Interface,
+	currentNamespace, vClusterName string,
+) error {
+	// wait for k0s to generate the secrets for us
+	files, err := waitForK0sFiles(ctx, "/data/k0s/pki")
+	if err != nil {
+		return err
+	}
+
+	// retrieve cert secret
+	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, vClusterName+"-certs", metav1.GetOptions{})
+	if err != nil {
+		return err
+	} else if secret.Data == nil {
+		return fmt.Errorf("error while trying to update the secret, data was empty, will try to fetch it again")
+	}
+
+	// check if the secret contains the k0s files now, which would mean somebody was faster than we were
+	if secretContainsK0sCerts(secret) {
+		if secretIsUpToDate(secret, files) {
+			return nil
+		}
+
+		return fmt.Errorf("error while trying to update the secret, it was already updated, will try to fetch it again")
+	}
+
+	// update the secret to include the k0s certs
+	for fileName, content := range files {
+		secret.Data[fileName] = content
+	}
+
+	// if any error we will retry from the poll loop
+	_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Update(ctx, secret, metav1.UpdateOptions{})
+	return err
+}
+
+func waitForK0sFiles(ctx context.Context, certDir string) (map[string][]byte, error) {
+	for {
+		filesFound := 0
+		for file := range certs.K0sFiles {
+			_, err := os.ReadFile(filepath.Join(certDir, file))
+			if errors.Is(err, fs.ErrNotExist) {
+				break
+			} else if err != nil {
+				return nil, err
+			}
+
+			filesFound++
+		}
+		if filesFound == len(certs.K0sFiles) {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		case <-time.After(time.Second):
+		}
+	}
+	return readK0sFiles(certDir)
+}
+
+func readK0sFiles(certDir string) (map[string][]byte, error) {
+	files := make(map[string][]byte)
+	for file := range certs.K0sFiles {
+		b, err := os.ReadFile(filepath.Join(certDir, file))
+		if err != nil {
+			return nil, err
+		}
+		files[file] = b
+	}
+
+	return files, nil
+}
+
+func secretContainsK0sCerts(secret *corev1.Secret) bool {
+	if secret.Data == nil {
+		return false
+	}
+	for k := range secret.Data {
+		if certs.K0sFiles[k] {
+			return true
+		}
+	}
+	return false
+}
+
+func secretIsUpToDate(secret *corev1.Secret, files map[string][]byte) bool {
+	for fileName, content := range files {
+		if !reflect.DeepEqual(secret.Data[fileName], content) {
+			return false
+		}
+	}
+
+	return true
 }

@@ -34,6 +34,7 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc) error {
 	for _, entry := range dirEntries {
 		_ = os.RemoveAll(filepath.Join(runDir, entry.Name()))
 	}
+
 	// create command
 	command := &k0sCommand{}
 	err := yaml.Unmarshal([]byte(os.Getenv(VClusterCommandEnv)), command)
