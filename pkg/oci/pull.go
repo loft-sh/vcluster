@@ -169,7 +169,7 @@ func CreateUserPasswordForRegistry(ctx context.Context, client kubernetes.Interf
 func fetchUserPassword(ctx context.Context, client kubernetes.Interface, namespace string) (string, string, error) {
 	username := ""
 	password := ""
-	pullSecret, err := client.CoreV1().Secrets(namespace).Get(ctx, translate.Suffix+"-pull-credentials", metav1.GetOptions{})
+	pullSecret, err := client.CoreV1().Secrets(namespace).Get(ctx, translate.VClusterName+"-pull-credentials", metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return "", "", fmt.Errorf("get pull credentials: %w", err)
 	} else if err == nil && pullSecret.Data != nil {

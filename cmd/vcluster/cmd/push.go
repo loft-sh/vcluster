@@ -6,9 +6,9 @@ import (
 	"runtime/debug"
 
 	"github.com/loft-sh/vcluster/pkg/oci"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,9 +59,6 @@ func (cmd *PushCommand) Execute(ctx context.Context) error {
 		return fmt.Errorf("please specify a destination for the vCluster, e.g. ghcr.io/my-user/my-repo")
 	}
 
-	// make sure global vCluster name is correct
-	translate.ReadSuffix()
-
 	// get current namespace
 	currentNamespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
@@ -79,7 +76,7 @@ func (cmd *PushCommand) Execute(ctx context.Context) error {
 	}
 
 	// push vCluster to registry
-	err = oci.Push(ctx, inClusterClient, currentNamespace, cmd.Destination, cmd.Username, cmd.Password, scheme)
+	err = oci.Push(ctx, inClusterClient, currentNamespace, cmd.Destination, cmd.Username, cmd.Password, scheme.Scheme)
 	if err != nil {
 		return err
 	}

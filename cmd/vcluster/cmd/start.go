@@ -51,16 +51,6 @@ func NewStartCommand() *cobra.Command {
 }
 
 func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) error {
-	// set suffix
-	translate.VClusterName = options.Name
-	if translate.VClusterName == "" {
-		translate.VClusterName = options.DeprecatedSuffix
-	}
-	if translate.VClusterName == "" {
-		translate.VClusterName = "vcluster"
-	}
-	translate.SaveSuffix()
-
 	// set service name
 	if options.ServiceName == "" {
 		options.ServiceName = translate.VClusterName

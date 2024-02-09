@@ -153,7 +153,6 @@ spec:
         {{- end }}
         {{- end }}
         args:
-          - --name={{ .Release.Name }}
           - --service-account=vc-workload-{{ .Release.Name }}
           - --request-header-ca-cert=/data/k0s/pki/front-proxy-ca.crt
           - --client-ca-cert=/data/k0s/pki/ca.crt
@@ -265,6 +264,8 @@ spec:
         {{- include "vcluster.plugins.config" . | indent 10 }}
           - name: VCLUSTER_DISTRO
             value: k0s
+          - name: VCLUSTER_NAME
+            value: {{ .Release.Name }}
           - name: POD_NAME
             valueFrom:
               fieldRef:

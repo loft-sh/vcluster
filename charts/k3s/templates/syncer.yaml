@@ -200,7 +200,6 @@ spec:
         {{- end }}
         {{- end }}
         args:
-          - --name={{ .Release.Name }}
           - --kube-config=/data/k3s-config/kube-config.yaml
           - --service-account=vc-workload-{{ .Release.Name }}
           {{- include "vcluster.legacyPlugins.args" . | indent 10 }}
@@ -314,6 +313,8 @@ spec:
         {{- include "vcluster.plugins.config" . | indent 10 }}
           - name: VCLUSTER_DISTRO
             value: k3s
+          - name: VCLUSTER_NAME
+            value: {{ .Release.Name }}
           {{- if .Values.vcluster.env }}
 {{ toYaml .Values.vcluster.env | indent 10 }}
           {{- end }}

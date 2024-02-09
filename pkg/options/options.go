@@ -29,8 +29,6 @@ type VirtualClusterOptions struct {
 	BindAddress string `json:"bindAddress,omitempty"`
 	Port        int    `json:"port,omitempty"`
 
-	Name string `json:"name,omitempty"`
-
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 	ServiceName     string `json:"serviceName,omitempty"`
 

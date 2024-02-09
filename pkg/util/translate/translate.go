@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -36,6 +37,14 @@ var (
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
 )
+
+func init() {
+	// set vCluster name
+	VClusterName = os.Getenv("VCLUSTER_NAME")
+	if VClusterName == "" {
+		VClusterName = "vcluster"
+	}
+}
 
 const (
 	SkipBackSyncInMultiNamespaceMode = "vcluster.loft.sh/skip-backsync"

@@ -219,7 +219,6 @@ spec:
         {{- end }}
         {{- end }}
         args:
-          - --name={{ .Release.Name }}
           - --request-header-ca-cert=/pki/front-proxy-ca.crt
           - --client-ca-cert=/pki/ca.crt
           - --server-ca-cert=/pki/ca.crt
@@ -334,6 +333,8 @@ spec:
         {{- include "vcluster.plugins.config" . | indent 10 }}
           - name: VCLUSTER_DISTRO
             value: k8s
+          - name: VCLUSTER_NAME
+            value: {{ .Release.Name }}
           - name: POD_NAME
             valueFrom:
               fieldRef:

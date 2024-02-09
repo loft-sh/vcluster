@@ -15,7 +15,7 @@ func GetChartInfo(ctx context.Context, hostClient kubernetes.Interface, vCluster
 		return nil, fmt.Errorf("host client is empty")
 	}
 
-	release, err := helm.NewSecrets(hostClient).Get(ctx, translate.Suffix, vClusterNamespace)
+	release, err := helm.NewSecrets(hostClient).Get(ctx, translate.VClusterName, vClusterNamespace)
 	if err != nil {
 		return nil, err
 	} else if release == nil {
