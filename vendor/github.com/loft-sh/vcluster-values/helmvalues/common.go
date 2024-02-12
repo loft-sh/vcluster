@@ -88,14 +88,14 @@ type SyncValues struct {
 	Endpoints              EnabledSwitch  `json:"endpoints,omitempty"`
 	Pods                   SyncPods       `json:"pods,omitempty"`
 	Events                 EnabledSwitch  `json:"events,omitempty"`
-	PersistentVolumeClaims EnabledSwitch  `json:"persistentVolumeClaims,omitempty"`
+	PersistentVolumeClaims EnabledSwitch  `json:"persistentvolumeclaims,omitempty"`
 	Ingresses              EnabledSwitch  `json:"ingresses,omitempty"`
 	Ingressclasses         EnabledSwitch  `json:"ingressclasses,omitempty"`
 	FakeNodes              EnabledSwitch  `json:"fake-nodes,omitempty"`
 	FakePersistentvolumes  EnabledSwitch  `json:"fake-persistentvolumes,omitempty"`
 	Nodes                  SyncNodes      `json:"nodes,omitempty"`
-	PersistentVolumes      EnabledSwitch  `json:"persistentVolumes,omitempty"`
-	StorageClasses         EnabledSwitch  `json:"storageClasses,omitempty"`
+	PersistentVolumes      EnabledSwitch  `json:"persistentvolumes,omitempty"`
+	StorageClasses         EnabledSwitch  `json:"storageclasses,omitempty"`
 	Hoststorageclasses     EnabledSwitch  `json:"hoststorageclasses,omitempty"`
 	Priorityclasses        EnabledSwitch  `json:"priorityclasses,omitempty"`
 	Networkpolicies        EnabledSwitch  `json:"networkpolicies,omitempty"`
@@ -188,7 +188,7 @@ type RBACClusterRoleValues struct {
 type RBACRoleValues struct {
 	Create               bool       `json:"create,omitempty"`
 	ExtraRules           []RBACRule `json:"extraRules,omitempty"`
-	ExcludedAPIResources []string   `json:"excludedAPIResources,omitempty"`
+	ExcludedAPIResources []string   `json:"excludedApiResources,omitempty"`
 }
 
 type RBACRule struct {

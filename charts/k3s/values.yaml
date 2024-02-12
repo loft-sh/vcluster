@@ -254,7 +254,7 @@ rbac:
     # Extra Rules for the role
     extraRules: []
     # all entries in excludedApiResources will be excluded from the Role created for vcluster
-    excludedApiResources:
+    excludedApiResources: []
       # - pods/exec
 
 # If vCluster persistent volume claims should get deleted automatically.
@@ -434,7 +434,7 @@ coredns:
 # standards, limit ranges and resource quotas
 isolation:
   enabled: false
-  namespace: null
+  namespace: ""
 
   podSecurityStandard: baseline
 
@@ -463,7 +463,7 @@ isolation:
       count/persistentvolumeclaims: 20
     scopeSelector:
       matchExpressions:
-    scopes:
+    scopes: []
 
   limitRange:
     enabled: true

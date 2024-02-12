@@ -42,6 +42,10 @@ create distro="kind":
 delete distro="kind":
   just delete-{{distro}}
 
+# Generate the json-schema associated with vcluster-values module
+generate-json-schema:
+  go run hack/json-schema/main.go
+
 # Create a local kind cluster
 create-kind:
   kind create cluster -n vcluster
