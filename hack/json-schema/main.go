@@ -12,7 +12,7 @@ import (
 
 func main() {
 	beforeFiles := map[string][]byte{}
-	validate := len(os.Args) > 2 && os.Args[2] == "validate"
+	validate := len(os.Args) > 1 && os.Args[1] == "validate"
 	if validate {
 		for _, v := range []string{"k0s", "k3s", "k8s", "eks"} {
 			helmSchemaBytes, err := os.ReadFile("charts/" + v + "/values.schema.json")

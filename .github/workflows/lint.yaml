@@ -32,7 +32,7 @@ jobs:
           go generate ./...
       - name: Validate json schemas
         run: |
-          go run hack/json-schema validate
+          go run ./hack/json-schema validate
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
