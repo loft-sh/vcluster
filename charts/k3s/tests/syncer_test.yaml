@@ -16,8 +16,9 @@ tests:
           count: 1
   - it: should have pvc if persistence is on
     set:
-      storage:
-        persistence: true
+      syncer:
+        storage:
+          persistence: true
 
     asserts:
       - hasDocuments:
@@ -27,8 +28,9 @@ tests:
 
   - it: should not have pvc if persistence is off
     set:
-      storage:
-        persistence: false
+      syncer:
+        storage:
+          persistence: false
 
     asserts:
       - hasDocuments:
@@ -38,8 +40,9 @@ tests:
 
   - it: should not have emptyDir data volume if persistence is on
     set:
-      storage:
-        persistence: true
+      syncer:
+        storage:
+          persistence: true
 
     asserts:
       - hasDocuments:
@@ -52,8 +55,9 @@ tests:
 
   - it: should have emptyDir data volume if persistence is off
     set:
-      storage:
-        persistence: false
+      syncer:
+        storage:
+          persistence: false
 
     asserts:
       - hasDocuments:
