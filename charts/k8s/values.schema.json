@@ -1,5 +1,6 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema":
+    "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://github.com/loft-sh/vcluster-values/helmvalues/k8s",
     "$ref": "#/$defs/K8s",
     "$defs": {
