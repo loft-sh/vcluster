@@ -69,9 +69,14 @@ func (s *eventSyncer) HostToVirtual(ctx context.Context, req types.NamespacedNam
 		return types.NamespacedName{}
 	}
 
+	pEvent, ok := pObj.(*corev1.Event)
+	if !ok {
+		return types.NamespacedName{}
+	}
+
 	return types.NamespacedName{
 		Namespace: involvedObject.GetNamespace(),
-		Name:      req.Name,
+		Name:      hostEventNameToVirtual(pEvent.GetName(), pEvent.InvolvedObject.Name, involvedObject.GetName()),
 	}
 }
 
@@ -141,8 +146,14 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Ob
 		return ctrl.Result{}, nil
 	}
 
+	// try to create virtual event
 	ctx.Log.Infof("create virtual event %s/%s", vObj.Namespace, vObj.Name)
-	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
+	err = ctx.VirtualClient.Create(ctx.Context, vObj)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (s *eventSyncer) buildVirtualEvent(ctx context.Context, pEvent *corev1.Event) (*corev1.Event, error) {
@@ -165,15 +176,22 @@ func (s *eventSyncer) buildVirtualEvent(ctx context.Context, pEvent *corev1.Even
 	vObj.InvolvedObject.UID = involvedObject.GetUID()
 	vObj.InvolvedObject.ResourceVersion = involvedObject.GetResourceVersion()
 
-	// replace name of object
-	if strings.HasPrefix(vObj.Name, pEvent.InvolvedObject.Name) {
-		vObj.Name = strings.Replace(vObj.Name, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name, 1)
-	}
+	// rewrite name
+	vObj.Name = hostEventNameToVirtual(vObj.Name, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
 
 	// we replace namespace/name & name in messages so that it seems correct
 	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Namespace+"/"+pEvent.InvolvedObject.Name, vObj.InvolvedObject.Namespace+"/"+vObj.InvolvedObject.Name)
 	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
 	return vObj, nil
+}
+
+func hostEventNameToVirtual(hostName string, hostInvolvedObjectName, virtualInvolvedObjectName string) string {
+	// replace name of object
+	if strings.HasPrefix(hostName, hostInvolvedObjectName) {
+		hostName = strings.Replace(hostName, hostInvolvedObjectName, virtualInvolvedObjectName, 1)
+	}
+
+	return hostName
 }
 
 func (s *eventSyncer) getInvolvedObject(ctx context.Context, pObj client.Object) (metav1.Object, error) {
@@ -192,21 +210,14 @@ func (s *eventSyncer) getInvolvedObject(ctx context.Context, pObj client.Object)
 		return nil, nil
 	}
 
+	// create new virtual object
 	vInvolvedObj, err := s.virtualClient.Scheme().New(gvk)
 	if err != nil {
 		return nil, err
 	}
 
-	index := ""
-	switch pEvent.InvolvedObject.Kind {
-	case "Pod", "Service", "Endpoint", "Secret", "ConfigMap":
-		index = constants.IndexByPhysicalName
-	default:
-		return nil, nil
-	}
-
 	// get involved object
-	err = clienthelper.GetByIndex(ctx, s.virtualClient, vInvolvedObj, index, pEvent.Namespace+"/"+pEvent.InvolvedObject.Name)
+	err = clienthelper.GetByIndex(ctx, s.virtualClient, vInvolvedObj, constants.IndexByPhysicalName, pEvent.Namespace+"/"+pEvent.InvolvedObject.Name)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return nil, err
