@@ -46,7 +46,7 @@ vcluster pro reset password --user admin
 		Short: "Resets the password of a user",
 		Long:  description,
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return cmd.Run()
 		},
 	}

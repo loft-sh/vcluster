@@ -69,7 +69,7 @@ func StartLeaderElection(ctx *options.ControllerContext, scheme *runtime.Scheme,
 		RenewDeadline: time.Duration(ctx.Options.RenewDeadline) * time.Second,
 		RetryPeriod:   time.Duration(ctx.Options.RetryPeriod) * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(ctx context.Context) {
+			OnStartedLeading: func(_ context.Context) {
 				klog.Info("Acquired leadership and run vcluster in leader mode")
 
 				// start vcluster in leader mode

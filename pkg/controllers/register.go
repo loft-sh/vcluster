@@ -312,7 +312,7 @@ func RegisterServiceSyncControllers(ctx *options.ControllerContext) error {
 		// manager that listens on global services
 		globalLocalManager, err := ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
 			Scheme: ctx.LocalManager.GetScheme(),
-			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
+			MapperProvider: func(_ *rest.Config, _ *http.Client) (meta.RESTMapper, error) {
 				return ctx.LocalManager.GetRESTMapper(), nil
 			},
 			Metrics:        metricsserver.Options{BindAddress: "0"},

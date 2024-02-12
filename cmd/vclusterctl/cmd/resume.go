@@ -20,11 +20,9 @@ import (
 // ResumeCmd holds the cmd flags
 type ResumeCmd struct {
 	*flags.GlobalFlags
-
-	Project string
-
-	kubeClient *kubernetes.Clientset
 	Log        log.Logger
+	kubeClient *kubernetes.Clientset
+	Project    string
 }
 
 // NewResumeCmd creates a new command

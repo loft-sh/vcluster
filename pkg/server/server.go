@@ -60,20 +60,16 @@ import (
 
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
 type Server struct {
-	uncachedVirtualClient client.Client
-	cachedVirtualClient   client.Client
-
-	currentNamespace       string
+	uncachedVirtualClient  client.Client
+	cachedVirtualClient    client.Client
 	currentNamespaceClient client.Client
-
-	fakeKubeletIPs bool
-
-	certSyncer cert.Syncer
-	handler    *http.ServeMux
-
-	redirectResources   []delegatingauthorizer.GroupVersionResourceVerb
-	requestHeaderCaFile string
-	clientCaFile        string
+	certSyncer             cert.Syncer
+	handler                *http.ServeMux
+	currentNamespace       string
+	requestHeaderCaFile    string
+	clientCaFile           string
+	redirectResources      []delegatingauthorizer.GroupVersionResourceVerb
+	fakeKubeletIPs         bool
 }
 
 // NewServer creates and installs a new Server.
@@ -113,7 +109,6 @@ func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +459,7 @@ func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interfa
 	serviceResolver := aggregatorapiserver.NewClusterIPServiceResolver(
 		kubeInformerFactory.Core().V1().Services().Lister(),
 	)
-	authInfoResolverWrapper := func(resolver webhook.AuthenticationInfoResolver) webhook.AuthenticationInfoResolver {
+	authInfoResolverWrapper := func(_ webhook.AuthenticationInfoResolver) webhook.AuthenticationInfoResolver {
 		return &kubeConfigProvider{
 			vConfig: vConfig,
 		}

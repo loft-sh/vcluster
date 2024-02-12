@@ -70,21 +70,17 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 }
 
 type nodeSyncer struct {
-	enableScheduler bool
-
-	clearImages bool
-
-	enforceNodeSelector bool
 	nodeSelector        labels.Selector
-	useFakeKubelets     bool
-	fakeKubeletIPs      bool
-
-	physicalClient client.Client
-	virtualClient  client.Client
-
+	physicalClient      client.Client
+	virtualClient       client.Client
 	unmanagedPodCache   client.Reader
 	nodeServiceProvider nodeservice.Provider
 	enforcedTolerations []*corev1.Toleration
+	enableScheduler     bool
+	clearImages         bool
+	enforceNodeSelector bool
+	useFakeKubelets     bool
+	fakeKubeletIPs      bool
 }
 
 func (s *nodeSyncer) Resource() client.Object {
@@ -144,16 +140,16 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 		bld.WatchesRawSource(
 			source.Kind(podCache, &corev1.Pod{}),
 			handler.Funcs{
-				GenericFunc: func(ctx context.Context, ev event.GenericEvent, q workqueue.RateLimitingInterface) {
+				GenericFunc: func(_ context.Context, ev event.GenericEvent, q workqueue.RateLimitingInterface) {
 					enqueueNonVclusterPod(nil, ev.Object, q)
 				},
-				CreateFunc: func(ctx context.Context, ev event.CreateEvent, q workqueue.RateLimitingInterface) {
+				CreateFunc: func(_ context.Context, ev event.CreateEvent, q workqueue.RateLimitingInterface) {
 					enqueueNonVclusterPod(nil, ev.Object, q)
 				},
-				UpdateFunc: func(ctx context.Context, ue event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				UpdateFunc: func(_ context.Context, ue event.UpdateEvent, q workqueue.RateLimitingInterface) {
 					enqueueNonVclusterPod(ue.ObjectOld, ue.ObjectNew, q)
 				},
-				DeleteFunc: func(ctx context.Context, ev event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				DeleteFunc: func(_ context.Context, ev event.DeleteEvent, q workqueue.RateLimitingInterface) {
 					enqueueNonVclusterPod(nil, ev.Object, q)
 				},
 			},

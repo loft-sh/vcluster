@@ -36,7 +36,7 @@ vcluster info
 	`,
 		Args:   cobra.NoArgs,
 		Hidden: true,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			infos := cliInfo{
 				Version:   cobraCmd.Root().Version,
 				OS:        runtime.GOOS,

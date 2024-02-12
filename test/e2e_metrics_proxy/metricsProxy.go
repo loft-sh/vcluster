@@ -23,7 +23,7 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 	ginkgo.It("Make sure the metrics api service is registered and available", func() {
 		err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*1, false, func(ctx context.Context) (bool, error) {
 			apiRegistrationClient := apiregistrationv1clientset.NewForConfigOrDie(f.VclusterConfig)
-			apiService, err := apiRegistrationClient.APIServices().Get(f.Context, metricsapiservice.MetricsAPIServiceName, metav1.GetOptions{})
+			apiService, err := apiRegistrationClient.APIServices().Get(ctx, metricsapiservice.MetricsAPIServiceName, metav1.GetOptions{})
 			if err != nil {
 				return false, nil
 			}
@@ -41,7 +41,7 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 		err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*1, false, func(ctx context.Context) (bool, error) {
 			metricsClient := metricsv1beta1client.NewForConfigOrDie(f.VclusterConfig)
 
-			nodeMetricsList, err := metricsClient.NodeMetricses().List(f.Context, metav1.ListOptions{})
+			nodeMetricsList, err := metricsClient.NodeMetricses().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				fmt.Fprintf(ginkgo.GinkgoWriter, "error getting node metrics list %v", err)
 				return false, nil
@@ -52,7 +52,7 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 				return false, nil
 			}
 
-			podMetricsList, err := metricsClient.PodMetricses("kube-system").List(f.Context, metav1.ListOptions{})
+			podMetricsList, err := metricsClient.PodMetricses("kube-system").List(ctx, metav1.ListOptions{})
 			if err != nil {
 				fmt.Fprintf(ginkgo.GinkgoWriter, "error getting pod metrics list %v", err)
 				return false, nil

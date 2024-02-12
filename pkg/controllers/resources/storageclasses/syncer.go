@@ -11,9 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
-)
+var DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &storageClassSyncer{
@@ -63,7 +61,7 @@ func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj clien
 }
 
 func NewStorageClassTranslator() translate.PhysicalNameTranslator {
-	return func(vName string, vObj client.Object) string {
+	return func(vName string, _ client.Object) string {
 		return translateStorageClassName(vName)
 	}
 }

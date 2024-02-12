@@ -20,14 +20,14 @@ import (
 
 // VCluster holds information about a cluster
 type VCluster struct {
+	Created    time.Time
 	Name       string
 	Namespace  string
-	Created    time.Time
-	AgeSeconds int
 	Context    string
 	Cluster    string
 	Version    string
 	Status     string
+	AgeSeconds int
 	Connected  bool
 	Pro        bool
 }

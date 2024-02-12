@@ -32,7 +32,10 @@ import (
 // DeleteCmd holds the delete cmd flags
 type DeleteCmd struct {
 	*flags.GlobalFlags
-
+	log                 log.Logger
+	rawConfig           *clientcmdapi.Config
+	restConfig          *rest.Config
+	kubeClient          *kubernetes.Clientset
 	Project             string
 	Wait                bool
 	KeepPVC             bool
@@ -40,11 +43,6 @@ type DeleteCmd struct {
 	DeleteConfigMap     bool
 	AutoDeleteNamespace bool
 	IgnoreNotFound      bool
-
-	rawConfig  *clientcmdapi.Config
-	restConfig *rest.Config
-	kubeClient *kubernetes.Clientset
-	log        log.Logger
 }
 
 // NewDeleteCmd creates a new command

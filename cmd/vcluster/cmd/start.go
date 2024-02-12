@@ -26,7 +26,7 @@ func NewStartCommand() *cobra.Command {
 		Use:   "start",
 		Short: "Execute the vcluster",
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) (err error) {
+		RunE: func(cobraCmd *cobra.Command, _ []string) (err error) {
 			// start telemetry
 			telemetry.Start(false)
 			defer telemetry.Collector.Flush()
