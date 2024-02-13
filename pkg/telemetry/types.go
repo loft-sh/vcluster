@@ -6,16 +6,13 @@ import (
 	"strconv"
 )
 
-var (
-	// ErrUnsupportedType is returned if the type is not implemented
-	ErrUnsupportedType = errors.New("unsupported type")
-)
+// ErrUnsupportedType is returned if the type is not implemented
+var ErrUnsupportedType = errors.New("unsupported type")
 
 type ChartInfo struct {
+	Values  map[string]interface{}
 	Name    string
 	Version string
-
-	Values map[string]interface{}
 }
 
 type Config struct {

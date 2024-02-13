@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,9 +35,7 @@ const (
 	PanicSeverity   ErrorSeverityType = "panic"
 )
 
-var (
-	Collector EventCollector = &noopCollector{}
-)
+var Collector EventCollector = &noopCollector{}
 
 type EventCollector interface {
 	RecordStart(ctx context.Context)
@@ -52,11 +51,17 @@ type EventCollector interface {
 
 // Start starts collecting events and sending them to the backend
 func Start(isCli bool) {
-	c := Config{}
+	var c Config
+
 	if os.Getenv(ConfigEnvVar) != "" {
 		err := json.Unmarshal([]byte(os.Getenv(ConfigEnvVar)), &c)
 		if err != nil {
 			loghelper.New("telemetry").Infof("failed to parse telemetry config from the %s environment variable: %v", ConfigEnvVar, err)
+		}
+	} else if isCli {
+		cliConfig := cliconfig.GetConfig(log.Discard)
+		if cliConfig.TelemetryDisabled {
+			c.Disabled = "true"
 		}
 	}
 
