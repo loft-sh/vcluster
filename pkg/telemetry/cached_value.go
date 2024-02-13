@@ -3,10 +3,8 @@ package telemetry
 import "sync"
 
 type cachedValue[T any] struct {
-	m sync.Mutex
-
-	value T
-
+	value     T
+	m         sync.Mutex
 	retrieved bool
 }
 
