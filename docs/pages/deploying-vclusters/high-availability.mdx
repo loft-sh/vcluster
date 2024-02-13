@@ -24,7 +24,6 @@ A distro in vcluster is the Kubernetes distribution that runs inside the virtual
 - k0s
 - eks (the Kubernetes that is installed in AWS EKS clusters)
 - k8s (a Kubernetes with etcd)
-The vcluster HA feature is only supported by the k3s and k8s distros. You need to choose one of those to take advantage of HA.
 
 For this tutorial, we will use the k8s distro.
 If you're interested in enabling HA in rootless mode, or using the k3s distro, see some examples at the bottom of this page.
@@ -43,19 +42,12 @@ syncer:
 etcd:
   replicas: 3
 
-# Scale up controller manager
-controller:
-  replicas: 3
-
-# Scale up api server
-api:
-  replicas: 3
-
 # Scale up DNS server
 coredns:
   replicas: 3
 ```
-That first line enables the HA feature, and the rest specify the number of copies you want to run of each component. Set the number of replicas for each to equal the number of compute nodes your cluster has. In this example I’m using a four node Minikube cluster (one control plane node and three compute nodes), so I set the number of replicas to three in values.yaml.
+Set the number of replicas for each to equal the number of compute nodes your cluster has. In this example I’m using a four node Minikube cluster (one control plane node and three compute nodes), so I set the number of replicas to three in values.yaml.
+Set `replicas` to the desired number to deploy in high availability. In this example I’m using a four node Minikube cluster (one control plane node and three compute nodes), so I set the number of replicas to three in values.yaml.
 
 ```
 kubectl get nodes
@@ -99,12 +91,6 @@ NAME                                      READY   STATUS    RESTARTS   AGE
 ha-tutorial-7c5c5844c5-27j2v              0/1     Running   0          20s
 ha-tutorial-7c5c5844c5-gb2sm              0/1     Running   0          20s
 ha-tutorial-7c5c5844c5-pwn7k              0/1     Running   0          20s
-ha-tutorial-api-74f8665656-jhjnj          0/1     Running   0          20s
-ha-tutorial-api-74f8665656-t5wcp          0/1     Running   0          20s
-ha-tutorial-api-74f8665656-z5xl8          0/1     Running   0          20s
-ha-tutorial-controller-75fb977dc5-pw5sb   0/1     Running   0          20s
-ha-tutorial-controller-75fb977dc5-qzxgm   0/1     Running   0          20s
-ha-tutorial-controller-75fb977dc5-wzf5v   0/1     Running   0          20s
 ha-tutorial-etcd-0                        0/1     Running   0          20s
 ha-tutorial-etcd-1                        0/1     Running   0          20s
 ha-tutorial-etcd-2                        0/1     Running   0          20s
@@ -165,8 +151,8 @@ That will delete the vcluster and the namespace it was in.
 
 In order to run vCluster with k3s as Kubernetes distribution in high availability mode, the following steps are required:
 
-* create and use an [external datastore](./persistence.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
-* run two or more k3s pods that will serve the Kubernetes API and run other control plane services
+* Create and use an [external datastore](./persistence.mdx) (as opposed to the embedded SQLite datastore used in single-server setups)
+* Run two or more k3s pods that will serve the Kubernetes API and run other control plane services
 
 First create a `values.yaml` in the following form and make sure to change the connection string in `K3S_DATASTORE_ENDPOINT`:
 
@@ -235,14 +221,6 @@ syncer:
 etcd:
   replicas: 3
 
-# Scale up controller manager
-controller:
-  replicas: 3
-
-# Scale up api server
-api:
-  replicas: 3
-
 # Scale up DNS server
 coredns:
   replicas: 3
@@ -263,12 +241,6 @@ coredns-6ff7df994d-weuir-x-kube-system-x-vcluster   1/1     Running   0         
 vcluster-9d88f577-m55xf                             1/1     Running   0          30m
 vcluster-9d88f577-drsxz                             1/1     Running   0          30m
 vcluster-9d88f577-maslo                             1/1     Running   0          30m
-vcluster-api-66bfc4cf94-cp28t                       1/1     Running   0          30m
-vcluster-api-66bfc4cf94-drnll                       1/1     Running   0          30m
-vcluster-api-66bfc4cf94-jfbnn                       1/1     Running   0          30m
-vcluster-controller-b4cd55bb6-9mvc4                 1/1     Running   0          30m
-vcluster-controller-b4cd55bb6-bmfdj                 1/1     Running   0          30m
-vcluster-controller-b4cd55bb6-kcxr7                 1/1     Running   0          30m
 vcluster-etcd-0                                     1/1     Running   0          30m
 vcluster-etcd-1                                     1/1     Running   0          29m
 vcluster-etcd-2                                     1/1     Running   0          29m
@@ -309,36 +281,6 @@ syncer:
 etcd:
   replicas: 3
   fsGroup: 12345
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-      - ALL
-    readOnlyRootFilesystem: true
-    runAsGroup: 12345
-    runAsNonRoot: true
-    runAsUser: 12345
-    seccompProfile:
-      type: RuntimeDefault
-
-# Scale up controller manager
-controller:
-  replicas: 3
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-      - ALL
-    readOnlyRootFilesystem: true
-    runAsGroup: 12345
-    runAsNonRoot: true
-    runAsUser: 12345
-    seccompProfile:
-      type: RuntimeDefault
-
-# Scale up api server
-api:
-  replicas: 3
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
