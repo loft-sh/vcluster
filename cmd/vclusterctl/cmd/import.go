@@ -26,13 +26,11 @@ import (
 
 type ImportCmd struct {
 	*flags.GlobalFlags
-
+	Log            log.Logger
 	ClusterName    string
 	Project        string
 	ImportName     string
 	DisableUpgrade bool
-
-	Log log.Logger
 }
 
 func NewImportCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
@@ -92,7 +90,7 @@ vcluster import my-vcluster --cluster connected-cluster \
 // Run executes the functionality
 func (cmd *ImportCmd) Run(ctx context.Context, args []string, proClient client.Client) error {
 	// Get vClusterName from command argument
-	var vClusterName = args[0]
+	vClusterName := args[0]
 
 	managementClient, err := proClient.Management()
 	if err != nil {

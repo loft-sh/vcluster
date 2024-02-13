@@ -114,13 +114,12 @@ func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvk
 
 type importer struct {
 	translator.Translator
-	patcher       *patcher
-	gvk           schema.GroupVersionKind
-	config        *config.Import
 	virtualClient client.Client
-	name          string
-
+	patcher       *patcher
+	config        *config.Import
 	syncerOptions *syncertypes.Options
+	gvk           schema.GroupVersionKind
+	name          string
 }
 
 func (s *importer) Resource() client.Object {
@@ -204,7 +203,7 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 		return s.TranslateMetadata(ctx.Context, vObj), nil
 	}, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx.Context})
 	if err != nil {
-		//TODO: add eventRecorder?
+		// TODO: add eventRecorder?
 		// s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -443,18 +442,23 @@ type hostToVirtualImportNameResolver struct {
 func (r *hostToVirtualImportNameResolver) TranslateName(name string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
+
 func (r *hostToVirtualImportNameResolver) TranslateNameWithNamespace(name string, _ string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
+
 func (r *hostToVirtualImportNameResolver) TranslateLabelKey(key string) (string, error) {
 	return key, nil
 }
+
 func (r *hostToVirtualImportNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
 	return selector, nil
 }
+
 func (r *hostToVirtualImportNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
 	return selector, nil
 }
+
 func (r *hostToVirtualImportNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
 	vNamespace := (&corev1.Namespace{}).DeepCopyObject().(client.Object)
 	err := clienthelper.GetByIndex(r.ctx, r.virtualClient, vNamespace, constants.IndexByPhysicalName, namespace)

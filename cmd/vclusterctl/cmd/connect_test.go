@@ -33,10 +33,10 @@ func TestExchangeContextName(t *testing.T) {
 		CurrentContext: defaultContextName,
 	}
 	testTable := []struct {
-		desc           string
-		newContextName string
 		config         *clientcmdapi.Config
 		expectedConfig *clientcmdapi.Config
+		desc           string
+		newContextName string
 	}{
 		{
 			desc:           "KubeConfigContextName specified",

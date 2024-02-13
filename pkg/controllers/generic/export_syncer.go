@@ -235,7 +235,8 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		return f.TranslateMetadata(ctx.Context, vObj), nil
 	}, &virtualToHostNameResolver{
 		namespace:       vObj.GetNamespace(),
-		targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace())})
+		targetNamespace: translate.Default.PhysicalNamespace(vObj.GetNamespace()),
+	})
 	if err != nil {
 		// when invalid, auto delete and recreate to recover
 		if kerrors.IsInvalid(err) && f.config.ReplaceWhenInvalid {
@@ -316,7 +317,8 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 
 			return types.NamespacedName{
 				Namespace: translate.Default.PhysicalNamespace(namespace),
-				Name:      translate.Default.PhysicalName(name, ns)}
+				Name:      translate.Default.PhysicalName(name, ns),
+			}
 		}), nil
 	}
 
@@ -358,25 +360,30 @@ func validateExportConfig(config *config.Export) error {
 }
 
 type hostToVirtualNameResolver struct {
-	gvk  schema.GroupVersionKind
 	pObj client.Object
+	gvk  schema.GroupVersionKind
 }
 
 func (r *hostToVirtualNameResolver) TranslateName(string, *regexp.Regexp, string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
+
 func (r *hostToVirtualNameResolver) TranslateNameWithNamespace(string, string, *regexp.Regexp, string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
+
 func (r *hostToVirtualNameResolver) TranslateLabelKey(string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }
+
 func (r *hostToVirtualNameResolver) TranslateLabelExpressionsSelector(*metav1.LabelSelector) (*metav1.LabelSelector, error) {
 	return nil, fmt.Errorf("translation not supported from host to virtual object")
 }
+
 func (r *hostToVirtualNameResolver) TranslateLabelSelector(map[string]string) (map[string]string, error) {
 	return nil, fmt.Errorf("translation not supported from host to virtual object")
 }
+
 func (r *hostToVirtualNameResolver) TranslateNamespaceRef(string) (string, error) {
 	return "", fmt.Errorf("translation not supported from host to virtual object")
 }

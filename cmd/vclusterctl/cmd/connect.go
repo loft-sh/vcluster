@@ -48,35 +48,28 @@ import (
 // ConnectCmd holds the cmd flags
 type ConnectCmd struct {
 	*flags.GlobalFlags
-
-	KubeConfigContextName string
-	KubeConfig            string
-	PodName               string
-	UpdateCurrent         bool
-	Print                 bool
-	BackgroundProxy       bool
-	LocalPort             int
-	Address               string
-
-	ServiceAccount            string
+	rawConfig                 clientcmdapi.Config
+	kubeClientConfig          clientcmd.ClientConfig
+	Log                       log.Logger
+	errorChan                 chan error
+	interruptChan             chan struct{}
+	restConfig                *rest.Config
+	kubeClient                *kubernetes.Clientset
 	ServiceAccountClusterRole string
+	PodName                   string
+	Address                   string
+	KubeConfigContextName     string
+	Server                    string
+	KubeConfig                string
+	Project                   string
+	ServiceAccount            string
+	LocalPort                 int
 	ServiceAccountExpiration  int
-
-	Server   string
-	Insecure bool
-
-	Project string
-
-	Log log.Logger
-
-	kubeClientConfig clientcmd.ClientConfig
-	kubeClient       *kubernetes.Clientset
-	restConfig       *rest.Config
-	rawConfig        clientcmdapi.Config
-
-	portForwarding bool
-	interruptChan  chan struct{}
-	errorChan      chan error
+	Print                     bool
+	UpdateCurrent             bool
+	BackgroundProxy           bool
+	portForwarding            bool
+	Insecure                  bool
 }
 
 // NewConnectCmd creates a new command

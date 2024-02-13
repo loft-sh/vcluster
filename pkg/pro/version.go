@@ -48,7 +48,7 @@ func LatestCompatibleVersion(ctx context.Context) (string, error) {
 		return MinimumVersionTag, nil
 	}
 
-	eligibleReleases := lo.FilterMap(releases, func(release *github.RepositoryRelease, index int) (semver.Version, bool) {
+	eligibleReleases := lo.FilterMap(releases, func(release *github.RepositoryRelease, _ int) (semver.Version, bool) {
 		tagName := release.GetTagName()
 		if tagName == "" {
 			return semver.Version{}, false

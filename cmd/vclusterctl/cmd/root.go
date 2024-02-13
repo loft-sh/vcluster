@@ -24,7 +24,7 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Short:         "Welcome to vcluster!",
-		PersistentPreRun: func(cobraCmd *cobra.Command, args []string) {
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
 			if globalFlags.Silent {
 				log.SetLevel(logrus.FatalLevel)
 			} else if globalFlags.Debug {

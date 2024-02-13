@@ -10,7 +10,7 @@ func NewCpCommand() *cobra.Command {
 		Use:   "cp",
 		Short: "copy a file",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
+		RunE: func(_ *cobra.Command, args []string) (err error) {
 			return cp.Cp(args[0], args[1])
 		},
 	}

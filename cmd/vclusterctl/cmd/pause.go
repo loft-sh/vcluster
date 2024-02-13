@@ -28,12 +28,10 @@ import (
 // PauseCmd holds the cmd flags
 type PauseCmd struct {
 	*flags.GlobalFlags
-
+	Log           log.Logger
+	kubeClient    *kubernetes.Clientset
 	Project       string
 	ForceDuration int64
-
-	kubeClient *kubernetes.Clientset
-	Log        log.Logger
 }
 
 // NewPauseCmd creates a new command

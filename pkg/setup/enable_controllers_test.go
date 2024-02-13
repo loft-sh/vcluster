@@ -16,17 +16,17 @@ import (
 
 func TestEnableControllers(t *testing.T) {
 	testTable := []struct {
-		desc           string
 		optsModifier   func(*options.VirtualClusterOptions)
+		desc           string
+		errSubString   string
 		expectEnabled  []string
 		expectDisabled []string
 		expectError    bool
-		errSubString   string
 		pause          bool
 	}{
 		{
 			desc:           "default case",
-			optsModifier:   func(v *options.VirtualClusterOptions) {},
+			optsModifier:   func(_ *options.VirtualClusterOptions) {},
 			expectEnabled:  sets.List(constants.DefaultEnabledControllers),
 			expectDisabled: sets.List(constants.ExistingControllers.Difference(constants.DefaultEnabledControllers)),
 			expectError:    false,
@@ -165,10 +165,10 @@ var csiNodeV1 = metav1.APIResource{
 
 func TestDisableMissingAPIs(t *testing.T) {
 	tests := []struct {
-		name             string
 		apis             map[string][]metav1.APIResource
 		expectedNotFound sets.Set[string]
 		expectedFound    sets.Set[string]
+		name             string
 	}{
 		{
 			name:             "K8s 1.21 or lower",

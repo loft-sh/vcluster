@@ -45,21 +45,17 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-var (
-	CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
-)
+var CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
 
 // CreateCmd holds the login cmd flags
 type CreateCmd struct {
 	*flags.GlobalFlags
-	create.Options
-
-	log log.Logger
-
-	localCluster     bool
+	rawConfig        clientcmdapi.Config
+	log              log.Logger
 	kubeClientConfig clientcmd.ClientConfig
 	kubeClient       *kubernetes.Clientset
-	rawConfig        clientcmdapi.Config
+	create.Options
+	localCluster bool
 }
 
 // NewCreateCmd creates a new command
@@ -628,7 +624,7 @@ func (cmd *CreateCmd) getKubernetesVersion() (*version.Info, error) {
 	}
 
 	if kubernetesVersion == nil {
-		kubernetesVersion, err = cmd.kubeClient.DiscoveryClient.ServerVersion()
+		kubernetesVersion, err = cmd.kubeClient.ServerVersion()
 		if err != nil {
 			return nil, err
 		}

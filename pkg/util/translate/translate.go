@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -215,11 +216,42 @@ func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMap
 func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
 	var isClusterScoped, hasStatusSubresource bool
 
-	isClusterScoped, exists, err := KindExistsAndIsClusterScoped(vConfig, groupVersionKind)
+	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
 	if err != nil {
-		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "check virtual cluster kind")
-	} else if exists {
+		return isClusterScoped, hasStatusSubresource, err
+	}
+
+	if apiResource, err := KindExists(vConfig, groupVersionKind); err == nil {
+		// (ThomasK33): Check if the CRD has the status subresource
+		isClusterScoped = !apiResource.Namespaced
+
+		klog.FromContext(ctx).Info("CRD already exists in virtual cluster, checking for status subresource.", "apiResource", apiResource, "groupVersionKind", groupVersionKind)
+
+		crdName := apiResource.Name
+		if apiResource.Group != "" {
+			crdName += "." + apiResource.Group
+		} else if groupVersionKind.Group != "" {
+			crdName += "." + groupVersionKind.Group
+		}
+
+		crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+		if err != nil {
+			log.NewWithoutName().Infof("Error getting CRD %s in the virtual cluster: %v", crdName, err)
+			return isClusterScoped, hasStatusSubresource, nil
+		}
+
+		for _, version := range crdDefinition.Spec.Versions {
+			if version.Name == groupVersionKind.Version {
+				if version.Subresources != nil && version.Subresources.Status != nil {
+					hasStatusSubresource = true
+				}
+				break
+			}
+		}
+
 		return isClusterScoped, hasStatusSubresource, nil
+	} else if !kerrors.IsNotFound(err) {
+		return isClusterScoped, hasStatusSubresource, fmt.Errorf("check virtual cluster kind: %w", err)
 	}
 
 	// get resource from kind name in physical cluster
@@ -268,10 +300,6 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 	crdDefinition.Spec.Versions = newVersions
 
 	// apply the crd
-	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
-	if err != nil {
-		return isClusterScoped, hasStatusSubresource, err
-	}
 
 	log.NewWithoutName().Infof("Create crd %s in virtual cluster", groupVersionKind.String())
 	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crdDefinition, metav1.CreateOptions{})
@@ -325,32 +353,24 @@ func ConvertKindToResource(config *rest.Config, groupVersionKind schema.GroupVer
 	return schema.GroupVersionResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
 }
 
-// KindExistsAndIsClusterScoped checks if given CRDs exist in the given group.
-// Returns foundKinds, notFoundKinds, error
-func KindExistsAndIsClusterScoped(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
+// KindExists returns the api resource for a given CRD.
+// If the kind does not exist, it returns an error.
+func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (metav1.APIResource, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		return false, false, err
+		return metav1.APIResource{}, err
 	}
 
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersionKind.GroupVersion().String())
 	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return false, false, nil
-		}
-
-		return false, false, err
+		return metav1.APIResource{}, err
 	}
 
 	for _, r := range resources.APIResources {
 		if r.Kind == groupVersionKind.Kind {
-			if r.Namespaced {
-				return false, true, nil
-			}
-
-			return true, true, nil
+			return r, nil
 		}
 	}
 
-	return false, false, nil
+	return metav1.APIResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
 }

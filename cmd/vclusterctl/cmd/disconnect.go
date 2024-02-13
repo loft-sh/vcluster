@@ -43,7 +43,7 @@ vcluster disconnect
 #######################################################
 	`,
 		Args: cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return cmd.Run()
 		},
 	}

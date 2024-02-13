@@ -50,7 +50,7 @@ func wrapCompletionFuncWithTimeout(defaultDirective cobra.ShellCompDirective, co
 // newValidVClusterNameFunc returns a function that handles shell completion when the argument is vcluster_name
 // It takes into account the namespace if specified by the --namespace flag.
 func newValidVClusterNameFunc(globalFlags *flags.GlobalFlags) completionFunc {
-	fn := func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	fn := func(cmd *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		vclusters, _, err := find.ListVClusters(cmd.Context(), nil, globalFlags.Context, "", globalFlags.Namespace, "", log.Default.ErrorStreamOnly())
 		if err != nil {
 			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
@@ -66,7 +66,7 @@ func newValidVClusterNameFunc(globalFlags *flags.GlobalFlags) completionFunc {
 
 // newNamespaceCompletionFunc handles shell completions for the namespace flag
 func newNamespaceCompletionFunc(ctx context.Context) completionFunc {
-	fn := func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	fn := func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		restConfig, err := config.GetConfig()
 		if err != nil {
 			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
