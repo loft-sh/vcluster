@@ -45,22 +45,23 @@ func main() {
 	}
 
 	renderedBytes := &bytes.Buffer{}
-	buff := updateTableWithDistro("k3s", values.K3SVersionMap, issues)
-	renderedBytes.WriteString(fmt.Sprintf(templateString, "k3s", buff.String()))
-	renderedBytes.WriteString(createKnownIssue(issues.K3s))
-	buff.Reset()
-	buff = updateTableWithDistro("k8s", values.K8SAPIVersionMap, issues)
-	renderedBytes.WriteString(fmt.Sprintf(templateString, "k8s", buff.String()))
-	renderedBytes.WriteString(createKnownIssue(issues.K8s))
-	buff.Reset()
-	buff = updateTableWithDistro("k0s", values.K0SVersionMap, issues)
-	renderedBytes.WriteString(fmt.Sprintf(templateString, "k0s", buff.String()))
-	renderedBytes.WriteString(createKnownIssue(issues.K0s))
-	buff.Reset()
-	buff = updateTableWithDistro("eks", values.EKSAPIVersionMap, issues)
-	renderedBytes.WriteString(fmt.Sprintf(templateString, "eks", buff.String()))
-	renderedBytes.WriteString(createKnownIssue(issues.Eks))
-	buff.Reset()
+	for _, v := range []string{"k3s", "k8s", "k0s", "eks"} {
+		var versionMap map[string]string
+		switch v {
+		case "k3s":
+			versionMap = values.K3SVersionMap
+		case "k8s":
+			versionMap = values.K8SAPIVersionMap
+		case "k0s":
+			versionMap = values.K0SVersionMap
+		case "eks":
+			versionMap = values.EKSAPIVersionMap
+		}
+		buff := updateTableWithDistro(v, versionMap, issues)
+		renderedBytes.WriteString(fmt.Sprintf(templateString, v, buff.String()))
+		renderedBytes.WriteString(createKnownIssue(issues.K3s))
+		buff.Reset()
+	}
 
 	switch os.Args[1] {
 	case "generate":
