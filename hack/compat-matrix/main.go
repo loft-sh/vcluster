@@ -15,7 +15,7 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-const header = ` ---
+const header = `---
 title: Compatibility Matrix
 sidebar_label: Compatibility Matrix
 ---
