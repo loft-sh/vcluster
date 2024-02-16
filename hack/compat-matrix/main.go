@@ -15,6 +15,13 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+const header = ` ---
+title: Compatibility Matrix
+sidebar_label: Compatibility Matrix
+---
+
+`
+
 //go:embed matrix-template.tmpl
 var templateString string
 
@@ -45,6 +52,7 @@ func main() {
 	}
 
 	renderedBytes := &bytes.Buffer{}
+	renderedBytes.WriteString(header)
 	for _, v := range []string{"k3s", "k8s", "k0s", "eks"} {
 		var versionMap map[string]string
 		switch v {
