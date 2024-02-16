@@ -29,18 +29,18 @@ type KnownIssues struct {
 
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Println("usage: compat-matrix generate/validate outputfile")
+		os.Stderr.WriteString("usage: compat-matrix generate/validate outputfile")
 		os.Exit(1)
 	}
 	knowIssuesBytes, err := os.ReadFile("known_issues.yaml")
 	if err != nil {
-		fmt.Println(err)
+		os.Stderr.WriteString(err.Error())
 		os.Exit(1)
 	}
 	issues := KnownIssues{}
 	err = yaml.UnmarshalStrict(knowIssuesBytes, &issues)
 	if err != nil {
-		fmt.Println(err)
+		os.Stderr.WriteString(err.Error())
 		os.Exit(1)
 	}
 
@@ -64,7 +64,11 @@ func main() {
 
 	switch os.Args[1] {
 	case "generate":
-		os.WriteFile(os.Args[2], renderedBytes.Bytes(), 0644)
+		err = os.WriteFile(os.Args[2], renderedBytes.Bytes(), 0644)
+		if err != nil {
+			os.Stderr.WriteString(err.Error())
+			os.Exit(1)
+		}
 	case "validate":
 		currentFile, err := os.ReadFile(os.Args[2])
 		if err != nil {
@@ -72,7 +76,7 @@ func main() {
 			os.Exit(1)
 		}
 		if !slices.Equal(currentFile, renderedBytes.Bytes()) {
-			fmt.Println("compatibility matrix is not up to date, please update it by running `just validate-compat-matrix`")
+			os.Stderr.WriteString("compatibility matrix is not up to date, please update it by running `just validate-compat-matrix`")
 			os.Exit(1)
 		}
 	}
@@ -80,18 +84,18 @@ func main() {
 
 func updateTableWithDistro(distroName string, versionMap map[string]string, knownIssues KnownIssues) *bytes.Buffer {
 	hostVersions := maps.Keys(versionMap)
-	vclusterApis := maps.Values(versionMap)
+	vclusterAPIs := maps.Values(versionMap)
 	slices.Sort(hostVersions)
 	slices.Reverse(hostVersions)
-	slices.Sort(vclusterApis)
-	slices.Reverse(vclusterApis)
+	slices.Sort(vclusterAPIs)
+	slices.Reverse(vclusterAPIs)
 
 	buff := &bytes.Buffer{}
 	table := tablewriter.NewWriter(buff)
-	for i, v := range vclusterApis {
-		vclusterApis[i] = removeRegistry(v)
+	for i, v := range vclusterAPIs {
+		vclusterAPIs[i] = removeRegistry(v)
 	}
-	table.SetHeader(append([]string{"distro version\nhost version"}, vclusterApis...))
+	table.SetHeader(append([]string{"distro version\nhost version"}, vclusterAPIs...))
 
 	var issues map[string]issueList
 	switch distroName {
@@ -116,7 +120,7 @@ func updateTableWithDistro(distroName string, versionMap map[string]string, know
 	}
 
 	for i, v := range hostVersions {
-		table.Append(createLine(v, issues[v], vclusterApis, i))
+		table.Append(createLine(v, issues[v], vclusterAPIs, i))
 	}
 
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
@@ -149,10 +153,10 @@ func createKnownIssue(issues map[string]issueList) string {
 	return buff.String()
 }
 
-func createLine(version string, list issueList, vclusterApiVersion []string, lineNumber int) []string {
-	line := make([]string, 1, len(vclusterApiVersion)+1)
+func createLine(version string, list issueList, vclusterAPIVersion []string, lineNumber int) []string {
+	line := make([]string, 1, len(vclusterAPIVersion)+1)
 	line[0] = version
-	for i, v := range vclusterApiVersion {
+	for i, v := range vclusterAPIVersion {
 		char := ""
 		if list[v] != "" {
 			char = "!"
@@ -166,10 +170,10 @@ func createLine(version string, list issueList, vclusterApiVersion []string, lin
 	return line
 }
 
-func removeRegistry(vclusterApiVersion string) string {
-	lastColon := strings.LastIndex(vclusterApiVersion, ":")
+func removeRegistry(vclusterAPIVersion string) string {
+	lastColon := strings.LastIndex(vclusterAPIVersion, ":")
 	if lastColon == -1 {
-		return vclusterApiVersion
+		return vclusterAPIVersion
 	}
-	return vclusterApiVersion[lastColon+1:]
+	return vclusterAPIVersion[lastColon+1:]
 }
