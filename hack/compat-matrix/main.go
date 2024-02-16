@@ -96,7 +96,7 @@ func updateTableWithDistro(distroName string, versionMap map[string]string, know
 	for i, v := range vclusterAPIs {
 		vclusterAPIs[i] = removeRegistry(v)
 	}
-	table.SetHeader(append([]string{"distro version\nhost version"}, vclusterAPIs...))
+	table.SetHeader(append([]string{""}, vclusterAPIs...))
 
 	var issues map[string]issueList
 	switch distroName {
