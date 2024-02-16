@@ -24,4 +24,4 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
       - name: run compat
-        run: just validate-compat-matrix
+        run: go run hack/compat-matrix/main.go validate docs/pages/deploying-vclusters/compat-matrix.mdx
