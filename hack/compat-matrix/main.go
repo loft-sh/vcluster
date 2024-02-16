@@ -160,11 +160,11 @@ func createLine(version string, list issueList, vclusterAPIVersion []string, lin
 	for i, v := range vclusterAPIVersion {
 		char := ""
 		if list[v] != "" {
-			char = "!"
+			char = ":warning"
 		} else if i == lineNumber {
-			char = "recommended"
+			char = ":white_check_mark:"
 		} else {
-			char = "+"
+			char = ":ok:"
 		}
 		line = append(line, char)
 	}
