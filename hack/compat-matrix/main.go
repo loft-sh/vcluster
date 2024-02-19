@@ -66,7 +66,7 @@ func main() {
 			versionMap = values.EKSAPIVersionMap
 		}
 		buff := updateTableWithDistro(v, versionMap, issues)
-		renderedBytes.WriteString(fmt.Sprintf(templateString, v, buff.String()))
+		renderedBytes.WriteString(fmt.Sprintf(templateString, v, v, buff.String()))
 		renderedBytes.WriteString(createKnownIssue(issues.K3s))
 		buff.Reset()
 	}
