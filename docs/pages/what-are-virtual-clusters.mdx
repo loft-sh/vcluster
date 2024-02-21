@@ -46,3 +46,30 @@ Finally, virtual clusters can be configured independently of the physical cluste
     <figcaption>vCluster - Comparison</figcaption>
 </figure>
 
+## Benefits of Virtual Clusters
+
+Virtual clusters provide immense benefits for large-scale Kubernetes deployments and multi-tenancy:
+- **Full Admin Access**:
+    - Deploy operators with CRDs, create namespaces and other cluster scoped resources that's usually not possible in namespaces.
+    - Taint and label nodes without any influence on the host cluster.
+    - Reuse and share services across multiple virtual clusters with ease.
+- **Cost Savings:**
+    - You can create lightweight vClusters that share the underlying host cluster instead of creating separate "real" clusters.
+    - vClusters are just deployments, so they can be easily auto-scaled, purged, snapshotted and moved.
+- **Low Overhead:**
+    - vClusters are super lightweight and only reside in a single namespace.
+    - vClusters run with K3s, a super low-footprint K8s distribution, but they can also run with "real" K8s.
+    - The control plane of a vCluster runs inside a single pod (+1 CoreDNS pod for vCluster-internal DNS capabilities).
+- **<u>No</u> Network Degradation:**
+    - Since the pods and services inside a vCluster are actually being synchronized down to the host cluster\*, they are effectively using the underlying cluster's pod and service networking and are therefore not a bit slower than any other pods in the underlying host cluster.
+- **API Server Compatibility:**
+    - vClusters run with the K3s API server which is certified K8s distro which ensures 100% Kubernetes API server compliance.
+    - vCluster have their own API server, controller-manager and a separate, isolated data store (sqlite for easiest option but this is configurable, you can also deploy a full-blown etcd if needed).
+- **Security:**
+    - vCluster users need much fewer permissions in the underlying host cluster / host namespace.
+    - vCluster users can manage their own CRDs independently and can even mess with RBAC inside their own vClusters.
+    - vClusters provide an extra layer of isolation because each vCluster has its own API server and control plane (much fewer requests to the underlying cluster that need to be secured\*).
+- **Scalability:**
+    - Less pressure / fewer requests on the K8s API server in large-scale cluster\*
+    - Higher scalability of cluster via cluster sharding / API server sharding into smaller vClusters
+    - No need for cluster admins to worry about conflicting CRDs or CRD versions with growing number of users and deployments
