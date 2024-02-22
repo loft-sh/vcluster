@@ -13,3 +13,9 @@ mapServices:
 ```
 
 With this configuration, vCluster will manage a service called `my-virtual-service` inside the virtual cluster that points to the host service `my-host-service` in namespace `my-host-namespace`. So pods inside the vCluster will be able to access the host service via e.g. `curl http://my-virtual-service.my-virtual-namespace`.
+
+To apply this change to an existing vcluster instance, simply run the following command:
+
+```
+vcluster create <CLUSTER_NAME> -f values.yaml --upgrade
+```
