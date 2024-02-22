@@ -3,7 +3,7 @@ title: Accessing vCluster
 sidebar_label: Kube-Context
 ---
 
-There are multiple ways how you can access a vCluster with an external application like `kubectl`. 
+There are multiple ways how you can access a vCluster with an external application like `kubectl`.
 
 ## Using the vCluster CLI
 
@@ -159,4 +159,7 @@ Wait until the vCluster has started and you can retrieve the kube config via:
 kubectl get secret vc-my-vcluster -n my-vcluster --template={{.data.config}} | base64 -D
 ```
 
-[![Accessing the vCluster KubeConfig](https://img.youtube.com/vi/zI-ekVfHufI/maxresdefault.jpg)](https://youtu.be/zI-ekVfHufI)
+<div class="videoWrapper">
+	<iframe width="560" height="315" src="https://www.youtube.com/embed/zI-ekVfHufI" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</div>
+
