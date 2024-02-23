@@ -1,0 +1,24 @@
+
+import PartialSchedulinggatesreference from "./schedulingGates_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+######## `schedulingGates` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-schedulingGates}
+
+SchedulingGates is an opaque list of values that if specified will block scheduling the pod.
+If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the
+scheduler will not attempt to schedule the pod.
+
+SchedulingGates can only be set at pod creation time, and be removed only afterwards.
+
+This is a beta feature enabled by the PodSchedulingReadiness feature gate.
+
+
+</summary>
+
+<PartialSchedulinggatesreference />
+
+
+</details>

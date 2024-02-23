@@ -1,0 +1,54 @@
+
+import PartialGateway from "./scaleIO/gateway.mdx"
+import PartialSystem from "./scaleIO/system.mdx"
+import PartialSecretrefreference from "./scaleIO/secretRef_reference.mdx"
+import PartialSslenabled from "./scaleIO/sslEnabled.mdx"
+import PartialProtectiondomain from "./scaleIO/protectionDomain.mdx"
+import PartialStoragepool from "./scaleIO/storagePool.mdx"
+import PartialStoragemode from "./scaleIO/storageMode.mdx"
+import PartialVolumename from "./scaleIO/volumeName.mdx"
+import PartialFstype from "./scaleIO/fsType.mdx"
+import PartialReadonly from "./scaleIO/readOnly.mdx"
+
+<PartialGateway />
+
+
+<PartialSystem />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+########## `secretRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-scaleIO-secretRef}
+
+secretRef references to the secret for ScaleIO user and other
+sensitive information. If this is not provided, Login operation will fail.
+
+</summary>
+
+<PartialSecretrefreference />
+
+
+</details>
+
+
+<PartialSslenabled />
+
+
+<PartialProtectiondomain />
+
+
+<PartialStoragepool />
+
+
+<PartialStoragemode />
+
+
+<PartialVolumename />
+
+
+<PartialFstype />
+
+
+<PartialReadonly />

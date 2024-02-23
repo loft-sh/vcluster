@@ -253,7 +253,8 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "config-reference",
+      className: 'code-style',
+      id: "configuration/reference",
     },
     {
       type: "category",

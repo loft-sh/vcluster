@@ -1,0 +1,21 @@
+
+import PartialSelinuxoptionsreference from "./seLinuxOptions_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+###### `seLinuxOptions` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k3s-securityContext-seLinuxOptions}
+
+The SELinux context to be applied to the container.
+If unspecified, the container runtime will allocate a random SELinux context for each
+container.  May also be set in PodSecurityContext.  If set in both SecurityContext and
+PodSecurityContext, the value specified in SecurityContext takes precedence.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+<PartialSelinuxoptionsreference />
+
+
+</details>

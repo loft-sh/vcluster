@@ -1,0 +1,19 @@
+
+import PartialSysctlsreference from "./sysctls_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+###### `sysctls` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-advanced-security-podSecurityContext-sysctls}
+
+Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported
+sysctls (by the container runtime) might fail to launch.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+<PartialSysctlsreference />
+
+
+</details>

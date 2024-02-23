@@ -6,7 +6,7 @@ import (
 
 const Version = "v1beta1"
 
-type Config struct {
+type SyncPatchesConfig struct {
 	// Version is the config version
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 

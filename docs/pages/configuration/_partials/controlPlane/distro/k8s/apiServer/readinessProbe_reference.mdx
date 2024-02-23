@@ -1,0 +1,92 @@
+
+import PartialExecreference from "./readinessProbe/exec_reference.mdx"
+import PartialHttpgetreference from "./readinessProbe/httpGet_reference.mdx"
+import PartialTcpsocketreference from "./readinessProbe/tcpSocket_reference.mdx"
+import PartialGrpcreference from "./readinessProbe/grpc_reference.mdx"
+import PartialInitialdelayseconds from "./readinessProbe/initialDelaySeconds.mdx"
+import PartialTimeoutseconds from "./readinessProbe/timeoutSeconds.mdx"
+import PartialPeriodseconds from "./readinessProbe/periodSeconds.mdx"
+import PartialSuccessthreshold from "./readinessProbe/successThreshold.mdx"
+import PartialFailurethreshold from "./readinessProbe/failureThreshold.mdx"
+import PartialTerminationgraceperiodseconds from "./readinessProbe/terminationGracePeriodSeconds.mdx"
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+####### `exec` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-apiServer-readinessProbe-exec}
+
+Exec specifies the action to take.
+
+</summary>
+
+<PartialExecreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+####### `httpGet` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-apiServer-readinessProbe-httpGet}
+
+HTTPGet specifies the http request to perform.
+
+</summary>
+
+<PartialHttpgetreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+####### `tcpSocket` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-apiServer-readinessProbe-tcpSocket}
+
+TCPSocket specifies an action involving a TCP port.
+
+</summary>
+
+<PartialTcpsocketreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+####### `grpc` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-apiServer-readinessProbe-grpc}
+
+GRPC specifies an action involving a GRPC port.
+
+</summary>
+
+<PartialGrpcreference />
+
+
+</details>
+
+
+<PartialInitialdelayseconds />
+
+
+<PartialTimeoutseconds />
+
+
+<PartialPeriodseconds />
+
+
+<PartialSuccessthreshold />
+
+
+<PartialFailurethreshold />
+
+
+<PartialTerminationgraceperiodseconds />

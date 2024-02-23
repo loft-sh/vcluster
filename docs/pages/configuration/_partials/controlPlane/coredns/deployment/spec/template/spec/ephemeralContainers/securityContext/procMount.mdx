@@ -1,0 +1,17 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+########## `procMount` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-securityContext-procMount}
+
+procMount denotes the type of proc mount to use for the containers.
+The default is DefaultProcMount which uses the container runtime defaults for
+readonly paths and masked paths.
+This requires the ProcMountType feature flag to be enabled.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+
+
+</details>

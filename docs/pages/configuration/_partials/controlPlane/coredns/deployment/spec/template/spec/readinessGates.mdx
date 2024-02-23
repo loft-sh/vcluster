@@ -1,0 +1,20 @@
+
+import PartialReadinessgatesreference from "./readinessGates_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+######## `readinessGates` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-readinessGates}
+
+If specified, all readiness gates will be evaluated for pod readiness.
+A pod is ready when all its containers are ready AND
+all conditions specified in the readiness gates have status equal to "True"
+More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates
+
+</summary>
+
+<PartialReadinessgatesreference />
+
+
+</details>

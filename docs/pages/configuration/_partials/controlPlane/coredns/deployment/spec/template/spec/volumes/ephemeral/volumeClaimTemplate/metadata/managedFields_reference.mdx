@@ -1,0 +1,58 @@
+
+import PartialManager from "./managedFields/manager.mdx"
+import PartialOperation from "./managedFields/operation.mdx"
+import PartialApiversion from "./managedFields/apiVersion.mdx"
+import PartialTimereference from "./managedFields/time_reference.mdx"
+import PartialFieldstype from "./managedFields/fieldsType.mdx"
+import PartialFieldsv1reference from "./managedFields/fieldsV1_reference.mdx"
+import PartialSubresource from "./managedFields/subresource.mdx"
+
+<PartialManager />
+
+
+<PartialOperation />
+
+
+<PartialApiversion />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+############# `time` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral-volumeClaimTemplate-metadata-managedFields-time}
+
+Time is the timestamp of when the ManagedFields entry was added. The
+timestamp will also be updated if a field is added, the manager
+changes any of the owned fields value or removes a field. The
+timestamp does not update when a field is removed from the entry
+because another manager took it over.
+
+</summary>
+
+<PartialTimereference />
+
+
+</details>
+
+
+<PartialFieldstype />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+############# `fieldsV1` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral-volumeClaimTemplate-metadata-managedFields-fieldsV1}
+
+FieldsV1 holds the first JSON version format as described in the "FieldsV1" type.
+
+</summary>
+
+<PartialFieldsv1reference />
+
+
+</details>
+
+
+<PartialSubresource />

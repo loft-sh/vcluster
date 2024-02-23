@@ -1,0 +1,184 @@
+
+import PartialName from "./mutatingWebhooks/name.mdx"
+import PartialClientconfigreference from "./mutatingWebhooks/clientConfig_reference.mdx"
+import PartialRulesreference from "./mutatingWebhooks/rules_reference.mdx"
+import PartialFailurepolicy from "./mutatingWebhooks/failurePolicy.mdx"
+import PartialMatchpolicy from "./mutatingWebhooks/matchPolicy.mdx"
+import PartialNamespaceselectorreference from "./mutatingWebhooks/namespaceSelector_reference.mdx"
+import PartialObjectselectorreference from "./mutatingWebhooks/objectSelector_reference.mdx"
+import PartialSideeffects from "./mutatingWebhooks/sideEffects.mdx"
+import PartialTimeoutseconds from "./mutatingWebhooks/timeoutSeconds.mdx"
+import PartialAdmissionreviewversions from "./mutatingWebhooks/admissionReviewVersions.mdx"
+import PartialReinvocationpolicy from "./mutatingWebhooks/reinvocationPolicy.mdx"
+import PartialMatchconditionsreference from "./mutatingWebhooks/matchConditions_reference.mdx"
+
+<PartialName />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `clientConfig` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-mutatingWebhooks-clientConfig}
+
+ClientConfig defines how to communicate with the hook.
+Required
+
+</summary>
+
+<PartialClientconfigreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `rules` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-mutatingWebhooks-rules}
+
+Rules describes what operations on what resources/subresources the webhook cares about.
+The webhook cares about an operation if it matches _any_ Rule.
+However, in order to prevent ValidatingAdmissionWebhooks and MutatingAdmissionWebhooks
+from putting the cluster in a state which cannot be recovered from without completely
+disabling the plugin, ValidatingAdmissionWebhooks and MutatingAdmissionWebhooks are never called
+on admission requests for ValidatingWebhookConfiguration and MutatingWebhookConfiguration objects.
+
+</summary>
+
+<PartialRulesreference />
+
+
+</details>
+
+
+<PartialFailurepolicy />
+
+
+<PartialMatchpolicy />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `namespaceSelector` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-mutatingWebhooks-namespaceSelector}
+
+NamespaceSelector decides whether to run the webhook on an object based
+on whether the namespace for that object matches the selector. If the
+object itself is a namespace, the matching is performed on
+object.metadata.labels. If the object is another cluster scoped resource,
+it never skips the webhook.
+
+For example, to run the webhook on any objects whose namespace is not
+associated with "runlevel" of "0" or "1";  you will set the selector as
+follows:
+"namespaceSelector": {
+  "matchExpressions": [
+    {
+      "key": "runlevel",
+      "operator": "NotIn",
+      "values": [
+        "0",
+        "1"
+      ]
+    }
+  ]
+}
+
+If instead you want to only run the webhook on any objects whose
+namespace is associated with the "environment" of "prod" or "staging";
+you will set the selector as follows:
+"namespaceSelector": {
+  "matchExpressions": [
+    {
+      "key": "environment",
+      "operator": "In",
+      "values": [
+        "prod",
+        "staging"
+      ]
+    }
+  ]
+}
+
+See
+https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+for more examples of label selectors.
+
+Default to the empty LabelSelector, which matches everything.
+
+</summary>
+
+<PartialNamespaceselectorreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `objectSelector` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-mutatingWebhooks-objectSelector}
+
+ObjectSelector decides whether to run the webhook based on if the
+object has matching labels. objectSelector is evaluated against both
+the oldObject and newObject that would be sent to the webhook, and
+is considered to match if either object matches the selector. A null
+object (oldObject in the case of create, or newObject in the case of
+delete) or an object that cannot have labels (like a
+DeploymentRollback or a PodProxyOptions object) is not considered to
+match.
+Use the object selector only if the webhook is opt-in, because end
+users may skip the admission webhook by setting the labels.
+Default to the empty LabelSelector, which matches everything.
+
+</summary>
+
+<PartialObjectselectorreference />
+
+
+</details>
+
+
+<PartialSideeffects />
+
+
+<PartialTimeoutseconds />
+
+
+<PartialAdmissionreviewversions />
+
+
+<PartialReinvocationpolicy />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `matchConditions` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-mutatingWebhooks-matchConditions}
+
+MatchConditions is a list of conditions that must be met for a request to be sent to this
+webhook. Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.
+
+The exact matching logic is (in order):
+  1. If ANY matchCondition evaluates to FALSE, the webhook is skipped.
+  2. If ALL matchConditions evaluate to TRUE, the webhook is called.
+  3. If any matchCondition evaluates to an error (but none are FALSE):
+     - If failurePolicy=Fail, reject the request
+     - If failurePolicy=Ignore, the error is ignored and the webhook is skipped
+
+This is a beta feature and managed by the AdmissionWebhookMatchConditions feature gate.
+
+
+</summary>
+
+<PartialMatchconditionsreference />
+
+
+</details>

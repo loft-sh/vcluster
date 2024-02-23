@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateImporters(ctx *options.ControllerContext, cfg *config.Config) error {
+func CreateImporters(ctx *options.ControllerContext, cfg *config.SyncPatchesConfig) error {
 	if len(cfg.Imports) == 0 {
 		return nil
 	}

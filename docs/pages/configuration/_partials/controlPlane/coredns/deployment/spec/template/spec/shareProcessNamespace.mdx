@@ -1,0 +1,17 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+######## `shareProcessNamespace` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">boolean</span> <span className="config-field-default">false</span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-shareProcessNamespace}
+
+Share a single process namespace between all of the containers in a pod.
+When this is set containers will be able to view and signal processes from other containers
+in the same pod, and the first process in each container will not be assigned PID 1.
+HostPID and ShareProcessNamespace cannot both be set.
+Optional: Default to false.
+
+</summary>
+
+
+
+</details>

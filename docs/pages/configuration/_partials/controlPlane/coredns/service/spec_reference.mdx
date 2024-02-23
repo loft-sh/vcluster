@@ -1,0 +1,103 @@
+
+import PartialPortsreference from "./spec/ports_reference.mdx"
+import PartialSelector from "./spec/selector.mdx"
+import PartialClusterip from "./spec/clusterIP.mdx"
+import PartialClusterips from "./spec/clusterIPs.mdx"
+import PartialType from "./spec/type.mdx"
+import PartialExternalips from "./spec/externalIPs.mdx"
+import PartialSessionaffinity from "./spec/sessionAffinity.mdx"
+import PartialLoadbalancerip from "./spec/loadBalancerIP.mdx"
+import PartialLoadbalancersourceranges from "./spec/loadBalancerSourceRanges.mdx"
+import PartialExternalname from "./spec/externalName.mdx"
+import PartialExternaltrafficpolicy from "./spec/externalTrafficPolicy.mdx"
+import PartialHealthchecknodeport from "./spec/healthCheckNodePort.mdx"
+import PartialPublishnotreadyaddresses from "./spec/publishNotReadyAddresses.mdx"
+import PartialSessionaffinityconfigreference from "./spec/sessionAffinityConfig_reference.mdx"
+import PartialIpfamilies from "./spec/ipFamilies.mdx"
+import PartialIpfamilypolicy from "./spec/ipFamilyPolicy.mdx"
+import PartialAllocateloadbalancernodeports from "./spec/allocateLoadBalancerNodePorts.mdx"
+import PartialLoadbalancerclass from "./spec/loadBalancerClass.mdx"
+import PartialInternaltrafficpolicy from "./spec/internalTrafficPolicy.mdx"
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `ports` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-service-spec-ports}
+
+The list of ports that are exposed by this service.
+More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
+
+</summary>
+
+<PartialPortsreference />
+
+
+</details>
+
+
+<PartialSelector />
+
+
+<PartialClusterip />
+
+
+<PartialClusterips />
+
+
+<PartialType />
+
+
+<PartialExternalips />
+
+
+<PartialSessionaffinity />
+
+
+<PartialLoadbalancerip />
+
+
+<PartialLoadbalancersourceranges />
+
+
+<PartialExternalname />
+
+
+<PartialExternaltrafficpolicy />
+
+
+<PartialHealthchecknodeport />
+
+
+<PartialPublishnotreadyaddresses />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `sessionAffinityConfig` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-service-spec-sessionAffinityConfig}
+
+sessionAffinityConfig contains the configurations of session affinity.
+
+</summary>
+
+<PartialSessionaffinityconfigreference />
+
+
+</details>
+
+
+<PartialIpfamilies />
+
+
+<PartialIpfamilypolicy />
+
+
+<PartialAllocateloadbalancernodeports />
+
+
+<PartialLoadbalancerclass />
+
+
+<PartialInternaltrafficpolicy />

@@ -1,0 +1,19 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+###### `stdinOnce` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">boolean</span> <span className="config-field-default">false</span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-stdinOnce}
+
+Whether the container runtime should close the stdin channel after it has been opened by
+a single attach. When stdin is true the stdin stream will remain open across multiple attach
+sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the
+first client attaches to stdin, and then remains open and accepts data until the client disconnects,
+at which time stdin is closed and remains closed until the container is restarted. If this
+flag is false, a container processes that reads from stdin will never receive an EOF.
+Default is false
+
+</summary>
+
+
+
+</details>

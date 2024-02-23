@@ -1,0 +1,38 @@
+
+import PartialMonitors from "./cephfs/monitors.mdx"
+import PartialPath from "./cephfs/path.mdx"
+import PartialUser from "./cephfs/user.mdx"
+import PartialSecretfile from "./cephfs/secretFile.mdx"
+import PartialSecretrefreference from "./cephfs/secretRef_reference.mdx"
+import PartialReadonly from "./cephfs/readOnly.mdx"
+
+<PartialMonitors />
+
+
+<PartialPath />
+
+
+<PartialUser />
+
+
+<PartialSecretfile />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+########## `secretRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-cephfs-secretRef}
+
+secretRef is Optional: SecretRef is reference to the authentication secret for User, default is empty.
+More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it
+
+</summary>
+
+<PartialSecretrefreference />
+
+
+</details>
+
+
+<PartialReadonly />

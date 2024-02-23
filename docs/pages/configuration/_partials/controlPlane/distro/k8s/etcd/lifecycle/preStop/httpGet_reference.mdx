@@ -1,0 +1,48 @@
+
+import PartialPath from "./httpGet/path.mdx"
+import PartialPortreference from "./httpGet/port_reference.mdx"
+import PartialHost from "./httpGet/host.mdx"
+import PartialScheme from "./httpGet/scheme.mdx"
+import PartialHttpheadersreference from "./httpGet/httpHeaders_reference.mdx"
+
+<PartialPath />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `port` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-lifecycle-preStop-httpGet-port}
+
+Name or number of the port to access on the container.
+Number must be in the range 1 to 65535.
+Name must be an IANA_SVC_NAME.
+
+</summary>
+
+<PartialPortreference />
+
+
+</details>
+
+
+<PartialHost />
+
+
+<PartialScheme />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `httpHeaders` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-lifecycle-preStop-httpGet-httpHeaders}
+
+Custom headers to set in the request. HTTP allows repeated headers.
+
+</summary>
+
+<PartialHttpheadersreference />
+
+
+</details>

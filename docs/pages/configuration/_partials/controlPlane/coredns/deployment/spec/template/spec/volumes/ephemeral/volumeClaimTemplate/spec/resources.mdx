@@ -1,0 +1,21 @@
+
+import PartialResourcesreference from "./resources_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+############ `resources` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral-volumeClaimTemplate-spec-resources}
+
+resources represents the minimum resources the volume should have.
+If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+that are lower than previous value but must still be higher than capacity recorded in the
+status field of the claim.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
+
+</summary>
+
+<PartialResourcesreference />
+
+
+</details>

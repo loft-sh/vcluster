@@ -1,0 +1,92 @@
+
+import PartialExecreference from "./livenessProbe/exec_reference.mdx"
+import PartialHttpgetreference from "./livenessProbe/httpGet_reference.mdx"
+import PartialTcpsocketreference from "./livenessProbe/tcpSocket_reference.mdx"
+import PartialGrpcreference from "./livenessProbe/grpc_reference.mdx"
+import PartialInitialdelayseconds from "./livenessProbe/initialDelaySeconds.mdx"
+import PartialTimeoutseconds from "./livenessProbe/timeoutSeconds.mdx"
+import PartialPeriodseconds from "./livenessProbe/periodSeconds.mdx"
+import PartialSuccessthreshold from "./livenessProbe/successThreshold.mdx"
+import PartialFailurethreshold from "./livenessProbe/failureThreshold.mdx"
+import PartialTerminationgraceperiodseconds from "./livenessProbe/terminationGracePeriodSeconds.mdx"
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `exec` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k0s-livenessProbe-exec}
+
+Exec specifies the action to take.
+
+</summary>
+
+<PartialExecreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `httpGet` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k0s-livenessProbe-httpGet}
+
+HTTPGet specifies the http request to perform.
+
+</summary>
+
+<PartialHttpgetreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `tcpSocket` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k0s-livenessProbe-tcpSocket}
+
+TCPSocket specifies an action involving a TCP port.
+
+</summary>
+
+<PartialTcpsocketreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `grpc` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k0s-livenessProbe-grpc}
+
+GRPC specifies an action involving a GRPC port.
+
+</summary>
+
+<PartialGrpcreference />
+
+
+</details>
+
+
+<PartialInitialdelayseconds />
+
+
+<PartialTimeoutseconds />
+
+
+<PartialPeriodseconds />
+
+
+<PartialSuccessthreshold />
+
+
+<PartialFailurethreshold />
+
+
+<PartialTerminationgraceperiodseconds />

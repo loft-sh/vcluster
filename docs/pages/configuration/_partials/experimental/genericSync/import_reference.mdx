@@ -1,0 +1,52 @@
+
+import PartialApiversion from "./import/apiVersion.mdx"
+import PartialKind from "./import/kind.mdx"
+import PartialOptional from "./import/optional.mdx"
+import PartialReplaceonconflict from "./import/replaceOnConflict.mdx"
+import PartialPatchesreference from "./import/patches_reference.mdx"
+import PartialReversepatchesreference from "./import/reversePatches_reference.mdx"
+
+<PartialApiversion />
+
+
+<PartialKind />
+
+
+<PartialOptional />
+
+
+<PartialReplaceonconflict />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `patches` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#experimental-genericSync-import-patches}
+
+Patches are the patches to apply on the virtual cluster objects
+when syncing them from the host cluster
+
+</summary>
+
+<PartialPatchesreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `reversePatches` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#experimental-genericSync-import-reversePatches}
+
+ReversePatches are the patches to apply to host cluster objects
+after it has been synced to the virtual cluster
+
+</summary>
+
+<PartialReversepatchesreference />
+
+
+</details>

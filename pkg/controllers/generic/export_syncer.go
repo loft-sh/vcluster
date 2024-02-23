@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateExporters(ctx *options.ControllerContext, exporterConfig *config.Config) error {
+func CreateExporters(ctx *options.ControllerContext, exporterConfig *config.SyncPatchesConfig) error {
 	if len(exporterConfig.Exports) == 0 {
 		return nil
 	}

@@ -1,0 +1,21 @@
+
+import PartialNamespaceselectorreference from "./namespaceSelector_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+######## `namespaceSelector` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-advanced-scheduling-affinity-podAntiAffinity-requiredDuringSchedulingIgnoredDuringExecution-namespaceSelector}
+
+A label query over the set of namespaces that the term applies to.
+The term is applied to the union of the namespaces selected by this field
+and the ones listed in the namespaces field.
+null selector and null or empty namespaces list means "this pod's namespace".
+An empty selector ({}) matches all namespaces.
+
+</summary>
+
+<PartialNamespaceselectorreference />
+
+
+</details>

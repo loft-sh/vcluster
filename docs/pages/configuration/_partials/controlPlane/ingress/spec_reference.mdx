@@ -1,0 +1,63 @@
+
+import PartialIngressclassname from "./spec/ingressClassName.mdx"
+import PartialDefaultbackendreference from "./spec/defaultBackend_reference.mdx"
+import PartialTlsreference from "./spec/tls_reference.mdx"
+import PartialRulesreference from "./spec/rules_reference.mdx"
+
+<PartialIngressclassname />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `defaultBackend` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-ingress-spec-defaultBackend}
+
+defaultBackend is the backend that should handle requests that don't
+match any rule. If Rules are not specified, DefaultBackend must be specified.
+If DefaultBackend is not set, the handling of requests that do not match any
+of the rules will be up to the Ingress controller.
+
+</summary>
+
+<PartialDefaultbackendreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `tls` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-ingress-spec-tls}
+
+tls represents the TLS configuration. Currently the Ingress only supports a
+single TLS port, 443. If multiple members of this list specify different hosts,
+they will be multiplexed on the same port according to the hostname specified
+through the SNI TLS extension, if the ingress controller fulfilling the
+ingress supports SNI.
+
+</summary>
+
+<PartialTlsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+##### `rules` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-ingress-spec-rules}
+
+rules is a list of host rules used to configure the Ingress. If unspecified,
+or no rule matches, all traffic is sent to the default backend.
+
+</summary>
+
+<PartialRulesreference />
+
+
+</details>

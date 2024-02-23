@@ -1,0 +1,17 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+##### `externalIPs` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-service-spec-externalIPs}
+
+externalIPs is a list of IP addresses for which nodes in the cluster
+will also accept traffic for this service.  These IPs are not managed by
+Kubernetes.  The user is responsible for ensuring that traffic arrives
+at a node with this IP.  A common example is external load-balancers
+that are not part of the Kubernetes system.
+
+</summary>
+
+
+
+</details>

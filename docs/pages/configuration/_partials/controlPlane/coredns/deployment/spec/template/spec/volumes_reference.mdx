@@ -1,0 +1,546 @@
+
+import PartialName from "./volumes/name.mdx"
+import PartialHostpathreference from "./volumes/hostPath_reference.mdx"
+import PartialEmptydirreference from "./volumes/emptyDir_reference.mdx"
+import PartialGcepersistentdiskreference from "./volumes/gcePersistentDisk_reference.mdx"
+import PartialAwselasticblockstorereference from "./volumes/awsElasticBlockStore_reference.mdx"
+import PartialGitreporeference from "./volumes/gitRepo_reference.mdx"
+import PartialSecretreference from "./volumes/secret_reference.mdx"
+import PartialNfsreference from "./volumes/nfs_reference.mdx"
+import PartialIscsireference from "./volumes/iscsi_reference.mdx"
+import PartialGlusterfsreference from "./volumes/glusterfs_reference.mdx"
+import PartialPersistentvolumeclaimreference from "./volumes/persistentVolumeClaim_reference.mdx"
+import PartialRbdreference from "./volumes/rbd_reference.mdx"
+import PartialFlexvolumereference from "./volumes/flexVolume_reference.mdx"
+import PartialCinderreference from "./volumes/cinder_reference.mdx"
+import PartialCephfsreference from "./volumes/cephfs_reference.mdx"
+import PartialFlockerreference from "./volumes/flocker_reference.mdx"
+import PartialDownwardapireference from "./volumes/downwardAPI_reference.mdx"
+import PartialFcreference from "./volumes/fc_reference.mdx"
+import PartialAzurefilereference from "./volumes/azureFile_reference.mdx"
+import PartialConfigmapreference from "./volumes/configMap_reference.mdx"
+import PartialVspherevolumereference from "./volumes/vsphereVolume_reference.mdx"
+import PartialQuobytereference from "./volumes/quobyte_reference.mdx"
+import PartialAzurediskreference from "./volumes/azureDisk_reference.mdx"
+import PartialPhotonpersistentdiskreference from "./volumes/photonPersistentDisk_reference.mdx"
+import PartialProjectedreference from "./volumes/projected_reference.mdx"
+import PartialPortworxvolumereference from "./volumes/portworxVolume_reference.mdx"
+import PartialScaleioreference from "./volumes/scaleIO_reference.mdx"
+import PartialStorageosreference from "./volumes/storageos_reference.mdx"
+import PartialCsireference from "./volumes/csi_reference.mdx"
+import PartialEphemeralreference from "./volumes/ephemeral_reference.mdx"
+
+<PartialName />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `hostPath` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-hostPath}
+
+hostPath represents a pre-existing file or directory on the host
+machine that is directly exposed to the container. This is generally
+used for system agents or other privileged things that are allowed
+to see the host machine. Most containers will NOT need this.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
+---
+TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
+mount host directories as read/write.
+
+</summary>
+
+<PartialHostpathreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `emptyDir` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-emptyDir}
+
+emptyDir represents a temporary directory that shares a pod's lifetime.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
+
+</summary>
+
+<PartialEmptydirreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `gcePersistentDisk` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-gcePersistentDisk}
+
+gcePersistentDisk represents a GCE Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
+
+</summary>
+
+<PartialGcepersistentdiskreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `awsElasticBlockStore` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-awsElasticBlockStore}
+
+awsElasticBlockStore represents an AWS Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore
+
+</summary>
+
+<PartialAwselasticblockstorereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `gitRepo` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-gitRepo}
+
+gitRepo represents a git repository at a particular revision.
+DEPRECATED: GitRepo is deprecated. To provision a container with a git repo, mount an
+EmptyDir into an InitContainer that clones the repo using git, then mount the EmptyDir
+into the Pod's container.
+
+</summary>
+
+<PartialGitreporeference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `secret` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-secret}
+
+secret represents a secret that should populate this volume.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#secret
+
+</summary>
+
+<PartialSecretreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `nfs` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-nfs}
+
+nfs represents an NFS mount on the host that shares a pod's lifetime
+More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs
+
+</summary>
+
+<PartialNfsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `iscsi` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-iscsi}
+
+iscsi represents an ISCSI Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+More info: https://examples.k8s.io/volumes/iscsi/README.md
+
+</summary>
+
+<PartialIscsireference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `glusterfs` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-glusterfs}
+
+glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
+More info: https://examples.k8s.io/volumes/glusterfs/README.md
+
+</summary>
+
+<PartialGlusterfsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `persistentVolumeClaim` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-persistentVolumeClaim}
+
+persistentVolumeClaimVolumeSource represents a reference to a
+PersistentVolumeClaim in the same namespace.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+
+</summary>
+
+<PartialPersistentvolumeclaimreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `rbd` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-rbd}
+
+rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
+More info: https://examples.k8s.io/volumes/rbd/README.md
+
+</summary>
+
+<PartialRbdreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `flexVolume` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-flexVolume}
+
+flexVolume represents a generic volume resource that is
+provisioned/attached using an exec based plugin.
+
+</summary>
+
+<PartialFlexvolumereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `cinder` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-cinder}
+
+cinder represents a cinder volume attached and mounted on kubelets host machine.
+More info: https://examples.k8s.io/mysql-cinder-pd/README.md
+
+</summary>
+
+<PartialCinderreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `cephfs` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-cephfs}
+
+cephFS represents a Ceph FS mount on the host that shares a pod's lifetime
+
+</summary>
+
+<PartialCephfsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `flocker` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-flocker}
+
+flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running
+
+</summary>
+
+<PartialFlockerreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `downwardAPI` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-downwardAPI}
+
+downwardAPI represents downward API about the pod that should populate this volume
+
+</summary>
+
+<PartialDownwardapireference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `fc` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-fc}
+
+fc represents a Fibre Channel resource that is attached to a kubelet's host machine and then exposed to the pod.
+
+</summary>
+
+<PartialFcreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `azureFile` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-azureFile}
+
+azureFile represents an Azure File Service mount on the host and bind mount to the pod.
+
+</summary>
+
+<PartialAzurefilereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `configMap` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-configMap}
+
+configMap represents a configMap that should populate this volume
+
+</summary>
+
+<PartialConfigmapreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `vsphereVolume` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-vsphereVolume}
+
+vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine
+
+</summary>
+
+<PartialVspherevolumereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `quobyte` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-quobyte}
+
+quobyte represents a Quobyte mount on the host that shares a pod's lifetime
+
+</summary>
+
+<PartialQuobytereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `azureDisk` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-azureDisk}
+
+azureDisk represents an Azure Data Disk mount on the host and bind mount to the pod.
+
+</summary>
+
+<PartialAzurediskreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `photonPersistentDisk` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-photonPersistentDisk}
+
+photonPersistentDisk represents a PhotonController persistent disk attached and mounted on kubelets host machine
+
+</summary>
+
+<PartialPhotonpersistentdiskreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `projected` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-projected}
+
+projected items for all in one resources secrets, configmaps, and downward API
+
+</summary>
+
+<PartialProjectedreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `portworxVolume` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-portworxVolume}
+
+portworxVolume represents a portworx volume attached and mounted on kubelets host machine
+
+</summary>
+
+<PartialPortworxvolumereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `scaleIO` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-scaleIO}
+
+scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.
+
+</summary>
+
+<PartialScaleioreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `storageos` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-storageos}
+
+storageOS represents a StorageOS volume attached and mounted on Kubernetes nodes.
+
+</summary>
+
+<PartialStorageosreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `csi` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-csi}
+
+csi (Container Storage Interface) represents ephemeral storage that is handled by certain external CSI drivers (Beta feature).
+
+</summary>
+
+<PartialCsireference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `ephemeral` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral}
+
+ephemeral represents a volume that is handled by a cluster storage driver.
+The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
+and deleted when the pod is removed.
+
+Use this if:
+a) the volume is only needed while the pod runs,
+b) features of normal volumes like restoring from snapshot or capacity
+   tracking are needed,
+c) the storage driver is specified through a storage class, and
+d) the storage driver supports dynamic volume provisioning through
+   a PersistentVolumeClaim (see EphemeralVolumeSource for more
+   information on the connection between this volume type
+   and PersistentVolumeClaim).
+
+Use PersistentVolumeClaim or one of the vendor-specific
+APIs for volumes that persist for longer than the lifecycle
+of an individual pod.
+
+Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
+be used that way - see the documentation of the driver for
+more information.
+
+A pod can use both types of ephemeral volumes and
+persistent volumes at the same time.
+
+
+</summary>
+
+<PartialEphemeralreference />
+
+
+</details>

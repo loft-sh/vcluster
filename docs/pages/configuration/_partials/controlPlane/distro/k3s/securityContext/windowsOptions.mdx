@@ -1,0 +1,20 @@
+
+import PartialWindowsoptionsreference from "./windowsOptions_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+###### `windowsOptions` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k3s-securityContext-windowsOptions}
+
+The Windows specific settings applied to all containers.
+If unspecified, the options from the PodSecurityContext will be used.
+If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
+Note that this field cannot be set when spec.os.name is linux.
+
+</summary>
+
+<PartialWindowsoptionsreference />
+
+
+</details>

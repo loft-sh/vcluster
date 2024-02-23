@@ -1,0 +1,27 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+###### `resources` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-validatingWebhooks-rules-resources}
+
+Resources is a list of resources this rule applies to.
+
+For example:
+'pods' means pods.
+'pods/log' means the log subresource of pods.
+'*' means all resources, but not subresources.
+'pods/*' means all subresources of pods.
+'*/scale' means all scale subresources.
+'*/*' means all resources and their subresources.
+
+If wildcard is present, the validation rule will ensure resources do not
+overlap with each other.
+
+Depending on the enclosing object, subresources might not be allowed.
+Required.
+
+</summary>
+
+
+
+</details>

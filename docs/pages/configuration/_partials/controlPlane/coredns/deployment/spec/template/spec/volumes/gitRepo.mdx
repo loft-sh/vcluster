@@ -1,0 +1,20 @@
+
+import PartialGitreporeference from "./gitRepo_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+######### `gitRepo` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-gitRepo}
+
+gitRepo represents a git repository at a particular revision.
+DEPRECATED: GitRepo is deprecated. To provision a container with a git repo, mount an
+EmptyDir into an InitContainer that clones the repo using git, then mount the EmptyDir
+into the Pod's container.
+
+</summary>
+
+<PartialGitreporeference />
+
+
+</details>

@@ -1,0 +1,282 @@
+
+import PartialName from "./etcd/name.mdx"
+import PartialImage from "./etcd/image.mdx"
+import PartialCommand from "./etcd/command.mdx"
+import PartialArgs from "./etcd/args.mdx"
+import PartialWorkingdir from "./etcd/workingDir.mdx"
+import PartialPortsreference from "./etcd/ports_reference.mdx"
+import PartialEnvfromreference from "./etcd/envFrom_reference.mdx"
+import PartialEnvreference from "./etcd/env_reference.mdx"
+import PartialResourcesreference from "./etcd/resources_reference.mdx"
+import PartialResizepolicyreference from "./etcd/resizePolicy_reference.mdx"
+import PartialRestartpolicy from "./etcd/restartPolicy.mdx"
+import PartialVolumemountsreference from "./etcd/volumeMounts_reference.mdx"
+import PartialVolumedevicesreference from "./etcd/volumeDevices_reference.mdx"
+import PartialLivenessprobereference from "./etcd/livenessProbe_reference.mdx"
+import PartialReadinessprobereference from "./etcd/readinessProbe_reference.mdx"
+import PartialStartupprobereference from "./etcd/startupProbe_reference.mdx"
+import PartialLifecyclereference from "./etcd/lifecycle_reference.mdx"
+import PartialTerminationmessagepath from "./etcd/terminationMessagePath.mdx"
+import PartialTerminationmessagepolicy from "./etcd/terminationMessagePolicy.mdx"
+import PartialImagepullpolicy from "./etcd/imagePullPolicy.mdx"
+import PartialSecuritycontextreference from "./etcd/securityContext_reference.mdx"
+import PartialStdin from "./etcd/stdin.mdx"
+import PartialStdinonce from "./etcd/stdinOnce.mdx"
+import PartialTty from "./etcd/tty.mdx"
+
+<PartialName />
+
+
+<PartialImage />
+
+
+<PartialCommand />
+
+
+<PartialArgs />
+
+
+<PartialWorkingdir />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `ports` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-ports}
+
+List of ports to expose from the container. Not specifying a port here
+DOES NOT prevent that port from being exposed. Any port which is
+listening on the default "0.0.0.0" address inside a container will be
+accessible from the network.
+Modifying this array with strategic merge patch may corrupt the data.
+For more information See https://github.com/kubernetes/kubernetes/issues/108255.
+Cannot be updated.
+
+</summary>
+
+<PartialPortsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `envFrom` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-envFrom}
+
+List of sources to populate environment variables in the container.
+The keys defined within a source must be a C_IDENTIFIER. All invalid keys
+will be reported as an event when the container is starting. When a key exists in multiple
+sources, the value associated with the last source will take precedence.
+Values defined by an Env with a duplicate key will take precedence.
+Cannot be updated.
+
+</summary>
+
+<PartialEnvfromreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `env` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-env}
+
+List of environment variables to set in the container.
+Cannot be updated.
+
+</summary>
+
+<PartialEnvreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `resources` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-resources}
+
+Compute Resources required by this container.
+Cannot be updated.
+More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+
+</summary>
+
+<PartialResourcesreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `resizePolicy` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-resizePolicy}
+
+Resources resize policy for the container.
+
+</summary>
+
+<PartialResizepolicyreference />
+
+
+</details>
+
+
+<PartialRestartpolicy />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `volumeMounts` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-volumeMounts}
+
+Pod volumes to mount into the container's filesystem.
+Cannot be updated.
+
+</summary>
+
+<PartialVolumemountsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `volumeDevices` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-volumeDevices}
+
+volumeDevices is the list of block devices to be used by the container.
+
+</summary>
+
+<PartialVolumedevicesreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `livenessProbe` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-livenessProbe}
+
+Periodic probe of container liveness.
+Container will be restarted if the probe fails.
+Cannot be updated.
+More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+
+</summary>
+
+<PartialLivenessprobereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `readinessProbe` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-readinessProbe}
+
+Periodic probe of container service readiness.
+Container will be removed from service endpoints if the probe fails.
+Cannot be updated.
+More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+
+</summary>
+
+<PartialReadinessprobereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `startupProbe` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-startupProbe}
+
+StartupProbe indicates that the Pod has successfully initialized.
+If specified, no other probes are executed until this completes successfully.
+If this probe fails, the Pod will be restarted, just as if the livenessProbe failed.
+This can be used to provide different probe parameters at the beginning of a Pod's lifecycle,
+when it might take a long time to load data or warm a cache, than during steady-state operation.
+This cannot be updated.
+More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+
+</summary>
+
+<PartialStartupprobereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `lifecycle` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-lifecycle}
+
+Actions that the management system should take in response to container lifecycle events.
+Cannot be updated.
+
+</summary>
+
+<PartialLifecyclereference />
+
+
+</details>
+
+
+<PartialTerminationmessagepath />
+
+
+<PartialTerminationmessagepolicy />
+
+
+<PartialImagepullpolicy />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `securityContext` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-securityContext}
+
+SecurityContext defines the security options the container should be run with.
+If set, the fields of SecurityContext override the equivalent fields of PodSecurityContext.
+More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+
+</summary>
+
+<PartialSecuritycontextreference />
+
+
+</details>
+
+
+<PartialStdin />
+
+
+<PartialStdinonce />
+
+
+<PartialTty />

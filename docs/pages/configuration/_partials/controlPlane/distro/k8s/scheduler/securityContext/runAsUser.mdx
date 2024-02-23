@@ -1,0 +1,17 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+####### `runAsUser` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">integer</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-scheduler-securityContext-runAsUser}
+
+The UID to run the entrypoint of the container process.
+Defaults to user specified in image metadata if unspecified.
+May also be set in PodSecurityContext.  If set in both SecurityContext and
+PodSecurityContext, the value specified in SecurityContext takes precedence.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+
+
+</details>

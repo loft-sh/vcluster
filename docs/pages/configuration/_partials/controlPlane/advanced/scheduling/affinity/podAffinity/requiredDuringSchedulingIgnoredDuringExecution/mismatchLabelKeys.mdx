@@ -1,0 +1,21 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+######## `mismatchLabelKeys` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-advanced-scheduling-affinity-podAffinity-requiredDuringSchedulingIgnoredDuringExecution-mismatchLabelKeys}
+
+MismatchLabelKeys is a set of pod label keys to select which pods will
+be taken into consideration. The keys are used to lookup values from the
+incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+to select the group of existing pods which pods will be taken into consideration
+for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+pod labels will be ignored. The default value is empty.
+The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
+Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
+This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+
+</summary>
+
+
+
+</details>

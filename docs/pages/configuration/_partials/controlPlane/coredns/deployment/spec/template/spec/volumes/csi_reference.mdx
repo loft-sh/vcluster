@@ -1,0 +1,37 @@
+
+import PartialDriver from "./csi/driver.mdx"
+import PartialReadonly from "./csi/readOnly.mdx"
+import PartialFstype from "./csi/fsType.mdx"
+import PartialVolumeattributes from "./csi/volumeAttributes.mdx"
+import PartialNodepublishsecretrefreference from "./csi/nodePublishSecretRef_reference.mdx"
+
+<PartialDriver />
+
+
+<PartialReadonly />
+
+
+<PartialFstype />
+
+
+<PartialVolumeattributes />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+########## `nodePublishSecretRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-csi-nodePublishSecretRef}
+
+nodePublishSecretRef is a reference to the secret object containing
+sensitive information to pass to the CSI driver to complete the CSI
+NodePublishVolume and NodeUnpublishVolume calls.
+This field is optional, and  may be empty if no secret is required. If the
+secret object contains more than one secret, all secret references are passed.
+
+</summary>
+
+<PartialNodepublishsecretrefreference />
+
+
+</details>

@@ -1,0 +1,18 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+##### `sideEffects` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-mutatingWebhooks-sideEffects}
+
+SideEffects states whether this webhook has side effects.
+Acceptable values are: None, NoneOnDryRun (webhooks created via v1beta1 may also specify Some or Unknown).
+Webhooks with side effects MUST implement a reconciliation system, since a request may be
+rejected by a future step in the admission chain and the side effects therefore need to be undone.
+Requests with the dryRun attribute will be auto-rejected if they match a webhook with
+sideEffects == Unknown or Some.
+
+</summary>
+
+
+
+</details>

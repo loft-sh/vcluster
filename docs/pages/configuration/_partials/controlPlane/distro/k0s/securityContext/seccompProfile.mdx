@@ -1,0 +1,20 @@
+
+import PartialSeccompprofilereference from "./seccompProfile_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+###### `seccompProfile` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k0s-securityContext-seccompProfile}
+
+The seccomp options to use by this container. If seccomp options are
+provided at both the pod & container level, the container options
+override the pod options.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+<PartialSeccompprofilereference />
+
+
+</details>

@@ -1,0 +1,15 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+###### `nonResourceURLs` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#access-audit-policy-rules-nonResourceURLs}
+
+NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+
+</summary>
+
+
+
+</details>

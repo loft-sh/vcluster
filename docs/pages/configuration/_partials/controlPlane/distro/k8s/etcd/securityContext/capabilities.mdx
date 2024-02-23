@@ -1,0 +1,19 @@
+
+import PartialCapabilitiesreference from "./capabilities_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+####### `capabilities` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-securityContext-capabilities}
+
+The capabilities to add/drop when running containers.
+Defaults to the default set of capabilities granted by the container runtime.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+<PartialCapabilitiesreference />
+
+
+</details>

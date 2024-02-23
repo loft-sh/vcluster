@@ -11,8 +11,8 @@ var (
 	verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
 )
 
-func Parse(rawConfig string) (*Config, error) {
-	c := &Config{}
+func Parse(rawConfig string) (*SyncPatchesConfig, error) {
+	c := &SyncPatchesConfig{}
 	err := yaml.UnmarshalStrict([]byte(rawConfig), c)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func Parse(rawConfig string) (*Config, error) {
 	return c, nil
 }
 
-func validate(config *Config) error {
+func validate(config *SyncPatchesConfig) error {
 	if config.Version != Version {
 		return fmt.Errorf("unsupported configuration version. Only %s is supported currently", Version)
 	}

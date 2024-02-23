@@ -1,0 +1,103 @@
+
+import PartialSelinuxoptionsreference from "./podSecurityContext/seLinuxOptions_reference.mdx"
+import PartialWindowsoptionsreference from "./podSecurityContext/windowsOptions_reference.mdx"
+import PartialRunasuser from "./podSecurityContext/runAsUser.mdx"
+import PartialRunasgroup from "./podSecurityContext/runAsGroup.mdx"
+import PartialRunasnonroot from "./podSecurityContext/runAsNonRoot.mdx"
+import PartialSupplementalgroups from "./podSecurityContext/supplementalGroups.mdx"
+import PartialFsgroup from "./podSecurityContext/fsGroup.mdx"
+import PartialSysctlsreference from "./podSecurityContext/sysctls_reference.mdx"
+import PartialFsgroupchangepolicy from "./podSecurityContext/fsGroupChangePolicy.mdx"
+import PartialSeccompprofilereference from "./podSecurityContext/seccompProfile_reference.mdx"
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `seLinuxOptions` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-advanced-security-podSecurityContext-seLinuxOptions}
+
+The SELinux context to be applied to all containers.
+If unspecified, the container runtime will allocate a random SELinux context for each
+container.  May also be set in SecurityContext.  If set in
+both SecurityContext and PodSecurityContext, the value specified in SecurityContext
+takes precedence for that container.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+<PartialSelinuxoptionsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `windowsOptions` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-advanced-security-podSecurityContext-windowsOptions}
+
+The Windows specific settings applied to all containers.
+If unspecified, the options within a container's SecurityContext will be used.
+If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
+Note that this field cannot be set when spec.os.name is linux.
+
+</summary>
+
+<PartialWindowsoptionsreference />
+
+
+</details>
+
+
+<PartialRunasuser />
+
+
+<PartialRunasgroup />
+
+
+<PartialRunasnonroot />
+
+
+<PartialSupplementalgroups />
+
+
+<PartialFsgroup />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `sysctls` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-advanced-security-podSecurityContext-sysctls}
+
+Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported
+sysctls (by the container runtime) might fail to launch.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+<PartialSysctlsreference />
+
+
+</details>
+
+
+<PartialFsgroupchangepolicy />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `seccompProfile` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-advanced-security-podSecurityContext-seccompProfile}
+
+The seccomp options to use by the containers in this pod.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+<PartialSeccompprofilereference />
+
+
+</details>

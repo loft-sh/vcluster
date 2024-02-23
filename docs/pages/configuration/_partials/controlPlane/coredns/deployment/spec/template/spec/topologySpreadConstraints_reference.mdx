@@ -1,0 +1,47 @@
+
+import PartialMaxskew from "./topologySpreadConstraints/maxSkew.mdx"
+import PartialTopologykey from "./topologySpreadConstraints/topologyKey.mdx"
+import PartialWhenunsatisfiable from "./topologySpreadConstraints/whenUnsatisfiable.mdx"
+import PartialLabelselectorreference from "./topologySpreadConstraints/labelSelector_reference.mdx"
+import PartialMindomains from "./topologySpreadConstraints/minDomains.mdx"
+import PartialNodeaffinitypolicy from "./topologySpreadConstraints/nodeAffinityPolicy.mdx"
+import PartialNodetaintspolicy from "./topologySpreadConstraints/nodeTaintsPolicy.mdx"
+import PartialMatchlabelkeys from "./topologySpreadConstraints/matchLabelKeys.mdx"
+
+<PartialMaxskew />
+
+
+<PartialTopologykey />
+
+
+<PartialWhenunsatisfiable />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `labelSelector` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-topologySpreadConstraints-labelSelector}
+
+LabelSelector is used to find matching pods.
+Pods that match this label selector are counted to determine the number of pods
+in their corresponding topology domain.
+
+</summary>
+
+<PartialLabelselectorreference />
+
+
+</details>
+
+
+<PartialMindomains />
+
+
+<PartialNodeaffinitypolicy />
+
+
+<PartialNodetaintspolicy />
+
+
+<PartialMatchlabelkeys />

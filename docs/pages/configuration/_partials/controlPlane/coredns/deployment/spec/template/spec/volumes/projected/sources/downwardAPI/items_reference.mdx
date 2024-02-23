@@ -1,0 +1,43 @@
+
+import PartialPath from "./items/path.mdx"
+import PartialFieldrefreference from "./items/fieldRef_reference.mdx"
+import PartialResourcefieldrefreference from "./items/resourceFieldRef_reference.mdx"
+import PartialMode from "./items/mode.mdx"
+
+<PartialPath />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+############# `fieldRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-projected-sources-downwardAPI-items-fieldRef}
+
+Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+
+</summary>
+
+<PartialFieldrefreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+############# `resourceFieldRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-projected-sources-downwardAPI-items-resourceFieldRef}
+
+Selects a resource of the container: only resources limits and requests
+(limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.
+
+</summary>
+
+<PartialResourcefieldrefreference />
+
+
+</details>
+
+
+<PartialMode />

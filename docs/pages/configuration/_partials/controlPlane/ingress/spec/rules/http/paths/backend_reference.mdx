@@ -1,0 +1,38 @@
+
+import PartialServicereference from "./backend/service_reference.mdx"
+import PartialResourcereference from "./backend/resource_reference.mdx"
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `service` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-ingress-spec-rules-http-paths-backend-service}
+
+service references a service as a backend.
+This is a mutually exclusive setting with "Resource".
+
+</summary>
+
+<PartialServicereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `resource` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-ingress-spec-rules-http-paths-backend-resource}
+
+resource is an ObjectRef to another Kubernetes resource in the namespace
+of the Ingress object. If resource is specified, a service.Name and
+service.Port must not be specified.
+This is a mutually exclusive setting with "Service".
+
+</summary>
+
+<PartialResourcereference />
+
+
+</details>

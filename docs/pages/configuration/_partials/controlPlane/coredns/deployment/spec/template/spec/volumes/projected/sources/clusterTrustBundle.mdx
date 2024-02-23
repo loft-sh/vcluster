@@ -1,0 +1,30 @@
+
+import PartialClustertrustbundlereference from "./clusterTrustBundle_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+########### `clusterTrustBundle` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-projected-sources-clusterTrustBundle}
+
+ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
+of ClusterTrustBundle objects in an auto-updating file.
+
+Alpha, gated by the ClusterTrustBundleProjection feature gate.
+
+ClusterTrustBundle objects can either be selected by name, or by the
+combination of signer name and a label selector.
+
+Kubelet performs aggressive normalization of the PEM contents written
+into the pod filesystem.  Esoteric PEM features such as inter-block
+comments and block headers are stripped.  Certificates are deduplicated.
+The ordering of certificates within the file is arbitrary, and Kubelet
+may change the order over time.
+
+
+</summary>
+
+<PartialClustertrustbundlereference />
+
+
+</details>

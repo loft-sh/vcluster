@@ -1,0 +1,70 @@
+
+import PartialFieldrefreference from "./valueFrom/fieldRef_reference.mdx"
+import PartialResourcefieldrefreference from "./valueFrom/resourceFieldRef_reference.mdx"
+import PartialConfigmapkeyrefreference from "./valueFrom/configMapKeyRef_reference.mdx"
+import PartialSecretkeyrefreference from "./valueFrom/secretKeyRef_reference.mdx"
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######## `fieldRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-env-valueFrom-fieldRef}
+
+Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['&lt;KEY&gt;']`, `metadata.annotations['&lt;KEY&gt;']`,
+spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
+
+</summary>
+
+<PartialFieldrefreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######## `resourceFieldRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-env-valueFrom-resourceFieldRef}
+
+Selects a resource of the container: only resources limits and requests
+(limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
+
+</summary>
+
+<PartialResourcefieldrefreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######## `configMapKeyRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-env-valueFrom-configMapKeyRef}
+
+Selects a key of a ConfigMap.
+
+</summary>
+
+<PartialConfigmapkeyrefreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######## `secretKeyRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k8s-etcd-env-valueFrom-secretKeyRef}
+
+Selects a key of a secret in the pod's namespace
+
+</summary>
+
+<PartialSecretkeyrefreference />
+
+
+</details>

@@ -1,0 +1,19 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+##### `terminationMessagePath` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-distro-k3s-terminationMessagePath}
+
+Optional: Path at which the file to which the container's termination message
+will be written is mounted into the container's filesystem.
+Message written is intended to be brief final status, such as an assertion failure message.
+Will be truncated by the node if greater than 4096 bytes. The total message length across
+all containers will be limited to 12kb.
+Defaults to /dev/termination-log.
+Cannot be updated.
+
+</summary>
+
+
+
+</details>

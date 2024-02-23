@@ -1,0 +1,24 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+########## `resourceClaimTemplateName` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-resourceClaims-source-resourceClaimTemplateName}
+
+ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+object in the same namespace as this pod.
+
+The template will be used to create a new ResourceClaim, which will
+be bound to this pod. When this pod is deleted, the ResourceClaim
+will also be deleted. The pod name and resource name, along with a
+generated component, will be used to form a unique name for the
+ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+
+This field is immutable and no changes will be made to the
+corresponding ResourceClaim by the control plane after creating the
+ResourceClaim.
+
+</summary>
+
+
+
+</details>

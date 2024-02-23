@@ -1,0 +1,70 @@
+
+import PartialExecreference from "./preStop/exec_reference.mdx"
+import PartialHttpgetreference from "./preStop/httpGet_reference.mdx"
+import PartialTcpsocketreference from "./preStop/tcpSocket_reference.mdx"
+import PartialSleepreference from "./preStop/sleep_reference.mdx"
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+########### `exec` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-initContainers-lifecycle-preStop-exec}
+
+Exec specifies the action to take.
+
+</summary>
+
+<PartialExecreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+########### `httpGet` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-initContainers-lifecycle-preStop-httpGet}
+
+HTTPGet specifies the http request to perform.
+
+</summary>
+
+<PartialHttpgetreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+########### `tcpSocket` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-initContainers-lifecycle-preStop-tcpSocket}
+
+Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
+for the backward compatibility. There are no validation of this field and
+lifecycle hooks will fail in runtime when tcp handler is specified.
+
+</summary>
+
+<PartialTcpsocketreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+########### `sleep` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-initContainers-lifecycle-preStop-sleep}
+
+Sleep represents the duration that the container should sleep before being terminated.
+
+</summary>
+
+<PartialSleepreference />
+
+
+</details>

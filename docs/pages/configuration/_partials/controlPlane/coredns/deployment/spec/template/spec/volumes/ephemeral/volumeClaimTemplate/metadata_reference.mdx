@@ -1,0 +1,146 @@
+
+import PartialName from "./metadata/name.mdx"
+import PartialGeneratename from "./metadata/generateName.mdx"
+import PartialNamespace from "./metadata/namespace.mdx"
+import PartialSelflink from "./metadata/selfLink.mdx"
+import PartialUid from "./metadata/uid.mdx"
+import PartialResourceversion from "./metadata/resourceVersion.mdx"
+import PartialGeneration from "./metadata/generation.mdx"
+import PartialCreationtimestampreference from "./metadata/creationTimestamp_reference.mdx"
+import PartialDeletiontimestampreference from "./metadata/deletionTimestamp_reference.mdx"
+import PartialDeletiongraceperiodseconds from "./metadata/deletionGracePeriodSeconds.mdx"
+import PartialLabels from "./metadata/labels.mdx"
+import PartialAnnotations from "./metadata/annotations.mdx"
+import PartialOwnerreferencesreference from "./metadata/ownerReferences_reference.mdx"
+import PartialFinalizers from "./metadata/finalizers.mdx"
+import PartialManagedfieldsreference from "./metadata/managedFields_reference.mdx"
+
+<PartialName />
+
+
+<PartialGeneratename />
+
+
+<PartialNamespace />
+
+
+<PartialSelflink />
+
+
+<PartialUid />
+
+
+<PartialResourceversion />
+
+
+<PartialGeneration />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+############ `creationTimestamp` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral-volumeClaimTemplate-metadata-creationTimestamp}
+
+CreationTimestamp is a timestamp representing the server time when this object was
+created. It is not guaranteed to be set in happens-before order across separate operations.
+Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+Populated by the system.
+Read-only.
+Null for lists.
+More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+
+</summary>
+
+<PartialCreationtimestampreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+############ `deletionTimestamp` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral-volumeClaimTemplate-metadata-deletionTimestamp}
+
+DeletionTimestamp is RFC 3339 date and time at which this resource will be deleted. This
+field is set by the server when a graceful deletion is requested by the user, and is not
+directly settable by a client. The resource is expected to be deleted (no longer visible
+from resource lists, and not reachable by name) after the time in this field, once the
+finalizers list is empty. As long as the finalizers list contains items, deletion is blocked.
+Once the deletionTimestamp is set, this value may not be unset or be set further into the
+future, although it may be shortened or the resource may be deleted prior to this time.
+For example, a user may request that a pod is deleted in 30 seconds. The Kubelet will react
+by sending a graceful termination signal to the containers in the pod. After that 30 seconds,
+the Kubelet will send a hard termination signal (SIGKILL) to the container and after cleanup,
+remove the pod from the API. In the presence of network partitions, this object may still
+exist after this timestamp, until an administrator or automated process can determine the
+resource is fully terminated.
+If not set, graceful deletion of the object has not been requested.
+
+Populated by the system when a graceful deletion is requested.
+Read-only.
+More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+
+</summary>
+
+<PartialDeletiontimestampreference />
+
+
+</details>
+
+
+<PartialDeletiongraceperiodseconds />
+
+
+<PartialLabels />
+
+
+<PartialAnnotations />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+############ `ownerReferences` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral-volumeClaimTemplate-metadata-ownerReferences}
+
+List of objects depended by this object. If ALL objects in the list have
+been deleted, this object will be garbage collected. If this object is managed by a controller,
+then an entry in this list will point to this controller, with the controller field set to true.
+There cannot be more than one managing controller.
+
+</summary>
+
+<PartialOwnerreferencesreference />
+
+
+</details>
+
+
+<PartialFinalizers />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+############ `managedFields` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral-volumeClaimTemplate-metadata-managedFields}
+
+ManagedFields maps workflow-id and version to the set of fields
+that are managed by that workflow. This is mostly for internal
+housekeeping, and users typically shouldn't need to set or
+understand this field. A workflow can be the user's name, a
+controller's name, or the name of a specific apply path like
+"ci-cd". The set of fields is always in the version that the
+workflow used when modifying the object.
+
+
+</summary>
+
+<PartialManagedfieldsreference />
+
+
+</details>

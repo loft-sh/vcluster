@@ -1,0 +1,24 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+############ `generateName` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-ephemeral-volumeClaimTemplate-metadata-generateName}
+
+GenerateName is an optional prefix, used by the server, to generate a unique
+name ONLY IF the Name field has not been provided.
+If this field is used, the name returned to the client will be different
+than the name passed. This value will also be combined with a unique suffix.
+The provided value has the same validation rules as the Name field,
+and may be truncated by the length of the suffix required to make the value
+unique on the server.
+
+If this field is specified and the generated name exists, the server will return a 409.
+
+Applied only if Name is not specified.
+More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#idempotency
+
+</summary>
+
+
+
+</details>

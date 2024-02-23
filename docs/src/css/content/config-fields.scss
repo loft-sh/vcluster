@@ -1,0 +1,295 @@
+body .markdown .config-field {
+    --docusaurus-details-decoration-color: #ccc;
+
+    padding: 1em 1.4em;
+    border: 1px solid transparent;
+    border-bottom-color: #eee;
+    border-top-color: #eee;
+
+    + .config-field {
+        border-top-color: transparent;
+    }
+
+    margin: var(--ifm-leading) 0 0;
+
+    + .config-field {
+        margin: 0;
+    }
+
+    .config-field {
+        margin: 0;
+        border-top-color: transparent;
+        
+        &:last-of-type {
+            border-bottom-color: transparent;
+        }
+    }
+    
+    background: transparent;
+    box-shadow: none;
+    font-size: 1rem; /* must reset font-size to prevent nested fields getting smaller */
+
+    &[open],
+    &[data-expandable="false"] {
+        &[data-expandable="true"] {
+            border-color: #eee;
+        }
+
+        &[data-expandable="false"] {
+            > summary {
+                cursor: text;
+                padding-bottom: 0.2em;
+        
+                &::before {
+                    display: none;
+                }
+
+                ~ * {
+                    display: none !important;
+                }
+            }
+        }
+
+        > summary{
+            &::before {
+                transform: rotate(-90deg);
+            }
+
+            p:first-of-type {
+                max-height: none;
+                white-space: inherit;
+                opacity: 1;
+                overflow: visible;
+            }
+        }
+    }
+
+    p,
+    summary + * {
+        display: inline-block;
+        font-size: 0.85rem;
+        color: rgb(117, 117, 117);
+        line-height: 1.2em;
+        font-weight: 400;
+    }
+
+    summary {
+        padding-left: 0;
+        min-height: 2.4em;
+
+        &::before {
+            left: auto;
+            right: 0;
+            margin-top: 0.4em;
+            transform: rotate(90deg);
+        }
+
+        > * {
+            display: none;
+        }
+
+        p:first-of-type {
+            display: block;
+            max-width: 96%;
+            max-height: 1.6em;
+            padding-top: 0.4em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            opacity: 0.7;
+            transition: all 0.5s;
+        }
+
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            display: block;
+
+            code {
+                font-weight: 600;
+                background: none;
+                border: none;
+                letter-spacing: 0.03em;
+                padding: 0;
+            }
+
+            &:target {
+                &,
+                & ~ * {
+                    &::before {
+                        display: none;
+                    }
+                }
+            }
+        }
+
+        .config-field-required,
+        .config-field-type,
+        .config-field-enum,
+        .config-field-default {
+            display: inline-block;
+            margin-left: 0.5em;
+            font-size: 0.7em;
+            line-height: 1em;
+        }
+
+        .config-field-type,
+        .config-field-enum,
+        .config-field-default {
+            font-family: var(--ifm-font-family-monospace);
+        }
+
+        .config-field-default {
+            color: rgb(19, 19, 189);
+            
+            &:empty {
+                display: none;
+            }
+
+            &::before {
+                content: "default: ";
+                display: inline-block;
+                margin-right: 0.15em;
+            }
+
+            &.-return::before {
+                content: "returns: ";
+                margin-right: 0.3em;
+            }
+        }
+
+        .config-field-type,
+        .config-field-enum {
+            color: rgb(147, 147, 147);
+        }
+        
+        .config-field-enum {
+            position: relative;
+            display: inline-block;
+            height: 0.8em;
+            overflow: visible;
+
+            &:empty {
+                display: none;
+            }
+
+            &::before {
+                content: "values: ";
+                display: inline;
+                float: left;
+                margin-right: 0.7em;
+            }
+            
+            > span {
+                display: table-caption;
+                width: 100%;
+                border: 1px solid #eee;
+                background: #fff;
+                z-index: 1;
+                padding: 0.3em 1.4em 0.3em 0.5em;
+                line-height: 1.2em;
+                max-height: 1.8em;
+                overflow: hidden;
+                transition: max-height 0.4s;
+                border-radius: 3px;
+                text-align: left;
+                transform: translateY(-0.48em);
+
+                &:hover {
+                    max-height: 1000px;
+
+                    &::after {
+                        transform: rotate(-90deg);
+                    }
+                }
+
+                &::after {
+                    position: absolute;
+                    right: 0.1em;
+                    left: auto;
+                    top: 0.45em;
+                    content: '';
+                    border-width: calc(var(--docusaurus-details-summary-arrow-size) / 1.4);
+                    border-style: solid;
+                    border-color: transparent transparent transparent var(--docusaurus-details-decoration-color);
+                    transform: rotate(90deg);
+                    transition: var(--docusaurus-details-transition);
+                    transform-origin: calc(var(--docusaurus-details-summary-arrow-size) / 2.8) 50%;
+                }
+            }
+        }
+
+        .config-field-required {
+            color: rgb(187, 7, 7);
+            text-transform: uppercase;
+
+            &[data-required="false"] {
+                display: none;
+            }
+        }
+        /*
+        .hash-link {
+            position: absolute;
+            left: -1.4em;
+            top: 0.1em;
+
+            &:focus {
+                opacity: 0;
+            }
+        }*/
+
+        + * {
+            &,
+            & > * {
+                border-top: none;
+                margin-top: 0;
+                padding-top: 0.2em;
+            }
+            
+            /* 2nd-level config fields */
+            details {
+                margin-bottom: 0;
+                
+                &[data-expandable="true"] {
+                    &:first-of-type {
+                        margin-top: 1em;
+                    }
+
+                    &[open] {
+                        border-color: #eee;
+                    }
+                }
+            }
+        }
+    }
+
+    p:last-child,
+    details:not([data-expandable="true"]):last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+}
+
+.group {
+    margin-top: 1em;
+    border: 1px solid #2156f2;
+
+    .group-name {
+        padding: 0.3em 0 0.3em 1.3em;
+        font-weight: 600;
+        background: #2156f2;
+        color: #fff;
+        font-size: 0.9em;
+    }
+
+    > details:first-of-type {
+        margin-top: 0 !important;
+    }
+
+    > details:last-of-type {
+        padding-bottom: 1.2em !important;
+        margin-bottom: 0 !important;
+    }
+}

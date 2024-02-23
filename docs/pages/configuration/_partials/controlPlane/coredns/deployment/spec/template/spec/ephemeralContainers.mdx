@@ -1,0 +1,20 @@
+
+import PartialEphemeralcontainersreference from "./ephemeralContainers_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+######## `ephemeralContainers` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers}
+
+List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing
+pod to perform user-initiated actions such as debugging. This list cannot be specified when
+creating a pod, and it cannot be modified by updating the pod spec. In order to add an
+ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.
+
+</summary>
+
+<PartialEphemeralcontainersreference />
+
+
+</details>

@@ -1,0 +1,18 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+######### `targetContainerName` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-targetContainerName}
+
+If set, the name of the container from PodSpec that this ephemeral container targets.
+The ephemeral container will be run in the namespaces (IPC, PID, etc) of this container.
+If not set then the ephemeral container uses the namespaces configured in the Pod spec.
+
+The container runtime must implement support for this feature. If the runtime does not
+support namespace targeting then the result of setting this field is undefined.
+
+</summary>
+
+
+
+</details>

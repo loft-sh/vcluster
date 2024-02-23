@@ -1,0 +1,22 @@
+
+import PartialRulesreference from "./rules_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+##### `rules` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-validatingWebhooks-rules}
+
+Rules describes what operations on what resources/subresources the webhook cares about.
+The webhook cares about an operation if it matches _any_ Rule.
+However, in order to prevent ValidatingAdmissionWebhooks and MutatingAdmissionWebhooks
+from putting the cluster in a state which cannot be recovered from without completely
+disabling the plugin, ValidatingAdmissionWebhooks and MutatingAdmissionWebhooks are never called
+on admission requests for ValidatingWebhookConfiguration and MutatingWebhookConfiguration objects.
+
+</summary>
+
+<PartialRulesreference />
+
+
+</details>

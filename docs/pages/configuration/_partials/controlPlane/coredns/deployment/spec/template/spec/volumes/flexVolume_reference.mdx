@@ -1,0 +1,37 @@
+
+import PartialDriver from "./flexVolume/driver.mdx"
+import PartialFstype from "./flexVolume/fsType.mdx"
+import PartialSecretrefreference from "./flexVolume/secretRef_reference.mdx"
+import PartialReadonly from "./flexVolume/readOnly.mdx"
+import PartialOptions from "./flexVolume/options.mdx"
+
+<PartialDriver />
+
+
+<PartialFstype />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+########## `secretRef` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-flexVolume-secretRef}
+
+secretRef is Optional: secretRef is reference to the secret object containing
+sensitive information to pass to the plugin scripts. This may be
+empty if no secret object is specified. If the secret object
+contains more than one secret, all secrets are passed to the plugin
+scripts.
+
+</summary>
+
+<PartialSecretrefreference />
+
+
+</details>
+
+
+<PartialReadonly />
+
+
+<PartialOptions />

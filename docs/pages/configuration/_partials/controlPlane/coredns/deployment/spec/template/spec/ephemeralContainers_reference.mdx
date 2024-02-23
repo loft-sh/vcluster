@@ -1,0 +1,265 @@
+
+import PartialName from "./ephemeralContainers/name.mdx"
+import PartialImage from "./ephemeralContainers/image.mdx"
+import PartialCommand from "./ephemeralContainers/command.mdx"
+import PartialArgs from "./ephemeralContainers/args.mdx"
+import PartialWorkingdir from "./ephemeralContainers/workingDir.mdx"
+import PartialPortsreference from "./ephemeralContainers/ports_reference.mdx"
+import PartialEnvfromreference from "./ephemeralContainers/envFrom_reference.mdx"
+import PartialEnvreference from "./ephemeralContainers/env_reference.mdx"
+import PartialResourcesreference from "./ephemeralContainers/resources_reference.mdx"
+import PartialResizepolicyreference from "./ephemeralContainers/resizePolicy_reference.mdx"
+import PartialRestartpolicy from "./ephemeralContainers/restartPolicy.mdx"
+import PartialVolumemountsreference from "./ephemeralContainers/volumeMounts_reference.mdx"
+import PartialVolumedevicesreference from "./ephemeralContainers/volumeDevices_reference.mdx"
+import PartialLivenessprobereference from "./ephemeralContainers/livenessProbe_reference.mdx"
+import PartialReadinessprobereference from "./ephemeralContainers/readinessProbe_reference.mdx"
+import PartialStartupprobereference from "./ephemeralContainers/startupProbe_reference.mdx"
+import PartialLifecyclereference from "./ephemeralContainers/lifecycle_reference.mdx"
+import PartialTerminationmessagepath from "./ephemeralContainers/terminationMessagePath.mdx"
+import PartialTerminationmessagepolicy from "./ephemeralContainers/terminationMessagePolicy.mdx"
+import PartialImagepullpolicy from "./ephemeralContainers/imagePullPolicy.mdx"
+import PartialSecuritycontextreference from "./ephemeralContainers/securityContext_reference.mdx"
+import PartialStdin from "./ephemeralContainers/stdin.mdx"
+import PartialStdinonce from "./ephemeralContainers/stdinOnce.mdx"
+import PartialTty from "./ephemeralContainers/tty.mdx"
+import PartialTargetcontainername from "./ephemeralContainers/targetContainerName.mdx"
+
+<PartialName />
+
+
+<PartialImage />
+
+
+<PartialCommand />
+
+
+<PartialArgs />
+
+
+<PartialWorkingdir />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `ports` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-ports}
+
+Ports are not allowed for ephemeral containers.
+
+</summary>
+
+<PartialPortsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `envFrom` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-envFrom}
+
+List of sources to populate environment variables in the container.
+The keys defined within a source must be a C_IDENTIFIER. All invalid keys
+will be reported as an event when the container is starting. When a key exists in multiple
+sources, the value associated with the last source will take precedence.
+Values defined by an Env with a duplicate key will take precedence.
+Cannot be updated.
+
+</summary>
+
+<PartialEnvfromreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `env` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-env}
+
+List of environment variables to set in the container.
+Cannot be updated.
+
+</summary>
+
+<PartialEnvreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `resources` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-resources}
+
+Resources are not allowed for ephemeral containers. Ephemeral containers use spare resources
+already allocated to the pod.
+
+</summary>
+
+<PartialResourcesreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `resizePolicy` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-resizePolicy}
+
+Resources resize policy for the container.
+
+</summary>
+
+<PartialResizepolicyreference />
+
+
+</details>
+
+
+<PartialRestartpolicy />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `volumeMounts` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-volumeMounts}
+
+Pod volumes to mount into the container's filesystem. Subpath mounts are not allowed for ephemeral containers.
+Cannot be updated.
+
+</summary>
+
+<PartialVolumemountsreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `volumeDevices` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">object[]</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-volumeDevices}
+
+volumeDevices is the list of block devices to be used by the container.
+
+</summary>
+
+<PartialVolumedevicesreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `livenessProbe` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-livenessProbe}
+
+Probes are not allowed for ephemeral containers.
+
+</summary>
+
+<PartialLivenessprobereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `readinessProbe` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-readinessProbe}
+
+Probes are not allowed for ephemeral containers.
+
+</summary>
+
+<PartialReadinessprobereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `startupProbe` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-startupProbe}
+
+Probes are not allowed for ephemeral containers.
+
+</summary>
+
+<PartialStartupprobereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `lifecycle` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-lifecycle}
+
+Lifecycle is not allowed for ephemeral containers.
+
+</summary>
+
+<PartialLifecyclereference />
+
+
+</details>
+
+
+<PartialTerminationmessagepath />
+
+
+<PartialTerminationmessagepolicy />
+
+
+<PartialImagepullpolicy />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+######### `securityContext` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-ephemeralContainers-securityContext}
+
+Optional: SecurityContext defines the security options the ephemeral container should be run with.
+If set, the fields of SecurityContext override the equivalent fields of PodSecurityContext.
+
+</summary>
+
+<PartialSecuritycontextreference />
+
+
+</details>
+
+
+<PartialStdin />
+
+
+<PartialStdinonce />
+
+
+<PartialTty />
+
+
+<PartialTargetcontainername />

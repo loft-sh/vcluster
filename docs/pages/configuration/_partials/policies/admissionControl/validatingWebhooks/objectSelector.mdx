@@ -1,0 +1,27 @@
+
+import PartialObjectselectorreference from "./objectSelector_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+##### `objectSelector` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#policies-admissionControl-validatingWebhooks-objectSelector}
+
+ObjectSelector decides whether to run the webhook based on if the
+object has matching labels. objectSelector is evaluated against both
+the oldObject and newObject that would be sent to the webhook, and
+is considered to match if either object matches the selector. A null
+object (oldObject in the case of create, or newObject in the case of
+delete) or an object that cannot have labels (like a
+DeploymentRollback or a PodProxyOptions object) is not considered to
+match.
+Use the object selector only if the webhook is opt-in, because end
+users may skip the admission webhook by setting the labels.
+Default to the empty LabelSelector, which matches everything.
+
+</summary>
+
+<PartialObjectselectorreference />
+
+
+</details>

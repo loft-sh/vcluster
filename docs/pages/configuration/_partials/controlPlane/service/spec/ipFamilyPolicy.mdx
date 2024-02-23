@@ -1,0 +1,20 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+##### `ipFamilyPolicy` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-service-spec-ipFamilyPolicy}
+
+IPFamilyPolicy represents the dual-stack-ness requested or required by
+this Service. If there is no value provided, then this field will be set
+to SingleStack. Services can be "SingleStack" (a single IP family),
+"PreferDualStack" (two IP families on dual-stack configured clusters or
+a single IP family on single-stack clusters), or "RequireDualStack"
+(two IP families on dual-stack configured clusters, otherwise fail). The
+ipFamilies and clusterIPs fields depend on the value of this field. This
+field will be wiped when updating a service to type ExternalName.
+
+</summary>
+
+
+
+</details>

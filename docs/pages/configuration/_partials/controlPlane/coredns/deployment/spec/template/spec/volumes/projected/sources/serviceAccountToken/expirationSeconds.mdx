@@ -1,0 +1,18 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+############ `expirationSeconds` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">integer</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-projected-sources-serviceAccountToken-expirationSeconds}
+
+expirationSeconds is the requested duration of validity of the service
+account token. As the token approaches expiration, the kubelet volume
+plugin will proactively rotate the service account token. The kubelet will
+start trying to rotate the token if the token is older than 80 percent of
+its time to live or if the token is older than 24 hours.Defaults to 1 hour
+and must be at least 10 minutes.
+
+</summary>
+
+
+
+</details>

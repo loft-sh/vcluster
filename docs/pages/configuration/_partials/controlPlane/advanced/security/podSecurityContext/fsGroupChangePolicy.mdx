@@ -1,0 +1,19 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+###### `fsGroupChangePolicy` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-advanced-security-podSecurityContext-fsGroupChangePolicy}
+
+fsGroupChangePolicy defines behavior of changing ownership and permission of the volume
+before being exposed inside Pod. This field will only apply to
+volume types which support fsGroup based ownership(and permissions).
+It will have no effect on ephemeral volume types such as: secret, configmaps
+and emptydir.
+Valid values are "OnRootMismatch" and "Always". If not specified, "Always" is used.
+Note that this field cannot be set when spec.os.name is windows.
+
+</summary>
+
+
+
+</details>

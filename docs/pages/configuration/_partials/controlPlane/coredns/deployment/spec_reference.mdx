@@ -1,0 +1,74 @@
+
+import PartialReplicas from "./spec/replicas.mdx"
+import PartialSelectorreference from "./spec/selector_reference.mdx"
+import PartialTemplatereference from "./spec/template_reference.mdx"
+import PartialStrategyreference from "./spec/strategy_reference.mdx"
+import PartialMinreadyseconds from "./spec/minReadySeconds.mdx"
+import PartialRevisionhistorylimit from "./spec/revisionHistoryLimit.mdx"
+import PartialPaused from "./spec/paused.mdx"
+import PartialProgressdeadlineseconds from "./spec/progressDeadlineSeconds.mdx"
+
+<PartialReplicas />
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `selector` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-selector}
+
+Label selector for pods. Existing ReplicaSets whose pods are
+selected by this will be the ones affected by this deployment.
+It must match the pod template's labels.
+
+</summary>
+
+<PartialSelectorreference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `template` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template}
+
+Template describes the pods that will be created.
+The only allowed template.spec.restartPolicy value is "Always".
+
+</summary>
+
+<PartialTemplatereference />
+
+
+</details>
+
+
+
+<details className="config-field" data-expandable="true">
+<summary>
+
+###### `strategy` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-strategy}
+
+The deployment strategy to use to replace existing pods with new ones.
+
+</summary>
+
+<PartialStrategyreference />
+
+
+</details>
+
+
+<PartialMinreadyseconds />
+
+
+<PartialRevisionhistorylimit />
+
+
+<PartialPaused />
+
+
+<PartialProgressdeadlineseconds />

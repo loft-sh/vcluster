@@ -1,0 +1,23 @@
+
+import PartialOverheadreference from "./overhead_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+######## `overhead` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-overhead}
+
+Overhead represents the resource overhead associated with running a pod for a given RuntimeClass.
+This field will be autopopulated at admission time by the RuntimeClass admission controller. If
+the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests.
+The RuntimeClass admission controller will reject Pod create requests which have the overhead already
+set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value
+defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero.
+More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md
+
+</summary>
+
+<PartialOverheadreference />
+
+
+</details>

@@ -1,0 +1,20 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+##### `publishNotReadyAddresses` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">boolean</span> <span className="config-field-default">false</span> <span className="config-field-enum"></span> {#controlPlane-service-spec-publishNotReadyAddresses}
+
+publishNotReadyAddresses indicates that any agent which deals with endpoints for this
+Service should disregard any indications of ready/not-ready.
+The primary use case for setting this field is for a StatefulSet's Headless Service to
+propagate SRV DNS records for its Pods for the purpose of peer discovery.
+The Kubernetes controllers that generate Endpoints and EndpointSlice resources for
+Services interpret this to mean that all endpoints are considered "ready" even if the
+Pods themselves are not. Agents which consume only Kubernetes generated endpoints
+through the Endpoints or EndpointSlice resources can safely assume this behavior.
+
+</summary>
+
+
+
+</details>

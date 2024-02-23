@@ -1,0 +1,18 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+##### `internalTrafficPolicy` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-service-spec-internalTrafficPolicy}
+
+InternalTrafficPolicy describes how nodes distribute service traffic they
+receive on the ClusterIP. If set to "Local", the proxy will assume that pods
+only want to talk to endpoints of the service on the same node as the pod,
+dropping the traffic if there are no local endpoints. The default value,
+"Cluster", uses the standard behavior of routing to all endpoints evenly
+(possibly modified by topology and other features).
+
+</summary>
+
+
+
+</details>

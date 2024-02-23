@@ -1,0 +1,18 @@
+
+<details className="config-field" data-expandable="false" open>
+<summary>
+
+######## `dnsPolicy` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type">string</span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-dnsPolicy}
+
+Set DNS policy for the pod.
+Defaults to "ClusterFirst".
+Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.
+DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy.
+To have DNS options set along with hostNetwork, you have to specify DNS policy
+explicitly to 'ClusterFirstWithHostNet'.
+
+</summary>
+
+
+
+</details>

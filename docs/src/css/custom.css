@@ -41,6 +41,11 @@ ul ul .table-of-contents__link--active::before {
 	background-color: #1b1b1d !important;
 }
 
+.code-style {
+	font-family: Menlo, 'Courier New', monospace;
+	word-spacing: -0.15em;
+}
+
 .menu__list {
 	margin-right: 0;
 }

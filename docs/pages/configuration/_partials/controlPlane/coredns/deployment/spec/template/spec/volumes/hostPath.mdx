@@ -1,0 +1,24 @@
+
+import PartialHostpathreference from "./hostPath_reference.mdx"
+
+
+<details className="config-field" data-expandable="true" open>
+<summary>
+
+######### `hostPath` <span className="config-field-required" data-required="false">required</span> <span className="config-field-type"></span> <span className="config-field-default"></span> <span className="config-field-enum"></span> {#controlPlane-coredns-deployment-spec-template-spec-volumes-hostPath}
+
+hostPath represents a pre-existing file or directory on the host
+machine that is directly exposed to the container. This is generally
+used for system agents or other privileged things that are allowed
+to see the host machine. Most containers will NOT need this.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
+---
+TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
+mount host directories as read/write.
+
+</summary>
+
+<PartialHostpathreference />
+
+
+</details>
