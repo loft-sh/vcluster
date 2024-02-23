@@ -34,6 +34,7 @@ func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	proCmd.AddCommand(NewResetCmd(loftctlGlobalFlags))
 	proCmd.AddCommand(NewGenerateCmd())
 	proCmd.AddCommand(connect.NewConnectCmd(loftctlGlobalFlags))
+	proCmd.AddCommand(NewTokenCmd(loftctlGlobalFlags))
 
 	return proCmd, nil
 }
