@@ -133,6 +133,7 @@ func updateTableWithDistro(distroName string, versionMap map[string]string, know
 	}
 
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAutoFormatHeaders(false)
 	table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
 	table.SetCenterSeparator("|")
 	table.Render()
