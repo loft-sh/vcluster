@@ -55,7 +55,7 @@ Whether to create a cluster role or not
     .Values.proxy.metricsServer.nodes.enabled
     .Values.multiNamespaceMode.enabled
     .Values.coredns.plugin.enabled -}}
-{{- true -}}
+{{- .Values.suppressClusterRoleCreation | ternary "" "true" -}}
 {{- end -}}
 {{- end -}}
 
