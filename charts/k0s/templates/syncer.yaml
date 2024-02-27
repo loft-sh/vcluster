@@ -131,6 +131,8 @@ spec:
         volumeMounts:
           - name: binaries
             mountPath: /binaries
+        resources:
+{{ toYaml .Values.vcluster.resources | indent 10 }}
       containers:
       {{- if not .Values.syncer.disabled }}
       - name: syncer
