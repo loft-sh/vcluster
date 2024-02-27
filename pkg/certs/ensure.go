@@ -8,12 +8,16 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 	"k8s.io/klog/v2"
 )
 
@@ -33,6 +37,52 @@ func EnsureCerts(
 	secretName := vClusterName + "-certs"
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err == nil {
+		err = downloadCertsFromSecret(secret, certificateDir)
+		if err != nil {
+			return err
+		}
+		shouldUpdate, err := updateKubeconfigInSecret(secret)
+		if err != nil {
+			return err
+		} else if !shouldUpdate {
+			return nil
+		}
+
+		klog.Info("removing outdated certs")
+		// delete the certs and recreate them
+		cfg, err := createConfig(serviceCIDR, vClusterName, certificateDir, clusterDomain, etcdSans)
+		if err != nil {
+			return err
+		}
+		err = os.Remove(filepath.Join(certificateDir, "apiserver.crt"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		err = os.Remove(filepath.Join(certificateDir, "apiserver.key"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+
+		// only create the files if the files are not there yet
+		err = CreatePKIAssets(cfg)
+		if err != nil {
+			// ignore the error because some other certs are upsetting the function
+			klog.V(1).Info("create pki assets err:", err)
+		}
+		cert, err := os.ReadFile(filepath.Join(certificateDir, "apiserver.crt"))
+		if err != nil {
+			return err
+		}
+		key, err := os.ReadFile(filepath.Join(certificateDir, "apiserver.key"))
+		if err != nil {
+			return err
+		}
+		secret.Data["apiserver.crt"] = cert
+		secret.Data["apiserver.key"] = key
+		_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Update(ctx, secret, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
 		return downloadCertsFromSecret(secret, certificateDir)
 	}
 
@@ -91,17 +141,11 @@ func EnsureCerts(
 	return downloadCertsFromSecret(secret, certificateDir)
 }
 
-func generateCertificates(
-	serviceCIDR string,
-	vClusterName string,
-	certificateDir string,
-	clusterDomain string,
-	etcdSans []string,
-) error {
+func createConfig(serviceCIDR, vClusterName, certificateDir, clusterDomain string, etcdSans []string) (*InitConfiguration, error) {
 	// init config
 	cfg, err := SetInitDynamicDefaults()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cfg.ClusterName = "kubernetes"
@@ -116,6 +160,22 @@ func generateCertificates(
 	cfg.CertificatesDir = certificateDir
 	cfg.LocalAPIEndpoint.AdvertiseAddress = "0.0.0.0"
 	cfg.LocalAPIEndpoint.BindPort = 443
+
+	return cfg, nil
+}
+
+func generateCertificates(
+	serviceCIDR string,
+	vClusterName string,
+	certificateDir string,
+	clusterDomain string,
+	etcdSans []string,
+) error {
+	// init config
+	cfg, err := createConfig(serviceCIDR, vClusterName, certificateDir, clusterDomain, etcdSans)
+	if err != nil {
+		return err
+	}
 
 	// only create the files if the files are not there yet
 	err = CreatePKIAssets(cfg)
@@ -198,4 +258,43 @@ func extraFiles(certificateDir string) (map[string][]byte, error) {
 	}
 
 	return files, err
+}
+
+func updateKubeconfigToLocalhost(config *clientcmdapi.Config) bool {
+	updated := false
+	// not sure what that would do in case of multiple clusters,
+	// but this is not expected AFAIU
+	for k, v := range config.Clusters {
+		if v.Server != "https://127.0.0.1:6443" {
+			config.Clusters[k].Server = "https://127.0.0.1:6443"
+			updated = true
+		}
+	}
+	return updated
+}
+
+func updateKubeconfigInSecret(secret *corev1.Secret) (shouldUpdate bool, err error) {
+	shouldUpdate = false
+	for k, v := range secret.Data {
+		if !strings.HasSuffix(k, ".conf") {
+			continue
+		}
+		config := &clientcmdapi.Config{}
+		err = runtime.DecodeInto(clientcmdlatest.Codec, v, config)
+		if err != nil {
+			return false, err
+		}
+		hasChanged := updateKubeconfigToLocalhost(config)
+		if !hasChanged {
+			continue
+		}
+		shouldUpdate = true
+
+		marshalled, err := runtime.Encode(clientcmdlatest.Codec, config)
+		if err != nil {
+			return false, err
+		}
+		secret.Data[k] = marshalled
+	}
+	return shouldUpdate, nil
 }
