@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
@@ -60,7 +61,7 @@ func Initialize(
 		return err
 	}
 
-	specialservices.SetDefault()
+	specialservices.Default = pro.InitDNSServiceSyncing(options)
 	telemetry.Collector.RecordStart(ctx)
 	return nil
 }
@@ -98,9 +99,25 @@ func initialize(
 		}
 
 		// create certificates if they are not there yet
-		err = certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, "/data/k0s/pki", "", nil)
+		certificatesDir := "/data/k0s/pki"
+		err = GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 		if err != nil {
 			return err
+		}
+
+		// should start embedded etcd?
+		if options.ProOptions.EtcdEmbedded && options.ProOptions.EtcdReplicas > 0 {
+			err = pro.StartEmbeddedEtcd(
+				parentCtx,
+				vClusterName,
+				currentNamespace,
+				certificatesDir,
+				options.ProOptions.EtcdReplicas,
+				options.ProOptions.MigrateFrom,
+			)
+			if err != nil {
+				return fmt.Errorf("start embedded etcd: %w", err)
+			}
 		}
 
 		// start k0s
@@ -127,6 +144,30 @@ func initialize(
 			return err
 		}
 
+		// should start embedded etcd?
+		if options.ProOptions.EtcdEmbedded && options.ProOptions.EtcdReplicas > 0 {
+			// generate certificates
+			certificatesDir := "/data/pki"
+			err := GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			if err != nil {
+				return err
+			}
+
+			// we need to run this with the parent ctx as otherwise this context
+			// will be cancelled by the wait loop in Initialize
+			err = pro.StartEmbeddedEtcd(
+				parentCtx,
+				vClusterName,
+				currentNamespace,
+				certificatesDir,
+				options.ProOptions.EtcdReplicas,
+				options.ProOptions.MigrateFrom,
+			)
+			if err != nil {
+				return fmt.Errorf("start embedded etcd: %w", err)
+			}
+		}
+
 		// start k3s
 		go func() {
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
@@ -143,6 +184,22 @@ func initialize(
 			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
 			if err != nil {
 				return err
+			}
+		}
+
+		// should start embedded etcd?
+		if options.ProOptions.EtcdEmbedded && options.ProOptions.EtcdReplicas > 0 {
+			// start embedded etcd
+			err := pro.StartEmbeddedEtcd(
+				parentCtx,
+				vClusterName,
+				currentNamespace,
+				certificatesDir,
+				options.ProOptions.EtcdReplicas,
+				options.ProOptions.MigrateFrom,
+			)
+			if err != nil {
+				return fmt.Errorf("start embedded etcd: %w", err)
 			}
 		}
 
@@ -164,6 +221,25 @@ func initialize(
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func GenerateCertsWithEtcdSans(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
+	// generate etcd server and peer sans
+	etcdSans := []string{
+		"localhost",
+		"*." + vClusterName + "-headless",
+		"*." + vClusterName + "-headless" + "." + currentNamespace,
+		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc",
+		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc." + clusterDomain,
+	}
+
+	// generate certificates
+	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans)
+	if err != nil {
+		return fmt.Errorf("ensure certs: %w", err)
 	}
 
 	return nil

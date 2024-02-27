@@ -14,7 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 )
 
 // ResumeCmd holds the cmd flags
@@ -62,7 +62,7 @@ vcluster resume test --namespace test
 // Run executes the functionality
 func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
 	// get pro client
-	proClient, err := pro.CreateProClient()
+	proClient, err := procli.CreateProClient()
 	if err != nil {
 		cmd.Log.Debugf("Error creating pro client: %v", err)
 	}
@@ -90,7 +90,7 @@ func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
-func (cmd *ResumeCmd) resumeProVCluster(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject) error {
+func (cmd *ResumeCmd) resumeProVCluster(ctx context.Context, proClient proclient.Client, vCluster *procli.VirtualClusterInstanceProject) error {
 	managementClient, err := proClient.Management()
 	if err != nil {
 		return err

@@ -271,7 +271,7 @@ func (m *Manager) buildInitRequest(
 	// marshal init config
 	initConfig, err := json.Marshal(&InitConfig{
 		Pro: InitConfigPro{
-			Enabled:  m.ProFeatures != nil,
+			Enabled:  len(m.ProFeatures) > 0,
 			Features: m.ProFeatures,
 		},
 		PhysicalClusterConfig: phyisicalConfigBytes,

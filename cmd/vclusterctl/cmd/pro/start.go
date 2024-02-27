@@ -10,7 +10,7 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -77,9 +77,9 @@ before running this command:
 func (cmd *StartCmd) Run(ctx context.Context) error {
 	// get version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {
-		cmd.Version = pro.MinimumVersionTag
+		cmd.Version = procli.MinimumVersionTag
 
-		latestVersion, err := pro.LatestCompatibleVersion(context.TODO())
+		latestVersion, err := procli.LatestCompatibleVersion(context.TODO())
 		if err == nil {
 			cmd.Version = latestVersion
 		}

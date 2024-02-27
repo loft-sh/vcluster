@@ -11,7 +11,7 @@ import (
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/client-go/rest"
@@ -88,7 +88,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	ctx := cobraCmd.Context()
 
 	// get pro client
-	proClient, err := pro.CreateProClient()
+	proClient, err := procli.CreateProClient()
 	if err != nil {
 		cmd.log.Debugf("Error creating pro client: %v", err)
 	}
@@ -264,7 +264,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (cmd *DeleteCmd) deleteProVCluster(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject) error {
+func (cmd *DeleteCmd) deleteProVCluster(ctx context.Context, proClient proclient.Client, vCluster *procli.VirtualClusterInstanceProject) error {
 	managementClient, err := proClient.Management()
 	if err != nil {
 		return err

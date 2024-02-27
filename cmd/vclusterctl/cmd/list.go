@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -91,7 +91,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 		namespace = cmd.Namespace
 	}
 
-	proClient, err := pro.CreateProClient()
+	proClient, err := procli.CreateProClient()
 	if err != nil {
 		cmd.log.Debugf("Error creating pro client: %v", err)
 	}
@@ -146,7 +146,7 @@ func ossToVClusters(vClusters []find.VCluster, currentContext string) []VCluster
 	return output
 }
 
-func proToVClusters(vClusters []pro.VirtualClusterInstanceProject, currentContext string) []VCluster {
+func proToVClusters(vClusters []procli.VirtualClusterInstanceProject, currentContext string) []VCluster {
 	var output []VCluster
 	for _, vCluster := range vClusters {
 		status := string(vCluster.VirtualCluster.Status.Phase)

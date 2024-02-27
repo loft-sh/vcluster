@@ -22,7 +22,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster-values/values"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -39,7 +39,7 @@ const LoftChartRepo = "https://charts.loft.sh"
 
 var AllowedDistros = []string{"k3s", "k0s", "k8s", "eks"}
 
-func DeployProCluster(ctx context.Context, options *Options, proClient pro.Client, virtualClusterName, targetNamespace string, log log.Logger) error {
+func DeployProCluster(ctx context.Context, options *Options, proClient procli.Client, virtualClusterName, targetNamespace string, log log.Logger) error {
 	// determine project & cluster name
 	var err error
 	options.Cluster, options.Project, err = helper.SelectProjectOrCluster(proClient, options.Cluster, options.Project, false, log)
@@ -133,7 +133,7 @@ func DeployProCluster(ctx context.Context, options *Options, proClient pro.Clien
 	return nil
 }
 
-func createWithoutTemplate(ctx context.Context, proClient pro.Client, options *Options, virtualClusterName, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func createWithoutTemplate(ctx context.Context, proClient procli.Client, options *Options, virtualClusterName, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	err := validateNoTemplateOptions(options)
 	if err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func createWithoutTemplate(ctx context.Context, proClient pro.Client, options *O
 	return virtualClusterInstance, nil
 }
 
-func upgradeWithoutTemplate(ctx context.Context, proClient pro.Client, options *Options, virtualClusterInstance *managementv1.VirtualClusterInstance, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func upgradeWithoutTemplate(ctx context.Context, proClient procli.Client, options *Options, virtualClusterInstance *managementv1.VirtualClusterInstance, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	err := validateNoTemplateOptions(options)
 	if err != nil {
 		return nil, err
@@ -514,7 +514,7 @@ func validateTemplateOptions(options *Options) error {
 	return nil
 }
 
-func mergeValues(proClient pro.Client, options *Options, log log.Logger) (string, error) {
+func mergeValues(proClient procli.Client, options *Options, log log.Logger) (string, error) {
 	// merge values
 	chartOptions, err := toChartOptions(proClient, options, log)
 	if err != nil {
@@ -581,7 +581,7 @@ func parseString(str string) (map[string]interface{}, error) {
 	return out, nil
 }
 
-func toChartOptions(proClient pro.Client, options *Options, log log.Logger) (*values.ChartOptions, error) {
+func toChartOptions(proClient procli.Client, options *Options, log log.Logger) (*values.ChartOptions, error) {
 	if !util.Contains(options.Distro, AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
 	}

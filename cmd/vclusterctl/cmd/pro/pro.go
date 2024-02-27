@@ -5,7 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro/connect"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +20,7 @@ func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 		Args: cobra.NoArgs,
 	}
 
-	loftctlGlobalFlags, err := pro.GlobalFlags(globalFlags)
+	loftctlGlobalFlags, err := procli.GlobalFlags(globalFlags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pro flags: %w", err)
 	}

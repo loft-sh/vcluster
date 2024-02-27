@@ -16,7 +16,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
 	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -134,7 +134,7 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 		vClusterName = args[0]
 	}
 
-	proClient, err := pro.CreateProClient()
+	proClient, err := procli.CreateProClient()
 	if err != nil {
 		cmd.Log.Debugf("Error creating pro client: %v", err)
 	}
@@ -142,7 +142,7 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 	return cmd.Connect(ctx, proClient, vClusterName, args[1:])
 }
 
-func (cmd *ConnectCmd) Connect(ctx context.Context, proClient pro.Client, vClusterName string, command []string) error {
+func (cmd *ConnectCmd) Connect(ctx context.Context, proClient procli.Client, vClusterName string, command []string) error {
 	// validate flags
 	err := cmd.validateFlags()
 	if err != nil {
@@ -168,7 +168,7 @@ func (cmd *ConnectCmd) validateFlags() error {
 	return nil
 }
 
-func (cmd *ConnectCmd) connectPro(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject, command []string) error {
+func (cmd *ConnectCmd) connectPro(ctx context.Context, proClient proclient.Client, vCluster *procli.VirtualClusterInstanceProject, command []string) error {
 	err := cmd.validateProFlags()
 	if err != nil {
 		return err
@@ -397,7 +397,7 @@ func (cmd *ConnectCmd) prepare(ctx context.Context, vCluster *find.VCluster) err
 	return nil
 }
 
-func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
+func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient proclient.Client, vCluster *procli.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
 	contextOptions, err := use.CreateVirtualClusterInstanceOptions(ctx, proClient, "", vCluster.Project.Name, vCluster.VirtualCluster, false, false, cmd.Log)
 	if err != nil {
 		return nil, fmt.Errorf("prepare vCluster kube config: %w", err)

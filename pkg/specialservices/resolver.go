@@ -9,10 +9,6 @@ import (
 
 var Default Interface
 
-func SetDefault() {
-	Default = defaultNameserverFinder()
-}
-
 const (
 	DefaultKubeDNSServiceName      = "kube-dns"
 	DefaultKubeDNSServiceNamespace = "kube-system"
@@ -31,6 +27,14 @@ type Interface interface {
 	DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string)
 }
 
+func NewDefaultServiceSyncer() Interface {
+	return &NameserverFinder{
+		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
+			DefaultKubernetesSvcKey: SyncKubernetesService,
+		},
+	}
+}
+
 type NameserverFinder struct {
 	SpecialServices map[types.NamespacedName]SpecialServiceSyncer
 }
@@ -41,12 +45,4 @@ func (f *NameserverFinder) DNSNamespace(ctx *synccontext.SyncContext) (client.Cl
 
 func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer {
 	return f.SpecialServices
-}
-
-func defaultNameserverFinder() Interface {
-	return &NameserverFinder{
-		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
-			DefaultKubernetesSvcKey: SyncKubernetesService,
-		},
-	}
 }

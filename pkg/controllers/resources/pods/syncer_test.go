@@ -21,7 +21,7 @@ import (
 
 func TestSync(t *testing.T) {
 	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
-	specialservices.SetDefault()
+	specialservices.Default = specialservices.NewDefaultServiceSyncer()
 
 	PodLogsVolumeName := "pod-logs"
 	LogsVolumeName := "logs"
