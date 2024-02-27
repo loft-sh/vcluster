@@ -152,6 +152,8 @@ spec:
         {{- if .Values.syncer.imagePullPolicy }}
         imagePullPolicy: {{ .Values.syncer.imagePullPolicy }}
         {{- end }}
+        resources:
+{{ toYaml .Values.syncer.resources | indent 10 }}
       {{- if not .Values.controller.disabled }}
       - name: kube-controller-manager
         image: "{{ .Values.defaultImageRegistry }}{{ .Values.controller.image }}"
