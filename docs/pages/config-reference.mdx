@@ -46,7 +46,7 @@ Before using any particular flag mentioned below, we recommend making yourself f
       --set-owner                                 If true, will set the same owner the currently running syncer pod has on the synced resources (default true)
       --sync strings                              A list of sync controllers to enable. 'foo' enables the sync controller named 'foo', '-foo' disables the sync controller named 'foo'
       --sync-all-nodes                            If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones
-      --sync-labels strings                       The specified labels will be synced to physical resources, in addition to their vCluster translated versions. Supports wildcards, e.g --sync-labels=my.company/* will sync all labels that match the given prefix.
+      --sync-labels strings                       The specified labels will be synced to physical resources, in addition to their vCluster translated versions. Supported wildcard - '/*'. e.g --sync-labels=my.company/* will sync all labels that match the given prefix 'my.company/'.
       --sync-node-changes                         If enabled and --fake-nodes is false, the virtual cluster will proxy node updates from the virtual cluster to the host cluster. This is not recommended and should only be used if you know what you are doing.
       --target-namespace string                   The namespace to run the virtual cluster in (defaults to current namespace)
       --tls-san strings                           Add additional hostname or IP as a Subject Alternative Name in the TLS cert
@@ -59,4 +59,11 @@ All of these syncer flags can be set and configured through the values override 
 syncer:
   extraArgs:
     - --set-owner=false
+```
+
+For flags that accept multiple values, the same can be supplied as a comma-seperated string as shown below
+```
+syncer:
+  extraArgs:
+    - --sync-labels=loft.sh/label1,loft.sh/label2
 ```
