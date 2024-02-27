@@ -189,7 +189,10 @@ syncer:
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
   securityContext: {}
-  podSecurityContext: {}
+  podSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsUser: 0
+    runAsGroup: 0
   serviceAnnotations: {}
   # Storage settings for the vcluster
   storage:
