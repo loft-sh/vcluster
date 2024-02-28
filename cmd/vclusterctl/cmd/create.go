@@ -17,7 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/pkg/embed"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	corev1 "k8s.io/api/core/v1"
@@ -137,7 +137,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 
 	// check if we should create a pro cluster
 	if !cmd.DisablePro {
-		proClient, err := pro.CreateProClient()
+		proClient, err := procli.CreateProClient()
 		if err == nil {
 			// deploy pro cluster
 			err = create.DeployProCluster(ctx, &cmd.Options, proClient, args[0], cmd.Namespace, cmd.log)

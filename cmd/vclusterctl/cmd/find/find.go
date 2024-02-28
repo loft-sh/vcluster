@@ -10,7 +10,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -67,7 +67,7 @@ func CurrentContext() (string, *clientcmdapi.Config, error) {
 	return rawConfig.CurrentContext, &rawConfig, nil
 }
 
-func GetVCluster(ctx context.Context, proClient pro.Client, context, name, namespace, project string, log log.Logger) (*VCluster, *pro.VirtualClusterInstanceProject, error) {
+func GetVCluster(ctx context.Context, proClient procli.Client, context, name, namespace, project string, log log.Logger) (*VCluster, *procli.VirtualClusterInstanceProject, error) {
 	if name == "" {
 		return nil, nil, fmt.Errorf("please specify a name")
 	}
@@ -156,7 +156,7 @@ func FormatOptions(format string, options [][]string) []string {
 	return retOptions
 }
 
-func ListVClusters(ctx context.Context, proClient pro.Client, context, name, namespace, project string, log log.Logger) ([]VCluster, []pro.VirtualClusterInstanceProject, error) {
+func ListVClusters(ctx context.Context, proClient procli.Client, context, name, namespace, project string, log log.Logger) ([]VCluster, []procli.VirtualClusterInstanceProject, error) {
 	var err error
 	if context == "" {
 		var err error
@@ -174,9 +174,9 @@ func ListVClusters(ctx context.Context, proClient pro.Client, context, name, nam
 		}
 	}
 
-	var proVClusters []pro.VirtualClusterInstanceProject
+	var proVClusters []procli.VirtualClusterInstanceProject
 	if proClient != nil {
-		proVClusters, err = pro.ListVClusters(ctx, proClient, name, project)
+		proVClusters, err = procli.ListVClusters(ctx, proClient, name, project)
 		if err != nil {
 			log.Warnf("Error retrieving pro vclusters: %v", err)
 		}

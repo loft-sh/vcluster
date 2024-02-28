@@ -10,7 +10,7 @@ import (
 	cmdpro "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/sirupsen/logrus"
@@ -134,6 +134,6 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 }
 
 func recordAndFlush(err error) {
-	telemetry.Collector.RecordCLI(pro.Self, err)
+	telemetry.Collector.RecordCLI(procli.Self, err)
 	telemetry.Collector.Flush()
 }

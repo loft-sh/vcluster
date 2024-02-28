@@ -1,6 +1,6 @@
 module github.com/loft-sh/vcluster
 
-go 1.21.5
+go 1.22.0
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -15,6 +15,7 @@ require (
 	github.com/hashicorp/go-plugin v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
+	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
 	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240207094449-7adc00ae1265
 	github.com/loft-sh/analytics-client v0.0.0-20240206084604-1302688c3d4c
 	github.com/loft-sh/api/v3 v3.0.0-20240207094436-f23808d5a185
@@ -86,7 +87,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
-	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8 // indirect
 	github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1 // indirect
 	github.com/loft-sh/jspolicy v0.2.2 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
@@ -118,7 +118,7 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/evanphx/json-patch v5.8.1+incompatible // indirect
+	github.com/evanphx/json-patch v5.8.1+incompatible
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect

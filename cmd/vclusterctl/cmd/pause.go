@@ -21,7 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -76,7 +76,7 @@ vcluster pause test --namespace test
 // Run executes the functionality
 func (cmd *PauseCmd) Run(ctx context.Context, args []string) error {
 	// get pro client
-	proClient, err := pro.CreateProClient()
+	proClient, err := procli.CreateProClient()
 	if err != nil {
 		cmd.Log.Debugf("Error creating pro client: %v", err)
 	}
@@ -114,7 +114,7 @@ func (cmd *PauseCmd) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
-func (cmd *PauseCmd) pauseProVCluster(ctx context.Context, proClient proclient.Client, vCluster *pro.VirtualClusterInstanceProject) error {
+func (cmd *PauseCmd) pauseProVCluster(ctx context.Context, proClient proclient.Client, vCluster *procli.VirtualClusterInstanceProject) error {
 	managementClient, err := proClient.Management()
 	if err != nil {
 		return err

@@ -13,7 +13,7 @@ import (
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/util/compress"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
@@ -56,7 +56,7 @@ vcluster import my-vcluster --cluster connected-cluster \
 		Long:  description,
 		Args:  loftctlUtil.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			proClient, err := pro.CreateProClient()
+			proClient, err := procli.CreateProClient()
 			if err != nil {
 				return err
 			}

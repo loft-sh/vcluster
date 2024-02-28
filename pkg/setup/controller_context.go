@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/plugin"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
@@ -42,8 +43,6 @@ func NewControllerContext(
 	currentNamespace string,
 	inClusterConfig *rest.Config,
 	scheme *runtime.Scheme,
-	newPhysicalClient client.NewClientFunc,
-	newVirtualClient client.NewClientFunc,
 ) (*options.ControllerContext, error) {
 	// validate options
 	err := ValidateOptions(options)
@@ -52,15 +51,26 @@ func NewControllerContext(
 	}
 
 	// create controller context
-	return InitManagers(
+	controllerContext, err := InitManagers(
 		ctx,
 		options,
 		currentNamespace,
 		inClusterConfig,
 		scheme,
-		newPhysicalClient,
-		newVirtualClient,
+		pro.NewPhysicalClient(options),
+		pro.NewVirtualClient(options),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// init pro controller context
+	err = pro.InitProControllerContext(controllerContext)
+	if err != nil {
+		return nil, err
+	}
+
+	return controllerContext, nil
 }
 
 func InitManagers(

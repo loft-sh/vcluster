@@ -13,29 +13,68 @@ import (
 	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
 	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/plugin"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func StartControllers(controllerContext *options.ControllerContext) error {
-	// setup CoreDNS according to the manifest file
-	go ApplyCoreDNS(controllerContext)
+func StartControllers(
+	controllerContext *options.ControllerContext,
+	controlPlaneNamespace,
+	controlPlaneService string,
+	controlPlaneConfig *rest.Config,
+) error {
+	proOptions := controllerContext.Options.ProOptions
 
-	// instantiate controllers
-	syncers, err := controllers.Create(controllerContext)
+	// exchange control plane client
+	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext, controlPlaneNamespace, controlPlaneConfig)
 	if err != nil {
-		return errors.Wrap(err, "instantiate controllers")
+		return err
+	}
+
+	// start coredns & create syncers
+	var syncers []syncertypes.Object
+	if !proOptions.NoopSyncer {
+		// setup CoreDNS according to the manifest file
+		// skip this if both integrated and dedicated coredns
+		// deployments are explicitly disabled
+		go func() {
+			// apply coredns
+			ApplyCoreDNS(controllerContext)
+
+			// delete coredns deployment if integrated core dns
+			if proOptions.IntegratedCoredns {
+				err := controllerContext.VirtualManager.GetClient().Delete(controllerContext.Context, &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "coredns",
+						Namespace: "kube-system",
+					},
+				})
+				if err != nil && !kerrors.IsNotFound(err) {
+					klog.Errorf("Error deleting coredns deployment: %v", err)
+				}
+			}
+		}()
+
+		// init syncers
+		syncers, err = controllers.Create(controllerContext)
+		if err != nil {
+			return errors.Wrap(err, "instantiate controllers")
+		}
 	}
 
 	// start managers
@@ -44,22 +83,65 @@ func StartControllers(controllerContext *options.ControllerContext) error {
 		return err
 	}
 
-	// make sure the kubernetes service is synced
-	err = SyncKubernetesService(controllerContext)
-	if err != nil {
-		return errors.Wrap(err, "sync kubernetes service")
+	// sync remote Endpoints
+	if proOptions.RemoteKubeConfig != "" {
+		err := pro.SyncRemoteEndpoints(
+			controllerContext.Context,
+			types.NamespacedName{
+				Namespace: controlPlaneNamespace,
+				Name:      controlPlaneService,
+			},
+			controlPlaneClient,
+			types.NamespacedName{
+				Namespace: controllerContext.CurrentNamespace,
+				Name:      controllerContext.Options.ServiceName,
+			},
+			controllerContext.CurrentNamespaceClient,
+		)
+		if err != nil {
+			return errors.Wrap(err, "sync remote endpoints")
+		}
 	}
 
-	// register controllers
-	err = controllers.RegisterControllers(controllerContext, syncers)
-	if err != nil {
-		return err
+	// sync endpoints for noop syncer
+	if proOptions.NoopSyncer && proOptions.SyncKubernetesService {
+		err := pro.SyncNoopSyncerEndpoints(
+			controllerContext,
+			types.NamespacedName{
+				Namespace: controlPlaneNamespace,
+				Name:      controlPlaneService + "-lb",
+			},
+			controlPlaneClient,
+			types.NamespacedName{
+				Namespace: controlPlaneNamespace,
+				Name:      controlPlaneService + "-proxy",
+			},
+			controlPlaneService,
+		)
+		if err != nil {
+			return errors.Wrap(err, "sync proxied cluster endpoints")
+		}
+	}
+
+	// if not noop syncer
+	if !proOptions.NoopSyncer {
+		// make sure the kubernetes service is synced
+		err = SyncKubernetesService(controllerContext)
+		if err != nil {
+			return errors.Wrap(err, "sync kubernetes service")
+		}
+
+		// register controllers
+		err = controllers.RegisterControllers(controllerContext, syncers)
+		if err != nil {
+			return err
+		}
 	}
 
 	// write the kube config to secret
 	go func() {
 		wait.Until(func() {
-			err := WriteKubeConfigToSecret(controllerContext.Context, controllerContext.CurrentNamespace, controllerContext.CurrentNamespaceClient, controllerContext.Options, controllerContext.VirtualRawConfig, false)
+			err := WriteKubeConfigToSecret(controllerContext.Context, controlPlaneNamespace, controlPlaneClient, controllerContext.Options, controllerContext.VirtualRawConfig, proOptions.RemoteKubeConfig != "")
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
 			}

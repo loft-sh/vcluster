@@ -1,4 +1,4 @@
-package pro
+package procli
 
 import (
 	"fmt"
