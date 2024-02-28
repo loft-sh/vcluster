@@ -324,6 +324,13 @@ spec:
         {{- end }}
         {{- if .Values.syncer.readinessProbe }}
         {{- if .Values.syncer.readinessProbe.enabled }}
+        startupProbe:
+          httpGet:
+            path: /readyz
+            port: 8443
+            scheme: HTTPS
+          failureThreshold: 300
+          periodSeconds: 6
         readinessProbe:
           httpGet:
             path: /readyz
