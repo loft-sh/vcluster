@@ -208,7 +208,8 @@ jobs:
           --create-namespace \
           --debug \
           --connect=false \
-          --distro=${{ matrix.distribution }} \
+          --distro=${{ matrix.distribution }}
+          kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
       - name: upgrade with the dev cli
         run: |
           chmod +x ./vcluster
