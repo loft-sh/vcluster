@@ -201,13 +201,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vcluster_syncer
+      - name: install sed
+        run: |
+          sudo apt-get install -y sed
       - name: create vcluster with current cli
         run: |
           chmod +x ./vcluster-current
-          set -x
-          sudo apt-get install -y sed
-
-          sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
 
           kind load image-archive vcluster_syncer
 
@@ -223,6 +222,9 @@ jobs:
         run: |
           chmod +x ./vcluster-dev/vcluster
           set -x
+
+          sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" test/commonValues.yaml
+
           ./vcluster-dev/vcluster create vcluster --distro=${{ matrix.distribution }} \
           --connect=false \
           --upgrade \
