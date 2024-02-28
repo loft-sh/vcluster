@@ -169,6 +169,8 @@ spec:
         {{- if .Values.controller.imagePullPolicy }}
         imagePullPolicy: {{ .Values.controller.imagePullPolicy }}
         {{- end }}
+        resources:
+{{ toYaml .Values.syncer.resources | indent 10 }}
       {{- end }}
       {{- if not .Values.api.disabled }}
       - name: kube-apiserver
@@ -185,6 +187,8 @@ spec:
         {{- if .Values.api.imagePullPolicy }}
         imagePullPolicy: {{ .Values.api.imagePullPolicy }}
         {{- end }}
+        resources:
+{{ toYaml .Values.syncer.resources | indent 10 }}
       {{- end }}
       containers:
       - name: syncer
