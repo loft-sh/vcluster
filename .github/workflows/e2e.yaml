@@ -213,9 +213,9 @@ jobs:
           kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
       - name: upgrade with the dev cli
         run: |
-          chmod +x ./vcluster-dev
+          chmod +x ./vcluster-dev/vcluster
           set -x
-          ./vcluster-dev create vcluster --distro=${{ matrix.distribution }} --connect=false --upgrade
+          ./vcluster-dev/vcluster create vcluster --distro=${{ matrix.distribution }} --connect=false --upgrade
           kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
 
 
