@@ -205,17 +205,29 @@ jobs:
         run: |
           chmod +x ./vcluster-current
           set -x
+          sudo apt-get install -y sed
+
+          sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
+
+          kind load image-archive vcluster_syncer
+
           ./vcluster-current create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
           --create-namespace \
           --debug \
           --connect=false \
           --distro=${{ matrix.distribution }}
+          -f ./test/commonValues.yaml
+
           kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
       - name: upgrade with the dev cli
         run: |
           chmod +x ./vcluster-dev/vcluster
           set -x
-          ./vcluster-dev/vcluster create vcluster --distro=${{ matrix.distribution }} --connect=false --upgrade
+          ./vcluster-dev/vcluster create vcluster --distro=${{ matrix.distribution }} \
+          --connect=false \
+          --upgrade \
+          -f ./test/commonValues.yaml
+
           sleep 20
           kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
 
