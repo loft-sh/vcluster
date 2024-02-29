@@ -629,8 +629,8 @@ github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8 h1:nuY9Vgvabh2F
 github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8/go.mod h1:MWczNwKvWssHo1KaeZKaWDdRLYSNbWqQBGsTLoCNd7U=
 github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240207094449-7adc00ae1265 h1:SUAdOY4H2n04JlI2So/kyRaH/HEpnoH//cewI4C4vyY=
 github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240207094449-7adc00ae1265/go.mod h1:Ln2nKIXWwgCYqA+NflEu182x3r0Zb7KZnzJ4LHOMP7Y=
-github.com/loft-sh/analytics-client v0.0.0-20240206084604-1302688c3d4c h1:WeOXXSGCdE6s0+fargq3Hs0aYx+TMZoF9Kb45fkubys=
-github.com/loft-sh/analytics-client v0.0.0-20240206084604-1302688c3d4c/go.mod h1:FFWcGASyM2QlWTDTCG/WBVM/XYr8btqYt335TFNRCFg=
+github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e h1:JcPnMaoczikvpasi8OJ47dCkWZjfgFubWa4V2SZo7h0=
+github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e/go.mod h1:FFWcGASyM2QlWTDTCG/WBVM/XYr8btqYt335TFNRCFg=
 github.com/loft-sh/api/v3 v3.0.0-20240207094436-f23808d5a185 h1:37LLP+bGwNjp6yVuq/uzzp72mbEnZwethLW0Aow8DXI=
 github.com/loft-sh/api/v3 v3.0.0-20240207094436-f23808d5a185/go.mod h1:o61K5gzL8XKo/6T62mUX4U2owgO/Iasjt3LLgzqbfQc=
 github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1 h1:pdT9I+6jg5YV9vTlG4b0RRao3EvwjSNmH0Cihv7bPUg=
