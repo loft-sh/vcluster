@@ -17,7 +17,7 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
 	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240207094449-7adc00ae1265
-	github.com/loft-sh/analytics-client v0.0.0-20240206084604-1302688c3d4c
+	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v3 v3.0.0-20240207094436-f23808d5a185
 	github.com/loft-sh/loftctl/v3 v3.0.0-20240207094551-f600825cc6f5
 	github.com/loft-sh/utils v0.0.29

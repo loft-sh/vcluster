@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultEndpoint = "http://analytics.loft.rocks/v1/insert"
+	defaultEndpoint = "https://analytics.loft.rocks/v1/insert"
 
 	eventsCountThreshold = 100
 
