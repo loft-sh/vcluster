@@ -9,6 +9,8 @@ Execute these commands from the `/docs/` directory.
 
 ### Installation
 
+From the `vcluster/docs` directory, execute:
+
 ```
 $ yarn
 ```
