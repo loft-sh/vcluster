@@ -41,7 +41,7 @@ jobs:
           cache: false
           go-version: "1.22"
       - name: Setup Just
-        uses: extractions/setup-just@v1
+        uses: extractions/setup-just@v2
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.15.1
       - name: Setup GoReleaser
@@ -76,7 +76,7 @@ jobs:
           go-version: "1.22"
           cache: false
       - name: Setup Just
-        uses: extractions/setup-just@v1
+        uses: extractions/setup-just@v2
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.15.1
       - name: Setup GoReleaser
