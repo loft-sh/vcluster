@@ -29,4 +29,4 @@ jobs:
         run: |
           go generate ./...
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v4
