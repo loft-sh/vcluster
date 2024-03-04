@@ -78,9 +78,11 @@ plugin:
     # Version v2 is required to use the new plugin api
     version: v2
     image: plugin-image
-    # Other optional sidecar values below
-    # command: ...
-    # env: ...
+    # Specify config that can be parsed within the plugin
+    #config:
+    # myKey: myValue
+    # myConfigObj:
+    #   otherKey: otherValue
     # Configure Extra RBAC Rules like this
     #rbac:
     #  role:
