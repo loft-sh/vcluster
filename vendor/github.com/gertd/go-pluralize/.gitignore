@@ -1,0 +1,22 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Log files
+*.log
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# exclude binery files
+pdx
+debug
+
+# exclude directories
+bin/
+release/

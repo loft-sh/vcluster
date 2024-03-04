@@ -13,9 +13,12 @@
     "@docusaurus/preset-classic": "^2.4.1",
     "classnames": "^2.2.6",
     "docusaurus-gtm-plugin": "^0.0.2",
+    "docusaurus-plugin-sass": "^0.2.5",
     "mdx-link-checker": "^0.1.1",
     "react": "^16.8.4",
-    "react-dom": "^16.8.4"
+    "react-dom": "^16.8.4",
+    "resolve-glob": "^1.0.0",
+    "sass": "^1.71.1"
   },
   "browserslist": {
     "production": [

@@ -256,6 +256,11 @@ module.exports = {
       id: "config-reference",
     },
     {
+      type: "doc",
+      className: 'code-style',
+      id: "configuration/reference",
+    },
+    {
       type: "category",
       label: "CLI",
       collapsed: true,

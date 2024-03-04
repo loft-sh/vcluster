@@ -1,5 +1,7 @@
 __webpack_public_path__ = "/docs/";
 
+const resolveGlob = require('resolve-glob');
+
 module.exports = {
   title: "vcluster docs | Virtual Clusters for Kubernetes",
   tagline: "Virtual Clusters for Kubernetes",
@@ -77,10 +79,14 @@ module.exports = {
           editUrl: "https://github.com/loft-sh/vcluster/edit/main/docs/",
         },
         theme: {
-          customCss: require.resolve("./src/css/custom.css"),
+          // customCss: require.resolve("./src/css/custom.css"),
+          customCss: resolveGlob.sync(['./src/css/**/*.scss'])
         },
       },
     ],
+  ],
+  plugins: [
+    'docusaurus-plugin-sass',
   ],
   scripts: [
     {
