@@ -26,8 +26,8 @@ var excludedAnnotations = []string{
 }
 
 const (
-	VclusterNameAnnotation      = "vcluster.loft.sh/vcluster-name"
-	VclusterNamespaceAnnotation = "vcluster.loft.sh/vcluster-namespace"
+	VClusterNameAnnotation      = "vcluster.loft.sh/vcluster-name"
+	VClusterNamespaceAnnotation = "vcluster.loft.sh/vcluster-namespace"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -36,8 +36,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, fmt.Errorf("invalid value of the namespace-labels flag: %w", err)
 	}
 
-	namespaceLabels[VclusterNameAnnotation] = ctx.Options.Name
-	namespaceLabels[VclusterNamespaceAnnotation] = ctx.CurrentNamespace
+	namespaceLabels[VClusterNameAnnotation] = ctx.Options.Name
+	namespaceLabels[VClusterNamespaceAnnotation] = ctx.CurrentNamespace
 
 	return &namespaceSyncer{
 		Translator:                 translator.NewClusterTranslator(ctx, "namespace", &corev1.Namespace{}, NamespaceNameTranslator, excludedAnnotations...),

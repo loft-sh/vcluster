@@ -1,14 +1,13 @@
-package options
+package config
 
 const (
 	DefaultHostsRewriteImage = "library/alpine:3.13.1"
-	GenericConfig            = "CONFIG"
 )
 
-// VirtualClusterOptions holds the cmd flags
-type VirtualClusterOptions struct {
+// LegacyVirtualClusterOptions holds the cmd flags
+type LegacyVirtualClusterOptions struct {
 	// PRO Options
-	ProOptions VirtualClusterProOptions `json:",inline"`
+	ProOptions LegacyVirtualClusterProOptions `json:",inline"`
 
 	// OSS Options below
 	Controllers []string `json:"controllers,omitempty"`
@@ -52,12 +51,11 @@ type VirtualClusterOptions struct {
 
 	ClusterDomain string `json:"clusterDomain,omitempty"`
 
-	LeaderElect   bool  `json:"leaderElect,omitempty"`
-	LeaseDuration int64 `json:"leaseDuration,omitempty"`
-	RenewDeadline int64 `json:"renewDeadline,omitempty"`
-	RetryPeriod   int64 `json:"retryPeriod,omitempty"`
+	LeaderElect   bool `json:"leaderElect,omitempty"`
+	LeaseDuration int  `json:"leaseDuration,omitempty"`
+	RenewDeadline int  `json:"renewDeadline,omitempty"`
+	RetryPeriod   int  `json:"retryPeriod,omitempty"`
 
-	DisablePlugins      bool     `json:"disablePlugins,omitempty"`
 	PluginListenAddress string   `json:"pluginListenAddress,omitempty"`
 	Plugins             []string `json:"plugins,omitempty"`
 
@@ -74,11 +72,6 @@ type VirtualClusterOptions struct {
 	// this is only needed if using vcluster-hostpath-mapper component
 	// see: https://github.com/loft-sh/vcluster-hostpath-mapper
 	MountPhysicalHostPaths bool `json:"mountPhysicalHostPaths,omitempty"`
-	// To enable FSMounts functionality
-	VirtualLogsPath          string
-	VirtualPodLogsPath       string
-	VirtualContainerLogsPath string
-	VirtualKubeletPodPath    string
 
 	HostMetricsBindAddress    string `json:"hostMetricsBindAddress,omitempty"`
 	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
@@ -92,14 +85,5 @@ type VirtualClusterOptions struct {
 	ServiceAccountTokenSecrets bool `json:"serviceAccountTokenSecrets,omitempty"`
 
 	// DEPRECATED FLAGS
-	RewriteHostPaths                   bool `json:"rewriteHostPaths,omitempty"`
-	DeprecatedSyncNodeChanges          bool `json:"syncNodeChanges"`
-	DeprecatedDisableSyncResources     string
-	DeprecatedOwningStatefulSet        string
-	DeprecatedUseFakeNodes             bool
-	DeprecatedUseFakePersistentVolumes bool
-	DeprecatedEnableStorageClasses     bool
-	DeprecatedEnablePriorityClasses    bool
-	DeprecatedSuffix                   string
-	DeprecatedUseFakeKubelets          bool
+	DeprecatedSyncNodeChanges bool `json:"syncNodeChanges"`
 }

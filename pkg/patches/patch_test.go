@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/genericsyncconfig"
 	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	yaml "gopkg.in/yaml.v3"
@@ -19,7 +19,7 @@ import (
 
 type patchTestCase struct {
 	name  string
-	patch *config.Patch
+	patch *genericsyncconfig.Patch
 
 	obj1 string
 	obj2 string
@@ -37,8 +37,8 @@ func TestPatch(t *testing.T) {
 	testCases := []*patchTestCase{
 		{
 			name: "copy merge",
-			patch: &config.Patch{
-				Operation: config.PatchTypeCopyFromObject,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeCopyFromObject,
 				FromPath:  "status.test",
 				Path:      "test",
 			},
@@ -52,8 +52,8 @@ test: test`,
 		},
 		{
 			name: "copy",
-			patch: &config.Patch{
-				Operation: config.PatchTypeCopyFromObject,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeCopyFromObject,
 				FromPath:  "status",
 				Path:      "status",
 			},
@@ -66,8 +66,8 @@ status:
 		},
 		{
 			name: "simple",
-			patch: &config.Patch{
-				Operation: config.PatchTypeReplace,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeReplace,
 				Path:      "test.test2",
 				Value:     "abc",
 			},
@@ -78,8 +78,8 @@ status:
 		},
 		{
 			name: "insert",
-			patch: &config.Patch{
-				Operation: config.PatchTypeAdd,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeAdd,
 				Path:      "test.test2[0].test3",
 				Value:     "abc",
 			},
@@ -94,8 +94,8 @@ test2: {}`,
 		},
 		{
 			name: "insert slice",
-			patch: &config.Patch{
-				Operation: config.PatchTypeAdd,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeAdd,
 				Path:      "test.test2",
 				Value:     "abc",
 			},
@@ -109,8 +109,8 @@ test2: {}`,
 		},
 		{
 			name: "insert slice",
-			patch: &config.Patch{
-				Operation: config.PatchTypeReplace,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeReplace,
 				Path:      "test..abc",
 				Value:     "def",
 			},
@@ -125,11 +125,11 @@ test2: {}`,
 		},
 		{
 			name: "condition",
-			patch: &config.Patch{
-				Operation: config.PatchTypeReplace,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeReplace,
 				Path:      "test.abc",
 				Value:     "def",
-				Conditions: []*config.PatchCondition{
+				Conditions: []*genericsyncconfig.PatchCondition{
 					{
 						Path:  "test.status",
 						Empty: &True,
@@ -143,11 +143,11 @@ test2: {}`,
 		},
 		{
 			name: "condition equal",
-			patch: &config.Patch{
-				Operation: config.PatchTypeReplace,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeReplace,
 				Path:      "test.abc",
 				Value:     "def",
-				Conditions: []*config.PatchCondition{
+				Conditions: []*genericsyncconfig.PatchCondition{
 					{
 						Path: "test.status",
 						Equal: map[string]interface{}{
@@ -167,11 +167,11 @@ test2: {}`,
 		},
 		{
 			name: "condition equal",
-			patch: &config.Patch{
-				Operation: config.PatchTypeReplace,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeReplace,
 				Path:      "test.abc",
 				Value:     "def",
-				Conditions: []*config.PatchCondition{
+				Conditions: []*genericsyncconfig.PatchCondition{
 					{
 						Path: "test.status",
 						Equal: map[string]interface{}{
@@ -191,8 +191,8 @@ test2: {}`,
 		},
 		{
 			name: "resolve label selector",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteLabelSelector,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeRewriteLabelSelector,
 				Path:      "test.abc",
 			},
 			nameResolver: &fakeNameResolver{},
@@ -204,8 +204,8 @@ test2: {}`,
 		},
 		{
 			name: "resolve empty label selector",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteLabelSelector,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeRewriteLabelSelector,
 				Path:      "test.abc",
 			},
 			nameResolver: &fakeNameResolver{},
@@ -216,8 +216,8 @@ test2: {}`,
 		},
 		{
 			name: "resolve filled label selector",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteLabelSelector,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeRewriteLabelSelector,
 				Path:      "test.abc",
 			},
 			nameResolver: &fakeNameResolver{},
@@ -231,8 +231,8 @@ test2: {}`,
 		},
 		{
 			name: "rewrite name",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteName,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeRewriteName,
 				Path:      "name",
 			},
 			nameResolver: &fakeVirtualToHostNameResolver{
@@ -244,8 +244,8 @@ test2: {}`,
 		},
 		{
 			name: "rewrite name - invalid object",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteName,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeRewriteName,
 				Path:      "name{]",
 			},
 			obj1:        `name: {}`,
@@ -253,8 +253,8 @@ test2: {}`,
 		},
 		{
 			name: "rewrite name - namespace based",
-			patch: &config.Patch{
-				Operation:     config.PatchTypeRewriteName,
+			patch: &genericsyncconfig.Patch{
+				Operation:     genericsyncconfig.PatchTypeRewriteName,
 				Path:          "root.list",
 				NamePath:      "nm",
 				NamespacePath: "ns",
@@ -278,8 +278,8 @@ test2: {}`,
 		},
 		{
 			name: "rewrite name - multiple - no namespace",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteName,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeRewriteName,
 				Path:      "root.list",
 				NamePath:  "nm",
 			},
@@ -302,8 +302,8 @@ test2: {}`,
 		},
 		{
 			name: "rewrite name - multiple name matches",
-			patch: &config.Patch{
-				Operation:     config.PatchTypeRewriteName,
+			patch: &genericsyncconfig.Patch{
+				Operation:     genericsyncconfig.PatchTypeRewriteName,
 				Path:          "root.includes",
 				NamePath:      "names..nm",
 				NamespacePath: "namespace",
@@ -327,8 +327,8 @@ test2: {}`,
 		},
 		{
 			name: "rewrite name - single name match - non array",
-			patch: &config.Patch{
-				Operation:     config.PatchTypeRewriteName,
+			patch: &genericsyncconfig.Patch{
+				Operation:     genericsyncconfig.PatchTypeRewriteName,
 				Path:          "root.includes",
 				NamePath:      "nm",
 				NamespacePath: "namespace",
@@ -348,8 +348,8 @@ test2: {}`,
 		},
 		{
 			name: "rewrite name - multiple name matches - multiple namespace references",
-			patch: &config.Patch{
-				Operation:     config.PatchTypeRewriteName,
+			patch: &genericsyncconfig.Patch{
+				Operation:     genericsyncconfig.PatchTypeRewriteName,
 				Path:          "root.includes",
 				NamePath:      "..names..nm",
 				NamespacePath: "..namespaces..ns",
@@ -398,8 +398,8 @@ test2: {}`,
 		// 	},
 		{
 			name: "rewrite name should not panic when match is not scalar",
-			patch: &config.Patch{
-				Operation: config.PatchTypeRewriteName,
+			patch: &genericsyncconfig.Patch{
+				Operation: genericsyncconfig.PatchTypeRewriteName,
 				Path:      "test.endpoints[*]",
 			},
 			nameResolver: &fakeVirtualToHostNameResolver{},

@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	jsonyaml "github.com/ghodss/yaml"
-	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/genericsyncconfig"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,7 +23,7 @@ type NameResolver interface {
 	TranslateNamespaceRef(namespace string) (string, error)
 }
 
-func ApplyPatches(destObj, sourceObj client.Object, patchesConf []*config.Patch, reversePatchesConf []*config.Patch, nameResolver NameResolver) error {
+func ApplyPatches(destObj, sourceObj client.Object, patchesConf []*genericsyncconfig.Patch, reversePatchesConf []*genericsyncconfig.Patch, nameResolver NameResolver) error {
 	node1, err := NewJSONNode(destObj)
 	if err != nil {
 		return errors.Wrap(err, "new json yaml node")
@@ -50,8 +50,8 @@ func ApplyPatches(destObj, sourceObj client.Object, patchesConf []*config.Patch,
 			continue
 		}
 
-		err := applyPatch(node1, node2, &config.Patch{
-			Operation: config.PatchTypeRemove,
+		err := applyPatch(node1, node2, &genericsyncconfig.Patch{
+			Operation: genericsyncconfig.PatchTypeRemove,
 			Path:      p.Path,
 		}, nameResolver)
 		if err != nil {
@@ -72,23 +72,23 @@ func ApplyPatches(destObj, sourceObj client.Object, patchesConf []*config.Patch,
 	return nil
 }
 
-func applyPatch(obj1, obj2 *yaml.Node, patch *config.Patch, resolver NameResolver) error {
+func applyPatch(obj1, obj2 *yaml.Node, patch *genericsyncconfig.Patch, resolver NameResolver) error {
 	switch patch.Operation {
-	case config.PatchTypeRewriteName:
+	case genericsyncconfig.PatchTypeRewriteName:
 		return RewriteName(obj1, patch, resolver)
-	case config.PatchTypeRewriteLabelKey:
+	case genericsyncconfig.PatchTypeRewriteLabelKey:
 		return RewriteLabelKey(obj1, patch, resolver)
-	case config.PatchTypeRewriteLabelExpressionsSelector:
+	case genericsyncconfig.PatchTypeRewriteLabelExpressionsSelector:
 		return RewriteLabelExpressionsSelector(obj1, patch, resolver)
-	case config.PatchTypeRewriteLabelSelector:
+	case genericsyncconfig.PatchTypeRewriteLabelSelector:
 		return RewriteLabelSelector(obj1, patch, resolver)
-	case config.PatchTypeReplace:
+	case genericsyncconfig.PatchTypeReplace:
 		return Replace(obj1, patch)
-	case config.PatchTypeRemove:
+	case genericsyncconfig.PatchTypeRemove:
 		return Remove(obj1, patch)
-	case config.PatchTypeAdd:
+	case genericsyncconfig.PatchTypeAdd:
 		return Add(obj1, patch)
-	case config.PatchTypeCopyFromObject:
+	case genericsyncconfig.PatchTypeCopyFromObject:
 		return CopyFromObject(obj1, obj2, patch)
 	}
 

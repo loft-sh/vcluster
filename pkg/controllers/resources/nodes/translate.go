@@ -111,8 +111,8 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	}
 
 	// add annotation to prevent scale down of node by cluster-autoscaler
-	// the env var VCLUSTER_NODE_NAME is set when only one replica of vcluster is running
-	if nodeName, set := os.LookupEnv("VCLUSTER_NODE_NAME"); set && nodeName == pNode.Name {
+	// the env var NODE_NAME is set when only one replica of vcluster is running
+	if nodeName, set := os.LookupEnv("NODE_NAME"); set && nodeName == pNode.Name {
 		annotations["cluster-autoscaler.kubernetes.io/scale-down-disabled"] = "true"
 	}
 

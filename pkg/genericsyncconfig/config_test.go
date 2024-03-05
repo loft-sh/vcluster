@@ -1,4 +1,4 @@
-package config
+package genericsyncconfig
 
 import (
 	"strings"
@@ -23,7 +23,7 @@ export:  # Old from virtual cluster
       value:
         prometheus-instance: default-instance
     - op: copyFromObject
-      fromPath: .metadata.labels['prometheus-instance'] 
+      fromPath: .metadata.labels['prometheus-instance']
       path: .metadata.labels['prometheus-instance']
     - op: replace
       path: .spec.namespaceSelector
@@ -40,7 +40,7 @@ export:  # Old from virtual cluster
       path: .spec.podTargetLabels[*]
     - op: rewriteLabelExpressionsSelector
       path: .spec.selector
-  reversePatches:       
+  reversePatches:
     - op: copyFromObject # Sync status back by default
       fromPath: status
       path: status`

@@ -1,10 +1,8 @@
-package pro
+package config
 
 import (
-	"encoding/base64"
 	"testing"
 
-	"github.com/ghodss/yaml"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
@@ -52,54 +50,44 @@ HYMfRsCbvUOZ58SWLs5fyQ==
 	testCases := []struct {
 		name    string
 		wantErr string
-		valHook []string
-		mutHook []string
+		valHook []interface{}
+		mutHook []interface{}
 	}{
 		{
-			name:    "not valid base64 validating",
-			valHook: []string{"hello there"},
-			wantErr: "illegal base64 data at input byte 5",
-		},
-		{
-			name:    "not valid base64 mutating",
-			valHook: []string{"hello there"},
-			wantErr: "illegal base64 data at input byte 5",
-		},
-		{
 			name:    "valid valhook",
-			valHook: []string{valHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test", Name: "service"}})},
+			valHook: []interface{}{valHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test", Name: "service"}})},
 		},
 		{
 			name:    "valid muthook",
-			mutHook: []string{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test", Name: "service"}})},
+			mutHook: []interface{}{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test", Name: "service"}})},
 		},
 		{
 			name:    "invalid valhook",
-			valHook: []string{valHookToBase64(admissionregistrationv1.WebhookClientConfig{})},
+			valHook: []interface{}{valHookToBase64(admissionregistrationv1.WebhookClientConfig{})},
 			wantErr: "webhook client config was not valid for ValidatingWebhookConfiguration test: there is no service config",
 		},
 		{
 			name:    "invalid muthook",
-			mutHook: []string{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{})},
+			mutHook: []interface{}{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{})},
 			wantErr: "webhook client config was not valid for MutatingWebhookConfiguration test: there is no service config",
 		},
 		{
 			name:    "invalid service",
-			mutHook: []string{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test"}})},
+			mutHook: []interface{}{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test"}})},
 			wantErr: "webhook client config was not valid for MutatingWebhookConfiguration test: namespace or name of the service is missing",
 		},
 		{
 			name:    "valid url",
-			mutHook: []string{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{URL: &validURL})},
+			mutHook: []interface{}{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{URL: &validURL})},
 		},
 		{
 			name:    "invalid bundle",
-			mutHook: []string{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test"}, CABundle: []byte("HAZAA")})},
+			mutHook: []interface{}{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test"}, CABundle: []byte("HAZAA")})},
 			wantErr: "webhook client config was not valid for MutatingWebhookConfiguration test: could not parse the CABundle",
 		},
 		{
 			name:    "valid bundle",
-			mutHook: []string{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test", Name: "test"}, CABundle: []byte(validCABUNDLE)})},
+			mutHook: []interface{}{mutHookToBase64(admissionregistrationv1.WebhookClientConfig{Service: &admissionregistrationv1.ServiceReference{Namespace: "test", Name: "test"}, CABundle: []byte(validCABUNDLE)})},
 		},
 	}
 	for _, tt := range testCases {
@@ -114,32 +102,24 @@ HYMfRsCbvUOZ58SWLs5fyQ==
 	}
 }
 
-func valHookToBase64(clientCfg admissionregistrationv1.WebhookClientConfig) string {
-	hook := admissionregistrationv1.ValidatingWebhookConfiguration{}
+func valHookToBase64(clientCfg admissionregistrationv1.WebhookClientConfig) interface{} {
+	hook := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	hook.APIVersion = "v1"
 	hook.Kind = "ValidatingWebhookConfiguration"
 	hook.Name = "test"
 	hook.Webhooks = []admissionregistrationv1.ValidatingWebhook{
 		{Name: "test", ClientConfig: clientCfg},
 	}
-	bytes, err := yaml.Marshal(hook)
-	if err != nil {
-		return ""
-	}
-	return base64.StdEncoding.EncodeToString(bytes)
+	return hook
 }
 
-func mutHookToBase64(clientCfg admissionregistrationv1.WebhookClientConfig) string {
-	hook := admissionregistrationv1.MutatingWebhookConfiguration{}
+func mutHookToBase64(clientCfg admissionregistrationv1.WebhookClientConfig) interface{} {
+	hook := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	hook.APIVersion = "v1"
 	hook.Kind = "MutatingWebhookConfiguration"
 	hook.Name = "test"
 	hook.Webhooks = []admissionregistrationv1.MutatingWebhook{
 		{Name: "test", ClientConfig: clientCfg},
 	}
-	bytes, err := yaml.Marshal(hook)
-	if err != nil {
-		return ""
-	}
-	return base64.StdEncoding.EncodeToString(bytes)
+	return hook
 }

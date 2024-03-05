@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/options"
+	config2 "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -33,13 +33,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateImporters(ctx *options.ControllerContext, cfg *config.Config) error {
+func CreateImporters(ctx *config.ControllerContext) error {
+	cfg := ctx.Config.Experimental.GenericSync
 	if len(cfg.Imports) == 0 {
 		return nil
 	}
 
 	registerCtx := util.ToRegisterContext(ctx)
-	if !registerCtx.Options.MultiNamespaceMode {
+	if !registerCtx.Config.Experimental.MultiNamespaceMode.Enabled {
 		return fmt.Errorf("invalid configuration, 'import' type sync of the generic CRDs is allowed only in the multi-namespace mode")
 	}
 
@@ -84,7 +85,7 @@ func CreateImporters(ctx *options.ControllerContext, cfg *config.Config) error {
 	return nil
 }
 
-func createImporter(ctx *synccontext.RegisterContext, config *config.Import, gvkRegister GVKRegister) (syncertypes.Syncer, error) {
+func createImporter(ctx *synccontext.RegisterContext, config *config2.Import, gvkRegister GVKRegister) (syncertypes.Syncer, error) {
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
 	controllerID := fmt.Sprintf("%s/%s/GenericImport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.GroupVersion().String()))
 
@@ -116,7 +117,7 @@ type importer struct {
 	translator.Translator
 	virtualClient client.Client
 	patcher       *patcher
-	config        *config.Import
+	config        *config2.Import
 	syncerOptions *syncertypes.Options
 	gvk           schema.GroupVersionKind
 	name          string

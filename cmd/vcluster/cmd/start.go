@@ -6,8 +6,8 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
-	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
@@ -19,8 +19,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+type StartOptions struct {
+	Config string
+}
+
 func NewStartCommand() *cobra.Command {
-	vClusterOptions := &options.VirtualClusterOptions{}
+	startOptions := &StartOptions{}
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Execute the vcluster",
@@ -40,52 +44,48 @@ func NewStartCommand() *cobra.Command {
 				}
 			}()
 
+			// parse vCluster config
+			vClusterConfig, err := config.ParseConfig(startOptions.Config)
+			if err != nil {
+				return err
+			}
+
 			// execute command
-			return ExecuteStart(cobraCmd.Context(), vClusterOptions)
+			return ExecuteStart(cobraCmd.Context(), vClusterConfig)
 		},
 	}
 
-	options.AddFlags(cmd.Flags(), vClusterOptions)
-	pro.AddProFlags(cmd.Flags(), vClusterOptions)
+	cmd.Flags().StringVar(&startOptions.Config, "config", "", "The path where to find the vCluster config to load")
 	return cmd
 }
 
-func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) error {
-	err := pro.ValidateProOptions(options)
-	if err != nil {
-		return err
-	}
-
-	// set suffix
-	translate.VClusterName = options.Name
+func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
+	// set global vCluster name
 	if translate.VClusterName == "" {
-		translate.VClusterName = options.DeprecatedSuffix
-	}
-	if translate.VClusterName == "" {
-		translate.VClusterName = "vcluster"
+		translate.VClusterName = vConfig.Name
 	}
 
 	// set service name
-	if options.ServiceName == "" {
-		options.ServiceName = translate.VClusterName
+	if vConfig.ServiceName == "" {
+		vConfig.ServiceName = translate.VClusterName
 	}
 
 	// get current namespace
-	controlPlaneConfig, controlPlaneNamespace, controlPlaneService, workloadConfig, workloadNamespace, workloadService, err := pro.GetRemoteClient(options)
+	controlPlaneConfig, controlPlaneNamespace, controlPlaneService, workloadConfig, workloadNamespace, workloadService, err := pro.GetRemoteClient(vConfig)
 	if err != nil {
 		return err
 	}
-	options.ServiceName = workloadService
+	vConfig.ServiceName = workloadService
 	err = os.Setenv("NAMESPACE", workloadNamespace)
 	if err != nil {
 		return fmt.Errorf("set NAMESPACE env var: %w", err)
 	}
 
 	// init telemetry
-	telemetry.Collector.Init(controlPlaneConfig, controlPlaneNamespace, options)
+	telemetry.Collector.Init(controlPlaneConfig, controlPlaneNamespace, vConfig)
 
 	// initialize feature gate from environment
-	err = pro.LicenseInit(ctx, controlPlaneConfig, controlPlaneNamespace, options.ProOptions.ProLicenseSecret)
+	err = pro.LicenseInit(ctx, controlPlaneConfig, controlPlaneNamespace, vConfig.Platform.ApiKey.Value, vConfig.Platform.ApiKey.SecretRef.Namespace, vConfig.Platform.ApiKey.SecretRef.Name)
 	if err != nil {
 		return fmt.Errorf("init license: %w", err)
 	}
@@ -141,7 +141,7 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 	}
 
 	// start integrated coredns
-	if controllerCtx.Options.ProOptions.IntegratedCoredns {
+	if vConfig.ControlPlane.CoreDNS.Embedded {
 		err = pro.StartIntegratedCoreDNS(controllerCtx)
 		if err != nil {
 			return fmt.Errorf("start integrated core dns: %w", err)
@@ -160,9 +160,9 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 	return nil
 }
 
-func StartLeaderElection(ctx *options.ControllerContext, startLeading func() error) error {
+func StartLeaderElection(ctx *config.ControllerContext, startLeading func() error) error {
 	var err error
-	if ctx.Options.LeaderElect {
+	if ctx.Config.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
 		err = leaderelection.StartLeaderElection(ctx, scheme.Scheme, func() error {
 			return startLeading()
 		})

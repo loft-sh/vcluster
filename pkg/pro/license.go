@@ -7,7 +7,7 @@ import (
 )
 
 // LicenseInit is used to initialize the license reader
-var LicenseInit = func(_ context.Context, _ *rest.Config, _, _ string) error {
+var LicenseInit = func(_ context.Context, _ *rest.Config, _, _, _, _ string) error {
 	return nil
 }
 

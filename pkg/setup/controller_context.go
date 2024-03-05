@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/plugin"
@@ -43,7 +44,7 @@ func NewControllerContext(
 	currentNamespace string,
 	inClusterConfig *rest.Config,
 	scheme *runtime.Scheme,
-) (*options.ControllerContext, error) {
+) (*config.ControllerContext, error) {
 	// validate options
 	err := ValidateOptions(options)
 	if err != nil {

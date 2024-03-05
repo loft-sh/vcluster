@@ -4,18 +4,16 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -89,7 +87,7 @@ var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (synce
 	"persistentvolumes,fake-persistentvolumes": {persistentvolumes.New},
 }
 
-func Create(ctx *options.ControllerContext) ([]syncertypes.Object, error) {
+func Create(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
 	registerContext := util.ToRegisterContext(ctx)
 
 	// register controllers for resource synchronization
@@ -100,12 +98,12 @@ func Create(ctx *options.ControllerContext) ([]syncertypes.Object, error) {
 			for _, controller := range controllers {
 				if ctx.Controllers.Has(controller) {
 					loghelper.Infof("Start %s sync controller", controller)
-					ctrl, err := controllerNew(registerContext)
+					createdController, err := controllerNew(registerContext)
 					if err != nil {
 						return nil, errors.Wrapf(err, "register %s controller", controller)
 					}
 
-					syncers = append(syncers, ctrl)
+					syncers = append(syncers, createdController)
 					break
 				}
 			}
@@ -115,7 +113,7 @@ func Create(ctx *options.ControllerContext) ([]syncertypes.Object, error) {
 	return syncers, nil
 }
 
-func ExecuteInitializers(controllerCtx *options.ControllerContext, syncers []syncertypes.Object) error {
+func ExecuteInitializers(controllerCtx *config.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(controllerCtx)
 
 	// execute in parallel because each one might be time-consuming
@@ -138,7 +136,7 @@ func ExecuteInitializers(controllerCtx *options.ControllerContext, syncers []syn
 	return errorGroup.Wait()
 }
 
-func RegisterIndices(ctx *options.ControllerContext, syncers []syncertypes.Object) error {
+func RegisterIndices(ctx *config.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 	for _, s := range syncers {
 		indexRegisterer, ok := s.(syncertypes.IndicesRegisterer)
@@ -153,7 +151,7 @@ func RegisterIndices(ctx *options.ControllerContext, syncers []syncertypes.Objec
 	return nil
 }
 
-func RegisterControllers(ctx *options.ControllerContext, syncers []syncertypes.Object) error {
+func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 
 	err := k8sdefaultendpoint.Register(ctx)
@@ -162,7 +160,7 @@ func RegisterControllers(ctx *options.ControllerContext, syncers []syncertypes.O
 	}
 
 	// register controller that maintains pod security standard check
-	if ctx.Options.EnforcePodSecurityStandard != "" {
+	if ctx.Config.Policies.PodSecurityStandard != "" {
 		err := RegisterPodSecurityController(ctx)
 		if err != nil {
 			return err
@@ -218,31 +216,13 @@ func RegisterControllers(ctx *options.ControllerContext, syncers []syncertypes.O
 	return nil
 }
 
-func RegisterGenericSyncController(ctx *options.ControllerContext) error {
-	// first check if a generic CRD config is provided and we actually need
-	// to create any of these syncer controllers
-	c := os.Getenv(options.GenericConfig)
-	if strings.TrimSpace(c) == "" || strings.TrimSpace(c) == "---" {
-		// empty configuration, no need for creating any syncer controllers
-		loghelper.Infof("no generic config provided, skipping creating controllers")
-
-		return nil
-	}
-
-	configuration, err := config.Parse(c)
-	if err != nil {
-		loghelper.Infof("error parsing the config %v", err.Error())
-		return errors.Wrapf(err, "parsing the config")
-	}
-
-	loghelper.Infof("generic config provided, parsed successfully")
-
-	err = generic.CreateExporters(ctx, configuration)
+func RegisterGenericSyncController(ctx *config.ControllerContext) error {
+	err := generic.CreateExporters(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = generic.CreateImporters(ctx, configuration)
+	err = generic.CreateImporters(ctx)
 	if err != nil {
 		return err
 	}
@@ -250,7 +230,7 @@ func RegisterGenericSyncController(ctx *options.ControllerContext) error {
 	return nil
 }
 
-func RegisterInitManifestsController(controllerCtx *options.ControllerContext) error {
+func RegisterInitManifestsController(controllerCtx *config.ControllerContext) error {
 	vconfig, err := kubeconfig.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
 	if err != nil {
 		return err
@@ -296,9 +276,9 @@ func RegisterInitManifestsController(controllerCtx *options.ControllerContext) e
 	return nil
 }
 
-func RegisterServiceSyncControllers(ctx *options.ControllerContext) error {
+func RegisterServiceSyncControllers(ctx *config.ControllerContext) error {
 	hostNamespace := ctx.Options.TargetNamespace
-	if ctx.Options.MultiNamespaceMode {
+	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
 		hostNamespace = ctx.CurrentNamespace
 	}
 
@@ -363,7 +343,7 @@ func RegisterServiceSyncControllers(ctx *options.ControllerContext) error {
 			Log:                   loghelper.New("map-virtual-service-syncer"),
 		}
 
-		if ctx.Options.MultiNamespaceMode {
+		if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
 			controller.CreateEndpoints = true
 		}
 
@@ -424,7 +404,7 @@ func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace st
 	return ret, nil
 }
 
-func RegisterCoreDNSController(ctx *options.ControllerContext) error {
+func RegisterCoreDNSController(ctx *config.ControllerContext) error {
 	controller := &coredns.NodeHostsReconciler{
 		Client: ctx.VirtualManager.GetClient(),
 		Log:    loghelper.New("corednsnodehosts-controller"),
@@ -436,10 +416,10 @@ func RegisterCoreDNSController(ctx *options.ControllerContext) error {
 	return nil
 }
 
-func RegisterPodSecurityController(ctx *options.ControllerContext) error {
+func RegisterPodSecurityController(ctx *config.ControllerContext) error {
 	controller := &podsecurity.Reconciler{
 		Client:              ctx.VirtualManager.GetClient(),
-		PodSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
+		PodSecurityStandard: ctx.Config.Policies.PodSecurityStandard,
 		Log:                 loghelper.New("podSecurity-controller"),
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)

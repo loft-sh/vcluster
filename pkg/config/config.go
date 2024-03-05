@@ -1,155 +1,114 @@
 package config
 
 import (
-	"regexp"
+	"strings"
+
+	"github.com/loft-sh/vcluster/config"
 )
 
-const Version = "v1beta1"
+type VirtualClusterConfig struct {
+	// Holds the vCluster config
+	config.Config `json:",inline"`
 
-type Config struct {
-	// Version is the config version
-	Version string `json:"version,omitempty" yaml:"version,omitempty"`
+	// Name is the name of the vCluster
+	Name string `json:"name,omitempty"`
 
-	// Exports syncs a resource from the virtual cluster to the host
-	Exports []*Export `json:"export,omitempty" yaml:"export,omitempty"`
+	// ServiceName is the name of the service of the vCluster
+	ServiceName string `json:"serviceName,omitempty"`
 
-	// Imports syncs a resource from the host cluster to virtual cluster
-	Imports []*Import `json:"import,omitempty" yaml:"import,omitempty"`
-
-	// Hooks are hooks that can be used to inject custom patches before syncing
-	Hooks *Hooks `json:"hooks,omitempty" yaml:"hooks,omitempty"`
+	// TargetNamespace is the namespace where the workloads go
+	TargetNamespace string `json:"targetNamespace,omitempty"`
 }
 
-type Hooks struct {
-	// HostToVirtual is a hook that is executed before syncing from the host to the virtual cluster
-	HostToVirtual []*Hook `json:"hostToVirtual,omitempty" yaml:"hostToVirtual,omitempty"`
+// LegacyOptions converts the config to the legacy cluster options
+func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, error) {
+	legacyPlugins := []string{}
+	for pluginName, plugin := range v.Plugin {
+		if plugin.Version != "" && !plugin.Optional {
+			continue
+		}
 
-	// VirtualToHost is a hook that is executed before syncing from the virtual to the host cluster
-	VirtualToHost []*Hook `json:"virtualToHost,omitempty" yaml:"virtualToHost,omitempty"`
-}
+		legacyPlugins = append(legacyPlugins, pluginName)
+	}
 
-type Hook struct {
-	TypeInformation
+	nodeSelector := ""
+	if v.Sync.FromHost.Nodes.Real.Enabled {
+		selectors := []string{}
+		for k, v := range v.Sync.FromHost.Nodes.Real.Selector.Labels {
+			selectors = append(selectors, k+"="+v)
+		}
 
-	// Verbs are the verbs that the hook should mutate
-	Verbs []string `json:"verbs,omitempty" yaml:"verbs,omitempty"`
+		nodeSelector = strings.Join(selectors, ",")
+	}
 
-	// Patches are the patches to apply on the object to be synced
-	Patches []*Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
-}
+	retOptions := &LegacyVirtualClusterOptions{
+		ProOptions: LegacyVirtualClusterProOptions{
+			RemoteKubeConfig:       "",
+			RemoteNamespace:        "",
+			RemoteServiceName:      "",
+			EnforceValidatingHooks: nil,
+			EnforceMutatingHooks:   nil,
+			IntegratedCoredns:      v.ControlPlane.CoreDNS.Embedded,
+			UseCoreDNSPlugin:       false,
+			EtcdReplicas:           0,
+			EtcdEmbedded:           v.ControlPlane.BackingStore.EmbeddedEtcd.Enabled,
+			MigrateFrom:            "",
+			NoopSyncer:             false,
+			SyncKubernetesService:  false,
+		},
+		Controllers:                 nil,
+		ServerCaCert:                "",
+		ServerCaKey:                 "",
+		TLSSANs:                     nil,
+		RequestHeaderCaCert:         "",
+		ClientCaCert:                "",
+		KubeConfigPath:              "",
+		KubeConfigContextName:       "",
+		KubeConfigSecret:            "",
+		KubeConfigSecretNamespace:   "",
+		KubeConfigServer:            "",
+		Tolerations:                 nil,
+		BindAddress:                 v.ControlPlane.Proxy.BindAddress,
+		Port:                        v.ControlPlane.Proxy.Port,
+		Name:                        v.Name,
+		TargetNamespace:             v.TargetNamespace,
+		ServiceName:                 v.ServiceName,
+		SetOwner:                    false,
+		SyncAllNodes:                v.Sync.FromHost.Nodes.Real.SyncAll,
+		EnableScheduler:             v.ControlPlane.VirtualScheduler.Enabled,
+		DisableFakeKubelets:         false,
+		FakeKubeletIPs:              false,
+		ClearNodeImages:             v.Sync.FromHost.Nodes.Real.ClearImageStatus,
+		TranslateImages:             nil,
+		NodeSelector:                nodeSelector,
+		ServiceAccount:              v.Sync.ToHost.Pods.WorkloadServiceAccount,
+		EnforceNodeSelector:         true,
+		PluginListenAddress:         "localhost:10099",
+		OverrideHosts:               v.Sync.ToHost.Pods.RewriteHosts.Enabled,
+		OverrideHostsContainerImage: v.Sync.ToHost.Pods.RewriteHosts.InitContainerImage,
+		ServiceAccountTokenSecrets:  v.Sync.ToHost.Pods.UseSecretsForSATokens,
+		ClusterDomain:               v.Networking.Advanced.ClusterDomain,
+		LeaderElect:                 v.ControlPlane.StatefulSet.HighAvailability.Replicas > 1,
+		LeaseDuration:               v.ControlPlane.StatefulSet.HighAvailability.LeaseDuration,
+		RenewDeadline:               v.ControlPlane.StatefulSet.HighAvailability.RenewDeadline,
+		RetryPeriod:                 v.ControlPlane.StatefulSet.HighAvailability.RetryPeriod,
+		Plugins:                     legacyPlugins,
+		DefaultImageRegistry:        v.ControlPlane.Advanced.DefaultImageRegistry,
+		EnforcePodSecurityStandard:  v.Policies.PodSecurityStandard,
+		MapHostServices:             nil,
+		MapVirtualServices:          nil,
+		SyncLabels:                  nil,
+		MountPhysicalHostPaths:      false,
+		HostMetricsBindAddress:      "0",
+		VirtualMetricsBindAddress:   "0",
+		MultiNamespaceMode:          v.Experimental.MultiNamespaceMode.Enabled,
+		NamespaceLabels:             nil,
+		SyncAllSecrets:              v.Sync.ToHost.Secrets.All,
+		SyncAllConfigMaps:           v.Sync.ToHost.ConfigMaps.All,
+		ProxyMetricsServer:          v.Observability.Metrics.Proxy.Nodes.Enabled || v.Observability.Metrics.Proxy.Pods.Enabled,
 
-type Import struct {
-	SyncBase `json:",inline" yaml:",inline"`
-}
+		DeprecatedSyncNodeChanges: v.Sync.FromHost.Nodes.Real.SyncLabelsTaints,
+	}
 
-type SyncBase struct {
-	TypeInformation `json:",inline" yaml:",inline"`
-
-	Optional bool `json:"optional,omitempty" yaml:"optional,omitempty"`
-
-	// ReplaceWhenInvalid determines if the controller should try to recreate the object
-	// if there is a problem applying
-	ReplaceWhenInvalid bool `json:"replaceOnConflict,omitempty" yaml:"replaceOnConflict,omitempty"`
-
-	// Patches are the patches to apply on the virtual cluster objects
-	// when syncing them from the host cluster
-	Patches []*Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
-
-	// ReversePatches are the patches to apply to host cluster objects
-	// after it has been synced to the virtual cluster
-	ReversePatches []*Patch `json:"reversePatches,omitempty" yaml:"reversePatches,omitempty"`
-}
-
-type Export struct {
-	SyncBase `json:",inline" yaml:",inline"`
-
-	// Selector is a label selector to select the synced objects in the virtual cluster.
-	// If empty, all objects will be synced.
-	Selector *Selector `json:"selector,omitempty" yaml:"selector,omitempty"`
-}
-
-type TypeInformation struct {
-	// APIVersion of the object to sync
-	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
-
-	// Kind of the object to sync
-	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-}
-
-type Selector struct {
-	// LabelSelector are the labels to select the object from
-	LabelSelector map[string]string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
-}
-
-type Patch struct {
-	// Operation is the type of the patch
-	Operation PatchType `json:"op,omitempty" yaml:"op,omitempty"`
-
-	// FromPath is the path from the other object
-	FromPath string `json:"fromPath,omitempty" yaml:"fromPath,omitempty"`
-
-	// Path is the path of the patch
-	Path string `json:"path,omitempty" yaml:"path,omitempty"`
-
-	// NamePath is the path to the name of a child resource within Path
-	NamePath string `json:"namePath,omitempty" yaml:"namePath,omitempty"`
-
-	// NamespacePath is path to the namespace of a child resource within Path
-	NamespacePath string `json:"namespacePath,omitempty" yaml:"namespacePath,omitempty"`
-
-	// Value is the new value to be set to the path
-	Value interface{} `json:"value,omitempty" yaml:"value,omitempty"`
-
-	// Regex - is regular expresion used to identify the Name,
-	// and optionally Namespace, parts of the field value that
-	// will be replaced with the rewritten Name and/or Namespace
-	Regex       string         `json:"regex,omitempty" yaml:"regex,omitempty"`
-	ParsedRegex *regexp.Regexp `json:"-"               yaml:"-"`
-
-	// Conditions are conditions that must be true for
-	// the patch to get executed
-	Conditions []*PatchCondition `json:"conditions,omitempty" yaml:"conditions,omitempty"`
-
-	// Ignore determines if the path should be ignored if handled as a reverse patch
-	Ignore *bool `json:"ignore,omitempty" yaml:"ignore,omitempty"`
-
-	// Sync defines if a specialized syncer should be initialized using values
-	// from the rewriteName operation as Secret/Configmap names to be synced
-	Sync *PatchSync `json:"sync,omitempty" yaml:"sync,omitempty"`
-}
-
-type PatchType string
-
-const (
-	PatchTypeRewriteName                     = "rewriteName"
-	PatchTypeRewriteLabelKey                 = "rewriteLabelKey"
-	PatchTypeRewriteLabelSelector            = "rewriteLabelSelector"
-	PatchTypeRewriteLabelExpressionsSelector = "rewriteLabelExpressionsSelector"
-
-	PatchTypeCopyFromObject = "copyFromObject"
-	PatchTypeAdd            = "add"
-	PatchTypeReplace        = "replace"
-	PatchTypeRemove         = "remove"
-)
-
-type PatchCondition struct {
-	// Path is the path within the object to select
-	Path string `json:"path,omitempty" yaml:"path,omitempty"`
-
-	// SubPath is the path below the selected object to select
-	SubPath string `json:"subPath,omitempty" yaml:"subPath,omitempty"`
-
-	// Equal is the value the path should be equal to
-	Equal interface{} `json:"equal,omitempty" yaml:"equal,omitempty"`
-
-	// NotEqual is the value the path should not be equal to
-	NotEqual interface{} `json:"notEqual,omitempty" yaml:"notEqual,omitempty"`
-
-	// Empty means that the path value should be empty or unset
-	Empty *bool `json:"empty,omitempty" yaml:"empty,omitempty"`
-}
-
-type PatchSync struct {
-	Secret    *bool `json:"secret,omitempty"    yaml:"secret,omitempty"`
-	ConfigMap *bool `json:"configmap,omitempty" yaml:"configmap,omitempty"`
+	return retOptions, nil
 }

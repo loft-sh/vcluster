@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	pluginv1 "github.com/loft-sh/vcluster/pkg/plugin/v1"
 	pluginv2 "github.com/loft-sh/vcluster/pkg/plugin/v2"
@@ -34,14 +34,14 @@ func (m *manager) Start(
 	virtualKubeConfig *rest.Config,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
-	options *options.VirtualClusterOptions,
+	vConfig *config.VirtualClusterConfig,
 ) error {
-	err := m.legacyManager.Start(ctx, currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, options)
+	err := m.legacyManager.Start(ctx, currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, vConfig.LegacyOptions)
 	if err != nil {
 		return fmt.Errorf("start legacy plugins: %w", err)
 	}
 
-	err = m.pluginManager.Start(ctx, currentNamespace, physicalKubeConfig, syncerConfig, options)
+	err = m.pluginManager.Start(ctx, currentNamespace, physicalKubeConfig, syncerConfig, vConfig)
 	if err != nil {
 		return fmt.Errorf("start plugins: %w", err)
 	}

@@ -13,7 +13,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	"github.com/loft-sh/vcluster/pkg/plugin/v2/pluginv2"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
@@ -70,7 +70,7 @@ func (m *Manager) Start(
 	currentNamespace string,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
-	options *options.VirtualClusterOptions,
+	options *config.VirtualClusterConfig,
 ) error {
 	// try to search for plugins
 	plugins, err := m.findPlugins(ctx)
@@ -240,10 +240,16 @@ func (m *Manager) buildInitRequest(
 	currentNamespace string,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
-	options *options.VirtualClusterOptions,
+	vConfig *config.VirtualClusterConfig,
 ) (*pluginv2.Initialize_Request, error) {
-	// Context options
-	encodedOptions, err := json.Marshal(options)
+	// encode config
+	encodedConfig, err := json.Marshal(vConfig)
+	if err != nil {
+		return nil, fmt.Errorf("encode config: %w", err)
+	}
+
+	// We need this for downward compatibility
+	encodedLegacyOptions, err := json.Marshal(vConfig.LegacyOptions)
 	if err != nil {
 		return nil, fmt.Errorf("marshal options: %w", err)
 	}
@@ -277,7 +283,8 @@ func (m *Manager) buildInitRequest(
 		PhysicalClusterConfig: phyisicalConfigBytes,
 		SyncerConfig:          syncerConfigBytes,
 		CurrentNamespace:      currentNamespace,
-		Options:               encodedOptions,
+		Config:                encodedConfig,
+		Options:               encodedLegacyOptions,
 		WorkingDir:            workingDir,
 	})
 	if err != nil {

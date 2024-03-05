@@ -1,11 +1,10 @@
-package options
+package config
 
 import (
 	"context"
 	"net/http"
 
 	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -23,11 +22,10 @@ type ControllerContext struct {
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
 
-	Controllers             sets.Set[string]
 	AdditionalServerFilters []servertypes.Filter
-	Options                 *VirtualClusterOptions
+	Config                  *VirtualClusterConfig
 	StopChan                <-chan struct{}
 
-	//set of extra services that should handle the traffic or pass it along
+	// set of extra services that should handle the traffic or pass it along
 	ExtraHandlers []func(http.Handler) http.Handler
 }

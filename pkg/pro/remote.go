@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/loft-sh/admin-apis/pkg/licenseapi"
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var GetRemoteClient = func(options *options.VirtualClusterOptions) (*rest.Config, string, string, *rest.Config, string, string, error) {
+var GetRemoteClient = func(vConfig *config.VirtualClusterConfig) (*rest.Config, string, string, *rest.Config, string, string, error) {
 	inClusterConfig := ctrl.GetConfigOrDie()
 	inClusterConfig.QPS = 40
 	inClusterConfig.Burst = 80
@@ -26,9 +26,8 @@ var GetRemoteClient = func(options *options.VirtualClusterOptions) (*rest.Config
 	}
 
 	// check if remote cluster
-	proOptions := options.ProOptions
-	if proOptions.RemoteKubeConfig == "" {
-		return inClusterConfig, currentNamespace, options.ServiceName, inClusterConfig, currentNamespace, options.ServiceName, nil
+	if vConfig.Experimental.IsolatedControlPlane.Enabled {
+		return inClusterConfig, currentNamespace, vConfig.ServiceName, inClusterConfig, currentNamespace, vConfig.ServiceName, nil
 	}
 
 	return nil, "", "", nil, "", "", NewFeatureError(string(licenseapi.VirtualClusterProDistroIsolatedControlPlane))
@@ -38,7 +37,7 @@ var AddRemoteNodePortSANs = func(_ context.Context, _, _ string, _ kubernetes.In
 	return nil
 }
 
-var ExchangeControlPlaneClient = func(controllerCtx *options.ControllerContext, _ string, _ *rest.Config) (client.Client, error) {
+var ExchangeControlPlaneClient = func(controllerCtx *config.ControllerContext, _ string, _ *rest.Config) (client.Client, error) {
 	return controllerCtx.CurrentNamespaceClient, nil
 }
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/genericsyncconfig"
 	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/patches"
 	"github.com/pkg/errors"
@@ -25,7 +25,7 @@ type patcher struct {
 	statusIsSubresource bool
 }
 
-func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object, patchesConfig, reversePatchesConfig []*config.Patch, translateMetadata func(vObj client.Object) (client.Object, error), nameResolver patches.NameResolver) (client.Object, error) {
+func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object, patchesConfig, reversePatchesConfig []*genericsyncconfig.Patch, translateMetadata func(vObj client.Object) (client.Object, error), nameResolver patches.NameResolver) (client.Object, error) {
 	translatedObject, err := translateMetadata(fromObj)
 	if err != nil {
 		return nil, errors.Wrap(err, "translate object")
@@ -76,7 +76,7 @@ func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 	return outObject, nil
 }
 
-func (s *patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj client.Object, reversePatchConfig []*config.Patch, nameResolver patches.NameResolver) (controllerutil.OperationResult, error) {
+func (s *patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj client.Object, reversePatchConfig []*genericsyncconfig.Patch, nameResolver patches.NameResolver) (controllerutil.OperationResult, error) {
 	originalUnstructured, err := toUnstructured(fromObj)
 	if err != nil {
 		return controllerutil.OperationResultNone, err
