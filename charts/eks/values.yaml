@@ -188,9 +188,9 @@ syncer:
   priorityClassName: ""
   kubeConfigContextName: "my-vcluster"
   # Security context configuration
-  securityContext: {}
-  podSecurityContext:
+  securityContext:
     allowPrivilegeEscalation: false
+  podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
   serviceAnnotations: {}
