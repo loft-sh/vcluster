@@ -36,7 +36,12 @@ func (m *manager) Start(
 	syncerConfig *clientcmdapi.Config,
 	vConfig *config.VirtualClusterConfig,
 ) error {
-	err := m.legacyManager.Start(ctx, currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, vConfig.LegacyOptions)
+	legacyOptions, err := vConfig.LegacyOptions()
+	if err != nil {
+		return fmt.Errorf("build legacy options: %w", err)
+	}
+
+	err = m.legacyManager.Start(ctx, currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, legacyOptions)
 	if err != nil {
 		return fmt.Errorf("start legacy plugins: %w", err)
 	}

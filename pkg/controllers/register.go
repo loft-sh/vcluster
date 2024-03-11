@@ -8,7 +8,30 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
+	config2 "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/csidrivers"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/csinodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/csistoragecapacities"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/networkpolicies"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumeclaims"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/poddisruptionbudgets"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -26,35 +49,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
-	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/csidrivers"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/csinodes"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/csistoragecapacities"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
-
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
+	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
+	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/networkpolicies"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumeclaims"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/poddisruptionbudgets"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -62,29 +62,42 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncertypes.Object, error){
-	"services":               {services.New},
-	"configmaps":             {configmaps.New},
-	"secrets":                {secrets.New},
-	"endpoints":              {endpoints.New},
-	"pods":                   {pods.New},
-	"events":                 {events.New},
-	"persistentvolumeclaims": {persistentvolumeclaims.New},
-	"ingresses":              {ingresses.New},
-	"ingressclasses":         {ingressclasses.New},
-	"storageclasses":         {storageclasses.New},
-	"hoststorageclasses":     {storageclasses.NewHostStorageClassSyncer},
-	"priorityclasses":        {priorityclasses.New},
-	"nodes,fake-nodes":       {nodes.New},
-	"poddisruptionbudgets":   {poddisruptionbudgets.New},
-	"networkpolicies":        {networkpolicies.New},
-	"volumesnapshots":        {volumesnapshotclasses.New, volumesnapshots.New, volumesnapshotcontents.New},
-	"serviceaccounts":        {serviceaccounts.New},
-	"csinodes":               {csinodes.New},
-	"csidrivers":             {csidrivers.New},
-	"csistoragecapacities":   {csistoragecapacities.New},
-	"namespaces":             {namespaces.New},
-	"persistentvolumes,fake-persistentvolumes": {persistentvolumes.New},
+type initFunction func(*synccontext.RegisterContext) (syncertypes.Object, error)
+
+func getSyncers(ctx *config.ControllerContext) []initFunction {
+	return []initFunction{
+		isEnabled(ctx.Config.Sync.ToHost.Services.Enabled, services.New),
+		isEnabled(ctx.Config.Sync.ToHost.ConfigMaps.Enabled, configmaps.New),
+		isEnabled(ctx.Config.Sync.ToHost.Secrets.Enabled, secrets.New),
+		isEnabled(ctx.Config.Sync.ToHost.Endpoints.Enabled, endpoints.New),
+		isEnabled(ctx.Config.Sync.ToHost.Pods.Enabled, pods.New),
+		isEnabled(ctx.Config.Sync.FromHost.Events.Enabled, events.New),
+		isEnabled(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Enabled, persistentvolumeclaims.New),
+		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, ingresses.New),
+		isEnabled(ctx.Config.Sync.FromHost.IngressClasses.Enabled, ingressclasses.New),
+		isEnabled(ctx.Config.Sync.ToHost.StorageClasses.Enabled, storageclasses.New),
+		isEnabled(ctx.Config.Sync.FromHost.StorageClasses.Enabled, storageclasses.NewHostStorageClassSyncer),
+		isEnabled(ctx.Config.Sync.ToHost.PriorityClasses.Enabled, priorityclasses.New),
+		isEnabled(ctx.Config.Sync.ToHost.PodDisruptionBudgets.Enabled, poddisruptionbudgets.New),
+		isEnabled(ctx.Config.Sync.ToHost.NetworkPolicies.Enabled, networkpolicies.New),
+		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshotclasses.New),
+		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshots.New),
+		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshotcontents.New),
+		isEnabled(ctx.Config.Sync.ToHost.ServiceAccounts.Enabled, serviceaccounts.New),
+		isEnabled(ctx.Config.Sync.FromHost.CSINodes.Enabled, csinodes.New),
+		isEnabled(ctx.Config.Sync.FromHost.CSIDrivers.Enabled, csidrivers.New),
+		isEnabled(ctx.Config.Sync.FromHost.CSIStorageCapacities.Enabled, csistoragecapacities.New),
+		isEnabled(ctx.Config.Experimental.MultiNamespaceMode.Enabled, namespaces.New),
+		persistentvolumes.New,
+		nodes.New,
+	}
+}
+
+func isEnabled(enabled bool, fn initFunction) initFunction {
+	if enabled {
+		return fn
+	}
+	return nil
 }
 
 func Create(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
@@ -92,22 +105,18 @@ func Create(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
 
 	// register controllers for resource synchronization
 	syncers := []syncertypes.Object{}
-	for k, v := range ResourceControllers {
-		for _, controllerNew := range v {
-			controllers := strings.Split(k, ",")
-			for _, controller := range controllers {
-				if ctx.Controllers.Has(controller) {
-					loghelper.Infof("Start %s sync controller", controller)
-					createdController, err := controllerNew(registerContext)
-					if err != nil {
-						return nil, errors.Wrapf(err, "register %s controller", controller)
-					}
-
-					syncers = append(syncers, createdController)
-					break
-				}
-			}
+	for _, newSyncer := range getSyncers(ctx) {
+		if newSyncer == nil {
+			continue
 		}
+
+		createdController, err := newSyncer(registerContext)
+		if err != nil {
+			return nil, errors.Wrapf(err, "register %s controller", createdController.Name())
+		}
+
+		loghelper.Infof("Start %s sync controller", createdController.Name())
+		syncers = append(syncers, createdController)
 	}
 
 	return syncers, nil
@@ -277,13 +286,13 @@ func RegisterInitManifestsController(controllerCtx *config.ControllerContext) er
 }
 
 func RegisterServiceSyncControllers(ctx *config.ControllerContext) error {
-	hostNamespace := ctx.Options.TargetNamespace
+	hostNamespace := ctx.Config.TargetNamespace
 	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
 		hostNamespace = ctx.CurrentNamespace
 	}
 
-	if len(ctx.Options.MapHostServices) > 0 {
-		mapping, err := parseMapping(ctx.Options.MapHostServices, hostNamespace, "")
+	if len(ctx.Config.Networking.ReplicateServices.FromHost) > 0 {
+		mapping, err := parseMapping(ctx.Config.Networking.ReplicateServices.FromHost, hostNamespace, "")
 		if err != nil {
 			return errors.Wrap(err, "parse physical service mapping")
 		}
@@ -329,8 +338,8 @@ func RegisterServiceSyncControllers(ctx *config.ControllerContext) error {
 		}
 	}
 
-	if len(ctx.Options.MapVirtualServices) > 0 {
-		mapping, err := parseMapping(ctx.Options.MapVirtualServices, "", hostNamespace)
+	if len(ctx.Config.Networking.ReplicateServices.ToHost) > 0 {
+		mapping, err := parseMapping(ctx.Config.Networking.ReplicateServices.ToHost, "", hostNamespace)
 		if err != nil {
 			return errors.Wrap(err, "parse physical service mapping")
 		}
@@ -356,43 +365,39 @@ func RegisterServiceSyncControllers(ctx *config.ControllerContext) error {
 	return nil
 }
 
-func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace string) (map[string]types.NamespacedName, error) {
+func parseMapping(mappings []config2.ServiceMapping, fromDefaultNamespace, toDefaultNamespace string) (map[string]types.NamespacedName, error) {
 	ret := map[string]types.NamespacedName{}
 	for _, m := range mappings {
-		splitted := strings.Split(m, "=")
-		if len(splitted) != 2 {
-			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
-		} else if len(splitted[0]) == 0 || len(splitted[1]) == 0 {
-			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
-		}
+		from := m.From
+		to := m.To
 
-		fromSplitted := strings.Split(splitted[0], "/")
+		fromSplitted := strings.Split(from, "/")
 		if len(fromSplitted) == 1 {
 			if fromDefaultNamespace == "" {
 				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
 			}
 
-			splitted[0] = fromDefaultNamespace + "/" + splitted[0]
+			from = fromDefaultNamespace + "/" + from
 		} else if len(fromSplitted) != 2 {
 			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
 		}
 
-		toSplitted := strings.Split(splitted[1], "/")
+		toSplitted := strings.Split(to, "/")
 		if len(toSplitted) == 1 {
 			if toDefaultNamespace == "" {
 				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=namespace2/service2")
 			}
 
-			ret[splitted[0]] = types.NamespacedName{
+			ret[from] = types.NamespacedName{
 				Namespace: toDefaultNamespace,
-				Name:      splitted[1],
+				Name:      to,
 			}
 		} else if len(toSplitted) == 2 {
 			if toDefaultNamespace != "" {
 				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
 			}
 
-			ret[splitted[0]] = types.NamespacedName{
+			ret[from] = types.NamespacedName{
 				Namespace: toSplitted[0],
 				Name:      toSplitted[1],
 			}

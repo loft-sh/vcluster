@@ -58,16 +58,12 @@ type Translator interface {
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder) (Translator, error) {
-	imageTranslator, err := NewImageTranslator(ctx.Options.TranslateImages)
+	imageTranslator, err := NewImageTranslator(ctx.Config.Sync.ToHost.Pods.TranslateImage)
 	if err != nil {
 		return nil, err
 	}
 
-	name := ctx.Options.Name
-	if name == "" {
-		name = ctx.Options.ServiceName
-	}
-
+	name := ctx.Config.Name
 	virtualPath := fmt.Sprintf(VirtualPathTemplate, ctx.CurrentNamespace, name)
 	virtualLogsPath := path.Join(virtualPath, "log")
 	virtualKubeletPath := path.Join(virtualPath, "kubelet")
@@ -81,23 +77,23 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		eventRecorder:   eventRecorder,
 		log:             loghelper.New("pods-syncer-translator"),
 
-		defaultImageRegistry: ctx.Options.DefaultImageRegistry,
+		defaultImageRegistry: ctx.Config.ControlPlane.Advanced.DefaultImageRegistry,
 
-		serviceAccountSecretsEnabled: ctx.Options.ServiceAccountTokenSecrets,
-		clusterDomain:                ctx.Options.ClusterDomain,
-		serviceAccount:               ctx.Options.ServiceAccount,
-		overrideHosts:                ctx.Options.OverrideHosts,
-		overrideHostsImage:           ctx.Options.OverrideHostsContainerImage,
-		serviceAccountsEnabled:       ctx.Controllers.Has("serviceaccounts"),
-		priorityClassesEnabled:       ctx.Controllers.Has("priorityclasses"),
-		enableScheduler:              ctx.Options.EnableScheduler,
-		syncedLabels:                 ctx.Options.SyncLabels,
+		serviceAccountSecretsEnabled: ctx.Config.Sync.ToHost.Pods.UseSecretsForSATokens,
+		clusterDomain:                ctx.Config.Networking.Advanced.ClusterDomain,
+		serviceAccount:               ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
+		overrideHosts:                ctx.Config.Sync.ToHost.Pods.RewriteHosts.Enabled,
+		overrideHostsImage:           ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainerImage,
+		serviceAccountsEnabled:       ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
+		priorityClassesEnabled:       ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
+		enableScheduler:              ctx.Config.ControlPlane.VirtualScheduler.Enabled,
+		syncedLabels:                 ctx.Config.Experimental.SyncSettings.SyncLabels,
 
-		mountPhysicalHostPaths:   ctx.Options.MountPhysicalHostPaths,
-		hostpathMountPropagation: true,
-		virtualLogsPath:          virtualLogsPath,
-		virtualPodLogsPath:       filepath.Join(virtualLogsPath, "pods"),
-		virtualKubeletPodPath:    filepath.Join(virtualKubeletPath, "pods"),
+		mountPhysicalHostPaths: ctx.Config.ControlPlane.HostPathMapper.Enabled && !ctx.Config.ControlPlane.HostPathMapper.Central,
+
+		virtualLogsPath:       virtualLogsPath,
+		virtualPodLogsPath:    filepath.Join(virtualLogsPath, "pods"),
+		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
 	}, nil
 }
 
@@ -111,6 +107,9 @@ type translator struct {
 
 	defaultImageRegistry string
 
+	// this is needed for host path mapper (legacy)
+	mountPhysicalHostPaths bool
+
 	serviceAccountsEnabled       bool
 	serviceAccountSecretsEnabled bool
 	clusterDomain                string
@@ -121,11 +120,9 @@ type translator struct {
 	enableScheduler              bool
 	syncedLabels                 []string
 
-	mountPhysicalHostPaths   bool
-	hostpathMountPropagation bool
-	virtualLogsPath          string
-	virtualPodLogsPath       string
-	virtualKubeletPodPath    string
+	virtualLogsPath       string
+	virtualPodLogsPath    string
+	virtualKubeletPodPath string
 }
 
 func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -428,9 +425,7 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 	}
 
 	// rewrite host paths if enabled
-	if t.mountPhysicalHostPaths || t.hostpathMountPropagation {
-		t.rewriteHostPaths(pPod)
-	}
+	t.rewriteHostPaths(pPod)
 
 	return nil
 }

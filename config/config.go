@@ -4,12 +4,12 @@ import "regexp"
 
 type Config struct {
 	ExportKubeConfig ExportKubeConfig   `json:"exportKubeConfig,omitempty"`
+	ControlPlane     ControlPlane       `json:"controlPlane,omitempty"`
 	Sync             Sync               `json:"sync,omitempty"`
 	Observability    Observability      `json:"observability,omitempty"`
 	Networking       Networking         `json:"networking,omitempty"`
 	Plugin           map[string]Plugin  `json:"plugin,omitempty"`
 	Plugins          map[string]Plugins `json:"plugins,omitempty"`
-	ControlPlane     ControlPlane       `json:"controlPlane,omitempty"`
 	Policies         Policies           `json:"policies,omitempty"`
 	RBAC             RBAC               `json:"rbac,omitempty"`
 
@@ -17,6 +17,10 @@ type Config struct {
 	Telemetry    Telemetry    `json:"telemetry,omitempty"`
 	Experimental Experimental `json:"experimental,omitempty"`
 	Platform     Platform     `json:"platform,omitempty"`
+
+	// legacy for compatibility
+	ServiceCIDR string `json:"serviceCIDR,omitempty"`
+	Pro         bool   `json:"pro,omitempty"`
 }
 
 type ExportKubeConfig struct {
@@ -79,11 +83,10 @@ type SyncAllResource struct {
 type SyncPods struct {
 	Enabled bool `json:"enabled,omitempty"`
 
-	WorkloadServiceAccount string            `json:"workloadServiceAccount,omitempty"`
-	TranslateImage         map[string]string `json:"translateImage,omitempty"`
-	EnforceTolerations     []string          `json:"enforceTolerations,omitempty"` // validate format
-	UseSecretsForSATokens  bool              `json:"useSecretsForSATokens,omitempty"`
-	RewriteHosts           SyncRewriteHosts  `json:"rewriteHosts,omitempty"`
+	TranslateImage        map[string]string `json:"translateImage,omitempty"`
+	EnforceTolerations    []string          `json:"enforceTolerations,omitempty"` // validate format
+	UseSecretsForSATokens bool              `json:"useSecretsForSATokens,omitempty"`
+	RewriteHosts          SyncRewriteHosts  `json:"rewriteHosts,omitempty"`
 }
 
 type SyncRewriteHosts struct {
@@ -128,13 +131,13 @@ type MetricsProxy struct {
 
 type Networking struct {
 	ReplicateServices ReplicateServices  `json:"replicateServices,omitempty"`
-	ResolveServices   ResolveServices    `json:"resolveServices,omitempty"`
+	ResolveServices   []ResolveServices  `json:"resolveServices,omitempty"`
 	Advanced          NetworkingAdvanced `json:"advanced,omitempty"`
 }
 
 type ReplicateServices struct {
-	ToHost   ServiceMapping `json:"toHost,omitempty"`
-	FromHost ServiceMapping `json:"fromHost,omitempty"`
+	ToHost   []ServiceMapping `json:"toHost,omitempty"`
+	FromHost []ServiceMapping `json:"fromHost,omitempty"`
 }
 
 type ServiceMapping struct {
@@ -255,11 +258,12 @@ type Distro struct {
 	K3S DistroK3s `json:"k3s,omitempty"`
 	K8S DistroK8s `json:"k8s,omitempty"`
 	K0S DistroK0s `json:"k0s,omitempty"`
-	EKS DistroEks `json:"eks,omitempty"`
+	EKS DistroK8s `json:"eks,omitempty"`
 }
 
 type DistroK3s struct {
-	Enabled         bool `json:"enabled,omitempty"`
+	Enabled         bool   `json:"enabled,omitempty"`
+	Token           string `json:"token,omitempty"`
 	DistroCommon    `json:",inline"`
 	DistroContainer `json:",inline"`
 }
@@ -267,23 +271,16 @@ type DistroK3s struct {
 type DistroK8s struct {
 	Enabled           bool `json:"enabled,omitempty"`
 	DistroCommon      `json:",inline"`
-	APIServer         DistroContainer `json:"apiServer,omitempty"`
-	ControllerManager DistroContainer `json:"controllerManager,omitempty"`
-	Scheduler         DistroContainer `json:"scheduler,omitempty"`
+	APIServer         DistroContainerDisabled `json:"apiServer,omitempty"`
+	ControllerManager DistroContainerDisabled `json:"controllerManager,omitempty"`
+	Scheduler         DistroContainer         `json:"scheduler,omitempty"`
 }
 
 type DistroK0s struct {
-	Enabled         bool `json:"enabled,omitempty"`
+	Enabled         bool   `json:"enabled,omitempty"`
+	Config          string `json:"config,omitempty"`
 	DistroCommon    `json:",inline"`
 	DistroContainer `json:",inline"`
-}
-
-type DistroEks struct {
-	Enabled           bool `json:"enabled,omitempty"`
-	DistroCommon      `json:",inline"`
-	APIServer         DistroContainer `json:"apiServer,omitempty"`
-	ControllerManager DistroContainer `json:"controllerManager,omitempty"`
-	Scheduler         DistroContainer `json:"scheduler,omitempty"`
 }
 
 type DistroCommon struct {
@@ -296,7 +293,14 @@ type DistroContainer struct {
 	Image           Image    `json:"image,omitempty"`
 	ImagePullPolicy string   `json:"imagePullPolicy,omitempty"`
 	Command         []string `json:"command,omitempty"`
-	Args            []string `json:"args,omitempty"`
+	ExtraArgs       []string `json:"extraArgs,omitempty"`
+}
+
+type DistroContainerDisabled struct {
+	Disabled        bool     `json:"disabled,omitempty"`
+	Image           Image    `json:"image,omitempty"`
+	ImagePullPolicy string   `json:"imagePullPolicy,omitempty"`
+	Command         []string `json:"command,omitempty"`
 	ExtraArgs       []string `json:"extraArgs,omitempty"`
 }
 
@@ -327,8 +331,8 @@ type BackingStore struct {
 }
 
 type EmbeddedEtcd struct {
-	Enabled           bool `json:"enabled,omitempty"`
-	MigrateFromSqlite bool `json:"migrateFromSqlite,omitempty"`
+	Enabled                 bool `json:"enabled,omitempty"`
+	MigrateFromExternalEtcd bool `json:"migrateFromExternalEtcd,omitempty"`
 }
 
 type ExternalEtcd struct {
@@ -348,15 +352,15 @@ type ExternalEtcdMetadata struct {
 }
 
 type HostPathMapper struct {
-	EnableSwitch `json:",inline"`
-	Central      bool `json:"central,omitempty" product:"pro"`
+	Enabled bool `json:"enabled,omitempty"`
+	Central bool `json:"central,omitempty" product:"pro"`
 }
 
 type CoreDNS struct {
-	EnableSwitch `json:",inline"`
-	Embedded     bool              `json:"embedded,omitempty" product:"pro"`
-	Service      CoreDNSService    `json:"service,omitempty"`
-	Deployment   CoreDNSDeployment `json:"deployment,omitempty"`
+	Enabled    bool              `json:"enabled,omitempty"`
+	Embedded   bool              `json:"embedded,omitempty" product:"pro"`
+	Service    CoreDNSService    `json:"service,omitempty"`
+	Deployment CoreDNSDeployment `json:"deployment,omitempty"`
 }
 
 type CoreDNSService struct {
@@ -370,13 +374,9 @@ type CoreDNSDeployment struct {
 }
 
 type ControlPlaneProxy struct {
-	BindAddress string               `json:"bindAddress,omitempty"`
-	Port        int                  `json:"port,omitempty"`
-	TLS         ControlPlaneProxyTLS `json:"tls,omitempty"`
-}
-
-type ControlPlaneProxyTLS struct {
-	ExtraSANs []string `json:"extraSANs,omitempty"`
+	BindAddress string   `json:"bindAddress,omitempty"`
+	Port        int      `json:"port,omitempty"`
+	ExtraSANs   []string `json:"extraSANs,omitempty"`
 }
 
 type ControlPlaneService struct {
@@ -445,7 +445,7 @@ type VolumeMount struct {
 type ControlPlaneScheduling struct {
 	NodeSelector      map[string]interface{} `json:"nodeSelector,omitempty"`
 	Affinity          map[string]interface{} `json:"affinity,omitempty"`
-	Tolerations       map[string]interface{} `json:"tolerations,omitempty"`
+	Tolerations       []interface{}          `json:"tolerations,omitempty"`
 	PriorityClassName string                 `json:"priorityClassName,omitempty"`
 }
 
@@ -594,7 +594,6 @@ type Experimental struct {
 	Extended map[string]interface{} `json:",inline"`
 
 	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty"`
-	ControlPlaneSettings ExperimentalControlPlaneSettings `json:"controlPlaneSettings,omitempty"`
 	SyncSettings         ExperimentalSyncSettings         `json:"syncSettings,omitempty"`
 	GenericSync          ExperimentalGenericSync          `json:"genericSync,omitempty"`
 	Deploy               ExperimentalDeploy               `json:"deploy,omitempty"`
@@ -605,25 +604,25 @@ type Experimental struct {
 
 type ExperimentalMultiNamespaceMode struct {
 	Enabled bool `json:"enabled,omitempty"`
+
+	NamespaceLabels map[string]string `json:"namespaceLabels,omitempty"`
 }
 
 type ExperimentalIsolatedControlPlane struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	KubeConfig string `json:"kubeConfig,omitempty"`
-}
-
-type ExperimentalControlPlaneSettings struct {
-	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty"`
+	Namespace  string `json:"namespace,omitempty"`
+	Service    string `json:"service,omitempty"`
 }
 
 type ExperimentalSyncSettings struct {
-	DisableSync bool                           `json:"disableSync,omitempty"`
-	Target      ExperimentalSyncSettingsTarget `json:"target,omitempty"`
-}
+	DisableSync              bool `json:"disableSync,omitempty"`
+	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty"`
 
-type ExperimentalSyncSettingsTarget struct {
-	Namespace string `json:"namespace,omitempty"`
+	TargetNamespace string   `json:"targetNamespace,omitempty"`
+	SetOwner        bool     `json:"setOwner,omitempty"`
+	SyncLabels      []string `json:"syncLabels,omitempty"`
 }
 
 type ExperimentalDeploy struct {

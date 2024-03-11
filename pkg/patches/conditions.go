@@ -1,13 +1,13 @@
 package patches
 
 import (
-	"github.com/loft-sh/vcluster/pkg/genericsyncconfig"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/pkg/errors"
 	"github.com/vmware-labs/yaml-jsonpath/pkg/yamlpath"
 	yaml "gopkg.in/yaml.v3"
 )
 
-func ValidateAllConditions(obj *yaml.Node, match *yaml.Node, conditions []*genericsyncconfig.PatchCondition) (bool, error) {
+func ValidateAllConditions(obj *yaml.Node, match *yaml.Node, conditions []*config.PatchCondition) (bool, error) {
 	for _, condition := range conditions {
 		matched, err := ValidateCondition(obj, match, condition)
 		if err != nil {
@@ -20,7 +20,7 @@ func ValidateAllConditions(obj *yaml.Node, match *yaml.Node, conditions []*gener
 	return true, nil
 }
 
-func ValidateCondition(obj *yaml.Node, match *yaml.Node, condition *genericsyncconfig.PatchCondition) (bool, error) {
+func ValidateCondition(obj *yaml.Node, match *yaml.Node, condition *config.PatchCondition) (bool, error) {
 	if condition == nil {
 		return true, nil
 	}

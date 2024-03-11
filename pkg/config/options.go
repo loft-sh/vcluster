@@ -9,9 +9,6 @@ type LegacyVirtualClusterOptions struct {
 	// PRO Options
 	ProOptions LegacyVirtualClusterProOptions `json:",inline"`
 
-	// OSS Options below
-	Controllers []string `json:"controllers,omitempty"`
-
 	ServerCaCert        string   `json:"serverCaCert,omitempty"`
 	ServerCaKey         string   `json:"serverCaKey,omitempty"`
 	TLSSANs             []string `json:"tlsSans,omitempty"`
@@ -35,12 +32,11 @@ type LegacyVirtualClusterOptions struct {
 
 	SetOwner bool `json:"setOwner,omitempty"`
 
-	SyncAllNodes        bool     `json:"syncAllNodes,omitempty"`
-	EnableScheduler     bool     `json:"enableScheduler,omitempty"`
-	DisableFakeKubelets bool     `json:"disableFakeKubelets,omitempty"`
-	FakeKubeletIPs      bool     `json:"fakeKubeletIPs,omitempty"`
-	ClearNodeImages     bool     `json:"clearNodeImages,omitempty"`
-	TranslateImages     []string `json:"translateImages,omitempty"`
+	SyncAllNodes        bool `json:"syncAllNodes,omitempty"`
+	EnableScheduler     bool `json:"enableScheduler,omitempty"`
+	DisableFakeKubelets bool `json:"disableFakeKubelets,omitempty"`
+	FakeKubeletIPs      bool `json:"fakeKubeletIPs,omitempty"`
+	ClearNodeImages     bool `json:"clearNodeImages,omitempty"`
 
 	NodeSelector        string `json:"nodeSelector,omitempty"`
 	EnforceNodeSelector bool   `json:"enforceNodeSelector,omitempty"`
@@ -63,9 +59,6 @@ type LegacyVirtualClusterOptions struct {
 
 	EnforcePodSecurityStandard string `json:"enforcePodSecurityStandard,omitempty"`
 
-	MapHostServices    []string `json:"mapHostServices,omitempty"`
-	MapVirtualServices []string `json:"mapVirtualServices,omitempty"`
-
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
 	// hostpath mapper options
@@ -76,10 +69,9 @@ type LegacyVirtualClusterOptions struct {
 	HostMetricsBindAddress    string `json:"hostMetricsBindAddress,omitempty"`
 	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
 
-	MultiNamespaceMode bool     `json:"multiNamespaceMode,omitempty"`
-	NamespaceLabels    []string `json:"namespaceLabels,omitempty"`
-	SyncAllSecrets     bool     `json:"syncAllSecrets,omitempty"`
-	SyncAllConfigMaps  bool     `json:"syncAllConfigMaps,omitempty"`
+	MultiNamespaceMode bool `json:"multiNamespaceMode,omitempty"`
+	SyncAllSecrets     bool `json:"syncAllSecrets,omitempty"`
+	SyncAllConfigMaps  bool `json:"syncAllConfigMaps,omitempty"`
 
 	ProxyMetricsServer         bool `json:"proxyMetricsServer,omitempty"`
 	ServiceAccountTokenSecrets bool `json:"serviceAccountTokenSecrets,omitempty"`

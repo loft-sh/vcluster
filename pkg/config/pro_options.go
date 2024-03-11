@@ -1,16 +1,12 @@
 package config
 
 type LegacyVirtualClusterProOptions struct {
-	RemoteKubeConfig       string   `json:"remoteKubeConfig,omitempty"`
-	RemoteNamespace        string   `json:"remoteNamespace,omitempty"`
-	RemoteServiceName      string   `json:"remoteServiceName,omitempty"`
-	EnforceValidatingHooks []string `json:"enforceValidatingHooks"`
-	EnforceMutatingHooks   []string `json:"enforceMutatingHooks"`
-	EtcdReplicas           int      `json:"etcdReplicas,omitempty"`
-	IntegratedCoredns      bool     `json:"integratedCoreDNS,omitempty"`
-	UseCoreDNSPlugin       bool     `json:"useCoreDNSPlugin,omitempty"`
-	EtcdEmbedded           bool     `json:"etcdEmbedded,omitempty"`
-	MigrateFrom            string   `json:"migrateFrom,omitempty"`
+	RemoteKubeConfig  string `json:"remoteKubeConfig,omitempty"`
+	RemoteNamespace   string `json:"remoteNamespace,omitempty"`
+	RemoteServiceName string `json:"remoteServiceName,omitempty"`
+	EtcdReplicas      int    `json:"etcdReplicas,omitempty"`
+	IntegratedCoredns bool   `json:"integratedCoreDNS,omitempty"`
+	EtcdEmbedded      bool   `json:"etcdEmbedded,omitempty"`
 
 	NoopSyncer            bool `json:"noopSyncer,omitempty"`
 	SyncKubernetesService bool `json:"synck8sService,omitempty"`

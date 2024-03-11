@@ -128,9 +128,7 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 			}
 		}
 
-		if t.hostpathMountPropagation {
-			t.ensureMountPropagation(pPod)
-		}
+		t.ensureMountPropagation(pPod)
 	}
 }
 

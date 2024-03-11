@@ -27,7 +27,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &configMapSyncer{
 		NamespacedTranslator: t,
 
-		syncAllConfigMaps: ctx.Options.SyncAllConfigMaps,
+		syncAllConfigMaps: ctx.Config.Sync.ToHost.ConfigMaps.All,
 	}, nil
 }
 

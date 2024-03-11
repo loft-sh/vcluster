@@ -1,9 +1,6 @@
 package config
 
-import (
-	"github.com/spf13/pflag"
-)
-
+/*
 func AddProFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.StringVar(&options.ProOptions.ProLicenseSecret, "pro-license-secret", "", "If set, vCluster.Pro will try to find this secret to retrieve the vCluster.Pro license.")
 
@@ -103,4 +100,4 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 	flags.StringVar(&options.DeprecatedSuffix, "suffix", "", "DEPRECATED: use --name instead")
 	flags.StringVar(&options.DeprecatedOwningStatefulSet, "owning-statefulset", "", "DEPRECATED: use --set-owner instead")
 	flags.StringVar(&options.DeprecatedDisableSyncResources, "disable-sync-resources", "", "DEPRECATED: use --sync instead")
-}
+}*/

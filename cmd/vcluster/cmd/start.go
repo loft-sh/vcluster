@@ -45,7 +45,7 @@ func NewStartCommand() *cobra.Command {
 			}()
 
 			// parse vCluster config
-			vClusterConfig, err := config.ParseConfig(startOptions.Config)
+			vClusterConfig, err := config.ParseConfig(startOptions.Config, os.Getenv("VCLUSTER_NAME"))
 			if err != nil {
 				return err
 			}
@@ -68,6 +68,9 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 	// set service name
 	if vConfig.ServiceName == "" {
 		vConfig.ServiceName = translate.VClusterName
+	}
+	if vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
+		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
 	}
 
 	// get current namespace
@@ -94,10 +97,6 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 	plugin.DefaultManager.SetProFeatures(pro.LicenseFeatures())
 
 	// get host cluster config and tweak rate-limiting configuration
-	workloadClient, err := kubernetes.NewForConfig(workloadConfig)
-	if err != nil {
-		return err
-	}
 	controlPlaneClient, err := kubernetes.NewForConfig(controlPlaneConfig)
 	if err != nil {
 		return err
@@ -106,12 +105,10 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 	// check if we should create certs
 	err = setup.Initialize(
 		ctx,
-		workloadClient,
 		controlPlaneClient,
-		workloadNamespace,
 		controlPlaneNamespace,
 		translate.VClusterName,
-		options,
+		vConfig,
 	)
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -120,7 +117,7 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 	// build controller context
 	controllerCtx, err := setup.NewControllerContext(
 		ctx,
-		options,
+		vConfig,
 		workloadNamespace,
 		workloadConfig,
 		scheme.Scheme,

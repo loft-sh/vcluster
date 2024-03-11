@@ -4,68 +4,17 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 )
 
 const (
-	CIDRConfigMapPrefix = "vc-cidr-"
-	CIDRConfigMapKey    = "cidr"
-	K0sConfigKey        = "config.yaml"
-	K0sCIDRPlaceHolder  = "CIDR_PLACEHOLDER"
-
 	ErrorMessageFind = "The range of valid IPs is "
 	FallbackCIDR     = "10.96.0.0/12"
 )
-
-func GetK0sSecretName(vClusterName string) string {
-	return fmt.Sprintf("vc-%s-config", vClusterName)
-}
-
-func EnsureServiceCIDRInK0sSecret(
-	ctx context.Context,
-	workspaceNamespaceClient,
-	currentNamespaceClient kubernetes.Interface,
-	workspaceNamespace,
-	currentNamespace string,
-	vClusterName string,
-) (string, error) {
-	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, GetK0sSecretName(vClusterName), metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("could not read k0s configuration secret %s/%s: %w", currentNamespace, GetK0sSecretName(vClusterName), err)
-	}
-
-	// verify secret
-	configData, ok := secret.Data[K0sConfigKey]
-	if !ok {
-		return "", fmt.Errorf("k0s configuration secret %s/%s does not contain the expected key - %s", secret.Namespace, secret.Name, K0sConfigKey)
-	}
-
-	// find out correct cidr
-	serviceCIDR, warning := GetServiceCIDR(ctx, workspaceNamespaceClient, workspaceNamespace)
-	if warning != "" {
-		klog.Info(warning)
-	}
-	// only return the first cidr, because k0s don't accept coma separated ones
-	serviceCIDR = strings.Split(serviceCIDR, ",")[0]
-
-	// apply changes
-	updatedConfig := []byte(strings.ReplaceAll(string(configData), K0sCIDRPlaceHolder, serviceCIDR))
-
-	// write the config to file
-	err = os.WriteFile("/tmp/k0s-config.yaml", updatedConfig, 0640)
-	if err != nil {
-		klog.Errorf("error while write k0s config to file: %s", err.Error())
-		return "", err
-	}
-
-	return serviceCIDR, nil
-}
 
 func GetServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace string) (string, string) {
 	ipv4CIDR, ipv4Err := getServiceCIDR(ctx, client, namespace, false)

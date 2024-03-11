@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/loft-sh/vcluster/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/loft-sh/vcluster/pkg/genericsyncconfig"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v3"
 	k8syaml "sigs.k8s.io/yaml"
 )
 
-func CopyFromObject(obj1, obj2 *yaml.Node, patch *genericsyncconfig.Patch) error {
+func CopyFromObject(obj1, obj2 *yaml.Node, patch *config.Patch) error {
 	if obj2 == nil {
 		return nil
 	}
@@ -68,7 +68,7 @@ func CopyFromObject(obj1, obj2 *yaml.Node, patch *genericsyncconfig.Patch) error
 	return nil
 }
 
-func Remove(obj1 *yaml.Node, patch *genericsyncconfig.Patch) error {
+func Remove(obj1 *yaml.Node, patch *config.Patch) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
 		return errors.Wrap(err, "find matches")
@@ -95,7 +95,7 @@ func Remove(obj1 *yaml.Node, patch *genericsyncconfig.Patch) error {
 	return nil
 }
 
-func Add(obj1 *yaml.Node, patch *genericsyncconfig.Patch) error {
+func Add(obj1 *yaml.Node, patch *config.Patch) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
 		return errors.Wrap(err, "find matches")
@@ -134,7 +134,7 @@ func Add(obj1 *yaml.Node, patch *genericsyncconfig.Patch) error {
 	return nil
 }
 
-func Replace(obj1 *yaml.Node, patch *genericsyncconfig.Patch) error {
+func Replace(obj1 *yaml.Node, patch *config.Patch) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
 		return errors.Wrap(err, "find matches")
@@ -159,7 +159,7 @@ func Replace(obj1 *yaml.Node, patch *genericsyncconfig.Patch) error {
 	return nil
 }
 
-func RewriteName(obj1 *yaml.Node, patch *genericsyncconfig.Patch, resolver NameResolver) error {
+func RewriteName(obj1 *yaml.Node, patch *config.Patch, resolver NameResolver) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
 		return errors.Wrap(err, "find matches")
@@ -190,7 +190,7 @@ func RewriteName(obj1 *yaml.Node, patch *genericsyncconfig.Patch, resolver NameR
 	return nil
 }
 
-func ProcessRewrite(obj *yaml.Node, patch *genericsyncconfig.Patch, resolver NameResolver) error {
+func ProcessRewrite(obj *yaml.Node, patch *config.Patch, resolver NameResolver) error {
 	var namespace string
 	var err error
 
@@ -240,7 +240,7 @@ func ProcessRewrite(obj *yaml.Node, patch *genericsyncconfig.Patch, resolver Nam
 	return nil
 }
 
-func ValidateAndTranslateName(obj *yaml.Node, match *yaml.Node, patch *genericsyncconfig.Patch, resolver NameResolver, namespace string) error {
+func ValidateAndTranslateName(obj *yaml.Node, match *yaml.Node, patch *config.Patch, resolver NameResolver, namespace string) error {
 	validated, err := ValidateAllConditions(obj, match, patch.Conditions)
 	if err != nil {
 		return errors.Wrap(err, "validate conditions")
@@ -270,7 +270,7 @@ func ValidateAndTranslateName(obj *yaml.Node, match *yaml.Node, patch *genericsy
 	return nil
 }
 
-func ValidateAndTranslateNamespace(obj *yaml.Node, match *yaml.Node, patch *genericsyncconfig.Patch, resolver NameResolver) error {
+func ValidateAndTranslateNamespace(obj *yaml.Node, match *yaml.Node, patch *config.Patch, resolver NameResolver) error {
 	validated, err := ValidateAllConditions(obj, match, patch.Conditions)
 	if err != nil {
 		return errors.Wrap(err, "validate conditions")
@@ -293,7 +293,7 @@ func ValidateAndTranslateNamespace(obj *yaml.Node, match *yaml.Node, patch *gene
 	return nil
 }
 
-func GetNamespace(obj *yaml.Node, patch *genericsyncconfig.Patch) (string, error) {
+func GetNamespace(obj *yaml.Node, patch *config.Patch) (string, error) {
 	var namespace string
 
 	matches, err := FindMatches(obj, patch.NamespacePath)
@@ -312,7 +312,7 @@ func GetNamespace(obj *yaml.Node, patch *genericsyncconfig.Patch) (string, error
 	return namespace, nil
 }
 
-func RewriteLabelKey(obj1 *yaml.Node, patch *genericsyncconfig.Patch, resolver NameResolver) error {
+func RewriteLabelKey(obj1 *yaml.Node, patch *config.Patch, resolver NameResolver) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
 		return errors.Wrap(err, "find matches")
@@ -350,7 +350,7 @@ func RewriteLabelKey(obj1 *yaml.Node, patch *genericsyncconfig.Patch, resolver N
 	return nil
 }
 
-func RewriteLabelSelector(obj1 *yaml.Node, patch *genericsyncconfig.Patch, resolver NameResolver) error {
+func RewriteLabelSelector(obj1 *yaml.Node, patch *config.Patch, resolver NameResolver) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
 		return errors.Wrap(err, "find matches")
@@ -396,7 +396,7 @@ func RewriteLabelSelector(obj1 *yaml.Node, patch *genericsyncconfig.Patch, resol
 	return nil
 }
 
-func RewriteLabelExpressionsSelector(obj1 *yaml.Node, patch *genericsyncconfig.Patch, resolver NameResolver) error {
+func RewriteLabelExpressionsSelector(obj1 *yaml.Node, patch *config.Patch, resolver NameResolver) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
 		return errors.Wrap(err, "find matches")

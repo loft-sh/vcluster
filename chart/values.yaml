@@ -68,6 +68,8 @@ controlPlane:
   distro:
     k3s:
       enabled: false
+      command: []
+      extraArgs: []
       imagePullPolicy: ""
       image:
         repository: "rancher/k3s"
@@ -83,6 +85,9 @@ controlPlane:
 
     k0s:
       enabled: false
+      config: ""
+      command: []
+      extraArgs: []
       imagePullPolicy: ""
       image:
         repository: "k0sproject/k0s"
@@ -100,17 +105,23 @@ controlPlane:
       enabled: false
       apiServer:
         disabled: false
+        command: []
+        extraArgs: []
         imagePullPolicy: ""
         image:
           repository: "registry.k8s.io/kube-apiserver"
           tag: "v1.29.0"
       controllerManager:
         disabled: false
+        command: []
+        extraArgs: []
         imagePullPolicy: ""
         image:
           repository: "registry.k8s.io/kube-controller-manager"
           tag: "v1.29.0"
       scheduler:
+        command: []
+        extraArgs: []
         imagePullPolicy: ""
         image:
           repository: "registry.k8s.io/kube-scheduler"
@@ -129,17 +140,23 @@ controlPlane:
       enabled: false
       apiServer:
         disabled: false
+        command: []
+        extraArgs: []
         imagePullPolicy: ""
         image:
           repository: "public.ecr.aws/eks-distro/kubernetes/kube-apiserver"
           tag: "v1.28.2-eks-1-28-6"
       controllerManager:
         disabled: false
+        command: []
+        extraArgs: []
         imagePullPolicy: ""
         image:
           repository: "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager"
           tag: "v1.28.2-eks-1-28-6"
       scheduler:
+        command: []
+        extraArgs: []
         imagePullPolicy: ""
         image:
           repository: "public.ecr.aws/eks-distro/kubernetes/kube-scheduler"
@@ -365,6 +382,9 @@ networking:
   advanced:
     clusterDomain: "cluster.local"
     fallbackHostCluster: true
+    proxyKubelets:
+      byHostname: true
+      byIP: true
 
 policies:
   resourceQuota:
@@ -389,7 +409,7 @@ policies:
       count/persistentvolumeclaims: 20
     scopeSelector:
       matchExpressions: []
-    scopes: {}
+    scopes: []
 
   limitRange:
     enabled: false
@@ -436,7 +456,10 @@ experimental:
     enabled: false
 
   syncSettings:
+    disableSync: false
+    rewriteKubernetesService: false
     targetNamespace: ""
+    setOwner: true
 
   isolatedControlPlane:
     headless: false

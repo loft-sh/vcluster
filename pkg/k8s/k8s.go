@@ -6,43 +6,75 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
+	config2 "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 )
 
-const apiServerCmd = "APISERVER_COMMAND"
-const schedulerCmd = "SCHEDULER_COMMAND"
-const controllerCmd = "CONTROLLER_COMMAND"
-
-type command struct {
-	Command []string `json:"command,omitempty"`
-}
-
-func StartK8S(ctx context.Context, serviceCIDR string) error {
+func StartK8S(
+	ctx context.Context,
+	serviceCIDR string,
+	apiServer config2.DistroContainerDisabled,
+	controllerManager config2.DistroContainerDisabled,
+	scheduler config2.DistroContainer,
+	vConfig *config.VirtualClusterConfig,
+) error {
 	serviceCIDRArg := fmt.Sprintf("--service-cluster-ip-range=%s", serviceCIDR)
 	eg := &errgroup.Group{}
 
 	// start api server first
-	apiEnv, ok := os.LookupEnv(apiServerCmd)
-	if ok {
-		apiCommand := &command{}
-		err := yaml.Unmarshal([]byte(apiEnv), apiCommand)
-		if err != nil {
-			return fmt.Errorf("parsing apiserver command %s: %w", apiEnv, err)
-		}
-
-		apiCommand.Command = append(apiCommand.Command, serviceCIDRArg)
+	if !apiServer.Disabled {
 		eg.Go(func() error {
+			// build flags
+			args := []string{}
+			if len(apiServer.Command) > 0 {
+				args = append(args, apiServer.Command...)
+			} else {
+				args = append(args, "/binaries/kube-apiserver")
+				args = append(args, "--advertise-address=127.0.0.1")
+				args = append(args, serviceCIDRArg)
+				args = append(args, "--bind-address=127.0.0.1")
+				args = append(args, "--allow-privileged=true")
+				args = append(args, "--authorization-mode=RBAC")
+				args = append(args, "--client-ca-file="+vConfig.VirtualClusterKubeConfig().ClientCACert)
+				args = append(args, "--enable-bootstrap-token-auth=true")
+				args = append(args, "--etcd-cafile=/pki/etcd/ca.crt")
+				args = append(args, "--etcd-certfile=/pki/apiserver-etcd-client.crt")
+				args = append(args, "--etcd-keyfile=/pki/apiserver-etcd-client.key")
+				if vConfig.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
+					args = append(args, "--etcd-servers=https://127.0.0.1:2379")
+				} else {
+					args = append(args, "--etcd-servers=https://"+vConfig.Name+"-etcd:2379")
+				}
+				args = append(args, "--proxy-client-cert-file=/pki/front-proxy-client.crt")
+				args = append(args, "--proxy-client-key-file=/pki/front-proxy-client.key")
+				args = append(args, "--requestheader-allowed-names=front-proxy-client")
+				args = append(args, "--requestheader-client-ca-file=/pki/front-proxy-ca.crt")
+				args = append(args, "--requestheader-extra-headers-prefix=X-Remote-Extra-")
+				args = append(args, "--requestheader-group-headers=X-Remote-Group")
+				args = append(args, "--requestheader-username-headers=X-Remote-User")
+				args = append(args, "--secure-port=6443")
+				args = append(args, "--service-account-issuer=https://kubernetes.default.svc.cluster.local")
+				args = append(args, "--service-account-key-file=/pki/sa.pub")
+				args = append(args, "--service-account-signing-key-file=/pki/sa.key")
+				args = append(args, "--tls-cert-file=/pki/apiserver.crt")
+				args = append(args, "--tls-private-key-file=/pki/apiserver.key")
+				args = append(args, "--watch-cache=false")
+				args = append(args, "--endpoint-reconciler-type=none")
+			}
+
+			// add extra args
+			args = append(args, apiServer.ExtraArgs...)
+
 			// get etcd endpoints and certificates from flags
-			endpoints, certificates, err := etcd.EndpointsAndCertificatesFromFlags(apiCommand.Command)
+			endpoints, certificates, err := etcd.EndpointsAndCertificatesFromFlags(args)
 			if err != nil {
 				return fmt.Errorf("get etcd certificates and endpoint: %w", err)
 			}
@@ -54,7 +86,7 @@ func StartK8S(ctx context.Context, serviceCIDR string) error {
 			}
 
 			// now start the api server
-			return RunCommand(ctx, apiCommand, "apiserver")
+			return RunCommand(ctx, args, "apiserver")
 		})
 	}
 
@@ -65,31 +97,74 @@ func StartK8S(ctx context.Context, serviceCIDR string) error {
 	}
 
 	// start controller command
-	controllerEnv, ok := os.LookupEnv(controllerCmd)
-	if ok {
-		controllerCommand := &command{}
-		err := yaml.Unmarshal([]byte(controllerEnv), controllerCommand)
-		if err != nil {
-			return fmt.Errorf("parsing controller command %s: %w", controllerEnv, err)
-		}
-
-		controllerCommand.Command = append(controllerCommand.Command, serviceCIDRArg)
+	if !controllerManager.Disabled {
 		eg.Go(func() error {
-			return RunCommand(ctx, controllerCommand, "controller")
+			// build flags
+			args := []string{}
+			if len(controllerManager.Command) > 0 {
+				args = append(args, controllerManager.Command...)
+			} else {
+				args = append(args, "/binaries/kube-controller-manager")
+				args = append(args, serviceCIDRArg)
+				args = append(args, "--authentication-kubeconfig=/pki/controller-manager.conf")
+				args = append(args, "--authorization-kubeconfig=/pki/controller-manager.conf")
+				args = append(args, "--bind-address=127.0.0.1")
+				args = append(args, "--client-ca-file=/pki/ca.crt")
+				args = append(args, "--cluster-name=kubernetes")
+				args = append(args, "--cluster-signing-cert-file=/pki/ca.crt")
+				args = append(args, "--cluster-signing-key-file=/pki/ca.key")
+				args = append(args, "--horizontal-pod-autoscaler-sync-period=60s")
+				args = append(args, "--kubeconfig=/pki/controller-manager.conf")
+				args = append(args, "--node-monitor-grace-period=180s")
+				args = append(args, "--node-monitor-period=30s")
+				args = append(args, "--pvclaimbinder-sync-period=60s")
+				args = append(args, "--requestheader-client-ca-file=/pki/front-proxy-ca.crt")
+				args = append(args, "--root-ca-file=/pki/ca.crt")
+				args = append(args, "--service-account-private-key-file=/pki/sa.key")
+				args = append(args, "--use-service-account-credentials=true")
+				if vConfig.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
+					args = append(args, "--leader-elect=true")
+				} else {
+					args = append(args, "--leader-elect=false")
+				}
+				if vConfig.ControlPlane.VirtualScheduler.Enabled {
+					args = append(args, "--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
+					args = append(args, "--node-monitor-grace-period=1h")
+					args = append(args, "--node-monitor-period=1h")
+				} else {
+					args = append(args, "--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
+				}
+			}
+
+			// add extra args
+			args = append(args, controllerManager.ExtraArgs...)
+			return RunCommand(ctx, args, "controller-manager")
 		})
 	}
 
 	// start scheduler command
-	schedulerEnv, ok := os.LookupEnv(schedulerCmd)
-	if ok {
-		schedulerCommand := &command{}
-		err := yaml.Unmarshal([]byte(schedulerEnv), schedulerCommand)
-		if err != nil {
-			return fmt.Errorf("parsing scheduler command %s: %w", schedulerEnv, err)
-		}
-
+	if vConfig.ControlPlane.VirtualScheduler.Enabled {
 		eg.Go(func() error {
-			return RunCommand(ctx, schedulerCommand, "scheduler")
+			// build flags
+			args := []string{}
+			if len(scheduler.Command) > 0 {
+				args = append(args, scheduler.Command...)
+			} else {
+				args = append(args, "/binaries/kube-scheduler")
+				args = append(args, "--authentication-kubeconfig=/pki/scheduler.conf")
+				args = append(args, "--authorization-kubeconfig=/pki/scheduler.conf")
+				args = append(args, "--bind-address=127.0.0.1")
+				args = append(args, "--kubeconfig=/pki/scheduler.conf")
+				if vConfig.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
+					args = append(args, "--leader-elect=true")
+				} else {
+					args = append(args, "--leader-elect=false")
+				}
+			}
+
+			// add extra args
+			args = append(args, scheduler.ExtraArgs...)
+			return RunCommand(ctx, args, "scheduler")
 		})
 	}
 
@@ -103,7 +178,7 @@ func StartK8S(ctx context.Context, serviceCIDR string) error {
 	return err
 }
 
-func RunCommand(ctx context.Context, command *command, component string) error {
+func RunCommand(ctx context.Context, command []string, component string) error {
 	writer, err := commandwriter.NewCommandWriter(component)
 	if err != nil {
 		return err
@@ -111,8 +186,8 @@ func RunCommand(ctx context.Context, command *command, component string) error {
 	defer writer.Writer()
 
 	// start the command
-	klog.InfoS("Starting "+component, "args", strings.Join(command.Command, " "))
-	cmd := exec.CommandContext(ctx, command.Command[0], command.Command[1:]...)
+	klog.InfoS("Starting "+component, "args", strings.Join(command, " "))
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	cmd.Stdout = writer.Writer()
 	cmd.Stderr = writer.Writer()
 	err = cmd.Run()

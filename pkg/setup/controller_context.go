@@ -8,12 +8,10 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
-	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
-	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,26 +29,14 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-var allowedPodSecurityStandards = map[string]bool{
-	"privileged": true,
-	"baseline":   true,
-	"restricted": true,
-}
-
 // NewControllerContext builds the controller context we can use to start the syncer
 func NewControllerContext(
 	ctx context.Context,
-	options *options.VirtualClusterOptions,
+	options *config.VirtualClusterConfig,
 	currentNamespace string,
 	inClusterConfig *rest.Config,
 	scheme *runtime.Scheme,
 ) (*config.ControllerContext, error) {
-	// validate options
-	err := ValidateOptions(options)
-	if err != nil {
-		return nil, err
-	}
-
 	// create controller context
 	controllerContext, err := InitManagers(
 		ctx,
@@ -76,13 +62,13 @@ func NewControllerContext(
 
 func InitManagers(
 	ctx context.Context,
-	options *options.VirtualClusterOptions,
+	options *config.VirtualClusterConfig,
 	currentNamespace string,
 	inClusterConfig *rest.Config,
 	scheme *runtime.Scheme,
 	newPhysicalClient client.NewClientFunc,
 	newVirtualClient client.NewClientFunc,
-) (*options.ControllerContext, error) {
+) (*config.ControllerContext, error) {
 	// load virtual config
 	virtualConfig, virtualRawConfig, err := LoadVirtualConfig(ctx, options)
 	if err != nil {
@@ -91,7 +77,7 @@ func InitManagers(
 
 	// is multi namespace mode?
 	var defaultNamespaces map[string]cache.Config
-	if options.MultiNamespaceMode {
+	if options.Experimental.MultiNamespaceMode.Enabled {
 		// set options.TargetNamespace to empty because it will later be used in Manager
 		options.TargetNamespace = ""
 		translate.Default = translate.NewMultiNamespaceTranslator(currentNamespace)
@@ -114,7 +100,7 @@ func InitManagers(
 	klog.Info("Using physical cluster at " + inClusterConfig.Host)
 	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
 		Scheme:         scheme,
-		Metrics:        metricsserver.Options{BindAddress: options.HostMetricsBindAddress},
+		Metrics:        metricsserver.Options{BindAddress: "0"},
 		LeaderElection: false,
 		Cache:          cache.Options{DefaultNamespaces: defaultNamespaces},
 		NewClient:      newPhysicalClient,
@@ -126,7 +112,7 @@ func InitManagers(
 	// create virtual manager
 	virtualClusterManager, err := ctrl.NewManager(virtualConfig, ctrl.Options{
 		Scheme:         scheme,
-		Metrics:        metricsserver.Options{BindAddress: options.VirtualMetricsBindAddress},
+		Metrics:        metricsserver.Options{BindAddress: "0"},
 		LeaderElection: false,
 		NewClient:      newVirtualClient,
 	})
@@ -144,26 +130,23 @@ func StartPlugins(
 	inClusterConfig,
 	virtualConfig *rest.Config,
 	virtualRawConfig *clientcmdapi.Config,
-	options *options.VirtualClusterOptions,
+	options *config.VirtualClusterConfig,
 ) error {
-	// start plugins only if they are not disabled
-	if !options.DisablePlugins {
-		klog.Infof("Start Plugins Manager...")
-		syncerConfig, err := CreateVClusterKubeConfig(virtualRawConfig, options)
-		if err != nil {
-			return err
-		}
+	klog.Infof("Start Plugins Manager...")
+	syncerConfig, err := CreateVClusterKubeConfig(virtualRawConfig, options)
+	if err != nil {
+		return err
+	}
 
-		err = plugin.DefaultManager.Start(ctx, currentNamespace, options.TargetNamespace, virtualConfig, inClusterConfig, syncerConfig, options)
-		if err != nil {
-			return err
-		}
+	err = plugin.DefaultManager.Start(ctx, currentNamespace, options.TargetNamespace, virtualConfig, inClusterConfig, syncerConfig, options)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func LoadVirtualConfig(ctx context.Context, options *options.VirtualClusterOptions) (*rest.Config, *clientcmdapi.Config, error) {
+func LoadVirtualConfig(ctx context.Context, options *config.VirtualClusterConfig) (*rest.Config, *clientcmdapi.Config, error) {
 	// wait for client config
 	clientConfig, err := WaitForClientConfig(ctx, options)
 	if err != nil {
@@ -189,38 +172,11 @@ func LoadVirtualConfig(ctx context.Context, options *options.VirtualClusterOptio
 	return virtualClusterConfig, &rawConfig, nil
 }
 
-func ValidateOptions(options *options.VirtualClusterOptions) error {
-	// check the value of pod security standard
-	if options.EnforcePodSecurityStandard != "" && !allowedPodSecurityStandards[options.EnforcePodSecurityStandard] {
-		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", options.EnforcePodSecurityStandard)
-	}
-
-	// parse tolerations
-	for _, t := range options.Tolerations {
-		_, err := toleration.ParseToleration(t)
-		if err != nil {
-			return err
-		}
-	}
-
-	// check if enable scheduler works correctly
-	if options.EnableScheduler && !options.SyncAllNodes && len(options.NodeSelector) == 0 {
-		options.SyncAllNodes = true
-	}
-
-	// migrate fake kubelet flag
-	if !options.DeprecatedUseFakeKubelets {
-		options.DisableFakeKubelets = true
-	}
-
-	return nil
-}
-
-func WaitForClientConfig(ctx context.Context, options *options.VirtualClusterOptions) (clientcmd.ClientConfig, error) {
+func WaitForClientConfig(ctx context.Context, options *config.VirtualClusterConfig) (clientcmd.ClientConfig, error) {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
 	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Hour, true, func(ctx context.Context) (bool, error) {
-		out, err := os.ReadFile(options.KubeConfigPath)
+		out, err := os.ReadFile(options.VirtualClusterKubeConfig().KubeConfig)
 		if err != nil {
 			if os.IsNotExist(err) {
 				klog.Info("couldn't find virtual cluster kube-config, will retry in 1 seconds")
@@ -267,7 +223,7 @@ func WaitForClientConfig(ctx context.Context, options *options.VirtualClusterOpt
 	return clientConfig, nil
 }
 
-func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *options.VirtualClusterOptions) (*clientcmdapi.Config, error) {
+func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *config.VirtualClusterConfig) (*clientcmdapi.Config, error) {
 	config = config.DeepCopy()
 
 	// exchange kube config server & resolve certificate
@@ -283,10 +239,10 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *options.Virt
 			config.Clusters[i].CertificateAuthorityData = o
 		}
 
-		if options.KubeConfigServer != "" {
-			config.Clusters[i].Server = options.KubeConfigServer
+		if options.Config.ExportKubeConfig.Server != "" {
+			config.Clusters[i].Server = options.Config.ExportKubeConfig.Server
 		} else {
-			config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", options.Port)
+			config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", options.Config.ControlPlane.Proxy.Port)
 		}
 	}
 
@@ -322,8 +278,8 @@ func InitControllerContext(
 	localManager,
 	virtualManager ctrl.Manager,
 	virtualRawConfig *clientcmdapi.Config,
-	vClusterOptions *options.VirtualClusterOptions,
-) (*options.ControllerContext, error) {
+	vClusterOptions *config.VirtualClusterConfig,
+) (*config.ControllerContext, error) {
 	stopChan := make(<-chan struct{})
 
 	// get virtual cluster version
@@ -344,25 +300,18 @@ func InitControllerContext(
 		return nil, err
 	}
 
-	// parse enabled controllers
-	controllers, err := ParseControllers(vClusterOptions)
-	if err != nil {
-		return nil, err
-	}
-
 	localDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(localManager.GetConfig())
 	if err != nil {
 		return nil, err
 	}
 
-	controllers, err = DisableMissingAPIs(localDiscoveryClient, controllers)
+	err = vClusterOptions.DisableMissingAPIs(localDiscoveryClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return &options.ControllerContext{
+	return &config.ControllerContext{
 		Context:               ctx,
-		Controllers:           controllers,
 		LocalManager:          localManager,
 		VirtualManager:        virtualManager,
 		VirtualRawConfig:      virtualRawConfig,
@@ -372,11 +321,11 @@ func InitControllerContext(
 		CurrentNamespaceClient: currentNamespaceClient,
 
 		StopChan: stopChan,
-		Options:  vClusterOptions,
+		Config:   vClusterOptions,
 	}, nil
 }
 
-func NewCurrentNamespaceClient(ctx context.Context, currentNamespace string, localManager ctrl.Manager, options *options.VirtualClusterOptions) (client.Client, error) {
+func NewCurrentNamespaceClient(ctx context.Context, currentNamespace string, localManager ctrl.Manager, options *config.VirtualClusterConfig) (client.Client, error) {
 	var err error
 
 	// currentNamespaceCache is needed for tasks such as finding out fake kubelet ips

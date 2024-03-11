@@ -14,10 +14,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"github.com/loft-sh/vcluster/pkg/options"
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
@@ -74,7 +74,7 @@ type Server struct {
 
 // NewServer creates and installs a new Server.
 // 'filter', if non-nil, protects requests to the api only.
-func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
+func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
 	localConfig := ctx.LocalManager.GetConfig()
 	virtualConfig := ctx.VirtualManager.GetConfig()
 	uncachedLocalClient, err := client.New(localConfig, client.Options{
@@ -93,7 +93,7 @@ func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile
 	}
 
 	cachedLocalClient, err := createCachedClient(ctx.Context, localConfig, ctx.CurrentNamespace, uncachedLocalClient.RESTMapper(), uncachedLocalClient.Scheme(), func(cache cache.Cache) error {
-		if ctx.Options.FakeKubeletIPs {
+		if ctx.Config.Networking.Advanced.ProxyKubelets.ByIP {
 			err := cache.IndexField(ctx.Context, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
 				svc := object.(*corev1.Service)
 				if len(svc.Labels) == 0 || svc.Labels[nodeservice.ServiceClusterLabel] != translate.VClusterName {
@@ -145,7 +145,7 @@ func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile
 	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
 	cachedLocalClient = pluginhookclient.WrapPhysicalClient(cachedLocalClient)
 
-	certSyncer, err := cert.NewSyncer(ctx.Context, ctx.CurrentNamespace, cachedLocalClient, ctx.Options)
+	certSyncer, err := cert.NewSyncer(ctx.Context, ctx.CurrentNamespace, cachedLocalClient, ctx.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "create cert syncer")
 	}
@@ -156,7 +156,7 @@ func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile
 		certSyncer:            certSyncer,
 		handler:               http.NewServeMux(),
 
-		fakeKubeletIPs: ctx.Options.FakeKubeletIPs,
+		fakeKubeletIPs: ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: cachedLocalClient,
@@ -199,24 +199,24 @@ func NewServer(ctx *options.ControllerContext, requestHeaderCaFile, clientCaFile
 	}
 
 	h := handler.ImpersonatingHandler("", virtualConfig)
-	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Options.SyncLabels)
+	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Config.Experimental.SyncSettings.SyncLabels)
 	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, s.redirectResources)
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
 
 	// is metrics proxy enabled?
-	if ctx.Options.ProxyMetricsServer {
+	if ctx.Config.Observability.Metrics.Proxy.Nodes.Enabled || ctx.Config.Observability.Metrics.Proxy.Pods.Enabled {
 		h = filters.WithMetricsServerProxy(
 			h,
-			ctx.Options.TargetNamespace,
+			ctx.Config.TargetNamespace,
 			cachedLocalClient,
 			cachedVirtualClient,
 			localConfig,
 			virtualConfig,
-			ctx.Options.MultiNamespaceMode,
+			ctx.Config.Experimental.MultiNamespaceMode.Enabled,
 		)
 	}
 
-	if ctx.Options.DeprecatedSyncNodeChanges {
+	if ctx.Config.Sync.FromHost.Nodes.Real.Enabled && ctx.Config.Sync.FromHost.Nodes.Real.SyncLabelsTaints {
 		h = filters.WithNodeChanges(ctx.Context, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
 	h = filters.WithFakeKubelet(h, localConfig, cachedVirtualClient)

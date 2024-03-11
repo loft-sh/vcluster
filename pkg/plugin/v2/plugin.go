@@ -248,8 +248,14 @@ func (m *Manager) buildInitRequest(
 		return nil, fmt.Errorf("encode config: %w", err)
 	}
 
+	// convert to legacy options
+	legacyOptions, err := vConfig.LegacyOptions()
+	if err != nil {
+		return nil, fmt.Errorf("get legacy options: %w", err)
+	}
+
 	// We need this for downward compatibility
-	encodedLegacyOptions, err := json.Marshal(vConfig.LegacyOptions)
+	encodedLegacyOptions, err := json.Marshal(legacyOptions)
 	if err != nil {
 		return nil, fmt.Errorf("marshal options: %w", err)
 	}

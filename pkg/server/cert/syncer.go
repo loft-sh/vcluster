@@ -9,10 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"github.com/loft-sh/vcluster/pkg/options"
-
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,16 +33,16 @@ type Syncer interface {
 	dynamiccertificates.CertKeyContentProvider
 }
 
-func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClient client.Client, options *options.VirtualClusterOptions) (Syncer, error) {
+func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClient client.Client, options *config.VirtualClusterConfig) (Syncer, error) {
 	return &syncer{
-		clusterDomain: options.ClusterDomain,
+		clusterDomain: options.Networking.Advanced.ClusterDomain,
 
-		serverCaKey:  options.ServerCaKey,
-		serverCaCert: options.ServerCaCert,
+		serverCaKey:  options.VirtualClusterKubeConfig().ServerCAKey,
+		serverCaCert: options.VirtualClusterKubeConfig().ServerCACert,
 
-		fakeKubeletIPs: options.FakeKubeletIPs,
+		fakeKubeletIPs: options.Networking.Advanced.ProxyKubelets.ByIP,
 
-		addSANs:   options.TLSSANs,
+		addSANs:   options.ControlPlane.Proxy.ExtraSANs,
 		listeners: []dynamiccertificates.Listener{},
 
 		serviceName:           options.ServiceName,

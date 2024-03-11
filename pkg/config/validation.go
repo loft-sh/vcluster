@@ -8,27 +8,108 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/samber/lo"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/klog/v2"
 )
 
-func ValidateConfig(config *VirtualClusterConfig) error {
-	err := validateCentralAdmissionControl(config)
-	if err != nil {
-		return err
-	}
-
-	err = validateGenericSyncConfig(config.Experimental.GenericSync)
-	if err != nil {
-		return fmt.Errorf("validate experimental.genericSync")
-	}
-
-	return nil
+var allowedPodSecurityStandards = map[string]bool{
+	"privileged": true,
+	"baseline":   true,
+	"restricted": true,
 }
 
 var (
 	verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
 )
+
+func ValidateConfig(config *VirtualClusterConfig) error {
+	// check the value of pod security standard
+	if config.Policies.PodSecurityStandard != "" && !allowedPodSecurityStandards[config.Policies.PodSecurityStandard] {
+		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", config.Policies.PodSecurityStandard)
+	}
+
+	// parse tolerations
+	for _, t := range config.Sync.ToHost.Pods.EnforceTolerations {
+		_, err := toleration.ParseToleration(t)
+		if err != nil {
+			return err
+		}
+	}
+
+	// check if enable scheduler works correctly
+	if config.ControlPlane.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Real.SyncAll && len(config.Sync.FromHost.Nodes.Real.Selector.Labels) == 0 {
+		config.Sync.FromHost.Nodes.Real.SyncAll = true
+	}
+
+	// enable additional controllers required for scheduling with storage
+	if config.ControlPlane.VirtualScheduler.Enabled && config.Sync.ToHost.PersistentVolumeClaims.Enabled {
+		if !config.Sync.FromHost.CSINodes.Enabled {
+			klog.Warningf("persistentvolumeclaim syncing and scheduler enabled, but csiNodes syncing disabled. This may result in incorrect pod scheduling.")
+		}
+		if !config.Sync.FromHost.CSIStorageCapacities.Enabled {
+			klog.Warningf("persistentvolumeclaim syncing and scheduler enabled, but csiStorageCapacities syncing disabled. This may result in incorrect pod scheduling.")
+		}
+		if !config.Sync.FromHost.CSIDrivers.Enabled {
+			klog.Warningf("persistentvolumeclaim syncing and scheduler enabled, but csiDrivers syncing disabled. This may result in incorrect pod scheduling.")
+		}
+		if !config.Sync.FromHost.StorageClasses.Enabled && !config.Sync.ToHost.StorageClasses.Enabled {
+			return fmt.Errorf("persistentvolumeclaim syncing and scheduler enabled, but both sync.toHost.storageClasses and sync.fromHost.storageClasses syncers disabled")
+		}
+	}
+
+	// check if nodes controller needs to be enabled
+	if config.ControlPlane.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Real.Enabled {
+		return fmt.Errorf("sync.fromHost.nodes.real.enabled is false, but required if using virtual scheduler")
+	}
+
+	// check if storage classes and host storage classes are enabled at the same time
+	if config.Sync.FromHost.StorageClasses.Enabled && config.Sync.ToHost.StorageClasses.Enabled {
+		return fmt.Errorf("you cannot enable both sync.fromHost.storageClasses.enabled and sync.toHost.storageClasses.enabled at the same time. Choose only one of them")
+	}
+
+	// validate central admission control
+	err := validateCentralAdmissionControl(config)
+	if err != nil {
+		return err
+	}
+
+	// validate generic sync config
+	err = validateGenericSyncConfig(config.Experimental.GenericSync)
+	if err != nil {
+		return fmt.Errorf("validate experimental.genericSync")
+	}
+
+	// validate distro
+	err = validateDistro(config)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateDistro(config *VirtualClusterConfig) error {
+	enabledDistros := 0
+	if config.Config.ControlPlane.Distro.K3S.Enabled {
+		enabledDistros++
+	}
+	if config.Config.ControlPlane.Distro.K0S.Enabled {
+		enabledDistros++
+	}
+	if config.Config.ControlPlane.Distro.K8S.Enabled {
+		enabledDistros++
+	}
+	if config.Config.ControlPlane.Distro.EKS.Enabled {
+		enabledDistros++
+	}
+
+	if enabledDistros > 1 {
+		return fmt.Errorf("please only enable a single distribution")
+	}
+	return nil
+}
 
 func validateGenericSyncConfig(config config.ExperimentalGenericSync) error {
 	err := validateExportDuplicates(config.Exports)

@@ -35,7 +35,7 @@ var (
 func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.Provider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
 		nodeServiceProvider: nodeService,
-		fakeKubeletIPs:      ctx.Options.FakeKubeletIPs,
+		fakeKubeletIPs:      ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 	}, nil
 }
 

@@ -21,7 +21,7 @@ func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj clie
 	return &namespacedTranslator{
 		name: name,
 
-		syncedLabels:        ctx.Options.SyncLabels,
+		syncedLabels:        ctx.Config.Experimental.SyncSettings.SyncLabels,
 		excludedAnnotations: excludedAnnotations,
 
 		virtualClient: ctx.VirtualManager.GetClient(),

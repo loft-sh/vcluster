@@ -22,8 +22,8 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &csistoragecapacitySyncer{
-		storageClassSyncEnabled:     ctx.Controllers.Has("storageclasses"),
-		hostStorageClassSyncEnabled: ctx.Controllers.Has("hoststorageclasses"),
+		storageClassSyncEnabled:     ctx.Config.Sync.ToHost.StorageClasses.Enabled,
+		hostStorageClassSyncEnabled: ctx.Config.Sync.FromHost.StorageClasses.Enabled,
 		physicalClient:              ctx.PhysicalManager.GetClient(),
 	}, nil
 }
