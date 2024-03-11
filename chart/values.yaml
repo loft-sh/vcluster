@@ -52,15 +52,12 @@ sync:
     storageClasses:
       enabled: false
     nodes:
-      pseudo:
-        enabled: true
-      real:
-        enabled: false
-        syncLabelsTaints: false
-        clearImageStatus: false
-        selector:
-          # name: ""
-          labels: {}
+      enabled: false
+      syncAll: false
+      syncLabelsTaints: false
+      clearImageStatus: false
+      selector:
+        labels: {}
 
 # Control Plane Options
 controlPlane:
@@ -178,6 +175,7 @@ controlPlane:
     externalEtcd:
       enabled: false
       statefulSet:
+        enabled: true
         annotations: {}
         labels: {}
         image:
@@ -217,12 +215,11 @@ controlPlane:
           addVolumes: []
           addVolumeMounts: []
       service:
+        enabled: true
         annotations: {}
       headlessService:
+        enabled: true
         annotations: {}
-
-  virtualScheduler:
-    enabled: false
 
   proxy:
     bindAddress: "0.0.0.0"
@@ -233,20 +230,29 @@ controlPlane:
     embedded: false
     overwriteManifests: ""
     overwriteConfig: ""
+
     service:
       annotations: {}
       labels: {}
       spec:
         type: ClusterIP
+
     deployment:
       annotations: {}
       labels: {}
       image: ""
       replicas: 1
-      podLabels: {}
-      podAnnotations: {}
+      pods:
+       labels: {}
+       annotations: {}
       nodeSelector: {}
-      resources: {}
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 170Mi
+        requests:
+          cpu: 20m
+          memory: 64Mi
 
   service:
     enabled: true
@@ -259,9 +265,15 @@ controlPlane:
 
   ingress:
     enabled: false
+    host: "my-host.com"
+    pathType: ImplementationSpecific
     labels: {}
-    annotations: {}
-    spec: {}
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    spec:
+      tls: []
 
   statefulSet:
     labels: {}
@@ -297,7 +309,10 @@ controlPlane:
 
     security:
       podSecurityContext: {}
-      containerSecurityContext: {}
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        runAsUser: 0
+        runAsGroup: 0
 
     persistence:
       volumeClaim:
@@ -334,6 +349,11 @@ controlPlane:
       annotations: {}
 
   advanced:
+    defaultImageRegistry: ""
+
+    virtualScheduler:
+      enabled: false
+
     serviceAccount:
       enabled: true
       name: ""
@@ -439,6 +459,10 @@ policies:
           - 172.16.0.0/12
           - 192.168.0.0/16
 
+  centralAdmission:
+    validatingWebhooks: []
+    mutatingWebhooks: []
+
 # Export vCluster Kube Config
 exportKubeConfig:
   context: ""
@@ -465,13 +489,11 @@ experimental:
     headless: false
 
   deploy:
-    enabled: false
     manifests: ""
     manifestsTemplate: ''
     helm: []
 
   genericSync:
-    config: ""
     clusterRole:
       extraRules: []
     role:
@@ -483,3 +505,6 @@ platform:
     secretRef:
       name: ""
       namespace: ""
+
+telemetry:
+  disabled: false

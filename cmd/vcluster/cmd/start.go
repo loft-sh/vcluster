@@ -17,10 +17,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 type StartOptions struct {
 	Config string
+
+	SetValues []string
 }
 
 func NewStartCommand() *cobra.Command {
@@ -45,7 +48,7 @@ func NewStartCommand() *cobra.Command {
 			}()
 
 			// parse vCluster config
-			vClusterConfig, err := config.ParseConfig(startOptions.Config, os.Getenv("VCLUSTER_NAME"))
+			vClusterConfig, err := config.ParseConfig(startOptions.Config, os.Getenv("VCLUSTER_NAME"), startOptions.SetValues)
 			if err != nil {
 				return err
 			}
@@ -55,20 +58,16 @@ func NewStartCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&startOptions.Config, "config", "", "The path where to find the vCluster config to load")
+	cmd.Flags().StringVar(&startOptions.Config, "config", "/var/vcluster/config.yaml", "The path where to find the vCluster config to load")
+	cmd.Flags().StringArrayVar(&startOptions.SetValues, "set", []string{}, "Set values for the config. E.g. --set 'exportKubeConfig.secret.name=my-name'")
 	return cmd
 }
 
 func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
 	// set global vCluster name
-	if translate.VClusterName == "" {
-		translate.VClusterName = vConfig.Name
-	}
+	translate.VClusterName = vConfig.Name
 
 	// set service name
-	if vConfig.ServiceName == "" {
-		vConfig.ServiceName = translate.VClusterName
-	}
 	if vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
 		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
 	}
@@ -84,11 +83,17 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 		return fmt.Errorf("set NAMESPACE env var: %w", err)
 	}
 
+	// set target namespace
+	vConfig.TargetNamespace = workloadNamespace
+	if vConfig.Experimental.SyncSettings.TargetNamespace != "" {
+		vConfig.TargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
+	}
+
 	// init telemetry
 	telemetry.Collector.Init(controlPlaneConfig, controlPlaneNamespace, vConfig)
 
 	// initialize feature gate from environment
-	err = pro.LicenseInit(ctx, controlPlaneConfig, controlPlaneNamespace, vConfig.Platform.ApiKey.Value, vConfig.Platform.ApiKey.SecretRef.Namespace, vConfig.Platform.ApiKey.SecretRef.Name)
+	err = pro.LicenseInit(ctx, controlPlaneConfig, controlPlaneNamespace, vConfig.Platform.APIKey.Value, vConfig.Platform.APIKey.SecretRef.Namespace, vConfig.Platform.APIKey.SecretRef.Name)
 	if err != nil {
 		return fmt.Errorf("init license: %w", err)
 	}
@@ -137,8 +142,15 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 		return fmt.Errorf("start proxy: %w", err)
 	}
 
-	// start integrated coredns
+	// should start embedded coredns?
 	if vConfig.ControlPlane.CoreDNS.Embedded {
+		// write vCluster kubeconfig to /data/vcluster/admin.conf
+		err = clientcmd.WriteToFile(*controllerCtx.VirtualRawConfig, "/data/vcluster/admin.conf")
+		if err != nil {
+			return fmt.Errorf("write vCluster kube config for embedded coredns: %w", err)
+		}
+
+		// start embedded coredns
 		err = pro.StartIntegratedCoreDNS(controllerCtx)
 		if err != nil {
 			return fmt.Errorf("start integrated core dns: %w", err)

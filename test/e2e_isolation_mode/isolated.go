@@ -22,15 +22,15 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 
 	ginkgo.It("Enforce isolated mode", func() {
 		ginkgo.By("Check if isolated mode creates resourcequota")
-		_, err := f.HostClient.CoreV1().ResourceQuotas(f.VclusterNamespace).Get(f.Context, "vcluster-quota", metav1.GetOptions{})
+		_, err := f.HostClient.CoreV1().ResourceQuotas(f.VclusterNamespace).Get(f.Context, "vc-vcluster", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Check if isolated mode creates limitrange")
-		_, err = f.HostClient.CoreV1().LimitRanges(f.VclusterNamespace).Get(f.Context, "vcluster-limit-range", metav1.GetOptions{})
+		_, err = f.HostClient.CoreV1().LimitRanges(f.VclusterNamespace).Get(f.Context, "vc-vcluster", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Check if isolated mode creates networkpolicy")
-		_, err = f.HostClient.NetworkingV1().NetworkPolicies(f.VclusterNamespace).Get(f.Context, "vcluster-workloads", metav1.GetOptions{})
+		_, err = f.HostClient.NetworkingV1().NetworkPolicies(f.VclusterNamespace).Get(f.Context, "vc-work-vcluster", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Check if isolated mode applies baseline PodSecurityStandards to namespaces in vcluster")
@@ -110,5 +110,4 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 		err = f.VclusterClient.CoreV1().Pods("default").Delete(f.Context, pod.Name, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 	})
-
 })

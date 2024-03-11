@@ -17,7 +17,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	}
 
 	nodeService := nodeservice.NewNodeServiceProvider(ctx.Config.ServiceName, ctx.CurrentNamespace, ctx.CurrentNamespaceClient, ctx.VirtualManager.GetClient(), uncachedVirtualClient)
-	if !ctx.Config.Sync.FromHost.Nodes.Real.Enabled {
+	if !ctx.Config.Sync.FromHost.Nodes.Enabled {
 		return NewFakeSyncer(ctx, nodeService)
 	}
 

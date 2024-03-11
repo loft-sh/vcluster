@@ -216,7 +216,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 		)
 	}
 
-	if ctx.Config.Sync.FromHost.Nodes.Real.Enabled && ctx.Config.Sync.FromHost.Nodes.Real.SyncLabelsTaints {
+	if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncLabelsTaints {
 		h = filters.WithNodeChanges(ctx.Context, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
 	h = filters.WithFakeKubelet(h, localConfig, cachedVirtualClient)

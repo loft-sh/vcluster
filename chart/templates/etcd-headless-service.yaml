@@ -1,5 +1,6 @@
 {{- if not .Values.experimental.isolatedControlPlane.headless }}
 {{- if or (include "vcluster.externalEtcd.enabled" .) (include "vcluster.externalEtcd.migrate" .) }}
+{{- if .Values.controlPlane.backingStore.externalEtcd.headlessService.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -30,5 +31,6 @@ spec:
   selector:
     app: vcluster-etcd
     release: "{{ .Release.Name }}"
+{{- end }}
 {{- end }}
 {{- end }}

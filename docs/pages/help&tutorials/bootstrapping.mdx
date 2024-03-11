@@ -14,8 +14,9 @@ The only prerequisite is a Kubernetes cluster that you can run the virtual clust
 If you use a Mac with Homebrew, you can install the CLI with this command:
 
 ```
-brew install vcluster
+brew install loft-sh/tap/vcluster
 ```
+
 For other platforms, see [the installation docs](../getting-started/setup.mdx). The CLI is supported on macOS, Linux, and Windows.
 
 # Apply a manifest on initialization
@@ -49,7 +50,7 @@ init:
           - name: nginx
             image: nginx:1.25.1
             ports:
-            - containerPort: 80  
+            - containerPort: 80
 ```
 
 Let’s break down what’s happening here.

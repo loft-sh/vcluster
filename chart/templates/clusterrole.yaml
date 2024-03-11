@@ -21,7 +21,7 @@ rules:
     resources: ["features", "virtualclusters"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- if or .Values.pro .Values.sync.fromHost.nodes.real.enabled }}
+  {{- if or .Values.pro .Values.sync.fromHost.nodes.enabled }}
   - apiGroups: [""]
     resources: ["pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy"]
     verbs: ["get", "watch", "list"]
@@ -31,14 +31,14 @@ rules:
     resources: [ "pods"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if and .Values.sync.fromHost.nodes.real.enabled .Values.sync.fromHost.nodes.real.syncLabelsTaints }}
+  {{- if and .Values.sync.fromHost.nodes.enabled .Values.sync.fromHost.nodes.syncLabelsTaints }}
   - apiGroups: [""]
     resources: ["nodes", "nodes/status"]
     verbs: ["update", "patch"]
   {{- end }}
-  {{- if .Values.controlPlane.virtualScheduler.enabled }}
+  {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
   - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses","csinodes","csidrivers","csistoragecapacities"]
+    resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
     verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if .Values.sync.toHost.persistentVolumes.enabled }}

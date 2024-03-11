@@ -1,15 +1,14 @@
 package controllers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	config2 "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
+	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csidrivers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csinodes"
@@ -32,15 +31,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
-
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -49,10 +41,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
-	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -183,7 +173,7 @@ func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Ob
 	}
 
 	// register init manifests configmap watcher controller
-	err = RegisterInitManifestsController(ctx)
+	err = deploy.RegisterInitManifestsController(ctx)
 	if err != nil {
 		return err
 	}
@@ -235,52 +225,6 @@ func RegisterGenericSyncController(ctx *config.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-
-	return nil
-}
-
-func RegisterInitManifestsController(controllerCtx *config.ControllerContext) error {
-	vconfig, err := kubeconfig.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
-	if err != nil {
-		return err
-	}
-
-	vConfigRaw, err := vconfig.RawConfig()
-	if err != nil {
-		return err
-	}
-
-	helmBinaryPath, err := cmd.GetHelmBinaryPath(controllerCtx.Context, log.GetInstance())
-	if err != nil {
-		return err
-	}
-
-	controller := &manifests.InitManifestsConfigMapReconciler{
-		LocalClient:    controllerCtx.CurrentNamespaceClient,
-		Log:            loghelper.New("init-manifests-controller"),
-		VirtualManager: controllerCtx.VirtualManager,
-
-		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance(), helmBinaryPath),
-	}
-
-	go func() {
-		wait.JitterUntilWithContext(controllerCtx.Context, func(ctx context.Context) {
-			for {
-				result, err := controller.Reconcile(ctx, ctrl.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: controllerCtx.CurrentNamespace,
-						Name:      translate.VClusterName + manifests.InitManifestSuffix,
-					},
-				})
-				if err != nil {
-					klog.Errorf("Error reconciling init_configmap: %v", err)
-					break
-				} else if !result.Requeue {
-					break
-				}
-			}
-		}, time.Second*10, 1.0, true)
-	}()
 
 	return nil
 }
@@ -365,7 +309,7 @@ func RegisterServiceSyncControllers(ctx *config.ControllerContext) error {
 	return nil
 }
 
-func parseMapping(mappings []config2.ServiceMapping, fromDefaultNamespace, toDefaultNamespace string) (map[string]types.NamespacedName, error) {
+func parseMapping(mappings []vclusterconfig.ServiceMapping, fromDefaultNamespace, toDefaultNamespace string) (map[string]types.NamespacedName, error) {
 	ret := map[string]types.NamespacedName{}
 	for _, m := range mappings {
 		from := m.From

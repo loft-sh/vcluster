@@ -12,6 +12,26 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: should not create if k8s
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not create if stateless
+    set:
+      controlPlane:
+        backingStore:
+          externalEtcd:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: name
     release:
       name: my-release

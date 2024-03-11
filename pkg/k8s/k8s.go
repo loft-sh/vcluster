@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	config2 "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
@@ -21,9 +21,9 @@ import (
 func StartK8S(
 	ctx context.Context,
 	serviceCIDR string,
-	apiServer config2.DistroContainerDisabled,
-	controllerManager config2.DistroContainerDisabled,
-	scheduler config2.DistroContainer,
+	apiServer vclusterconfig.DistroContainerDisabled,
+	controllerManager vclusterconfig.DistroContainerDisabled,
+	scheduler vclusterconfig.DistroContainer,
 	vConfig *config.VirtualClusterConfig,
 ) error {
 	serviceCIDRArg := fmt.Sprintf("--service-cluster-ip-range=%s", serviceCIDR)
@@ -127,7 +127,7 @@ func StartK8S(
 				} else {
 					args = append(args, "--leader-elect=false")
 				}
-				if vConfig.ControlPlane.VirtualScheduler.Enabled {
+				if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled {
 					args = append(args, "--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
 					args = append(args, "--node-monitor-grace-period=1h")
 					args = append(args, "--node-monitor-period=1h")
@@ -143,7 +143,7 @@ func StartK8S(
 	}
 
 	// start scheduler command
-	if vConfig.ControlPlane.VirtualScheduler.Enabled {
+	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled {
 		eg.Go(func() error {
 			// build flags
 			args := []string{}

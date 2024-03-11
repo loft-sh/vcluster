@@ -12,6 +12,28 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: should not create kubelet port
+    set:
+      networking:
+        advanced:
+          proxyKubelets:
+            byIP: false
+            byHostname: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ports
+          count: 1
+      - contains:
+          path: spec.ports
+          content:
+            name: https
+            nodePort: 0
+            targetPort: 8443
+            protocol: TCP
+            port: 443
+
   - it: service defaults
     release:
       name: my-release

@@ -41,7 +41,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, excludedAnnotations...),
 
 		storageClassesEnabled:    storageClassesEnabled,
-		schedulerEnabled:         ctx.Config.ControlPlane.VirtualScheduler.Enabled,
+		schedulerEnabled:         ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		useFakePersistentVolumes: !ctx.Config.Sync.ToHost.PersistentVolumes.Enabled,
 	}, nil
 }

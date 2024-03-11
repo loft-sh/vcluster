@@ -8,7 +8,9 @@ plugin:
     version: v2
     image: ghcr.io/loft-sh/vcluster-example-import-secrets:v1
     imagePullPolicy: IfNotPresent
+
+plugins:
   hooks:
-    version: v2
     image: ghcr.io/loft-sh/vcluster-example-hooks:v1
     imagePullPolicy: IfNotPresent
+

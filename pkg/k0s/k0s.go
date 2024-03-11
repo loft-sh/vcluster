@@ -3,6 +3,7 @@ package k0s
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"text/template"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"k8s.io/klog/v2"
@@ -19,47 +21,47 @@ const runDir = "/run/k0s"
 const cidrPlaceholder = "CIDR_PLACEHOLDER"
 
 var k0sConfig = `apiVersion: k0s.k0sproject.io/v1beta1
-    kind: Cluster
-    metadata:
-      name: k0s
-    spec:
-      api:
-        port: 6443
-        k0sApiPort: 9443
-        extraArgs:
-          bind-address: 127.0.0.1
-          enable-admission-plugins: NodeRestriction
-          endpoint-reconciler-type: none
-      network:
-        {{- if .Values.serviceCIDR }}
-        serviceCIDR: {{ .Values.serviceCIDR }}
-        {{- else }}
-        # Will be replaced automatically by the syncer container on first startup
-        serviceCIDR: CIDR_PLACEHOLDER
-        {{- end }}
-        provider: custom
-        {{- if .Values.networking.advanced.clusterDomain }}
-        clusterDomain: {{ .Values.networking.advanced.clusterDomain }}
-        {{- end}}
-      controllerManager:
-        extraArgs:
-          {{- if not .Values.controlPlane.virtualScheduler.enabled }}
-          controllers: '*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
-          {{- else }}
-          controllers: '*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
-          node-monitor-grace-period: 1h
-          node-monitor-period: 1h
-          {{- end }}
-      {{- if .Values.controlPlane.backingStore.embeddedEtcd.enabled }}
-      storage:
-        etcd:
-          externalCluster:
-            endpoints: ["127.0.0.1:2379"]
-            caFile: /data/k0s/pki/etcd/ca.crt
-            etcdPrefix: "/registry"
-            clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
-            clientKeyFile: /data/k0s/pki/apiserver-etcd-client.key
-      {{- end }}`
+kind: Cluster
+metadata:
+  name: k0s
+spec:
+  api:
+    port: 6443
+    k0sApiPort: 9443
+    extraArgs:
+      bind-address: 127.0.0.1
+      enable-admission-plugins: NodeRestriction
+      endpoint-reconciler-type: none
+  network:
+    {{- if .Values.serviceCIDR }}
+    serviceCIDR: {{ .Values.serviceCIDR }}
+    {{- else }}
+    # Will be replaced automatically by the syncer container on first startup
+    serviceCIDR: CIDR_PLACEHOLDER
+    {{- end }}
+    provider: custom
+    {{- if .Values.networking.advanced.clusterDomain }}
+    clusterDomain: {{ .Values.networking.advanced.clusterDomain }}
+    {{- end}}
+  controllerManager:
+    extraArgs:
+      {{- if not .Values.controlPlane.advanced.virtualScheduler.enabled }}
+      controllers: '*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
+      {{- else }}
+      controllers: '*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl'
+      node-monitor-grace-period: 1h
+      node-monitor-period: 1h
+      {{- end }}
+  {{- if .Values.controlPlane.backingStore.embeddedEtcd.enabled }}
+  storage:
+    etcd:
+      externalCluster:
+        endpoints: ["127.0.0.1:2379"]
+        caFile: /data/k0s/pki/etcd/ca.crt
+        etcdPrefix: "/registry"
+        clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
+        clientKeyFile: /data/k0s/pki/apiserver-etcd-client.key
+  {{- end }}`
 
 func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.VirtualClusterConfig) error {
 	// this is not really useful but go isn't happy if we don't cancel the context
@@ -82,10 +84,10 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 		args = append(args, "--config=/tmp/k0s-config.yaml")
 		args = append(args, "--data-dir=/data/k0s")
 		args = append(args, "--status-socket=/run/k0s/status.sock")
-		if vConfig.ControlPlane.VirtualScheduler.Enabled {
-			args = append(args, "--disable-components=konnectivity-server,kube-scheduler,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,worker-config")
-		} else {
+		if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled {
 			args = append(args, "--disable-components=konnectivity-server,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,worker-config")
+		} else {
+			args = append(args, "--disable-components=konnectivity-server,kube-scheduler,csr-approver,kube-proxy,coredns,network-provider,helm,metrics-server,worker-config")
 		}
 	}
 
@@ -121,7 +123,6 @@ func WriteK0sConfig(
 	serviceCIDR string,
 	vConfig *config.VirtualClusterConfig,
 ) error {
-
 	// choose config
 	configTemplate := k0sConfig
 	if vConfig.Config.ControlPlane.Distro.K0S.Config != "" {
@@ -129,9 +130,7 @@ func WriteK0sConfig(
 	}
 
 	// exec template
-	outBytes, err := execTemplate(configTemplate, map[string]interface{}{
-		"Values": vConfig.Config,
-	})
+	outBytes, err := ExecTemplate(configTemplate, vConfig.Name, "", &vConfig.Config)
 	if err != nil {
 		return fmt.Errorf("exec k0s config template: %w", err)
 	}
@@ -149,14 +148,31 @@ func WriteK0sConfig(
 	return nil
 }
 
-func execTemplate(templateContents string, values map[string]interface{}) ([]byte, error) {
+func ExecTemplate(templateContents string, name, namespace string, values *vclusterconfig.Config) ([]byte, error) {
+	out, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+
+	rawValues := map[string]interface{}{}
+	err = json.Unmarshal(out, &rawValues)
+	if err != nil {
+		return nil, err
+	}
+
 	t, err := template.New("").Parse(templateContents)
 	if err != nil {
 		return nil, err
 	}
 
 	b := &bytes.Buffer{}
-	err = t.Execute(b, values)
+	err = t.Execute(b, map[string]interface{}{
+		"Values": rawValues,
+		"Release": map[string]interface{}{
+			"Name":      name,
+			"Namespace": namespace,
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

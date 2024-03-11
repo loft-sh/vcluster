@@ -22,9 +22,10 @@
     .Values.sync.toHost.persistentVolumes.enabled
     .Values.sync.toHost.priorityClasses.enabled
     .Values.sync.toHost.volumeSnapshots.enabled
+    .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.fromHost.ingressClasses.enabled
     .Values.sync.fromHost.storageClasses.enabled
-    .Values.sync.fromHost.nodes.real.enabled
+    .Values.sync.fromHost.nodes.enabled
     .Values.observability.metrics.proxy.nodes.enabled
     .Values.experimental.multiNamespaceMode.enabled
     .Values.networking.resolveServices -}}

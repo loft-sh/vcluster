@@ -43,15 +43,15 @@ spec:
     # Allows outgoing connections to the internet or
     # other vcluster workloads
     - to:
-        - podSelector:
-            matchLabels:
-              vcluster.loft.sh/managed-by: {{ .Release.Name }}
-        - ipBlock:
-            cidr: {{ .Values.policies.networkPolicy.outgoingConnections.ipBlock.cidr }}
-            except:
-              {{- range .Values.policies.networkPolicy.outgoingConnections.ipBlock.except }}
-              - {{ . }}
-              {{- end }}
+      - podSelector:
+          matchLabels:
+            vcluster.loft.sh/managed-by: {{ .Release.Name }}
+      - ipBlock:
+          cidr: {{ .Values.policies.networkPolicy.outgoingConnections.ipBlock.cidr }}
+          except:
+            {{- range .Values.policies.networkPolicy.outgoingConnections.ipBlock.except }}
+            - {{ . }}
+            {{- end }}
   policyTypes:
     - Egress
 ---

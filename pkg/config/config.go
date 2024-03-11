@@ -4,16 +4,13 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/config"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
+	"k8s.io/klog/v2"
 )
 
-const (
-	K3SDistro = "k3s"
-	K8SDistro = "k8s"
-	K0SDistro = "k0s"
-	EKSDistro = "eks"
-	Unknown   = "unknown"
-)
-
+// VirtualClusterConfig wraps the config and adds extra info such as name, serviceName and targetNamespace
 type VirtualClusterConfig struct {
 	// Holds the vCluster config
 	config.Config `json:",inline"`
@@ -30,22 +27,22 @@ type VirtualClusterConfig struct {
 
 func (v VirtualClusterConfig) Distro() string {
 	if v.Config.ControlPlane.Distro.K3S.Enabled {
-		return K3SDistro
+		return config.K3SDistro
 	} else if v.Config.ControlPlane.Distro.K0S.Enabled {
-		return K0SDistro
+		return config.K0SDistro
 	} else if v.Config.ControlPlane.Distro.K8S.Enabled {
-		return K8SDistro
+		return config.K8SDistro
 	} else if v.Config.ControlPlane.Distro.EKS.Enabled {
-		return EKSDistro
+		return config.EKSDistro
 	}
 
-	return K3SDistro
+	return config.K3SDistro
 }
 
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
 	distroConfig := config.VirtualClusterKubeConfig{}
 	switch v.Distro() {
-	case K3SDistro:
+	case config.K3SDistro:
 		distroConfig = config.VirtualClusterKubeConfig{
 			KubeConfig:          "/data/server/cred/admin.kubeconfig",
 			ServerCAKey:         "/data/server/tls/server-ca.key",
@@ -53,7 +50,7 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 			ClientCACert:        "/data/server/tls/client-ca.crt",
 			RequestHeaderCACert: "/data/server/tls/request-header-ca.crt",
 		}
-	case K0SDistro:
+	case config.K0SDistro:
 		distroConfig = config.VirtualClusterKubeConfig{
 			KubeConfig:          "/data/k0s/pki/admin.conf",
 			ServerCAKey:         "/data/k0s/pki/ca.key",
@@ -61,7 +58,7 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 			ClientCACert:        "/data/k0s/pki/ca.crt",
 			RequestHeaderCACert: "/data/k0s/pki/front-proxy-ca.crt",
 		}
-	case EKSDistro, K8SDistro:
+	case config.EKSDistro, config.K8SDistro:
 		distroConfig = config.VirtualClusterKubeConfig{
 			KubeConfig:          "/pki/admin.conf",
 			ServerCAKey:         "/pki/ca.key",
@@ -103,9 +100,9 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 	}
 
 	nodeSelector := ""
-	if v.Sync.FromHost.Nodes.Real.Enabled {
+	if v.Sync.FromHost.Nodes.Enabled {
 		selectors := []string{}
-		for k, v := range v.Sync.FromHost.Nodes.Real.Selector.Labels {
+		for k, v := range v.Sync.FromHost.Nodes.Selector.Labels {
 			selectors = append(selectors, k+"="+v)
 		}
 
@@ -140,11 +137,11 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		TargetNamespace:             v.TargetNamespace,
 		ServiceName:                 v.ServiceName,
 		SetOwner:                    v.Experimental.SyncSettings.SetOwner,
-		SyncAllNodes:                v.Sync.FromHost.Nodes.Real.SyncAll,
-		EnableScheduler:             v.ControlPlane.VirtualScheduler.Enabled,
+		SyncAllNodes:                v.Sync.FromHost.Nodes.SyncAll,
+		EnableScheduler:             v.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		DisableFakeKubelets:         !v.Networking.Advanced.ProxyKubelets.ByIP && !v.Networking.Advanced.ProxyKubelets.ByHostname,
 		FakeKubeletIPs:              v.Networking.Advanced.ProxyKubelets.ByIP,
-		ClearNodeImages:             v.Sync.FromHost.Nodes.Real.ClearImageStatus,
+		ClearNodeImages:             v.Sync.FromHost.Nodes.ClearImageStatus,
 		NodeSelector:                nodeSelector,
 		ServiceAccount:              v.ControlPlane.Advanced.WorkloadServiceAccount.Name,
 		EnforceNodeSelector:         true,
@@ -169,6 +166,46 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		SyncAllConfigMaps:           v.Sync.ToHost.ConfigMaps.All,
 		ProxyMetricsServer:          v.Observability.Metrics.Proxy.Nodes.Enabled || v.Observability.Metrics.Proxy.Pods.Enabled,
 
-		DeprecatedSyncNodeChanges: v.Sync.FromHost.Nodes.Real.SyncLabelsTaints,
+		DeprecatedSyncNodeChanges: v.Sync.FromHost.Nodes.SyncLabelsTaints,
 	}, nil
+}
+
+// DisableMissingAPIs checks if the  apis are enabled, if any are missing, disable the syncer and print a log
+func (v VirtualClusterConfig) DisableMissingAPIs(discoveryClient discovery.DiscoveryInterface) error {
+	resources, err := discoveryClient.ServerResourcesForGroupVersion("storage.k8s.io/v1")
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	// check if found
+	if v.Sync.FromHost.CSINodes.Enabled && !findResource(resources, "csinodes") {
+		v.Sync.FromHost.CSINodes.Enabled = false
+		klog.Warningf("host kubernetes apiserver not advertising resource csinodes in GroupVersion storage.k8s.io/v1, disabling the syncer")
+	}
+
+	// check if found
+	if v.Sync.FromHost.CSIDrivers.Enabled && !findResource(resources, "csidrivers") {
+		v.Sync.FromHost.CSIDrivers.Enabled = false
+		klog.Warningf("host kubernetes apiserver not advertising resource csidrivers in GroupVersion storage.k8s.io/v1, disabling the syncer")
+	}
+
+	// check if found
+	if v.Sync.FromHost.CSIStorageCapacities.Enabled && !findResource(resources, "csistoragecapacities") {
+		v.Sync.FromHost.CSIStorageCapacities.Enabled = false
+		klog.Warningf("host kubernetes apiserver not advertising resource csistoragecapacities in GroupVersion storage.k8s.io/v1, disabling the syncer")
+	}
+
+	return nil
+}
+
+func findResource(resources *metav1.APIResourceList, resourcePlural string) bool {
+	if resources != nil {
+		for _, r := range resources.APIResources {
+			if r.Name == resourcePlural {
+				return true
+			}
+		}
+	}
+
+	return false
 }

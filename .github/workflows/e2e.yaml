@@ -21,7 +21,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}-ci:PR${{ github.event.number }}
+  REPOSITORY_NAME: ghcr.io/${{ github.repository }}-ci
+  TAG_NAME: PR${{ github.event.number }}
   VCLUSTER_SUFFIX: vcluster
   VCLUSTER_NAME: vcluster
   VCLUSTER_NAMESPACE: vcluster
@@ -53,8 +54,8 @@ jobs:
         run: |
           set -x
           TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
-          docker build -t ${{ env.IMAGE_NAME }} -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
-          docker save -o vcluster_syncer ${{ env.IMAGE_NAME }}
+          docker build -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
+          docker save -o vcluster_syncer "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}"
       - name: Upload syncer image to artifact
         uses: actions/upload-artifact@v4
         with:
@@ -139,6 +140,7 @@ jobs:
           name: e2e-binaries
           path: ./test/*/*.test
           retention-days: 7
+
   download-latest-cli:
     name: Execute test suites
     runs-on: ubuntu-latest
@@ -152,7 +154,6 @@ jobs:
           name: vcluster-current
           path: ./vcluster-current
           retention-days: 7
-
 
   upgrade-test:
     name: test if we can upgrade from older version
@@ -192,6 +193,7 @@ jobs:
         with:
           name: vcluster
           path: vcluster-dev
+
       - name: Download current cli
         uses: actions/download-artifact@v4
         with:
@@ -201,6 +203,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vcluster_syncer
+
       - name: install sed
         run: |
           sudo apt-get install -y sed
@@ -217,21 +220,23 @@ jobs:
           --distro=${{ matrix.distribution }}
 
           kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
+
       - name: upgrade with the dev cli
         run: |
           chmod +x ./vcluster-dev/vcluster
           set -x
 
-          sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" test/commonValues.yaml
+          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" test/commonValues.yaml
+          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" test/commonValues.yaml
 
           ./vcluster-dev/vcluster create vcluster --distro=${{ matrix.distribution }} \
           --connect=false \
           --upgrade \
+          --local-chart-dir ./chart \
           -f ./test/commonValues.yaml
 
           sleep 20
           kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
-
 
   e2e-tests:
     name: Execute test suites
@@ -340,7 +345,8 @@ jobs:
 
           sudo apt-get install -y sed
 
-          sed -i "s|REPLACE_IMAGE_NAME|${{ env.IMAGE_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
+          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
+          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
 
           kind load image-archive vcluster_syncer
 
@@ -351,7 +357,7 @@ jobs:
           --debug \
           --connect=false \
           --distro=${{ matrix.distribution }} \
-          --local-chart-dir ./charts/${{ matrix.distribution }} \
+          --local-chart-dir ./chart \
           -f ./test/commonValues.yaml \
           $haValues \
           -f ${{ matrix.test-suite-path }}/values.yaml \

@@ -5,11 +5,10 @@ import (
 	"os"
 	"strings"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/coredns"
-	"github.com/loft-sh/vcluster/pkg/options"
-
-	"github.com/loft-sh/vcluster-values/values"
 )
 
 func main() {
@@ -17,10 +16,10 @@ func main() {
 
 	// loft
 	images = append(images, "ghcr.io/loft-sh/vcluster:"+cleanTag(os.Args[1]))
-	images = append(images, options.DefaultHostsRewriteImage)
+	images = append(images, config.DefaultHostsRewriteImage)
 
 	// loop over k3s versions
-	for _, image := range values.K3SVersionMap {
+	for _, image := range vclusterconfig.K3SVersionMap {
 		if contains(images, image) {
 			continue
 		}
@@ -29,7 +28,7 @@ func main() {
 	}
 
 	// loop over k0s versions
-	for _, image := range values.K0SVersionMap {
+	for _, image := range vclusterconfig.K0SVersionMap {
 		if contains(images, image) {
 			continue
 		}
@@ -38,21 +37,21 @@ func main() {
 	}
 
 	// loop over k8s versions
-	for _, image := range values.K8SAPIVersionMap {
+	for _, image := range vclusterconfig.K8SAPIVersionMap {
 		if contains(images, image) {
 			continue
 		}
 
 		images = append(images, image)
 	}
-	for _, image := range values.K8SControllerVersionMap {
+	for _, image := range vclusterconfig.K8SControllerVersionMap {
 		if contains(images, image) {
 			continue
 		}
 
 		images = append(images, image)
 	}
-	for _, image := range values.K8SEtcdVersionMap {
+	for _, image := range vclusterconfig.K8SEtcdVersionMap {
 		if contains(images, image) {
 			continue
 		}

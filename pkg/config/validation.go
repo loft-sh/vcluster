@@ -11,7 +11,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/samber/lo"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/klog/v2"
 )
 
 var allowedPodSecurityStandards = map[string]bool{
@@ -39,29 +38,23 @@ func ValidateConfig(config *VirtualClusterConfig) error {
 	}
 
 	// check if enable scheduler works correctly
-	if config.ControlPlane.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Real.SyncAll && len(config.Sync.FromHost.Nodes.Real.Selector.Labels) == 0 {
-		config.Sync.FromHost.Nodes.Real.SyncAll = true
+	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.SyncAll && len(config.Sync.FromHost.Nodes.Selector.Labels) == 0 {
+		config.Sync.FromHost.Nodes.SyncAll = true
 	}
 
 	// enable additional controllers required for scheduling with storage
-	if config.ControlPlane.VirtualScheduler.Enabled && config.Sync.ToHost.PersistentVolumeClaims.Enabled {
-		if !config.Sync.FromHost.CSINodes.Enabled {
-			klog.Warningf("persistentvolumeclaim syncing and scheduler enabled, but csiNodes syncing disabled. This may result in incorrect pod scheduling.")
-		}
-		if !config.Sync.FromHost.CSIStorageCapacities.Enabled {
-			klog.Warningf("persistentvolumeclaim syncing and scheduler enabled, but csiStorageCapacities syncing disabled. This may result in incorrect pod scheduling.")
-		}
-		if !config.Sync.FromHost.CSIDrivers.Enabled {
-			klog.Warningf("persistentvolumeclaim syncing and scheduler enabled, but csiDrivers syncing disabled. This may result in incorrect pod scheduling.")
-		}
+	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && config.Sync.ToHost.PersistentVolumeClaims.Enabled {
+		config.Sync.FromHost.CSINodes.Enabled = true
+		config.Sync.FromHost.CSIStorageCapacities.Enabled = true
+		config.Sync.FromHost.CSIDrivers.Enabled = true
 		if !config.Sync.FromHost.StorageClasses.Enabled && !config.Sync.ToHost.StorageClasses.Enabled {
-			return fmt.Errorf("persistentvolumeclaim syncing and scheduler enabled, but both sync.toHost.storageClasses and sync.fromHost.storageClasses syncers disabled")
+			config.Sync.FromHost.StorageClasses.Enabled = true
 		}
 	}
 
 	// check if nodes controller needs to be enabled
-	if config.ControlPlane.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Real.Enabled {
-		return fmt.Errorf("sync.fromHost.nodes.real.enabled is false, but required if using virtual scheduler")
+	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Enabled {
+		return fmt.Errorf("sync.fromHost.nodes.enabled is false, but required if using virtual scheduler")
 	}
 
 	// check if storage classes and host storage classes are enabled at the same time
@@ -271,7 +264,7 @@ func validateImportDuplicates(imports []*config.Import) error {
 }
 
 func validateCentralAdmissionControl(config *VirtualClusterConfig) error {
-	_, _, err := ParseExtraHooks(config.Policies.CentralAdmissionControl.ValidatingWebhooks, config.Policies.CentralAdmissionControl.MutatingWebhooks)
+	_, _, err := ParseExtraHooks(config.Policies.CentralAdmission.ValidatingWebhooks, config.Policies.CentralAdmission.MutatingWebhooks)
 	return err
 }
 

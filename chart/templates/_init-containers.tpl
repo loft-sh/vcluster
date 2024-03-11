@@ -52,7 +52,7 @@
   resources:
 {{ toYaml .Values.controlPlane.distro.eks.resources | indent 4 }}
 {{- end }}
-{{- if .Values.controlPlane.virtualScheduler.enabled }}
+{{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
 - name: kube-scheduler-manager
   image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.eks.scheduler.image.repository }}:{{ .Values.controlPlane.distro.eks.scheduler.image.tag }}"
   volumeMounts:
@@ -136,7 +136,7 @@
   resources:
 {{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
 {{- end }}
-{{- if .Values.controlPlane.virtualScheduler.enabled }}
+{{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
 - name: kube-scheduler-manager
   image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.k8s.scheduler.image.repository }}:{{ .Values.controlPlane.distro.k8s.scheduler.image.tag }}"
   volumeMounts:
@@ -256,8 +256,10 @@
   command: ["sh"]
   args: ["-c", "cp -r /plugin /plugins/{{ $key }}"]
   {{- end }}
+  {{- if $container.securityContext }}
   securityContext:
 {{ toYaml $container.securityContext | indent 4 }}
+  {{- end }}
   {{- if $container.volumeMounts }}
   volumeMounts:
 {{ toYaml $container.volumeMounts | indent 4 }}

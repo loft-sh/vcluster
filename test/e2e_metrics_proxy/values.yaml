@@ -1,6 +1,7 @@
-proxy:
-  metricsServer:
-    nodes:
-      enabled: true
-    pods:
-      enabled: true
+observability:
+  metrics:
+    proxy:
+      nodes:
+        enabled: true
+      pods:
+        enabled: true

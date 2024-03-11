@@ -32,10 +32,10 @@ import (
 
 func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.Provider) (syncertypes.Object, error) {
 	var nodeSelector labels.Selector
-	if ctx.Config.Sync.FromHost.Nodes.Real.SyncAll {
+	if ctx.Config.Sync.FromHost.Nodes.SyncAll {
 		nodeSelector = labels.Everything()
-	} else if len(ctx.Config.Sync.FromHost.Nodes.Real.Selector.Labels) > 0 {
-		nodeSelector = labels.Set(ctx.Config.Sync.FromHost.Nodes.Real.Selector.Labels).AsSelector()
+	} else if len(ctx.Config.Sync.FromHost.Nodes.Selector.Labels) > 0 {
+		nodeSelector = labels.Set(ctx.Config.Sync.FromHost.Nodes.Selector.Labels).AsSelector()
 	}
 
 	// parse tolerations
@@ -50,11 +50,11 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 	}
 
 	return &nodeSyncer{
-		enableScheduler: ctx.Config.ControlPlane.VirtualScheduler.Enabled,
+		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 
 		enforceNodeSelector: true,
 		nodeSelector:        nodeSelector,
-		clearImages:         ctx.Config.Sync.FromHost.Nodes.Real.ClearImageStatus,
+		clearImages:         ctx.Config.Sync.FromHost.Nodes.ClearImageStatus,
 		useFakeKubelets:     ctx.Config.Networking.Advanced.ProxyKubelets.ByHostname || ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 		fakeKubeletIPs:      ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 

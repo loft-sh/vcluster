@@ -1,6 +1,9 @@
 {{- if not .Values.experimental.isolatedControlPlane.headless }}
+{{- if and .Values.controlPlane.backingStore.embeddedEtcd.enabled (include "vcluster.externalEtcd.enabled" .) -}}
+{{- fail "embeddedEtcd and externalEtcd cannot be enabled at the same time together" }}
+{{- end -}}
 apiVersion: apps/v1
-kind: StatefulSet
+kind: {{ include "vcluster.kind" . }}
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
@@ -22,13 +25,31 @@ spec:
     matchLabels:
       app: vcluster
       release: {{ .Release.Name }}
+  {{- if eq (include "vcluster.kind" .) "StatefulSet" }}
+  {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ .Values.controlPlane.statefulSet.persistence.volumeClaim.retentionPolicy }}
+  {{- end }}
+  serviceName: {{ .Release.Name }}-headless
   podManagementPolicy: {{ .Values.controlPlane.statefulSet.scheduling.podManagementPolicy }}
-  {{ include "vcluster.persistence" . | indent 2 }}
+{{ include "vcluster.persistence" . | indent 2 }}
+  {{- else }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      {{- if (eq (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) }}
+      maxUnavailable: 0
+      {{- else }}
+      maxUnavailable: 1
+      {{- end }}
+    type: RollingUpdate
+  {{- end }}
   replicas: {{ .Values.controlPlane.statefulSet.highAvailability.replicas }}
   template:
     metadata:
-      {{- if .Values.controlPlane.statefulSet.pods.annotations }}
       annotations:
+       vClusterConfigHash: {{ .Values | toYaml | b64enc | sha256sum | quote }}
+      {{- if .Values.controlPlane.statefulSet.pods.annotations }}
 {{ toYaml .Values.controlPlane.statefulSet.pods.annotations | indent 8 }}
       {{- end }}
       labels:
@@ -122,11 +143,9 @@ spec:
           command:
 {{ toYaml .Values.controlPlane.statefulSet.command | indent 12 }}
           {{- end }}
-          args:
           {{- if .Values.controlPlane.statefulSet.args }}
+          args:
 {{ toYaml .Values.controlPlane.statefulSet.args | indent 12 }}
-          {{- else }}
-            - --config=/var/vcluster/config.yaml
           {{- end }}
           {{- if .Values.controlPlane.statefulSet.probes.livenessProbe.enabled }}
           livenessProbe:

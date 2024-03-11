@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	config2 "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -85,7 +85,7 @@ func CreateImporters(ctx *config.ControllerContext) error {
 	return nil
 }
 
-func createImporter(ctx *synccontext.RegisterContext, config *config2.Import, gvkRegister GVKRegister) (syncertypes.Syncer, error) {
+func createImporter(ctx *synccontext.RegisterContext, config *vclusterconfig.Import, gvkRegister GVKRegister) (syncertypes.Syncer, error) {
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
 	controllerID := fmt.Sprintf("%s/%s/GenericImport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.GroupVersion().String()))
 
@@ -117,7 +117,7 @@ type importer struct {
 	translator.Translator
 	virtualClient client.Client
 	patcher       *patcher
-	config        *config2.Import
+	config        *vclusterconfig.Import
 	syncerOptions *syncertypes.Options
 	gvk           schema.GroupVersionKind
 	name          string

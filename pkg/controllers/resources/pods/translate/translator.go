@@ -86,7 +86,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		overrideHostsImage:           ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainerImage,
 		serviceAccountsEnabled:       ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
 		priorityClassesEnabled:       ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
-		enableScheduler:              ctx.Config.ControlPlane.VirtualScheduler.Enabled,
+		enableScheduler:              ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		syncedLabels:                 ctx.Config.Experimental.SyncSettings.SyncLabels,
 
 		mountPhysicalHostPaths: ctx.Config.ControlPlane.HostPathMapper.Enabled && !ctx.Config.ControlPlane.HostPathMapper.Central,

@@ -142,6 +142,13 @@ tests:
                     - name: coredns
                       image: {{.IMAGE}}
                       imagePullPolicy: IfNotPresent
+                      resources:
+                        limits:
+                          cpu: 1000m
+                          memory: 170Mi
+                        requests:
+                          cpu: 20m
+                          memory: 64Mi
                       args: [ "-conf", "/etc/coredns/Corefile" ]
                       volumeMounts:
                         - name: config-volume

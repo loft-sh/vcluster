@@ -27,10 +27,10 @@ var GetRemoteClient = func(vConfig *config.VirtualClusterConfig) (*rest.Config, 
 
 	// check if remote cluster
 	if vConfig.Experimental.IsolatedControlPlane.Enabled {
-		return inClusterConfig, currentNamespace, vConfig.ServiceName, inClusterConfig, currentNamespace, vConfig.ServiceName, nil
+		return nil, "", "", nil, "", "", NewFeatureError(string(licenseapi.VirtualClusterProDistroIsolatedControlPlane))
 	}
 
-	return nil, "", "", nil, "", "", NewFeatureError(string(licenseapi.VirtualClusterProDistroIsolatedControlPlane))
+	return inClusterConfig, currentNamespace, vConfig.ServiceName, inClusterConfig, currentNamespace, vConfig.ServiceName, nil
 }
 
 var AddRemoteNodePortSANs = func(_ context.Context, _, _ string, _ kubernetes.Interface) error {

@@ -80,7 +80,7 @@ func NewFakeConfig() *config.VirtualClusterConfig {
 	}
 
 	// parse config
-	vConfig, err := config.ParseConfig(configPath, DefaultTestVClusterName)
+	vConfig, err := config.ParseConfig(configPath, DefaultTestVClusterName, nil)
 	if err != nil {
 		panic("load test config: " + workDir + " - " + err.Error())
 	}

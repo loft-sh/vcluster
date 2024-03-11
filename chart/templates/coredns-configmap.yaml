@@ -142,14 +142,14 @@ data:
           k8s-app: kube-dns
       template:
         metadata:
-          {{- if .Values.controlPlane.coredns.deployment.podAnnotations }}
+          {{- if .Values.controlPlane.coredns.deployment.pods.annotations }}
           annotations:
-{{ toYaml .Values.controlPlane.coredns.deployment.podAnnotations | indent 12 }}
+{{ toYaml .Values.controlPlane.coredns.deployment.pods.annotations | indent 12 }}
           {{- end }}
           labels:
             k8s-app: kube-dns
-          {{- if .Values.controlPlane.coredns.deployment.podLabels }}
-{{ toYaml .Values.controlPlane.coredns.deployment.podLabels | indent 12 }}
+          {{- if .Values.controlPlane.coredns.deployment.pods.labels }}
+{{ toYaml .Values.controlPlane.coredns.deployment.pods.labels | indent 12 }}
           {{- end }}
         spec:
           priorityClassName: "system-cluster-critical"

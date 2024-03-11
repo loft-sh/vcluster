@@ -36,6 +36,7 @@ type UpgradeOptions struct {
 	Insecure bool
 	Atomic   bool
 	Force    bool
+	Debug    bool
 }
 
 const (
@@ -165,6 +166,9 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	}
 	if options.Atomic {
 		args = append(args, "--atomic")
+	}
+	if options.Debug {
+		args = append(args, "--debug")
 	}
 
 	return c.execute(ctx, args, command, options.WorkDir)

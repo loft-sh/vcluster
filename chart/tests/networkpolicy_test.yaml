@@ -23,6 +23,10 @@ tests:
         equal:
           path: metadata.name
           value: vc-work-my-release
+      - documentIndex: 0
+        equal:
+          path: spec.egress[2].to[1].ipBlock.cidr
+          value: 0.0.0.0/0
       - documentIndex: 1
         equal:
           path: metadata.name

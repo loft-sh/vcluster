@@ -118,7 +118,8 @@ tests:
       networking:
         replicateServices:
           fromHost:
-            - abc: test
+            - from: test
+              to: other-test
     asserts:
       - hasDocuments:
           count: 1
@@ -137,8 +138,7 @@ tests:
       sync:
         fromHost:
           nodes:
-            real:
-              enabled: true
+            enabled: true
     asserts:
       - hasDocuments:
           count: 1
@@ -151,6 +151,25 @@ tests:
             apiGroups: [ "" ]
             resources: [ "pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy" ]
             verbs: [ "get", "watch", "list" ]
+
+  - it: virtual scheduler
+    set:
+      controlPlane:
+        advanced:
+          virtualScheduler:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["storage.k8s.io"]
+            resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
+            verbs: ["get", "watch", "list"]
 
   - it: legacy pro
     set:

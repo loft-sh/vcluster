@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
-	config2 "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	jsonyaml "github.com/ghodss/yaml"
@@ -23,7 +23,7 @@ type NameResolver interface {
 	TranslateNamespaceRef(namespace string) (string, error)
 }
 
-func ApplyPatches(destObj, sourceObj client.Object, patchesConf []*config2.Patch, reversePatchesConf []*config2.Patch, nameResolver NameResolver) error {
+func ApplyPatches(destObj, sourceObj client.Object, patchesConf []*vclusterconfig.Patch, reversePatchesConf []*vclusterconfig.Patch, nameResolver NameResolver) error {
 	node1, err := NewJSONNode(destObj)
 	if err != nil {
 		return errors.Wrap(err, "new json yaml node")
@@ -50,8 +50,8 @@ func ApplyPatches(destObj, sourceObj client.Object, patchesConf []*config2.Patch
 			continue
 		}
 
-		err := applyPatch(node1, node2, &config2.Patch{
-			Operation: config2.PatchTypeRemove,
+		err := applyPatch(node1, node2, &vclusterconfig.Patch{
+			Operation: vclusterconfig.PatchTypeRemove,
 			Path:      p.Path,
 		}, nameResolver)
 		if err != nil {
@@ -72,23 +72,23 @@ func ApplyPatches(destObj, sourceObj client.Object, patchesConf []*config2.Patch
 	return nil
 }
 
-func applyPatch(obj1, obj2 *yaml.Node, patch *config2.Patch, resolver NameResolver) error {
+func applyPatch(obj1, obj2 *yaml.Node, patch *vclusterconfig.Patch, resolver NameResolver) error {
 	switch patch.Operation {
-	case config2.PatchTypeRewriteName:
+	case vclusterconfig.PatchTypeRewriteName:
 		return RewriteName(obj1, patch, resolver)
-	case config2.PatchTypeRewriteLabelKey:
+	case vclusterconfig.PatchTypeRewriteLabelKey:
 		return RewriteLabelKey(obj1, patch, resolver)
-	case config2.PatchTypeRewriteLabelExpressionsSelector:
+	case vclusterconfig.PatchTypeRewriteLabelExpressionsSelector:
 		return RewriteLabelExpressionsSelector(obj1, patch, resolver)
-	case config2.PatchTypeRewriteLabelSelector:
+	case vclusterconfig.PatchTypeRewriteLabelSelector:
 		return RewriteLabelSelector(obj1, patch, resolver)
-	case config2.PatchTypeReplace:
+	case vclusterconfig.PatchTypeReplace:
 		return Replace(obj1, patch)
-	case config2.PatchTypeRemove:
+	case vclusterconfig.PatchTypeRemove:
 		return Remove(obj1, patch)
-	case config2.PatchTypeAdd:
+	case vclusterconfig.PatchTypeAdd:
 		return Add(obj1, patch)
-	case config2.PatchTypeCopyFromObject:
+	case vclusterconfig.PatchTypeCopyFromObject:
 		return CopyFromObject(obj1, obj2, patch)
 	}
 

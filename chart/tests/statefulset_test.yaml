@@ -22,6 +22,9 @@ tests:
     asserts:
       - hasDocuments:
           count: 1
+      - equal:
+          path: kind
+          value: StatefulSet
       - lengthEqual:
           path: spec.template.spec.containers
           count: 1
@@ -97,6 +100,9 @@ tests:
           externalEtcd:
             enabled: true
     asserts:
+      - equal:
+          path: kind
+          value: Deployment
       - notExists:
           path: spec.volumeClaimTemplates
 
@@ -107,6 +113,9 @@ tests:
           k8s:
             enabled: true
     asserts:
+      - equal:
+          path: kind
+          value: Deployment
       - notExists:
           path: spec.volumeClaimTemplates
 
@@ -120,6 +129,9 @@ tests:
           k8s:
             enabled: true
     asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
       - lengthEqual:
           path: spec.volumeClaimTemplates
           count: 1
@@ -152,6 +164,9 @@ tests:
           version: v2
           image: test
     asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
       - lengthEqual:
           path: spec.template.spec.volumes
           count: 8
@@ -195,6 +210,9 @@ tests:
           k8s:
             enabled: true
     asserts:
+      - equal:
+          path: kind
+          value: Deployment
       - notExists:
           path: spec.volumeClaimTemplates
       - contains:
@@ -203,6 +221,43 @@ tests:
             name: data
             emptyDir: {}
 
+  - it: enable k8s
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        statefulSet:
+          persistence:
+            volumeClaim:
+              disabled: true
+            volumeClaimTemplates:
+              - metadata:
+                  name: data
+                spec:
+                  resources:
+                    requests:
+                      storage: 5Gi
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - equal:
+          path: spec.serviceName
+          value: my-release-headless
+      - contains:
+          path: spec.volumeClaimTemplates
+          content:
+            metadata:
+              name: data
+            spec:
+              resources:
+                requests:
+                  storage: 5Gi
+
   - it: enable eks
     set:
       controlPlane:
@@ -210,6 +265,9 @@ tests:
           eks:
             enabled: true
     asserts:
+      - equal:
+          path: kind
+          value: Deployment
       - notExists:
           path: spec.volumeClaimTemplates
       - contains:
@@ -228,6 +286,9 @@ tests:
           k0s:
             enabled: true
     asserts:
+      - equal:
+          path: kind
+          value: Deployment
       - notExists:
           path: spec.volumeClaimTemplates
       - contains:

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/k0s"
@@ -87,7 +88,7 @@ func initialize(
 
 	// check what distro are we running
 	switch distro {
-	case config.K0SDistro:
+	case vclusterconfig.K0SDistro:
 		// only return the first cidr, because k0s don't accept coma separated ones
 		serviceCIDR = strings.Split(serviceCIDR, ",")[0]
 
@@ -136,7 +137,7 @@ func initialize(
 			cancel()
 			return err
 		}
-	case config.K3SDistro:
+	case vclusterconfig.K3SDistro:
 		// its k3s, let's create the token secret
 		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName, options)
 		if err != nil {
@@ -176,7 +177,7 @@ func initialize(
 				klog.Fatalf("Error running k3s: %v", err)
 			}
 		}()
-	case config.K8SDistro, config.EKSDistro:
+	case vclusterconfig.K8SDistro, vclusterconfig.EKSDistro:
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/pki" {
@@ -207,7 +208,7 @@ func initialize(
 			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
 			// loop in Initialize
 			var err error
-			if distro == config.K8SDistro {
+			if distro == vclusterconfig.K8SDistro {
 				err = k8s.StartK8S(
 					parentCtx,
 					serviceCIDR,
@@ -216,7 +217,7 @@ func initialize(
 					options.ControlPlane.Distro.K8S.Scheduler,
 					options,
 				)
-			} else if distro == config.EKSDistro {
+			} else if distro == vclusterconfig.EKSDistro {
 				err = k8s.StartK8S(
 					parentCtx,
 					serviceCIDR,
@@ -230,7 +231,7 @@ func initialize(
 				klog.Fatalf("Error running k8s: %v", err)
 			}
 		}()
-	case config.Unknown:
+	case vclusterconfig.Unknown:
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/pki" {
 			// generate k8s certificates

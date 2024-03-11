@@ -70,7 +70,7 @@ func (m *Manager) Start(
 	currentNamespace string,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
-	options *config.VirtualClusterConfig,
+	vConfig *config.VirtualClusterConfig,
 ) error {
 	// try to search for plugins
 	plugins, err := m.findPlugins(ctx)
@@ -82,7 +82,7 @@ func (m *Manager) Start(
 
 	// loop over plugins and load them
 	for _, pluginPath := range plugins {
-		err = m.loadPlugin(pluginPath)
+		err = m.loadPlugin(pluginPath, vConfig)
 		if err != nil {
 			return fmt.Errorf("start plugin %s: %w", pluginPath, err)
 		}
@@ -91,7 +91,7 @@ func (m *Manager) Start(
 	// after loading all plugins we start them
 	for _, vClusterPlugin := range m.Plugins {
 		// build the start request
-		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), currentNamespace, physicalKubeConfig, syncerConfig, options)
+		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), currentNamespace, physicalKubeConfig, syncerConfig, vConfig)
 		if err != nil {
 			return fmt.Errorf("build start request: %w", err)
 		}
@@ -302,7 +302,7 @@ func (m *Manager) buildInitRequest(
 	}, nil
 }
 
-func (m *Manager) loadPlugin(pluginPath string) error {
+func (m *Manager) loadPlugin(pluginPath string, vConfig *config.VirtualClusterConfig) error {
 	// Create an hclog.Logger
 	logger := hclog.New(&hclog.LoggerOptions{
 		Name:   "plugin",
@@ -311,7 +311,7 @@ func (m *Manager) loadPlugin(pluginPath string) error {
 	})
 
 	// build command
-	cmd, err := buildCommand(pluginPath)
+	cmd, err := buildCommand(pluginPath, vConfig)
 	if err != nil {
 		return err
 	}
@@ -388,36 +388,44 @@ func (m *Manager) findPlugins(ctx context.Context) ([]string, error) {
 	return pluginPaths, nil
 }
 
-func buildCommand(pluginPath string) (*exec.Cmd, error) {
-	cmd := exec.Command(pluginPath)
+func buildCommand(pluginPath string, vConfig *config.VirtualClusterConfig) (*exec.Cmd, error) {
+	pluginName := filepath.Base(filepath.Dir(pluginPath))
+	pluginConfig := ""
+
+	// legacy plugin
+	if vConfig.Plugin != nil {
+		legacyPlugin, ok := vConfig.Plugin[pluginName]
+		if ok && legacyPlugin.Version == "v2" {
+			pluginConfigEncoded, err := yaml.Marshal(legacyPlugin.Config)
+			if err != nil {
+				return nil, fmt.Errorf("encode plugin config: %w", err)
+			}
+
+			pluginConfig = string(pluginConfigEncoded)
+		}
+	}
+
+	// new plugin
+	if vConfig.Plugins != nil {
+		newPlugin, ok := vConfig.Plugins[pluginName]
+		if ok {
+			pluginConfigEncoded, err := yaml.Marshal(newPlugin.Config)
+			if err != nil {
+				return nil, fmt.Errorf("encode plugin config: %w", err)
+			}
+
+			pluginConfig = string(pluginConfigEncoded)
+		}
+	}
 
 	// check for plugin config
-	pluginName := filepath.Base(filepath.Dir(pluginPath))
-	pluginConfig := os.Getenv(PluginConfigEnv)
+	cmd := exec.Command(pluginPath)
 	if pluginConfig == "" {
 		cmd.Env = os.Environ()
 		return cmd, nil
 	}
 
-	// try to parse yaml
-	parsedConfig := map[string]interface{}{}
-	err := yaml.Unmarshal([]byte(pluginConfig), &parsedConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing %s: %w", PluginConfigEnv, err)
-	}
-
-	// check if plugin is there
-	pluginConfigEncoded := ""
-	if parsedConfig[pluginName] != nil {
-		pluginConfigRaw, err := yaml.Marshal(parsedConfig[pluginName])
-		if err != nil {
-			return nil, fmt.Errorf("error marshalling plugin config: %w", err)
-		}
-
-		pluginConfigEncoded = string(pluginConfigRaw)
-	}
-
 	// add to plugin environment
-	cmd.Env = append(os.Environ(), PluginConfigEnv+"="+pluginConfigEncoded)
+	cmd.Env = append(os.Environ(), PluginConfigEnv+"="+pluginConfig)
 	return cmd, nil
 }

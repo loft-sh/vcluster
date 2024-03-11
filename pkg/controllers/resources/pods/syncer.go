@@ -49,9 +49,9 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 	// parse node selector
 	var nodeSelector *metav1.LabelSelector
-	if ctx.Config.Sync.FromHost.Nodes.Real.Enabled && len(ctx.Config.Sync.FromHost.Nodes.Real.Selector.Labels) > 0 {
+	if len(ctx.Config.Sync.FromHost.Nodes.Selector.Labels) > 0 {
 		nodeSelector = &metav1.LabelSelector{
-			MatchLabels: ctx.Config.Sync.FromHost.Nodes.Real.Selector.Labels,
+			MatchLabels: ctx.Config.Sync.FromHost.Nodes.Selector.Labels,
 		}
 	}
 
@@ -79,7 +79,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		NamespacedTranslator: namespacedTranslator,
 
 		serviceName:     ctx.Config.ServiceName,
-		enableScheduler: ctx.Config.ControlPlane.VirtualScheduler.Enabled,
+		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,

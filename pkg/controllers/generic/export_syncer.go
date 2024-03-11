@@ -13,7 +13,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/log"
 
-	config2 "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -59,9 +59,9 @@ func CreateExporters(ctx *config.ControllerContext) error {
 			}
 		}
 
-		reversePatches := []*config2.Patch{
+		reversePatches := []*vclusterconfig.Patch{
 			{
-				Operation: config2.PatchTypeCopyFromObject,
+				Operation: vclusterconfig.PatchTypeCopyFromObject,
 				FromPath:  "status",
 				Path:      "status",
 			},
@@ -85,7 +85,7 @@ func CreateExporters(ctx *config.ControllerContext) error {
 	return nil
 }
 
-func createExporter(ctx *synccontext.RegisterContext, config *config2.Export) (syncertypes.Syncer, error) {
+func createExporter(ctx *synccontext.RegisterContext, config *vclusterconfig.Export) (syncertypes.Syncer, error) {
 	obj := &unstructured.Unstructured{}
 	obj.SetKind(config.Kind)
 	obj.SetAPIVersion(config.APIVersion)
@@ -128,7 +128,7 @@ type exporter struct {
 
 	patcher  *patcher
 	gvk      schema.GroupVersionKind
-	config   *config2.Export
+	config   *vclusterconfig.Export
 	selector labels.Selector
 	name     string
 }
@@ -347,7 +347,7 @@ func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (str
 	return translate.Default.PhysicalNamespace(namespace), nil
 }
 
-func validateExportConfig(config *config2.Export) error {
+func validateExportConfig(config *vclusterconfig.Export) error {
 	for _, p := range append(config.Patches, config.ReversePatches...) {
 		if p.Regex != "" {
 			parsed, err := patchesregex.PrepareRegex(p.Regex)

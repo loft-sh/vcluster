@@ -132,7 +132,7 @@ func TestSync(t *testing.T) {
 
 	generictesting.RunTestsWithContext(t, func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		ctx := generictesting.NewFakeRegisterContext(pClient, vClient)
-		ctx.Controllers.Delete("storageclasses")
+		ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 		return ctx
 	}, []*generictesting.SyncTest{
 		{
