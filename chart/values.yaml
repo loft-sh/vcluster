@@ -9,10 +9,10 @@ sync:
       enabled: true
     configMaps:
       enabled: true
-      all: true
+      all: false
     secrets:
       enabled: true
-      all: true
+      all: false
     pods:
       enabled: true
       translateImage: {}
