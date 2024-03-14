@@ -170,7 +170,7 @@ syncer:
       cpu: 1000m
       memory: 2Gi
     requests:
-      ephemeral-storage: 200Mi
+      ephemeral-storage: 300Mi
       # ensure that cpu/memory requests are high enough.
       # for example gke wants minimum 10m/32Mi here!
       cpu: 20m
@@ -207,6 +207,11 @@ syncer:
     persistence: true
     # Size of the persistent volume claim
     size: 5Gi
+    # The binariesVolume is used to retrieve distro specific executables to be run by the syncer
+    # This volume doesn't need to be persistent 
+    binariesVolume:
+      - name: binaries
+        emptyDir: {}
     # Optional StorageClass used for the pvc
     # if empty default StorageClass defined in your host cluster will be used
     #className:

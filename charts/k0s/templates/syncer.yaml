@@ -79,8 +79,7 @@ spec:
           emptyDir: {}
         - name: run-k0s
           emptyDir: {}
-        - name: binaries
-          emptyDir: {}
+{{ toYaml .Values.syncer.storage.binariesVolume | indent 8 }}
       {{- if .Values.syncer.volumes }}
 {{ toYaml .Values.syncer.volumes | indent 8 }}
       {{- end }}
