@@ -1,6 +1,8 @@
 package specialservices
 
 import (
+	"slices"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
 
@@ -53,14 +55,18 @@ func SyncKubernetesService(
 		return err
 	}
 
+	// detect if cluster ips changed
+	clusterIPsChanged := vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !slices.Equal(vObj.Spec.ClusterIPs, pObj.Spec.ClusterIPs)
+
 	translatedPorts := svcPortTranslator(pObj.Spec.Ports)
-	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.Ports, translatedPorts) {
+	if clusterIPsChanged || !equality.Semantic.DeepEqual(vObj.Spec.Ports, translatedPorts) {
 		newService := vObj.DeepCopy()
 		newService.Spec.ClusterIP = pObj.Spec.ClusterIP
 		newService.Spec.ClusterIPs = pObj.Spec.ClusterIPs
 		newService.Spec.IPFamilies = pObj.Spec.IPFamilies
+		newService.Spec.IPFamilyPolicy = pObj.Spec.IPFamilyPolicy
 		newService.Spec.Ports = translatedPorts
-		if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.ClusterIPs, pObj.Spec.ClusterIPs) {
+		if clusterIPsChanged {
 			// delete & create with correct ClusterIP
 			err = ctx.VirtualClient.Delete(ctx.Context, vObj)
 			if err != nil {
