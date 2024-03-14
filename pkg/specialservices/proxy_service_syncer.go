@@ -1,6 +1,8 @@
 package specialservices
 
 import (
+	"slices"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -71,11 +73,12 @@ func SyncVclusterProxyService(ctx *synccontext.SyncContext,
 		return err
 	}
 
-	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !equality.Semantic.DeepEqual(vObj.Spec.ClusterIPs, pObj.Spec.ClusterIPs) {
+	if vObj.Spec.ClusterIP != pObj.Spec.ClusterIP || !slices.Equal(vObj.Spec.ClusterIPs, pObj.Spec.ClusterIPs) {
 		newService := vObj.DeepCopy()
 		newService.Spec.ClusterIP = pObj.Spec.ClusterIP
 		newService.Spec.ClusterIPs = pObj.Spec.ClusterIPs
 		newService.Spec.IPFamilies = pObj.Spec.IPFamilies
+		newService.Spec.IPFamilyPolicy = pObj.Spec.IPFamilyPolicy
 
 		// delete & create with correct ClusterIP
 		err = vClient.Delete(ctx.Context, vObj)
