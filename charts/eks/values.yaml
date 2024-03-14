@@ -336,6 +336,10 @@ serviceAccount:
   # imagePullSecrets:
   #   - name: my-pull-secret
 
+# Prevent Creation of ClusterRole and ClusterRoleBinding by setting this to true. If 
+# not set or false, a ClusterRole and ClsterRoleBinding will be created if needed
+suppressClusterRoleCreation: false
+
 # Service account that should be used by the pods synced by vcluster
 workloadServiceAccount:
   # This is not supported in multi-namespace mode
