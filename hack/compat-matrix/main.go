@@ -8,10 +8,10 @@ import (
 	"slices"
 	"strings"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/olekukonko/tablewriter"
 	"gopkg.in/yaml.v2"
 
-	"github.com/loft-sh/vcluster-values/values"
 	"golang.org/x/exp/maps"
 )
 
@@ -57,13 +57,13 @@ func main() {
 		var versionMap map[string]string
 		switch v {
 		case "k3s":
-			versionMap = values.K3SVersionMap
+			versionMap = vclusterconfig.K3SVersionMap
 		case "k8s":
-			versionMap = values.K8SAPIVersionMap
+			versionMap = vclusterconfig.K8SAPIVersionMap
 		case "k0s":
-			versionMap = values.K0SVersionMap
+			versionMap = vclusterconfig.K0SVersionMap
 		case "eks":
-			versionMap = values.EKSAPIVersionMap
+			versionMap = vclusterconfig.EKSAPIVersionMap
 		}
 		buff := updateTableWithDistro(v, versionMap, issues)
 		renderedBytes.WriteString(fmt.Sprintf(templateString, v, v, buff.String()))

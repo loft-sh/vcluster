@@ -1,0 +1,300 @@
+suite: ControlPlane StatefulSet
+templates:
+  - statefulset.yaml
+
+tests:
+  - it: should not create control-plane
+    set:
+      experimental:
+        isolatedControlPlane:
+          headless: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: name & defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    capabilities:
+      majorVersion: 1
+      minorVersion: 29
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VCLUSTER_NAME
+            value: my-release
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /data
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: binaries
+            mountPath: /binaries
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: certs
+            mountPath: /pki
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: helm-cache
+            mountPath: /.cache/helm
+      - equal:
+          path: metadata.name
+          value: my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: spec.podManagementPolicy
+          value: Parallel
+      - equal:
+          path: spec.persistentVolumeClaimRetentionPolicy.whenDeleted
+          value: Retain
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.template.metadata.labels.app
+          value: vcluster
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 10
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 5Gi
+
+  - it: fail when both backing stores are enabled
+    set:
+      controlPlane:
+        backingStore:
+          embeddedEtcd:
+            enabled: true
+          externalEtcd:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "embeddedEtcd and externalEtcd cannot be enabled at the same time together"
+
+  - it: not persistent when external etcd is enabled
+    set:
+      controlPlane:
+        backingStore:
+          externalEtcd:
+            enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+
+  - it: not persistent when k8s
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+
+  - it: persistent when k8s and embedded etcd
+    set:
+      controlPlane:
+        backingStore:
+          embeddedEtcd:
+            enabled: true
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: plugin 1
+    set:
+      plugins:
+        test:
+          image: test
+      plugin:
+        test123:
+          version: v2
+          image: test
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 8
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 3
+
+  - it: plugin volumes 2
+    set:
+      controlPlane:
+        distro:
+          k0s:
+            enabled: true
+      plugin:
+        test:
+          version: v2
+          image: test
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 8
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 2
+
+  - it: plugin volumes 3
+    set:
+      plugin:
+        test:
+          image: test
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 7
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 1
+
+  - it: add volumes
+    set:
+      controlPlane:
+        statefulSet:
+          persistence:
+            addVolumes:
+              - name: myVolume
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: myVolume
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 8
+
+  - it: enable k8s
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: enable k8s
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        statefulSet:
+          persistence:
+            volumeClaim:
+              disabled: true
+            volumeClaimTemplates:
+              - metadata:
+                  name: data
+                spec:
+                  resources:
+                    requests:
+                      storage: 5Gi
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - equal:
+          path: spec.serviceName
+          value: my-release-headless
+      - contains:
+          path: spec.volumeClaimTemplates
+          content:
+            metadata:
+              name: data
+            spec:
+              resources:
+                requests:
+                  storage: 5Gi
+
+  - it: enable eks
+    set:
+      controlPlane:
+        distro:
+          eks:
+            enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: enable k0s
+    set:
+      controlPlane:
+        backingStore:
+          externalEtcd:
+            enabled: true
+        distro:
+          k0s:
+            enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+

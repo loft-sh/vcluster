@@ -144,13 +144,14 @@ func TestFakeSync(t *testing.T) {
 
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
-			Name:                "Create",
+			Name:                "Create test",
 			InitialVirtualState: []runtime.Object{basePod},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncContext, syncer := newFakeFakeSyncer(t, ctx)
 				_, err := syncer.FakeSyncToVirtual(syncContext, baseName)
 				assert.NilError(t, err)
@@ -172,15 +173,17 @@ func TestFakeSync(t *testing.T) {
 						node.Status.NodeInfo.KubeletVersion = fakeGUID
 					}
 
-					node1.Status.Addresses[0].Address = node2.Status.Addresses[0].Address
+					node1.Status.Images = node2.Status.Images
 					obj1 = node1
 					obj2 = node2
 				}
+
+				assert.DeepEqual(t, obj1, obj2)
 				return apiequality.Semantic.DeepEqual(obj1, obj2)
 			},
 		},
 		{
-			Name:                "Delete",
+			Name:                "Delete test",
 			InitialVirtualState: []runtime.Object{baseNode},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Node"): {},

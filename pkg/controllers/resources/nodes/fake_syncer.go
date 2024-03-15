@@ -35,7 +35,7 @@ var (
 func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.Provider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
 		nodeServiceProvider: nodeService,
-		fakeKubeletIPs:      ctx.Options.FakeKubeletIPs,
+		fakeKubeletIPs:      ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 	}, nil
 }
 
@@ -144,11 +144,13 @@ func newGUID() string {
 	return random.String(8) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(12)
 }
 
-func CreateFakeNode(ctx context.Context,
+func CreateFakeNode(
+	ctx context.Context,
 	fakeKubeletIPs bool,
 	nodeServiceProvider nodeservice.Provider,
 	virtualClient client.Client,
-	name string) error {
+	name string,
+) error {
 	nodeServiceProvider.Lock()
 	defer nodeServiceProvider.Unlock()
 

@@ -1,7 +1,8 @@
-multiNamespaceMode:
-  enabled: true
-sync:
-  generic:
+experimental:
+  multiNamespaceMode:
+    enabled: true
+
+  genericSync:
     role:
       extraRules:
         - apiGroups: ["cert-manager.io"]
@@ -12,13 +13,11 @@ sync:
         - apiGroups: ["apiextensions.k8s.io"]
           resources: ["customresourcedefinitions"]
           verbs: ["get", "list", "watch"]
-    config: |-
-      version: v1beta1
-      export:
-        - apiVersion: cert-manager.io/v1
-          kind: Issuer
-        - apiVersion: cert-manager.io/v1
-          kind: Certificate
-      import:
-        - kind: Secret
-          apiVersion: v1
+    export:
+      - apiVersion: cert-manager.io/v1
+        kind: Issuer
+      - apiVersion: cert-manager.io/v1
+        kind: Certificate
+    import:
+      - kind: Secret
+        apiVersion: v1

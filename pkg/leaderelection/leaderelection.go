@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -21,7 +21,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func StartLeaderElection(ctx *options.ControllerContext, scheme *runtime.Scheme, run func() error) error {
+func StartLeaderElection(ctx *config.ControllerContext, scheme *runtime.Scheme, run func() error) error {
 	localConfig := ctx.LocalManager.GetConfig()
 
 	// create the event recorder
@@ -65,9 +65,9 @@ func StartLeaderElection(ctx *options.ControllerContext, scheme *runtime.Scheme,
 	// try and become the leader and start controller manager loops
 	leaderelection.RunOrDie(ctx.Context, leaderelection.LeaderElectionConfig{
 		Lock:          rl,
-		LeaseDuration: time.Duration(ctx.Options.LeaseDuration) * time.Second,
-		RenewDeadline: time.Duration(ctx.Options.RenewDeadline) * time.Second,
-		RetryPeriod:   time.Duration(ctx.Options.RetryPeriod) * time.Second,
+		LeaseDuration: time.Duration(ctx.Config.ControlPlane.StatefulSet.HighAvailability.LeaseDuration) * time.Second,
+		RenewDeadline: time.Duration(ctx.Config.ControlPlane.StatefulSet.HighAvailability.RenewDeadline) * time.Second,
+		RetryPeriod:   time.Duration(ctx.Config.ControlPlane.StatefulSet.HighAvailability.RetryPeriod) * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(_ context.Context) {
 				klog.Info("Acquired leadership and run vcluster in leader mode")

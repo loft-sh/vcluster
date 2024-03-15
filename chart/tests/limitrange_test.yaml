@@ -1,0 +1,30 @@
+suite: LimitRange
+templates:
+  - limitrange.yaml
+
+tests:
+  - it: should not create limit range by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        limitRange:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: vc-my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - lengthEqual:
+          path: spec.limits
+          count: 1

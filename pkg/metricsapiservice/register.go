@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,7 +53,7 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContext
 	}, operationFunc)
 }
 
-func deleteOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithContextFunc {
+func deleteOperation(ctrlCtx *config.ControllerContext) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		err := ctrlCtx.VirtualManager.GetClient().Delete(ctx, &apiregistrationv1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
@@ -73,7 +73,7 @@ func deleteOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithConte
 	}
 }
 
-func createOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithContextFunc {
+func createOperation(ctrlCtx *config.ControllerContext) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -134,12 +134,12 @@ func createOperation(ctrlCtx *options.ControllerContext) wait.ConditionWithConte
 	}
 }
 
-func RegisterOrDeregisterAPIService(ctx *options.ControllerContext) error {
+func RegisterOrDeregisterAPIService(ctx *config.ControllerContext) error {
 	// check if the api service should get created
 	exists := checkExistingAPIService(ctx.Context, ctx.VirtualManager.GetClient())
-	if ctx.Options.ProxyMetricsServer {
+	if ctx.Config.Observability.Metrics.Proxy.Nodes || ctx.Config.Observability.Metrics.Proxy.Pods {
 		return applyOperation(ctx.Context, createOperation(ctx))
-	} else if !ctx.Options.ProxyMetricsServer && exists {
+	} else if exists {
 		return applyOperation(ctx.Context, deleteOperation(ctx))
 	}
 

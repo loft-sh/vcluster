@@ -144,6 +144,65 @@ Run:
 ./vcluster create v1 # create vcluster
 ```
 
+### Deploy vCluster from source
+
+#### 1. Check if you have the following software installed:
+
+* A running Kubernetes cluster v1.26 or newer and Kubectl installed, verify Kubernetes version via `kubectl version`
+* Docker needs to be installed (e.g. docker-desktop, orbstack, rancher desktop etc.)
+* Helm installed and verify via `helm version`
+* Golang version 1.22 and verify via `go version`
+
+#### 2. Git clone the repository `git clone https://github.com/loft-sh/vcluster.git`
+
+#### 3. Build vCluster CLI first:
+```
+sudo go build -mod vendor -o /usr/local/bin/vcluster cmd/vclusterctl/main.go
+```
+
+**If you already have vCluster CLI installed, please make sure to uninstall it first.**
+
+#### 4. Verify vCluster CLI was compiled correctly via `vcluster version`:
+
+```
+$ vcluster version
+vcluster version 0.0.1
+```
+
+#### 5. Build vCluster Container Image:
+
+```
+docker build . -t my-vcluster:0.0.1
+```
+
+#### 5a. Optional: if using kind, you need to import the image into kind
+
+```
+kind load docker-image my-vcluster:0.0.1
+```
+
+#### 6. Create vCluster with self-compiled vCluster CLI
+
+We can create a new `vcluster.yaml`:
+```yaml
+controlPlane:
+  statefulSet:
+    imagePullPolicy: Never
+    image:
+      repository: my-vcluster
+      tag: 0.0.1
+```
+
+Then deploy the vCluster with the provided `vcluster.yaml`:
+```
+vcluster create my-vcluster -n my-vcluster -f ./vcluster.yaml --local-chart-dir chart
+```
+
+Afterwards open a second terminal and use the vCluster:
+```
+kubectl get ns
+```
+
 ## Developing the hostpath-mapper component instead of syncer
 
 In case you need to develop the hostpath-mapper daemonset instead of the syncer, you can use the `dev-hostpath-mapper` profile in `devspace.yaml`. You can do this by running the following command:

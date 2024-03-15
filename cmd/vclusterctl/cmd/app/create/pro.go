@@ -21,7 +21,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster-values/values"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -492,9 +492,6 @@ func validateTemplateOptions(options *Options) error {
 	if len(options.Values) > 0 {
 		return fmt.Errorf("cannot use --values because the vcluster is using a template. Please use --params instead")
 	}
-	if options.Isolate {
-		return fmt.Errorf("cannot use --isolate because the vcluster is using a template")
-	}
 	if options.KubernetesVersion != "" {
 		return fmt.Errorf("cannot use --kubernetes-version because the vcluster is using a template")
 	}
@@ -521,7 +518,7 @@ func mergeValues(proClient procli.Client, options *Options, log log.Logger) (str
 		return "", err
 	}
 	logger := logr.New(log.LogrLogSink())
-	chartValues, err := values.GetDefaultReleaseValues(chartOptions, logger)
+	chartValues, err := vclusterconfig.GetExtraValues(chartOptions, logger)
 	if err != nil {
 		return "", err
 	}
@@ -530,13 +527,6 @@ func mergeValues(proClient procli.Client, options *Options, log log.Logger) (str
 	outValues, err := parseString(chartValues)
 	if err != nil {
 		return "", err
-	}
-
-	// set integrated to true
-	if outValues["coredns"] == nil {
-		outValues["coredns"] = map[string]interface{}{
-			"integrated": true,
-		}
 	}
 
 	// merge values
@@ -581,7 +571,7 @@ func parseString(str string) (map[string]interface{}, error) {
 	return out, nil
 }
 
-func toChartOptions(proClient procli.Client, options *Options, log log.Logger) (*values.ChartOptions, error) {
+func toChartOptions(proClient procli.Client, options *Options, log log.Logger) (*vclusterconfig.ExtraValuesOptions, error) {
 	if !util.Contains(options.Distro, AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
 	}
@@ -590,7 +580,7 @@ func toChartOptions(proClient procli.Client, options *Options, log log.Logger) (
 		options.ChartName += "-" + options.Distro
 	}
 
-	version := values.Version{}
+	version := vclusterconfig.KubernetesVersion{}
 	if options.KubernetesVersion != "" {
 		if options.KubernetesVersion[0] != 'v' {
 			options.KubernetesVersion = "v" + options.KubernetesVersion
@@ -605,7 +595,7 @@ func toChartOptions(proClient procli.Client, options *Options, log log.Logger) (
 			log.Warnf("currently we only support major.minor version (%s) and not the patch version (%s)", majorMinorVer, options.KubernetesVersion)
 		}
 
-		parsedVersion, err := values.ParseKubernetesVersionInfo(majorMinorVer)
+		parsedVersion, err := vclusterconfig.ParseKubernetesVersionInfo(majorMinorVer)
 		if err != nil {
 			return nil, err
 		}
@@ -619,12 +609,8 @@ func toChartOptions(proClient procli.Client, options *Options, log log.Logger) (
 		options.ChartVersion = ""
 	}
 
-	return &values.ChartOptions{
-		ChartName:           options.ChartName,
-		ChartRepo:           options.ChartRepo,
-		ChartVersion:        options.ChartVersion,
-		DisableIngressSync:  options.DisableIngressSync,
-		Isolate:             options.Isolate,
+	return &vclusterconfig.ExtraValuesOptions{
+		Distro:              options.Distro,
 		KubernetesVersion:   version,
 		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",

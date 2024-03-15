@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/pkg/log"
 
-	"github.com/loft-sh/vcluster/pkg/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -32,7 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateExporters(ctx *options.ControllerContext, exporterConfig *config.Config) error {
+func CreateExporters(ctx *config.ControllerContext) error {
+	exporterConfig := ctx.Config.Experimental.GenericSync
 	if len(exporterConfig.Exports) == 0 {
 		return nil
 	}
@@ -58,9 +59,9 @@ func CreateExporters(ctx *options.ControllerContext, exporterConfig *config.Conf
 			}
 		}
 
-		reversePatches := []*config.Patch{
+		reversePatches := []*vclusterconfig.Patch{
 			{
-				Operation: config.PatchTypeCopyFromObject,
+				Operation: vclusterconfig.PatchTypeCopyFromObject,
 				FromPath:  "status",
 				Path:      "status",
 			},
@@ -84,7 +85,7 @@ func CreateExporters(ctx *options.ControllerContext, exporterConfig *config.Conf
 	return nil
 }
 
-func createExporter(ctx *synccontext.RegisterContext, config *config.Export) (syncertypes.Syncer, error) {
+func createExporter(ctx *synccontext.RegisterContext, config *vclusterconfig.Export) (syncertypes.Syncer, error) {
 	obj := &unstructured.Unstructured{}
 	obj.SetKind(config.Kind)
 	obj.SetAPIVersion(config.APIVersion)
@@ -127,7 +128,7 @@ type exporter struct {
 
 	patcher  *patcher
 	gvk      schema.GroupVersionKind
-	config   *config.Export
+	config   *vclusterconfig.Export
 	selector labels.Selector
 	name     string
 }
@@ -346,7 +347,7 @@ func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (str
 	return translate.Default.PhysicalNamespace(namespace), nil
 }
 
-func validateExportConfig(config *config.Export) error {
+func validateExportConfig(config *vclusterconfig.Export) error {
 	for _, p := range append(config.Patches, config.ReversePatches...) {
 		if p.Regex != "" {
 			parsed, err := patchesregex.PrepareRegex(p.Regex)

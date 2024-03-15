@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/loft-sh/vcluster/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v3"
 	k8syaml "sigs.k8s.io/yaml"

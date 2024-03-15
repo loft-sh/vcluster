@@ -2,10 +2,9 @@ package manifests
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
+	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
@@ -25,9 +24,8 @@ const (
 
 var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as expected", func() {
 	var (
-		f                 *framework.Framework
-		hostConfigMapName string
-		HelmSecretLabels  = map[string]string{
+		f                = framework.DefaultFramework
+		HelmSecretLabels = map[string]string{
 			"owner": "helm",
 			"name":  ChartName,
 		}
@@ -37,23 +35,10 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 		}
 	)
 
-	ginkgo.JustBeforeEach(func() {
-		f = framework.DefaultFramework
-		hostConfigMapName = fmt.Sprintf("%s-%s", f.VclusterNamespace, InitConfigmapSuffix)
-	})
-
-	ginkgo.It("Test if configmap for both charts is created as expected", func() {
-		_, err := f.HostClient.
-			CoreV1().
-			ConfigMaps(f.VclusterNamespace).
-			Get(f.Context, hostConfigMapName, metav1.GetOptions{})
-		framework.ExpectNoError(err)
-	})
-
 	ginkgo.It("Test if configmap for both charts gets applied", func() {
 		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
-			cm, err := f.HostClient.CoreV1().ConfigMaps(f.VclusterNamespace).
-				Get(ctx, hostConfigMapName, metav1.GetOptions{})
+			cm, err := f.VclusterClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
+				Get(ctx, deploy.VClusterDeployConfigMap, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
 					return false, nil
@@ -61,15 +46,15 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 				return false, err
 			}
 
-			status := manifests.ParseStatus(cm)
 			// validate that all charts are Success
+			status := deploy.ParseStatus(cm)
 			for _, chart := range status.Charts {
-				if chart.Phase != string(manifests.StatusSuccess) {
+				if chart.Phase != string(deploy.StatusSuccess) {
 					return false, nil
 				}
 			}
 
-			return status.Phase == string(manifests.StatusSuccess) && len(status.Charts) == 2, nil
+			return status.Phase == string(deploy.StatusSuccess) && len(status.Charts) == 2, nil
 		})
 
 		framework.ExpectNoError(err)

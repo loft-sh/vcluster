@@ -26,6 +26,7 @@ COPY vendor/ vendor/
 COPY cmd/vcluster cmd/vcluster
 COPY cmd/vclusterctl cmd/vclusterctl
 COPY pkg/ pkg/
+COPY config/ config/
 
 ENV GO111MODULE on
 ENV DEBUG true

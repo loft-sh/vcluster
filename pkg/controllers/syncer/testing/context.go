@@ -2,10 +2,11 @@ package testing
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/util/log"
@@ -25,8 +26,8 @@ import (
 const (
 	DefaultTestTargetNamespace     = "test"
 	DefaultTestCurrentNamespace    = "vcluster"
-	DefaultTestVclusterName        = "vcluster"
-	DefaultTestVclusterServiceName = "vcluster"
+	DefaultTestVClusterName        = "vcluster"
+	DefaultTestVClusterServiceName = "vcluster"
 )
 
 func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func(ctx *synccontext.RegisterContext) (syncer.Object, error)) (*synccontext.SyncContext, syncer.Object) {
@@ -48,18 +49,46 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
 	return &synccontext.RegisterContext{
-		Context: context.Background(),
-		Options: &options.VirtualClusterOptions{
-			Name:            DefaultTestVclusterName,
-			ServiceName:     DefaultTestVclusterServiceName,
-			TargetNamespace: DefaultTestTargetNamespace,
-		},
-		Controllers:            constants.ExistingControllers.Clone(),
+		Context:                context.Background(),
+		Config:                 NewFakeConfig(),
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),
 	}
+}
+
+func NewFakeConfig() *config.VirtualClusterConfig {
+	// find vCluster config
+	workDir, err := os.Getwd()
+	if err != nil {
+		panic("current workDir: " + err.Error())
+	}
+
+	// find base dir
+	configPath := ""
+	for {
+		configPath = filepath.Join(workDir, "chart", "values.yaml")
+		_, err = os.Stat(configPath)
+		if err == nil {
+			break
+		} else if workDir == "/" {
+			panic("couldn't find chart/values.yaml")
+		}
+
+		workDir = filepath.Dir(workDir)
+	}
+
+	// parse config
+	vConfig, err := config.ParseConfig(configPath, DefaultTestVClusterName, nil)
+	if err != nil {
+		panic("load test config: " + workDir + " - " + err.Error())
+	}
+
+	vConfig.Name = DefaultTestVClusterName
+	vConfig.ServiceName = DefaultTestVClusterServiceName
+	vConfig.TargetNamespace = DefaultTestTargetNamespace
+	return vConfig
 }
 
 type fakeEventBroadcaster struct{}

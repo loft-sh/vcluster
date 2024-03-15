@@ -1,0 +1,141 @@
+suite: ClusterRoleBinding
+templates:
+  - clusterrolebinding.yaml
+
+tests:
+  - it: disable by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: enable by multi namespace mode
+    set:
+      experimental:
+        multiNamespaceMode:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: enable by from syncer
+    set:
+      sync:
+        fromHost:
+          ingressClasses:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: enable by generic sync
+    set:
+      experimental:
+        genericSync:
+          clusterRole:
+            extraRules:
+              - apiGroups: [""]
+                resources: ["test"]
+                verbs: ["test"]
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: enable by plugins
+    set:
+      plugins:
+        test:
+          rbac:
+            clusterRole:
+              extraRules:
+                - apiGroups: [""]
+                  resources: ["test"]
+                  verbs: ["test"]
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: enable by plugin
+    set:
+      plugin:
+        test:
+          rbac:
+            clusterRole:
+              extraRules:
+              - apiGroups: [""]
+                resources: ["test"]
+                verbs: ["test"]
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: enable by legacy api key
+    set:
+      pro: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRoleBinding
+      - equal:
+          path: metadata.name
+          value: vc-my-release-v-my-namespace
+      - notExists:
+          path: metadata.namespace
+
+  - it: enable by extra rules
+    set:
+      rbac:
+        clusterRole:
+          extraRules:
+            - apiGroups: [""]
+              resources: ["test"]
+              verbs: ["test"]
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRoleBinding
+      - equal:
+          path: metadata.name
+          value: vc-my-release-v-my-namespace
+      - notExists:
+          path: metadata.namespace
+
+  - it: enable by overwrite rules
+    set:
+      rbac:
+        clusterRole:
+          overwriteRules:
+            - apiGroups: [""]
+              resources: ["test"]
+              verbs: ["test"]
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRoleBinding
+      - equal:
+          path: metadata.name
+          value: vc-my-release-v-my-namespace
+      - notExists:
+          path: metadata.namespace
+
+

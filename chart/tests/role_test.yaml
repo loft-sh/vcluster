@@ -1,0 +1,176 @@
+suite: Role
+templates:
+  - role.yaml
+
+tests:
+  - it: check disabled
+    set:
+      rbac:
+        role:
+          enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check overwrite rules
+    set:
+      rbac:
+        role:
+          overwriteRules:
+            - apiGroups: [ "" ]
+              resources: [ "configmaps" ]
+              verbs: [ "create" ]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [ "" ]
+            resources: [ "configmaps" ]
+            verbs: [ "create" ]
+
+  - it: check plugin extra rules
+    set:
+      plugin:
+        test123:
+          rbac:
+            role:
+              extraRules:
+                - apiGroups: [ "" ]
+                  resources: [ "test123" ]
+                  verbs: [ "test123" ]
+      plugins:
+        test:
+          rbac:
+            role:
+              extraRules:
+              - apiGroups: [ "" ]
+                resources: [ "test" ]
+                verbs: [ "test" ]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 7
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [ "" ]
+            resources: [ "test123" ]
+            verbs: [ "test123" ]
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [ "" ]
+            resources: [ "test" ]
+            verbs: [ "test" ]
+
+  - it: check generic sync
+    set:
+      experimental:
+        genericSync:
+          role:
+            extraRules:
+              - apiGroups: [ "" ]
+                resources: [ "test" ]
+                verbs: [ "test" ]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 6
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [ "" ]
+            resources: [ "test" ]
+            verbs: [ "test" ]
+
+  - it: check extra rules
+    set:
+      rbac:
+        role:
+          extraRules:
+            - apiGroups: [""]
+              resources: ["test"]
+              verbs: ["test"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 6
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [ "" ]
+            resources: [ "test" ]
+            verbs: [ "test" ]
+
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - equal:
+          path: metadata.name
+          value: vc-my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+
+  - it: multi-namespace mode
+    set:
+      experimental:
+        multiNamespaceMode:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRole
+      - equal:
+          path: metadata.name
+          value: vc-mn-my-release-v-my-namespace
+
+  - it: metrics proxy
+    set:
+      observability:
+        metrics:
+          proxy:
+            pods: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "metrics.k8s.io" ]
+            resources: [ "pods" ]
+            verbs: [ "get", "list" ]

@@ -91,7 +91,8 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
 
   cp test/commonValues.yaml dist/commonValues.yaml
 
-  sed -i.bak "s|REPLACE_IMAGE_NAME|vcluster:e2e-latest|g" dist/commonValues.yaml
+  sed -i.bak "s|REPLACE_REPOSITORY_NAME|vcluster|g" dist/commonValues.yaml
+  sed -i.bak "s|REPLACE_TAG_NAME|e2e-latest|g" dist/commonValues.yaml
   rm dist/commonValues.yaml.bak
 
   sed -i.bak "s|kind-control-plane|vcluster-control-plane|g" dist/commonValues.yaml

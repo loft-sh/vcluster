@@ -1,155 +1,211 @@
 package config
 
 import (
-	"regexp"
+	"strings"
+
+	"github.com/loft-sh/vcluster/config"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
+	"k8s.io/klog/v2"
 )
 
-const Version = "v1beta1"
+// VirtualClusterConfig wraps the config and adds extra info such as name, serviceName and targetNamespace
+type VirtualClusterConfig struct {
+	// Holds the vCluster config
+	config.Config `json:",inline"`
 
-type Config struct {
-	// Version is the config version
-	Version string `json:"version,omitempty" yaml:"version,omitempty"`
+	// Name is the name of the vCluster
+	Name string `json:"name"`
 
-	// Exports syncs a resource from the virtual cluster to the host
-	Exports []*Export `json:"export,omitempty" yaml:"export,omitempty"`
+	// ServiceName is the name of the service of the vCluster
+	ServiceName string `json:"serviceName,omitempty"`
 
-	// Imports syncs a resource from the host cluster to virtual cluster
-	Imports []*Import `json:"import,omitempty" yaml:"import,omitempty"`
-
-	// Hooks are hooks that can be used to inject custom patches before syncing
-	Hooks *Hooks `json:"hooks,omitempty" yaml:"hooks,omitempty"`
+	// TargetNamespace is the namespace where the workloads go
+	TargetNamespace string `json:"targetNamespace,omitempty"`
 }
 
-type Hooks struct {
-	// HostToVirtual is a hook that is executed before syncing from the host to the virtual cluster
-	HostToVirtual []*Hook `json:"hostToVirtual,omitempty" yaml:"hostToVirtual,omitempty"`
+func (v VirtualClusterConfig) Distro() string {
+	if v.Config.ControlPlane.Distro.K3S.Enabled {
+		return config.K3SDistro
+	} else if v.Config.ControlPlane.Distro.K0S.Enabled {
+		return config.K0SDistro
+	} else if v.Config.ControlPlane.Distro.K8S.Enabled {
+		return config.K8SDistro
+	} else if v.Config.ControlPlane.Distro.EKS.Enabled {
+		return config.EKSDistro
+	}
 
-	// VirtualToHost is a hook that is executed before syncing from the virtual to the host cluster
-	VirtualToHost []*Hook `json:"virtualToHost,omitempty" yaml:"virtualToHost,omitempty"`
+	return config.K3SDistro
 }
 
-type Hook struct {
-	TypeInformation
+func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
+	distroConfig := config.VirtualClusterKubeConfig{}
+	switch v.Distro() {
+	case config.K3SDistro:
+		distroConfig = config.VirtualClusterKubeConfig{
+			KubeConfig:          "/data/server/cred/admin.kubeconfig",
+			ServerCAKey:         "/data/server/tls/server-ca.key",
+			ServerCACert:        "/data/server/tls/server-ca.crt",
+			ClientCACert:        "/data/server/tls/client-ca.crt",
+			RequestHeaderCACert: "/data/server/tls/request-header-ca.crt",
+		}
+	case config.K0SDistro:
+		distroConfig = config.VirtualClusterKubeConfig{
+			KubeConfig:          "/data/k0s/pki/admin.conf",
+			ServerCAKey:         "/data/k0s/pki/ca.key",
+			ServerCACert:        "/data/k0s/pki/ca.crt",
+			ClientCACert:        "/data/k0s/pki/ca.crt",
+			RequestHeaderCACert: "/data/k0s/pki/front-proxy-ca.crt",
+		}
+	case config.EKSDistro, config.K8SDistro:
+		distroConfig = config.VirtualClusterKubeConfig{
+			KubeConfig:          "/pki/admin.conf",
+			ServerCAKey:         "/pki/ca.key",
+			ServerCACert:        "/pki/ca.crt",
+			ClientCACert:        "/pki/ca.crt",
+			RequestHeaderCACert: "/pki/front-proxy-ca.crt",
+		}
+	}
 
-	// Verbs are the verbs that the hook should mutate
-	Verbs []string `json:"verbs,omitempty" yaml:"verbs,omitempty"`
+	retConfig := v.Config.Experimental.VirtualClusterKubeConfig
+	if retConfig.KubeConfig == "" {
+		retConfig.KubeConfig = distroConfig.KubeConfig
+	}
+	if retConfig.ClientCACert == "" {
+		retConfig.ClientCACert = distroConfig.ClientCACert
+	}
+	if retConfig.ServerCAKey == "" {
+		retConfig.ServerCAKey = distroConfig.ServerCAKey
+	}
+	if retConfig.ServerCACert == "" {
+		retConfig.ServerCACert = distroConfig.ServerCACert
+	}
+	if retConfig.RequestHeaderCACert == "" {
+		retConfig.RequestHeaderCACert = distroConfig.RequestHeaderCACert
+	}
 
-	// Patches are the patches to apply on the object to be synced
-	Patches []*Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
+	return retConfig
 }
 
-type Import struct {
-	SyncBase `json:",inline" yaml:",inline"`
+// LegacyOptions converts the config to the legacy cluster options
+func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, error) {
+	legacyPlugins := []string{}
+	for pluginName, plugin := range v.Plugin {
+		if plugin.Version != "" && !plugin.Optional {
+			continue
+		}
+
+		legacyPlugins = append(legacyPlugins, pluginName)
+	}
+
+	nodeSelector := ""
+	if v.Sync.FromHost.Nodes.Enabled {
+		selectors := []string{}
+		for k, v := range v.Sync.FromHost.Nodes.Selector.Labels {
+			selectors = append(selectors, k+"="+v)
+		}
+
+		nodeSelector = strings.Join(selectors, ",")
+	}
+
+	return &LegacyVirtualClusterOptions{
+		ProOptions: LegacyVirtualClusterProOptions{
+			RemoteKubeConfig:      v.Experimental.IsolatedControlPlane.KubeConfig,
+			RemoteNamespace:       v.Experimental.IsolatedControlPlane.Namespace,
+			RemoteServiceName:     v.Experimental.IsolatedControlPlane.Service,
+			IntegratedCoredns:     v.ControlPlane.CoreDNS.Embedded,
+			EtcdReplicas:          int(v.ControlPlane.StatefulSet.HighAvailability.Replicas),
+			EtcdEmbedded:          v.ControlPlane.BackingStore.EmbeddedEtcd.Enabled,
+			NoopSyncer:            !v.Experimental.SyncSettings.DisableSync,
+			SyncKubernetesService: v.Experimental.SyncSettings.RewriteKubernetesService,
+		},
+		ServerCaCert:                v.VirtualClusterKubeConfig().ServerCACert,
+		ServerCaKey:                 v.VirtualClusterKubeConfig().ServerCAKey,
+		TLSSANs:                     v.ControlPlane.Proxy.ExtraSANs,
+		RequestHeaderCaCert:         v.VirtualClusterKubeConfig().RequestHeaderCACert,
+		ClientCaCert:                v.VirtualClusterKubeConfig().ClientCACert,
+		KubeConfigPath:              v.VirtualClusterKubeConfig().KubeConfig,
+		KubeConfigContextName:       v.ExportKubeConfig.Context,
+		KubeConfigSecret:            v.ExportKubeConfig.Secret.Name,
+		KubeConfigSecretNamespace:   v.ExportKubeConfig.Secret.Namespace,
+		KubeConfigServer:            v.ExportKubeConfig.Server,
+		Tolerations:                 v.Sync.ToHost.Pods.EnforceTolerations,
+		BindAddress:                 v.ControlPlane.Proxy.BindAddress,
+		Port:                        v.ControlPlane.Proxy.Port,
+		Name:                        v.Name,
+		TargetNamespace:             v.TargetNamespace,
+		ServiceName:                 v.ServiceName,
+		SetOwner:                    v.Experimental.SyncSettings.SetOwner,
+		SyncAllNodes:                v.Sync.FromHost.Nodes.Selector.All,
+		EnableScheduler:             v.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		DisableFakeKubelets:         !v.Networking.Advanced.ProxyKubelets.ByIP && !v.Networking.Advanced.ProxyKubelets.ByHostname,
+		FakeKubeletIPs:              v.Networking.Advanced.ProxyKubelets.ByIP,
+		ClearNodeImages:             v.Sync.FromHost.Nodes.ClearImageStatus,
+		NodeSelector:                nodeSelector,
+		ServiceAccount:              v.ControlPlane.Advanced.WorkloadServiceAccount.Name,
+		EnforceNodeSelector:         true,
+		PluginListenAddress:         "localhost:10099",
+		OverrideHosts:               v.Sync.ToHost.Pods.RewriteHosts.Enabled,
+		OverrideHostsContainerImage: v.Sync.ToHost.Pods.RewriteHosts.InitContainerImage,
+		ServiceAccountTokenSecrets:  v.Sync.ToHost.Pods.UseSecretsForSATokens,
+		ClusterDomain:               v.Networking.Advanced.ClusterDomain,
+		LeaderElect:                 v.ControlPlane.StatefulSet.HighAvailability.Replicas > 1,
+		LeaseDuration:               v.ControlPlane.StatefulSet.HighAvailability.LeaseDuration,
+		RenewDeadline:               v.ControlPlane.StatefulSet.HighAvailability.RenewDeadline,
+		RetryPeriod:                 v.ControlPlane.StatefulSet.HighAvailability.RetryPeriod,
+		Plugins:                     legacyPlugins,
+		DefaultImageRegistry:        v.ControlPlane.Advanced.DefaultImageRegistry,
+		EnforcePodSecurityStandard:  v.Policies.PodSecurityStandard,
+		SyncLabels:                  v.Experimental.SyncSettings.SyncLabels,
+		MountPhysicalHostPaths:      false,
+		HostMetricsBindAddress:      "0",
+		VirtualMetricsBindAddress:   "0",
+		MultiNamespaceMode:          v.Experimental.MultiNamespaceMode.Enabled,
+		SyncAllSecrets:              v.Sync.ToHost.Secrets.All,
+		SyncAllConfigMaps:           v.Sync.ToHost.ConfigMaps.All,
+		ProxyMetricsServer:          v.Observability.Metrics.Proxy.Nodes || v.Observability.Metrics.Proxy.Pods,
+
+		DeprecatedSyncNodeChanges: v.Sync.FromHost.Nodes.SyncBackChanges,
+	}, nil
 }
 
-type SyncBase struct {
-	TypeInformation `json:",inline" yaml:",inline"`
+// DisableMissingAPIs checks if the  apis are enabled, if any are missing, disable the syncer and print a log
+func (v VirtualClusterConfig) DisableMissingAPIs(discoveryClient discovery.DiscoveryInterface) error {
+	resources, err := discoveryClient.ServerResourcesForGroupVersion("storage.k8s.io/v1")
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
 
-	Optional bool `json:"optional,omitempty" yaml:"optional,omitempty"`
+	// check if found
+	if v.Sync.FromHost.CSINodes.Enabled && !findResource(resources, "csinodes") {
+		v.Sync.FromHost.CSINodes.Enabled = false
+		klog.Warningf("host kubernetes apiserver not advertising resource csinodes in GroupVersion storage.k8s.io/v1, disabling the syncer")
+	}
 
-	// ReplaceWhenInvalid determines if the controller should try to recreate the object
-	// if there is a problem applying
-	ReplaceWhenInvalid bool `json:"replaceOnConflict,omitempty" yaml:"replaceOnConflict,omitempty"`
+	// check if found
+	if v.Sync.FromHost.CSIDrivers.Enabled && !findResource(resources, "csidrivers") {
+		v.Sync.FromHost.CSIDrivers.Enabled = false
+		klog.Warningf("host kubernetes apiserver not advertising resource csidrivers in GroupVersion storage.k8s.io/v1, disabling the syncer")
+	}
 
-	// Patches are the patches to apply on the virtual cluster objects
-	// when syncing them from the host cluster
-	Patches []*Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
+	// check if found
+	if v.Sync.FromHost.CSIStorageCapacities.Enabled && !findResource(resources, "csistoragecapacities") {
+		v.Sync.FromHost.CSIStorageCapacities.Enabled = false
+		klog.Warningf("host kubernetes apiserver not advertising resource csistoragecapacities in GroupVersion storage.k8s.io/v1, disabling the syncer")
+	}
 
-	// ReversePatches are the patches to apply to host cluster objects
-	// after it has been synced to the virtual cluster
-	ReversePatches []*Patch `json:"reversePatches,omitempty" yaml:"reversePatches,omitempty"`
+	return nil
 }
 
-type Export struct {
-	SyncBase `json:",inline" yaml:",inline"`
+func findResource(resources *metav1.APIResourceList, resourcePlural string) bool {
+	if resources != nil {
+		for _, r := range resources.APIResources {
+			if r.Name == resourcePlural {
+				return true
+			}
+		}
+	}
 
-	// Selector is a label selector to select the synced objects in the virtual cluster.
-	// If empty, all objects will be synced.
-	Selector *Selector `json:"selector,omitempty" yaml:"selector,omitempty"`
-}
-
-type TypeInformation struct {
-	// APIVersion of the object to sync
-	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
-
-	// Kind of the object to sync
-	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-}
-
-type Selector struct {
-	// LabelSelector are the labels to select the object from
-	LabelSelector map[string]string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
-}
-
-type Patch struct {
-	// Operation is the type of the patch
-	Operation PatchType `json:"op,omitempty" yaml:"op,omitempty"`
-
-	// FromPath is the path from the other object
-	FromPath string `json:"fromPath,omitempty" yaml:"fromPath,omitempty"`
-
-	// Path is the path of the patch
-	Path string `json:"path,omitempty" yaml:"path,omitempty"`
-
-	// NamePath is the path to the name of a child resource within Path
-	NamePath string `json:"namePath,omitempty" yaml:"namePath,omitempty"`
-
-	// NamespacePath is path to the namespace of a child resource within Path
-	NamespacePath string `json:"namespacePath,omitempty" yaml:"namespacePath,omitempty"`
-
-	// Value is the new value to be set to the path
-	Value interface{} `json:"value,omitempty" yaml:"value,omitempty"`
-
-	// Regex - is regular expresion used to identify the Name,
-	// and optionally Namespace, parts of the field value that
-	// will be replaced with the rewritten Name and/or Namespace
-	Regex       string         `json:"regex,omitempty" yaml:"regex,omitempty"`
-	ParsedRegex *regexp.Regexp `json:"-"               yaml:"-"`
-
-	// Conditions are conditions that must be true for
-	// the patch to get executed
-	Conditions []*PatchCondition `json:"conditions,omitempty" yaml:"conditions,omitempty"`
-
-	// Ignore determines if the path should be ignored if handled as a reverse patch
-	Ignore *bool `json:"ignore,omitempty" yaml:"ignore,omitempty"`
-
-	// Sync defines if a specialized syncer should be initialized using values
-	// from the rewriteName operation as Secret/Configmap names to be synced
-	Sync *PatchSync `json:"sync,omitempty" yaml:"sync,omitempty"`
-}
-
-type PatchType string
-
-const (
-	PatchTypeRewriteName                     = "rewriteName"
-	PatchTypeRewriteLabelKey                 = "rewriteLabelKey"
-	PatchTypeRewriteLabelSelector            = "rewriteLabelSelector"
-	PatchTypeRewriteLabelExpressionsSelector = "rewriteLabelExpressionsSelector"
-
-	PatchTypeCopyFromObject = "copyFromObject"
-	PatchTypeAdd            = "add"
-	PatchTypeReplace        = "replace"
-	PatchTypeRemove         = "remove"
-)
-
-type PatchCondition struct {
-	// Path is the path within the object to select
-	Path string `json:"path,omitempty" yaml:"path,omitempty"`
-
-	// SubPath is the path below the selected object to select
-	SubPath string `json:"subPath,omitempty" yaml:"subPath,omitempty"`
-
-	// Equal is the value the path should be equal to
-	Equal interface{} `json:"equal,omitempty" yaml:"equal,omitempty"`
-
-	// NotEqual is the value the path should not be equal to
-	NotEqual interface{} `json:"notEqual,omitempty" yaml:"notEqual,omitempty"`
-
-	// Empty means that the path value should be empty or unset
-	Empty *bool `json:"empty,omitempty" yaml:"empty,omitempty"`
-}
-
-type PatchSync struct {
-	Secret    *bool `json:"secret,omitempty"    yaml:"secret,omitempty"`
-	ConfigMap *bool `json:"configmap,omitempty" yaml:"configmap,omitempty"`
+	return false
 }

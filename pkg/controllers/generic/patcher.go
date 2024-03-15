@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/patches"
 	"github.com/pkg/errors"

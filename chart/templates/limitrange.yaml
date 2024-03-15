@@ -1,0 +1,35 @@
+{{- if .Values.policies.limitRange.enabled }}
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: vc-{{ .Release.Name }}
+  {{- if .Values.experimental.syncSettings.targetNamespace }}
+  namespace: {{ .Values.experimental.syncSettings.targetNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    {{- if .Values.policies.limitRange.labels }}
+{{ toYaml .Values.policies.limitRange.labels | indent 4 }}
+    {{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.limitRange.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  limits:
+  - default:
+      {{- range $key, $val := .Values.policies.limitRange.default }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
+    defaultRequest:
+      {{- range $key, $val := .Values.policies.limitRange.defaultRequest }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
+    type: Container
+{{- end }}

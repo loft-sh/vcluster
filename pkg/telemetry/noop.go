@@ -4,7 +4,7 @@ import (
 	"context"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -15,7 +15,7 @@ func (n *noopCollector) RecordStart(_ context.Context) {}
 
 func (n *noopCollector) RecordError(_ context.Context, _ ErrorSeverityType, _ error) {}
 
-func (n *noopCollector) Init(_ *rest.Config, _ string, _ *options.VirtualClusterOptions) {}
+func (n *noopCollector) Init(_ *rest.Config, _ string, _ *config.VirtualClusterConfig) {}
 
 func (n *noopCollector) Flush() {}
 
