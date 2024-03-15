@@ -152,3 +152,25 @@ tests:
       - equal:
           path: metadata.name
           value: vc-mn-my-release-v-my-namespace
+
+  - it: metrics proxy
+    set:
+      observability:
+        metrics:
+          proxy:
+            pods: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "metrics.k8s.io" ]
+            resources: [ "pods" ]
+            verbs: [ "get", "list" ]

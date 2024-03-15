@@ -47,7 +47,7 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 	}
 
 	// validate config
-	err = ValidateConfig(retConfig)
+	err = ValidateConfigAndSetDefaults(retConfig)
 	if err != nil {
 		return nil, err
 	}

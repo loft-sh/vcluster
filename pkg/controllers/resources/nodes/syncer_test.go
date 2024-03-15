@@ -520,7 +520,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
-				ctx.Config.Sync.FromHost.Nodes.SyncAll = true
+				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
 				ctx.Config.Sync.FromHost.Nodes.ClearImageStatus = true
 				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
 				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
@@ -572,7 +572,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
-				ctx.Config.Sync.FromHost.Nodes.SyncAll = true
+				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
 				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
 				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)

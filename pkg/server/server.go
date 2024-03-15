@@ -204,7 +204,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
 
 	// is metrics proxy enabled?
-	if ctx.Config.Observability.Metrics.Proxy.Nodes.Enabled || ctx.Config.Observability.Metrics.Proxy.Pods.Enabled {
+	if ctx.Config.Observability.Metrics.Proxy.Nodes || ctx.Config.Observability.Metrics.Proxy.Pods {
 		h = filters.WithMetricsServerProxy(
 			h,
 			ctx.Config.TargetNamespace,
@@ -216,7 +216,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 		)
 	}
 
-	if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncLabelsTaints {
+	if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncBackChanges {
 		h = filters.WithNodeChanges(ctx.Context, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
 	h = filters.WithFakeKubelet(h, localConfig, cachedVirtualClient)

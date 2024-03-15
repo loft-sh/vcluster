@@ -16,7 +16,7 @@ type VirtualClusterConfig struct {
 	config.Config `json:",inline"`
 
 	// Name is the name of the vCluster
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// ServiceName is the name of the service of the vCluster
 	ServiceName string `json:"serviceName,omitempty"`
@@ -137,7 +137,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		TargetNamespace:             v.TargetNamespace,
 		ServiceName:                 v.ServiceName,
 		SetOwner:                    v.Experimental.SyncSettings.SetOwner,
-		SyncAllNodes:                v.Sync.FromHost.Nodes.SyncAll,
+		SyncAllNodes:                v.Sync.FromHost.Nodes.Selector.All,
 		EnableScheduler:             v.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		DisableFakeKubelets:         !v.Networking.Advanced.ProxyKubelets.ByIP && !v.Networking.Advanced.ProxyKubelets.ByHostname,
 		FakeKubeletIPs:              v.Networking.Advanced.ProxyKubelets.ByIP,
@@ -164,9 +164,9 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		MultiNamespaceMode:          v.Experimental.MultiNamespaceMode.Enabled,
 		SyncAllSecrets:              v.Sync.ToHost.Secrets.All,
 		SyncAllConfigMaps:           v.Sync.ToHost.ConfigMaps.All,
-		ProxyMetricsServer:          v.Observability.Metrics.Proxy.Nodes.Enabled || v.Observability.Metrics.Proxy.Pods.Enabled,
+		ProxyMetricsServer:          v.Observability.Metrics.Proxy.Nodes || v.Observability.Metrics.Proxy.Pods,
 
-		DeprecatedSyncNodeChanges: v.Sync.FromHost.Nodes.SyncLabelsTaints,
+		DeprecatedSyncNodeChanges: v.Sync.FromHost.Nodes.SyncBackChanges,
 	}, nil
 }
 

@@ -8,7 +8,8 @@ sync:
     nodes:
       enabled: true
       # Either syncAllNodes or nodeSelector is required
-      syncAll: true
+      selector:
+        all: true
 
 experimental:
   deploy:

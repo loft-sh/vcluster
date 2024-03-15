@@ -66,9 +66,9 @@
           "$ref": "#/$defs/HostPathMapper",
           "description": "HostPathMapper defines if vCluster should rewrite host paths."
         },
-        "observability": {
-          "$ref": "#/$defs/ControlPlaneObservability",
-          "description": "Observability defines if a service monitor should get deployed by helm."
+        "serviceMonitor": {
+          "$ref": "#/$defs/ServiceMonitor",
+          "description": "ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself."
         },
         "advanced": {
           "$ref": "#/$defs/ControlPlaneAdvanced",
@@ -194,16 +194,6 @@
           },
           "type": "object",
           "description": "Labels are extra labels for this resource."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ControlPlaneObservability": {
-      "properties": {
-        "serviceMonitor": {
-          "$ref": "#/$defs/ServiceMonitor",
-          "description": "ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself."
         }
       },
       "additionalProperties": false,
@@ -1510,11 +1500,11 @@
     "MetricsProxy": {
       "properties": {
         "nodes": {
-          "$ref": "#/$defs/EnableSwitch",
+          "type": "boolean",
           "description": "Nodes defines if metrics-server nodes api should get proxied from host to vCluster."
         },
         "pods": {
-          "$ref": "#/$defs/EnableSwitch",
+          "type": "boolean",
           "description": "Pods defines if metrics-server pods api should get proxied from host to vCluster."
         }
       },
@@ -1571,12 +1561,12 @@
           "$ref": "#/$defs/ReplicateServices",
           "description": "ReplicateServices allows replicating services from the host within the vCluster or the other way around."
         },
-        "resolveServices": {
+        "resolveDNS": {
           "items": {
-            "$ref": "#/$defs/ResolveServices"
+            "$ref": "#/$defs/ResolveDNS"
           },
           "type": "array",
-          "description": "ResolveServices allows to define extra DNS rules. This only works if embedded coredns is configured."
+          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured."
         },
         "advanced": {
           "$ref": "#/$defs/NetworkingAdvanced",
@@ -2094,46 +2084,40 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ResolveServiceHostname": {
+    "ResolveDNS": {
       "properties": {
         "hostname": {
           "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ResolveServiceService": {
-      "properties": {
+        },
         "service": {
           "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ResolveServiceTarget": {
-      "properties": {
-        "vcluster": {
-          "$ref": "#/$defs/ResolveServiceService"
         },
-        "host": {
-          "$ref": "#/$defs/ResolveServiceService"
-        },
-        "external": {
-          "$ref": "#/$defs/ResolveServiceHostname"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ResolveServices": {
-      "properties": {
-        "service": {
+        "namespace": {
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/ResolveServiceTarget"
+          "$ref": "#/$defs/ResolveDNSTarget"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ResolveDNSTarget": {
+      "properties": {
+        "hostname": {
+          "type": "string"
+        },
+        "vcluster": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -2319,6 +2303,10 @@
     },
     "SyncNodeSelector": {
       "properties": {
+        "all": {
+          "type": "boolean",
+          "description": "All specifies if all nodes should get synced by vCluster from the host to the vCluster or only the ones where pods are assigned to."
+        },
         "labels": {
           "additionalProperties": {
             "type": "string"
@@ -2336,13 +2324,9 @@
           "type": "boolean",
           "description": "Enabled specifies if syncing real nodes should be enabled. If this is disabled, vCluster will create fake nodes instead."
         },
-        "syncAll": {
+        "syncBackChanges": {
           "type": "boolean",
-          "description": "SyncAll specifies if all nodes should get synced by vCluster from the host to the vCluster or only the ones where pods are assigned to."
-        },
-        "syncLabelsTaints": {
-          "type": "boolean",
-          "description": "SyncLabelsTaints enables syncing labels and taints from the vCluster to the host cluster. If this is enabled someone within the vCluster will be able to change the labels and taints of the host cluster node."
+          "description": "SyncBackChanges enables syncing labels and taints from the vCluster to the host cluster. If this is enabled someone within the vCluster will be able to change the labels and taints of the host cluster node."
         },
         "clearImageStatus": {
           "type": "boolean",

@@ -1,4 +1,4 @@
-{{- if .Values.controlPlane.observability.serviceMonitor.enabled }}
+{{- if .Values.controlPlane.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -9,10 +9,10 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-  {{- if .Values.controlPlane.observability.serviceMonitor.labels }}
-{{ toYaml .Values.controlPlane.observability.serviceMonitor.labels | indent 4 }}
+  {{- if .Values.controlPlane.serviceMonitor.labels }}
+{{ toYaml .Values.controlPlane.serviceMonitor.labels | indent 4 }}
   {{- end }}
-  {{- $annotations := merge dict .Values.controlPlane.observability.serviceMonitor.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}
+  {{- $annotations := merge dict .Values.controlPlane.serviceMonitor.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}
   {{- if $annotations }}
   annotations:
 {{ toYaml $annotations | indent 4 }}

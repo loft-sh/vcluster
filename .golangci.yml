@@ -5,6 +5,7 @@ linters:
   disable-all: true
   enable:
     - asasalint
+    - tagalign
     - asciicheck
     - bidichk
     - decorder

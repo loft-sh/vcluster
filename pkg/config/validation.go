@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
-	"github.com/samber/lo"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
@@ -23,7 +23,7 @@ var (
 	verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
 )
 
-func ValidateConfig(config *VirtualClusterConfig) error {
+func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 	// check the value of pod security standard
 	if config.Policies.PodSecurityStandard != "" && !allowedPodSecurityStandards[config.Policies.PodSecurityStandard] {
 		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", config.Policies.PodSecurityStandard)
@@ -38,8 +38,8 @@ func ValidateConfig(config *VirtualClusterConfig) error {
 	}
 
 	// check if enable scheduler works correctly
-	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.SyncAll && len(config.Sync.FromHost.Nodes.Selector.Labels) == 0 {
-		config.Sync.FromHost.Nodes.SyncAll = true
+	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Selector.All && len(config.Sync.FromHost.Nodes.Selector.Labels) == 0 {
+		config.Sync.FromHost.Nodes.Selector.All = true
 	}
 
 	// enable additional controllers required for scheduling with storage
@@ -99,7 +99,7 @@ func validateDistro(config *VirtualClusterConfig) error {
 	}
 
 	if enabledDistros > 1 {
-		return fmt.Errorf("please only enable a single distribution")
+		return fmt.Errorf("only one distribution can be enabled")
 	}
 	return nil
 }
@@ -228,7 +228,7 @@ func validatePatch(patch *config.Patch) error {
 }
 
 func validateVerb(verb string) error {
-	if !lo.Contains(verbs, verb) {
+	if !slices.Contains(verbs, verb) {
 		return fmt.Errorf("invalid verb \"%s\"; expected on of %q", verb, verbs)
 	}
 

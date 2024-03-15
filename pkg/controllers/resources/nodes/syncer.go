@@ -32,7 +32,7 @@ import (
 
 func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.Provider) (syncertypes.Object, error) {
 	var nodeSelector labels.Selector
-	if ctx.Config.Sync.FromHost.Nodes.SyncAll {
+	if ctx.Config.Sync.FromHost.Nodes.Selector.All {
 		nodeSelector = labels.Everything()
 	} else if len(ctx.Config.Sync.FromHost.Nodes.Selector.Labels) > 0 {
 		nodeSelector = labels.Set(ctx.Config.Sync.FromHost.Nodes.Selector.Labels).AsSelector()

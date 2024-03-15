@@ -1,7 +1,5 @@
 observability:
   metrics:
     proxy:
-      nodes:
-        enabled: true
-      pods:
-        enabled: true
+      nodes: true
+      pods: true

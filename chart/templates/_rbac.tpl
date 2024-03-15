@@ -26,7 +26,7 @@
     .Values.sync.fromHost.ingressClasses.enabled
     .Values.sync.fromHost.storageClasses.enabled
     .Values.sync.fromHost.nodes.enabled
-    .Values.observability.metrics.proxy.nodes.enabled
+    .Values.observability.metrics.proxy.nodes
     .Values.experimental.multiNamespaceMode.enabled
     .Values.networking.resolveServices -}}
 {{- true -}}

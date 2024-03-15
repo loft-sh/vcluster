@@ -59,7 +59,11 @@ func NewStartCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&startOptions.Config, "config", "/var/vcluster/config.yaml", "The path where to find the vCluster config to load")
+
+	// Should only used for development
 	cmd.Flags().StringArrayVar(&startOptions.SetValues, "set", []string{}, "Set values for the config. E.g. --set 'exportKubeConfig.secret.name=my-name'")
+
+	_ = cmd.Flags().MarkHidden("set")
 	return cmd
 }
 

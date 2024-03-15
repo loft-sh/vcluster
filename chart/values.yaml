@@ -53,10 +53,10 @@ sync:
       enabled: false
     nodes:
       enabled: false
-      syncAll: false
-      syncLabelsTaints: false
+      syncBackChanges: false
       clearImageStatus: false
       selector:
+        all: false
         labels: {}
 
 # Control Plane Options
@@ -224,6 +224,7 @@ controlPlane:
   proxy:
     bindAddress: "0.0.0.0"
     port: 8443
+    extraSANs: []
 
   coredns:
     enabled: true
@@ -342,11 +343,10 @@ controlPlane:
       startupProbe:
         enabled: true
 
-  observability:
-    serviceMonitor:
-      enabled: false
-      labels: {}
-      annotations: {}
+  serviceMonitor:
+    enabled: false
+    labels: {}
+    annotations: {}
 
   advanced:
     defaultImageRegistry: ""
@@ -388,17 +388,15 @@ rbac:
 observability:
   metrics:
     proxy:
-      nodes:
-        enabled: false
-      pods:
-        enabled: false
+      nodes: false
+      pods: false
 
 networking:
   # Embedded CoreDNS plugin config
   replicateServices:
     toHost: []
     fromHost: []
-  resolveServices: []
+  resolveDNS: []
   advanced:
     clusterDomain: "cluster.local"
     fallbackHostCluster: true

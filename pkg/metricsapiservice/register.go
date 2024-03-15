@@ -137,7 +137,7 @@ func createOperation(ctrlCtx *config.ControllerContext) wait.ConditionWithContex
 func RegisterOrDeregisterAPIService(ctx *config.ControllerContext) error {
 	// check if the api service should get created
 	exists := checkExistingAPIService(ctx.Context, ctx.VirtualManager.GetClient())
-	if ctx.Config.Observability.Metrics.Proxy.Nodes.Enabled || ctx.Config.Observability.Metrics.Proxy.Pods.Enabled {
+	if ctx.Config.Observability.Metrics.Proxy.Nodes || ctx.Config.Observability.Metrics.Proxy.Pods {
 		return applyOperation(ctx.Context, createOperation(ctx))
 	} else if exists {
 		return applyOperation(ctx.Context, deleteOperation(ctx))

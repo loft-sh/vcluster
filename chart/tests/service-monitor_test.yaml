@@ -14,9 +14,8 @@ tests:
       namespace: my-namespace
     set:
       controlPlane:
-        observability:
-          serviceMonitor:
-            enabled: true
+        serviceMonitor:
+          enabled: true
     asserts:
       - hasDocuments:
           count: 1

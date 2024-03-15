@@ -193,3 +193,21 @@ tests:
             resources: [ "features", "virtualclusters" ]
             verbs: [ "get", "list", "watch" ]
 
+  - it: metrics proxy
+    set:
+      observability:
+        metrics:
+          proxy:
+            nodes: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "metrics.k8s.io" ]
+            resources: [ "nodes" ]
+            verbs: [ "get", "list" ]
