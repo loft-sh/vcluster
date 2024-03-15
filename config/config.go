@@ -1,6 +1,8 @@
 package config
 
-import "regexp"
+import (
+	"regexp"
+)
 
 // Config is the vCluster config. This struct describes valid helm values for vCluster as well as configuration used by the vCluster binary itself.
 type Config struct {
@@ -252,18 +254,23 @@ type ServiceMapping struct {
 }
 
 type ResolveDNS struct {
-	Hostname  string           `json:"hostname"`
-	Service   string           `json:"service"`
-	Namespace string           `json:"namespace"`
-	Target    ResolveDNSTarget `json:"target,omitempty"`
+	Hostname  string `json:"hostname"`
+	Service   string `json:"service"`
+	Namespace string `json:"namespace"`
+
+	Target ResolveDNSTarget `json:"target,omitempty"`
 }
 
 type ResolveDNSTarget struct {
-	Hostname  string `json:"hostname,omitempty"`
-	VCluster  string `json:"vcluster"`
-	Service   string `json:"service"`
-	Namespace string `json:"namespace"`
-	Mode      string `json:"mode"`
+	Hostname string `json:"hostname,omitempty"`
+	IP       string `json:"ip,omitempty"`
+
+	// HostService to target, format is hostNamespace/hostService
+	HostService string `json:"hostService,omitempty"`
+	// HostNamespace to target
+	HostNamespace string `json:"hostNamespace,omitempty"`
+	// VClusterService format is hostNamespace/vClusterName/vClusterNamespace/vClusterService
+	VClusterService string `json:"vClusterService,omitempty"`
 }
 
 type NetworkingAdvanced struct {
@@ -986,6 +993,9 @@ type Experimental struct {
 
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.
 	VirtualClusterKubeConfig VirtualClusterKubeConfig `json:"virtualClusterKubeConfig,omitempty"`
+
+	// DenyProxyRequests denies certain requests in the vCluster proxy.
+	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" pro:"true"`
 }
 
 type ExperimentalMultiNamespaceMode struct {
@@ -1258,4 +1268,78 @@ type PatchCondition struct {
 type PatchSync struct {
 	Secret    *bool `json:"secret,omitempty"    yaml:"secret,omitempty"`
 	ConfigMap *bool `json:"configmap,omitempty" yaml:"configmap,omitempty"`
+}
+
+type DenyRule struct {
+	// The name of the check.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// Namespace describe a list of namespaces that will be affected by the check.
+	// An empty list means that all namespaces will be affected.
+	// In case of ClusterScoped rules, only the Namespace resource is affected.
+	// +optional
+	Namespaces []string `json:"namespaces,omitempty"`
+
+	// Rules describes on which verbs and on what resources/subresources the webhook is enforced.
+	// The webhook is enforced if it matches any Rule.
+	// The version of the request must match the rule version exactly. Equivalent matching is not supported.
+	// +optional
+	Rules []RuleWithVerbs `json:"rules,omitempty"`
+
+	// ExcludedUsers describe a list of users for which the checks will be skipped.
+	// Impersonation attempts on these users will still be subjected to the checks.
+	// +optional
+	ExcludedUsers []string `json:"excludedUsers,omitempty"`
+}
+
+type RuleWithVerbs struct {
+	// APIGroups is the API groups the resources belong to. '*' is all groups.
+	// If '*' is present, the length of the slice must be one.
+	// Required.
+	// +listType=atomic
+	APIGroups []string `json:"apiGroups,omitempty" protobuf:"bytes,1,rep,name=apiGroups"`
+
+	// APIVersions is the API versions the resources belong to. '*' is all versions.
+	// If '*' is present, the length of the slice must be one.
+	// Required.
+	// +listType=atomic
+	APIVersions []string `json:"apiVersions,omitempty" protobuf:"bytes,2,rep,name=apiVersions"`
+
+	// Resources is a list of resources this rule applies to.
+	//
+	// For example:
+	// 'pods' means pods.
+	// 'pods/log' means the log subresource of pods.
+	// '*' means all resources, but not subresources.
+	// 'pods/*' means all subresources of pods.
+	// '*/scale' means all scale subresources.
+	// '*/*' means all resources and their subresources.
+	//
+	// If wildcard is present, the validation rule will ensure resources do not
+	// overlap with each other.
+	//
+	// Depending on the enclosing object, subresources might not be allowed.
+	// Required.
+	// +listType=atomic
+	Resources []string `json:"resources,omitempty" protobuf:"bytes,3,rep,name=resources"`
+
+	// scope specifies the scope of this rule.
+	// Valid values are "Cluster", "Namespaced", and "*"
+	// "Cluster" means that only cluster-scoped resources will match this rule.
+	// Namespace API objects are cluster-scoped.
+	// "Namespaced" means that only namespaced resources will match this rule.
+	// "*" means that there are no scope restrictions.
+	// Subresources match the scope of their parent resource.
+	// Default is "*".
+	//
+	// +optional
+	Scope *string `json:"scope,omitempty" protobuf:"bytes,4,rep,name=scope"`
+
+	// Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.
+	// For non-resource requests, this is the lowercase http verb.
+	// If '*' is present, the length of the slice must be one.
+	// Required.
+	// +listType=atomic
+	Verbs []string `json:"operations,omitempty"`
 }

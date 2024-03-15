@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/validation"
 )
 
 var allowedPodSecurityStandards = map[string]bool{
@@ -76,6 +77,20 @@ func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 
 	// validate distro
 	err = validateDistro(config)
+	if err != nil {
+		return err
+	}
+
+	// check deny proxy requests
+	for _, c := range config.Experimental.DenyProxyRequests {
+		err := validateCheck(c)
+		if err != nil {
+			return err
+		}
+	}
+
+	// check resolve dns
+	err = validateMappings(config.Networking.ResolveDNS)
 	if err != nil {
 		return err
 	}
@@ -343,5 +358,78 @@ func validateWebhookClientCfg(clientCfg admissionregistrationv1.WebhookClientCon
 		}
 	}
 
+	return nil
+}
+
+func validateCheck(check config.DenyRule) error {
+	for _, ns := range check.Namespaces {
+		errors := validation.ValidateNamespaceName(ns, false)
+		if len(errors) != 0 {
+			return fmt.Errorf("invalid Namespaces in %q check: %v", check.Name, errors)
+		}
+	}
+	var err error
+	for _, r := range check.Rules {
+		err = validateWildcardOrExact(r.Verbs, "create", "get", "update", "patch", "delete")
+		if err != nil {
+			return fmt.Errorf("invalid Verb defined in the %q check: %w", check.Name, err)
+		}
+
+		err = validateWildcardOrAny(r.APIGroups)
+		if err != nil {
+			return fmt.Errorf("invalid APIGroup defined in the %q check: %w", check.Name, err)
+		}
+
+		err = validateWildcardOrAny(r.APIVersions)
+		if err != nil {
+			return fmt.Errorf("invalid APIVersion defined in the %q check: %w", check.Name, err)
+		}
+
+		if r.Scope != nil {
+			switch *r.Scope {
+			case string(admissionregistrationv1.ClusterScope):
+			case string(admissionregistrationv1.NamespacedScope):
+			case string(admissionregistrationv1.AllScopes):
+			default:
+				return fmt.Errorf("invalid Scope defined in the %q check: %q", check.Name, *r.Scope)
+			}
+		}
+	}
+	return nil
+}
+
+func validateWildcardOrExact(values []string, validValues ...string) error {
+	if len(values) == 1 && values[0] == "*" {
+		return nil
+	}
+	for _, val := range values {
+		if val == "*" {
+			return fmt.Errorf("when wildcard(*) is used, it must be the only value in the list")
+		}
+
+		// empty list of validValues means any value is valid
+		valid := len(validValues) == 0
+		for _, v := range validValues {
+			if val == v {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("invalid value %q", val)
+		}
+	}
+	return nil
+}
+
+func validateWildcardOrAny(values []string) error {
+	if len(values) == 1 && values[0] == "*" {
+		return nil
+	}
+	for _, val := range values {
+		if val == "*" {
+			return fmt.Errorf("when wildcard(*) is used, it must be the only value in the list")
+		}
+	}
 	return nil
 }

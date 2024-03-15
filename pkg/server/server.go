@@ -227,9 +227,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	}
 
 	for _, f := range ctx.AdditionalServerFilters {
-		h = f(h, servertypes.FilterOptions{
-			LocalScheme: uncachedLocalClient.Scheme(),
-		})
+		h = f(h)
 	}
 
 	for _, handler := range ctx.ExtraHandlers {

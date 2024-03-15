@@ -110,7 +110,7 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 	}
 
 	// get load balancer ip
-	// currently, the load balancer service is named <serviceName>-lb, but the syncer image might run in legacy environments
+	// currently, the load balancer service is named <serviceName>, but the syncer image might run in legacy environments
 	// where the load balancer service is the same service, the service is only updated if the helm template is rerun,
 	// so we are leaving this snippet in, but the load balancer ip will be read via the lbSVC var below
 	for _, ing := range svc.Status.LoadBalancer.Ingress {
@@ -142,18 +142,17 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 	}
 
 	// get cluster ip of load balancer service
-	lbSVCName := translate.GetLoadBalancerSVCName(s.serviceName)
 	lbSVC := &corev1.Service{}
 	err = s.currentNamespaceCient.Get(ctx, types.NamespacedName{
 		Namespace: s.currentNamespace,
-		Name:      lbSVCName,
+		Name:      s.serviceName,
 	}, lbSVC)
 	// proceed only if load balancer service exists
 	if !kerrors.IsNotFound(err) {
 		if err != nil {
-			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %w", s.currentNamespace, lbSVCName, err)
+			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %w", s.currentNamespace, s.serviceName, err)
 		} else if lbSVC.Spec.ClusterIP == "" {
-			return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, lbSVCName)
+			return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", s.currentNamespace, s.serviceName)
 		}
 
 		for _, ing := range lbSVC.Status.LoadBalancer.Ingress {
@@ -165,9 +164,10 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 			}
 		}
 		// append hostnames for load balancer service
-		retSANs = append(retSANs,
-			lbSVCName,
-			lbSVCName+"."+s.currentNamespace, "*."+translate.VClusterName+"."+s.currentNamespace+"."+constants.NodeSuffix,
+		retSANs = append(
+			retSANs,
+			s.serviceName,
+			s.serviceName+"."+s.currentNamespace, "*."+translate.VClusterName+"."+s.currentNamespace+"."+constants.NodeSuffix,
 		)
 	}
 

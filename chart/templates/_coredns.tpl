@@ -16,14 +16,14 @@ Corefile: |-
           kubeconfig /data/vcluster/admin.conf
           {{- end }}
           pods insecure
-          {{- if or .Values.networking.advanced.fallbackHostCluster (and .Values.controlPlane.coredns.embedded .Values.networking.resolveServices) }}
+          {{- if or .Values.networking.advanced.fallbackHostCluster (and .Values.controlPlane.coredns.embedded .Values.networking.resolveDNS) }}
           fallthrough cluster.local in-addr.arpa ip6.arpa
           {{- else }}
           fallthrough in-addr.arpa ip6.arpa
           {{- end }}
       }
-      {{- if and .Values.controlPlane.coredns.embedded .Values.networking.resolveServices }}
-      vcluster {{ toYaml .Values.networking.resolveServices | b64enc }}
+      {{- if and .Values.controlPlane.coredns.embedded .Values.networking.resolveDNS }}
+      vcluster
       {{- end }}
       hosts /etc/NodeHosts {
           ttl 60

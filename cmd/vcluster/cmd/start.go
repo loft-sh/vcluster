@@ -97,7 +97,7 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 	telemetry.Collector.Init(controlPlaneConfig, controlPlaneNamespace, vConfig)
 
 	// initialize feature gate from environment
-	err = pro.LicenseInit(ctx, controlPlaneConfig, controlPlaneNamespace, vConfig.Platform.APIKey.Value, vConfig.Platform.APIKey.SecretRef.Namespace, vConfig.Platform.APIKey.SecretRef.Name)
+	err = pro.LicenseInit(ctx, controlPlaneConfig, controlPlaneNamespace, vConfig)
 	if err != nil {
 		return fmt.Errorf("init license: %w", err)
 	}

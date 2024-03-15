@@ -107,7 +107,7 @@ func StartControllers(
 			controllerContext,
 			types.NamespacedName{
 				Namespace: controlPlaneNamespace,
-				Name:      controlPlaneService + "-lb",
+				Name:      controlPlaneService,
 			},
 			controlPlaneClient,
 			types.NamespacedName{
