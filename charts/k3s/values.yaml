@@ -537,3 +537,5 @@ noopSyncer:
   #
   #secret: ""
 
+### additional sidecar container
+# sidecarContainer:

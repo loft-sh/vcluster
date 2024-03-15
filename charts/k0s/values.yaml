@@ -512,3 +512,6 @@ telemetry:
   platformUserID: ""
   platformInstanceID: ""
   machineID: ""
+
+### additional sidecar container
+# sidecarContainer:

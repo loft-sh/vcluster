@@ -428,4 +428,7 @@ spec:
 {{ toYaml .Values.syncer.resources | indent 10 }}
       {{- end }}
 {{- include "vcluster.legacyPlugins.containers" . | indent 6 }}
+      {{- if .Values.sidecarContainer }}
+{{ toYaml .Values.sidecarContainer | indent 6 }}
+      {{- end }}
 {{- end }}
