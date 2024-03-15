@@ -50,21 +50,21 @@
           "$ref": "#/$defs/ControlPlaneProxy",
           "description": "Proxy defines options for the vCluster control plane proxy that is used to do authentication and intercept requests."
         },
-        "service": {
-          "$ref": "#/$defs/ControlPlaneService",
-          "description": "Service defines options for the vCluster service deployed by helm."
+        "hostPathMapper": {
+          "$ref": "#/$defs/HostPathMapper",
+          "description": "HostPathMapper defines if vCluster should rewrite host paths."
         },
         "ingress": {
           "$ref": "#/$defs/ControlPlaneIngress",
           "description": "Ingress defines options for the vCluster ingress deployed by helm."
         },
+        "service": {
+          "$ref": "#/$defs/ControlPlaneService",
+          "description": "Service defines options for the vCluster service deployed by helm."
+        },
         "statefulSet": {
           "$ref": "#/$defs/ControlPlaneStatefulSet",
           "description": "StatefulSet defines options for the vCluster statefulSet deployed by helm."
-        },
-        "hostPathMapper": {
-          "$ref": "#/$defs/HostPathMapper",
-          "description": "HostPathMapper defines if vCluster should rewrite host paths."
         },
         "serviceMonitor": {
           "$ref": "#/$defs/ServiceMonitor",
@@ -321,6 +321,10 @@
           "type": "boolean",
           "description": "Enabled defines if the control plane service should be enabled"
         },
+        "spec": {
+          "type": "object",
+          "description": "Spec allows you to configure extra service options."
+        },
         "kubeletNodePort": {
           "type": "integer",
           "description": "KubeletNodePort is the node port where the fake kubelet is exposed. Defaults to 0."
@@ -328,10 +332,6 @@
         "httpsNodePort": {
           "type": "integer",
           "description": "HTTPSNodePort is the node port where https is exposed. Defaults to 0."
-        },
-        "spec": {
-          "type": "object",
-          "description": "Spec allows you to configure extra service options."
         },
         "annotations": {
           "additionalProperties": {
@@ -388,6 +388,30 @@
     },
     "ControlPlaneStatefulSet": {
       "properties": {
+        "highAvailability": {
+          "$ref": "#/$defs/ControlPlaneHighAvailability",
+          "description": "HighAvailability holds options related to high availability."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Resources are the resource requests and limits for the statefulSet container."
+        },
+        "scheduling": {
+          "$ref": "#/$defs/ControlPlaneScheduling",
+          "description": "Scheduling holds options related to scheduling."
+        },
+        "security": {
+          "$ref": "#/$defs/ControlPlaneSecurity",
+          "description": "Security defines pod or container security context."
+        },
+        "probes": {
+          "$ref": "#/$defs/ControlPlaneProbes",
+          "description": "Probes enables or disables the main container probes."
+        },
+        "persistence": {
+          "$ref": "#/$defs/ControlPlanePersistence",
+          "description": "Persistence defines options around persistence for the statefulSet."
+        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
@@ -401,6 +425,10 @@
           },
           "type": "object",
           "description": "Labels are extra labels for this resource."
+        },
+        "pods": {
+          "$ref": "#/$defs/LabelsAndAnnotations",
+          "description": "Pods are additional labels or annotations for the statefulSet pod."
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -434,34 +462,6 @@
           },
           "type": "array",
           "description": "Env are additional environment variables for the statefulSet container."
-        },
-        "pods": {
-          "$ref": "#/$defs/LabelsAndAnnotations",
-          "description": "Pods are additional labels or annotations for the statefulSet pod."
-        },
-        "probes": {
-          "$ref": "#/$defs/ControlPlaneProbes",
-          "description": "Probes enables or disables the main container probes."
-        },
-        "security": {
-          "$ref": "#/$defs/ControlPlaneSecurity",
-          "description": "Security defines pod or container security context."
-        },
-        "persistence": {
-          "$ref": "#/$defs/ControlPlanePersistence",
-          "description": "Persistence defines options around persistence for the statefulSet."
-        },
-        "scheduling": {
-          "$ref": "#/$defs/ControlPlaneScheduling",
-          "description": "Scheduling holds options related to scheduling."
-        },
-        "highAvailability": {
-          "$ref": "#/$defs/ControlPlaneHighAvailability",
-          "description": "HighAvailability holds options related to high availability."
-        },
-        "resources": {
-          "$ref": "#/$defs/Resources",
-          "description": "Resources are the resource requests and limits for the statefulSet container."
         }
       },
       "additionalProperties": false,
@@ -599,6 +599,37 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "DenyRule": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the check.\n+optional"
+        },
+        "namespaces": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Namespace describe a list of namespaces that will be affected by the check.\nAn empty list means that all namespaces will be affected.\nIn case of ClusterScoped rules, only the Namespace resource is affected.\n+optional"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/RuleWithVerbs"
+          },
+          "type": "array",
+          "description": "Rules describes on which verbs and on what resources/subresources the webhook is enforced.\nThe webhook is enforced if it matches any Rule.\nThe version of the request must match the rule version exactly. Equivalent matching is not supported.\n+optional"
+        },
+        "excludedUsers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExcludedUsers describe a list of users for which the checks will be skipped.\nImpersonation attempts on these users will still be subjected to the checks.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Distro": {
       "properties": {
         "k3s": {
@@ -698,13 +729,13 @@
           "type": "array",
           "description": "Env are extra environment variables to use for the main container."
         },
-        "securityContext": {
-          "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
-        },
         "resources": {
           "type": "object",
           "description": "Resources are the resources for the distro init container"
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "SecurityContext can be used for the distro init container"
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -749,13 +780,13 @@
           "type": "array",
           "description": "Env are extra environment variables to use for the main container."
         },
-        "securityContext": {
-          "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
-        },
         "resources": {
           "type": "object",
           "description": "Resources are the resources for the distro init container"
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "SecurityContext can be used for the distro init container"
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -808,13 +839,13 @@
           "type": "array",
           "description": "Env are extra environment variables to use for the main container."
         },
-        "securityContext": {
-          "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
-        },
         "resources": {
           "type": "object",
           "description": "Resources are the resources for the distro init container"
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "SecurityContext can be used for the distro init container"
         }
       },
       "additionalProperties": false,
@@ -846,9 +877,9 @@
     },
     "Experimental": {
       "properties": {
-        "isolatedControlPlane": {
-          "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
-          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves."
+        "deploy": {
+          "$ref": "#/$defs/ExperimentalDeploy",
+          "description": "Deploy allows you to configure manifests and helm charts to deploy within the vCluster."
         },
         "syncSettings": {
           "$ref": "#/$defs/ExperimentalSyncSettings",
@@ -858,17 +889,24 @@
           "$ref": "#/$defs/ExperimentalGenericSync",
           "description": "GenericSync holds options to generically sync resources from vCluster to host."
         },
-        "deploy": {
-          "$ref": "#/$defs/ExperimentalDeploy",
-          "description": "Deploy allows you to configure manifests and helm charts to deploy within the vCluster."
-        },
         "multiNamespaceMode": {
           "$ref": "#/$defs/ExperimentalMultiNamespaceMode",
           "description": "MultiNamespaceMode tells vCluster to sync to multiple namespaces instead of a single one. This will map each vCluster namespace to a single namespace in the host cluster."
         },
+        "isolatedControlPlane": {
+          "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
+          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves."
+        },
         "virtualClusterKubeConfig": {
           "$ref": "#/$defs/VirtualClusterKubeConfig",
           "description": "VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config."
+        },
+        "denyProxyRequests": {
+          "items": {
+            "$ref": "#/$defs/DenyRule"
+          },
+          "type": "array",
+          "description": "DenyProxyRequests denies certain requests in the vCluster proxy."
         }
       },
       "additionalProperties": false,
@@ -1709,6 +1747,10 @@
     },
     "Platform": {
       "properties": {
+        "apiKey": {
+          "$ref": "#/$defs/PlatformAPIKey",
+          "description": "APIKey defines how vCluster can find the api key used for the platform."
+        },
         "name": {
           "type": "string",
           "description": "Name is the name of the vCluster instance in the vCluster platform"
@@ -1720,10 +1762,6 @@
         "project": {
           "type": "string",
           "description": "Project is the project within the platform where the vCluster should connect to."
-        },
-        "apiKey": {
-          "$ref": "#/$defs/PlatformAPIKey",
-          "description": "APIKey defines how vCluster can find the api key used for the platform."
         }
       },
       "additionalProperties": false,
@@ -1778,6 +1816,22 @@
           "type": "string",
           "description": "Name is the name of the init-container and NOT the plugin name"
         },
+        "image": {
+          "type": "string",
+          "description": "Image is the container image that should be used for the plugin"
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the pull policy to use for the container image"
+        },
+        "config": {
+          "type": "object",
+          "description": "Config is the plugin config to use. This can be arbitrary config used for the plugin."
+        },
+        "rbac": {
+          "$ref": "#/$defs/PluginsRBAC",
+          "description": "RBAC holds additional rbac configuration for the plugin"
+        },
         "command": {
           "items": {
             "type": "string"
@@ -1792,18 +1846,6 @@
           "type": "array",
           "description": "Args are the arguments that should be used for the init container"
         },
-        "image": {
-          "type": "string",
-          "description": "Image is the container image that should be used for the plugin"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy to use for the container image"
-        },
-        "config": {
-          "type": "object",
-          "description": "Config is the plugin config to use. This can be arbitrary config used for the plugin."
-        },
         "securityContext": {
           "type": "object",
           "description": "SecurityContext is the container security context used for the init container"
@@ -1816,10 +1858,6 @@
           "items": true,
           "type": "array",
           "description": "VolumeMounts are extra volume mounts for the init container"
-        },
-        "rbac": {
-          "$ref": "#/$defs/PluginsRBAC",
-          "description": "RBAC holds additional rbac configuration for the plugin"
         },
         "version": {
           "type": "string",
@@ -1861,6 +1899,22 @@
           "type": "string",
           "description": "Name is the name of the init-container and NOT the plugin name"
         },
+        "image": {
+          "type": "string",
+          "description": "Image is the container image that should be used for the plugin"
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the pull policy to use for the container image"
+        },
+        "config": {
+          "type": "object",
+          "description": "Config is the plugin config to use. This can be arbitrary config used for the plugin."
+        },
+        "rbac": {
+          "$ref": "#/$defs/PluginsRBAC",
+          "description": "RBAC holds additional rbac configuration for the plugin"
+        },
         "command": {
           "items": {
             "type": "string"
@@ -1875,18 +1929,6 @@
           "type": "array",
           "description": "Args are the arguments that should be used for the init container"
         },
-        "image": {
-          "type": "string",
-          "description": "Image is the container image that should be used for the plugin"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy to use for the container image"
-        },
-        "config": {
-          "type": "object",
-          "description": "Config is the plugin config to use. This can be arbitrary config used for the plugin."
-        },
         "securityContext": {
           "type": "object",
           "description": "SecurityContext is the container security context used for the init container"
@@ -1899,10 +1941,6 @@
           "items": true,
           "type": "array",
           "description": "VolumeMounts are extra volume mounts for the init container"
-        },
-        "rbac": {
-          "$ref": "#/$defs/PluginsRBAC",
-          "description": "RBAC holds additional rbac configuration for the plugin"
         }
       },
       "additionalProperties": false,
@@ -1937,6 +1975,10 @@
     },
     "Policies": {
       "properties": {
+        "networkPolicy": {
+          "$ref": "#/$defs/NetworkPolicy",
+          "description": "NetworkPolicy specifies network policy options."
+        },
         "podSecurityStandard": {
           "type": "string",
           "description": "PodSecurityStandard that can be enforced can be one of: empty (\"\"), baseline, restricted or privileged"
@@ -1948,10 +1990,6 @@
         "limitRange": {
           "$ref": "#/$defs/LimitRange",
           "description": "LimitRange specifies limit range options."
-        },
-        "networkPolicy": {
-          "$ref": "#/$defs/NetworkPolicy",
-          "description": "NetworkPolicy specifies network policy options."
         },
         "centralAdmission": {
           "$ref": "#/$defs/CentralAdmission",
@@ -1981,19 +2019,19 @@
           "type": "boolean",
           "description": "Disabled defines if the cluster role should be disabled. Otherwise, its automatically determined if vCluster requires a cluster role."
         },
-        "overwriteRules": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "OverwriteRules will overwrite the cluster role rules completely."
-        },
         "extraRules": {
           "items": {
             "type": "object"
           },
           "type": "array",
           "description": "ExtraRules will add rules to the cluster role."
+        },
+        "overwriteRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "OverwriteRules will overwrite the cluster role rules completely."
         }
       },
       "additionalProperties": false,
@@ -2046,19 +2084,19 @@
           "type": "boolean",
           "description": "Enabled"
         },
-        "overwriteRules": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "OverwriteRules will overwrite the role rules completely."
-        },
         "extraRules": {
           "items": {
             "type": "object"
           },
           "type": "array",
           "description": "ExtraRules will add rules to the role."
+        },
+        "overwriteRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "OverwriteRules will overwrite the role rules completely."
         }
       },
       "additionalProperties": false,
@@ -2107,17 +2145,20 @@
         "hostname": {
           "type": "string"
         },
-        "vcluster": {
+        "ip": {
           "type": "string"
         },
-        "service": {
-          "type": "string"
+        "hostService": {
+          "type": "string",
+          "description": "HostService to target, format is hostNamespace/hostService"
         },
-        "namespace": {
-          "type": "string"
+        "hostNamespace": {
+          "type": "string",
+          "description": "HostNamespace to target"
         },
-        "mode": {
-          "type": "string"
+        "vClusterService": {
+          "type": "string",
+          "description": "VClusterService format is hostNamespace/vClusterName/vClusterNamespace/vClusterService"
         }
       },
       "additionalProperties": false,
@@ -2171,6 +2212,44 @@
         "requests": {
           "type": "object",
           "description": "Requests are minimal resources that will be consumed by the container"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RuleWithVerbs": {
+      "properties": {
+        "apiGroups": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "APIGroups is the API groups the resources belong to. '*' is all groups.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
+        },
+        "apiVersions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "APIVersions is the API versions the resources belong to. '*' is all versions.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
+        },
+        "resources": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Resources is a list of resources this rule applies to.\n\nFor example:\n'pods' means pods.\n'pods/log' means the log subresource of pods.\n'*' means all resources, but not subresources.\n'pods/*' means all subresources of pods.\n'*/scale' means all scale subresources.\n'*/*' means all resources and their subresources.\n\nIf wildcard is present, the validation rule will ensure resources do not\noverlap with each other.\n\nDepending on the enclosing object, subresources might not be allowed.\nRequired.\n+listType=atomic"
+        },
+        "scope": {
+          "type": "string",
+          "description": "scope specifies the scope of this rule.\nValid values are \"Cluster\", \"Namespaced\", and \"*\"\n\"Cluster\" means that only cluster-scoped resources will match this rule.\nNamespace API objects are cluster-scoped.\n\"Namespaced\" means that only namespaced resources will match this rule.\n\"*\" means that there are no scope restrictions.\nSubresources match the scope of their parent resource.\nDefault is \"*\".\n\n+optional"
+        },
+        "operations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.\nFor non-resource requests, this is the lowercase http verb.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
         }
       },
       "additionalProperties": false,
@@ -2269,33 +2348,33 @@
     },
     "SyncFromHost": {
       "properties": {
-        "csiDrivers": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the vCluster, but not back."
-        },
-        "csiNodes": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSINodes defines if csi nodes should get synced from the host cluster to the vCluster, but not back."
-        },
-        "csiStorageCapacities": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the vCluster, but not back."
-        },
-        "ingressClasses": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the vCluster, but not back."
+        "nodes": {
+          "$ref": "#/$defs/SyncNodes",
+          "description": "Nodes defines if nodes should get synced from the host cluster to the vCluster, but not back."
         },
         "events": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "Events defines if events should get synced from the host cluster to the vCluster, but not back."
         },
+        "ingressClasses": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the vCluster, but not back."
+        },
         "storageClasses": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "StorageClasses defines if storage classes should get synced from the host cluster to the vCluster, but not back."
         },
-        "nodes": {
-          "$ref": "#/$defs/SyncNodes",
-          "description": "Nodes defines if nodes should get synced from the host cluster to the vCluster, but not back."
+        "csiNodes": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "CSINodes defines if csi nodes should get synced from the host cluster to the vCluster, but not back."
+        },
+        "csiDrivers": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the vCluster, but not back."
+        },
+        "csiStorageCapacities": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the vCluster, but not back."
         }
       },
       "additionalProperties": false,
@@ -2388,6 +2467,22 @@
     },
     "SyncToHost": {
       "properties": {
+        "pods": {
+          "$ref": "#/$defs/SyncPods",
+          "description": "Pods defines if pods created within the vCluster should get synced to the host cluster."
+        },
+        "secrets": {
+          "$ref": "#/$defs/SyncAllResource",
+          "description": "Secrets defines if secrets created within the vCluster should get synced to the host cluster."
+        },
+        "configMaps": {
+          "$ref": "#/$defs/SyncAllResource",
+          "description": "ConfigMaps defines if config maps created within the vCluster should get synced to the host cluster."
+        },
+        "ingresses": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "Ingresses defines if ingresses created within the vCluster should get synced to the host cluster."
+        },
         "services": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "Services defines if services created within the vCluster should get synced to the host cluster."
@@ -2396,53 +2491,37 @@
           "$ref": "#/$defs/EnableSwitch",
           "description": "Endpoints defines if endpoints created within the vCluster should get synced to the host cluster."
         },
-        "ingresses": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "Ingresses defines if ingresses created within the vCluster should get synced to the host cluster."
-        },
-        "priorityClasses": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "PriorityClasses defines if priority classes created within the vCluster should get synced to the host cluster."
-        },
         "networkPolicies": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "NetworkPolicies defines if network policies created within the vCluster should get synced to the host cluster."
-        },
-        "volumeSnapshots": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "VolumeSnapshots defines if volume snapshots created within the vCluster should get synced to the host cluster."
-        },
-        "podDisruptionBudgets": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "PodDisruptionBudgets defines if pod disruption budgets created within the vCluster should get synced to the host cluster."
-        },
-        "serviceAccounts": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "ServiceAccounts defines if service accounts created within the vCluster should get synced to the host cluster."
-        },
-        "storageClasses": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "StorageClasses defines if storage classes created within the vCluster should get synced to the host cluster."
-        },
-        "persistentVolumes": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "PersistentVolumes defines if persistent volumes created within the vCluster should get synced to the host cluster."
         },
         "persistentVolumeClaims": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "PersistentVolumeClaims defines if persistent volume claims created within the vCluster should get synced to the host cluster."
         },
-        "configMaps": {
-          "$ref": "#/$defs/SyncAllResource",
-          "description": "ConfigMaps defines if config maps created within the vCluster should get synced to the host cluster."
+        "persistentVolumes": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "PersistentVolumes defines if persistent volumes created within the vCluster should get synced to the host cluster."
         },
-        "secrets": {
-          "$ref": "#/$defs/SyncAllResource",
-          "description": "Secrets defines if secrets created within the vCluster should get synced to the host cluster."
+        "volumeSnapshots": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "VolumeSnapshots defines if volume snapshots created within the vCluster should get synced to the host cluster."
         },
-        "pods": {
-          "$ref": "#/$defs/SyncPods",
-          "description": "Pods defines if pods created within the vCluster should get synced to the host cluster."
+        "storageClasses": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "StorageClasses defines if storage classes created within the vCluster should get synced to the host cluster."
+        },
+        "serviceAccounts": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "ServiceAccounts defines if service accounts created within the vCluster should get synced to the host cluster."
+        },
+        "podDisruptionBudgets": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "PodDisruptionBudgets defines if pod disruption budgets created within the vCluster should get synced to the host cluster."
+        },
+        "priorityClasses": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "PriorityClasses defines if priority classes created within the vCluster should get synced to the host cluster."
         }
       },
       "additionalProperties": false,
@@ -2457,13 +2536,13 @@
         "instanceCreator": {
           "type": "string"
         },
+        "machineID": {
+          "type": "string"
+        },
         "platformUserID": {
           "type": "string"
         },
         "platformInstanceID": {
-          "type": "string"
-        },
-        "machineID": {
           "type": "string"
         }
       },
@@ -2562,21 +2641,29 @@
       "$ref": "#/$defs/ExportKubeConfig",
       "description": "ExportKubeConfig describes how vCluster should export the vCluster kube config"
     },
-    "controlPlane": {
-      "$ref": "#/$defs/ControlPlane",
-      "description": "ControlPlane holds options how to configure the vCluster control-plane"
-    },
     "sync": {
       "$ref": "#/$defs/Sync",
       "description": "Sync describes how to sync resources from the vCluster to host cluster and back"
+    },
+    "networking": {
+      "$ref": "#/$defs/Networking",
+      "description": "Networking are networking options related to the vCluster"
+    },
+    "policies": {
+      "$ref": "#/$defs/Policies",
+      "description": "Policies defines policies to enforce for the vCluster deployment as well as within the vCluster"
     },
     "observability": {
       "$ref": "#/$defs/Observability",
       "description": "Observability holds options to proxy metrics from the host cluster into the vCluster"
     },
-    "networking": {
-      "$ref": "#/$defs/Networking",
-      "description": "Networking are networking options related to the vCluster"
+    "controlPlane": {
+      "$ref": "#/$defs/ControlPlane",
+      "description": "ControlPlane holds options how to configure the vCluster control-plane"
+    },
+    "rbac": {
+      "$ref": "#/$defs/RBAC",
+      "description": "RBAC are role based access control options for the vCluster"
     },
     "plugins": {
       "anyOf": [
@@ -2600,13 +2687,9 @@
       },
       "description": "Plugins define what vCluster plugins to load."
     },
-    "policies": {
-      "$ref": "#/$defs/Policies",
-      "description": "Policies defines policies to enforce for the vCluster deployment as well as within the vCluster"
-    },
-    "rbac": {
-      "$ref": "#/$defs/RBAC",
-      "description": "RBAC are role based access control options for the vCluster"
+    "platform": {
+      "$ref": "#/$defs/Platform",
+      "description": "Platform holds options how vCluster should connect to vCluster platform."
     },
     "experimental": {
       "$ref": "#/$defs/Experimental",
@@ -2615,10 +2698,6 @@
     "telemetry": {
       "$ref": "#/$defs/Telemetry",
       "description": "Telemetry is the configuration related to telemetry gathered about vCluster usage."
-    },
-    "platform": {
-      "$ref": "#/$defs/Platform",
-      "description": "Platform holds options how vCluster should connect to vCluster platform."
     },
     "serviceCIDR": {
       "type": "string",
