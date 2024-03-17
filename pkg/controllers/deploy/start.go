@@ -1,16 +1,12 @@
 package deploy
 
 import (
-	"context"
-	"time"
-
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
 
@@ -38,17 +34,15 @@ func RegisterInitManifestsController(controllerCtx *config.ControllerContext) er
 	}
 
 	go func() {
-		wait.JitterUntilWithContext(controllerCtx.Context, func(ctx context.Context) {
-			for {
-				result, err := controller.Apply(ctx, controllerCtx.Config)
-				if err != nil {
-					klog.Errorf("Error reconciling init_configmap: %v", err)
-					break
-				} else if !result.Requeue {
-					break
-				}
+		for {
+			result, err := controller.Apply(controllerCtx.Context, controllerCtx.Config)
+			if err != nil {
+				klog.Errorf("Error reconciling init_configmap: %v", err)
+				break
+			} else if !result.Requeue {
+				break
 			}
-		}, time.Second*10, 1.0, true)
+		}
 	}()
 
 	return nil

@@ -6,11 +6,11 @@
       "properties": {
         "embeddedEtcd": {
           "$ref": "#/$defs/EmbeddedEtcd",
-          "description": "EmbeddedEtcd defines to use embedded etcd as a storage backend for the vCluster"
+          "description": "EmbeddedEtcd defines to use embedded etcd as a storage backend for the virtual cluster"
         },
         "externalEtcd": {
           "$ref": "#/$defs/ExternalEtcd",
-          "description": "ExternalEtcd defines to use an external etcd deployed by the helm chart as a storage backend for the vCluster"
+          "description": "ExternalEtcd defines to use an external etcd deployed by the Helm chart as a storage backend for the virtual cluster"
         }
       },
       "additionalProperties": false,
@@ -21,12 +21,12 @@
         "validatingWebhooks": {
           "items": true,
           "type": "array",
-          "description": "ValidatingWebhooks are validating webhooks that should be enforced in the vCluster"
+          "description": "ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster"
         },
         "mutatingWebhooks": {
           "items": true,
           "type": "array",
-          "description": "MutatingWebhooks are mutating webhooks that should be enforced in the vCluster"
+          "description": "MutatingWebhooks are mutating webhooks that should be enforced in the virtual cluster"
         }
       },
       "additionalProperties": false,
@@ -36,11 +36,11 @@
       "properties": {
         "distro": {
           "$ref": "#/$defs/Distro",
-          "description": "Distro holds vCluster related distro options."
+          "description": "Distro holds virtual cluster related distro options."
         },
         "backingStore": {
           "$ref": "#/$defs/BackingStore",
-          "description": "BackingStore defines which backing store to use for vCluster. If not defined will fallback to the default distro backing store."
+          "description": "BackingStore defines which backing store to use for virtual cluster. If not defined will fallback to the default distro backing store."
         },
         "coredns": {
           "$ref": "#/$defs/CoreDNS",
@@ -48,7 +48,7 @@
         },
         "proxy": {
           "$ref": "#/$defs/ControlPlaneProxy",
-          "description": "Proxy defines options for the vCluster control plane proxy that is used to do authentication and intercept requests."
+          "description": "Proxy defines options for the virtual cluster control plane proxy that is used to do authentication and intercept requests."
         },
         "hostPathMapper": {
           "$ref": "#/$defs/HostPathMapper",
@@ -56,15 +56,15 @@
         },
         "ingress": {
           "$ref": "#/$defs/ControlPlaneIngress",
-          "description": "Ingress defines options for the vCluster ingress deployed by helm."
+          "description": "Ingress defines options for vCluster ingress deployed by Helm."
         },
         "service": {
           "$ref": "#/$defs/ControlPlaneService",
-          "description": "Service defines options for the vCluster service deployed by helm."
+          "description": "Service defines options for vCluster service deployed by Helm."
         },
         "statefulSet": {
           "$ref": "#/$defs/ControlPlaneStatefulSet",
-          "description": "StatefulSet defines options for the vCluster statefulSet deployed by helm."
+          "description": "StatefulSet defines options for vCluster statefulSet deployed by Helm."
         },
         "serviceMonitor": {
           "$ref": "#/$defs/ServiceMonitor",
@@ -82,27 +82,27 @@
       "properties": {
         "defaultImageRegistry": {
           "type": "string",
-          "description": "DefaultImageRegistry will be used as a prefix for all internal images deployed by vCluster or helm. This makes it easy to\nupload all required vCluster images to a single private repository and set this value. Workload images are not affected by this."
+          "description": "DefaultImageRegistry will be used as a prefix for all internal images deployed by vCluster or Helm. This makes it easy to\nupload all required vCluster images to a single private repository and set this value. Workload images are not affected by this."
         },
         "virtualScheduler": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "VirtualScheduler defines if a scheduler should be used within the vCluster or the scheduling decision for workloads will be made by the host cluster."
+          "description": "VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster."
         },
         "serviceAccount": {
           "$ref": "#/$defs/ControlPlaneServiceAccount",
-          "description": "ServiceAccount specifies options for the vCluster control-plane service account."
+          "description": "ServiceAccount specifies options for the vCluster control plane service account."
         },
         "workloadServiceAccount": {
           "$ref": "#/$defs/ControlPlaneWorkloadServiceAccount",
-          "description": "WorkloadServiceAccount specifies options for the service account that will be used for the workloads that run within the vCluster."
+          "description": "WorkloadServiceAccount specifies options for the service account that will be used for the workloads that run within the virtual cluster."
         },
         "headlessService": {
           "$ref": "#/$defs/ControlPlaneHeadlessService",
-          "description": "HeadlessService specifies options for the headless service used for the vCluster statefulSet."
+          "description": "HeadlessService specifies options for the headless service used for the vCluster StatefulSet."
         },
         "globalMetadata": {
           "$ref": "#/$defs/ControlPlaneGlobalMetadata",
-          "description": "GlobalMetadata is metadata that will be added to all resources deployed by helm."
+          "description": "GlobalMetadata is metadata that will be added to all resources deployed by Helm."
         }
       },
       "additionalProperties": false,
@@ -252,11 +252,11 @@
       "properties": {
         "bindAddress": {
           "type": "string",
-          "description": "BindAddress under which the vCluster will expose the proxy."
+          "description": "BindAddress under which vCluster will expose the proxy."
         },
         "port": {
           "type": "integer",
-          "description": "Port under which the vCluster will expose the proxy."
+          "description": "Port under which vCluster will expose the proxy."
         },
         "extraSANs": {
           "items": {
@@ -475,7 +475,7 @@
         },
         "name": {
           "type": "string",
-          "description": "Name specifies what name to use for the service account for the vCluster workloads."
+          "description": "Name specifies what name to use for the service account for the virtual cluster workloads."
         },
         "imagePullSecrets": {
           "items": {
@@ -514,11 +514,11 @@
         },
         "service": {
           "$ref": "#/$defs/CoreDNSService",
-          "description": "Service holds extra options for the coredns service deployed within the vCluster"
+          "description": "Service holds extra options for the coredns service deployed within the virtual cluster"
         },
         "deployment": {
           "$ref": "#/$defs/CoreDNSDeployment",
-          "description": "Deployment holds extra options for the coredns deployment deployed within the vCluster"
+          "description": "Deployment holds extra options for the coredns deployment deployed within the virtual cluster"
         },
         "overwriteConfig": {
           "type": "string",
@@ -634,7 +634,7 @@
       "properties": {
         "k3s": {
           "$ref": "#/$defs/DistroK3s",
-          "description": "K3S holds k3s relevant configuration."
+          "description": "K3S holds K3s relevant configuration."
         },
         "k0s": {
           "$ref": "#/$defs/DistroK0s",
@@ -642,7 +642,7 @@
         },
         "k8s": {
           "$ref": "#/$defs/DistroK8s",
-          "description": "K8S holds k8s relevant configuration."
+          "description": "K8S holds K8s relevant configuration."
         },
         "eks": {
           "$ref": "#/$defs/DistroK8s",
@@ -767,11 +767,11 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled specifies if the k3s distro should be enabled. Only one distro can be enabled at the same time."
+          "description": "Enabled specifies if the K3s distro should be enabled. Only one distro can be enabled at the same time."
         },
         "token": {
           "type": "string",
-          "description": "Token is the k3s token to use. If empty, vCluster will choose one."
+          "description": "Token is the K3s token to use. If empty, vCluster will choose one."
         },
         "env": {
           "items": {
@@ -818,7 +818,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled specifies if the k8s distro should be enabled. Only one distro can be enabled at the same time."
+          "description": "Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time."
         },
         "apiServer": {
           "$ref": "#/$defs/DistroContainerDisabled",
@@ -859,7 +859,7 @@
         },
         "migrateFromExternalEtcd": {
           "type": "boolean",
-          "description": "MigrateFromExternalEtcd signals that vCluster should migrate from the external etcd."
+          "description": "MigrateFromExternalEtcd signals that vCluster should migrate from the external etcd to embedded etcd."
         }
       },
       "additionalProperties": false,
@@ -879,7 +879,7 @@
       "properties": {
         "deploy": {
           "$ref": "#/$defs/ExperimentalDeploy",
-          "description": "Deploy allows you to configure manifests and helm charts to deploy within the vCluster."
+          "description": "Deploy allows you to configure manifests and Helm charts to deploy within the virtual cluster."
         },
         "syncSettings": {
           "$ref": "#/$defs/ExperimentalSyncSettings",
@@ -887,11 +887,11 @@
         },
         "genericSync": {
           "$ref": "#/$defs/ExperimentalGenericSync",
-          "description": "GenericSync holds options to generically sync resources from vCluster to host."
+          "description": "GenericSync holds options to generically sync resources from virtual cluster to host."
         },
         "multiNamespaceMode": {
           "$ref": "#/$defs/ExperimentalMultiNamespaceMode",
-          "description": "MultiNamespaceMode tells vCluster to sync to multiple namespaces instead of a single one. This will map each vCluster namespace to a single namespace in the host cluster."
+          "description": "MultiNamespaceMode tells virtual cluster to sync to multiple namespaces instead of a single one. This will map each virtual cluster namespace to a single namespace in the host cluster."
         },
         "isolatedControlPlane": {
           "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
@@ -916,18 +916,18 @@
       "properties": {
         "manifests": {
           "type": "string",
-          "description": "Manifests are raw kubernetes manifests that should get applied within the vCluster."
+          "description": "Manifests are raw Kubernetes manifests that should get applied within the virtual cluster."
         },
         "manifestsTemplate": {
           "type": "string",
-          "description": "ManifestsTemplate is a kubernetes manifest template that will be rendered with vCluster values before applying it within the vCluster."
+          "description": "ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster."
         },
         "helm": {
           "items": {
             "$ref": "#/$defs/ExperimentalDeployHelm"
           },
           "type": "array",
-          "description": "Helm are helm charts that should get deployed into the vCluster"
+          "description": "Helm are Helm charts that should get deployed into the virtual cluster"
         }
       },
       "additionalProperties": false,
@@ -949,11 +949,11 @@
         },
         "timeout": {
           "type": "string",
-          "description": "Timeout defines the timeout for helm"
+          "description": "Timeout defines the timeout for Helm"
         },
         "bundle": {
           "type": "string",
-          "description": "Bundle allows to compress the helm chart and specify this instead of an online chart"
+          "description": "Bundle allows to compress the Helm chart and specify this instead of an online chart"
         }
       },
       "additionalProperties": false,
@@ -1049,11 +1049,11 @@
         },
         "headless": {
           "type": "boolean",
-          "description": "Headless states that helm should deploy the vCluster in headless mode for the isolated control plane."
+          "description": "Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane."
         },
         "kubeConfig": {
           "type": "string",
-          "description": "KubeConfig is the path where to find the remote workload cluster kube config."
+          "description": "KubeConfig is the path where to find the remote workload cluster kubeconfig."
         },
         "namespace": {
           "type": "string",
@@ -1092,7 +1092,7 @@
         },
         "rewriteKubernetesService": {
           "type": "boolean",
-          "description": "RewriteKubernetesService will rewrite the kubernetes service to point to the vCluster if disableSync is enabled"
+          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled"
         },
         "targetNamespace": {
           "type": "string",
@@ -1107,7 +1107,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "SyncLabels are labels that should get not rewritten when syncing from vCluster."
+          "description": "SyncLabels are labels that should get not rewritten when syncing from the virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -1156,35 +1156,35 @@
       "properties": {
         "context": {
           "type": "string",
-          "description": "Context is the name of the context within the generated kube config to use."
+          "description": "Context is the name of the context within the generated kubeconfig to use."
         },
         "server": {
           "type": "string",
-          "description": "Server can be used to override the default https://localhost:8443 and specify a custom hostname for the\ngenerated kube-config."
+          "description": "Override the default https://localhost:8443 and specify a custom hostname for the generated kubeconfig."
         },
         "secret": {
           "$ref": "#/$defs/ExportKubeConfigSecretReference",
-          "description": "Secret defines in which secret in the host cluster the generated kube-config should be stored.\nIf this is not defined, vCluster will only create it at `vc-NAME`. If another name is specified here\nvCluster will also create the config in this other secret."
+          "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.\nIf this is not defined, vCluster create it with `vc-NAME`. If you specify another name,\nvCluster creates the config in this other secret."
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "ExportKubeConfig describes how vCluster should export the vCluster kube config"
+      "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeconfig."
     },
     "ExportKubeConfigSecretReference": {
       "properties": {
         "name": {
           "type": "string",
-          "description": "Name is the name of the secret where the kube config should get stored."
+          "description": "Name is the name of the secret where the kubeconfig should get stored."
         },
         "namespace": {
           "type": "string",
-          "description": "Namespace defines the namespace where the kube config secret should get stored. If this is not equal to the namespace\nwhere the vCluster is deployed, you need to make sure vCluster has access to this other namespace."
+          "description": "Namespace where vCluster should store the kubeconfig secret. If this is not equal to the namespace\nwhere you deployed vCluster, you need to make sure vCluster has access to this other namespace."
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "ExportKubeConfigSecretReference defines in which secret in the host cluster the generated kube-config should be stored."
+      "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig."
     },
     "ExternalEtcd": {
       "properties": {
@@ -1539,11 +1539,11 @@
       "properties": {
         "nodes": {
           "type": "boolean",
-          "description": "Nodes defines if metrics-server nodes api should get proxied from host to vCluster."
+          "description": "Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster."
         },
         "pods": {
           "type": "boolean",
-          "description": "Pods defines if metrics-server pods api should get proxied from host to vCluster."
+          "description": "Pods defines if metrics-server pods api should get proxied from host to virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -1583,11 +1583,11 @@
       "properties": {
         "byHostname": {
           "type": "boolean",
-          "description": "ByHostname will add a special vCluster hostname to the nodes where the node can be reached at. This doesn't work\nfor all applications, e.g. prometheus requires a node ip."
+          "description": "ByHostname will add a special vCluster hostname to the nodes where the node can be reached at. This doesn't work\nfor all applications, e.g. Prometheus requires a node IP."
         },
         "byIP": {
           "type": "boolean",
-          "description": "ByIP will create a separate service in the host cluster for every node that will point to vCluster and will be used to\nroute traffic."
+          "description": "ByIP will create a separate service in the host cluster for every node that will point to virtual cluster and will be used to\nroute traffic."
         }
       },
       "additionalProperties": false,
@@ -1597,7 +1597,7 @@
       "properties": {
         "replicateServices": {
           "$ref": "#/$defs/ReplicateServices",
-          "description": "ReplicateServices allows replicating services from the host within the vCluster or the other way around."
+          "description": "ReplicateServices allows replicating services from the host within the virtual cluster or the other way around."
         },
         "resolveDNS": {
           "items": {
@@ -1618,7 +1618,7 @@
       "properties": {
         "clusterDomain": {
           "type": "string",
-          "description": "ClusterDomain is the Kubernetes cluster domain to use within the vCluster."
+          "description": "ClusterDomain is the Kubernetes cluster domain to use within the virtual cluster."
         },
         "fallbackHostCluster": {
           "type": "boolean",
@@ -1636,7 +1636,7 @@
       "properties": {
         "metrics": {
           "$ref": "#/$defs/ObservabilityMetrics",
-          "description": "Metrics allows to proxy metrics server apis from host to vCluster."
+          "description": "Metrics allows to proxy metrics server apis from host to virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -1757,11 +1757,11 @@
         },
         "owner": {
           "$ref": "#/$defs/PlatformOwner",
-          "description": "Owner is the desired owner of the vCluster within the vCluster platform. If empty will take the current user."
+          "description": "Owner is the desired owner of the vCluster instance within the vCluster platform. If empty will take the current user."
         },
         "project": {
           "type": "string",
-          "description": "Project is the project within the platform where the vCluster should connect to."
+          "description": "Project is the project within the platform where the vCluster instance should connect."
         }
       },
       "additionalProperties": false,
@@ -1789,7 +1789,7 @@
         },
         "namespace": {
           "type": "string",
-          "description": "Namespace defines the namespace where the api key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster is deployed, you need to make sure vCluster has access to this other namespace."
+          "description": "Namespace defines the namespace where the api key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace."
         }
       },
       "additionalProperties": false,
@@ -1963,11 +1963,11 @@
       "properties": {
         "role": {
           "$ref": "#/$defs/PluginsExtraRules",
-          "description": "Role holds extra vCluster role permissions for the plugin"
+          "description": "Role holds extra virtual cluster role permissions for the plugin"
         },
         "clusterRole": {
           "$ref": "#/$defs/PluginsExtraRules",
-          "description": "ClusterRole holds extra vCluster cluster role permissions required for the plugin"
+          "description": "ClusterRole holds extra virtual cluster cluster role permissions required for the plugin"
         }
       },
       "additionalProperties": false,
@@ -1993,7 +1993,7 @@
         },
         "centralAdmission": {
           "$ref": "#/$defs/CentralAdmission",
-          "description": "CentralAdmission defines what validating or mutating webhooks should be enforced within the vCluster."
+          "description": "CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -2003,11 +2003,11 @@
       "properties": {
         "role": {
           "$ref": "#/$defs/RBACRole",
-          "description": "Role holds vCluster role configuration"
+          "description": "Role holds virtual cluster role configuration"
         },
         "clusterRole": {
           "$ref": "#/$defs/RBACClusterRole",
-          "description": "ClusterRole holds vCluster cluster role configuration"
+          "description": "ClusterRole holds virtual cluster cluster role configuration"
         }
       },
       "additionalProperties": false,
@@ -2017,7 +2017,7 @@
       "properties": {
         "disabled": {
           "type": "boolean",
-          "description": "Disabled defines if the cluster role should be disabled. Otherwise, its automatically determined if vCluster requires a cluster role."
+          "description": "Disabled defines if the cluster role should be disabled. Otherwise, vCluster automatically determines whether the virtual cluster requires a cluster role."
         },
         "extraRules": {
           "items": {
@@ -2109,14 +2109,14 @@
             "$ref": "#/$defs/ServiceMapping"
           },
           "type": "array",
-          "description": "ToHost defines the services that should get synced from vCluster to the host cluster. If services are\nsynced to a different namespace than the vCluster is in, additional permissions for the other namespace\nare required."
+          "description": "ToHost defines the services that should get synced from virtual cluster to the host cluster. If services are\nsynced to a different namespace than the virtual cluster is in, additional permissions for the other namespace\nare required."
         },
         "fromHost": {
           "items": {
             "$ref": "#/$defs/ServiceMapping"
           },
           "type": "array",
-          "description": "FromHost defines the services that should get synced from the host to the vCluster."
+          "description": "FromHost defines the services that should get synced from the host to the virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -2298,7 +2298,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled configures if helm should create the service monitor."
+          "description": "Enabled configures if Helm should create the service monitor."
         },
         "labels": {
           "additionalProperties": {
@@ -2322,11 +2322,11 @@
       "properties": {
         "toHost": {
           "$ref": "#/$defs/SyncToHost",
-          "description": "ToHost configures what resources should get synced from the vCluster to the host cluster."
+          "description": "Configure resources to sync from the virtual cluster to the host cluster."
         },
         "fromHost": {
           "$ref": "#/$defs/SyncFromHost",
-          "description": "FromHost configures what resources should get purely synced from the host cluster to the vCluster."
+          "description": "Configure what resources vCluster should sync from the host cluster to the virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -2350,31 +2350,31 @@
       "properties": {
         "nodes": {
           "$ref": "#/$defs/SyncNodes",
-          "description": "Nodes defines if nodes should get synced from the host cluster to the vCluster, but not back."
+          "description": "Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "events": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "Events defines if events should get synced from the host cluster to the vCluster, but not back."
+          "description": "Events defines if events should get synced from the host cluster to the virtual cluster, but not back."
         },
         "ingressClasses": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the vCluster, but not back."
+          "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "storageClasses": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "StorageClasses defines if storage classes should get synced from the host cluster to the vCluster, but not back."
+          "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "csiNodes": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "CSINodes defines if csi nodes should get synced from the host cluster to the vCluster, but not back."
+          "description": "CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "csiDrivers": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the vCluster, but not back."
+          "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back."
         },
         "csiStorageCapacities": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the vCluster, but not back."
+          "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back."
         }
       },
       "additionalProperties": false,
@@ -2384,14 +2384,14 @@
       "properties": {
         "all": {
           "type": "boolean",
-          "description": "All specifies if all nodes should get synced by vCluster from the host to the vCluster or only the ones where pods are assigned to."
+          "description": "All specifies if all nodes should get synced by vCluster from the host to the virtual cluster or only the ones where pods are assigned to."
         },
         "labels": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "Labels are the node labels used to sync nodes from host cluster to vCluster. This will also set the node selector when syncing a pod from vCluster to host cluster to the same value."
+          "description": "Labels are the node labels used to sync nodes from host cluster to virtual cluster. This will also set the node selector when syncing a pod from virtual cluster to host cluster to the same value."
         }
       },
       "additionalProperties": false,
@@ -2405,7 +2405,7 @@
         },
         "syncBackChanges": {
           "type": "boolean",
-          "description": "SyncBackChanges enables syncing labels and taints from the vCluster to the host cluster. If this is enabled someone within the vCluster will be able to change the labels and taints of the host cluster node."
+          "description": "SyncBackChanges enables syncing labels and taints from the virtual cluster to the host cluster. If this is enabled someone within the virtual cluster will be able to change the labels and taints of the host cluster node."
         },
         "clearImageStatus": {
           "type": "boolean",
@@ -2413,7 +2413,7 @@
         },
         "selector": {
           "$ref": "#/$defs/SyncNodeSelector",
-          "description": "Selector can be used to define more granular what nodes should get synced from the host cluster to the vCluster."
+          "description": "Selector can be used to define more granular what nodes should get synced from the host cluster to the virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -2430,22 +2430,22 @@
             "type": "string"
           },
           "type": "object",
-          "description": "TranslateImage maps an image to another image that should be used instead. For example this can be used to rewrite\na certain image that is used within the vCluster to be another image on the host cluster"
+          "description": "TranslateImage maps an image to another image that should be used instead. For example this can be used to rewrite\na certain image that is used within the virtual cluster to be another image on the host cluster"
         },
         "enforceTolerations": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "EnforceTolerations will add the specified tolerations to all pods synced by the vCluster."
+          "description": "EnforceTolerations will add the specified tolerations to all pods synced by the virtual cluster."
         },
         "useSecretsForSATokens": {
           "type": "boolean",
-          "description": "UseSecretsForSATokens will use secrets to save the generated service account tokens by vCluster instead of using a\npod annotation."
+          "description": "UseSecretsForSATokens will use secrets to save the generated service account tokens by virtual cluster instead of using a\npod annotation."
         },
         "rewriteHosts": {
           "$ref": "#/$defs/SyncRewriteHosts",
-          "description": "RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. vCluster will add\na small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by\nthe vCluster."
+          "description": "RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add\na small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by\nthe virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -2459,7 +2459,7 @@
         },
         "initContainerImage": {
           "type": "string",
-          "description": "InitContainerImage is the image vCluster should use to rewrite this FQDN."
+          "description": "InitContainerImage is the image virtual cluster should use to rewrite this FQDN."
         }
       },
       "additionalProperties": false,
@@ -2469,59 +2469,59 @@
       "properties": {
         "pods": {
           "$ref": "#/$defs/SyncPods",
-          "description": "Pods defines if pods created within the vCluster should get synced to the host cluster."
+          "description": "Pods defines if pods created within the virtual cluster should get synced to the host cluster."
         },
         "secrets": {
           "$ref": "#/$defs/SyncAllResource",
-          "description": "Secrets defines if secrets created within the vCluster should get synced to the host cluster."
+          "description": "Secrets defines if secrets created within the virtual cluster should get synced to the host cluster."
         },
         "configMaps": {
           "$ref": "#/$defs/SyncAllResource",
-          "description": "ConfigMaps defines if config maps created within the vCluster should get synced to the host cluster."
+          "description": "ConfigMaps defines if config maps created within the virtual cluster should get synced to the host cluster."
         },
         "ingresses": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "Ingresses defines if ingresses created within the vCluster should get synced to the host cluster."
+          "description": "Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster."
         },
         "services": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "Services defines if services created within the vCluster should get synced to the host cluster."
+          "description": "Services defines if services created within the virtual cluster should get synced to the host cluster."
         },
         "endpoints": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "Endpoints defines if endpoints created within the vCluster should get synced to the host cluster."
+          "description": "Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster."
         },
         "networkPolicies": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "NetworkPolicies defines if network policies created within the vCluster should get synced to the host cluster."
+          "description": "NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumeClaims": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "PersistentVolumeClaims defines if persistent volume claims created within the vCluster should get synced to the host cluster."
+          "description": "PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumes": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "PersistentVolumes defines if persistent volumes created within the vCluster should get synced to the host cluster."
+          "description": "PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster."
         },
         "volumeSnapshots": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "VolumeSnapshots defines if volume snapshots created within the vCluster should get synced to the host cluster."
+          "description": "VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster."
         },
         "storageClasses": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "StorageClasses defines if storage classes created within the vCluster should get synced to the host cluster."
+          "description": "StorageClasses defines if storage classes created within the virtual cluster should get synced to the host cluster."
         },
         "serviceAccounts": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "ServiceAccounts defines if service accounts created within the vCluster should get synced to the host cluster."
+          "description": "ServiceAccounts defines if service accounts created within the virtual cluster should get synced to the host cluster."
         },
         "podDisruptionBudgets": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "PodDisruptionBudgets defines if pod disruption budgets created within the vCluster should get synced to the host cluster."
+          "description": "PodDisruptionBudgets defines if pod disruption budgets created within the virtual cluster should get synced to the host cluster."
         },
         "priorityClasses": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "PriorityClasses defines if priority classes created within the vCluster should get synced to the host cluster."
+          "description": "PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster."
         }
       },
       "additionalProperties": false,
@@ -2531,7 +2531,7 @@
       "properties": {
         "disabled": {
           "type": "boolean",
-          "description": "Disabled specifies that the telemetry for vCluster control plane should be disabled."
+          "description": "Disabled specifies that the telemetry for the vCluster control plane should be disabled."
         },
         "instanceCreator": {
           "type": "string"
@@ -2553,7 +2553,7 @@
       "properties": {
         "kubeConfig": {
           "type": "string",
-          "description": "KubeConfig is the virtual cluster kube config path."
+          "description": "KubeConfig is the virtual cluster kubeconfig path."
         },
         "serverCAKey": {
           "type": "string",
@@ -2639,31 +2639,31 @@
   "properties": {
     "exportKubeConfig": {
       "$ref": "#/$defs/ExportKubeConfig",
-      "description": "ExportKubeConfig describes how vCluster should export the vCluster kube config"
+      "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeconfig file."
     },
     "sync": {
       "$ref": "#/$defs/Sync",
-      "description": "Sync describes how to sync resources from the vCluster to host cluster and back"
+      "description": "Sync describes how to sync resources from the virtual cluster to host cluster and back."
     },
     "networking": {
       "$ref": "#/$defs/Networking",
-      "description": "Networking are networking options related to the vCluster"
+      "description": "Networking options related to the virtual cluster."
     },
     "policies": {
       "$ref": "#/$defs/Policies",
-      "description": "Policies defines policies to enforce for the vCluster deployment as well as within the vCluster"
+      "description": "Policies to enforce for the virtual cluster deployment as well as within the virtual cluster."
     },
     "observability": {
       "$ref": "#/$defs/Observability",
-      "description": "Observability holds options to proxy metrics from the host cluster into the vCluster"
+      "description": "Observability holds options to proxy metrics from the host cluster into the virtual cluster."
     },
     "controlPlane": {
       "$ref": "#/$defs/ControlPlane",
-      "description": "ControlPlane holds options how to configure the vCluster control-plane"
+      "description": "Configure vCluster's control plane components and deployment."
     },
     "rbac": {
       "$ref": "#/$defs/RBAC",
-      "description": "RBAC are role based access control options for the vCluster"
+      "description": "RBAC options for the virtual cluster."
     },
     "plugins": {
       "anyOf": [
@@ -2685,27 +2685,27 @@
       "additionalProperties": {
         "$ref": "#/$defs/Plugins"
       },
-      "description": "Plugins define what vCluster plugins to load."
+      "description": "Define which vCluster plugins to load."
     },
     "platform": {
       "$ref": "#/$defs/Platform",
-      "description": "Platform holds options how vCluster should connect to vCluster platform."
+      "description": "Platform holds options for connecting to vCluster Platform."
     },
     "experimental": {
       "$ref": "#/$defs/Experimental",
-      "description": "Experimental are alpha features for vCluster. Configuration here might change, so be careful with this."
+      "description": "Experimental features for vCluster. Configuration here might change, so be careful with this."
     },
     "telemetry": {
       "$ref": "#/$defs/Telemetry",
-      "description": "Telemetry is the configuration related to telemetry gathered about vCluster usage."
+      "description": "Configuration related to telemetry gathered about vCluster usage."
     },
     "serviceCIDR": {
       "type": "string",
-      "description": "ServiceCIDR holds the service cidr for the vCluster. Please do not use that option anymore."
+      "description": "ServiceCIDR holds the service cidr for the virtual cluster. Do not use this option anymore."
     },
     "pro": {
       "type": "boolean",
-      "description": "Pro specifies if vCluster pro should be used. This is automatically inferred in newer versions. Please do not use that option anymore."
+      "description": "Specifies whether to use vCluster Pro. This is automatically inferred in newer versions. Do not use that option anymore."
     },
     "plugin": {
       "anyOf": [
@@ -2727,7 +2727,7 @@
       "additionalProperties": {
         "$ref": "#/$defs/Plugin"
       },
-      "description": "Plugin specifies what vCluster plugins to enable. Please use \"plugins\" instead. Please do not use that option anymore."
+      "description": "Plugin specifies which vCluster plugins to enable. Use \"plugins\" instead. Do not use this option anymore."
     }
   },
   "additionalProperties": false,
