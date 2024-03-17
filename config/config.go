@@ -4,131 +4,130 @@ import (
 	"regexp"
 )
 
-// Config is the vCluster config. This struct describes valid helm values for vCluster as well as configuration used by the vCluster binary itself.
+// Config is the vCluster config. This struct describes valid Helm values for vCluster as well as configuration used by the vCluster binary itself.
 type Config struct {
-	// ExportKubeConfig describes how vCluster should export the vCluster kube config
+	// ExportKubeConfig describes how vCluster should export the vCluster kubeconfig file.
 	ExportKubeConfig ExportKubeConfig `json:"exportKubeConfig,omitempty"`
 
-	// Sync describes how to sync resources from the vCluster to host cluster and back
+	// Sync describes how to sync resources from the virtual cluster to host cluster and back.
 	Sync Sync `json:"sync,omitempty"`
 
-	// Networking are networking options related to the vCluster
+	// Networking options related to the virtual cluster.
 	Networking Networking `json:"networking,omitempty"`
 
-	// Policies defines policies to enforce for the vCluster deployment as well as within the vCluster
+	// Policies to enforce for the virtual cluster deployment as well as within the virtual cluster.
 	Policies Policies `json:"policies,omitempty"`
 
-	// Observability holds options to proxy metrics from the host cluster into the vCluster
+	// Observability holds options to proxy metrics from the host cluster into the virtual cluster.
 	Observability Observability `json:"observability,omitempty"`
 
-	// ControlPlane holds options how to configure the vCluster control-plane
+	// Configure vCluster's control plane components and deployment.
 	ControlPlane ControlPlane `json:"controlPlane,omitempty"`
 
-	// RBAC are role based access control options for the vCluster
+	// RBAC options for the virtual cluster.
 	RBAC RBAC `json:"rbac,omitempty"`
 
-	// Plugins define what vCluster plugins to load.
+	// Define which vCluster plugins to load.
 	Plugins map[string]Plugins `json:"plugins,omitempty"`
 
-	// Platform holds options how vCluster should connect to vCluster platform.
+	// Platform holds options for connecting to vCluster Platform.
 	Platform Platform `json:"platform,omitempty"`
 
-	// Experimental are alpha features for vCluster. Configuration here might change, so be careful with this.
+	// Experimental features for vCluster. Configuration here might change, so be careful with this.
 	Experimental Experimental `json:"experimental,omitempty"`
 
-	// Telemetry is the configuration related to telemetry gathered about vCluster usage.
+	// Configuration related to telemetry gathered about vCluster usage.
 	Telemetry Telemetry `json:"telemetry,omitempty"`
 
-	// ServiceCIDR holds the service cidr for the vCluster. Please do not use that option anymore.
+	// ServiceCIDR holds the service cidr for the virtual cluster. Do not use this option anymore.
 	ServiceCIDR string `json:"serviceCIDR,omitempty"`
 
-	// Pro specifies if vCluster pro should be used. This is automatically inferred in newer versions. Please do not use that option anymore.
+	// Specifies whether to use vCluster Pro. This is automatically inferred in newer versions. Do not use that option anymore.
 	Pro bool `json:"pro,omitempty"`
 
-	// Plugin specifies what vCluster plugins to enable. Please use "plugins" instead. Please do not use that option anymore.
+	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
 }
 
-// ExportKubeConfig describes how vCluster should export the vCluster kube config
+// ExportKubeConfig describes how vCluster should export the vCluster kubeconfig.
 type ExportKubeConfig struct {
-	// Context is the name of the context within the generated kube config to use.
+	// Context is the name of the context within the generated kubeconfig to use.
 	Context string `json:"context"`
 
-	// Server can be used to override the default https://localhost:8443 and specify a custom hostname for the
-	// generated kube-config.
+	// Override the default https://localhost:8443 and specify a custom hostname for the generated kubeconfig.
 	Server string `json:"server"`
 
-	// Secret defines in which secret in the host cluster the generated kube-config should be stored.
-	// If this is not defined, vCluster will only create it at `vc-NAME`. If another name is specified here
-	// vCluster will also create the config in this other secret.
+	// Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
+	// If this is not defined, vCluster create it with `vc-NAME`. If you specify another name,
+	// vCluster creates the config in this other secret.
 	Secret ExportKubeConfigSecretReference `json:"secret,omitempty"`
 }
 
-// ExportKubeConfigSecretReference defines in which secret in the host cluster the generated kube-config should be stored.
-// If this is not defined, vCluster will only create it at `vc-NAME`. If another name is specified here
-// vCluster will also create the config in this other secret.
+// Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
+// If this is not defined, vCluster create it with `vc-NAME`. If you specify another name,
+// vCluster creates the config in this other secret.
 type ExportKubeConfigSecretReference struct {
-	// Name is the name of the secret where the kube config should get stored.
+	// Name is the name of the secret where the kubeconfig should get stored.
 	Name string `json:"name,omitempty"`
 
-	// Namespace defines the namespace where the kube config secret should get stored. If this is not equal to the namespace
-	// where the vCluster is deployed, you need to make sure vCluster has access to this other namespace.
+	// Namespace where vCluster should store the kubeconfig secret. If this is not equal to the namespace
+	// where you deployed vCluster, you need to make sure vCluster has access to this other namespace.
 	Namespace string `json:"namespace,omitempty"`
 }
 
 type Sync struct {
-	// ToHost configures what resources should get synced from the vCluster to the host cluster.
+	// Configure resources to sync from the virtual cluster to the host cluster.
 	ToHost SyncToHost `json:"toHost,omitempty"`
 
-	// FromHost configures what resources should get purely synced from the host cluster to the vCluster.
+	// Configure what resources vCluster should sync from the host cluster to the virtual cluster.
 	FromHost SyncFromHost `json:"fromHost,omitempty"`
 }
 
 type SyncToHost struct {
-	// Pods defines if pods created within the vCluster should get synced to the host cluster.
+	// Pods defines if pods created within the virtual cluster should get synced to the host cluster.
 	Pods SyncPods `json:"pods,omitempty"`
-	// Secrets defines if secrets created within the vCluster should get synced to the host cluster.
+	// Secrets defines if secrets created within the virtual cluster should get synced to the host cluster.
 	Secrets SyncAllResource `json:"secrets,omitempty"`
-	// ConfigMaps defines if config maps created within the vCluster should get synced to the host cluster.
+	// ConfigMaps defines if config maps created within the virtual cluster should get synced to the host cluster.
 	ConfigMaps SyncAllResource `json:"configMaps,omitempty"`
-	// Ingresses defines if ingresses created within the vCluster should get synced to the host cluster.
+	// Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
 	Ingresses EnableSwitch `json:"ingresses,omitempty"`
-	// Services defines if services created within the vCluster should get synced to the host cluster.
+	// Services defines if services created within the virtual cluster should get synced to the host cluster.
 	Services EnableSwitch `json:"services,omitempty"`
-	// Endpoints defines if endpoints created within the vCluster should get synced to the host cluster.
+	// Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
 	Endpoints EnableSwitch `json:"endpoints,omitempty"`
-	// NetworkPolicies defines if network policies created within the vCluster should get synced to the host cluster.
+	// NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster.
 	NetworkPolicies EnableSwitch `json:"networkPolicies,omitempty"`
-	// PersistentVolumeClaims defines if persistent volume claims created within the vCluster should get synced to the host cluster.
+	// PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster.
 	PersistentVolumeClaims EnableSwitch `json:"persistentVolumeClaims,omitempty"`
-	// PersistentVolumes defines if persistent volumes created within the vCluster should get synced to the host cluster.
+	// PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster.
 	PersistentVolumes EnableSwitch `json:"persistentVolumes,omitempty"`
-	// VolumeSnapshots defines if volume snapshots created within the vCluster should get synced to the host cluster.
+	// VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.
 	VolumeSnapshots EnableSwitch `json:"volumeSnapshots,omitempty"`
-	// StorageClasses defines if storage classes created within the vCluster should get synced to the host cluster.
+	// StorageClasses defines if storage classes created within the virtual cluster should get synced to the host cluster.
 	StorageClasses EnableSwitch `json:"storageClasses,omitempty"`
-	// ServiceAccounts defines if service accounts created within the vCluster should get synced to the host cluster.
+	// ServiceAccounts defines if service accounts created within the virtual cluster should get synced to the host cluster.
 	ServiceAccounts EnableSwitch `json:"serviceAccounts,omitempty"`
-	// PodDisruptionBudgets defines if pod disruption budgets created within the vCluster should get synced to the host cluster.
+	// PodDisruptionBudgets defines if pod disruption budgets created within the virtual cluster should get synced to the host cluster.
 	PodDisruptionBudgets EnableSwitch `json:"podDisruptionBudgets,omitempty"`
-	// PriorityClasses defines if priority classes created within the vCluster should get synced to the host cluster.
+	// PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
 	PriorityClasses EnableSwitch `json:"priorityClasses,omitempty"`
 }
 
 type SyncFromHost struct {
-	// Nodes defines if nodes should get synced from the host cluster to the vCluster, but not back.
+	// Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
 	Nodes SyncNodes `json:"nodes,omitempty"`
-	// Events defines if events should get synced from the host cluster to the vCluster, but not back.
+	// Events defines if events should get synced from the host cluster to the virtual cluster, but not back.
 	Events EnableSwitch `json:"events,omitempty"`
-	// IngressClasses defines if ingress classes should get synced from the host cluster to the vCluster, but not back.
+	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
 	IngressClasses EnableSwitch `json:"ingressClasses,omitempty"`
-	// StorageClasses defines if storage classes should get synced from the host cluster to the vCluster, but not back.
+	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back.
 	StorageClasses EnableSwitch `json:"storageClasses,omitempty"`
-	// CSINodes defines if csi nodes should get synced from the host cluster to the vCluster, but not back.
+	// CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back.
 	CSINodes EnableSwitch `json:"csiNodes,omitempty"`
-	// CSIDrivers defines if csi drivers should get synced from the host cluster to the vCluster, but not back.
+	// CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back.
 	CSIDrivers EnableSwitch `json:"csiDrivers,omitempty"`
-	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the vCluster, but not back.
+	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back.
 	CSIStorageCapacities EnableSwitch `json:"csiStorageCapacities,omitempty"`
 }
 
@@ -150,19 +149,19 @@ type SyncPods struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// TranslateImage maps an image to another image that should be used instead. For example this can be used to rewrite
-	// a certain image that is used within the vCluster to be another image on the host cluster
+	// a certain image that is used within the virtual cluster to be another image on the host cluster
 	TranslateImage map[string]string `json:"translateImage,omitempty"`
 
-	// EnforceTolerations will add the specified tolerations to all pods synced by the vCluster.
+	// EnforceTolerations will add the specified tolerations to all pods synced by the virtual cluster.
 	EnforceTolerations []string `json:"enforceTolerations,omitempty"`
 
-	// UseSecretsForSATokens will use secrets to save the generated service account tokens by vCluster instead of using a
+	// UseSecretsForSATokens will use secrets to save the generated service account tokens by virtual cluster instead of using a
 	// pod annotation.
 	UseSecretsForSATokens bool `json:"useSecretsForSATokens,omitempty"`
 
-	// RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. vCluster will add
+	// RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add
 	// a small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by
-	// the vCluster.
+	// the virtual cluster.
 	RewriteHosts SyncRewriteHosts `json:"rewriteHosts,omitempty"`
 }
 
@@ -170,7 +169,7 @@ type SyncRewriteHosts struct {
 	// Enabled specifies if rewriting stateful set pods should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// InitContainerImage is the image vCluster should use to rewrite this FQDN.
+	// InitContainerImage is the image virtual cluster should use to rewrite this FQDN.
 	InitContainerImage string `json:"initContainerImage,omitempty"`
 }
 
@@ -178,31 +177,31 @@ type SyncNodes struct {
 	// Enabled specifies if syncing real nodes should be enabled. If this is disabled, vCluster will create fake nodes instead.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// SyncBackChanges enables syncing labels and taints from the vCluster to the host cluster. If this is enabled someone within the vCluster will be able to change the labels and taints of the host cluster node.
+	// SyncBackChanges enables syncing labels and taints from the virtual cluster to the host cluster. If this is enabled someone within the virtual cluster will be able to change the labels and taints of the host cluster node.
 	SyncBackChanges bool `json:"syncBackChanges,omitempty"`
 
 	// ClearImageStatus will erase the image status when syncing a node. This allows to hide images that are pulled by the node.
 	ClearImageStatus bool `json:"clearImageStatus,omitempty"`
 
-	// Selector can be used to define more granular what nodes should get synced from the host cluster to the vCluster.
+	// Selector can be used to define more granular what nodes should get synced from the host cluster to the virtual cluster.
 	Selector SyncNodeSelector `json:"selector,omitempty"`
 }
 
 type SyncNodeSelector struct {
-	// All specifies if all nodes should get synced by vCluster from the host to the vCluster or only the ones where pods are assigned to.
+	// All specifies if all nodes should get synced by vCluster from the host to the virtual cluster or only the ones where pods are assigned to.
 	All bool `json:"all,omitempty"`
 
-	// Labels are the node labels used to sync nodes from host cluster to vCluster. This will also set the node selector when syncing a pod from vCluster to host cluster to the same value.
+	// Labels are the node labels used to sync nodes from host cluster to virtual cluster. This will also set the node selector when syncing a pod from virtual cluster to host cluster to the same value.
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type Observability struct {
-	// Metrics allows to proxy metrics server apis from host to vCluster.
+	// Metrics allows to proxy metrics server apis from host to virtual cluster.
 	Metrics ObservabilityMetrics `json:"metrics,omitempty"`
 }
 
 type ServiceMonitor struct {
-	// Enabled configures if helm should create the service monitor.
+	// Enabled configures if Helm should create the service monitor.
 	Enabled bool `json:"enabled,omitempty"`
 
 	// Labels are the extra labels to add to the service monitor.
@@ -218,15 +217,15 @@ type ObservabilityMetrics struct {
 }
 
 type MetricsProxy struct {
-	// Nodes defines if metrics-server nodes api should get proxied from host to vCluster.
+	// Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
 	Nodes bool `json:"nodes,omitempty"`
 
-	// Pods defines if metrics-server pods api should get proxied from host to vCluster.
+	// Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
 	Pods bool `json:"pods,omitempty"`
 }
 
 type Networking struct {
-	// ReplicateServices allows replicating services from the host within the vCluster or the other way around.
+	// ReplicateServices allows replicating services from the host within the virtual cluster or the other way around.
 	ReplicateServices ReplicateServices `json:"replicateServices,omitempty"`
 
 	// ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.
@@ -237,12 +236,12 @@ type Networking struct {
 }
 
 type ReplicateServices struct {
-	// ToHost defines the services that should get synced from vCluster to the host cluster. If services are
-	// synced to a different namespace than the vCluster is in, additional permissions for the other namespace
+	// ToHost defines the services that should get synced from virtual cluster to the host cluster. If services are
+	// synced to a different namespace than the virtual cluster is in, additional permissions for the other namespace
 	// are required.
 	ToHost []ServiceMapping `json:"toHost,omitempty"`
 
-	// FromHost defines the services that should get synced from the host to the vCluster.
+	// FromHost defines the services that should get synced from the host to the virtual cluster.
 	FromHost []ServiceMapping `json:"fromHost,omitempty"`
 }
 
@@ -274,7 +273,7 @@ type ResolveDNSTarget struct {
 }
 
 type NetworkingAdvanced struct {
-	// ClusterDomain is the Kubernetes cluster domain to use within the vCluster.
+	// ClusterDomain is the Kubernetes cluster domain to use within the virtual cluster.
 	ClusterDomain string `json:"clusterDomain,omitempty"`
 
 	// FallbackHostCluster allows to fallback dns to the host cluster. This is useful if you want to reach host services without
@@ -288,10 +287,10 @@ type NetworkingAdvanced struct {
 
 type NetworkProxyKubelets struct {
 	// ByHostname will add a special vCluster hostname to the nodes where the node can be reached at. This doesn't work
-	// for all applications, e.g. prometheus requires a node ip.
+	// for all applications, e.g. Prometheus requires a node IP.
 	ByHostname bool `json:"byHostname,omitempty"`
 
-	// ByIP will create a separate service in the host cluster for every node that will point to vCluster and will be used to
+	// ByIP will create a separate service in the host cluster for every node that will point to virtual cluster and will be used to
 	// route traffic.
 	ByIP bool `json:"byIP,omitempty"`
 }
@@ -336,9 +335,9 @@ type Plugins struct {
 }
 
 type PluginsRBAC struct {
-	// Role holds extra vCluster role permissions for the plugin
+	// Role holds extra virtual cluster role permissions for the plugin
 	Role PluginsExtraRules `json:"role,omitempty"`
-	// ClusterRole holds extra vCluster cluster role permissions required for the plugin
+	// ClusterRole holds extra virtual cluster cluster role permissions required for the plugin
 	ClusterRole PluginsExtraRules `json:"clusterRole,omitempty"`
 }
 
@@ -366,21 +365,21 @@ type RBACPolicyRule struct {
 }
 
 type ControlPlane struct {
-	// Distro holds vCluster related distro options.
+	// Distro holds virtual cluster related distro options.
 	Distro Distro `json:"distro,omitempty"`
-	// BackingStore defines which backing store to use for vCluster. If not defined will fallback to the default distro backing store.
+	// BackingStore defines which backing store to use for virtual cluster. If not defined will fallback to the default distro backing store.
 	BackingStore BackingStore `json:"backingStore,omitempty"`
 	// CoreDNS defines everything coredns related.
 	CoreDNS CoreDNS `json:"coredns,omitempty"`
-	// Proxy defines options for the vCluster control plane proxy that is used to do authentication and intercept requests.
+	// Proxy defines options for the virtual cluster control plane proxy that is used to do authentication and intercept requests.
 	Proxy ControlPlaneProxy `json:"proxy,omitempty"`
 	// HostPathMapper defines if vCluster should rewrite host paths.
 	HostPathMapper HostPathMapper `json:"hostPathMapper,omitempty"`
-	// Ingress defines options for the vCluster ingress deployed by helm.
+	// Ingress defines options for vCluster ingress deployed by Helm.
 	Ingress ControlPlaneIngress `json:"ingress,omitempty"`
-	// Service defines options for the vCluster service deployed by helm.
+	// Service defines options for vCluster service deployed by Helm.
 	Service ControlPlaneService `json:"service,omitempty"`
-	// StatefulSet defines options for the vCluster statefulSet deployed by helm.
+	// StatefulSet defines options for vCluster statefulSet deployed by Helm.
 	StatefulSet ControlPlaneStatefulSet `json:"statefulSet,omitempty"`
 	// ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself.
 	ServiceMonitor ServiceMonitor `json:"serviceMonitor,omitempty"`
@@ -422,20 +421,20 @@ type ControlPlaneStatefulSet struct {
 }
 
 type Distro struct {
-	// K3S holds k3s relevant configuration.
+	// K3S holds K3s relevant configuration.
 	K3S DistroK3s `json:"k3s,omitempty"`
 	// K0S holds k0s relevant configuration.
 	K0S DistroK0s `json:"k0s,omitempty"`
-	// K8S holds k8s relevant configuration.
+	// K8S holds K8s relevant configuration.
 	K8S DistroK8s `json:"k8s,omitempty"`
 	// EKS holds eks relevant configuration.
 	EKS DistroK8s `json:"eks,omitempty"`
 }
 
 type DistroK3s struct {
-	// Enabled specifies if the k3s distro should be enabled. Only one distro can be enabled at the same time.
+	// Enabled specifies if the K3s distro should be enabled. Only one distro can be enabled at the same time.
 	Enabled bool `json:"enabled,omitempty"`
-	// Token is the k3s token to use. If empty, vCluster will choose one.
+	// Token is the K3s token to use. If empty, vCluster will choose one.
 	Token string `json:"token,omitempty"`
 
 	DistroCommon    `json:",inline"`
@@ -443,7 +442,7 @@ type DistroK3s struct {
 }
 
 type DistroK8s struct {
-	// Enabled specifies if the k8s distro should be enabled. Only one distro can be enabled at the same time.
+	// Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time.
 	Enabled bool `json:"enabled,omitempty"`
 
 	// APIServer holds configuration specific to starting the api server.
@@ -515,7 +514,7 @@ type LocalObjectReference struct {
 }
 
 type VirtualClusterKubeConfig struct {
-	// KubeConfig is the virtual cluster kube config path.
+	// KubeConfig is the virtual cluster kubeconfig path.
 	KubeConfig string `json:"kubeConfig,omitempty"`
 	// ServerCAKey is the server ca key path.
 	ServerCAKey string `json:"serverCAKey,omitempty"`
@@ -528,16 +527,16 @@ type VirtualClusterKubeConfig struct {
 }
 
 type BackingStore struct {
-	// EmbeddedEtcd defines to use embedded etcd as a storage backend for the vCluster
+	// EmbeddedEtcd defines to use embedded etcd as a storage backend for the virtual cluster
 	EmbeddedEtcd EmbeddedEtcd `json:"embeddedEtcd,omitempty" product:"pro"`
-	// ExternalEtcd defines to use an external etcd deployed by the helm chart as a storage backend for the vCluster
+	// ExternalEtcd defines to use an external etcd deployed by the Helm chart as a storage backend for the virtual cluster
 	ExternalEtcd ExternalEtcd `json:"externalEtcd,omitempty"`
 }
 
 type EmbeddedEtcd struct {
 	// Enabled defines if the embedded etcd should be used.
 	Enabled bool `json:"enabled,omitempty"`
-	// MigrateFromExternalEtcd signals that vCluster should migrate from the external etcd.
+	// MigrateFromExternalEtcd signals that vCluster should migrate from the external etcd to embedded etcd.
 	MigrateFromExternalEtcd bool `json:"migrateFromExternalEtcd,omitempty"`
 }
 
@@ -619,9 +618,9 @@ type CoreDNS struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// Embedded defines if vCluster will start the embedded coredns service
 	Embedded bool `json:"embedded,omitempty" product:"pro"`
-	// Service holds extra options for the coredns service deployed within the vCluster
+	// Service holds extra options for the coredns service deployed within the virtual cluster
 	Service CoreDNSService `json:"service,omitempty"`
-	// Deployment holds extra options for the coredns deployment deployed within the vCluster
+	// Deployment holds extra options for the coredns deployment deployed within the virtual cluster
 	Deployment CoreDNSDeployment `json:"deployment,omitempty"`
 
 	// OverwriteConfig can be used to overwrite the coredns config
@@ -653,9 +652,9 @@ type CoreDNSDeployment struct {
 }
 
 type ControlPlaneProxy struct {
-	// BindAddress under which the vCluster will expose the proxy.
+	// BindAddress under which vCluster will expose the proxy.
 	BindAddress string `json:"bindAddress,omitempty"`
-	// Port under which the vCluster will expose the proxy.
+	// Port under which vCluster will expose the proxy.
 	Port int `json:"port,omitempty"`
 	// ExtraSANs are extra hostnames to sign the vCluster proxy certificate for.
 	ExtraSANs []string `json:"extraSANs,omitempty"`
@@ -704,23 +703,23 @@ type ControlPlaneHighAvailability struct {
 }
 
 type ControlPlaneAdvanced struct {
-	// DefaultImageRegistry will be used as a prefix for all internal images deployed by vCluster or helm. This makes it easy to
+	// DefaultImageRegistry will be used as a prefix for all internal images deployed by vCluster or Helm. This makes it easy to
 	// upload all required vCluster images to a single private repository and set this value. Workload images are not affected by this.
 	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
 
-	// VirtualScheduler defines if a scheduler should be used within the vCluster or the scheduling decision for workloads will be made by the host cluster.
+	// VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
 	VirtualScheduler EnableSwitch `json:"virtualScheduler,omitempty"`
 
-	// ServiceAccount specifies options for the vCluster control-plane service account.
+	// ServiceAccount specifies options for the vCluster control plane service account.
 	ServiceAccount ControlPlaneServiceAccount `json:"serviceAccount,omitempty"`
 
-	// WorkloadServiceAccount specifies options for the service account that will be used for the workloads that run within the vCluster.
+	// WorkloadServiceAccount specifies options for the service account that will be used for the workloads that run within the virtual cluster.
 	WorkloadServiceAccount ControlPlaneWorkloadServiceAccount `json:"workloadServiceAccount,omitempty"`
 
-	// HeadlessService specifies options for the headless service used for the vCluster statefulSet.
+	// HeadlessService specifies options for the headless service used for the vCluster StatefulSet.
 	HeadlessService ControlPlaneHeadlessService `json:"headlessService,omitempty"`
 
-	// GlobalMetadata is metadata that will be added to all resources deployed by helm.
+	// GlobalMetadata is metadata that will be added to all resources deployed by Helm.
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
 }
 
@@ -812,7 +811,7 @@ type ControlPlaneServiceAccount struct {
 type ControlPlaneWorkloadServiceAccount struct {
 	// Enabled specifies if the service account for the workloads should get deployed.
 	Enabled bool `json:"enabled,omitempty"`
-	// Name specifies what name to use for the service account for the vCluster workloads.
+	// Name specifies what name to use for the service account for the virtual cluster workloads.
 	Name string `json:"name,omitempty"`
 	// ImagePullSecrets defines extra image pull secrets for the workload service account.
 	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
@@ -859,7 +858,7 @@ type Policies struct {
 	ResourceQuota ResourceQuota `json:"resourceQuota,omitempty"`
 	// LimitRange specifies limit range options.
 	LimitRange LimitRange `json:"limitRange,omitempty"`
-	// CentralAdmission defines what validating or mutating webhooks should be enforced within the vCluster.
+	// CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
 	CentralAdmission CentralAdmission `json:"centralAdmission,omitempty" product:"pro"`
 }
 
@@ -935,21 +934,21 @@ type IPBlock struct {
 }
 
 type CentralAdmission struct {
-	// ValidatingWebhooks are validating webhooks that should be enforced in the vCluster
+	// ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster
 	ValidatingWebhooks []interface{} `json:"validatingWebhooks,omitempty"`
-	// MutatingWebhooks are mutating webhooks that should be enforced in the vCluster
+	// MutatingWebhooks are mutating webhooks that should be enforced in the virtual cluster
 	MutatingWebhooks []interface{} `json:"mutatingWebhooks,omitempty"`
 }
 
 type RBAC struct {
-	// Role holds vCluster role configuration
+	// Role holds virtual cluster role configuration
 	Role RBACRole `json:"role,omitempty"`
-	// ClusterRole holds vCluster cluster role configuration
+	// ClusterRole holds virtual cluster cluster role configuration
 	ClusterRole RBACClusterRole `json:"clusterRole,omitempty"`
 }
 
 type RBACClusterRole struct {
-	// Disabled defines if the cluster role should be disabled. Otherwise, its automatically determined if vCluster requires a cluster role.
+	// Disabled defines if the cluster role should be disabled. Otherwise, vCluster automatically determines whether the virtual cluster requires a cluster role.
 	Disabled bool `json:"disabled,omitempty"`
 	// ExtraRules will add rules to the cluster role.
 	ExtraRules []map[string]interface{} `json:"extraRules,omitempty"`
@@ -967,7 +966,7 @@ type RBACRole struct {
 }
 
 type Telemetry struct {
-	// Disabled specifies that the telemetry for vCluster control plane should be disabled.
+	// Disabled specifies that the telemetry for the vCluster control plane should be disabled.
 	Disabled           bool   `json:"disabled,omitempty"`
 	InstanceCreator    string `json:"instanceCreator,omitempty"`
 	MachineID          string `json:"machineID,omitempty"`
@@ -976,16 +975,16 @@ type Telemetry struct {
 }
 
 type Experimental struct {
-	// Deploy allows you to configure manifests and helm charts to deploy within the vCluster.
+	// Deploy allows you to configure manifests and Helm charts to deploy within the virtual cluster.
 	Deploy ExperimentalDeploy `json:"deploy,omitempty"`
 
 	// SyncSettings are advanced settings for the syncer controller.
 	SyncSettings ExperimentalSyncSettings `json:"syncSettings,omitempty"`
 
-	// GenericSync holds options to generically sync resources from vCluster to host.
+	// GenericSync holds options to generically sync resources from virtual cluster to host.
 	GenericSync ExperimentalGenericSync `json:"genericSync,omitempty"`
 
-	// MultiNamespaceMode tells vCluster to sync to multiple namespaces instead of a single one. This will map each vCluster namespace to a single namespace in the host cluster.
+	// MultiNamespaceMode tells virtual cluster to sync to multiple namespaces instead of a single one. This will map each virtual cluster namespace to a single namespace in the host cluster.
 	MultiNamespaceMode ExperimentalMultiNamespaceMode `json:"multiNamespaceMode,omitempty"`
 
 	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
@@ -1009,9 +1008,9 @@ type ExperimentalMultiNamespaceMode struct {
 type ExperimentalIsolatedControlPlane struct {
 	// Enabled specifies if the isolated control plane feature should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
-	// Headless states that helm should deploy the vCluster in headless mode for the isolated control plane.
+	// Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
 	Headless bool `json:"headless,omitempty"`
-	// KubeConfig is the path where to find the remote workload cluster kube config.
+	// KubeConfig is the path where to find the remote workload cluster kubeconfig.
 	KubeConfig string `json:"kubeConfig,omitempty"`
 	// Namespace is the namespace where to sync the workloads into.
 	Namespace string `json:"namespace,omitempty"`
@@ -1022,23 +1021,23 @@ type ExperimentalIsolatedControlPlane struct {
 type ExperimentalSyncSettings struct {
 	// DisableSync will not sync any resources and disable most control plane functionality.
 	DisableSync bool `json:"disableSync,omitempty"`
-	// RewriteKubernetesService will rewrite the kubernetes service to point to the vCluster if disableSync is enabled
+	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
 	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty"`
 
 	// TargetNamespace is the namespace where the workloads should get synced to.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 	// SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
 	SetOwner bool `json:"setOwner,omitempty"`
-	// SyncLabels are labels that should get not rewritten when syncing from vCluster.
+	// SyncLabels are labels that should get not rewritten when syncing from the virtual cluster.
 	SyncLabels []string `json:"syncLabels,omitempty"`
 }
 
 type ExperimentalDeploy struct {
-	// Manifests are raw kubernetes manifests that should get applied within the vCluster.
+	// Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
 	Manifests string `json:"manifests,omitempty"`
-	// ManifestsTemplate is a kubernetes manifest template that will be rendered with vCluster values before applying it within the vCluster.
+	// ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster.
 	ManifestsTemplate string `json:"manifestsTemplate,omitempty"`
-	// Helm are helm charts that should get deployed into the vCluster
+	// Helm are Helm charts that should get deployed into the virtual cluster
 	Helm []ExperimentalDeployHelm `json:"helm,omitempty"`
 }
 
@@ -1049,9 +1048,9 @@ type ExperimentalDeployHelm struct {
 	Release ExperimentalDeployHelmRelease `json:"release,omitempty"`
 	// Values defines what values should get used.
 	Values string `json:"values,omitempty"`
-	// Timeout defines the timeout for helm
+	// Timeout defines the timeout for Helm
 	Timeout string `json:"timeout,omitempty"`
-	// Bundle allows to compress the helm chart and specify this instead of an online chart
+	// Bundle allows to compress the Helm chart and specify this instead of an online chart
 	Bundle string `json:"bundle,omitempty"`
 }
 
@@ -1078,10 +1077,10 @@ type Platform struct {
 	// Name is the name of the vCluster instance in the vCluster platform
 	Name string `json:"name,omitempty"`
 
-	// Owner is the desired owner of the vCluster within the vCluster platform. If empty will take the current user.
+	// Owner is the desired owner of the vCluster instance within the vCluster platform. If empty will take the current user.
 	Owner PlatformOwner `json:"owner,omitempty"`
 
-	// Project is the project within the platform where the vCluster should connect to.
+	// Project is the project within the platform where the vCluster instance should connect.
 	Project string `json:"project,omitempty"`
 }
 
@@ -1111,7 +1110,7 @@ type PlatformAPIKeySecretReference struct {
 	Name string `json:"name,omitempty"`
 
 	// Namespace defines the namespace where the api key secret should be retrieved from. If this is not equal to the namespace
-	// where the vCluster is deployed, you need to make sure vCluster has access to this other namespace.
+	// where the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.
 	Namespace string `json:"namespace,omitempty"`
 }
 
