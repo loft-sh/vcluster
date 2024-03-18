@@ -28,13 +28,13 @@ jobs:
 
           cd vcluster-config
 
-          # create commit
-          git checkout -b sync-config
-
           # if there are no changes, exit early
           if git diff-index --quiet HEAD --; then
             exit 0
           fi
+
+          # create commit
+          git checkout -b sync-config
 
           # commit changes
           git add --all
