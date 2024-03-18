@@ -1,0 +1,45 @@
+name: Sync Config
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "config/**.go"
+      - "chart/values.schema.json"
+      - ".github/workflows/sync-config.yaml"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Configure git
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+      - name: Clone and update
+        run: |
+          git clone https://github.com/loft-sh/vcluster-config.git
+
+          cp -R config vcluster-config/copy
+          cp chart/values.schema.json vcluster-config/values.schema.json
+
+          cd vcluster-config
+
+          # create commit
+          git checkout -b sync-config
+
+          # if there are no changes, exit early
+          if git diff-index --quiet HEAD --; then
+            exit 0
+          fi
+
+          # commit changes
+          git add --all
+          git commit -m "chore: sync vCluster config"
+          git push -u origin -f sync-config
+
+          # create PR
+          gh pr create --title "Sync vCluster Config" --body "This is an automated PR generated to sync the vCluster config from https://github.com/loft-sh/vcluster to this repository"
