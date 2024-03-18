@@ -118,10 +118,9 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 		kubeConfig, err = kubeconfig.ReadKubeConfig(ctx, kubeClient, vclusterName, namespace)
 		if err != nil {
 			if !printedWaiting {
-				log.Infof("Waiting for vcluster to come up...")
+				log.Errorf("Error while waiting for vcluster to come up:", err)
 				printedWaiting = true
 			}
-
 			return false, nil
 		}
 		return true, nil
