@@ -87,6 +87,18 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 		return true, nil
 	}
 
+	// check if it was a Kubernetes managed endpoints object before and delete it
+	endpoints := &corev1.Endpoints{}
+	err = ctx.PhysicalClient.Get(ctx.Context, s.NamespacedTranslator.VirtualToHost(ctx.Context, req.NamespacedName, nil), endpoints)
+	if err == nil && (endpoints.Annotations == nil || endpoints.Annotations[translate.NameAnnotation] == "") {
+		klog.Infof("Refresh endpoints in physical cluster because they should be managed by vCluster now")
+		err = ctx.PhysicalClient.Delete(ctx.Context, endpoints)
+		if err != nil {
+			klog.Infof("Error deleting endpoints %s/%s: %v", endpoints.Namespace, endpoints.Name, err)
+			return true, err
+		}
+	}
+
 	return false, nil
 }
 
