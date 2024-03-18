@@ -268,7 +268,7 @@ func TestReconcile(t *testing.T) {
 		assert.NilError(t, err)
 		syncer := syncerImpl.(syncertypes.Syncer)
 
-		controller := &syncerController{
+		controller := &SyncController{
 			syncer:         syncer,
 			log:            loghelper.New(syncer.Name()),
 			vEventRecorder: &testingutil.FakeEventRecorder{},
