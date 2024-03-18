@@ -31,7 +31,6 @@ jobs:
           cd vcluster-config
 
           # Checkout new branch
-          git checkout -b sync-config
           git add --all
 
           # if there are no changes, exit early
@@ -46,8 +45,5 @@ jobs:
 
           # commit changes
           git commit -m "chore: sync vCluster config"
-          git push -u origin -f sync-config
-          echo "Pushed commit to branch"
-
-          # create PR
-          gh pr create --title "Sync vCluster Config" --body "This is an automated PR generated to sync the vCluster config from https://github.com/loft-sh/vcluster to this repository"
+          git push -u origin -f main
+          echo "Pushed commit to main branch"
