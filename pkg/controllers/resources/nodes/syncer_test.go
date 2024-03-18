@@ -3,10 +3,12 @@ package nodes
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -30,6 +32,42 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 		return NewSyncer(ctx, &fakeNodeServiceProvider{})
 	})
 	return syncContext, object.(*nodeSyncer)
+}
+
+func TestNodeDeletion(t *testing.T) {
+	baseName := types.NamespacedName{
+		Name: "mynode",
+	}
+	baseNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Delete unused node backwards",
+			InitialVirtualState:  []runtime.Object{baseNode},
+			InitialPhysicalState: []runtime.Object{baseNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				_, nodesSyncer := newFakeSyncer(t, ctx)
+				syncController := syncer.NewSyncController(ctx, nodesSyncer)
+
+				_, err := syncController.Reconcile(ctx.Context, controllerruntime.Request{NamespacedName: baseName})
+				assert.NilError(t, err)
+			},
+		},
+	})
 }
 
 func TestSync(t *testing.T) {

@@ -137,16 +137,16 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			source.Kind(podCache, &corev1.Pod{}),
 			handler.Funcs{
 				GenericFunc: func(_ context.Context, ev event.GenericEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVclusterPod(nil, ev.Object, q)
+					enqueueNonVClusterPod(nil, ev.Object, q)
 				},
 				CreateFunc: func(_ context.Context, ev event.CreateEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVclusterPod(nil, ev.Object, q)
+					enqueueNonVClusterPod(nil, ev.Object, q)
 				},
 				UpdateFunc: func(_ context.Context, ue event.UpdateEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVclusterPod(ue.ObjectOld, ue.ObjectNew, q)
+					enqueueNonVClusterPod(ue.ObjectOld, ue.ObjectNew, q)
 				},
 				DeleteFunc: func(_ context.Context, ev event.DeleteEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVclusterPod(nil, ev.Object, q)
+					enqueueNonVClusterPod(nil, ev.Object, q)
 				},
 			},
 		)
@@ -155,7 +155,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 }
 
 // only used when scheduler is enabled
-func enqueueNonVclusterPod(old, new client.Object, q workqueue.RateLimitingInterface) {
+func enqueueNonVClusterPod(old, new client.Object, q workqueue.RateLimitingInterface) {
 	pod, ok := new.(*corev1.Pod)
 	if !ok {
 		klog.Errorf("invalid type passed to pod handler: %T", new)
@@ -251,13 +251,8 @@ func (s *nodeSyncer) HostToVirtual(_ context.Context, req types.NamespacedName, 
 	return types.NamespacedName{Name: req.Name}
 }
 
-func (s *nodeSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
-	shouldSync, err := s.shouldSync(ctx, pObj.(*corev1.Node))
-	if err != nil {
-		return false, nil
-	}
-
-	return shouldSync, nil
+func (s *nodeSyncer) IsManaged(_ context.Context, _ client.Object) (bool, error) {
+	return true, nil
 }
 
 var _ syncertypes.Syncer = &nodeSyncer{}
@@ -344,6 +339,7 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 		if !matched && !s.enforceNodeSelector {
 			return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)
 		}
+
 		return matched, nil
 	}
 

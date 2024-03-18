@@ -28,14 +28,14 @@ import (
 
 const hostObjectRequestPrefix = "host#"
 
-func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) error {
+func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) *SyncController {
 	options := &syncertypes.Options{}
 	optionsProvider, ok := syncer.(syncertypes.OptionsProvider)
 	if ok {
 		options = optionsProvider.WithOptions()
 	}
 
-	controller := &syncerController{
+	return &SyncController{
 		syncer:         syncer,
 		log:            loghelper.New(syncer.Name()),
 		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
@@ -49,11 +49,13 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer)
 
 		locker: locker.New(),
 	}
-
-	return controller.Register(ctx)
 }
 
-type syncerController struct {
+func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) error {
+	return NewSyncController(ctx, syncer).Register(ctx)
+}
+
+type SyncController struct {
 	syncer syncertypes.Syncer
 
 	log            loghelper.Logger
@@ -70,7 +72,7 @@ type syncerController struct {
 	locker *locker.Locker
 }
 
-func (r *syncerController) Reconcile(ctx context.Context, origReq ctrl.Request) (_ ctrl.Result, err error) {
+func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_ ctrl.Result, err error) {
 	// if host request we need to find the virtual object
 	vReq, pReq, err := r.extractRequest(ctx, origReq)
 	if err != nil {
@@ -152,7 +154,7 @@ func (r *syncerController) Reconcile(ctx context.Context, origReq ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
-func (r *syncerController) getObjects(ctx *synccontext.SyncContext, vReq, pReq ctrl.Request) (vObj client.Object, pObj client.Object, err error) {
+func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq, pReq ctrl.Request) (vObj client.Object, pObj client.Object, err error) {
 	// if we got a host request, we retrieve host object first
 	if pReq.Name != "" {
 		return r.getObjectsFromPhysical(ctx, pReq)
@@ -162,7 +164,7 @@ func (r *syncerController) getObjects(ctx *synccontext.SyncContext, vReq, pReq c
 	return r.getObjectsFromVirtual(ctx, vReq)
 }
 
-func (r *syncerController) getObjectsFromPhysical(ctx *synccontext.SyncContext, req ctrl.Request) (vObj, pObj client.Object, err error) {
+func (r *SyncController) getObjectsFromPhysical(ctx *synccontext.SyncContext, req ctrl.Request) (vObj, pObj client.Object, err error) {
 	// get physical object
 	exclude, pObj, err := r.getPhysicalObject(ctx.Context, req.NamespacedName, nil)
 	if err != nil {
@@ -182,7 +184,7 @@ func (r *syncerController) getObjectsFromPhysical(ctx *synccontext.SyncContext, 
 	return vObj, pObj, nil
 }
 
-func (r *syncerController) getObjectsFromVirtual(ctx *synccontext.SyncContext, req ctrl.Request) (vObj, pObj client.Object, err error) {
+func (r *SyncController) getObjectsFromVirtual(ctx *synccontext.SyncContext, req ctrl.Request) (vObj, pObj client.Object, err error) {
 	// get virtual object
 	exclude, vObj, err := r.getVirtualObject(ctx.Context, req.NamespacedName)
 	if err != nil {
@@ -202,7 +204,7 @@ func (r *syncerController) getObjectsFromVirtual(ctx *synccontext.SyncContext, r
 	return vObj, pObj, nil
 }
 
-func (r *syncerController) getVirtualObject(ctx context.Context, req types.NamespacedName) (bool, client.Object, error) {
+func (r *SyncController) getVirtualObject(ctx context.Context, req types.NamespacedName) (bool, client.Object, error) {
 	// we don't have an object to retrieve
 	if req.Name == "" {
 		return true, nil, nil
@@ -228,7 +230,7 @@ func (r *syncerController) getVirtualObject(ctx context.Context, req types.Names
 	return false, vObj, nil
 }
 
-func (r *syncerController) getPhysicalObject(ctx context.Context, req types.NamespacedName, vObj client.Object) (bool, client.Object, error) {
+func (r *SyncController) getPhysicalObject(ctx context.Context, req types.NamespacedName, vObj client.Object) (bool, client.Object, error) {
 	// we don't have an object to retrieve
 	if req.Name == "" {
 		return true, nil, nil
@@ -259,7 +261,7 @@ func (r *syncerController) getPhysicalObject(ctx context.Context, req types.Name
 	return false, pObj, nil
 }
 
-func (r *syncerController) excludePhysical(ctx context.Context, pObj, vObj client.Object) (bool, error) {
+func (r *SyncController) excludePhysical(ctx context.Context, pObj, vObj client.Object) (bool, error) {
 	isManaged, err := r.syncer.IsManaged(ctx, pObj)
 	if err != nil {
 		return false, fmt.Errorf("failed to check if physical object is managed: %w", err)
@@ -288,7 +290,7 @@ func (r *syncerController) excludePhysical(ctx context.Context, pObj, vObj clien
 	return false, nil
 }
 
-func (r *syncerController) excludeVirtual(vObj client.Object) bool {
+func (r *SyncController) excludeVirtual(vObj client.Object) bool {
 	excluder, ok := r.syncer.(syncertypes.ObjectExcluder)
 	if ok {
 		return excluder.ExcludeVirtual(vObj)
@@ -304,7 +306,7 @@ func (r *syncerController) excludeVirtual(vObj client.Object) bool {
 	return false
 }
 
-func (r *syncerController) extractRequest(ctx context.Context, req ctrl.Request) (vReq, pReq ctrl.Request, err error) {
+func (r *SyncController) extractRequest(ctx context.Context, req ctrl.Request) (vReq, pReq ctrl.Request, err error) {
 	// check if request is a host request
 	pReq = ctrl.Request{}
 	if isHostRequest(req) {
@@ -325,7 +327,7 @@ func (r *syncerController) extractRequest(ctx context.Context, req ctrl.Request)
 	return req, pReq, nil
 }
 
-func (r *syncerController) enqueueVirtual(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface, isDelete bool) {
+func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface, isDelete bool) {
 	if obj == nil {
 		return
 	}
@@ -349,7 +351,7 @@ func (r *syncerController) enqueueVirtual(ctx context.Context, obj client.Object
 	})
 }
 
-func (r *syncerController) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface, isDelete bool) {
+func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface, isDelete bool) {
 	if obj == nil {
 		return
 	}
@@ -382,7 +384,7 @@ func (r *syncerController) enqueuePhysical(ctx context.Context, obj client.Objec
 	}))
 }
 
-func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
+func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 	// build the basic controller
 	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
 		WithOptions(controller2.Options{
