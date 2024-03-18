@@ -995,6 +995,9 @@ type Experimental struct {
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
 	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" pro:"true"`
+
+	// Node Hiding hides the nodes for the outside world
+	NodeHiding bool `json:"nodeHiding,omitempty" pro:"true"`
 }
 
 type ExperimentalMultiNamespaceMode struct {
