@@ -24,7 +24,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes, a different helm chart will be deployed (`vcluster-k0s`), that holds specific configurations to support k0s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k0s) for all available chart options.
+Behind the scenes, a different helm chart will be deployed (`vcluster-k0s`), that holds specific configurations to support k0s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k0s) for all available chart options.
 
 ## Vanilla k8s
 
@@ -42,7 +42,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes, a different helm chart will be deployed (`vcluster-k8s`), that holds specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.
+Behind the scenes, a different helm chart will be deployed (`vcluster-k8s`), that holds specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k8s) for all available chart options.
 
 ## Other Distributions
 
@@ -73,6 +73,6 @@ vCluster only needs the following information from the virtual Kubernetes distri
 2. The API server central authority key (usually found at `/pki/ca.key`)
 3. An admin kube config to contact the virtual Kubernetes control plane (usually found at `/pki/admin.conf`)
 
-For multi-binary distributions, vCluster can even create those with a pre-install hook as found in the [k8s chart](https://github.com/loft-sh/vcluster/tree/main/charts/k8s/templates).
+For multi-binary distributions, vCluster can even create those with a pre-install hook as found in the [k8s chart](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k8s/templates).
 
 In general, if you need vCluster to support another Kubernetes distribution, we are always happy to help you or accept a pull request in our GitHub repository.
