@@ -506,3 +506,6 @@ platform:
 
 telemetry:
   disabled: false
+
+### additional sidecar container
+# sidecarContainer:
