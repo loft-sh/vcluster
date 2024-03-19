@@ -15,7 +15,6 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -35,7 +34,7 @@ var (
 func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.Provider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
 		nodeServiceProvider: nodeService,
-		fakeKubeletIPs:      ctx.Options.FakeKubeletIPs,
+		fakeKubeletIPs:      ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 	}, nil
 }
 
@@ -144,11 +143,13 @@ func newGUID() string {
 	return random.String(8) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(12)
 }
 
-func CreateFakeNode(ctx context.Context,
+func CreateFakeNode(
+	ctx context.Context,
 	fakeKubeletIPs bool,
 	nodeServiceProvider nodeservice.Provider,
 	virtualClient client.Client,
-	name string) error {
+	name string,
+) error {
 	nodeServiceProvider.Lock()
 	defer nodeServiceProvider.Unlock()
 
@@ -318,17 +319,11 @@ func filterOutPhysicalDaemonSets(pl *corev1.PodList) []corev1.Pod {
 }
 
 func GetNodeHost(nodeName string) string {
-	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + constants.NodeSuffix
-	log := loghelper.New("GetNodeHost()")
-	log.Debugf("translating nodename %q into hostname: %q", nodeName, hostname)
-	return hostname
+	return strings.ReplaceAll(nodeName, ".", "-") + "." + constants.NodeSuffix
 }
 
 // GetNodeHostLegacy returns Node hostname in a format used in 0.14.x release.
 // This function is added for backwards compatibility and may be removed in a future release.
 func GetNodeHostLegacy(nodeName, currentNamespace string) string {
-	hostname := strings.ReplaceAll(nodeName, ".", "-") + "." + translate.VClusterName + "." + currentNamespace + "." + constants.NodeSuffix
-	log := loghelper.New("GetNodeHostLegacy()")
-	log.Debugf("translating nodename %q into hostname: %q", nodeName, hostname)
-	return hostname
+	return strings.ReplaceAll(nodeName, ".", "-") + "." + translate.VClusterName + "." + currentNamespace + "." + constants.NodeSuffix
 }

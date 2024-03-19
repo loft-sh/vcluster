@@ -1,0 +1,44 @@
+{{- if .Values.controlPlane.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vc-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.controlPlane.serviceMonitor.labels }}
+{{ toYaml .Values.controlPlane.serviceMonitor.labels | indent 4 }}
+  {{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.serviceMonitor.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: vcluster
+      release: "{{ .Release.Name }}"
+      chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+      heritage: "{{ .Release.Service }}"
+  endpoints:
+  - interval: 30s
+    port: https
+    path: /metrics
+    scheme: https
+    tlsConfig:
+      ca:
+        secret:
+          name: vc-{{ .Release.Name }}
+          key: certificate-authority
+      cert:
+        secret:
+          name: vc-{{ .Release.Name }}
+          key: client-certificate
+      keySecret:
+        name: vc-{{ .Release.Name }}
+        key: client-key
+{{- end }}

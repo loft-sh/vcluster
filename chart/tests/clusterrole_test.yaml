@@ -1,0 +1,213 @@
+suite: ClusterRoleBinding
+templates:
+  - clusterrole.yaml
+
+tests:
+  - it: disable by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: enable by multi namespace mode
+    set:
+      experimental:
+        multiNamespaceMode:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "namespaces", "serviceaccounts" ]
+            verbs: [ "create", "delete", "patch", "update", "get", "watch", "list" ]
+
+  - it: override rules
+    set:
+      rbac:
+        clusterRole:
+          extraRules:
+            - apiGroups: [""]
+              resources: ["test123"]
+              verbs: ["test123"]
+          overwriteRules:
+            - apiGroups: [""]
+              resources: ["test"]
+              verbs: ["test"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "test" ]
+            verbs: [ "test" ]
+
+  - it: extra rules
+    set:
+      sync:
+        toHost:
+          priorityClasses:
+            enabled: true
+      rbac:
+        clusterRole:
+          extraRules:
+            - apiGroups: [ "" ]
+              resources: [ "test123" ]
+              verbs: [ "test123" ]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "test123" ]
+            verbs: [ "test123" ]
+
+  - it: plugin rules
+    set:
+      plugin:
+        myTest:
+          rbac:
+            clusterRole:
+              extraRules:
+                - apiGroups: [ "" ]
+                  resources: [ "test123" ]
+                  verbs: [ "test123" ]
+      plugins:
+        myTest2:
+          rbac:
+            clusterRole:
+              extraRules:
+                - apiGroups: [ "" ]
+                  resources: [ "test1234" ]
+                  verbs: [ "test1234" ]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "test123" ]
+            verbs: [ "test123" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "test1234" ]
+            verbs: [ "test1234" ]
+
+  - it: replicate services
+    set:
+      networking:
+        replicateServices:
+          fromHost:
+            - from: test
+              to: other-test
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "services", "endpoints" ]
+            verbs: [ "get", "watch", "list" ]
+
+  - it: real nodes
+    set:
+      sync:
+        fromHost:
+          nodes:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy" ]
+            verbs: [ "get", "watch", "list" ]
+
+  - it: virtual scheduler
+    set:
+      controlPlane:
+        advanced:
+          virtualScheduler:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["storage.k8s.io"]
+            resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
+            verbs: ["get", "watch", "list"]
+
+  - it: legacy pro
+    set:
+      pro: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy" ]
+            verbs: [ "get", "watch", "list" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "cluster.loft.sh", "storage.loft.sh" ]
+            resources: [ "features", "virtualclusters" ]
+            verbs: [ "get", "list", "watch" ]
+
+  - it: metrics proxy
+    set:
+      observability:
+        metrics:
+          proxy:
+            nodes: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "metrics.k8s.io" ]
+            resources: [ "nodes" ]
+            verbs: [ "get", "list" ]

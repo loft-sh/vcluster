@@ -1,7 +1,8 @@
-multiNamespaceMode:
-  enabled: true
-sync:
-  generic:
+experimental:
+  multiNamespaceMode:
+    enabled: true
+
+  genericSync:
     role:
       extraRules:
         - apiGroups: ["karpenter.sh"]
@@ -15,11 +16,8 @@ sync:
         - apiGroups: ["apiextensions.k8s.io"]
           resources: ["customresourcedefinitions"]
           verbs: ["get", "list", "watch"]
-    config: |-
-      version: v1beta1
-      export:
-        - apiVersion: karpenter.sh/v1alpha5
-          kind: Provisioner
-        - apiVersion: karpenter.k8s.aws/v1alpha1
-          kind: AWSNodeTemplate
-          
+    export:
+      - apiVersion: karpenter.sh/v1alpha5
+        kind: Provisioner
+      - apiVersion: karpenter.k8s.aws/v1alpha1
+        kind: AWSNodeTemplate

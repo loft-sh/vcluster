@@ -49,21 +49,16 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 	// parse node selector
 	var nodeSelector *metav1.LabelSelector
-	if ctx.Options.EnforceNodeSelector && ctx.Options.NodeSelector != "" {
-		nodeSelector, err = metav1.ParseToLabelSelector(ctx.Options.NodeSelector)
-		if err != nil {
-			return nil, errors.Wrap(err, "parse node selector")
-		} else if len(nodeSelector.MatchExpressions) > 0 {
-			return nil, errors.New("match expressions in the node selector are not supported")
-		} else if len(nodeSelector.MatchLabels) == 0 {
-			return nil, errors.New("at least one label=value pair has to be defined in the label selector")
+	if len(ctx.Config.Sync.FromHost.Nodes.Selector.Labels) > 0 {
+		nodeSelector = &metav1.LabelSelector{
+			MatchLabels: ctx.Config.Sync.FromHost.Nodes.Selector.Labels,
 		}
 	}
 
 	// parse tolerations
 	var tolerations []*corev1.Toleration
-	if len(ctx.Options.Tolerations) > 0 {
-		for _, t := range ctx.Options.Tolerations {
+	if len(ctx.Config.Sync.ToHost.Pods.EnforceTolerations) > 0 {
+		for _, t := range ctx.Config.Sync.ToHost.Pods.EnforceTolerations {
 			tol, err := toleration.ParseToleration(t)
 			if err == nil {
 				tolerations = append(tolerations, &tol)
@@ -83,8 +78,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &podSyncer{
 		NamespacedTranslator: namespacedTranslator,
 
-		serviceName:     ctx.Options.ServiceName,
-		enableScheduler: ctx.Options.EnableScheduler,
+		serviceName:     ctx.Config.ServiceName,
+		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
@@ -93,7 +88,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		nodeSelector:          nodeSelector,
 		tolerations:           tolerations,
 
-		podSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
+		podSecurityStandard: ctx.Config.Policies.PodSecurityStandard,
 	}, nil
 }
 

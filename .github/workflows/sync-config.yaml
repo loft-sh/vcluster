@@ -1,0 +1,49 @@
+name: Sync Config
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "config/**.go"
+      - "chart/values.schema.json"
+      - ".github/workflows/sync-config.yaml"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Clone and update
+        run: |
+          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+
+          cp -R config/. vcluster-config/config/
+          cp chart/values.schema.json vcluster-config/values.schema.json
+
+          cd vcluster-config
+
+          # Checkout new branch
+          git add --all
+
+          # if there are no changes, exit early
+          if git diff-index --quiet HEAD --; then
+            exit 0
+          fi
+
+          # set git info
+          git config --global user.name "Loft Bot"
+          git config --global user.email 'loft-bot@users.noreply.github.com'
+          echo "Changes detected"
+
+          # commit changes
+          git commit -m "chore: sync vCluster config"
+          git push -u origin -f main
+          echo "Pushed commit to main branch"

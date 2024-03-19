@@ -90,10 +90,7 @@ jobs:
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/v!!p')
           helm plugin install https://github.com/chartmuseum/helm-push.git
           helm repo add chartmuseum $CHART_MUSEUM_URL --username $CHART_MUSEUM_USER --password $CHART_MUSEUM_PASSWORD
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" charts/k3s/ chartmuseum
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" charts/k0s/ chartmuseum
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" charts/k8s/ chartmuseum
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" charts/eks/ chartmuseum
+          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" chart chartmuseum
         env:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}

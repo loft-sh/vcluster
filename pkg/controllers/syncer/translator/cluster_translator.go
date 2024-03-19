@@ -19,7 +19,7 @@ func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		obj:                 obj,
 		nameTranslator:      nameTranslator,
-		syncedLabels:        ctx.Options.SyncLabels,
+		syncedLabels:        ctx.Config.Experimental.SyncSettings.SyncLabels,
 	}
 }
 

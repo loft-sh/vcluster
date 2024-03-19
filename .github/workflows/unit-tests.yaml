@@ -29,10 +29,7 @@ jobs:
           helm plugin install https://github.com/helm-unittest/helm-unittest
       - name: Run Helm Unit Tests
         run: |
-          helm unittest charts/eks -d
-          helm unittest charts/k3s -d
-          helm unittest charts/k0s -d
-          helm unittest charts/k8s -d
+          helm unittest chart
 
   go-unit-test:
     name: Execute all go tests

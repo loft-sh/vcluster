@@ -24,65 +24,82 @@ deployments:
     helm:
       releaseName: vcluster
       chart:
-        name: ./charts/k8s
-      values: &values
-        autoDeletePersistentVolumeClaims: false
-        k3sToken: "devspace"
-        job:
-          enabled: false
-        fallbackHostDns: true
-        service:
-          type: NodePort
-        serviceCIDR: $([ $1 == "dev" ] && vcluster get service-cidr || echo "null")
-        tolerations:
-          - operator: "Exists"
-        serviceAccount:
-          create: false
-          name: default
-        rbac:
-          clusterRole:
-            create: true
-          role:
-            extended: true
-        syncer:
-          image: ${SYNCER_IMAGE}
-        multiNamespaceMode:
-          enabled: false
+        name: ./chart
+      values:
+        controlPlane:
+          distro:
+            k8s:
+              enabled: true
+          statefulSet:
+            image:
+              repository: image(${SYNCER_IMAGE})
+              tag: tag(${SYNCER_IMAGE})
+            scheduling:
+              tolerations:
+              - operator: "Exists"
+          service:
+            spec:
+              type: NodePort
+          advanced:
+            serviceAccount:
+              enabled: false
+              name: default
         telemetry:
-          disabled: false
-          instanceCreatorType: "devspace"
-          machineID: "devspace"
-        proxy:
-          metricsServer:
-            nodes:
-              enabled: true
-            pods:
-              enabled: true
-        sync:
-          generic:
-            clusterRole:
-              extraRules:
-                - apiGroups: ["apiextensions.k8s.io"]
-                  resources: ["customresourcedefinitions"]
-                  verbs: ["get", "list", "watch"]
-                # Config for testing
-                - apiGroups: ["cert-manager.io"]
-                  resources: ["issuers", "certificates", "certificaterequests"]
-                  verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+          disabled: true
 
   vcluster-k3s:
     helm:
       releaseName: vcluster
       chart:
-        name: ./charts/k3s
-      values: *values # reuses the same values defined under the &values anchor
+        name: ./chart
+      values:
+        controlPlane:
+          distro:
+            k3s:
+              enabled: true
+          statefulSet:
+            image:
+              repository: image(${SYNCER_IMAGE})
+              tag: tag(${SYNCER_IMAGE})
+            scheduling:
+              tolerations:
+                - operator: "Exists"
+          service:
+            spec:
+              type: NodePort
+          advanced:
+            serviceAccount:
+              enabled: false
+              name: default
+        telemetry:
+          disabled: true
 
   vcluster-k0s:
     helm:
       releaseName: vcluster
       chart:
-        name: ./charts/k0s
-      values: *values # reuses the same values defined under the &values anchor
+        name: ./chart
+      values:
+        controlPlane:
+          distro:
+            k3s:
+              enabled: true
+          statefulSet:
+            image:
+              repository: image(${SYNCER_IMAGE})
+              tag: tag(${SYNCER_IMAGE})
+            scheduling:
+              tolerations:
+                - operator: "Exists"
+          service:
+            spec:
+              type: NodePort
+          advanced:
+            serviceAccount:
+              enabled: false
+              name: default
+        telemetry:
+          disabled: true
 
 # Dev Configuration for vcluster
 dev:
@@ -105,6 +122,7 @@ dev:
         - 'cmd/vclusterctl/cmd/charts'
         - '!/cmd'
         - '!/vendor'
+        - '!/config'
         - '!/hack'
         - '!/go.mod'
         - '!/go.sum'
@@ -158,36 +176,6 @@ pipelines:
       kubectl delete pvc --all -n ${DEVSPACE_NAMESPACE}
 
 profiles:
-  - name: dev-hostpath-mapper
-    patches:
-      - op: remove
-        path: dev.vcluster.imageSelector
-      - op: remove
-        path: dev.vcluster.container
-      - op: add
-        path: dev.vcluster.labelSelector
-        value:
-          component: hostpath-mapper
-    merge:
-      deployments:
-        vcluster-k3s: &hostmapper_patch
-          helm:
-            values:
-              hostpathMapper:
-                image: ${SYNCER_IMAGE}
-                enabled: true
-                dev: true
-              syncer:
-                livenessProbe:
-                  enabled: false
-                readinessProbe:
-                  enabled: false
-                extraArgs:
-                  - start
-                  - --tls-san=vcluster
-        vcluster-k0s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
-        vcluster-k8s: *hostmapper_patch # reuses the same patch defined under the &hostmapper_patch anchor
-
   - name: test-k3s
     patches:
       - op: add

@@ -28,7 +28,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		// overriding it, which would cause endless updates back and forth.
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}, "field.cattle.io/publicEndpoints"),
 
-		serviceName: ctx.Options.ServiceName,
+		serviceName: ctx.Config.ServiceName,
 	}, nil
 }
 

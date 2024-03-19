@@ -8,8 +8,11 @@ type InitConfig struct {
 	PhysicalClusterConfig []byte        `json:"physicalClusterConfig,omitempty"`
 	SyncerConfig          []byte        `json:"syncerConfig,omitempty"`
 	CurrentNamespace      string        `json:"currentNamespace,omitempty"`
-	Options               []byte        `json:"options,omitempty"`
-	WorkingDir            string        `json:"workingDir,omitempty"`
+
+	Config  []byte `json:"config,omitempty"`
+	Options []byte `json:"options,omitempty"`
+
+	WorkingDir string `json:"workingDir,omitempty"`
 }
 
 // InitConfigPro is used to signal the plugin if vCluster.Pro is enabled and what features are allowed

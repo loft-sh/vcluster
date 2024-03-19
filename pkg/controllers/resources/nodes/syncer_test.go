@@ -3,13 +3,12 @@ package nodes
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
-
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -33,6 +32,42 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 		return NewSyncer(ctx, &fakeNodeServiceProvider{})
 	})
 	return syncContext, object.(*nodeSyncer)
+}
+
+func TestNodeDeletion(t *testing.T) {
+	baseName := types.NamespacedName{
+		Name: "mynode",
+	}
+	baseNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Delete unused node backwards",
+			InitialVirtualState:  []runtime.Object{baseNode},
+			InitialPhysicalState: []runtime.Object{baseNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				_, nodesSyncer := newFakeSyncer(t, ctx)
+				syncController := syncer.NewSyncController(ctx, nodesSyncer)
+
+				_, err := syncController.Reconcile(ctx.Context, controllerruntime.Request{NamespacedName: baseName})
+				assert.NilError(t, err)
+			},
+		},
+	})
 }
 
 func TestSync(t *testing.T) {
@@ -142,6 +177,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, editedNode, baseNode)
 				assert.NilError(t, err)
@@ -161,6 +197,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseVNode)
 				assert.NilError(t, err)
@@ -253,7 +290,8 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.Tolerations = []string{"key1=value1:NoSchedule"}
+				ctx.Config.Sync.ToHost.Pods.EnforceTolerations = []string{"key1=value1:NoSchedule"}
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
@@ -268,7 +306,8 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.Tolerations = []string{"key2=value2:NoSchedule"}
+				ctx.Config.Sync.ToHost.Pods.EnforceTolerations = []string{"key2=value2:NoSchedule"}
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
@@ -283,7 +322,8 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.Tolerations = []string{":NoSchedule op=Exists"}
+				ctx.Config.Sync.ToHost.Pods.EnforceTolerations = []string{":NoSchedule op=Exists"}
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
@@ -375,10 +415,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.EnforceNodeSelector = false
-				req, _ := labels.NewRequirement("test", selection.Equals, []string{"true"})
-				sel := labels.NewSelector().Add(*req)
-				ctx.Options.NodeSelector = sel.String()
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+				ctx.Config.Sync.FromHost.Nodes.Selector.Labels = map[string]string{
+					"test": "true",
+				}
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
@@ -393,10 +433,10 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.EnforceNodeSelector = false
-				req, _ := labels.NewRequirement("test", selection.NotEquals, []string{"true"})
-				sel := labels.NewSelector().Add(*req)
-				ctx.Options.NodeSelector = sel.String()
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+				ctx.Config.Sync.FromHost.Nodes.Selector.Labels = map[string]string{
+					"test": "true",
+				}
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
@@ -411,7 +451,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.EnforceNodeSelector = false
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
@@ -423,10 +463,10 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{baseVNode},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				req, _ := labels.NewRequirement("test", selection.NotEquals, []string{"true"})
-				sel := labels.NewSelector().Add(*req)
-				ctx.Options.NodeSelector = sel.String()
-				ctx.Options.EnforceNodeSelector = true
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+				ctx.Config.Sync.FromHost.Nodes.Selector.Labels = map[string]string{
+					"test": "true",
+				}
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
@@ -517,8 +557,9 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.SyncAllNodes = true
-				ctx.Options.ClearNodeImages = true
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
+				ctx.Config.Sync.FromHost.Nodes.ClearImageStatus = true
 				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
 				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)
@@ -568,7 +609,8 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.SyncAllNodes = true
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
 				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
 				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
 				assert.NilError(t, err)

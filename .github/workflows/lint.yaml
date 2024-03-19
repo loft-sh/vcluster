@@ -25,7 +25,7 @@ jobs:
         with:
           go-version-file: ./go.mod
           cache: false
-      - name: Generate Embedded Helm Charts
+      - name: Generate Embedded Helm Chart
         run: |
           go generate ./...
       - name: Run golangci-lint

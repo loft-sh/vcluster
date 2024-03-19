@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
@@ -25,11 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
-	"github.com/loft-sh/vcluster-values/values"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"golang.org/x/mod/semver"
 
 	"github.com/loft-sh/log"
@@ -96,8 +95,6 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cobraCmd.Flags().StringArrayVarP(&cmd.Values, "values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().StringArrayVar(&cmd.SetValues, "set", []string{}, "Set values for helm. E.g. --set 'persistence.enabled=true'")
-	cobraCmd.Flags().StringSliceVar(&cmd.DeprecatedExtraValues, "extra-values", []string{}, "DEPRECATED: use --values instead")
-	cobraCmd.Flags().BoolVar(&cmd.Isolate, "isolate", false, "If true vcluster and its workloads will run in an isolated environment")
 
 	cobraCmd.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", true, "If true updates the current kube config")
@@ -120,11 +117,9 @@ vcluster create test --namespace test
 
 	// hidden / deprecated
 	cobraCmd.Flags().StringVar(&cmd.LocalChartDir, "local-chart-dir", "", "The virtual cluster local chart dir to use")
-	cobraCmd.Flags().BoolVar(&cmd.DisableIngressSync, "disable-ingress-sync", false, "DEPRECATED: use --set 'sync.ingresses.enabled=false'")
 	cobraCmd.Flags().BoolVar(&cmd.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service. Will be set to false and the passed value will be ignored if --expose is set to true.")
 
 	_ = cobraCmd.Flags().MarkHidden("local-chart-dir")
-	_ = cobraCmd.Flags().MarkHidden("disable-ingress-sync")
 	_ = cobraCmd.Flags().MarkHidden("expose-local")
 	return cobraCmd
 }
@@ -133,8 +128,6 @@ var loginText = "\nPlease run:\n * 'vcluster login' to connect to an existing vC
 
 // Run executes the functionality
 func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
-	cmd.Values = append(cmd.Values, cmd.DeprecatedExtraValues...)
-
 	// check if we should create a pro cluster
 	if !cmd.DisablePro {
 		proClient, err := procli.CreateProClient()
@@ -205,7 +198,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 	logger := logr.New(cmd.log.LogrLogSink())
-	chartValues, err := values.GetDefaultReleaseValues(chartOptions, logger)
+	chartValues, err := config.GetExtraValues(chartOptions, logger)
 	if err != nil {
 		return err
 	}
@@ -391,6 +384,7 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 		Values:      chartValues,
 		ValuesFiles: cmd.Values,
 		SetValues:   cmd.SetValues,
+		Debug:       cmd.Debug,
 	})
 	if err != nil {
 		return err
@@ -399,20 +393,13 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 	return nil
 }
 
-func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info, log log.Logger) (*values.ChartOptions, error) {
+func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info, log log.Logger) (*config.ExtraValuesOptions, error) {
 	if !util.Contains(cmd.Distro, create.AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(create.AllowedDistros, ", "))
 	}
 
 	if cmd.ChartName == "vcluster" && cmd.Distro != "k3s" {
 		cmd.ChartName += "-" + cmd.Distro
-	}
-
-	// check if we're running in isolated mode
-	if cmd.Isolate {
-		// In this case, default the ExposeLocal variable to false
-		// as it will always fail creating a vcluster in isolated mode
-		cmd.ExposeLocal = false
 	}
 
 	// check if we should create with node port
@@ -422,17 +409,12 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info, log log.Lo
 		cmd.localCluster = true
 	}
 
-	return &values.ChartOptions{
-		ChartName:          cmd.ChartName,
-		ChartRepo:          cmd.ChartRepo,
-		ChartVersion:       cmd.ChartVersion,
-		CIDR:               cmd.CIDR,
-		DisableIngressSync: cmd.DisableIngressSync,
-		Expose:             cmd.Expose,
-		SyncNodes:          cmd.localCluster,
-		NodePort:           cmd.localCluster,
-		Isolate:            cmd.Isolate,
-		KubernetesVersion: values.Version{
+	return &config.ExtraValuesOptions{
+		Distro:    cmd.Distro,
+		Expose:    cmd.Expose,
+		SyncNodes: cmd.localCluster,
+		NodePort:  cmd.localCluster,
+		KubernetesVersion: config.KubernetesVersion{
 			Major: kubernetesVersion.Major,
 			Minor: kubernetesVersion.Minor,
 		},
@@ -512,19 +494,6 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 	err = cmd.ensureNamespace(ctx, vClusterName)
 	if err != nil {
 		return err
-	}
-
-	// get service cidr
-	if cmd.CIDR == "" {
-		cidr, warning := servicecidr.GetServiceCIDR(ctx, cmd.kubeClient, cmd.Namespace)
-		if warning != "" {
-			cmd.log.Debug(warning)
-		}
-		if cmd.Distro == "k0s" {
-			// there is currently a problem with dualstack when we use k0s
-			cidr = strings.Split(cidr, ",")[0]
-		}
-		cmd.CIDR = cidr
 	}
 
 	return nil
@@ -612,7 +581,7 @@ func (cmd *CreateCmd) getKubernetesVersion() (*version.Info, error) {
 			cmd.log.Warnf("currently we only support major.minor version (%s) and not the patch version (%s)", majorMinorVer, cmd.KubernetesVersion)
 		}
 
-		parsedVersion, err := values.ParseKubernetesVersionInfo(majorMinorVer)
+		parsedVersion, err := config.ParseKubernetesVersionInfo(majorMinorVer)
 		if err != nil {
 			return nil, err
 		}

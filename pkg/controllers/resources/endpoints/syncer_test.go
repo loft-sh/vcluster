@@ -3,8 +3,10 @@ package endpoints
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -14,6 +16,109 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *endpointsSyncer) {
+	specialservices.Default = specialservices.NewDefaultServiceSyncer()
+
+	syncCtx, fakeSyncer := generictesting.FakeStartSyncer(t, ctx, New)
+	return syncCtx, fakeSyncer.(*endpointsSyncer)
+}
+
+func TestExistingEndpoints(t *testing.T) {
+	vEndpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-endpoints",
+			Namespace: "test",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: "1.1.1.1",
+					},
+				},
+			},
+		},
+	}
+	vService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-endpoints",
+			Namespace: "test",
+		},
+	}
+	pEndpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.Default.PhysicalName(vEndpoints.Name, vEndpoints.Namespace),
+			Namespace: "test",
+		},
+	}
+	pService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.Default.PhysicalName(vEndpoints.Name, vEndpoints.Namespace),
+			Namespace: "test",
+			Annotations: map[string]string{
+				translate.NameAnnotation:      vEndpoints.Name,
+				translate.NamespaceAnnotation: vEndpoints.Namespace,
+				translate.UIDAnnotation:       "",
+			},
+			Labels: map[string]string{
+				translate.NamespaceLabel: vEndpoints.Namespace,
+			},
+		},
+	}
+	expectedEndpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.Default.PhysicalName(vEndpoints.Name, vEndpoints.Namespace),
+			Namespace: "test",
+			Annotations: map[string]string{
+				translate.NameAnnotation:      vEndpoints.Name,
+				translate.NamespaceAnnotation: vEndpoints.Namespace,
+				translate.UIDAnnotation:       "",
+			},
+			Labels: map[string]string{
+				translate.NamespaceLabel: vEndpoints.Namespace,
+			},
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: "1.1.1.1",
+					},
+				},
+			},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name: "Override endpoints even if they are not managed",
+			InitialVirtualState: []runtime.Object{
+				vEndpoints,
+				vService,
+			},
+			InitialPhysicalState: []runtime.Object{
+				pEndpoints,
+				pService,
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Endpoints"): {
+					expectedEndpoints,
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				_, fakeSyncer := newFakeSyncer(t, ctx)
+				syncController := syncer.NewSyncController(ctx, fakeSyncer)
+
+				_, err := syncController.Reconcile(ctx.Context, ctrl.Request{NamespacedName: types.NamespacedName{
+					Namespace: vEndpoints.Namespace,
+					Name:      vEndpoints.Name,
+				}})
+				assert.NilError(t, err)
+			},
+		},
+	})
+}
 
 func TestSync(t *testing.T) {
 	baseEndpoints := &corev1.Endpoints{

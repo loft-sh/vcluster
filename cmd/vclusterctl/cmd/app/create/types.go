@@ -8,22 +8,18 @@ type Options struct {
 	ChartRepo             string
 	LocalChartDir         string
 	Distro                string
-	CIDR                  string
 	Values                []string
 	SetValues             []string
-	DeprecatedExtraValues []string
 
 	KubernetesVersion string
 
-	CreateNamespace    bool
-	DisableIngressSync bool
-	UpdateCurrent      bool
-	Expose             bool
-	ExposeLocal        bool
+	CreateNamespace bool
+	UpdateCurrent   bool
+	Expose          bool
+	ExposeLocal     bool
 
 	Connect bool
 	Upgrade bool
-	Isolate bool
 
 	// Pro
 	Project         string

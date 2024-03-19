@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/options"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/loft-sh/vcluster/pkg/specialservices"
@@ -45,11 +45,11 @@ type EndpointController struct {
 	provider provider
 }
 
-func NewEndpointController(ctx *options.ControllerContext, provider provider) *EndpointController {
+func NewEndpointController(ctx *config.ControllerContext, provider provider) *EndpointController {
 	return &EndpointController{
 		LocalClient:         ctx.LocalManager.GetClient(),
 		VirtualClient:       ctx.VirtualManager.GetClient(),
-		ServiceName:         ctx.Options.ServiceName,
+		ServiceName:         ctx.Config.ServiceName,
 		ServiceNamespace:    ctx.CurrentNamespace,
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),
 		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),

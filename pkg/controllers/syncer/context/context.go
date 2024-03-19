@@ -3,9 +3,8 @@ package context
 import (
 	"context"
 
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -24,8 +23,7 @@ type SyncContext struct {
 type RegisterContext struct {
 	Context context.Context
 
-	Options     *options.VirtualClusterOptions
-	Controllers sets.Set[string]
+	Config *config.VirtualClusterConfig
 
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client

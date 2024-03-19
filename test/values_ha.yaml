@@ -1,22 +1,17 @@
 # this is for k3s pro
-replicas: 3
+controlPlane:
+  statefulSet:
+    highAvailability:
+      replicas: 3
 
-# Scale up syncer replicas
-syncer:
-  replicas: 3
+  # Scale up etcd
+  backingStore:
+    externalEtcd:
+      statefulSet:
+        highAvailability:
+          replicas: 3
 
-# Scale up etcd
-etcd:
-  replicas: 3
-
-# Scale up controller manager
-controller:
-  replicas: 3
-
-# Scale up api server
-api:
-  replicas: 3
-
-# Scale up DNS server
-coredns:
-  replicas: 3
+  # Scale up DNS server
+  coredns:
+    deployment:
+      replicas: 3

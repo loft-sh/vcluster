@@ -1,49 +1,23 @@
 package controllers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/pkg/options"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
-
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
-	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	"github.com/loft-sh/vcluster/pkg/helm"
-	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
-	util "github.com/loft-sh/vcluster/pkg/util/context"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-
-	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
-	"github.com/loft-sh/vcluster/pkg/controllers/manifests"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csidrivers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csinodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csistoragecapacities"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
-
-	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
-	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/networkpolicies"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumeclaims"
@@ -52,11 +26,25 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
+	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	util "github.com/loft-sh/vcluster/pkg/util/context"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
+	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
+	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -64,58 +52,67 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var ResourceControllers = map[string][]func(*synccontext.RegisterContext) (syncertypes.Object, error){
-	"services":               {services.New},
-	"configmaps":             {configmaps.New},
-	"secrets":                {secrets.New},
-	"endpoints":              {endpoints.New},
-	"pods":                   {pods.New},
-	"events":                 {events.New},
-	"persistentvolumeclaims": {persistentvolumeclaims.New},
-	"ingresses":              {ingresses.New},
-	"ingressclasses":         {ingressclasses.New},
-	"storageclasses":         {storageclasses.New},
-	"hoststorageclasses":     {storageclasses.NewHostStorageClassSyncer},
-	"priorityclasses":        {priorityclasses.New},
-	"nodes,fake-nodes":       {nodes.New},
-	"poddisruptionbudgets":   {poddisruptionbudgets.New},
-	"networkpolicies":        {networkpolicies.New},
-	"volumesnapshots":        {volumesnapshotclasses.New, volumesnapshots.New, volumesnapshotcontents.New},
-	"serviceaccounts":        {serviceaccounts.New},
-	"csinodes":               {csinodes.New},
-	"csidrivers":             {csidrivers.New},
-	"csistoragecapacities":   {csistoragecapacities.New},
-	"namespaces":             {namespaces.New},
-	"persistentvolumes,fake-persistentvolumes": {persistentvolumes.New},
+type initFunction func(*synccontext.RegisterContext) (syncertypes.Object, error)
+
+func getSyncers(ctx *config.ControllerContext) []initFunction {
+	return []initFunction{
+		isEnabled(ctx.Config.Sync.ToHost.Services.Enabled, services.New),
+		isEnabled(ctx.Config.Sync.ToHost.ConfigMaps.Enabled, configmaps.New),
+		isEnabled(ctx.Config.Sync.ToHost.Secrets.Enabled, secrets.New),
+		isEnabled(ctx.Config.Sync.ToHost.Endpoints.Enabled, endpoints.New),
+		isEnabled(ctx.Config.Sync.ToHost.Pods.Enabled, pods.New),
+		isEnabled(ctx.Config.Sync.FromHost.Events.Enabled, events.New),
+		isEnabled(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Enabled, persistentvolumeclaims.New),
+		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, ingresses.New),
+		isEnabled(ctx.Config.Sync.FromHost.IngressClasses.Enabled, ingressclasses.New),
+		isEnabled(ctx.Config.Sync.ToHost.StorageClasses.Enabled, storageclasses.New),
+		isEnabled(ctx.Config.Sync.FromHost.StorageClasses.Enabled, storageclasses.NewHostStorageClassSyncer),
+		isEnabled(ctx.Config.Sync.ToHost.PriorityClasses.Enabled, priorityclasses.New),
+		isEnabled(ctx.Config.Sync.ToHost.PodDisruptionBudgets.Enabled, poddisruptionbudgets.New),
+		isEnabled(ctx.Config.Sync.ToHost.NetworkPolicies.Enabled, networkpolicies.New),
+		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshotclasses.New),
+		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshots.New),
+		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshotcontents.New),
+		isEnabled(ctx.Config.Sync.ToHost.ServiceAccounts.Enabled, serviceaccounts.New),
+		isEnabled(ctx.Config.Sync.FromHost.CSINodes.Enabled, csinodes.New),
+		isEnabled(ctx.Config.Sync.FromHost.CSIDrivers.Enabled, csidrivers.New),
+		isEnabled(ctx.Config.Sync.FromHost.CSIStorageCapacities.Enabled, csistoragecapacities.New),
+		isEnabled(ctx.Config.Experimental.MultiNamespaceMode.Enabled, namespaces.New),
+		persistentvolumes.New,
+		nodes.New,
+	}
 }
 
-func Create(ctx *options.ControllerContext) ([]syncertypes.Object, error) {
+func isEnabled(enabled bool, fn initFunction) initFunction {
+	if enabled {
+		return fn
+	}
+	return nil
+}
+
+func Create(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
 	registerContext := util.ToRegisterContext(ctx)
 
 	// register controllers for resource synchronization
 	syncers := []syncertypes.Object{}
-	for k, v := range ResourceControllers {
-		for _, controllerNew := range v {
-			controllers := strings.Split(k, ",")
-			for _, controller := range controllers {
-				if ctx.Controllers.Has(controller) {
-					loghelper.Infof("Start %s sync controller", controller)
-					ctrl, err := controllerNew(registerContext)
-					if err != nil {
-						return nil, errors.Wrapf(err, "register %s controller", controller)
-					}
-
-					syncers = append(syncers, ctrl)
-					break
-				}
-			}
+	for _, newSyncer := range getSyncers(ctx) {
+		if newSyncer == nil {
+			continue
 		}
+
+		createdController, err := newSyncer(registerContext)
+		if err != nil {
+			return nil, errors.Wrapf(err, "register %s controller", createdController.Name())
+		}
+
+		loghelper.Infof("Start %s sync controller", createdController.Name())
+		syncers = append(syncers, createdController)
 	}
 
 	return syncers, nil
 }
 
-func ExecuteInitializers(controllerCtx *options.ControllerContext, syncers []syncertypes.Object) error {
+func ExecuteInitializers(controllerCtx *config.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(controllerCtx)
 
 	// execute in parallel because each one might be time-consuming
@@ -138,7 +135,7 @@ func ExecuteInitializers(controllerCtx *options.ControllerContext, syncers []syn
 	return errorGroup.Wait()
 }
 
-func RegisterIndices(ctx *options.ControllerContext, syncers []syncertypes.Object) error {
+func RegisterIndices(ctx *config.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 	for _, s := range syncers {
 		indexRegisterer, ok := s.(syncertypes.IndicesRegisterer)
@@ -153,7 +150,7 @@ func RegisterIndices(ctx *options.ControllerContext, syncers []syncertypes.Objec
 	return nil
 }
 
-func RegisterControllers(ctx *options.ControllerContext, syncers []syncertypes.Object) error {
+func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 
 	err := k8sdefaultendpoint.Register(ctx)
@@ -162,7 +159,7 @@ func RegisterControllers(ctx *options.ControllerContext, syncers []syncertypes.O
 	}
 
 	// register controller that maintains pod security standard check
-	if ctx.Options.EnforcePodSecurityStandard != "" {
+	if ctx.Config.Policies.PodSecurityStandard != "" {
 		err := RegisterPodSecurityController(ctx)
 		if err != nil {
 			return err
@@ -176,7 +173,7 @@ func RegisterControllers(ctx *options.ControllerContext, syncers []syncertypes.O
 	}
 
 	// register init manifests configmap watcher controller
-	err = RegisterInitManifestsController(ctx)
+	err = deploy.RegisterInitManifestsController(ctx)
 	if err != nil {
 		return err
 	}
@@ -218,31 +215,13 @@ func RegisterControllers(ctx *options.ControllerContext, syncers []syncertypes.O
 	return nil
 }
 
-func RegisterGenericSyncController(ctx *options.ControllerContext) error {
-	// first check if a generic CRD config is provided and we actually need
-	// to create any of these syncer controllers
-	c := os.Getenv(options.GenericConfig)
-	if strings.TrimSpace(c) == "" || strings.TrimSpace(c) == "---" {
-		// empty configuration, no need for creating any syncer controllers
-		loghelper.Infof("no generic config provided, skipping creating controllers")
-
-		return nil
-	}
-
-	configuration, err := config.Parse(c)
-	if err != nil {
-		loghelper.Infof("error parsing the config %v", err.Error())
-		return errors.Wrapf(err, "parsing the config")
-	}
-
-	loghelper.Infof("generic config provided, parsed successfully")
-
-	err = generic.CreateExporters(ctx, configuration)
+func RegisterGenericSyncController(ctx *config.ControllerContext) error {
+	err := generic.CreateExporters(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = generic.CreateImporters(ctx, configuration)
+	err = generic.CreateImporters(ctx)
 	if err != nil {
 		return err
 	}
@@ -250,60 +229,14 @@ func RegisterGenericSyncController(ctx *options.ControllerContext) error {
 	return nil
 }
 
-func RegisterInitManifestsController(controllerCtx *options.ControllerContext) error {
-	vconfig, err := kubeconfig.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
-	if err != nil {
-		return err
-	}
-
-	vConfigRaw, err := vconfig.RawConfig()
-	if err != nil {
-		return err
-	}
-
-	helmBinaryPath, err := cmd.GetHelmBinaryPath(controllerCtx.Context, log.GetInstance())
-	if err != nil {
-		return err
-	}
-
-	controller := &manifests.InitManifestsConfigMapReconciler{
-		LocalClient:    controllerCtx.CurrentNamespaceClient,
-		Log:            loghelper.New("init-manifests-controller"),
-		VirtualManager: controllerCtx.VirtualManager,
-
-		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance(), helmBinaryPath),
-	}
-
-	go func() {
-		wait.JitterUntilWithContext(controllerCtx.Context, func(ctx context.Context) {
-			for {
-				result, err := controller.Reconcile(ctx, ctrl.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: controllerCtx.CurrentNamespace,
-						Name:      translate.VClusterName + manifests.InitManifestSuffix,
-					},
-				})
-				if err != nil {
-					klog.Errorf("Error reconciling init_configmap: %v", err)
-					break
-				} else if !result.Requeue {
-					break
-				}
-			}
-		}, time.Second*10, 1.0, true)
-	}()
-
-	return nil
-}
-
-func RegisterServiceSyncControllers(ctx *options.ControllerContext) error {
-	hostNamespace := ctx.Options.TargetNamespace
-	if ctx.Options.MultiNamespaceMode {
+func RegisterServiceSyncControllers(ctx *config.ControllerContext) error {
+	hostNamespace := ctx.Config.TargetNamespace
+	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
 		hostNamespace = ctx.CurrentNamespace
 	}
 
-	if len(ctx.Options.MapHostServices) > 0 {
-		mapping, err := parseMapping(ctx.Options.MapHostServices, hostNamespace, "")
+	if len(ctx.Config.Networking.ReplicateServices.FromHost) > 0 {
+		mapping, err := parseMapping(ctx.Config.Networking.ReplicateServices.FromHost, hostNamespace, "")
 		if err != nil {
 			return errors.Wrap(err, "parse physical service mapping")
 		}
@@ -349,8 +282,8 @@ func RegisterServiceSyncControllers(ctx *options.ControllerContext) error {
 		}
 	}
 
-	if len(ctx.Options.MapVirtualServices) > 0 {
-		mapping, err := parseMapping(ctx.Options.MapVirtualServices, "", hostNamespace)
+	if len(ctx.Config.Networking.ReplicateServices.ToHost) > 0 {
+		mapping, err := parseMapping(ctx.Config.Networking.ReplicateServices.ToHost, "", hostNamespace)
 		if err != nil {
 			return errors.Wrap(err, "parse physical service mapping")
 		}
@@ -363,7 +296,7 @@ func RegisterServiceSyncControllers(ctx *options.ControllerContext) error {
 			Log:                   loghelper.New("map-virtual-service-syncer"),
 		}
 
-		if ctx.Options.MultiNamespaceMode {
+		if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
 			controller.CreateEndpoints = true
 		}
 
@@ -376,43 +309,39 @@ func RegisterServiceSyncControllers(ctx *options.ControllerContext) error {
 	return nil
 }
 
-func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace string) (map[string]types.NamespacedName, error) {
+func parseMapping(mappings []vclusterconfig.ServiceMapping, fromDefaultNamespace, toDefaultNamespace string) (map[string]types.NamespacedName, error) {
 	ret := map[string]types.NamespacedName{}
 	for _, m := range mappings {
-		splitted := strings.Split(m, "=")
-		if len(splitted) != 2 {
-			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
-		} else if len(splitted[0]) == 0 || len(splitted[1]) == 0 {
-			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
-		}
+		from := m.From
+		to := m.To
 
-		fromSplitted := strings.Split(splitted[0], "/")
+		fromSplitted := strings.Split(from, "/")
 		if len(fromSplitted) == 1 {
 			if fromDefaultNamespace == "" {
 				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
 			}
 
-			splitted[0] = fromDefaultNamespace + "/" + splitted[0]
+			from = fromDefaultNamespace + "/" + from
 		} else if len(fromSplitted) != 2 {
 			return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
 		}
 
-		toSplitted := strings.Split(splitted[1], "/")
+		toSplitted := strings.Split(to, "/")
 		if len(toSplitted) == 1 {
 			if toDefaultNamespace == "" {
 				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=namespace2/service2")
 			}
 
-			ret[splitted[0]] = types.NamespacedName{
+			ret[from] = types.NamespacedName{
 				Namespace: toDefaultNamespace,
-				Name:      splitted[1],
+				Name:      to,
 			}
 		} else if len(toSplitted) == 2 {
 			if toDefaultNamespace != "" {
 				return nil, fmt.Errorf("invalid service mapping, please use namespace1/service1=service2")
 			}
 
-			ret[splitted[0]] = types.NamespacedName{
+			ret[from] = types.NamespacedName{
 				Namespace: toSplitted[0],
 				Name:      toSplitted[1],
 			}
@@ -424,7 +353,7 @@ func parseMapping(mappings []string, fromDefaultNamespace, toDefaultNamespace st
 	return ret, nil
 }
 
-func RegisterCoreDNSController(ctx *options.ControllerContext) error {
+func RegisterCoreDNSController(ctx *config.ControllerContext) error {
 	controller := &coredns.NodeHostsReconciler{
 		Client: ctx.VirtualManager.GetClient(),
 		Log:    loghelper.New("corednsnodehosts-controller"),
@@ -436,10 +365,10 @@ func RegisterCoreDNSController(ctx *options.ControllerContext) error {
 	return nil
 }
 
-func RegisterPodSecurityController(ctx *options.ControllerContext) error {
+func RegisterPodSecurityController(ctx *config.ControllerContext) error {
 	controller := &podsecurity.Reconciler{
 		Client:              ctx.VirtualManager.GetClient(),
-		PodSecurityStandard: ctx.Options.EnforcePodSecurityStandard,
+		PodSecurityStandard: ctx.Config.Policies.PodSecurityStandard,
 		Log:                 loghelper.New("podSecurity-controller"),
 	}
 	err := controller.SetupWithManager(ctx.VirtualManager)

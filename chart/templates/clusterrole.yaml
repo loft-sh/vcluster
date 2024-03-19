@@ -1,0 +1,91 @@
+{{- if (include "vcluster.createClusterRole" . ) -}}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "vcluster.clusterRoleName" . }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
+  annotations:
+{{ toYaml .Values.controlPlane.advanced.globalMetadata.annotations | indent 4 }}
+  {{- end }}
+rules:
+  {{- if .Values.rbac.clusterRole.overwriteRules }}
+{{ toYaml .Values.rbac.clusterRole.overwriteRules | indent 2 }}
+  {{- else }}
+  {{- if .Values.pro }}
+  - apiGroups: ["cluster.loft.sh", "storage.loft.sh"]
+    resources: ["features", "virtualclusters"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.pro .Values.sync.fromHost.nodes.enabled }}
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if and .Values.sync.fromHost.nodes.enabled .Values.sync.fromHost.nodes.syncBackChanges }}
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/status"]
+    verbs: ["update", "patch"]
+  {{- end }}
+  {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.toHost.persistentVolumes.enabled }}
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.fromHost.ingressClasses.enabled }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.toHost.storageClasses.enabled }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.fromHost.storageClasses.enabled }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.toHost.priorityClasses.enabled }}
+  - apiGroups: ["scheduling.k8s.io"]
+    resources: ["priorityclasses"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.volumeSnapshots.enabled }}
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshotclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshotcontents"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.networking.replicateServices.fromHost }}
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.experimental.multiNamespaceMode.enabled }}
+  - apiGroups: [""]
+    resources: ["namespaces", "serviceaccounts"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.observability.metrics.proxy.nodes }}
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  {{- end }}
+  {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.rbac.clusterRoleExtraRules" . | indent 2 }}
+  {{- end }}
+{{- end }}

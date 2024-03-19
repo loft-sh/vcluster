@@ -10,7 +10,7 @@ import (
 	"github.com/loft-sh/analytics-client/client"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
@@ -45,7 +45,7 @@ type EventCollector interface {
 	// Flush makes sure all events are sent to the backend
 	Flush()
 
-	Init(currentNamespaceConfig *rest.Config, currentNamespace string, options *options.VirtualClusterOptions)
+	Init(currentNamespaceConfig *rest.Config, currentNamespace string, vConfig *config.VirtualClusterConfig)
 	SetVirtualClient(virtualClient *kubernetes.Clientset)
 }
 
@@ -110,7 +110,7 @@ type DefaultCollector struct {
 
 	// everything below will be set during runtime
 	virtualClient *kubernetes.Clientset
-	options       *options.VirtualClusterOptions
+	options       *config.VirtualClusterConfig
 	hostClient    *kubernetes.Clientset
 	hostNamespace string
 }
@@ -123,7 +123,7 @@ func (d *DefaultCollector) startReportStatus(ctx context.Context) {
 	}, time.Minute*5, ctx.Done())
 }
 
-func (d *DefaultCollector) Init(currentNamespaceConfig *rest.Config, currentNamespace string, options *options.VirtualClusterOptions) {
+func (d *DefaultCollector) Init(currentNamespaceConfig *rest.Config, currentNamespace string, vConfig *config.VirtualClusterConfig) {
 	hostClient, err := kubernetes.NewForConfig(currentNamespaceConfig)
 	if err != nil {
 		klog.V(1).ErrorS(err, "create host client")
@@ -131,7 +131,7 @@ func (d *DefaultCollector) Init(currentNamespaceConfig *rest.Config, currentName
 
 	d.hostClient = hostClient
 	d.hostNamespace = currentNamespace
-	d.options = options
+	d.options = vConfig
 }
 
 func (d *DefaultCollector) SetVirtualClient(virtualClient *kubernetes.Clientset) {

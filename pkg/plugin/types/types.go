@@ -3,7 +3,7 @@ package types
 import (
 	"context"
 
-	"github.com/loft-sh/vcluster/pkg/options"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -18,7 +18,7 @@ type Manager interface {
 		virtualKubeConfig *rest.Config,
 		physicalKubeConfig *rest.Config,
 		syncerConfig *clientcmdapi.Config,
-		options *options.VirtualClusterOptions,
+		config *config.VirtualClusterConfig,
 	) error
 
 	// SetLeader sets the leader for the plugins
