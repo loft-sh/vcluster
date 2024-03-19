@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -18,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/plugin/v2/pluginv2"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
@@ -33,9 +37,13 @@ func NewManager() *Manager {
 		pluginFolder = "/plugins"
 	}
 
+	client := &http.Client{Timeout: time.Second}
+
 	return &Manager{
-		PluginFolder: pluginFolder,
-		ClientHooks:  map[plugintypes.VersionKindType][]*vClusterPlugin{},
+		PluginFolder:      pluginFolder,
+		ClientHooks:       map[plugintypes.VersionKindType][]*vClusterPlugin{},
+		InterceptorsPorts: map[plugintypes.VersionResource]map[string]portHandlerName{},
+		HTTPClient:        client,
 	}
 }
 
@@ -49,8 +57,21 @@ type Manager struct {
 	// ClientHooks that were loaded
 	ClientHooks map[plugintypes.VersionKindType][]*vClusterPlugin
 
+	// map to track the port that needs to be targeted for the interceptor
+	InterceptorsPorts map[plugintypes.VersionResource]map[string]portHandlerName
 	// ProFeatures are pro features to hand-over to the plugin
 	ProFeatures map[string]bool
+
+	HTTPClient requestDoer
+}
+
+type portHandlerName struct {
+	handlerName string
+	port        int
+}
+
+type requestDoer interface {
+	Do(r *http.Request) (*http.Response, error)
 }
 
 type vClusterPlugin struct {
@@ -85,24 +106,27 @@ func (m *Manager) Start(
 		}
 	}
 
+	port := 13370
 	// after loading all plugins we start them
-	for _, vClusterPlugin := range m.Plugins {
+	for _, p := range m.Plugins {
 		// build the start request
-		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), syncerConfig, vConfig)
+		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), syncerConfig, vConfig, port)
+		port++
+
 		if err != nil {
 			return fmt.Errorf("build start request: %w", err)
 		}
 
 		// start the plugin
-		_, err = vClusterPlugin.GRPCClient.Initialize(ctx, initRequest)
+		_, err = p.GRPCClient.Initialize(ctx, initRequest)
 		if err != nil {
-			return fmt.Errorf("error starting plugin %s: %w", vClusterPlugin.Path, err)
+			return fmt.Errorf("error starting plugin %s: %w", p.Path, err)
 		}
 
 		// get plugin config
-		pluginConfigResponse, err := vClusterPlugin.GRPCClient.GetPluginConfig(ctx, &pluginv2.GetPluginConfig_Request{})
+		pluginConfigResponse, err := p.GRPCClient.GetPluginConfig(ctx, &pluginv2.GetPluginConfig_Request{})
 		if err != nil {
-			return fmt.Errorf("error retrieving client hooks for plugin %s: %w", vClusterPlugin.Path, err)
+			return fmt.Errorf("error retrieving client hooks for plugin %s: %w", p.Path, err)
 		}
 
 		// parse plugin config
@@ -112,15 +136,33 @@ func (m *Manager) Start(
 		}
 
 		// register client hooks
-		err = m.registerClientHooks(vClusterPlugin, pluginConfig.ClientHooks)
+		err = m.registerClientHooks(p, pluginConfig.ClientHooks)
 		if err != nil {
-			return fmt.Errorf("error adding client hook for plugin %s: %w", vClusterPlugin.Path, err)
+			return fmt.Errorf("error adding client hook for plugin %s: %w", p.Path, err)
 		}
 
-		klog.FromContext(ctx).Info("Successfully loaded plugin", "plugin", vClusterPlugin.Path)
+		// register Interceptors
+		err = m.registerInterceptors(p, pluginConfig.Interceptors)
+		if err != nil {
+			return fmt.Errorf("error adding interceptor for plugin %s: %w", p.Path, err)
+		}
+
+		klog.FromContext(ctx).Info("Successfully loaded plugin", "plugin", p.Path)
 	}
 
 	return nil
+}
+
+func (m *Manager) InterceptorPortForOperation(resource, apiVersion, verb string) (ok bool, port int, handlerName string) {
+	versionResource := plugintypes.VersionResource{
+		APIVersion: apiVersion,
+		Resource:   resource,
+	}
+	if m.InterceptorsPorts[versionResource] == nil {
+		return false, -1, ""
+	}
+	portAndName := m.InterceptorsPorts[versionResource][verb]
+	return true, portAndName.port, portAndName.handlerName
 }
 
 func (m *Manager) MutateObject(ctx context.Context, obj client.Object, hookType string, scheme *runtime.Scheme) error {
@@ -204,6 +246,47 @@ func (m *Manager) HasPlugins() bool {
 	return len(m.Plugins) > 0
 }
 
+func (m *Manager) registerInterceptors(vClusterPlugin *vClusterPlugin, interceptors InterceptorConfig) error {
+	// make sure that we have no conflicting interceptors
+	interceptorRegistrations := make(map[plugintypes.VersionResource]map[string]bool)
+	for _, v := range interceptors.Interceptors {
+		versionResource := plugintypes.VersionResource{
+			APIVersion: v.APIVersion,
+			Resource:   v.Resource,
+		}
+		for _, verb := range v.Verbs {
+			if interceptorRegistrations[versionResource] == nil {
+				interceptorRegistrations[versionResource] = make(map[string]bool)
+			}
+			if !interceptorRegistrations[versionResource][verb] {
+				interceptorRegistrations[versionResource][verb] = true
+			} else {
+				return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s and verb %s", versionResource, verb)
+			}
+		}
+	}
+
+	// register the interceptors
+	for _, interceptorsInfos := range interceptors.Interceptors {
+		if interceptorsInfos.APIVersion == "" {
+			return fmt.Errorf("api version is empty in plugin %s hook", vClusterPlugin.Path)
+		} else if interceptorsInfos.Resource == "" {
+			return fmt.Errorf("kind is empty in plugin %s hook", vClusterPlugin.Path)
+		}
+
+		versionResource := plugintypes.VersionResource{
+			APIVersion: interceptorsInfos.APIVersion,
+			Resource:   interceptorsInfos.Resource,
+		}
+		for _, v := range interceptorsInfos.Verbs {
+			m.InterceptorsPorts[versionResource][v] = portHandlerName{port: interceptors.Port, handlerName: interceptorsInfos.HandlerName}
+		}
+
+		klog.Infof("Register interceptor for %s %s in plugin %s", interceptorsInfos.APIVersion, interceptorsInfos.Resource, vClusterPlugin.Path)
+	}
+
+	return nil
+}
 func (m *Manager) registerClientHooks(vClusterPlugin *vClusterPlugin, clientHooks []*ClientHook) error {
 	for _, clientHookInfo := range clientHooks {
 		if clientHookInfo.APIVersion == "" {
@@ -236,6 +319,7 @@ func (m *Manager) buildInitRequest(
 	workingDir string,
 	syncerConfig *clientcmdapi.Config,
 	vConfig *config.VirtualClusterConfig,
+	port int,
 ) (*pluginv2.Initialize_Request, error) {
 	// encode config
 	encodedConfig, err := json.Marshal(vConfig)
@@ -287,6 +371,7 @@ func (m *Manager) buildInitRequest(
 		Config:                encodedConfig,
 		Options:               encodedLegacyOptions,
 		WorkingDir:            workingDir,
+		Port:                  port,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error encoding init config: %w", err)
@@ -423,4 +508,33 @@ func buildCommand(pluginPath string, vConfig *config.VirtualClusterConfig) (*exe
 	// add to plugin environment
 	cmd.Env = append(os.Environ(), PluginConfigEnv+"="+pluginConfig)
 	return cmd, nil
+}
+
+func (m *Manager) WithInterceptors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		info, ok := request.RequestInfoFrom(r.Context())
+		if !ok {
+			klog.V(1).Info("could not determine the infos from the request, serving next handler")
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ok, port, handlerName := m.InterceptorPortForOperation(info.APIVersion, info.Resource, info.Verb)
+		if !ok {
+			// no interceptor, business as usual
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		reverseProxy := httputil.ReverseProxy{
+			Rewrite: func(r *httputil.ProxyRequest) {
+				// adds an extra header so it is simpler within the plugin sdk to
+				// determine which handler matched
+				r.Out.Header.Add("Vcluster-Plugin-Handler-Name", handlerName)
+				r.Out.URL.Host = "localhost:" + strconv.Itoa(port)
+				r.Out.URL.Scheme = "http"
+			},
+		}
+		reverseProxy.ServeHTTP(w, r)
+	})
 }

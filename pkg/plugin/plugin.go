@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
@@ -85,4 +86,8 @@ func (m *manager) HasPlugins() bool {
 
 func (m *manager) SetProFeatures(proFeatures map[string]bool) {
 	m.pluginManager.ProFeatures = proFeatures
+}
+
+func (m *manager) WithInterceptors(next http.Handler) http.Handler {
+	return m.pluginManager.WithInterceptors(next)
 }
