@@ -25,6 +25,17 @@ tests:
       - isNotEmpty:
           path: spec.volumeClaimTemplates
 
+  - it: should have pvc if persistence is on
+    set:
+      storage:
+        size: 5Gi
+
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isNotEmpty:
+          path: spec.volumeClaimTemplates
+
   - it: should not have pvc if persistence is off
     set:
       storage:

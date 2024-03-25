@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - main
+      - v*
     paths:
       - "**.go"
       - "!test/**" # exclude changes in e2e tests
