@@ -56,12 +56,14 @@ func WaitForEtcdClient(parentCtx context.Context, certificates *Certificates, en
 	waitErr := wait.PollUntilContextTimeout(parentCtx, time.Second, waitForClientTimeout, true, func(ctx context.Context) (bool, error) {
 		etcdClient, err = GetEtcdClient(parentCtx, certificates, endpoints...)
 		if err == nil {
+			defer func() {
+				_ = etcdClient.Close()
+			}()
+
 			_, err = etcdClient.MemberList(ctx)
 			if err == nil {
 				return true, nil
 			}
-
-			_ = etcdClient.Close()
 		}
 
 		klog.Infof("Couldn't connect to embedded etcd (will retry in a second): %v", err)
