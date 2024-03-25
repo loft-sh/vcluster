@@ -37,10 +37,13 @@ func EnsureCerts(
 	secretName := vClusterName + "-certs"
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err == nil {
+		// download certs from secret
 		err = downloadCertsFromSecret(secret, certificateDir)
 		if err != nil {
 			return err
 		}
+
+		// update kube config
 		shouldUpdate, err := updateKubeconfigInSecret(secret)
 		if err != nil {
 			return err
@@ -48,8 +51,8 @@ func EnsureCerts(
 			return nil
 		}
 
-		klog.Info("removing outdated certs")
 		// delete the certs and recreate them
+		klog.Info("removing outdated certs")
 		cfg, err := createConfig(serviceCIDR, vClusterName, certificateDir, clusterDomain, etcdSans)
 		if err != nil {
 			return err
@@ -83,6 +86,7 @@ func EnsureCerts(
 		if err != nil {
 			return err
 		}
+
 		return downloadCertsFromSecret(secret, certificateDir)
 	}
 

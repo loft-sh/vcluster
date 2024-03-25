@@ -13,6 +13,7 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"k8s.io/klog/v2"
 )
@@ -61,6 +62,15 @@ spec:
         etcdPrefix: "/registry"
         clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
         clientKeyFile: /data/k0s/pki/apiserver-etcd-client.key
+  {{- else if .Values.controlPlane.backingStore.externalEtcd.enabled }}
+  storage:
+    etcd:
+      externalCluster:
+        endpoints: ["{{ .Release.Name }}-etcd:2379"]
+        caFile: /data/k0s/pki/etcd/ca.crt
+        etcdPrefix: "/registry"
+        clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
+        clientKeyFile: /data/k0s/pki/apiserver-etcd-client.key
   {{- end }}`
 
 func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.VirtualClusterConfig) error {
@@ -72,6 +82,18 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 	dirEntries, _ := os.ReadDir(runDir)
 	for _, entry := range dirEntries {
 		_ = os.RemoveAll(filepath.Join(runDir, entry.Name()))
+	}
+
+	// wait until etcd is up and running
+	if vConfig.ControlPlane.BackingStore.ExternalEtcd.Enabled {
+		_, err := etcd.WaitForEtcdClient(ctx, &etcd.Certificates{
+			CaCert:     "/data/k0s/pki/etcd/ca.crt",
+			ServerCert: "/data/k0s/pki/apiserver-etcd-client.crt",
+			ServerKey:  "/data/k0s/pki/apiserver-etcd-client.key",
+		}, "https://"+vConfig.Name+"-etcd:2379")
+		if err != nil {
+			return err
+		}
 	}
 
 	// build args

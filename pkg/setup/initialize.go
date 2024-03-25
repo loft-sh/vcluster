@@ -100,7 +100,7 @@ func initialize(
 
 		// create certificates if they are not there yet
 		certificatesDir := "/data/k0s/pki"
-		err = GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+		err = GenerateCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 		if err != nil {
 			return err
 		}
@@ -144,15 +144,15 @@ func initialize(
 			return err
 		}
 
+		// generate etcd certificates
+		certificatesDir := "/data/pki"
+		err = GenerateCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+		if err != nil {
+			return err
+		}
+
 		// should start embedded etcd?
 		if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
-			// generate certificates
-			certificatesDir := "/data/pki"
-			err := GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
-			if err != nil {
-				return err
-			}
-
 			// we need to run this with the parent ctx as otherwise this context
 			// will be cancelled by the wait loop in Initialize
 			err = pro.StartEmbeddedEtcd(
@@ -180,8 +180,8 @@ func initialize(
 	case vclusterconfig.K8SDistro, vclusterconfig.EKSDistro:
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
-		if certificatesDir == "/pki" {
-			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+		if certificatesDir == "/data/pki" {
+			err := GenerateCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 			if err != nil {
 				return err
 			}
@@ -233,9 +233,9 @@ func initialize(
 		}()
 	case vclusterconfig.Unknown:
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
-		if certificatesDir == "/pki" {
+		if certificatesDir == "/data/pki" {
 			// generate k8s certificates
-			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+			err := GenerateCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 			if err != nil {
 				return err
 			}
@@ -245,26 +245,7 @@ func initialize(
 	return nil
 }
 
-func GenerateCertsWithEtcdSans(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
-	// generate etcd server and peer sans
-	etcdSans := []string{
-		"localhost",
-		"*." + vClusterName + "-headless",
-		"*." + vClusterName + "-headless" + "." + currentNamespace,
-		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc",
-		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc." + clusterDomain,
-	}
-
-	// generate certificates
-	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans)
-	if err != nil {
-		return fmt.Errorf("ensure certs: %w", err)
-	}
-
-	return nil
-}
-
-func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
+func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
 	// generate etcd server and peer sans
 	etcdService := vClusterName + "-etcd"
 	etcdSans := []string{
@@ -272,8 +253,17 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 		etcdService,
 		etcdService + "." + currentNamespace,
 		etcdService + "." + currentNamespace + ".svc",
-		"*." + etcdService + "-headless",
-		"*." + etcdService + "-headless" + "." + currentNamespace,
+	}
+
+	// add wildcard
+	for _, service := range []string{vClusterName, etcdService} {
+		etcdSans = append(
+			etcdSans,
+			"*."+service+"-headless",
+			"*."+service+"-headless"+"."+currentNamespace,
+			"*."+service+"-headless"+"."+currentNamespace+".svc",
+			"*."+service+"-headless"+"."+currentNamespace+".svc."+clusterDomain,
+		)
 	}
 
 	//expect up to 20 etcd members, number could be lower since more
@@ -282,6 +272,7 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 		// this is for embedded etcd
 		hostname := vClusterName + "-" + strconv.Itoa(i)
 		etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)
+
 		// this is for external etcd
 		etcdHostname := etcdService + "-" + strconv.Itoa(i)
 		etcdSans = append(etcdSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)

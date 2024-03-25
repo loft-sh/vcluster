@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +49,22 @@ func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, service
 			args = append(args, "--kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
 			args = append(args, "--kube-apiserver-arg=endpoint-reconciler-type=none")
 		}
-		if vConfig.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
+		if vConfig.ControlPlane.BackingStore.ExternalEtcd.Enabled {
+			// wait until etcd is up and running
+			_, err := etcd.WaitForEtcdClient(ctx, &etcd.Certificates{
+				CaCert:     "/data/pki/etcd/ca.crt",
+				ServerCert: "/data/pki/apiserver-etcd-client.crt",
+				ServerKey:  "/data/pki/apiserver-etcd-client.key",
+			}, "https://"+vConfig.Name+"-etcd:2379")
+			if err != nil {
+				return err
+			}
+
+			args = append(args, "--datastore-endpoint=https://"+vConfig.Name+"-etcd:2379")
+			args = append(args, "--datastore-cafile=/data/pki/etcd/ca.crt")
+			args = append(args, "--datastore-certfile=/data/pki/apiserver-etcd-client.crt")
+			args = append(args, "--datastore-keyfile=/data/pki/apiserver-etcd-client.key")
+		} else if vConfig.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
 			args = append(args, "--datastore-endpoint=https://localhost:2379")
 			args = append(args, "--datastore-cafile=/data/pki/etcd/ca.crt")
 			args = append(args, "--datastore-certfile=/data/pki/apiserver-etcd-client.crt")
