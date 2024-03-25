@@ -27,10 +27,10 @@ jobs:
           go-version: "1.22"
       - name: Setup Just
         uses: extractions/setup-just@v2
-      - name: Setup Cosgin
+      - name: Setup Cosign
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: "v2.0.2"
+          cosign-release: "v2.2.3"
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.15.1
       - name: Set up QEMU
