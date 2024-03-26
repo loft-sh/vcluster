@@ -213,7 +213,7 @@ func WaitForClientConfig(ctx context.Context, options *config.VirtualClusterConf
 			return false, nil
 		}
 
-		telemetry.Collector.SetVirtualClient(kubeClient)
+		telemetry.CollectorControlPlane.SetVirtualClient(kubeClient)
 		return true, nil
 	})
 	if err != nil {

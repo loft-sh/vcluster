@@ -10,7 +10,9 @@
   Whether to create a cluster role or not
 */}}
 {{- define "vcluster.createClusterRole" -}}
-{{- if not .Values.rbac.clusterRole.disabled -}}
+{{- if eq (toString .Values.rbac.clusterRole.enabled) "true" -}}
+{{- true -}}
+{{- else if eq (toString .Values.rbac.clusterRole.enabled) "auto" -}}
 {{- if or
     .Values.rbac.clusterRole.overwriteRules
     (not (empty (include "vcluster.rbac.clusterRoleExtraRules" . )))

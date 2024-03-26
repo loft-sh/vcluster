@@ -33,28 +33,8 @@ func NewStartCommand() *cobra.Command {
 		Short: "Execute the vcluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) (err error) {
-			// start telemetry
-			telemetry.Start(false)
-			defer telemetry.Collector.Flush()
-
-			// capture errors
-			defer func() {
-				if r := recover(); r != nil {
-					telemetry.Collector.RecordError(cobraCmd.Context(), telemetry.PanicSeverity, fmt.Errorf("panic: %v %s", r, string(debug.Stack())))
-					panic(r)
-				} else if err != nil {
-					telemetry.Collector.RecordError(cobraCmd.Context(), telemetry.FatalSeverity, err)
-				}
-			}()
-
-			// parse vCluster config
-			vClusterConfig, err := config.ParseConfig(startOptions.Config, os.Getenv("VCLUSTER_NAME"), startOptions.SetValues)
-			if err != nil {
-				return err
-			}
-
 			// execute command
-			return ExecuteStart(cobraCmd.Context(), vClusterConfig)
+			return ExecuteStart(cobraCmd.Context(), startOptions)
 		},
 	}
 
@@ -67,7 +47,13 @@ func NewStartCommand() *cobra.Command {
 	return cmd
 }
 
-func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
+func ExecuteStart(ctx context.Context, options *StartOptions) error {
+	// parse vCluster config
+	vConfig, err := config.ParseConfig(options.Config, os.Getenv("VCLUSTER_NAME"), options.SetValues)
+	if err != nil {
+		return err
+	}
+
 	// set global vCluster name
 	translate.VClusterName = vConfig.Name
 
@@ -93,8 +79,19 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 		vConfig.TargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
 	}
 
-	// init telemetry
-	telemetry.Collector.Init(controlPlaneConfig, controlPlaneNamespace, vConfig)
+	// start telemetry
+	telemetry.StartControlPlane(vConfig, controlPlaneConfig, controlPlaneNamespace)
+	defer telemetry.CollectorControlPlane.Flush()
+
+	// capture errors
+	defer func() {
+		if r := recover(); r != nil {
+			telemetry.CollectorControlPlane.RecordError(ctx, vConfig, telemetry.PanicSeverity, fmt.Errorf("panic: %v %s", r, string(debug.Stack())))
+			panic(r)
+		} else if err != nil {
+			telemetry.CollectorControlPlane.RecordError(ctx, vConfig, telemetry.FatalSeverity, err)
+		}
+	}()
 
 	// initialize feature gate from environment
 	err = pro.LicenseInit(ctx, controlPlaneConfig, controlPlaneNamespace, vConfig)

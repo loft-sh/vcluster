@@ -59,7 +59,7 @@ func Initialize(
 	}
 
 	specialservices.Default = pro.InitDNSServiceSyncing(options)
-	telemetry.Collector.RecordStart(ctx)
+	telemetry.CollectorControlPlane.RecordStart(ctx, options)
 	return nil
 }
 

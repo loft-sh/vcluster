@@ -378,7 +378,7 @@ func addCommonReleaseValues(config *Config, options *ExtraValuesOptions) {
 	}
 
 	if options.DisableTelemetry {
-		config.Telemetry.Disabled = true
+		config.Telemetry.Enabled = false
 	} else if options.InstanceCreatorType != "" {
 		config.Telemetry.InstanceCreator = options.InstanceCreatorType
 		config.Telemetry.PlatformUserID = options.PlatformUserID

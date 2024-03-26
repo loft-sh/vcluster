@@ -32,7 +32,7 @@
 {{ toYaml .Values.controlPlane.distro.eks.securityContext | indent 4 }}
   resources:
 {{ toYaml .Values.controlPlane.distro.eks.resources | indent 4 }}
-{{- if not .Values.controlPlane.distro.eks.controllerManager.disabled }}
+{{- if .Values.controlPlane.distro.eks.controllerManager.enabled }}
 - name: kube-controller-manager
   image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.eks.controllerManager.image.repository }}:{{ .Values.controlPlane.distro.eks.controllerManager.image.tag }}"
   volumeMounts:
@@ -72,7 +72,7 @@
   resources:
 {{ toYaml .Values.controlPlane.distro.eks.resources | indent 4 }}
 {{- end }}
-{{- if not .Values.controlPlane.distro.eks.apiServer.disabled }}
+{{- if .Values.controlPlane.distro.eks.apiServer.enabled }}
 - name: kube-apiserver
   image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.eks.apiServer.image.repository }}:{{ .Values.controlPlane.distro.eks.apiServer.image.tag }}"
   volumeMounts:
@@ -116,7 +116,7 @@
 {{ toYaml .Values.controlPlane.distro.k8s.securityContext | indent 4 }}
   resources:
 {{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
-{{- if not .Values.controlPlane.distro.k8s.controllerManager.disabled }}
+{{- if .Values.controlPlane.distro.k8s.controllerManager.enabled }}
 - name: kube-controller-manager
   image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.k8s.controllerManager.image.repository }}:{{ .Values.controlPlane.distro.k8s.controllerManager.image.tag }}"
   volumeMounts:
@@ -156,7 +156,7 @@
   resources:
 {{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
 {{- end }}
-{{- if not .Values.controlPlane.distro.k8s.apiServer.disabled }}
+{{- if .Values.controlPlane.distro.k8s.apiServer.enabled }}
 - name: kube-apiserver
   image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.k8s.apiServer.image.repository }}:{{ .Values.controlPlane.distro.k8s.apiServer.image.tag }}"
   volumeMounts:

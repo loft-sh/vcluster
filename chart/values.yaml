@@ -101,7 +101,7 @@ controlPlane:
     k8s:
       enabled: false
       apiServer:
-        disabled: false
+        enabled: true
         command: []
         extraArgs: []
         imagePullPolicy: ""
@@ -109,7 +109,7 @@ controlPlane:
           repository: "registry.k8s.io/kube-apiserver"
           tag: "v1.29.0"
       controllerManager:
-        disabled: false
+        enabled: true
         command: []
         extraArgs: []
         imagePullPolicy: ""
@@ -136,7 +136,7 @@ controlPlane:
     eks:
       enabled: false
       apiServer:
-        disabled: false
+        enabled: true
         command: []
         extraArgs: []
         imagePullPolicy: ""
@@ -144,7 +144,7 @@ controlPlane:
           repository: "public.ecr.aws/eks-distro/kubernetes/kube-apiserver"
           tag: "v1.28.2-eks-1-28-6"
       controllerManager:
-        disabled: false
+        enabled: true
         command: []
         extraArgs: []
         imagePullPolicy: ""
@@ -205,7 +205,7 @@ controlPlane:
           containerSecurityContext: {}
         persistence:
           volumeClaim:
-            disabled: false
+            enabled: true
             # Defines if the PVC should get automatically deleted when the StatefulSet is deleted. Can be either Delete or Retain
             retentionPolicy: Retain
             size: 5Gi
@@ -317,7 +317,7 @@ controlPlane:
 
     persistence:
       volumeClaim:
-        disabled: false
+        enabled: auto
         # Defines if the PVC should get automatically deleted when the StatefulSet is deleted. Can be either Delete or Retain
         retentionPolicy: Retain
         size: 5Gi
@@ -381,7 +381,7 @@ rbac:
     overwriteRules: []
     extraRules: []
   clusterRole:
-    disabled: false
+    enabled: auto
     overwriteRules: []
     extraRules: []
 
@@ -505,4 +505,4 @@ platform:
       namespace: ""
 
 telemetry:
-  disabled: false
+  enabled: true

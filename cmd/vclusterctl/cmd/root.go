@@ -48,7 +48,7 @@ func Execute() {
 	}
 
 	// start telemetry
-	telemetry.Start(true)
+	telemetry.StartCLI()
 
 	// start command
 	log := log.GetInstance()
@@ -134,6 +134,6 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 }
 
 func recordAndFlush(err error) {
-	telemetry.Collector.RecordCLI(procli.Self, err)
-	telemetry.Collector.Flush()
+	telemetry.CollectorCLI.RecordCLI(procli.Self, err)
+	telemetry.CollectorCLI.Flush()
 }

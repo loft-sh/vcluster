@@ -82,8 +82,8 @@ func StartLeaderElection(ctx *config.ControllerContext, scheme *runtime.Scheme, 
 				klog.Info("leader election lost")
 
 				// vcluster_error
-				telemetry.Collector.RecordError(ctx.Context, telemetry.WarningSeverity, fmt.Errorf("leader election lost"))
-				telemetry.Collector.Flush()
+				telemetry.CollectorControlPlane.RecordError(ctx.Context, ctx.Config, telemetry.WarningSeverity, fmt.Errorf("leader election lost"))
+				telemetry.CollectorControlPlane.Flush()
 
 				os.Exit(1)
 			},

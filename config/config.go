@@ -1,12 +1,20 @@
 package config
 
 import (
+	"encoding/json"
+	"errors"
 	"regexp"
+	"strconv"
+)
+
+var (
+	// ErrUnsupportedType is returned if the type is not implemented
+	ErrUnsupportedType = errors.New("unsupported type")
 )
 
 // Config is the vCluster config. This struct describes valid Helm values for vCluster as well as configuration used by the vCluster binary itself.
 type Config struct {
-	// ExportKubeConfig describes how vCluster should export the vCluster kubeconfig file.
+	// ExportKubeConfig describes how vCluster should export the vCluster kubeConfig file.
 	ExportKubeConfig ExportKubeConfig `json:"exportKubeConfig,omitempty"`
 
 	// Sync describes how to sync resources from the virtual cluster to host cluster and back.
@@ -446,10 +454,10 @@ type DistroK8s struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// APIServer holds configuration specific to starting the api server.
-	APIServer DistroContainerDisabled `json:"apiServer,omitempty"`
+	APIServer DistroContainerEnabled `json:"apiServer,omitempty"`
 	// ControllerManager holds configuration specific to starting the scheduler.
-	ControllerManager DistroContainerDisabled `json:"controllerManager,omitempty"`
-	// Scheduler holds configuration specific to starting the scheduler.
+	ControllerManager DistroContainerEnabled `json:"controllerManager,omitempty"`
+	// Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.virtualScheduler.enabled
 	Scheduler DistroContainer `json:"scheduler,omitempty"`
 
 	DistroCommon `json:",inline"`
@@ -485,9 +493,9 @@ type DistroContainer struct {
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
-type DistroContainerDisabled struct {
-	// Disabled signals this container should be disabled.
-	Disabled bool `json:"disabled,omitempty"`
+type DistroContainerEnabled struct {
+	// Enabled signals this container should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
 	// Image is the distro image
 	Image Image `json:"image,omitempty"`
 	// ImagePullPolicy is the pull policy for the distro image
@@ -589,7 +597,7 @@ type ExternalEtcdStatefulSet struct {
 	// Security options for the etcd pods.
 	Security ControlPlaneSecurity `json:"security,omitempty"`
 	// Persistence options for the etcd pods.
-	Persistence ControlPlanePersistence `json:"persistence,omitempty"`
+	Persistence ExternalEtcdPersistence `json:"persistence,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
 }
@@ -730,6 +738,30 @@ type ControlPlaneHeadlessService struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
+type ExternalEtcdPersistence struct {
+	// VolumeClaim can be used to configure the persistent volume claim.
+	VolumeClaim ExternalEtcdPersistenceVolumeClaim `json:"volumeClaim,omitempty"`
+	// VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet
+	VolumeClaimTemplates []map[string]interface{} `json:"volumeClaimTemplates,omitempty"`
+	// AddVolumes defines extra volumes for the pod
+	AddVolumes []map[string]interface{} `json:"addVolumes,omitempty"`
+	// AddVolumeMounts defines extra volume mounts for the container
+	AddVolumeMounts []VolumeMount `json:"addVolumeMounts,omitempty"`
+}
+
+type ExternalEtcdPersistenceVolumeClaim struct {
+	// Enabled enables deploying a persistent volume claim.
+	Enabled bool `json:"enabled,omitempty"`
+	// AccessModes are the persistent volume claim access modes.
+	AccessModes []string `json:"accessModes,omitempty"`
+	// RetentionPolicy is the persistent volume claim retention policy.
+	RetentionPolicy string `json:"retentionPolicy,omitempty"`
+	// Size is the persistent volume claim storage size.
+	Size string `json:"size,omitempty"`
+	// StorageClass is the persistent volume claim storage class.
+	StorageClass string `json:"storageClass,omitempty"`
+}
+
 type ControlPlanePersistence struct {
 	// VolumeClaim can be used to configure the persistent volume claim.
 	VolumeClaim VolumeClaim `json:"volumeClaim,omitempty"`
@@ -742,9 +774,9 @@ type ControlPlanePersistence struct {
 }
 
 type VolumeClaim struct {
-	// Disabled signals to disable deploying a persistent volume claim. If false, vCluster will automatically determine
+	// Enabled enables deploying a persistent volume claim. If auto, vCluster will automatically determine
 	// based on the chosen distro and other options if this is required.
-	Disabled bool `json:"disabled,omitempty"`
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
 	// AccessModes are the persistent volume claim access modes.
 	AccessModes []string `json:"accessModes,omitempty"`
 	// RetentionPolicy is the persistent volume claim retention policy.
@@ -948,8 +980,8 @@ type RBAC struct {
 }
 
 type RBACClusterRole struct {
-	// Disabled defines if the cluster role should be disabled. Otherwise, vCluster automatically determines whether the virtual cluster requires a cluster role.
-	Disabled bool `json:"disabled,omitempty"`
+	// Enabled defines if the cluster role should be enabled or disabled. If auto, vCluster automatically determines whether the virtual cluster requires a cluster role.
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
 	// ExtraRules will add rules to the cluster role.
 	ExtraRules []map[string]interface{} `json:"extraRules,omitempty"`
 	// OverwriteRules will overwrite the cluster role rules completely.
@@ -966,8 +998,8 @@ type RBACRole struct {
 }
 
 type Telemetry struct {
-	// Disabled specifies that the telemetry for the vCluster control plane should be disabled.
-	Disabled           bool   `json:"disabled,omitempty"`
+	// Enabled specifies that the telemetry for the vCluster control plane should be enabled.
+	Enabled            bool   `json:"enabled,omitempty"`
 	InstanceCreator    string `json:"instanceCreator,omitempty"`
 	MachineID          string `json:"machineID,omitempty"`
 	PlatformUserID     string `json:"platformUserID,omitempty"`
@@ -1341,4 +1373,24 @@ type RuleWithVerbs struct {
 	// Required.
 	// +listType=atomic
 	Verbs []string `json:"operations,omitempty"`
+}
+
+type StrBool string
+
+// UnmarshalJSON parses fields that may be numbers or booleans.
+func (f *StrBool) UnmarshalJSON(data []byte) error {
+	var jsonObj interface{}
+	err := json.Unmarshal(data, &jsonObj)
+	if err != nil {
+		return err
+	}
+	switch obj := jsonObj.(type) {
+	case string:
+		*f = StrBool(obj)
+		return nil
+	case bool:
+		*f = StrBool(strconv.FormatBool(obj))
+		return nil
+	}
+	return ErrUnsupportedType
 }

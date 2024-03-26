@@ -34,7 +34,7 @@ tests:
                 - name: my-new-env
               persistence:
                 volumeClaim:
-                  disabled: true
+                  enabled: false
                 addVolumes:
                   - name: my-new-volume
                 addVolumeMounts:
