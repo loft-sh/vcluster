@@ -32,7 +32,7 @@ eks
 {{- $distros = add1 $distros -}}
 {{- end -}}
 {{- if eq $distros 0 -}}
-k3s
+k8s
 {{- else if gt $distros 1 -}}
 {{- fail "you can only enable one distro at the same time" -}}
 {{- end -}}

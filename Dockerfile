@@ -1,4 +1,7 @@
-# Build the manager binary
+ARG KINE_VERSION="v0.11.1"
+FROM rancher/kine:${KINE_VERSION} as kine
+
+# Build program
 FROM golang:1.22 as builder
 
 WORKDIR /vcluster-dev
@@ -16,6 +19,9 @@ RUN curl -s https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz 
 
 # Install Delve for debugging
 RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then go install github.com/go-delve/delve/cmd/dlv@latest; fi
+
+# Install kine
+COPY --from=kine /bin/kine /usr/local/bin/kine
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod
@@ -56,6 +62,7 @@ FROM alpine:3.19
 # Set root path as working directory
 WORKDIR /
 
+COPY --from=kine /bin/kine /usr/local/bin/kine
 COPY --from=builder /vcluster .
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 

@@ -4,13 +4,13 @@
   "$defs": {
     "BackingStore": {
       "properties": {
-        "embeddedEtcd": {
-          "$ref": "#/$defs/EmbeddedEtcd",
-          "description": "EmbeddedEtcd defines to use embedded etcd as a storage backend for the virtual cluster"
+        "etcd": {
+          "$ref": "#/$defs/Etcd",
+          "description": "Etcd defines that etcd should be used as the backend for the virtual cluster"
         },
-        "externalEtcd": {
-          "$ref": "#/$defs/ExternalEtcd",
-          "description": "ExternalEtcd defines to use an external etcd deployed by the Helm chart as a storage backend for the virtual cluster"
+        "database": {
+          "$ref": "#/$defs/Database",
+          "description": "Database defines that a database backend should be used as the backend for the virtual cluster"
         }
       },
       "additionalProperties": false,
@@ -599,6 +599,46 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Database": {
+      "properties": {
+        "embeddedSqlite": {
+          "$ref": "#/$defs/DatabaseKine",
+          "description": "Embedded defines that an embedded database (sqlite) should be used as the backend for the virtual cluster"
+        },
+        "external": {
+          "$ref": "#/$defs/DatabaseKine",
+          "description": "External defines that an external database should be used as the backend for the virtual cluster"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DatabaseKine": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the database should be used."
+        },
+        "dataSource": {
+          "type": "string",
+          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format. This is optional for the embedded database."
+        },
+        "keyFile": {
+          "type": "string",
+          "description": "KeyFile is the key file to use for the database. This is optional."
+        },
+        "certFile": {
+          "type": "string",
+          "description": "CertFile is the cert file to use for the database. This is optional."
+        },
+        "caFile": {
+          "type": "string",
+          "description": "CaFile is the ca file to use for the database. This is optional."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "DenyRule": {
       "properties": {
         "name": {
@@ -851,25 +891,165 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "EmbeddedEtcd": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the embedded etcd should be used."
-        },
-        "migrateFromExternalEtcd": {
-          "type": "boolean",
-          "description": "MigrateFromExternalEtcd signals that vCluster should migrate from the external etcd to embedded etcd."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "EnableSwitch": {
       "properties": {
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Etcd": {
+      "properties": {
+        "embedded": {
+          "$ref": "#/$defs/EtcdEmbedded",
+          "description": "Embedded defines to use embedded etcd as a storage backend for the virtual cluster"
+        },
+        "deploy": {
+          "$ref": "#/$defs/EtcdDeploy",
+          "description": "Deploy defines to use an external etcd that is deployed by the helm chart"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdDeploy": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines that an external etcd should be deployed."
+        },
+        "statefulSet": {
+          "$ref": "#/$defs/EtcdDeployStatefulSet",
+          "description": "StatefulSet holds options for the external etcd statefulSet."
+        },
+        "service": {
+          "$ref": "#/$defs/EtcdDeployService",
+          "description": "Service holds options for the external etcd service."
+        },
+        "headlessService": {
+          "$ref": "#/$defs/EtcdDeployHeadlessService",
+          "description": "HeadlessService holds options for the external etcd headless service."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdDeployHeadlessService": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the etcd headless service should be deployed"
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are extra annotations for the external etcd headless service"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdDeployService": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the etcd service should be deployed"
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are extra annotations for the external etcd service"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdDeployStatefulSet": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the statefulSet should be deployed"
+        },
+        "image": {
+          "$ref": "#/$defs/Image",
+          "description": "Image is the image to use for the external etcd statefulSet"
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the pull policy for the external etcd image"
+        },
+        "env": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "Env are extra environment variables"
+        },
+        "extraArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExtraArgs are appended to the etcd command."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Resources the etcd can consume"
+        },
+        "pods": {
+          "$ref": "#/$defs/LabelsAndAnnotations",
+          "description": "Pods defines extra metadata for the etcd pods."
+        },
+        "highAvailability": {
+          "$ref": "#/$defs/ExternalEtcdHighAvailability",
+          "description": "HighAvailability are high availability options"
+        },
+        "scheduling": {
+          "$ref": "#/$defs/ControlPlaneScheduling",
+          "description": "Scheduling options for the etcd pods."
+        },
+        "security": {
+          "$ref": "#/$defs/ControlPlaneSecurity",
+          "description": "Security options for the etcd pods."
+        },
+        "persistence": {
+          "$ref": "#/$defs/ExternalEtcdPersistence",
+          "description": "Persistence options for the etcd pods."
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are extra annotations for this resource."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels are extra labels for this resource."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdEmbedded": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the embedded etcd should be used."
+        },
+        "migrateFromDeployedEtcd": {
+          "type": "boolean",
+          "description": "MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd."
         }
       },
       "additionalProperties": false,
@@ -1186,45 +1366,6 @@
       "type": "object",
       "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig."
     },
-    "ExternalEtcd": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the external etcd should be used."
-        },
-        "statefulSet": {
-          "$ref": "#/$defs/ExternalEtcdStatefulSet",
-          "description": "StatefulSet holds options for the external etcd statefulSet."
-        },
-        "service": {
-          "$ref": "#/$defs/ExternalEtcdService",
-          "description": "Service holds options for the external etcd service."
-        },
-        "headlessService": {
-          "$ref": "#/$defs/ExternalEtcdHeadlessService",
-          "description": "HeadlessService holds options for the external etcd headless service."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExternalEtcdHeadlessService": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the etcd headless service should be deployed"
-        },
-        "annotations": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "Annotations are extra annotations for the external etcd headless service"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ExternalEtcdHighAvailability": {
       "properties": {
         "replicas": {
@@ -1290,93 +1431,6 @@
         "storageClass": {
           "type": "string",
           "description": "StorageClass is the persistent volume claim storage class."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExternalEtcdService": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the etcd service should be deployed"
-        },
-        "annotations": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "Annotations are extra annotations for the external etcd service"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExternalEtcdStatefulSet": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the statefulSet should be deployed"
-        },
-        "image": {
-          "$ref": "#/$defs/Image",
-          "description": "Image is the image to use for the external etcd statefulSet"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy for the external etcd image"
-        },
-        "env": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "Env are extra environment variables"
-        },
-        "extraArgs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ExtraArgs are appended to the etcd command."
-        },
-        "resources": {
-          "$ref": "#/$defs/Resources",
-          "description": "Resources the etcd can consume"
-        },
-        "pods": {
-          "$ref": "#/$defs/LabelsAndAnnotations",
-          "description": "Pods defines extra metadata for the etcd pods."
-        },
-        "highAvailability": {
-          "$ref": "#/$defs/ExternalEtcdHighAvailability",
-          "description": "HighAvailability are high availability options"
-        },
-        "scheduling": {
-          "$ref": "#/$defs/ControlPlaneScheduling",
-          "description": "Scheduling options for the etcd pods."
-        },
-        "security": {
-          "$ref": "#/$defs/ControlPlaneSecurity",
-          "description": "Security options for the etcd pods."
-        },
-        "persistence": {
-          "$ref": "#/$defs/ExternalEtcdPersistence",
-          "description": "Persistence options for the etcd pods."
-        },
-        "annotations": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "Annotations are extra annotations for this resource."
-        },
-        "labels": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "Labels are extra labels for this resource."
         }
       },
       "additionalProperties": false,
@@ -2192,16 +2246,20 @@
     "ResolveDNS": {
       "properties": {
         "hostname": {
-          "type": "string"
+          "type": "string",
+          "description": "Hostname is the hostname within the vCluster that should be resolved from."
         },
         "service": {
-          "type": "string"
+          "type": "string",
+          "description": "Service is the virtual cluster service that should be resolved from."
         },
         "namespace": {
-          "type": "string"
+          "type": "string",
+          "description": "Namespace is the virtual cluster namespace that should be resolved from."
         },
         "target": {
-          "$ref": "#/$defs/ResolveDNSTarget"
+          "$ref": "#/$defs/ResolveDNSTarget",
+          "description": "Target is the DNS target that should get mapped to"
         }
       },
       "additionalProperties": false,
@@ -2210,10 +2268,12 @@
     "ResolveDNSTarget": {
       "properties": {
         "hostname": {
-          "type": "string"
+          "type": "string",
+          "description": "Hostname to use as a DNS target"
         },
         "ip": {
-          "type": "string"
+          "type": "string",
+          "description": "IP to use as a DNS target"
         },
         "hostService": {
           "type": "string",

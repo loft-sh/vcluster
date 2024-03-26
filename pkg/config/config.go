@@ -25,6 +25,10 @@ type VirtualClusterConfig struct {
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 }
 
+func (v VirtualClusterConfig) EmbeddedDatabase() bool {
+	return !v.Config.ControlPlane.BackingStore.Database.External.Enabled && !v.Config.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !v.Config.ControlPlane.BackingStore.Etcd.Deploy.Enabled
+}
+
 func (v VirtualClusterConfig) Distro() string {
 	if v.Config.ControlPlane.Distro.K3S.Enabled {
 		return config.K3SDistro
@@ -36,7 +40,7 @@ func (v VirtualClusterConfig) Distro() string {
 		return config.EKSDistro
 	}
 
-	return config.K3SDistro
+	return config.K8SDistro
 }
 
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
@@ -116,7 +120,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 			RemoteServiceName:     v.Experimental.IsolatedControlPlane.Service,
 			IntegratedCoredns:     v.ControlPlane.CoreDNS.Embedded,
 			EtcdReplicas:          int(v.ControlPlane.StatefulSet.HighAvailability.Replicas),
-			EtcdEmbedded:          v.ControlPlane.BackingStore.EmbeddedEtcd.Enabled,
+			EtcdEmbedded:          v.ControlPlane.BackingStore.Etcd.Embedded.Enabled,
 			NoopSyncer:            !v.Experimental.SyncSettings.DisableSync,
 			SyncKubernetesService: v.Experimental.SyncSettings.RewriteKubernetesService,
 		},

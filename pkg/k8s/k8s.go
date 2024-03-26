@@ -13,10 +13,13 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/etcd"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 )
+
+const KineEndpoint = "unix:///data/kine.sock"
 
 func StartK8S(
 	ctx context.Context,
@@ -26,8 +29,56 @@ func StartK8S(
 	scheduler vclusterconfig.DistroContainer,
 	vConfig *config.VirtualClusterConfig,
 ) error {
-	serviceCIDRArg := fmt.Sprintf("--service-cluster-ip-range=%s", serviceCIDR)
 	eg := &errgroup.Group{}
+
+	// start kine embedded or external
+	var (
+		etcdEndpoints    string
+		etcdCertificates *etcd.Certificates
+	)
+	if vConfig.EmbeddedDatabase() {
+		dataSource := vConfig.ControlPlane.BackingStore.Database.External.DataSource
+		if dataSource == "" {
+			dataSource = "sqlite:///data/state.db?_journal=WAL&cache=shared&_busy_timeout=30000"
+		}
+
+		// start embedded mode
+		eg.Go(func() error {
+			args := []string{}
+			args = append(args, "/usr/local/bin/kine")
+			args = append(args, "--endpoint="+dataSource)
+			args = append(args, "--ca-file="+vConfig.ControlPlane.BackingStore.Database.External.CaFile)
+			args = append(args, "--key-file="+vConfig.ControlPlane.BackingStore.Database.External.KeyFile)
+			args = append(args, "--cert-file="+vConfig.ControlPlane.BackingStore.Database.External.CertFile)
+			args = append(args, "--metrics-bind-address=0")
+			args = append(args, "--listen-address="+KineEndpoint)
+
+			// now start the api server
+			return RunCommand(ctx, args, "kine")
+		})
+
+		etcdEndpoints = KineEndpoint
+	} else if vConfig.ControlPlane.BackingStore.Database.External.Enabled {
+		// call out to the pro code
+		var err error
+		etcdEndpoints, etcdCertificates, err = pro.ConfigureExternalDatabase(ctx, vConfig)
+		if err != nil {
+			return fmt.Errorf("configure external database: %w", err)
+		}
+	} else {
+		// embedded or deployed etcd
+		etcdCertificates = &etcd.Certificates{
+			CaCert:     "/data/pki/etcd/ca.crt",
+			ServerCert: "/data/pki/apiserver-etcd-client.crt",
+			ServerKey:  "/data/pki/apiserver-etcd-client.key",
+		}
+
+		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+			etcdEndpoints = "https://127.0.0.1:2379"
+		} else {
+			etcdEndpoints = "https://" + vConfig.Name + "-etcd:2379"
+		}
+	}
 
 	// start api server first
 	if apiServer.Enabled {
@@ -39,19 +90,17 @@ func StartK8S(
 			} else {
 				args = append(args, "/binaries/kube-apiserver")
 				args = append(args, "--advertise-address=127.0.0.1")
-				args = append(args, serviceCIDRArg)
+				args = append(args, "--service-cluster-ip-range="+serviceCIDR)
 				args = append(args, "--bind-address=127.0.0.1")
 				args = append(args, "--allow-privileged=true")
 				args = append(args, "--authorization-mode=RBAC")
 				args = append(args, "--client-ca-file="+vConfig.VirtualClusterKubeConfig().ClientCACert)
 				args = append(args, "--enable-bootstrap-token-auth=true")
-				args = append(args, "--etcd-cafile=/data/pki/etcd/ca.crt")
-				args = append(args, "--etcd-certfile=/data/pki/apiserver-etcd-client.crt")
-				args = append(args, "--etcd-keyfile=/data/pki/apiserver-etcd-client.key")
-				if vConfig.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
-					args = append(args, "--etcd-servers=https://127.0.0.1:2379")
-				} else {
-					args = append(args, "--etcd-servers=https://"+vConfig.Name+"-etcd:2379")
+				args = append(args, "--etcd-servers="+etcdEndpoints)
+				if etcdCertificates != nil {
+					args = append(args, "--etcd-cafile="+etcdCertificates.CaCert)
+					args = append(args, "--etcd-certfile="+etcdCertificates.ServerCert)
+					args = append(args, "--etcd-keyfile="+etcdCertificates.ServerKey)
 				}
 				args = append(args, "--proxy-client-cert-file=/data/pki/front-proxy-client.crt")
 				args = append(args, "--proxy-client-key-file=/data/pki/front-proxy-client.key")
@@ -73,14 +122,8 @@ func StartK8S(
 			// add extra args
 			args = append(args, apiServer.ExtraArgs...)
 
-			// get etcd endpoints and certificates from flags
-			endpoints, certificates, err := etcd.EndpointsAndCertificatesFromFlags(args)
-			if err != nil {
-				return fmt.Errorf("get etcd certificates and endpoint: %w", err)
-			}
-
 			// wait until etcd is up and running
-			_, err = etcd.WaitForEtcdClient(ctx, certificates, endpoints...)
+			_, err := etcd.WaitForEtcdClient(ctx, etcdCertificates, etcdEndpoints)
 			if err != nil {
 				return err
 			}
@@ -105,7 +148,7 @@ func StartK8S(
 				args = append(args, controllerManager.Command...)
 			} else {
 				args = append(args, "/binaries/kube-controller-manager")
-				args = append(args, serviceCIDRArg)
+				args = append(args, "--service-cluster-ip-range="+serviceCIDR)
 				args = append(args, "--authentication-kubeconfig=/data/pki/controller-manager.conf")
 				args = append(args, "--authorization-kubeconfig=/data/pki/controller-manager.conf")
 				args = append(args, "--bind-address=127.0.0.1")

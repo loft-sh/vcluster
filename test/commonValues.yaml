@@ -11,11 +11,12 @@ sync:
 
 controlPlane:
   backingStore:
-    externalEtcd:
-      statefulSet:
-        resources:
-          requests:
-            cpu: "0"
+    etcd:
+      deploy:
+        statefulSet:
+          resources:
+            requests:
+              cpu: "0"
 
   statefulSet:
     image:

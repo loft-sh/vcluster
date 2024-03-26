@@ -15,11 +15,12 @@ tests:
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            enabled: true
-            headlessService:
-              annotations:
-                test: test
+          etcd:
+            deploy:
+              enabled: true
+              headlessService:
+                annotations:
+                  test: test
         distro:
           k3s:
             enabled: true
@@ -43,11 +44,12 @@ tests:
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            enabled: true
-            headlessService:
-              annotations:
-                test: test
+          etcd:
+            deploy:
+              enabled: true
+              headlessService:
+                annotations:
+                  test: test
         distro:
           k0s:
             enabled: true
@@ -71,10 +73,12 @@ tests:
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            headlessService:
-              annotations:
-                test: test
+          etcd:
+            deploy:
+              enabled: true
+              headlessService:
+                annotations:
+                  test: test
         distro:
           eks:
             enabled: true
@@ -98,10 +102,12 @@ tests:
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            headlessService:
-              annotations:
-                test: test
+          etcd:
+            deploy:
+              enabled: true
+              headlessService:
+                annotations:
+                  test: test
         distro:
           k8s:
             enabled: true

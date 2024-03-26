@@ -76,7 +76,7 @@ func initialize(
 
 	// migrate from
 	migrateFrom := ""
-	if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled && options.ControlPlane.BackingStore.EmbeddedEtcd.MigrateFromExternalEtcd {
+	if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled && options.ControlPlane.BackingStore.Etcd.Embedded.MigrateFromDeployedEtcd {
 		migrateFrom = "https://" + options.Name + "-etcd:2379"
 	}
 
@@ -106,7 +106,7 @@ func initialize(
 		}
 
 		// should start embedded etcd?
-		if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
+		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			err = pro.StartEmbeddedEtcd(
 				parentCtx,
 				vClusterName,
@@ -152,7 +152,7 @@ func initialize(
 		}
 
 		// should start embedded etcd?
-		if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
+		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			// we need to run this with the parent ctx as otherwise this context
 			// will be cancelled by the wait loop in Initialize
 			err = pro.StartEmbeddedEtcd(
@@ -188,7 +188,7 @@ func initialize(
 		}
 
 		// should start embedded etcd?
-		if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
+		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			// start embedded etcd
 			err := pro.StartEmbeddedEtcd(
 				parentCtx,

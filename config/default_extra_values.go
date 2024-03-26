@@ -169,6 +169,7 @@ func getK3SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 
 	// build values
 	vConfig := &Config{}
+	vConfig.ControlPlane.Distro.K3S.Enabled = true
 	if image != "" {
 		vConfig.ControlPlane.Distro.K3S.Image = parseImage(image)
 	}
@@ -241,7 +242,7 @@ func getEKSExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 		vConfig.ControlPlane.Distro.EKS.Scheduler.Image = parseImage(schedulerImage)
 	}
 	if etcdImage != "" {
-		vConfig.ControlPlane.BackingStore.ExternalEtcd.StatefulSet.Image = parseImage(etcdImage)
+		vConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image = parseImage(etcdImage)
 	}
 	if coreDNSImage != "" {
 		vConfig.ControlPlane.CoreDNS.Deployment.Image = coreDNSImage
@@ -278,7 +279,6 @@ func getK8SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 
 	// build values
 	vConfig := &Config{}
-	vConfig.ControlPlane.Distro.K8S.Enabled = true
 	if apiImage != "" {
 		vConfig.ControlPlane.Distro.K8S.APIServer.Image = parseImage(apiImage)
 	}
@@ -289,7 +289,7 @@ func getK8SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 		vConfig.ControlPlane.Distro.K8S.Scheduler.Image = parseImage(schedulerImage)
 	}
 	if etcdImage != "" {
-		vConfig.ControlPlane.BackingStore.ExternalEtcd.StatefulSet.Image = parseImage(etcdImage)
+		vConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image = parseImage(etcdImage)
 	}
 
 	addCommonReleaseValues(vConfig, options)

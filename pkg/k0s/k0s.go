@@ -53,7 +53,7 @@ spec:
       node-monitor-grace-period: 1h
       node-monitor-period: 1h
       {{- end }}
-  {{- if .Values.controlPlane.backingStore.embeddedEtcd.enabled }}
+  {{- if .Values.controlPlane.backingStore.etcd.embedded.enabled }}
   storage:
     etcd:
       externalCluster:
@@ -62,7 +62,7 @@ spec:
         etcdPrefix: "/registry"
         clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
         clientKeyFile: /data/k0s/pki/apiserver-etcd-client.key
-  {{- else if .Values.controlPlane.backingStore.externalEtcd.enabled }}
+  {{- else if .Values.controlPlane.backingStore.etcd.deploy.enabled }}
   storage:
     etcd:
       externalCluster:
@@ -71,6 +71,16 @@ spec:
         etcdPrefix: "/registry"
         clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
         clientKeyFile: /data/k0s/pki/apiserver-etcd-client.key
+  {{- else if .Values.controlPlane.backingStore.database.external.enabled }}
+  storage:
+    type: kine
+    kine:
+      dataSource: {{ .Values.controlPlane.backingStore.database.external.dataSource }}
+  {{- else if .Values.controlPlane.backingStore.database.embeddedSqlite.dataSource }}
+  storage:
+    type: kine
+    kine:
+      dataSource: {{ .Values.controlPlane.backingStore.database.embeddedSqlite.dataSource }}
   {{- end }}`
 
 func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.VirtualClusterConfig) error {
@@ -85,7 +95,7 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 	}
 
 	// wait until etcd is up and running
-	if vConfig.ControlPlane.BackingStore.ExternalEtcd.Enabled {
+	if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled {
 		_, err := etcd.WaitForEtcdClient(ctx, &etcd.Certificates{
 			CaCert:     "/data/k0s/pki/etcd/ca.crt",
 			ServerCert: "/data/k0s/pki/apiserver-etcd-client.crt",

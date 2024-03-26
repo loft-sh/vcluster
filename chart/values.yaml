@@ -169,57 +169,70 @@ controlPlane:
           memory: 64Mi
 
   backingStore:
-    embeddedEtcd:
-      enabled: false
-      migrateFromExternalEtcd: false
-    externalEtcd:
-      enabled: false
-      statefulSet:
-        enabled: true
-        annotations: {}
-        labels: {}
-        image:
-          repository: "registry.k8s.io/etcd"
-          tag: "3.5.10-0"
-        imagePullPolicy: ""
-        extraArgs: []
-        env: []
-        resources:
-          requests:
-            cpu: 20m
-            memory: 150Mi
-        pods:
+    database:
+      embeddedSqlite:
+        enabled: false
+        # Optional sqlite dataSource
+        # dataSource: ""
+      external:
+        enabled: false
+        dataSource: ""
+        # Optional database certificates
+        # certFile: ""
+        # keyFile: ""
+        # caFile: ""
+    etcd:
+      embedded:
+        enabled: false
+        migrateFromDeployedEtcd: false
+      deploy:
+        enabled: false
+        statefulSet:
+          enabled: true
           annotations: {}
           labels: {}
-        highAvailability:
-          replicas: 1
-        scheduling:
-          podManagementPolicy: Parallel
-          nodeSelector: {}
-          affinity: {}
-          tolerations: []
-          topologySpreadConstraints: []
-          priorityClassName: ""
-        security:
-          podSecurityContext: {}
-          containerSecurityContext: {}
-        persistence:
-          volumeClaim:
-            enabled: true
-            # Defines if the PVC should get automatically deleted when the StatefulSet is deleted. Can be either Delete or Retain
-            retentionPolicy: Retain
-            size: 5Gi
-            storageClass: ""
-            accessModes: [ "ReadWriteOnce" ]
-          volumeClaimTemplates: []
-          addVolumes: []
-          addVolumeMounts: []
-      service:
-        enabled: true
-        annotations: {}
-      headlessService:
-        enabled: true
-        annotations: {}
+          image:
+            repository: "registry.k8s.io/etcd"
+            tag: "3.5.10-0"
+          imagePullPolicy: ""
+          extraArgs: []
+          env: []
+          resources:
+            requests:
+              cpu: 20m
+              memory: 150Mi
+          pods:
+            annotations: {}
+            labels: {}
+          highAvailability:
+            replicas: 1
+          scheduling:
+            podManagementPolicy: Parallel
+            nodeSelector: {}
+            affinity: {}
+            tolerations: []
+            topologySpreadConstraints: []
+            priorityClassName: ""
+          security:
+            podSecurityContext: {}
+            containerSecurityContext: {}
+          persistence:
+            volumeClaim:
+              enabled: true
+              # Defines if the PVC should get automatically deleted when the StatefulSet is deleted. Can be either Delete or Retain
+              retentionPolicy: Retain
+              size: 5Gi
+              storageClass: ""
+              accessModes: [ "ReadWriteOnce" ]
+            volumeClaimTemplates: []
+            addVolumes: []
+            addVolumeMounts: []
+        service:
+          enabled: true
+          annotations: {}
+        headlessService:
+          enabled: true
+          annotations: {}
 
   proxy:
     bindAddress: "0.0.0.0"
