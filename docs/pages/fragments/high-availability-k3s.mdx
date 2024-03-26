@@ -18,8 +18,9 @@ vcluster:
       value: mysql://username:password@tcp(hostname:3306)/database-name
 
 # Disable persistent storage as all data (including bootstrap data) is stored in external datastore
-storage:
-  persistence: false
+syncer:
+  storage:
+    persistence: false
 
 # Scale up CoreDNS replicas
 coredns:
