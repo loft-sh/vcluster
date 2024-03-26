@@ -21,8 +21,8 @@ import (
 func StartK8S(
 	ctx context.Context,
 	serviceCIDR string,
-	apiServer vclusterconfig.DistroContainerDisabled,
-	controllerManager vclusterconfig.DistroContainerDisabled,
+	apiServer vclusterconfig.DistroContainerEnabled,
+	controllerManager vclusterconfig.DistroContainerEnabled,
 	scheduler vclusterconfig.DistroContainer,
 	vConfig *config.VirtualClusterConfig,
 ) error {
@@ -30,7 +30,7 @@ func StartK8S(
 	eg := &errgroup.Group{}
 
 	// start api server first
-	if !apiServer.Disabled {
+	if apiServer.Enabled {
 		eg.Go(func() error {
 			// build flags
 			args := []string{}
@@ -97,7 +97,7 @@ func StartK8S(
 	}
 
 	// start controller command
-	if !controllerManager.Disabled {
+	if controllerManager.Enabled {
 		eg.Go(func() error {
 			// build flags
 			args := []string{}

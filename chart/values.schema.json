@@ -680,11 +680,11 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "DistroContainerDisabled": {
+    "DistroContainerEnabled": {
       "properties": {
-        "disabled": {
+        "enabled": {
           "type": "boolean",
-          "description": "Disabled signals this container should be disabled."
+          "description": "Enabled signals this container should be enabled."
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -821,16 +821,16 @@
           "description": "Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time."
         },
         "apiServer": {
-          "$ref": "#/$defs/DistroContainerDisabled",
+          "$ref": "#/$defs/DistroContainerEnabled",
           "description": "APIServer holds configuration specific to starting the api server."
         },
         "controllerManager": {
-          "$ref": "#/$defs/DistroContainerDisabled",
+          "$ref": "#/$defs/DistroContainerEnabled",
           "description": "ControllerManager holds configuration specific to starting the scheduler."
         },
         "scheduler": {
           "$ref": "#/$defs/DistroContainer",
-          "description": "Scheduler holds configuration specific to starting the scheduler."
+          "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.virtualScheduler.enabled"
         },
         "env": {
           "items": {
@@ -1235,6 +1235,66 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ExternalEtcdPersistence": {
+      "properties": {
+        "volumeClaim": {
+          "$ref": "#/$defs/ExternalEtcdPersistenceVolumeClaim",
+          "description": "VolumeClaim can be used to configure the persistent volume claim."
+        },
+        "volumeClaimTemplates": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet"
+        },
+        "addVolumes": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "AddVolumes defines extra volumes for the pod"
+        },
+        "addVolumeMounts": {
+          "items": {
+            "$ref": "#/$defs/VolumeMount"
+          },
+          "type": "array",
+          "description": "AddVolumeMounts defines extra volume mounts for the container"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExternalEtcdPersistenceVolumeClaim": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled enables deploying a persistent volume claim."
+        },
+        "accessModes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "AccessModes are the persistent volume claim access modes."
+        },
+        "retentionPolicy": {
+          "type": "string",
+          "description": "RetentionPolicy is the persistent volume claim retention policy."
+        },
+        "size": {
+          "type": "string",
+          "description": "Size is the persistent volume claim storage size."
+        },
+        "storageClass": {
+          "type": "string",
+          "description": "StorageClass is the persistent volume claim storage class."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ExternalEtcdService": {
       "properties": {
         "enabled": {
@@ -1301,7 +1361,7 @@
           "description": "Security options for the etcd pods."
         },
         "persistence": {
-          "$ref": "#/$defs/ControlPlanePersistence",
+          "$ref": "#/$defs/ExternalEtcdPersistence",
           "description": "Persistence options for the etcd pods."
         },
         "annotations": {
@@ -2015,9 +2075,16 @@
     },
     "RBACClusterRole": {
       "properties": {
-        "disabled": {
-          "type": "boolean",
-          "description": "Disabled defines if the cluster role should be disabled. Otherwise, vCluster automatically determines whether the virtual cluster requires a cluster role."
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled defines if the cluster role should be enabled or disabled. If auto, vCluster automatically determines whether the virtual cluster requires a cluster role."
         },
         "extraRules": {
           "items": {
@@ -2529,9 +2596,9 @@
     },
     "Telemetry": {
       "properties": {
-        "disabled": {
+        "enabled": {
           "type": "boolean",
-          "description": "Disabled specifies that the telemetry for the vCluster control plane should be disabled."
+          "description": "Enabled specifies that the telemetry for the vCluster control plane should be enabled."
         },
         "instanceCreator": {
           "type": "string"
@@ -2577,9 +2644,16 @@
     },
     "VolumeClaim": {
       "properties": {
-        "disabled": {
-          "type": "boolean",
-          "description": "Disabled signals to disable deploying a persistent volume claim. If false, vCluster will automatically determine\nbased on the chosen distro and other options if this is required."
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled enables deploying a persistent volume claim. If auto, vCluster will automatically determine\nbased on the chosen distro and other options if this is required."
         },
         "accessModes": {
           "items": {
@@ -2639,7 +2713,7 @@
   "properties": {
     "exportKubeConfig": {
       "$ref": "#/$defs/ExportKubeConfig",
-      "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeconfig file."
+      "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeConfig file."
     },
     "sync": {
       "$ref": "#/$defs/Sync",

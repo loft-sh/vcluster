@@ -233,7 +233,7 @@ tests:
         statefulSet:
           persistence:
             volumeClaim:
-              disabled: true
+              enabled: false
             volumeClaimTemplates:
               - metadata:
                   name: data

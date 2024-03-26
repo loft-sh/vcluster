@@ -37,7 +37,7 @@ spec:
   {{- if $externalEtcd.persistence.volumeClaimTemplates }}
   volumeClaimTemplates:
 {{ toYaml $externalEtcd.persistence.volumeClaimTemplates | indent 4 }}
-  {{- else if not $externalEtcd.persistence.volumeClaim.disabled }}
+  {{- else if $externalEtcd.persistence.volumeClaim.enabled }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -121,7 +121,7 @@ spec:
       {{- if $externalEtcd.persistence.addVolumes }}
 {{ toYaml $externalEtcd.persistence.addVolumes | indent 8 }}
       {{- end }}
-      {{- if $externalEtcd.persistence.volumeClaim.disabled }}
+      {{- if not $externalEtcd.persistence.volumeClaim.enabled }}
         - name: data
           emptyDir: {}
       {{- end }}

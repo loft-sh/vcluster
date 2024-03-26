@@ -9,12 +9,8 @@ import (
 	"github.com/denisbrodbeck/machineid"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	homedir "github.com/mitchellh/go-homedir"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
@@ -25,45 +21,13 @@ var (
 	SyncerVersion = "dev"
 )
 
-func getChartInfo(ctx context.Context, hostClient *kubernetes.Clientset, vClusterNamespace string) (*ChartInfo, error) {
-	if hostClient == nil {
-		return nil, fmt.Errorf("host client is empty")
-	}
-
-	release, err := helm.NewSecrets(hostClient).Get(ctx, translate.VClusterName, vClusterNamespace)
-	if err != nil {
-		return nil, err
-	} else if release == nil {
-		return &ChartInfo{}, nil
-	} else if kerrors.IsNotFound(err) {
-		return &ChartInfo{}, nil
-	}
-
-	if release.Config == nil {
-		release.Config = map[string]interface{}{}
-	}
-
-	name := "unknown"
-	chartVersion := ""
-	if release.Chart != nil && release.Chart.Metadata != nil && release.Chart.Metadata.Name != "" {
-		name = release.Chart.Metadata.Name
-		chartVersion = release.Chart.Metadata.Version
-	}
-
-	return &ChartInfo{
-		Name:    name,
-		Version: chartVersion,
-		Values:  release.Config,
-	}, nil
-}
-
 // getVClusterID provides instance ID based on the UID of the service
-func getVClusterID(ctx context.Context, hostClient *kubernetes.Clientset, vClusterNamespace string, options *config.VirtualClusterConfig) (string, error) {
-	if hostClient == nil || options == nil {
-		return "", fmt.Errorf("kubernetes client or options are nil")
+func getVClusterID(ctx context.Context, hostClient *kubernetes.Clientset, vClusterNamespace, vClusterService string) (string, error) {
+	if hostClient == nil || vClusterService == "" {
+		return "", fmt.Errorf("kubernetes client or service is undefined")
 	}
 
-	o, err := getUniqueSyncerObject(ctx, hostClient, vClusterNamespace, options)
+	o, err := getUniqueSyncerObject(ctx, hostClient, vClusterNamespace, vClusterService)
 	if err != nil {
 		return "", err
 	}
@@ -72,13 +36,13 @@ func getVClusterID(ctx context.Context, hostClient *kubernetes.Clientset, vClust
 }
 
 // returns a Kubernetes resource that can be used to uniquely identify this syncer instance - PVC or Service
-func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vClusterNamespace string, options *config.VirtualClusterConfig) (client.Object, error) {
+func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vClusterNamespace string, serviceName string) (client.Object, error) {
 	// If vCluster PVC doesn't exist we try to get UID from the vCluster Service
-	if options.ServiceName == "" {
+	if serviceName == "" {
 		return nil, fmt.Errorf("getUniqueSyncerObject failed - options.ServiceName is empty")
 	}
 
-	service, err := c.CoreV1().Services(vClusterNamespace).Get(ctx, options.ServiceName, metav1.GetOptions{})
+	service, err := c.CoreV1().Services(vClusterNamespace).Get(ctx, serviceName, metav1.GetOptions{})
 	if err == nil {
 		return service, nil
 	}
