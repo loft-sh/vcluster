@@ -19,13 +19,14 @@ For more information, please take a look at the [k3s documentation](https://ranc
 
 ## Embedded SQLite without Persistent Volume
 
-By default vCluster will deploy k3s to use a persistent volume claim to store the data in. You can also instead use an [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) to store the virtual cluster data. 
+By default vCluster will deploy k3s to use a persistent volume claim to store the data in. You can also instead use an [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) to store the virtual cluster data.
 
 In order to use an emptyDir to store the data instead of a persistent volume, please create a `values.yaml` with the following contents:
 
 ```
-storage:
-  persistence: false
+syncer:
+  storage:
+    persistence: false
 ```
 
 Then upgrade or recreate the vCluster with:
@@ -34,7 +35,7 @@ Then upgrade or recreate the vCluster with:
 vcluster create my-vcluster -n my-vcluster --upgrade -f values.yaml
 ```
 
-:::warning Potential Data Loss 
+:::warning Potential Data Loss
 This method should only be used for testing purposes, as data will be lost upon pod recreation. If you are having problems with k3s in general, please consider [using another Kubernetes distribution such as k0s or vanilla k8s](./supported-distros.mdx)
 :::
 
@@ -63,7 +64,7 @@ As mentioned, the format of the value passed to the `K3S_DATASTORE_ENDPOINT` env
 In its most common form, the `K3S_DATASTORE_ENDPOINT` environment variable for etcd has the following format:
 
 ```
-https://etcd-host-1:2379,https://etcd-host-2:2379,https://etcd-host-3:2379 
+https://etcd-host-1:2379,https://etcd-host-2:2379,https://etcd-host-3:2379
 ```
 
 The above assumes a typical three node etcd cluster. The environment variable can accept one more comma separated etcd URLs.
@@ -124,9 +125,9 @@ vcluster:
   - name: K3S_DATASTORE_ENDPOINT
     value: 'mysql://username:password@tcp(hostname:3306)/k3s'
   - name: K3S_DATASTORE_CERTFILE
-    value: '/path/to/client.crt' 
+    value: '/path/to/client.crt'
   - name: K3S_DATASTORE_KEYFILE
-    value: '/path/to/client.key' 
+    value: '/path/to/client.key'
   volumeMounts:
     - mountPath: /data
       name: data
