@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -40,10 +41,10 @@ func NewManager() *Manager {
 	client := &http.Client{Timeout: time.Second}
 
 	return &Manager{
-		PluginFolder:      pluginFolder,
-		ClientHooks:       map[plugintypes.VersionKindType][]*vClusterPlugin{},
-		InterceptorsPorts: map[plugintypes.VersionResource]map[string]portHandlerName{},
-		HTTPClient:        client,
+		PluginFolder:              pluginFolder,
+		ClientHooks:               map[plugintypes.VersionKindType][]*vClusterPlugin{},
+		ResourceInterceptorsPorts: map[plugintypes.GroupedResource]map[string]portHandlerName{},
+		HTTPClient:                client,
 	}
 }
 
@@ -57,8 +58,10 @@ type Manager struct {
 	// ClientHooks that were loaded
 	ClientHooks map[plugintypes.VersionKindType][]*vClusterPlugin
 
-	// map to track the port that needs to be targeted for the interceptor
-	InterceptorsPorts map[plugintypes.VersionResource]map[string]portHandlerName
+	// map to track the port that needs to be targeted for the interceptors
+	ResourceInterceptorsPorts map[plugintypes.GroupedResource]map[string]portHandlerName
+	// map to track the port that needs to be targeted for the non resource interceptors
+	NonResourceInterceptorsPorts map[string]map[string]portHandlerName
 	// ProFeatures are pro features to hand-over to the plugin
 	ProFeatures map[string]bool
 
@@ -153,16 +156,54 @@ func (m *Manager) Start(
 	return nil
 }
 
-func (m *Manager) InterceptorPortForOperation(resource, apiVersion, verb string) (ok bool, port int, handlerName string) {
-	versionResource := plugintypes.VersionResource{
-		APIVersion: apiVersion,
-		Resource:   resource,
+// InterceptorPortForResource returns the port and handler name for the given group, resource and verb
+func (m *Manager) InterceptorPortForResource(apigroup, resource, verb string) (ok bool, port int, handlerName string) {
+	versionResource := plugintypes.GroupedResource{
+		APIGroup: apigroup,
+		Resource: resource,
 	}
-	if m.InterceptorsPorts[versionResource] == nil {
+	// resource not registered
+	if m.ResourceInterceptorsPorts[versionResource] == nil {
 		return false, -1, ""
 	}
-	portAndName := m.InterceptorsPorts[versionResource][verb]
-	return true, portAndName.port, portAndName.handlerName
+	// if we have defined the wildcard for verb, return true
+	if portAndName, ok := m.ResourceInterceptorsPorts[versionResource]["*"]; ok {
+		return true, portAndName.port, portAndName.handlerName
+	}
+	// return true only if the verb is in the map
+	portAndName, ok := m.ResourceInterceptorsPorts[versionResource][verb]
+	return ok, portAndName.port, portAndName.handlerName
+}
+
+// InterceptorPortForNonResourceUrl returns the port and handler name for the given nonResourceUrl and verb
+func (m *Manager) InterceptorPortForNonResourceUrl(path, verb string) (ok bool, port int, handlerName string) {
+	// matchedPath will contain either the original path or the wildcard path that matched
+	matchedPath := ""
+	if ok, matchedPath = m.urlMatchWithWildcard(path); !ok {
+		return false, -1, ""
+	}
+	// wildcard for verb so return true
+	if portAndName, ok := m.NonResourceInterceptorsPorts[matchedPath]["*"]; ok {
+		return true, portAndName.port, portAndName.handlerName
+	}
+	// return true only if the verb is in the map
+	portAndName, ok := m.NonResourceInterceptorsPorts[matchedPath][verb]
+	return ok, portAndName.port, portAndName.handlerName
+}
+
+func (m *Manager) urlMatchWithWildcard(path string) (bool, string) {
+	for key := range m.NonResourceInterceptorsPorts {
+		// safe because we don't add the empty string in the registration
+		// if we have a wildcard, we should return true if the path starts with what's before *
+		if key[len(key)-1] == '*' && strings.HasPrefix(path, key[:len(key)-1]) {
+			return true, key
+		}
+		if path == key {
+			return true, key
+		}
+	}
+
+	return false, ""
 }
 
 func (m *Manager) MutateObject(ctx context.Context, obj client.Object, hookType string, scheme *runtime.Scheme) error {
@@ -247,46 +288,67 @@ func (m *Manager) HasPlugins() bool {
 }
 
 func (m *Manager) registerInterceptors(vClusterPlugin *vClusterPlugin, interceptors InterceptorConfig) error {
-	// make sure that we have no conflicting interceptors
-	interceptorRegistrations := make(map[plugintypes.VersionResource]map[string]bool)
-	for _, v := range interceptors.Interceptors {
-		versionResource := plugintypes.VersionResource{
-			APIVersion: v.APIVersion,
-			Resource:   v.Resource,
-		}
-		for _, verb := range v.Verbs {
-			if interceptorRegistrations[versionResource] == nil {
-				interceptorRegistrations[versionResource] = make(map[string]bool)
-			}
-			if !interceptorRegistrations[versionResource][verb] {
-				interceptorRegistrations[versionResource][verb] = true
-			} else {
-				return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s and verb %s", versionResource, verb)
-			}
-		}
-	}
-
 	// register the interceptors
 	for _, interceptorsInfos := range interceptors.Interceptors {
-		if interceptorsInfos.APIVersion == "" {
-			return fmt.Errorf("api version is empty in plugin %s hook", vClusterPlugin.Path)
-		} else if interceptorsInfos.Resource == "" {
-			return fmt.Errorf("kind is empty in plugin %s hook", vClusterPlugin.Path)
+		if interceptorsInfos.Resources == nil {
+			return fmt.Errorf("resources is empty in plugin %s hook", vClusterPlugin.Path)
 		}
 
-		versionResource := plugintypes.VersionResource{
-			APIVersion: interceptorsInfos.APIVersion,
-			Resource:   interceptorsInfos.Resource,
-		}
-		for _, v := range interceptorsInfos.Verbs {
-			m.InterceptorsPorts[versionResource][v] = portHandlerName{port: interceptors.Port, handlerName: interceptorsInfos.HandlerName}
+		// add all group/version/verb tuples to the map
+		// each group
+		for _, apigroup := range interceptorsInfos.APIGroups {
+			// each resource
+			for _, resource := range interceptorsInfos.Resources {
+				groupedResource := plugintypes.GroupedResource{
+					Resource: resource,
+					APIGroup: apigroup,
+				}
+				// each verb
+				for _, v := range interceptorsInfos.Verbs {
+					// we shouldn't have * and other verbs
+					if v == "*" && len(interceptorsInfos.Verbs) > 1 {
+						return fmt.Errorf("error while loading the plugins, interceptor for %s/%s defines both * and other verbs. Please either specify * or a list of verbs", apigroup, resource)
+					}
+					if _, ok := m.ResourceInterceptorsPorts[groupedResource][v]; ok {
+						return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s and verb %s", groupedResource.APIGroup, groupedResource.Resource, v)
+					}
+
+					m.ResourceInterceptorsPorts[groupedResource][v] = portHandlerName{port: interceptors.Port, handlerName: interceptorsInfos.HandlerName}
+				}
+			}
 		}
 
-		klog.Infof("Register interceptor for %s %s in plugin %s", interceptorsInfos.APIVersion, interceptorsInfos.Resource, vClusterPlugin.Path)
+		// register nonresourceurls for each verb
+		for _, nonResourceURL := range interceptorsInfos.NonResourceURLs {
+			// ignore empty resources
+			if nonResourceURL == "" {
+				continue
+			}
+			// having a wildcard char not at the end is forbidden
+			firstStar := strings.Index(nonResourceURL, "*")
+			if firstStar > -1 && firstStar != len(nonResourceURL)-1 {
+				return fmt.Errorf("error while loading the plugins, interceptor for non resource url %s defines a wildcard not at the end of the url", nonResourceURL)
+			}
+
+			for _, v := range interceptorsInfos.Verbs {
+				// we shouldn't have * and other verbs
+				if v == "*" && len(interceptorsInfos.Verbs) > 1 {
+					return fmt.Errorf("error while loading the plugins, interceptor for non resource url %s defines both * and other verbs. Please either specify * or a list of verbs", nonResourceURL)
+				}
+				if _, ok := m.NonResourceInterceptorsPorts[nonResourceURL][v]; ok {
+					return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same non resource url %s and verb %s", nonResourceURL, v)
+				}
+
+				m.NonResourceInterceptorsPorts[nonResourceURL][v] = portHandlerName{port: interceptors.Port, handlerName: interceptorsInfos.HandlerName}
+			}
+		}
+
+		//klog.Infof("Register interceptor for %s %s in plugin %s", interceptorsInfos.APIVersion, interceptorsInfos.Resource, vClusterPlugin.Path)
 	}
 
 	return nil
 }
+
 func (m *Manager) registerClientHooks(vClusterPlugin *vClusterPlugin, clientHooks []*ClientHook) error {
 	for _, clientHookInfo := range clientHooks {
 		if clientHookInfo.APIVersion == "" {
@@ -519,13 +581,24 @@ func (m *Manager) WithInterceptors(next http.Handler) http.Handler {
 			return
 		}
 
-		ok, port, handlerName := m.InterceptorPortForOperation(info.APIVersion, info.Resource, info.Verb)
-		if !ok {
-			// no interceptor, business as usual
-			next.ServeHTTP(w, r)
-			return
+		port := -1
+		handlerName := ""
+		// check if this is a match for the non resource url that we registered
+		if info.IsResourceRequest {
+			ok, port, handlerName = m.InterceptorPortForResource(info.APIGroup, info.Resource, info.Verb)
+			if !ok {
+				// no interceptor, business as usual
+				next.ServeHTTP(w, r)
+				return
+			}
+		} else {
+			ok, port, handlerName = m.InterceptorPortForNonResourceUrl(r.URL.Path, info.Verb)
+			if !ok {
+				// no interceptor, business as usual
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
-
 		reverseProxy := httputil.ReverseProxy{
 			Rewrite: func(r *httputil.ProxyRequest) {
 				// adds an extra header so it is simpler within the plugin sdk to
