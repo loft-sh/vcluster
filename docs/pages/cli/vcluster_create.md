@@ -38,9 +38,7 @@ vcluster create test --namespace test
       --disable-pro                       If true vcluster will not try to create a vCluster.Pro. You can also use 'vcluster logout' to prevent vCluster from creating any pro clusters
       --distro string                     Kubernetes distro to use for the virtual cluster. Allowed distros: k3s, k0s, k8s, eks (default "k3s")
       --expose                            If true will create a load balancer service to expose the vcluster endpoint
-      --extra-values strings              DEPRECATED: use --values instead
   -h, --help                              help for create
-      --isolate                           If true vcluster and its workloads will run in an isolated environment
       --kube-config-context-name string   If set, will override the context name of the generated virtual cluster kube config with this name
       --kubernetes-version string         The kubernetes version to use (e.g. v1.20). Patch versions are not supported
   -l, --labels strings                    [PRO] Comma separated labels to apply to the virtualclusterinstance
