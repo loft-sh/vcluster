@@ -47,8 +47,3 @@ type VersionKindType struct {
 	Kind       string
 	Type       string
 }
-
-type GroupedResource struct {
-	APIGroup string
-	Resource string
-}
