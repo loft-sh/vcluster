@@ -51,6 +51,12 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return err
 	}
 
+	// get current namespace
+	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
+	if err != nil {
+		return err
+	}
+
 	// init config
 	err = setup.InitConfig(vConfig)
 	if err != nil {
