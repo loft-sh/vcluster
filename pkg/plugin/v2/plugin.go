@@ -39,14 +39,11 @@ func NewManager() *Manager {
 		pluginFolder = "/plugins"
 	}
 
-	client := &http.Client{Timeout: time.Second}
-
 	return &Manager{
 		PluginFolder:                 pluginFolder,
 		ClientHooks:                  map[plugintypes.VersionKindType][]*vClusterPlugin{},
 		ResourceInterceptorsPorts:    map[string]map[string]map[string]map[string]portHandlerName{},
 		NonResourceInterceptorsPorts: map[string]map[string]portHandlerName{},
-		HTTPClient:                   client,
 	}
 }
 
@@ -67,8 +64,6 @@ type Manager struct {
 	NonResourceInterceptorsPorts map[string]map[string]portHandlerName
 	// ProFeatures are pro features to hand-over to the plugin
 	ProFeatures map[string]bool
-
-	HTTPClient requestDoer
 }
 
 type portHandlerName struct {
