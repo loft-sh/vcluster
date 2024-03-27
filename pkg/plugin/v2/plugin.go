@@ -109,9 +109,9 @@ func (m *Manager) Start(
 
 	port := 13370
 	// after loading all plugins we start them
-	for _, p := range m.Plugins {
+	for _, vClusterPlugin := range m.Plugins {
 		// build the start request
-		initRequest, err := m.buildInitRequest(filepath.Dir(p.Path), syncerConfig, vConfig, port)
+		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), syncerConfig, vConfig, port)
 		port++
 
 		if err != nil {
@@ -119,15 +119,15 @@ func (m *Manager) Start(
 		}
 
 		// start the plugin
-		_, err = p.GRPCClient.Initialize(ctx, initRequest)
+		_, err = vClusterPlugin.GRPCClient.Initialize(ctx, initRequest)
 		if err != nil {
-			return fmt.Errorf("error starting plugin %s: %w", p.Path, err)
+			return fmt.Errorf("error starting plugin %s: %w", vClusterPlugin.Path, err)
 		}
 
 		// get plugin config
-		pluginConfigResponse, err := p.GRPCClient.GetPluginConfig(ctx, &pluginv2.GetPluginConfig_Request{})
+		pluginConfigResponse, err := vClusterPlugin.GRPCClient.GetPluginConfig(ctx, &pluginv2.GetPluginConfig_Request{})
 		if err != nil {
-			return fmt.Errorf("error retrieving client hooks for plugin %s: %w", p.Path, err)
+			return fmt.Errorf("error retrieving client hooks for plugin %s: %w", vClusterPlugin.Path, err)
 		}
 
 		// parse plugin config
@@ -137,18 +137,18 @@ func (m *Manager) Start(
 		}
 
 		// register client hooks
-		err = m.registerClientHooks(p, pluginConfig.ClientHooks)
+		err = m.registerClientHooks(vClusterPlugin, pluginConfig.ClientHooks)
 		if err != nil {
-			return fmt.Errorf("error adding client hook for plugin %s: %w", p.Path, err)
+			return fmt.Errorf("error adding client hook for plugin %s: %w", vClusterPlugin.Path, err)
 		}
 
 		// register Interceptors
-		err = m.registerInterceptors(p, pluginConfig.Interceptors)
+		err = m.registerInterceptors(vClusterPlugin, pluginConfig.Interceptors)
 		if err != nil {
-			return fmt.Errorf("error adding interceptor for plugin %s: %w", p.Path, err)
+			return fmt.Errorf("error adding interceptor for plugin %s: %w", vClusterPlugin.Path, err)
 		}
 
-		klog.FromContext(ctx).Info("Successfully loaded plugin", "plugin", p.Path)
+		klog.FromContext(ctx).Info("Successfully loaded plugin", "plugin", vClusterPlugin.Path)
 	}
 
 	return nil
