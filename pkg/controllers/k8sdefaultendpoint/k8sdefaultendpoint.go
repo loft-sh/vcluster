@@ -35,8 +35,8 @@ type provider interface {
 type EndpointController struct {
 	ServiceName      string
 	ServiceNamespace string
+	ServiceClient    client.Client
 
-	LocalClient         client.Client
 	VirtualClient       client.Client
 	VirtualManagerCache cache.Cache
 
@@ -47,13 +47,15 @@ type EndpointController struct {
 
 func NewEndpointController(ctx *config.ControllerContext, provider provider) *EndpointController {
 	return &EndpointController{
-		LocalClient:         ctx.LocalManager.GetClient(),
 		VirtualClient:       ctx.VirtualManager.GetClient(),
-		ServiceName:         ctx.Config.ServiceName,
-		ServiceNamespace:    ctx.CurrentNamespace,
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),
-		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
-		provider:            provider,
+
+		ServiceName:      ctx.Config.WorkloadService,
+		ServiceNamespace: ctx.Config.WorkloadNamespace,
+		ServiceClient:    ctx.WorkloadNamespaceClient,
+
+		Log:      loghelper.New("kubernetes-default-endpoint-controller"),
+		provider: provider,
 	}
 }
 
@@ -66,7 +68,7 @@ func (e *EndpointController) Register(mgr ctrl.Manager) error {
 }
 
 func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	err := e.syncKubernetesServiceEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
+	err := e.syncKubernetesServiceEndpoints(ctx, e.VirtualClient, e.ServiceClient, e.ServiceName, e.ServiceNamespace)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: time.Second}, err
 	}

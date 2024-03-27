@@ -22,7 +22,7 @@ var (
 )
 
 // getVClusterID provides instance ID based on the UID of the service
-func getVClusterID(ctx context.Context, hostClient *kubernetes.Clientset, vClusterNamespace, vClusterService string) (string, error) {
+func getVClusterID(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, vClusterService string) (string, error) {
 	if hostClient == nil || vClusterService == "" {
 		return "", fmt.Errorf("kubernetes client or service is undefined")
 	}
@@ -36,7 +36,7 @@ func getVClusterID(ctx context.Context, hostClient *kubernetes.Clientset, vClust
 }
 
 // returns a Kubernetes resource that can be used to uniquely identify this syncer instance - PVC or Service
-func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vClusterNamespace string, serviceName string) (client.Object, error) {
+func getUniqueSyncerObject(ctx context.Context, c kubernetes.Interface, vClusterNamespace string, serviceName string) (client.Object, error) {
 	// If vCluster PVC doesn't exist we try to get UID from the vCluster Service
 	if serviceName == "" {
 		return nil, fmt.Errorf("getUniqueSyncerObject failed - options.ServiceName is empty")
@@ -50,7 +50,7 @@ func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vCluste
 	return nil, err
 }
 
-func getKubernetesVersion(c *kubernetes.Clientset) (*KubernetesVersion, error) {
+func getKubernetesVersion(c kubernetes.Interface) (*KubernetesVersion, error) {
 	if c == nil {
 		return nil, fmt.Errorf("client is nil")
 	}

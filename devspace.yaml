@@ -45,7 +45,7 @@ deployments:
               enabled: false
               name: default
         telemetry:
-          disabled: true
+          enabled: false
 
   vcluster-k3s:
     helm:
@@ -72,7 +72,7 @@ deployments:
               enabled: false
               name: default
         telemetry:
-          disabled: true
+          enabled: false
 
   vcluster-k0s:
     helm:
@@ -99,7 +99,7 @@ deployments:
               enabled: false
               name: default
         telemetry:
-          disabled: true
+          enabled: false
 
 # Dev Configuration for vcluster
 dev:
@@ -136,7 +136,7 @@ pipelines:
     flags:
       - name: distro
         description: "Virtual cluster distribution to use"
-        default: "k3s"
+        default: "k8s"
         type: string
     run: |-
       # Deploy the vcluster
@@ -149,7 +149,7 @@ pipelines:
     flags:
       - name: distro
         description: "Virtual cluster distribution to use"
-        default: "k3s"
+        default: "k8s"
         type: string
     run: |-
       # Make sure pull secrets are there

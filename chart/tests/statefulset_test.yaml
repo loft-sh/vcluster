@@ -85,20 +85,22 @@ tests:
     set:
       controlPlane:
         backingStore:
-          embeddedEtcd:
-            enabled: true
-          externalEtcd:
-            enabled: true
+          etcd:
+            embedded:
+              enabled: true
+            deploy:
+              enabled: true
     asserts:
       - failedTemplate:
-          errorMessage: "embeddedEtcd and externalEtcd cannot be enabled at the same time together"
+          errorMessage: "you can only enable one backingStore at the same time"
 
   - it: not persistent when external etcd is enabled
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            enabled: true
+          etcd:
+            deploy:
+              enabled: true
     asserts:
       - equal:
           path: kind
@@ -106,28 +108,60 @@ tests:
       - notExists:
           path: spec.volumeClaimTemplates
 
-  - it: not persistent when k8s
+  - it: not persistent when k8s and external database
     set:
       controlPlane:
         distro:
           k8s:
             enabled: true
+        backingStore:
+          database:
+            external:
+              enabled: true
     asserts:
       - equal:
           path: kind
           value: Deployment
       - notExists:
           path: spec.volumeClaimTemplates
+
+  - it: persistent when embedded database
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        backingStore:
+          database:
+            embeddedSqlite:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
 
   - it: persistent when k8s and embedded etcd
     set:
       controlPlane:
         backingStore:
-          embeddedEtcd:
-            enabled: true
+          etcd:
+            embedded:
+              enabled: true
         distro:
           k8s:
             enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: persistent when embedded database
     asserts:
       - equal:
           path: kind
@@ -148,10 +182,10 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 8
+          count: 7
       - lengthEqual:
           path: spec.template.spec.initContainers
-          count: 3
+          count: 5
 
   - it: plugin volumes 2
     set:
@@ -182,14 +216,17 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 7
+          count: 6
       - lengthEqual:
           path: spec.template.spec.initContainers
-          count: 1
+          count: 3
 
   - it: add volumes
     set:
       controlPlane:
+        distro:
+          k3s:
+            enabled: true
         statefulSet:
           persistence:
             addVolumes:
@@ -209,6 +246,24 @@ tests:
         distro:
           k8s:
             enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: enable k8s with deploy etcd
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
     asserts:
       - equal:
           path: kind
@@ -264,6 +319,30 @@ tests:
         distro:
           eks:
             enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - equal:
+          path: spec.serviceName
+          value: my-release-headless
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: enable eks with deploy etcd
+    set:
+      controlPlane:
+        distro:
+          eks:
+            enabled: true
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
     asserts:
       - equal:
           path: kind
@@ -280,8 +359,9 @@ tests:
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            enabled: true
+          etcd:
+            deploy:
+              enabled: true
         distro:
           k0s:
             enabled: true

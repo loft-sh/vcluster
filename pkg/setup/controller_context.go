@@ -10,12 +10,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
@@ -33,19 +32,11 @@ import (
 func NewControllerContext(
 	ctx context.Context,
 	options *config.VirtualClusterConfig,
-	currentNamespace string,
-	inClusterConfig *rest.Config,
-	scheme *runtime.Scheme,
 ) (*config.ControllerContext, error) {
 	// create controller context
 	controllerContext, err := InitManagers(
 		ctx,
 		options,
-		currentNamespace,
-		inClusterConfig,
-		scheme,
-		pro.NewPhysicalClient(options),
-		pro.NewVirtualClient(options),
 	)
 	if err != nil {
 		return nil, err
@@ -63,11 +54,6 @@ func NewControllerContext(
 func InitManagers(
 	ctx context.Context,
 	options *config.VirtualClusterConfig,
-	currentNamespace string,
-	inClusterConfig *rest.Config,
-	scheme *runtime.Scheme,
-	newPhysicalClient client.NewClientFunc,
-	newVirtualClient client.NewClientFunc,
 ) (*config.ControllerContext, error) {
 	// load virtual config
 	virtualConfig, virtualRawConfig, err := LoadVirtualConfig(ctx, options)
@@ -77,33 +63,24 @@ func InitManagers(
 
 	// is multi namespace mode?
 	var defaultNamespaces map[string]cache.Config
-	if options.Experimental.MultiNamespaceMode.Enabled {
-		// set options.TargetNamespace to empty because it will later be used in Manager
-		options.TargetNamespace = ""
-		translate.Default = translate.NewMultiNamespaceTranslator(currentNamespace)
-	} else {
-		// ensure target namespace
-		if options.TargetNamespace == "" {
-			options.TargetNamespace = currentNamespace
-		}
-		translate.Default = translate.NewSingleNamespaceTranslator(options.TargetNamespace)
-		defaultNamespaces = map[string]cache.Config{options.TargetNamespace: {}}
+	if !options.Experimental.MultiNamespaceMode.Enabled {
+		defaultNamespaces = map[string]cache.Config{options.WorkloadTargetNamespace: {}}
 	}
 
 	// start plugins
-	err = StartPlugins(ctx, currentNamespace, inClusterConfig, virtualConfig, virtualRawConfig, options)
+	err = StartPlugins(ctx, virtualConfig, virtualRawConfig, options)
 	if err != nil {
 		return nil, err
 	}
 
 	// create physical manager
-	klog.Info("Using physical cluster at " + inClusterConfig.Host)
-	localManager, err := ctrl.NewManager(inClusterConfig, ctrl.Options{
-		Scheme:         scheme,
+	klog.Info("Using physical cluster at " + options.WorkloadConfig.Host)
+	localManager, err := ctrl.NewManager(options.WorkloadConfig, ctrl.Options{
+		Scheme:         scheme.Scheme,
 		Metrics:        metricsserver.Options{BindAddress: "0"},
 		LeaderElection: false,
 		Cache:          cache.Options{DefaultNamespaces: defaultNamespaces},
-		NewClient:      newPhysicalClient,
+		NewClient:      pro.NewPhysicalClient(options),
 	})
 	if err != nil {
 		return nil, err
@@ -111,23 +88,21 @@ func InitManagers(
 
 	// create virtual manager
 	virtualClusterManager, err := ctrl.NewManager(virtualConfig, ctrl.Options{
-		Scheme:         scheme,
+		Scheme:         scheme.Scheme,
 		Metrics:        metricsserver.Options{BindAddress: "0"},
 		LeaderElection: false,
-		NewClient:      newVirtualClient,
+		NewClient:      pro.NewVirtualClient(options),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	// init controller context
-	return InitControllerContext(ctx, currentNamespace, localManager, virtualClusterManager, virtualRawConfig, options)
+	return InitControllerContext(ctx, localManager, virtualClusterManager, virtualRawConfig, options)
 }
 
 func StartPlugins(
 	ctx context.Context,
-	currentNamespace string,
-	inClusterConfig,
 	virtualConfig *rest.Config,
 	virtualRawConfig *clientcmdapi.Config,
 	options *config.VirtualClusterConfig,
@@ -138,7 +113,7 @@ func StartPlugins(
 		return err
 	}
 
-	err = plugin.DefaultManager.Start(ctx, currentNamespace, options.TargetNamespace, virtualConfig, inClusterConfig, syncerConfig, options)
+	err = plugin.DefaultManager.Start(ctx, virtualConfig, syncerConfig, options)
 	if err != nil {
 		return err
 	}
@@ -274,7 +249,6 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *config.Virtu
 
 func InitControllerContext(
 	ctx context.Context,
-	currentNamespace string,
 	localManager,
 	virtualManager ctrl.Manager,
 	virtualRawConfig *clientcmdapi.Config,
@@ -295,7 +269,7 @@ func InitControllerContext(
 	klog.Infof("Can connect to virtual cluster with version " + virtualClusterVersion.GitVersion)
 
 	// create a new current namespace client
-	currentNamespaceClient, err := NewCurrentNamespaceClient(ctx, currentNamespace, localManager, vClusterOptions)
+	currentNamespaceClient, err := NewCurrentNamespaceClient(ctx, localManager, vClusterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -317,15 +291,14 @@ func InitControllerContext(
 		VirtualRawConfig:      virtualRawConfig,
 		VirtualClusterVersion: virtualClusterVersion,
 
-		CurrentNamespace:       currentNamespace,
-		CurrentNamespaceClient: currentNamespaceClient,
+		WorkloadNamespaceClient: currentNamespaceClient,
 
 		StopChan: stopChan,
 		Config:   vClusterOptions,
 	}, nil
 }
 
-func NewCurrentNamespaceClient(ctx context.Context, currentNamespace string, localManager ctrl.Manager, options *config.VirtualClusterConfig) (client.Client, error) {
+func NewCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, options *config.VirtualClusterConfig) (client.Client, error) {
 	var err error
 
 	// currentNamespaceCache is needed for tasks such as finding out fake kubelet ips
@@ -335,19 +308,17 @@ func NewCurrentNamespaceClient(ctx context.Context, currentNamespace string, loc
 	// as the regular cache is scoped to the options.TargetNamespace and cannot return
 	// objects from the current namespace.
 	currentNamespaceCache := localManager.GetCache()
-	if currentNamespace != options.TargetNamespace {
+	if options.WorkloadNamespace != options.WorkloadTargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
 			Scheme:            localManager.GetScheme(),
 			Mapper:            localManager.GetRESTMapper(),
-			DefaultNamespaces: map[string]cache.Config{currentNamespace: {}},
+			DefaultNamespaces: map[string]cache.Config{options.WorkloadNamespace: {}},
 		})
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	// start cache now if it's not in the same namespace
-	if currentNamespace != options.TargetNamespace {
+		// start cache now if it's not in the same namespace
 		go func() {
 			err := currentNamespaceCache.Start(ctx)
 			if err != nil {

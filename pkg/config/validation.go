@@ -95,6 +95,11 @@ func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 		return err
 	}
 
+	// set service name
+	if config.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
+		config.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + config.Name
+	}
+
 	return nil
 }
 

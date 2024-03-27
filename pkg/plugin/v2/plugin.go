@@ -18,7 +18,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/plugin/v2/pluginv2"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
@@ -67,8 +66,6 @@ type vClusterPlugin struct {
 
 func (m *Manager) Start(
 	ctx context.Context,
-	currentNamespace string,
-	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
 	vConfig *config.VirtualClusterConfig,
 ) error {
@@ -91,7 +88,7 @@ func (m *Manager) Start(
 	// after loading all plugins we start them
 	for _, vClusterPlugin := range m.Plugins {
 		// build the start request
-		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), currentNamespace, physicalKubeConfig, syncerConfig, vConfig)
+		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), syncerConfig, vConfig)
 		if err != nil {
 			return fmt.Errorf("build start request: %w", err)
 		}
@@ -236,9 +233,7 @@ func (m *Manager) registerClientHooks(vClusterPlugin *vClusterPlugin, clientHook
 }
 
 func (m *Manager) buildInitRequest(
-	workingDir,
-	currentNamespace string,
-	physicalKubeConfig *rest.Config,
+	workingDir string,
 	syncerConfig *clientcmdapi.Config,
 	vConfig *config.VirtualClusterConfig,
 ) (*pluginv2.Initialize_Request, error) {
@@ -261,7 +256,7 @@ func (m *Manager) buildInitRequest(
 	}
 
 	// Physical client config
-	convertedPhysicalConfig, err := kubeconfig.ConvertRestConfigToClientConfig(physicalKubeConfig)
+	convertedPhysicalConfig, err := kubeconfig.ConvertRestConfigToClientConfig(vConfig.WorkloadConfig)
 	if err != nil {
 		return nil, fmt.Errorf("convert physical client config: %w", err)
 	}
@@ -288,7 +283,7 @@ func (m *Manager) buildInitRequest(
 		},
 		PhysicalClusterConfig: phyisicalConfigBytes,
 		SyncerConfig:          syncerConfigBytes,
-		CurrentNamespace:      currentNamespace,
+		CurrentNamespace:      vConfig.WorkloadNamespace,
 		Config:                encodedConfig,
 		Options:               encodedLegacyOptions,
 		WorkingDir:            workingDir,

@@ -92,7 +92,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 		return nil, err
 	}
 
-	cachedLocalClient, err := createCachedClient(ctx.Context, localConfig, ctx.CurrentNamespace, uncachedLocalClient.RESTMapper(), uncachedLocalClient.Scheme(), func(cache cache.Cache) error {
+	cachedLocalClient, err := createCachedClient(ctx.Context, localConfig, ctx.Config.WorkloadNamespace, uncachedLocalClient.RESTMapper(), uncachedLocalClient.Scheme(), func(cache cache.Cache) error {
 		if ctx.Config.Networking.Advanced.ProxyKubelets.ByIP {
 			err := cache.IndexField(ctx.Context, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
 				svc := object.(*corev1.Service)
@@ -121,7 +121,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 		}
 
 		err = cache.IndexField(ctx.Context, &corev1.Node{}, constants.IndexByHostName, func(rawObj client.Object) []string {
-			return []string{nodes.GetNodeHost(rawObj.GetName()), nodes.GetNodeHostLegacy(rawObj.GetName(), ctx.CurrentNamespace)}
+			return []string{nodes.GetNodeHost(rawObj.GetName()), nodes.GetNodeHostLegacy(rawObj.GetName(), ctx.Config.WorkloadNamespace)}
 		})
 		if err != nil {
 			return err
@@ -145,7 +145,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
 	cachedLocalClient = pluginhookclient.WrapPhysicalClient(cachedLocalClient)
 
-	certSyncer, err := cert.NewSyncer(ctx.Context, ctx.CurrentNamespace, cachedLocalClient, ctx.Config)
+	certSyncer, err := cert.NewSyncer(ctx.Context, ctx.Config.WorkloadNamespace, cachedLocalClient, ctx.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "create cert syncer")
 	}
@@ -158,7 +158,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 
 		fakeKubeletIPs: ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
-		currentNamespace:       ctx.CurrentNamespace,
+		currentNamespace:       ctx.Config.WorkloadNamespace,
 		currentNamespaceClient: cachedLocalClient,
 
 		requestHeaderCaFile: requestHeaderCaFile,
@@ -207,7 +207,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	if ctx.Config.Observability.Metrics.Proxy.Nodes || ctx.Config.Observability.Metrics.Proxy.Pods {
 		h = filters.WithMetricsServerProxy(
 			h,
-			ctx.Config.TargetNamespace,
+			ctx.Config.WorkloadTargetNamespace,
 			cachedLocalClient,
 			cachedVirtualClient,
 			localConfig,

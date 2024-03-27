@@ -6,10 +6,12 @@ controlPlane:
 
   # Scale up etcd
   backingStore:
-    externalEtcd:
-      statefulSet:
-        highAvailability:
-          replicas: 3
+    etcd:
+      deploy:
+        enabled: true
+        statefulSet:
+          highAvailability:
+            replicas: 3
 
   # Scale up DNS server
   coredns:

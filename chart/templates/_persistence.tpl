@@ -35,7 +35,7 @@ volumeClaimTemplates:
 {{- true -}}
 {{- else if eq (toString .Values.controlPlane.statefulSet.persistence.volumeClaim.enabled) "true" -}}
 {{- true -}}
-{{- else if and (eq (toString .Values.controlPlane.statefulSet.persistence.volumeClaim.enabled) "auto") (not (include "vcluster.externalEtcd.enabled" .)) -}}
+{{- else if and (eq (toString .Values.controlPlane.statefulSet.persistence.volumeClaim.enabled) "auto") (or (include "vcluster.database.embedded.enabled" .) .Values.controlPlane.backingStore.etcd.embedded.enabled) -}}
 {{- true -}}
 {{- end -}}
 {{- end -}}

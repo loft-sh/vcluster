@@ -86,8 +86,9 @@ func NewFakeConfig() *config.VirtualClusterConfig {
 	}
 
 	vConfig.Name = DefaultTestVClusterName
-	vConfig.ServiceName = DefaultTestVClusterServiceName
-	vConfig.TargetNamespace = DefaultTestTargetNamespace
+	vConfig.WorkloadService = DefaultTestVClusterServiceName
+	vConfig.WorkloadNamespace = DefaultTestTargetNamespace
+	vConfig.WorkloadTargetNamespace = DefaultTestTargetNamespace
 	return vConfig
 }
 

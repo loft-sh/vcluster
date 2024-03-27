@@ -3,7 +3,6 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"runtime"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
 
@@ -29,16 +27,16 @@ type ControlPlaneCollector interface {
 	// Flush makes sure all events are sent to the backend
 	Flush()
 
-	SetVirtualClient(virtualClient *kubernetes.Clientset)
+	SetVirtualClient(virtualClient kubernetes.Interface)
 }
 
-func StartControlPlane(config *config.VirtualClusterConfig, currentNamespaceConfig *rest.Config, currentNamespace string) {
+func StartControlPlane(config *config.VirtualClusterConfig) {
 	if !config.Telemetry.Enabled || SyncerVersion == "dev" {
 		return
 	}
 
 	// create a new default collector
-	collector, err := newControlPlaneCollector(config, currentNamespaceConfig, currentNamespace)
+	collector, err := newControlPlaneCollector(config)
 	if err != nil {
 		// Log the problem but don't fail - use disabled Collector instead
 		loghelper.New("telemetry").Infof("%s", err.Error())
@@ -47,20 +45,15 @@ func StartControlPlane(config *config.VirtualClusterConfig, currentNamespaceConf
 	}
 }
 
-func newControlPlaneCollector(config *config.VirtualClusterConfig, currentNamespaceConfig *rest.Config, currentNamespace string) (*controlPlaneCollector, error) {
-	hostClient, err := kubernetes.NewForConfig(currentNamespaceConfig)
-	if err != nil {
-		return nil, fmt.Errorf("create host client: %w", err)
-	}
-
+func newControlPlaneCollector(config *config.VirtualClusterConfig) (*controlPlaneCollector, error) {
 	collector := &controlPlaneCollector{
 		analyticsClient: client.NewClient(),
 
 		log: loghelper.New("telemetry"),
 
-		hostClient:    hostClient,
-		hostNamespace: currentNamespace,
-		hostService:   config.ServiceName,
+		hostClient:    config.ControlPlaneClient,
+		hostNamespace: config.ControlPlaneNamespace,
+		hostService:   config.ControlPlaneService,
 	}
 
 	go collector.startReportStatus(context.Background(), config.Telemetry.PlatformUserID, config.Telemetry.PlatformInstanceID, config.Telemetry.MachineID)
@@ -76,12 +69,12 @@ type controlPlaneCollector struct {
 	hostClusterVersion    cachedValue[*KubernetesVersion]
 	virtualClusterVersion cachedValue[*KubernetesVersion]
 
-	hostClient    *kubernetes.Clientset
+	hostClient    kubernetes.Interface
 	hostNamespace string
 	hostService   string
 
 	// everything below will be set during runtime
-	virtualClient *kubernetes.Clientset
+	virtualClient kubernetes.Interface
 }
 
 func (d *controlPlaneCollector) startReportStatus(ctx context.Context, platformUserID, platformInstanceID, machineID string) {
@@ -92,7 +85,7 @@ func (d *controlPlaneCollector) startReportStatus(ctx context.Context, platformU
 	}, time.Minute*5, ctx.Done())
 }
 
-func (d *controlPlaneCollector) SetVirtualClient(virtualClient *kubernetes.Clientset) {
+func (d *controlPlaneCollector) SetVirtualClient(virtualClient kubernetes.Interface) {
 	d.virtualClient = virtualClient
 }
 

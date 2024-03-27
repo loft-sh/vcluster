@@ -30,9 +30,7 @@ type manager struct {
 
 func (m *manager) Start(
 	ctx context.Context,
-	currentNamespace, targetNamespace string,
 	virtualKubeConfig *rest.Config,
-	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
 	vConfig *config.VirtualClusterConfig,
 ) error {
@@ -41,12 +39,12 @@ func (m *manager) Start(
 		return fmt.Errorf("build legacy options: %w", err)
 	}
 
-	err = m.legacyManager.Start(ctx, currentNamespace, targetNamespace, virtualKubeConfig, physicalKubeConfig, syncerConfig, legacyOptions)
+	err = m.legacyManager.Start(ctx, vConfig.WorkloadNamespace, vConfig.WorkloadTargetNamespace, virtualKubeConfig, vConfig.WorkloadConfig, syncerConfig, legacyOptions)
 	if err != nil {
 		return fmt.Errorf("start legacy plugins: %w", err)
 	}
 
-	err = m.pluginManager.Start(ctx, currentNamespace, physicalKubeConfig, syncerConfig, vConfig)
+	err = m.pluginManager.Start(ctx, syncerConfig, vConfig)
 	if err != nil {
 		return fmt.Errorf("start plugins: %w", err)
 	}

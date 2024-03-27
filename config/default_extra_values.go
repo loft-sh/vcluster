@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -130,37 +129,42 @@ type KubernetesVersion struct {
 }
 
 func GetExtraValues(options *ExtraValuesOptions, log Logger) (string, error) {
-	vConfig, err := getExtraValues(options, log)
+	fromConfig, err := NewDefaultConfig()
+	if err != nil {
+		return "", err
+	}
+
+	toConfig, err := getExtraValues(options, log)
 	if err != nil {
 		return "", fmt.Errorf("get extra values: %w", err)
 	}
 
-	rawConfig, err := json.Marshal(vConfig)
-	if err != nil {
-		return "", fmt.Errorf("marshal extra values: %w", err)
-	}
-
-	return string(rawConfig), nil
+	return Diff(fromConfig, toConfig)
 }
 
 func getExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error) {
-	switch options.Distro {
-	case K3SDistro:
-		return getK3SExtraValues(options, log)
-	case K0SDistro:
-		return getK0SExtraValues(options, log)
-	case K8SDistro:
-		return getK8SExtraValues(options, log)
-	case EKSDistro:
-		return getEKSExtraValues(options, log)
+	vConfig, err := NewDefaultConfig()
+	if err != nil {
+		return nil, err
 	}
 
-	return &Config{}, nil
+	switch options.Distro {
+	case K3SDistro:
+		return getK3SExtraValues(vConfig, options, log)
+	case K0SDistro:
+		return getK0SExtraValues(vConfig, options, log)
+	case K8SDistro:
+		return getK8SExtraValues(vConfig, options, log)
+	case EKSDistro:
+		return getEKSExtraValues(vConfig, options, log)
+	}
+
+	return vConfig, nil
 }
 
 var replaceRegEx = regexp.MustCompile("[^0-9]+")
 
-func getK3SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error) {
+func getK3SExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger) (*Config, error) {
 	// get k3s image
 	image, err := getImageByVersion(options.KubernetesVersion, K3SVersionMap, log)
 	if err != nil {
@@ -168,7 +172,7 @@ func getK3SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 	}
 
 	// build values
-	vConfig := &Config{}
+	vConfig.ControlPlane.Distro.K3S.Enabled = true
 	if image != "" {
 		vConfig.ControlPlane.Distro.K3S.Image = parseImage(image)
 	}
@@ -178,7 +182,7 @@ func getK3SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 	return vConfig, nil
 }
 
-func getK0SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error) {
+func getK0SExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger) (*Config, error) {
 	// get k0s image
 	image, err := getImageByVersion(options.KubernetesVersion, K0SVersionMap, log)
 	if err != nil {
@@ -186,7 +190,6 @@ func getK0SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 	}
 
 	// build values
-	vConfig := &Config{}
 	vConfig.ControlPlane.Distro.K0S.Enabled = true
 	if image != "" {
 		vConfig.ControlPlane.Distro.K0S.Image = parseImage(image)
@@ -197,7 +200,7 @@ func getK0SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 	return vConfig, nil
 }
 
-func getEKSExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error) {
+func getEKSExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger) (*Config, error) {
 	// get api server image
 	apiImage, err := getImageByVersion(options.KubernetesVersion, EKSAPIVersionMap, log)
 	if err != nil {
@@ -229,7 +232,6 @@ func getEKSExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 	}
 
 	// build values
-	vConfig := &Config{}
 	vConfig.ControlPlane.Distro.EKS.Enabled = true
 	if apiImage != "" {
 		vConfig.ControlPlane.Distro.EKS.APIServer.Image = parseImage(apiImage)
@@ -241,7 +243,7 @@ func getEKSExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 		vConfig.ControlPlane.Distro.EKS.Scheduler.Image = parseImage(schedulerImage)
 	}
 	if etcdImage != "" {
-		vConfig.ControlPlane.BackingStore.ExternalEtcd.StatefulSet.Image = parseImage(etcdImage)
+		vConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image = parseImage(etcdImage)
 	}
 	if coreDNSImage != "" {
 		vConfig.ControlPlane.CoreDNS.Deployment.Image = coreDNSImage
@@ -251,7 +253,7 @@ func getEKSExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 	return vConfig, nil
 }
 
-func getK8SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error) {
+func getK8SExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger) (*Config, error) {
 	// get api server image
 	apiImage, err := getImageByVersion(options.KubernetesVersion, K8SAPIVersionMap, log)
 	if err != nil {
@@ -277,8 +279,6 @@ func getK8SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 	}
 
 	// build values
-	vConfig := &Config{}
-	vConfig.ControlPlane.Distro.K8S.Enabled = true
 	if apiImage != "" {
 		vConfig.ControlPlane.Distro.K8S.APIServer.Image = parseImage(apiImage)
 	}
@@ -289,7 +289,7 @@ func getK8SExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error)
 		vConfig.ControlPlane.Distro.K8S.Scheduler.Image = parseImage(schedulerImage)
 	}
 	if etcdImage != "" {
-		vConfig.ControlPlane.BackingStore.ExternalEtcd.StatefulSet.Image = parseImage(etcdImage)
+		vConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image = parseImage(etcdImage)
 	}
 
 	addCommonReleaseValues(vConfig, options)

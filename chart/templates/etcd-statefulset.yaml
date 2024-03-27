@@ -1,7 +1,7 @@
 {{- if not .Values.experimental.isolatedControlPlane.headless }}
-{{- if or (include "vcluster.externalEtcd.enabled" .) (include "vcluster.externalEtcd.migrate" .) }}
-{{- if .Values.controlPlane.backingStore.externalEtcd.statefulSet.enabled }}
-{{- $externalEtcd := .Values.controlPlane.backingStore.externalEtcd.statefulSet }}
+{{- if or .Values.controlPlane.backingStore.etcd.deploy.enabled (include "vcluster.etcd.embedded.migrate" .) }}
+{{- if .Values.controlPlane.backingStore.etcd.deploy.statefulSet.enabled }}
+{{- $externalEtcd := .Values.controlPlane.backingStore.etcd.deploy.statefulSet }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

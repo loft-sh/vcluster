@@ -26,20 +26,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func StartControllers(
-	controllerContext *config.ControllerContext,
-	controlPlaneNamespace,
-	controlPlaneService string,
-	controlPlaneConfig *rest.Config,
-) error {
+func StartControllers(controllerContext *config.ControllerContext) error {
 	// exchange control plane client
-	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext, controlPlaneNamespace, controlPlaneConfig)
+	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext)
 	if err != nil {
 		return err
 	}
@@ -86,15 +80,15 @@ func StartControllers(
 		err := pro.SyncRemoteEndpoints(
 			controllerContext.Context,
 			types.NamespacedName{
-				Namespace: controlPlaneNamespace,
-				Name:      controlPlaneService,
+				Namespace: controllerContext.Config.ControlPlaneNamespace,
+				Name:      controllerContext.Config.ControlPlaneService,
 			},
 			controlPlaneClient,
 			types.NamespacedName{
-				Namespace: controllerContext.CurrentNamespace,
-				Name:      controllerContext.Config.ServiceName,
+				Namespace: controllerContext.Config.WorkloadNamespace,
+				Name:      controllerContext.Config.WorkloadService,
 			},
-			controllerContext.CurrentNamespaceClient,
+			controllerContext.WorkloadNamespaceClient,
 		)
 		if err != nil {
 			return errors.Wrap(err, "sync remote endpoints")
@@ -106,15 +100,15 @@ func StartControllers(
 		err := pro.SyncNoopSyncerEndpoints(
 			controllerContext,
 			types.NamespacedName{
-				Namespace: controlPlaneNamespace,
-				Name:      controlPlaneService,
+				Namespace: controllerContext.Config.ControlPlaneNamespace,
+				Name:      controllerContext.Config.ControlPlaneService,
 			},
 			controlPlaneClient,
 			types.NamespacedName{
-				Namespace: controlPlaneNamespace,
-				Name:      controlPlaneService + "-proxy",
+				Namespace: controllerContext.Config.ControlPlaneNamespace,
+				Name:      controllerContext.Config.ControlPlaneService + "-proxy",
 			},
-			controlPlaneService,
+			controllerContext.Config.ControlPlaneService,
 		)
 		if err != nil {
 			return errors.Wrap(err, "sync proxied cluster endpoints")
@@ -139,7 +133,7 @@ func StartControllers(
 	// write the kube config to secret
 	go func() {
 		wait.Until(func() {
-			err := WriteKubeConfigToSecret(controllerContext.Context, controlPlaneNamespace, controlPlaneClient, controllerContext.Config, controllerContext.VirtualRawConfig)
+			err := WriteKubeConfigToSecret(controllerContext.Context, controllerContext.Config.ControlPlaneNamespace, controlPlaneClient, controllerContext.Config, controllerContext.VirtualRawConfig)
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
 			}
@@ -201,11 +195,11 @@ func SyncKubernetesService(ctx *config.ControllerContext) error {
 			Log:                    loghelper.New("sync-kubernetes-service"),
 			PhysicalClient:         ctx.LocalManager.GetClient(),
 			VirtualClient:          ctx.VirtualManager.GetClient(),
-			CurrentNamespace:       ctx.CurrentNamespace,
-			CurrentNamespaceClient: ctx.CurrentNamespaceClient,
+			CurrentNamespace:       ctx.Config.WorkloadNamespace,
+			CurrentNamespaceClient: ctx.WorkloadNamespaceClient,
 		},
-		ctx.CurrentNamespace,
-		ctx.Config.ServiceName,
+		ctx.Config.WorkloadNamespace,
+		ctx.Config.WorkloadService,
 		types.NamespacedName{
 			Name:      specialservices.DefaultKubernetesSVCName,
 			Namespace: specialservices.DefaultKubernetesSVCNamespace,
@@ -264,11 +258,11 @@ func StartManagers(controllerContext *config.ControllerContext, syncers []syncer
 	// make sure owner is set if it is there
 	err = SetGlobalOwner(
 		controllerContext.Context,
-		controllerContext.CurrentNamespaceClient,
-		controllerContext.CurrentNamespace,
-		controllerContext.Config.TargetNamespace,
+		controllerContext.WorkloadNamespaceClient,
+		controllerContext.Config.WorkloadNamespace,
+		controllerContext.Config.WorkloadTargetNamespace,
 		controllerContext.Config.Experimental.SyncSettings.SetOwner,
-		controllerContext.Config.ServiceName,
+		controllerContext.Config.WorkloadService,
 	)
 	if err != nil {
 		return errors.Wrap(err, "finding vcluster pod owner")

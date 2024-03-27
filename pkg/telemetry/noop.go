@@ -17,6 +17,6 @@ func (n *noopCollector) RecordError(_ context.Context, _ *config.VirtualClusterC
 
 func (n *noopCollector) Flush() {}
 
-func (n *noopCollector) SetVirtualClient(_ *kubernetes.Clientset) {}
+func (n *noopCollector) SetVirtualClient(_ kubernetes.Interface) {}
 
 func (n *noopCollector) RecordCLI(_ *managementv1.Self, _ error) {}

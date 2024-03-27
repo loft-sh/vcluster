@@ -181,7 +181,7 @@ func (r *Deployer) ProcessInitManifests(ctx context.Context, vConfig *config.Vir
 	var err error
 	manifests := vConfig.Experimental.Deploy.Manifests
 	if vConfig.Experimental.Deploy.ManifestsTemplate != "" {
-		templatedManifests, err := k0s.ExecTemplate(vConfig.Experimental.Deploy.ManifestsTemplate, vConfig.Name, vConfig.TargetNamespace, &vConfig.Config)
+		templatedManifests, err := k0s.ExecTemplate(vConfig.Experimental.Deploy.ManifestsTemplate, vConfig.Name, vConfig.WorkloadTargetNamespace, &vConfig.Config)
 		if err != nil {
 			return false, fmt.Errorf("exec manifests template: %w", err)
 		}
