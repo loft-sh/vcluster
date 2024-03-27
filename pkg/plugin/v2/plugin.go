@@ -71,10 +71,6 @@ type portHandlerName struct {
 	port        int
 }
 
-type requestDoer interface {
-	Do(r *http.Request) (*http.Response, error)
-}
-
 type vClusterPlugin struct {
 	// Path is the path where the plugin was loaded from
 	Path string
@@ -143,7 +139,7 @@ func (m *Manager) Start(
 		}
 
 		// register Interceptors
-		err = m.registerInterceptors(vClusterPlugin, pluginConfig.Interceptors)
+		err = m.registerInterceptors(pluginConfig.Interceptors)
 		if err != nil {
 			return fmt.Errorf("error adding interceptor for plugin %s: %w", vClusterPlugin.Path, err)
 		}
@@ -342,7 +338,7 @@ func validateInterceptor(interceptor Interceptor) error {
 	return nil
 }
 
-func (m *Manager) registerInterceptors(vClusterPlugin *vClusterPlugin, interceptors InterceptorConfig) error {
+func (m *Manager) registerInterceptors(interceptors InterceptorConfig) error {
 	// register the interceptors
 	for _, interceptorsInfos := range interceptors.Interceptors {
 		// make sure that it is valid

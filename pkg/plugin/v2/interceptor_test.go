@@ -103,7 +103,6 @@ func TestInterceptorPortNonResource(t *testing.T) {
 			if handlername != tC.wantHandler {
 				t.Errorf("wanted handler to be %s but got %s ", tC.wantHandler, handlername)
 			}
-
 		})
 	}
 }
@@ -241,7 +240,6 @@ func TestResourcePort(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-
 			m := Manager{
 				ResourceInterceptorsPorts: make(map[string]map[string]map[string]map[string]portHandlerName),
 			}
