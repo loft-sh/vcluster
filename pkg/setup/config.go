@@ -7,7 +7,6 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/k3s"
-	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/client-go/kubernetes"
 )
@@ -17,12 +16,6 @@ func InitConfig(vConfig *config.VirtualClusterConfig) error {
 
 	// set global vCluster name
 	translate.VClusterName = vConfig.Name
-
-	// get current namespace
-	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
-	if err != nil {
-		return err
-	}
 
 	// set workload namespace
 	err = os.Setenv("NAMESPACE", vConfig.WorkloadNamespace)

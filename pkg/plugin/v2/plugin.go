@@ -485,9 +485,21 @@ func (m *Manager) buildInitRequest(
 	if err != nil {
 		return nil, fmt.Errorf("convert physical client config: %w", err)
 	}
-	phyisicalConfigBytes, err := clientcmd.Write(rawPhysicalConfig)
+	workloadConfigBytes, err := clientcmd.Write(rawPhysicalConfig)
 	if err != nil {
 		return nil, fmt.Errorf("marshal physical client config: %w", err)
+	}
+	convertedControlPlaneConfig, err := kubeconfig.ConvertRestConfigToClientConfig(vConfig.ControlPlaneConfig)
+	if err != nil {
+		return nil, fmt.Errorf("convert control plane client config: %w", err)
+	}
+	rawControlPlaneConfig, err := convertedControlPlaneConfig.RawConfig()
+	if err != nil {
+		return nil, fmt.Errorf("convert control plane client config: %w", err)
+	}
+	controlPlaneConfigBytes, err := clientcmd.Write(rawControlPlaneConfig)
+	if err != nil {
+		return nil, fmt.Errorf("marshal control plane client config: %w", err)
 	}
 
 	// Syncer client config
@@ -502,13 +514,19 @@ func (m *Manager) buildInitRequest(
 			Enabled:  len(m.ProFeatures) > 0,
 			Features: m.ProFeatures,
 		},
-		PhysicalClusterConfig: phyisicalConfigBytes,
-		SyncerConfig:          syncerConfigBytes,
-		CurrentNamespace:      vConfig.WorkloadNamespace,
-		Config:                encodedConfig,
-		Options:               encodedLegacyOptions,
-		WorkingDir:            workingDir,
-		Port:                  port,
+
+		PhysicalClusterConfig: workloadConfigBytes,
+
+		WorkloadConfig:     workloadConfigBytes,
+		ControlPlaneConfig: controlPlaneConfigBytes,
+
+		SyncerConfig:     syncerConfigBytes,
+		CurrentNamespace: vConfig.WorkloadNamespace,
+		Config:           encodedConfig,
+		Options:          encodedLegacyOptions,
+		WorkingDir:       workingDir,
+    
+    Port:             port,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error encoding init config: %w", err)

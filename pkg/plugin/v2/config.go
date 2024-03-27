@@ -4,17 +4,22 @@ import "encoding/json"
 
 // InitConfig is the config the syncer sends to the plugin
 type InitConfig struct {
-	Pro                   InitConfigPro `json:"pro,omitempty"`
-	PhysicalClusterConfig []byte        `json:"physicalClusterConfig,omitempty"`
-	SyncerConfig          []byte        `json:"syncerConfig,omitempty"`
-	CurrentNamespace      string        `json:"currentNamespace,omitempty"`
+	Pro          InitConfigPro `json:"pro,omitempty"`
+	SyncerConfig []byte        `json:"syncerConfig,omitempty"`
 
-	Config  []byte `json:"config,omitempty"`
-	Options []byte `json:"options,omitempty"`
+	WorkloadConfig     []byte `json:"workloadConfig,omitempty"`
+	ControlPlaneConfig []byte `json:"controlPlaneConfig,omitempty"`
+
+	Config []byte `json:"config,omitempty"`
 
 	WorkingDir string `json:"workingDir,omitempty"`
 
 	Port int `json:"port,omitempty"`
+
+  // Legacy fields we still need to support
+	Options               []byte `json:"options,omitempty"`
+	CurrentNamespace      string `json:"currentNamespace,omitempty"`
+	PhysicalClusterConfig []byte `json:"physicalClusterConfig,omitempty"`
 }
 
 // InitConfigPro is used to signal the plugin if vCluster.Pro is enabled and what features are allowed
