@@ -175,8 +175,8 @@ func (m *Manager) InterceptorPortForResource(apigroup, resource, verb string) (o
 	return ok, portAndName.port, portAndName.handlerName
 }
 
-// InterceptorPortForNonResourceUrl returns the port and handler name for the given nonResourceUrl and verb
-func (m *Manager) InterceptorPortForNonResourceUrl(path, verb string) (ok bool, port int, handlerName string) {
+// InterceptorPortForNonResourceURL returns the port and handler name for the given nonResourceUrl and verb
+func (m *Manager) InterceptorPortForNonResourceURL(path, verb string) (ok bool, port int, handlerName string) {
 	// matchedPath will contain either the original path or the wildcard path that matched
 	matchedPath := ""
 	if ok, matchedPath = m.urlMatchWithWildcard(path); !ok {
@@ -592,7 +592,7 @@ func (m *Manager) WithInterceptors(next http.Handler) http.Handler {
 				return
 			}
 		} else {
-			ok, port, handlerName = m.InterceptorPortForNonResourceUrl(r.URL.Path, info.Verb)
+			ok, port, handlerName = m.InterceptorPortForNonResourceURL(r.URL.Path, info.Verb)
 			if !ok {
 				// no interceptor, business as usual
 				next.ServeHTTP(w, r)
