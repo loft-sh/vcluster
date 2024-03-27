@@ -18,7 +18,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var tokenPath = "/data/server/token"
+var TokenPath = "/data/server/token"
 
 func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, serviceCIDR, k3sToken string) error {
 	// build args
@@ -125,7 +125,7 @@ func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Inter
 	}
 
 	// try to read token file (migration case)
-	token, err := os.ReadFile(tokenPath)
+	token, err := os.ReadFile(TokenPath)
 	if err != nil {
 		token = []byte(random.String(64))
 	}

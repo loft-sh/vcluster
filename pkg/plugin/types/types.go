@@ -14,9 +14,7 @@ type Manager interface {
 	// Start starts the plugins with the given information
 	Start(
 		ctx context.Context,
-		currentNamespace, targetNamespace string,
 		virtualKubeConfig *rest.Config,
-		physicalKubeConfig *rest.Config,
 		syncerConfig *clientcmdapi.Config,
 		config *config.VirtualClusterConfig,
 	) error

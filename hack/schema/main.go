@@ -10,6 +10,7 @@ import (
 )
 
 const OutFile = "chart/values.schema.json"
+const ValuesOutFile = "chart/values.yaml"
 
 // Run executes the command logic
 func main() {
@@ -21,6 +22,11 @@ func main() {
 	transformMapProperties(generatedSchema)
 	modifySchema(generatedSchema, cleanUp)
 	err = writeSchema(generatedSchema, OutFile)
+	if err != nil {
+		panic(err)
+	}
+
+	err = os.WriteFile(ValuesOutFile, []byte(config.Values), 0666)
 	if err != nil {
 		panic(err)
 	}

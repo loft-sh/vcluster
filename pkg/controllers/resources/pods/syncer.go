@@ -78,7 +78,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &podSyncer{
 		NamespacedTranslator: namespacedTranslator,
 
-		serviceName:     ctx.Config.ServiceName,
+		serviceName:     ctx.Config.WorkloadService,
 		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 
 		virtualClusterClient:  virtualClusterClient,

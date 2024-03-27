@@ -19,8 +19,7 @@ type ControllerContext struct {
 	VirtualRawConfig      *clientcmdapi.Config
 	VirtualClusterVersion *version.Info
 
-	CurrentNamespace       string
-	CurrentNamespaceClient client.Client
+	WorkloadNamespaceClient client.Client
 
 	AdditionalServerFilters []servertypes.Filter
 	Config                  *VirtualClusterConfig

@@ -1,0 +1,521 @@
+# Sync Options
+sync:
+  toHost:
+    services:
+      enabled: true
+    endpoints:
+      enabled: true
+    persistentVolumeClaims:
+      enabled: true
+    configMaps:
+      enabled: true
+      all: false
+    secrets:
+      enabled: true
+      all: false
+    pods:
+      enabled: true
+      translateImage: {}
+      enforceTolerations: []
+      useSecretsForSATokens: false
+      rewriteHosts:
+        enabled: true
+        initContainerImage: "library/alpine:3.13.1"
+    ingresses:
+      enabled: false
+    priorityClasses:
+      enabled: false
+    networkPolicies:
+      enabled: false
+    volumeSnapshots:
+      enabled: false
+    podDisruptionBudgets:
+      enabled: false
+    serviceAccounts:
+      enabled: false
+    storageClasses:
+      enabled: false
+    persistentVolumes:
+      enabled: false
+
+  fromHost:
+    events:
+      enabled: true
+    csiDrivers:
+      enabled: false
+    csiNodes:
+      enabled: false
+    csiStorageCapacities:
+      enabled: false
+    ingressClasses:
+      enabled: false
+    storageClasses:
+      enabled: false
+    nodes:
+      enabled: false
+      syncBackChanges: false
+      clearImageStatus: false
+      selector:
+        all: false
+        labels: {}
+
+# Control Plane Options
+controlPlane:
+  # What distro to use for vCluster, if none is specified, k3s is used
+  distro:
+    k3s:
+      enabled: false
+      command: []
+      extraArgs: []
+      imagePullPolicy: ""
+      image:
+        repository: "rancher/k3s"
+        tag: "v1.29.0-k3s1"
+      securityContext: {}
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 40m
+          memory: 64Mi
+
+    k0s:
+      enabled: false
+      config: ""
+      command: []
+      extraArgs: []
+      imagePullPolicy: ""
+      image:
+        repository: "k0sproject/k0s"
+        tag: "v1.29.1-k0s.0"
+      securityContext: {}
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 40m
+          memory: 64Mi
+
+    k8s:
+      enabled: false
+      apiServer:
+        enabled: true
+        command: []
+        extraArgs: []
+        imagePullPolicy: ""
+        image:
+          repository: "registry.k8s.io/kube-apiserver"
+          tag: "v1.29.0"
+      controllerManager:
+        enabled: true
+        command: []
+        extraArgs: []
+        imagePullPolicy: ""
+        image:
+          repository: "registry.k8s.io/kube-controller-manager"
+          tag: "v1.29.0"
+      scheduler:
+        command: []
+        extraArgs: []
+        imagePullPolicy: ""
+        image:
+          repository: "registry.k8s.io/kube-scheduler"
+          tag: "v1.29.0"
+      env: []
+      securityContext: {}
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 40m
+          memory: 64Mi
+
+    eks:
+      enabled: false
+      apiServer:
+        enabled: true
+        command: []
+        extraArgs: []
+        imagePullPolicy: ""
+        image:
+          repository: "public.ecr.aws/eks-distro/kubernetes/kube-apiserver"
+          tag: "v1.28.2-eks-1-28-6"
+      controllerManager:
+        enabled: true
+        command: []
+        extraArgs: []
+        imagePullPolicy: ""
+        image:
+          repository: "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager"
+          tag: "v1.28.2-eks-1-28-6"
+      scheduler:
+        command: []
+        extraArgs: []
+        imagePullPolicy: ""
+        image:
+          repository: "public.ecr.aws/eks-distro/kubernetes/kube-scheduler"
+          tag: "v1.28.2-eks-1-28-6"
+      env: []
+      securityContext: {}
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 40m
+          memory: 64Mi
+
+  backingStore:
+    database:
+      embeddedSqlite:
+        enabled: false
+        # Optional sqlite dataSource
+        # dataSource: ""
+      external:
+        enabled: false
+        dataSource: ""
+        # Optional database certificates
+        # certFile: ""
+        # keyFile: ""
+        # caFile: ""
+    etcd:
+      embedded:
+        enabled: false
+        migrateFromDeployedEtcd: false
+      deploy:
+        enabled: false
+        statefulSet:
+          enabled: true
+          annotations: {}
+          labels: {}
+          image:
+            repository: "registry.k8s.io/etcd"
+            tag: "3.5.10-0"
+          imagePullPolicy: ""
+          extraArgs: []
+          env: []
+          resources:
+            requests:
+              cpu: 20m
+              memory: 150Mi
+          pods:
+            annotations: {}
+            labels: {}
+          highAvailability:
+            replicas: 1
+          scheduling:
+            podManagementPolicy: Parallel
+            nodeSelector: {}
+            affinity: {}
+            tolerations: []
+            topologySpreadConstraints: []
+            priorityClassName: ""
+          security:
+            podSecurityContext: {}
+            containerSecurityContext: {}
+          persistence:
+            volumeClaim:
+              enabled: true
+              # Defines if the PVC should get automatically deleted when the StatefulSet is deleted. Can be either Delete or Retain
+              retentionPolicy: Retain
+              size: 5Gi
+              storageClass: ""
+              accessModes: [ "ReadWriteOnce" ]
+            volumeClaimTemplates: []
+            addVolumes: []
+            addVolumeMounts: []
+        service:
+          enabled: true
+          annotations: {}
+        headlessService:
+          enabled: true
+          annotations: {}
+
+  proxy:
+    bindAddress: "0.0.0.0"
+    port: 8443
+    extraSANs: []
+
+  coredns:
+    enabled: true
+    embedded: false
+    overwriteManifests: ""
+    overwriteConfig: ""
+
+    service:
+      annotations: {}
+      labels: {}
+      spec:
+        type: ClusterIP
+
+    deployment:
+      annotations: {}
+      labels: {}
+      image: ""
+      replicas: 1
+      pods:
+       labels: {}
+       annotations: {}
+      nodeSelector: {}
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 170Mi
+        requests:
+          cpu: 20m
+          memory: 64Mi
+
+  service:
+    enabled: true
+    labels: {}
+    annotations: {}
+    kubeletNodePort: 0
+    httpsNodePort: 0
+    spec:
+      type: ClusterIP
+
+  ingress:
+    enabled: false
+    host: "my-host.com"
+    pathType: ImplementationSpecific
+    labels: {}
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    spec:
+      tls: []
+
+  statefulSet:
+    labels: {}
+    annotations: {}
+    imagePullPolicy: ""
+    image:
+      repository: "ghcr.io/loft-sh/vcluster"
+      tag: ""
+
+    workingDir: ""
+    command: []
+    args: []
+    env: []
+
+    resources:
+      limits:
+        ephemeral-storage: 8Gi
+        memory: 2Gi
+      requests:
+        ephemeral-storage: 200Mi
+        cpu: 200m
+        memory: 256Mi
+
+    pods:
+      labels: {}
+      annotations: {}
+
+    highAvailability:
+      replicas: 1
+      leaseDuration: 60
+      renewDeadline: 40
+      retryPeriod: 15
+
+    security:
+      podSecurityContext: {}
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        runAsUser: 0
+        runAsGroup: 0
+
+    persistence:
+      volumeClaim:
+        enabled: auto
+        # Defines if the PVC should get automatically deleted when the StatefulSet is deleted. Can be either Delete or Retain
+        retentionPolicy: Retain
+        size: 5Gi
+        storageClass: ""
+        accessModes: [ "ReadWriteOnce" ]
+      volumeClaimTemplates: []
+      addVolumeMounts: []
+      addVolumes: []
+
+    scheduling:
+      podManagementPolicy: Parallel
+      topologySpreadConstraints: []
+      priorityClassName: ""
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
+
+    probes:
+      livenessProbe:
+        enabled: true
+      readinessProbe:
+        enabled: true
+      startupProbe:
+        enabled: true
+
+  serviceMonitor:
+    enabled: false
+    labels: {}
+    annotations: {}
+
+  advanced:
+    defaultImageRegistry: ""
+
+    virtualScheduler:
+      enabled: false
+
+    serviceAccount:
+      enabled: true
+      name: ""
+      imagePullSecrets: []
+      labels: {}
+      annotations: {}
+
+    workloadServiceAccount:
+      enabled: true
+      name: ""
+      imagePullSecrets: []
+      annotations: {}
+      labels: {}
+
+    headlessService:
+      labels: {}
+      annotations: {}
+
+    globalMetadata:
+      annotations: {}
+
+rbac:
+  role:
+    enabled: true
+    overwriteRules: []
+    extraRules: []
+  clusterRole:
+    enabled: auto
+    overwriteRules: []
+    extraRules: []
+
+observability:
+  metrics:
+    proxy:
+      nodes: false
+      pods: false
+
+networking:
+  # Embedded CoreDNS plugin config
+  replicateServices:
+    toHost: []
+    fromHost: []
+  resolveDNS: []
+  advanced:
+    clusterDomain: "cluster.local"
+    fallbackHostCluster: true
+    proxyKubelets:
+      byHostname: true
+      byIP: true
+
+policies:
+  resourceQuota:
+    enabled: false
+    labels: {}
+    annotations: {}
+    quota:
+      requests.cpu: 10
+      requests.memory: 20Gi
+      requests.storage: "100Gi"
+      requests.ephemeral-storage: 60Gi
+      limits.cpu: 20
+      limits.memory: 40Gi
+      limits.ephemeral-storage: 160Gi
+      services.nodeports: 0
+      services.loadbalancers: 1
+      count/endpoints: 40
+      count/pods: 20
+      count/services: 20
+      count/secrets: 100
+      count/configmaps: 100
+      count/persistentvolumeclaims: 20
+    scopeSelector:
+      matchExpressions: []
+    scopes: []
+
+  limitRange:
+    enabled: false
+    labels: {}
+    annotations: {}
+    default:
+      ephemeral-storage: 8Gi
+      memory: 512Mi
+      cpu: "1"
+    defaultRequest:
+      ephemeral-storage: 3Gi
+      memory: 128Mi
+      cpu: 100m
+
+  networkPolicy:
+    enabled: false
+    labels: {}
+    annotations: {}
+    fallbackDns: 8.8.8.8
+    outgoingConnections:
+      ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+          - 100.64.0.0/10
+          - 127.0.0.0/8
+          - 10.0.0.0/8
+          - 172.16.0.0/12
+          - 192.168.0.0/16
+
+  centralAdmission:
+    validatingWebhooks: []
+    mutatingWebhooks: []
+
+# Export vCluster Kube Config
+exportKubeConfig:
+  context: ""
+  server: ""
+  secret:
+    name: ""
+    namespace: ""
+
+# What plugins should get used
+plugins: {}
+
+# Functionality that is likely to change, use with caution!
+experimental:
+  multiNamespaceMode:
+    enabled: false
+
+  syncSettings:
+    disableSync: false
+    rewriteKubernetesService: false
+    targetNamespace: ""
+    setOwner: true
+
+  isolatedControlPlane:
+    headless: false
+
+  deploy:
+    manifests: ""
+    manifestsTemplate: ''
+    helm: []
+
+  genericSync:
+    clusterRole:
+      extraRules: []
+    role:
+      extraRules: []
+
+platform:
+  apiKey:
+    value: ""
+    secretRef:
+      name: ""
+      namespace: ""
+
+telemetry:
+  enabled: true

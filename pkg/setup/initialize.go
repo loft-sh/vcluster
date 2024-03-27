@@ -32,9 +32,6 @@ import (
 // Initialize creates the required secrets and configmaps for the control plane to start
 func Initialize(
 	ctx context.Context,
-	currentNamespaceClient kubernetes.Interface,
-	currentNamespace,
-	vClusterName string,
 	options *config.VirtualClusterConfig,
 ) error {
 	// Ensure that service CIDR range is written into the expected location
@@ -42,9 +39,6 @@ func Initialize(
 		err := initialize(
 			waitCtx,
 			ctx,
-			currentNamespaceClient,
-			currentNamespace,
-			vClusterName,
 			options,
 		)
 		if err != nil {
@@ -67,9 +61,6 @@ func Initialize(
 func initialize(
 	ctx context.Context,
 	parentCtx context.Context,
-	currentNamespaceClient kubernetes.Interface,
-	currentNamespace,
-	vClusterName string,
 	options *config.VirtualClusterConfig,
 ) error {
 	distro := options.Distro()
@@ -81,9 +72,13 @@ func initialize(
 	}
 
 	// retrieve service cidr
-	serviceCIDR, warning := servicecidr.GetServiceCIDR(ctx, currentNamespaceClient, currentNamespace)
-	if warning != "" {
-		klog.Warning(warning)
+	serviceCIDR := options.ServiceCIDR
+	if serviceCIDR == "" {
+		var warning string
+		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, options.WorkloadClient, options.WorkloadNamespace)
+		if warning != "" {
+			klog.Warning(warning)
+		}
 	}
 
 	// check what distro are we running
@@ -100,7 +95,7 @@ func initialize(
 
 		// create certificates if they are not there yet
 		certificatesDir := "/data/k0s/pki"
-		err = GenerateCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+		err = GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 		if err != nil {
 			return err
 		}
@@ -109,8 +104,8 @@ func initialize(
 		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			err = pro.StartEmbeddedEtcd(
 				parentCtx,
-				vClusterName,
-				currentNamespace,
+				options.Name,
+				options.ControlPlaneNamespace,
 				certificatesDir,
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
@@ -132,21 +127,21 @@ func initialize(
 		}()
 
 		// try to update the certs secret with the k0s certificates
-		err = UpdateSecretWithK0sCerts(ctx, currentNamespaceClient, currentNamespace, vClusterName)
+		err = UpdateSecretWithK0sCerts(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name)
 		if err != nil {
 			cancel()
 			return err
 		}
 	case vclusterconfig.K3SDistro:
 		// its k3s, let's create the token secret
-		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName, options)
+		k3sToken, err := k3s.EnsureK3SToken(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name, options)
 		if err != nil {
 			return err
 		}
 
 		// generate etcd certificates
 		certificatesDir := "/data/pki"
-		err = GenerateCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+		err = GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 		if err != nil {
 			return err
 		}
@@ -157,8 +152,8 @@ func initialize(
 			// will be cancelled by the wait loop in Initialize
 			err = pro.StartEmbeddedEtcd(
 				parentCtx,
-				vClusterName,
-				currentNamespace,
+				options.Name,
+				options.ControlPlaneNamespace,
 				certificatesDir,
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
@@ -181,7 +176,7 @@ func initialize(
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
-			err := GenerateCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+			err := GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 			if err != nil {
 				return err
 			}
@@ -192,8 +187,8 @@ func initialize(
 			// start embedded etcd
 			err := pro.StartEmbeddedEtcd(
 				parentCtx,
-				vClusterName,
-				currentNamespace,
+				options.Name,
+				options.ControlPlaneNamespace,
 				certificatesDir,
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
@@ -235,7 +230,7 @@ func initialize(
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
 			// generate k8s certificates
-			err := GenerateCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+			err := GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 			if err != nil {
 				return err
 			}

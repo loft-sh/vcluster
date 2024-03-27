@@ -21,12 +21,31 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: ./go.mod
           cache: false
+
       - name: Generate Embedded Helm Chart
         run: |
           go generate ./...
+
+      - name: Verify schema changes
+        run: |
+          VALUES_SHA=$(cat chart/values.yaml | sha256sum)
+          VALUES_SCHEMA_SHA=$(cat chart/values.schema.json | sha256sum)
+
+          go run hack/schema/main.go
+
+          VALUES_SHA_AFTER=$(cat chart/values.yaml | sha256sum)
+          VALUES_SCHEMA_SHA_AFTER=$(cat chart/values.schema.json | sha256sum)
+
+          # if there are changes, tell developer to run script
+          if [ "$VALUES_SHA" != "$VALUES_SHA_AFTER" ] || [ "$VALUES_SCHEMA_SHA" != "$VALUES_SCHEMA_SHA_AFTER" ]; then
+            echo "Seems like you forgot to run 'go run hack/schema/main.go' before committing your changes!"
+            exit 1
+          fi
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v4

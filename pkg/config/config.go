@@ -7,6 +7,8 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
 
@@ -18,11 +20,32 @@ type VirtualClusterConfig struct {
 	// Name is the name of the vCluster
 	Name string `json:"name"`
 
-	// ServiceName is the name of the service of the vCluster
-	ServiceName string `json:"serviceName,omitempty"`
+	// WorkloadService is the name of the service of the vCluster
+	WorkloadService string `json:"workloadService,omitempty"`
 
-	// TargetNamespace is the namespace where the workloads go
-	TargetNamespace string `json:"targetNamespace,omitempty"`
+	// WorkloadNamespace is the namespace of the target cluster
+	WorkloadNamespace string `json:"workloadNamespace,omitempty"`
+
+	// WorkloadTargetNamespace is the namespace of the target cluster where the workloads should get created in
+	WorkloadTargetNamespace string `json:"workloadTargetNamespace,omitempty"`
+
+	// ControlPlaneService is the name of the service for the vCluster control plane
+	ControlPlaneService string `json:"controlPlaneService,omitempty"`
+
+	// ControlPlaneNamespace is the namespace where the vCluster control plane is running
+	ControlPlaneNamespace string `json:"controlPlaneNamespace,omitempty"`
+
+	// WorkloadConfig is the config to access the workload cluster
+	WorkloadConfig *rest.Config `json:"-"`
+
+	// WorkloadClient is the client to access the workload cluster
+	WorkloadClient kubernetes.Interface `json:"-"`
+
+	// ControlPlaneConfig is the config to access the control plane cluster
+	ControlPlaneConfig *rest.Config `json:"-"`
+
+	// ControlPlaneClient is the client to access the control plane cluster
+	ControlPlaneClient kubernetes.Interface `json:"-"`
 }
 
 func (v VirtualClusterConfig) EmbeddedDatabase() bool {
@@ -138,8 +161,8 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		BindAddress:                 v.ControlPlane.Proxy.BindAddress,
 		Port:                        v.ControlPlane.Proxy.Port,
 		Name:                        v.Name,
-		TargetNamespace:             v.TargetNamespace,
-		ServiceName:                 v.ServiceName,
+		TargetNamespace:             v.WorkloadNamespace,
+		ServiceName:                 v.WorkloadService,
 		SetOwner:                    v.Experimental.SyncSettings.SetOwner,
 		SyncAllNodes:                v.Sync.FromHost.Nodes.Selector.All,
 		EnableScheduler:             v.ControlPlane.Advanced.VirtualScheduler.Enabled,

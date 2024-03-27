@@ -230,9 +230,9 @@ func RegisterGenericSyncController(ctx *config.ControllerContext) error {
 }
 
 func RegisterServiceSyncControllers(ctx *config.ControllerContext) error {
-	hostNamespace := ctx.Config.TargetNamespace
+	hostNamespace := ctx.Config.WorkloadTargetNamespace
 	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
-		hostNamespace = ctx.CurrentNamespace
+		hostNamespace = ctx.Config.WorkloadNamespace
 	}
 
 	if len(ctx.Config.Networking.ReplicateServices.FromHost) > 0 {

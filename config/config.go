@@ -1,16 +1,25 @@
 package config
 
 import (
-	"encoding/json"
-	"errors"
+	_ "embed"
 	"regexp"
-	"strconv"
+
+	"github.com/ghodss/yaml"
 )
 
-var (
-	// ErrUnsupportedType is returned if the type is not implemented
-	ErrUnsupportedType = errors.New("unsupported type")
-)
+//go:embed values.yaml
+var Values string
+
+// NewDefaultConfig creates a new config based on the values.yaml, including all default values.
+func NewDefaultConfig() (*Config, error) {
+	retConfig := &Config{}
+	err := yaml.Unmarshal([]byte(Values), retConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return retConfig, nil
+}
 
 // Config is the vCluster config. This struct describes valid Helm values for vCluster as well as configuration used by the vCluster binary itself.
 type Config struct {
@@ -1115,7 +1124,8 @@ type RBACRole struct {
 
 type Telemetry struct {
 	// Enabled specifies that the telemetry for the vCluster control plane should be enabled.
-	Enabled            bool   `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty"`
+
 	InstanceCreator    string `json:"instanceCreator,omitempty"`
 	MachineID          string `json:"machineID,omitempty"`
 	PlatformUserID     string `json:"platformUserID,omitempty"`
@@ -1156,12 +1166,16 @@ type ExperimentalMultiNamespaceMode struct {
 type ExperimentalIsolatedControlPlane struct {
 	// Enabled specifies if the isolated control plane feature should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
 	Headless bool `json:"headless,omitempty"`
+
 	// KubeConfig is the path where to find the remote workload cluster kubeconfig.
 	KubeConfig string `json:"kubeConfig,omitempty"`
+
 	// Namespace is the namespace where to sync the workloads into.
 	Namespace string `json:"namespace,omitempty"`
+
 	// Service is the vCluster service in the remote cluster.
 	Service string `json:"service,omitempty"`
 }
@@ -1169,13 +1183,16 @@ type ExperimentalIsolatedControlPlane struct {
 type ExperimentalSyncSettings struct {
 	// DisableSync will not sync any resources and disable most control plane functionality.
 	DisableSync bool `json:"disableSync,omitempty"`
+
 	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
 	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty"`
 
 	// TargetNamespace is the namespace where the workloads should get synced to.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
+
 	// SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
 	SetOwner bool `json:"setOwner,omitempty"`
+
 	// SyncLabels are labels that should get not rewritten when syncing from the virtual cluster.
 	SyncLabels []string `json:"syncLabels,omitempty"`
 }
@@ -1183,8 +1200,10 @@ type ExperimentalSyncSettings struct {
 type ExperimentalDeploy struct {
 	// Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
 	Manifests string `json:"manifests,omitempty"`
+
 	// ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster.
 	ManifestsTemplate string `json:"manifestsTemplate,omitempty"`
+
 	// Helm are Helm charts that should get deployed into the virtual cluster
 	Helm []ExperimentalDeployHelm `json:"helm,omitempty"`
 }
@@ -1192,12 +1211,16 @@ type ExperimentalDeploy struct {
 type ExperimentalDeployHelm struct {
 	// Chart defines what chart should get deployed.
 	Chart ExperimentalDeployHelmChart `json:"chart,omitempty"`
+
 	// Release defines what release should get deployed.
 	Release ExperimentalDeployHelmRelease `json:"release,omitempty"`
+
 	// Values defines what values should get used.
 	Values string `json:"values,omitempty"`
+
 	// Timeout defines the timeout for Helm
 	Timeout string `json:"timeout,omitempty"`
+
 	// Bundle allows to compress the Helm chart and specify this instead of an online chart
 	Bundle string `json:"bundle,omitempty"`
 }
@@ -1205,6 +1228,7 @@ type ExperimentalDeployHelm struct {
 type ExperimentalDeployHelmRelease struct {
 	// Name of the release
 	Name string `json:"name,omitempty"`
+
 	// Namespace of the release
 	Namespace string `json:"namespace,omitempty"`
 }
@@ -1489,24 +1513,4 @@ type RuleWithVerbs struct {
 	// Required.
 	// +listType=atomic
 	Verbs []string `json:"operations,omitempty"`
-}
-
-type StrBool string
-
-// UnmarshalJSON parses fields that may be numbers or booleans.
-func (f *StrBool) UnmarshalJSON(data []byte) error {
-	var jsonObj interface{}
-	err := json.Unmarshal(data, &jsonObj)
-	if err != nil {
-		return err
-	}
-	switch obj := jsonObj.(type) {
-	case string:
-		*f = StrBool(obj)
-		return nil
-	case bool:
-		*f = StrBool(strconv.FormatBool(obj))
-		return nil
-	}
-	return ErrUnsupportedType
 }
