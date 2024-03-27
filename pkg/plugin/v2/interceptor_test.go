@@ -265,3 +265,226 @@ func TestResourcePort(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateInterceptors(t *testing.T) {
+	testCases := []struct {
+		desc             string
+		interceptorInfos Interceptor
+		wantErr          bool
+	}{
+		{
+			desc: "valid interceptor",
+			interceptorInfos: Interceptor{
+				APIGroups: []string{"core"},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get"},
+			},
+			wantErr: false,
+		},
+		{
+			desc: "verb and verb wildcard",
+			interceptorInfos: Interceptor{
+				APIGroups: []string{"core"},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "*"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "resource and resource wildcard",
+			interceptorInfos: Interceptor{
+				APIGroups: []string{"core"},
+				Resources: []string{"pods", "*"},
+				Verbs:     []string{"get"},
+			},
+			wantErr: true,
+		},
+		{
+			desc:             "emtpy interceptor",
+			interceptorInfos: Interceptor{},
+			wantErr:          true,
+		},
+		{
+			desc: "empty group and empty nonresourceURL",
+			interceptorInfos: Interceptor{
+				Resources: []string{"pods"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "empty resource and empty nonresourceURL",
+			interceptorInfos: Interceptor{
+				APIGroups: []string{"core"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "emtpy verbs",
+			interceptorInfos: Interceptor{
+				APIGroups: []string{"core"},
+				Resources: []string{"pods"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "only url and verb",
+			interceptorInfos: Interceptor{
+				NonResourceURLs: []string{"/healthz"},
+				Verbs:           []string{"*"},
+			},
+			wantErr: false,
+		},
+		{
+			desc: "resource group url and verb",
+			interceptorInfos: Interceptor{
+				NonResourceURLs: []string{"/healthz"},
+				APIGroups:       []string{"core"},
+				Resources:       []string{"*"},
+				Verbs:           []string{"*"},
+			},
+			wantErr: false,
+		},
+		{
+			desc: "no nonresource and no group",
+			interceptorInfos: Interceptor{
+				Resources: []string{"*"},
+				Verbs:     []string{"*"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "no nonresource and no resource",
+			interceptorInfos: Interceptor{
+				APIGroups: []string{"*"},
+				Verbs:     []string{"*"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "wildcard apigroup and more",
+			interceptorInfos: Interceptor{
+				APIGroups: []string{"*", "core"},
+				Resources: []string{"*"},
+				Verbs:     []string{"*"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "wildcard resource and more",
+			interceptorInfos: Interceptor{
+				Resources: []string{"*", "pods"},
+				APIGroups: []string{"*"},
+				Verbs:     []string{"*"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "non resource url with wrong wildcard",
+			interceptorInfos: Interceptor{
+				Verbs:           []string{"*"},
+				NonResourceURLs: []string{"doner*kebab"},
+			},
+			wantErr: true,
+		},
+		{
+			desc: "non resource url with right wildcard",
+			interceptorInfos: Interceptor{
+				Verbs:           []string{"*"},
+				NonResourceURLs: []string{"doner*"},
+			},
+			wantErr: false,
+		},
+		{
+			desc: "non resource url with right wildcard",
+			interceptorInfos: Interceptor{
+				Verbs:           []string{"*"},
+				NonResourceURLs: []string{"*"},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			err := validateInterceptor(tC.interceptorInfos)
+			if (tC.wantErr && err == nil) || (!tC.wantErr && err != nil) {
+				if err == nil {
+					t.Error("error was nil and shouldn't have been")
+				} else {
+					t.Errorf("unexpected error value %s", err.Error())
+				}
+			}
+
+		})
+	}
+}
+
+func TestRegistrationResource(t *testing.T) {
+	testCases := []struct {
+		desc                      string
+		newInterceptorsInfos      Interceptor
+		existingInterceptorsInfos Interceptor
+		port                      int
+		wantErr                   bool
+	}{
+		{
+			desc: "conflict with resource",
+			existingInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+				Resources: []string{"pod"},
+				Verbs:     []string{"get"},
+			},
+			newInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+				Resources: []string{"pod"},
+				Verbs:     []string{"get"},
+			},
+			port:    123,
+			wantErr: true,
+		},
+		{
+			desc: "no conflict",
+			existingInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+				Resources: []string{"service"},
+				Verbs:     []string{"get"},
+			},
+			newInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+				Resources: []string{"pod"},
+				Verbs:     []string{"get"},
+			},
+			port:    123,
+			wantErr: false,
+		},
+		//{
+		//	desc: "conflict with wildcards",
+		//	existingInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+		//		Resources: []string{"service"},
+		//		Verbs:     []string{"get"},
+		//	},
+		//	newInterceptorsInfos: Interceptor{APIGroups: []string{"*"},
+		//		Resources: []string{"pod"},
+		//		Verbs:     []string{"get"},
+		//	},
+		//	port:    123,
+		//	wantErr: true,
+		//},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			m := &Manager{
+				ResourceInterceptorsPorts: make(map[string]map[string]map[string]map[string]portHandlerName),
+			}
+			err := m.registerResourceInterceptor(tC.port, tC.existingInterceptorsInfos)
+			if err != nil {
+				t.Errorf("could not put the existing interceptors")
+			}
+
+			err = m.registerResourceInterceptor(tC.port, tC.newInterceptorsInfos)
+			if (tC.wantErr && err == nil) || (!tC.wantErr && err != nil) {
+				if err == nil {
+					t.Error("error was nil and shouldn't have been")
+				} else {
+					t.Errorf("unexpected error value %s", err.Error())
+				}
+			}
+
+		})
+	}
+}
