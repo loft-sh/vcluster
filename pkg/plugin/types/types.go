@@ -37,7 +37,8 @@ type Manager interface {
 
 	// SetProFeatures is used by vCluster.Pro to signal what pro features are enabled
 	SetProFeatures(proFeatures map[string]bool)
-	// SetProFeatures is used by vCluster.Pro to signal what pro features are enabled
+	// WithInterceptors is a middleware that allows us to delegate some requests to out of
+	// tree plugins
 	WithInterceptors(http.Handler) http.Handler
 }
 
