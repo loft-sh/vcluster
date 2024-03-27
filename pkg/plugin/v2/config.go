@@ -16,7 +16,7 @@ type InitConfig struct {
 
 	Port int `json:"port,omitempty"`
 
-  // Legacy fields we still need to support
+	// Legacy fields we still need to support
 	Options               []byte `json:"options,omitempty"`
 	CurrentNamespace      string `json:"currentNamespace,omitempty"`
 	PhysicalClusterConfig []byte `json:"physicalClusterConfig,omitempty"`
