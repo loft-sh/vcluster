@@ -220,6 +220,10 @@ func (m *Manager) InterceptorPortForNonResourceURL(path, verb string) (ok bool, 
 
 func (m *Manager) urlMatchWithWildcard(path string) (bool, string) {
 	for key := range m.NonResourceInterceptorsPorts {
+		// just the wildcar isn't valid
+		if path == "*" {
+			return false, ""
+		}
 		// safe because we don't add the empty string in the registration
 		// if we have a wildcard, we should return true if the path starts with what's before *
 		if key[len(key)-1] == '*' && strings.HasPrefix(path, key[:len(key)-1]) {
@@ -314,85 +318,109 @@ func (m *Manager) HasPlugins() bool {
 	return len(m.Plugins) > 0
 }
 
+func validateInterceptor(interceptor Interceptor) error {
+	if interceptor.Resources == nil {
+		return fmt.Errorf("resources is empty in interceptor plugin %s  ", interceptor.HandlerName)
+	}
+
+	// check for wildcards and extra names, which should not be allowed
+	if (slices.Contains(interceptor.Resources, "*") && len(interceptor.Resources) > 1) ||
+		len(interceptor.Resources) == 0 {
+		return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other resources, or is empty. please either specify * or a list of resource", interceptor.HandlerName)
+	}
+	if (slices.Contains(interceptor.APIGroups, "*") && len(interceptor.APIGroups) > 1) ||
+		len(interceptor.APIGroups) == 0 {
+		return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other apigroups, or is empty. please either specify * or a list of apigroups", interceptor.HandlerName)
+	}
+	if (slices.Contains(interceptor.Verbs, "*") && len(interceptor.Verbs) > 1) ||
+		len(interceptor.Verbs) == 0 {
+		return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other verbs, or is empty. please either specify * or a list of verb", interceptor.HandlerName)
+	}
+	// having a wildcard char not at the end is forbidden
+	for _, nonResourceURL := range interceptor.NonResourceURLs {
+		firstStar := strings.Index(nonResourceURL, "*")
+		if (firstStar > -1 && firstStar != len(nonResourceURL)-1) || nonResourceURL == "*" {
+			return fmt.Errorf("error while loading the plugins, interceptor for non resource url %s defines a wildcard not at the end of the url, or is only a wildcard", nonResourceURL)
+		}
+	}
+
+	return nil
+}
+
 func (m *Manager) registerInterceptors(vClusterPlugin *vClusterPlugin, interceptors InterceptorConfig) error {
 	// register the interceptors
 	for _, interceptorsInfos := range interceptors.Interceptors {
-		if interceptorsInfos.Resources == nil {
-			return fmt.Errorf("resources is empty in plugin %s hook", vClusterPlugin.Path)
+		// make sure that it is valid
+		if err := validateInterceptor(interceptorsInfos); err != nil {
+			return err
 		}
 
-		// check for wildcards and extra names, which should not be allowed
-		if (slices.Contains(interceptorsInfos.Resources, "*") && len(interceptorsInfos.Resources) > 1) ||
-			len(interceptorsInfos.Resources) == 0 {
-			return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other resources, or is empty. please either specify * or a list of resource", interceptorsInfos.HandlerName)
-		}
-		if (slices.Contains(interceptorsInfos.APIGroups, "*") && len(interceptorsInfos.Resources) > 1) ||
-			len(interceptorsInfos.APIGroups) == 0 {
-			return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other apigroups, or is empty. please either specify * or a list of apigroups", interceptorsInfos.HandlerName)
-		}
-		if (slices.Contains(interceptorsInfos.Verbs, "*") && len(interceptorsInfos.Resources) > 1) ||
-			len(interceptorsInfos.Verbs) == 0 {
-			return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other verbs, or is empty. please either specify * or a list of verb", interceptorsInfos.HandlerName)
+		// register resource interceptors for each verb
+		err := m.registerResourceInterceptor(interceptors, interceptorsInfos)
+		if err != nil {
+			return err
 		}
 
-		// add all group/version/verb/resourceName tuples to the map
-		// each group
-		for _, apigroup := range interceptorsInfos.APIGroups {
-			// create the map if not existing
-			if _, ok := m.ResourceInterceptorsPorts[apigroup]; !ok {
-				m.ResourceInterceptorsPorts[apigroup] = make(map[string]map[string]map[string]portHandlerName)
-			}
-
-			// for each resource
-			for _, resource := range interceptorsInfos.Resources {
-				// each verb
-				for _, verb := range interceptorsInfos.Verbs {
-					if m.ResourceInterceptorsPorts[apigroup][resource][verb] == nil {
-						m.ResourceInterceptorsPorts[apigroup][resource][verb] = make(map[string]portHandlerName)
-					} else {
-						return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s and verb %s", apigroup, resource, verb)
-					}
-					// now add the specific resource names
-					if len(interceptorsInfos.ResourceNames) == 0 {
-						// empty slice means everything is allowed
-						m.ResourceInterceptorsPorts[apigroup][resource][verb]["*"] = portHandlerName{handlerName: interceptorsInfos.HandlerName, port: interceptors.Port}
-					} else {
-						for _, name := range interceptorsInfos.ResourceNames {
-							m.ResourceInterceptorsPorts[apigroup][resource][verb][name] = portHandlerName{handlerName: interceptorsInfos.HandlerName, port: interceptors.Port}
-						}
-					}
-				}
-			}
-		}
-
-		// register nonresourceurls for each verb
-		for _, nonResourceURL := range interceptorsInfos.NonResourceURLs {
-			// ignore empty resources
-			if nonResourceURL == "" {
-				continue
-			}
-			// having a wildcard char not at the end is forbidden
-			firstStar := strings.Index(nonResourceURL, "*")
-			if firstStar > -1 && firstStar != len(nonResourceURL)-1 {
-				return fmt.Errorf("error while loading the plugins, interceptor for non resource url %s defines a wildcard not at the end of the url", nonResourceURL)
-			}
-
-			for _, v := range interceptorsInfos.Verbs {
-				// we shouldn't have * and other verbs
-				if v == "*" && len(interceptorsInfos.Verbs) > 1 {
-					return fmt.Errorf("error while loading the plugins, interceptor for non resource url %s defines both * and other verbs. Please either specify * or a list of verbs", nonResourceURL)
-				}
-				if _, ok := m.NonResourceInterceptorsPorts[nonResourceURL][v]; ok {
-					return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same non resource url %s and verb %s", nonResourceURL, v)
-				}
-
-				m.NonResourceInterceptorsPorts[nonResourceURL][v] = portHandlerName{port: interceptors.Port, handlerName: interceptorsInfos.HandlerName}
-			}
+		// register nonresourceurls interceptors for each verb
+		err = m.registerNonResourceUrl(interceptors, interceptorsInfos)
+		if err != nil {
+			return err
 		}
 
 		//klog.Infof("Register interceptor for %s %s in plugin %s", interceptorsInfos.APIVersion, interceptorsInfos.Resource, vClusterPlugin.Path)
 	}
 
+	return nil
+}
+
+func (m *Manager) registerResourceInterceptor(interceptors InterceptorConfig, interceptorsInfos Interceptor) error {
+	// add all group/version/verb/resourceName tuples to the map
+	// each group
+	for _, apigroup := range interceptorsInfos.APIGroups {
+		// create the map if not existing
+		if _, ok := m.ResourceInterceptorsPorts[apigroup]; !ok {
+			m.ResourceInterceptorsPorts[apigroup] = make(map[string]map[string]map[string]portHandlerName)
+		}
+
+		// for each resource
+		for _, resource := range interceptorsInfos.Resources {
+			// each verb
+			for _, verb := range interceptorsInfos.Verbs {
+				if m.ResourceInterceptorsPorts[apigroup][resource][verb] == nil {
+					m.ResourceInterceptorsPorts[apigroup][resource][verb] = make(map[string]portHandlerName)
+				} else {
+					return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s and verb %s", apigroup, resource, verb)
+				}
+				// now add the specific resource names
+				if len(interceptorsInfos.ResourceNames) == 0 {
+					// empty slice means everything is allowed
+					m.ResourceInterceptorsPorts[apigroup][resource][verb]["*"] = portHandlerName{handlerName: interceptorsInfos.HandlerName, port: interceptors.Port}
+				} else {
+					for _, name := range interceptorsInfos.ResourceNames {
+						m.ResourceInterceptorsPorts[apigroup][resource][verb][name] = portHandlerName{handlerName: interceptorsInfos.HandlerName, port: interceptors.Port}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (m *Manager) registerNonResourceUrl(interceptors InterceptorConfig, interceptorsInfos Interceptor) error {
+	// register nonresourceurls for each verb
+	for _, nonResourceURL := range interceptorsInfos.NonResourceURLs {
+		// ignore empty resources
+		if nonResourceURL == "" {
+			continue
+		}
+		for _, v := range interceptorsInfos.Verbs {
+			if _, ok := m.NonResourceInterceptorsPorts[nonResourceURL][v]; ok {
+				return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same non resource url %s and verb %s", nonResourceURL, v)
+			}
+
+			m.NonResourceInterceptorsPorts[nonResourceURL][v] = portHandlerName{port: interceptors.Port, handlerName: interceptorsInfos.HandlerName}
+		}
+	}
 	return nil
 }
 
