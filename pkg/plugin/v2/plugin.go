@@ -164,7 +164,7 @@ func (m *Manager) InterceptorPortForResource(apigroup, resource, verb string) (o
 	}
 	// resource not registered
 	if m.ResourceInterceptorsPorts[versionResource] == nil {
-		return false, -1, ""
+		return false, 0, ""
 	}
 	// if we have defined the wildcard for verb, return true
 	if portAndName, ok := m.ResourceInterceptorsPorts[versionResource]["*"]; ok {
