@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -41,10 +42,11 @@ func NewManager() *Manager {
 	client := &http.Client{Timeout: time.Second}
 
 	return &Manager{
-		PluginFolder:              pluginFolder,
-		ClientHooks:               map[plugintypes.VersionKindType][]*vClusterPlugin{},
-		ResourceInterceptorsPorts: map[plugintypes.GroupedResource]map[string]portHandlerName{},
-		HTTPClient:                client,
+		PluginFolder:                 pluginFolder,
+		ClientHooks:                  map[plugintypes.VersionKindType][]*vClusterPlugin{},
+		ResourceInterceptorsPorts:    map[string]map[string]map[string]map[string]portHandlerName{},
+		NonResourceInterceptorsPorts: map[string]map[string]portHandlerName{},
+		HTTPClient:                   client,
 	}
 }
 
@@ -59,7 +61,8 @@ type Manager struct {
 	ClientHooks map[plugintypes.VersionKindType][]*vClusterPlugin
 
 	// map to track the port that needs to be targeted for the interceptors
-	ResourceInterceptorsPorts map[plugintypes.GroupedResource]map[string]portHandlerName
+	// structure is group>resource>verb>resourceName
+	ResourceInterceptorsPorts map[string]map[string]map[string]map[string]portHandlerName
 	// map to track the port that needs to be targeted for the non resource interceptors
 	NonResourceInterceptorsPorts map[string]map[string]portHandlerName
 	// ProFeatures are pro features to hand-over to the plugin
@@ -157,22 +160,46 @@ func (m *Manager) Start(
 }
 
 // InterceptorPortForResource returns the port and handler name for the given group, resource and verb
-func (m *Manager) InterceptorPortForResource(apigroup, resource, verb string) (ok bool, port int, handlerName string) {
-	versionResource := plugintypes.GroupedResource{
-		APIGroup: apigroup,
-		Resource: resource,
-	}
-	// resource not registered
-	if m.ResourceInterceptorsPorts[versionResource] == nil {
+func (m *Manager) InterceptorPortForResource(apigroup, resource, verb, resourceName string) (ok bool, port int, handlerName string) {
+	// resource not registered and no wildcard
+	if m.ResourceInterceptorsPorts[apigroup] == nil && m.ResourceInterceptorsPorts["*"] == nil {
 		return false, 0, ""
 	}
-	// if we have defined the wildcard for verb, return true
-	if portAndName, ok := m.ResourceInterceptorsPorts[versionResource]["*"]; ok {
+	effectiveGroup := "*"
+	if _, ok := m.ResourceInterceptorsPorts[apigroup]; ok {
+		effectiveGroup = apigroup
+	}
+
+	effectiveResource := ""
+	//check if the wildcard or resource is set for that group, otherwise return not found
+	if m.ResourceInterceptorsPorts[effectiveGroup]["*"] != nil {
+		effectiveResource = "*"
+	} else if m.ResourceInterceptorsPorts[effectiveGroup][resource] != nil {
+		effectiveResource = resource
+	} else {
+		return false, 0, ""
+	}
+
+	effectiveVerb := ""
+	if _, ok := m.ResourceInterceptorsPorts[effectiveGroup][effectiveResource]["*"]; ok {
+		effectiveVerb = "*"
+	} else if _, ok := m.ResourceInterceptorsPorts[effectiveGroup][effectiveResource][verb]; ok {
+		effectiveVerb = verb
+	} else {
+		// verb does not match
+		return false, 0, ""
+	}
+
+	// if resource is allowed by name
+	if portAndName, ok := m.ResourceInterceptorsPorts[effectiveGroup][effectiveResource][effectiveVerb][resourceName]; ok {
 		return true, portAndName.port, portAndName.handlerName
 	}
-	// return true only if the verb is in the map
-	portAndName, ok := m.ResourceInterceptorsPorts[versionResource][verb]
-	return ok, portAndName.port, portAndName.handlerName
+	// no resource name in the rule means all is allowed, (if empty list we put a * instead, to have a real entry)
+	if portAndName, ok := m.ResourceInterceptorsPorts[effectiveGroup][effectiveResource][effectiveVerb]["*"]; ok {
+		return true, portAndName.port, portAndName.handlerName
+	}
+
+	return false, 0, ""
 }
 
 // InterceptorPortForNonResourceURL returns the port and handler name for the given nonResourceUrl and verb
@@ -294,26 +321,46 @@ func (m *Manager) registerInterceptors(vClusterPlugin *vClusterPlugin, intercept
 			return fmt.Errorf("resources is empty in plugin %s hook", vClusterPlugin.Path)
 		}
 
-		// add all group/version/verb tuples to the map
+		// check for wildcards and extra names, which should not be allowed
+		if (slices.Contains(interceptorsInfos.Resources, "*") && len(interceptorsInfos.Resources) > 1) ||
+			len(interceptorsInfos.Resources) == 0 {
+			return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other resources, or is empty. please either specify * or a list of resource", interceptorsInfos.HandlerName)
+		}
+		if (slices.Contains(interceptorsInfos.APIGroups, "*") && len(interceptorsInfos.Resources) > 1) ||
+			len(interceptorsInfos.APIGroups) == 0 {
+			return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other apigroups, or is empty. please either specify * or a list of apigroups", interceptorsInfos.HandlerName)
+		}
+		if (slices.Contains(interceptorsInfos.Verbs, "*") && len(interceptorsInfos.Resources) > 1) ||
+			len(interceptorsInfos.Verbs) == 0 {
+			return fmt.Errorf("error while loading the plugins, interceptor for handler %s defines both * and other verbs, or is empty. please either specify * or a list of verb", interceptorsInfos.HandlerName)
+		}
+
+		// add all group/version/verb/resourceName tuples to the map
 		// each group
 		for _, apigroup := range interceptorsInfos.APIGroups {
-			// each resource
-			for _, resource := range interceptorsInfos.Resources {
-				groupedResource := plugintypes.GroupedResource{
-					Resource: resource,
-					APIGroup: apigroup,
-				}
-				// each verb
-				for _, v := range interceptorsInfos.Verbs {
-					// we shouldn't have * and other verbs
-					if v == "*" && len(interceptorsInfos.Verbs) > 1 {
-						return fmt.Errorf("error while loading the plugins, interceptor for %s/%s defines both * and other verbs. Please either specify * or a list of verbs", apigroup, resource)
-					}
-					if _, ok := m.ResourceInterceptorsPorts[groupedResource][v]; ok {
-						return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s and verb %s", groupedResource.APIGroup, groupedResource.Resource, v)
-					}
+			// create the map if not existing
+			if _, ok := m.ResourceInterceptorsPorts[apigroup]; !ok {
+				m.ResourceInterceptorsPorts[apigroup] = make(map[string]map[string]map[string]portHandlerName)
+			}
 
-					m.ResourceInterceptorsPorts[groupedResource][v] = portHandlerName{port: interceptors.Port, handlerName: interceptorsInfos.HandlerName}
+			// for each resource
+			for _, resource := range interceptorsInfos.Resources {
+				// each verb
+				for _, verb := range interceptorsInfos.Verbs {
+					if m.ResourceInterceptorsPorts[apigroup][resource][verb] == nil {
+						m.ResourceInterceptorsPorts[apigroup][resource][verb] = make(map[string]portHandlerName)
+					} else {
+						return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s and verb %s", apigroup, resource, verb)
+					}
+					// now add the specific resource names
+					if len(interceptorsInfos.ResourceNames) == 0 {
+						// empty slice means everything is allowed
+						m.ResourceInterceptorsPorts[apigroup][resource][verb]["*"] = portHandlerName{handlerName: interceptorsInfos.HandlerName, port: interceptors.Port}
+					} else {
+						for _, name := range interceptorsInfos.ResourceNames {
+							m.ResourceInterceptorsPorts[apigroup][resource][verb][name] = portHandlerName{handlerName: interceptorsInfos.HandlerName, port: interceptors.Port}
+						}
+					}
 				}
 			}
 		}
@@ -585,7 +632,7 @@ func (m *Manager) WithInterceptors(next http.Handler) http.Handler {
 		handlerName := ""
 		// check if this is a match for the non resource url that we registered
 		if info.IsResourceRequest {
-			ok, port, handlerName = m.InterceptorPortForResource(info.APIGroup, info.Resource, info.Verb)
+			ok, port, handlerName = m.InterceptorPortForResource(info.APIGroup, info.Resource, info.Verb, info.Name)
 			if !ok {
 				// no interceptor, business as usual
 				next.ServeHTTP(w, r)

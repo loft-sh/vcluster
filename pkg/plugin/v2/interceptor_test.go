@@ -2,8 +2,6 @@ package v2
 
 import (
 	"testing"
-
-	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 )
 
 func TestInterceptorPortNonResource(t *testing.T) {
@@ -112,18 +110,20 @@ func TestInterceptorPortNonResource(t *testing.T) {
 
 func TestResourcePort(t *testing.T) {
 	testCases := []struct {
-		desc               string
-		resource           string
-		group              string
-		verb               string
-		wantOk             bool
-		wantPort           int
-		wantHandler        string
-		registeredHandler  string
-		registeredGroup    string
-		registeredResource string
-		registeredVerb     string
-		registeredPort     int
+		desc                   string
+		resource               string
+		resourceName           string
+		group                  string
+		verb                   string
+		wantOk                 bool
+		wantPort               int
+		wantHandler            string
+		registeredHandler      string
+		registeredGroup        string
+		registeredResource     string
+		registeredResourceName string
+		registeredVerb         string
+		registeredPort         int
 	}{
 		{
 			desc:               "right group and resource wildcard verb",
@@ -182,6 +182,49 @@ func TestResourcePort(t *testing.T) {
 			wantPort:           0,
 		},
 		{
+			desc:               "wildcard group right resource right verb",
+			registeredGroup:    "*",
+			registeredResource: "doner",
+			registeredPort:     12345,
+			registeredVerb:     "get",
+			resource:           "doner",
+			group:              "somegroup",
+			verb:               "get",
+			wantOk:             true,
+			registeredHandler:  "superName",
+			wantHandler:        "superName",
+			wantPort:           12345,
+		},
+		{
+			desc:               "right group wildcard resource right verb",
+			registeredGroup:    "somegroup",
+			registeredResource: "*",
+			registeredPort:     12345,
+			registeredVerb:     "get",
+			resource:           "someresource",
+			group:              "somegroup",
+			verb:               "get",
+			wantOk:             true,
+			registeredHandler:  "superName",
+			wantHandler:        "superName",
+			wantPort:           12345,
+		},
+		{
+			desc:                   "right group right resource right verb wrong name",
+			registeredGroup:        "somegroup",
+			group:                  "somegroup",
+			registeredResource:     "someresource",
+			resource:               "someresource",
+			registeredPort:         0,
+			registeredVerb:         "get",
+			verb:                   "get",
+			wantOk:                 false,
+			registeredHandler:      "superName",
+			wantHandler:            "",
+			wantPort:               0,
+			registeredResourceName: "john",
+		},
+		{
 			desc:               "right group and resource wrong verb",
 			registeredGroup:    "",
 			registeredResource: "doner",
@@ -200,15 +243,18 @@ func TestResourcePort(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 
 			m := Manager{
-				ResourceInterceptorsPorts: make(map[plugintypes.GroupedResource]map[string]portHandlerName),
+				ResourceInterceptorsPorts: make(map[string]map[string]map[string]map[string]portHandlerName),
 			}
-			resource := plugintypes.GroupedResource{
-				Resource: tC.registeredResource,
-				APIGroup: tC.registeredGroup,
+			m.ResourceInterceptorsPorts[tC.registeredGroup] = make(map[string]map[string]map[string]portHandlerName)
+			m.ResourceInterceptorsPorts[tC.registeredGroup][tC.registeredResource] = make(map[string]map[string]portHandlerName)
+			m.ResourceInterceptorsPorts[tC.registeredGroup][tC.registeredResource][tC.registeredVerb] = make(map[string]portHandlerName)
+			if tC.registeredResourceName == "" {
+				// register does it this way
+				m.ResourceInterceptorsPorts[tC.registeredGroup][tC.registeredResource][tC.registeredVerb]["*"] = portHandlerName{handlerName: tC.registeredHandler, port: tC.registeredPort}
+			} else {
+				m.ResourceInterceptorsPorts[tC.registeredGroup][tC.registeredResource][tC.registeredVerb][tC.registeredResourceName] = portHandlerName{handlerName: tC.registeredHandler, port: tC.registeredPort}
 			}
-			m.ResourceInterceptorsPorts[resource] = make(map[string]portHandlerName)
-			m.ResourceInterceptorsPorts[resource][tC.registeredVerb] = portHandlerName{port: tC.registeredPort, handlerName: tC.registeredHandler}
-			ok, port, handlername := m.InterceptorPortForResource(tC.group, tC.resource, tC.verb)
+			ok, port, handlername := m.InterceptorPortForResource(tC.group, tC.resource, tC.verb, "jeff")
 			if ok != tC.wantOk {
 				t.Errorf("wanted ok to be %t but got %t ", tC.wantOk, ok)
 			}

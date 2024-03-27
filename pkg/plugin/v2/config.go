@@ -44,6 +44,7 @@ type Interceptor struct {
 	APIGroups       []string `json:"apiGroups,omitempty"`
 	HandlerName     string   `json:"name,omitempty"`
 	Resources       []string `json:"resources,omitempty"`
+	ResourceNames   []string `json:"resourceNames,omitempty"`
 	NonResourceURLs []string `json:"nonResourceURLs,omitempty"`
 	Verbs           []string `json:"verbs,omitempty"`
 }
