@@ -180,7 +180,7 @@ func (m *Manager) InterceptorPortForNonResourceURL(path, verb string) (ok bool, 
 	// matchedPath will contain either the original path or the wildcard path that matched
 	matchedPath := ""
 	if ok, matchedPath = m.urlMatchWithWildcard(path); !ok {
-		return false, -1, ""
+		return false, 0, ""
 	}
 	// wildcard for verb so return true
 	if portAndName, ok := m.NonResourceInterceptorsPorts[matchedPath]["*"]; ok {
