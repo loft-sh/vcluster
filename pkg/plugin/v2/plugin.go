@@ -111,7 +111,7 @@ func (m *Manager) Start(
 	// after loading all plugins we start them
 	for _, p := range m.Plugins {
 		// build the start request
-		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), syncerConfig, vConfig, port)
+		initRequest, err := m.buildInitRequest(filepath.Dir(p.Path), syncerConfig, vConfig, port)
 		port++
 
 		if err != nil {
