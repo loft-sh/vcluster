@@ -353,7 +353,7 @@ func (m *Manager) registerInterceptors(interceptors InterceptorConfig) error {
 		}
 
 		// register nonresourceurls interceptors for each verb
-		err = m.registerNonResourceUrl(interceptors, interceptorsInfos)
+		err = m.registerNonResourceURL(interceptors, interceptorsInfos)
 		if err != nil {
 			return err
 		}
@@ -406,7 +406,7 @@ func (m *Manager) registerResourceInterceptor(interceptors InterceptorConfig, in
 	return nil
 }
 
-func (m *Manager) registerNonResourceUrl(interceptors InterceptorConfig, interceptorsInfos Interceptor) error {
+func (m *Manager) registerNonResourceURL(interceptors InterceptorConfig, interceptorsInfos Interceptor) error {
 	// register nonresourceurls for each verb
 	for _, nonResourceURL := range interceptorsInfos.NonResourceURLs {
 		// ignore empty resources
@@ -525,8 +525,8 @@ func (m *Manager) buildInitRequest(
 		Config:           encodedConfig,
 		Options:          encodedLegacyOptions,
 		WorkingDir:       workingDir,
-    
-    Port:             port,
+
+		Port: port,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error encoding init config: %w", err)
