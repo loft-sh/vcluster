@@ -384,7 +384,16 @@ func (m *Manager) registerResourceInterceptor(interceptors InterceptorConfig, in
 				if m.ResourceInterceptorsPorts[apigroup][resource][verb] == nil {
 					m.ResourceInterceptorsPorts[apigroup][resource][verb] = make(map[string]portHandlerName)
 				} else {
-					return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s and verb %s", apigroup, resource, verb)
+					// we can't add empty resources if there's already a map since it is
+					// the equivalent of *
+					if len(interceptorsInfos.ResourceNames) == 0 {
+						return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s verb %s and resource name", apigroup, resource, verb)
+					}
+					for resourceName := range m.ResourceInterceptorsPorts[apigroup][resource][verb] {
+						if slices.Contains(interceptorsInfos.ResourceNames, resourceName) {
+							return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s , verb %s and resource name %s", apigroup, resource, verb, resourceName)
+						}
+					}
 				}
 				// now add the specific resource names
 				if len(interceptorsInfos.ResourceNames) == 0 {
