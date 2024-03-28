@@ -426,6 +426,7 @@ func (m *Manager) hasConflictWithExistingWildcard(apigroups, resources, verbs, r
 	if len(resourceNames) == 0 {
 		resourceNames = []string{"*"}
 	}
+	// check if any existing object has wildcards which would conflict
 	for _, resourceName := range resourceNames {
 		for _, verb := range verbs {
 			for _, resource := range resources {
@@ -467,16 +468,16 @@ func (m *Manager) hasConflictWithExistingWildcard(apigroups, resources, verbs, r
 					if _, ok := verbMap[resourceName]; ok || resourceName == "*" {
 						return true
 					}
-
 				}
 			}
 		}
 	}
+
+	// check with the new object being added
 	for _, resourceName := range resourceNames {
 		for _, verb := range verbs {
 			for _, resource := range resources {
 				for _, apiGroup := range apigroups {
-					// check with the new object being add
 					if hasGroupConflict(m.ResourceInterceptorsPorts, apiGroup, resource, verb, resourceName) {
 						return true
 					}
@@ -496,7 +497,6 @@ func hasGroupConflict(existing map[string]map[string]map[string]map[string]portH
 			if hasConflict {
 				return true
 			}
-
 		}
 	} else if resources, ok := existing[group]; ok {
 		return hasResourceConflict(resources, resource, verb, resourceName)

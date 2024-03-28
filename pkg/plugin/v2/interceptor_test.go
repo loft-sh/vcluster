@@ -300,7 +300,7 @@ func TestValidateInterceptors(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			desc:             "emtpy interceptor",
+			desc:             "empty interceptor",
 			interceptorInfos: Interceptor{},
 			wantErr:          true,
 		},
@@ -319,7 +319,7 @@ func TestValidateInterceptors(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			desc: "emtpy verbs",
+			desc: "empty verbs",
 			interceptorInfos: Interceptor{
 				APIGroups: []string{"core"},
 				Resources: []string{"pods"},
@@ -413,7 +413,6 @@ func TestValidateInterceptors(t *testing.T) {
 					t.Errorf("unexpected error value %s", err.Error())
 				}
 			}
-
 		})
 	}
 }
@@ -600,7 +599,6 @@ func TestRegistrationResource(t *testing.T) {
 					t.Errorf("unexpected error value %s", err.Error())
 				}
 			}
-
 		})
 	}
 }
