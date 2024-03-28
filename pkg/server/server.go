@@ -352,8 +352,8 @@ func createCachedClient(ctx context.Context, config *rest.Config, namespace stri
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := DefaultBuildHandlerChain(s.handler, serverConfig)
-	defaultHandler = plugin.DefaultManager.WithInterceptors(defaultHandler)
 	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.fakeKubeletIPs, s.cachedVirtualClient, s.currentNamespaceClient)
+	defaultHandler = plugin.DefaultManager.WithInterceptors(defaultHandler)
 	return defaultHandler
 }
 
