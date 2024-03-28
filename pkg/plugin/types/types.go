@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +37,9 @@ type Manager interface {
 
 	// SetProFeatures is used by vCluster.Pro to signal what pro features are enabled
 	SetProFeatures(proFeatures map[string]bool)
+	// WithInterceptors is a middleware that allows us to delegate some requests to out of
+	// tree plugins
+	WithInterceptors(http.Handler) http.Handler
 }
 
 type VersionKindType struct {
