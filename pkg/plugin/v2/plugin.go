@@ -376,6 +376,9 @@ func (m *Manager) registerInterceptors(interceptors InterceptorConfig) error {
 func (m *Manager) registerResourceInterceptor(port int, interceptorsInfos Interceptor) error {
 	// add all group/version/verb/resourceName tuples to the map
 	// each group
+	if m.hasConflictWithExistingWildcard(interceptorsInfos.APIGroups, interceptorsInfos.Resources, interceptorsInfos.Verbs, interceptorsInfos.ResourceNames) {
+		return fmt.Errorf("error while loading the plugins, there are conflicts with the wildcards")
+	}
 	for _, apigroup := range interceptorsInfos.APIGroups {
 		// create the map if not existing
 		if _, ok := m.ResourceInterceptorsPorts[apigroup]; !ok {
@@ -397,6 +400,7 @@ func (m *Manager) registerResourceInterceptor(port int, interceptorsInfos Interc
 					if len(interceptorsInfos.ResourceNames) == 0 {
 						return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s verb %s and resource name", apigroup, resource, verb)
 					}
+					// check for the exact same api group
 					for resourceName := range m.ResourceInterceptorsPorts[apigroup][resource][verb] {
 						if slices.Contains(interceptorsInfos.ResourceNames, resourceName) {
 							return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same resource %s/%s , verb %s and resource name %s", apigroup, resource, verb, resourceName)
@@ -416,6 +420,127 @@ func (m *Manager) registerResourceInterceptor(port int, interceptorsInfos Interc
 		}
 	}
 	return nil
+}
+
+func (m *Manager) hasConflictWithExistingWildcard(apigroups, resources, verbs, resourceNames []string) bool {
+	if len(resourceNames) == 0 {
+		resourceNames = []string{"*"}
+	}
+	for _, resourceName := range resourceNames {
+		for _, verb := range verbs {
+			for _, resource := range resources {
+				for _, apiGroup := range apigroups {
+					// check for conflict with existing wildcards
+					var apiGroupsMap map[string]map[string]map[string]portHandlerName
+					if _, ok := m.ResourceInterceptorsPorts["*"]; ok {
+						// match on the wildcard
+						apiGroupsMap = m.ResourceInterceptorsPorts["*"]
+					} else if _, ok := m.ResourceInterceptorsPorts[apiGroup]; ok {
+						// match on the resource
+						apiGroupsMap = m.ResourceInterceptorsPorts[apiGroup]
+					} else {
+						// no potential match
+						continue
+					}
+					var resourcesMap map[string]map[string]portHandlerName
+					if _, ok := apiGroupsMap["*"]; ok {
+						// match on the wildcard
+						resourcesMap = apiGroupsMap["*"]
+					} else if _, ok := apiGroupsMap[resource]; ok {
+						// match on the resource
+						resourcesMap = apiGroupsMap[resource]
+					} else {
+						// no potential match
+						continue
+					}
+					var verbMap map[string]portHandlerName
+					if _, ok := resourcesMap["*"]; ok {
+						// match on the wildcard
+						verbMap = resourcesMap["*"]
+					} else if _, ok := resourcesMap[verb]; ok {
+						// match on the resource
+						verbMap = resourcesMap[verb]
+					} else {
+						// no potential match
+						continue
+					}
+					if _, ok := verbMap[resourceName]; ok || resourceName == "*" {
+						return true
+					}
+
+				}
+			}
+		}
+	}
+	for _, resourceName := range resourceNames {
+		for _, verb := range verbs {
+			for _, resource := range resources {
+				for _, apiGroup := range apigroups {
+					// check with the new object being add
+					if hasGroupConflict(m.ResourceInterceptorsPorts, apiGroup, resource, verb, resourceName) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func hasGroupConflict(existing map[string]map[string]map[string]map[string]portHandlerName, group, resource, verb, resourceName string) bool {
+	fmt.Println(group, resource, verb, resourceName)
+	if group == "*" {
+		for _, v := range existing {
+			hasConflict := hasResourceConflict(v, resource, verb, resourceName)
+			if hasConflict {
+				return true
+			}
+
+		}
+	} else if resources, ok := existing[group]; ok {
+		return hasResourceConflict(resources, resource, verb, resourceName)
+	}
+
+	return false
+}
+
+func hasResourceConflict(existing map[string]map[string]map[string]portHandlerName, resource, verb, resourceName string) bool {
+	if resource == "*" {
+		for _, v := range existing {
+			hasConflict := hasVerbConflict(v, verb, resourceName)
+			if hasConflict {
+				return true
+			}
+		}
+	} else if verbs, ok := existing[resource]; ok {
+		return hasVerbConflict(verbs, verb, resourceName)
+	}
+
+	return false
+}
+
+func hasVerbConflict(existing map[string]map[string]portHandlerName, verb, resourceName string) bool {
+	if verb == "*" {
+		for _, v := range existing {
+			hasConflict := hasResourceNameConflit(v, resourceName)
+			if hasConflict {
+				return true
+			}
+		}
+	} else if resourcesNames, ok := existing[verb]; ok {
+		return hasResourceNameConflit(resourcesNames, resourceName)
+	}
+
+	return false
+}
+
+func hasResourceNameConflit(existing map[string]portHandlerName, resourceName string) bool {
+	if resourceName == "*" {
+		return true
+	}
+	_, ok := existing[resourceName]
+	return ok
 }
 
 func (m *Manager) registerNonResourceURL(interceptors InterceptorConfig, interceptorsInfos Interceptor) error {
