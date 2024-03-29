@@ -1013,7 +1013,9 @@ type Policies struct {
 	PodSecurityStandard string `json:"podSecurityStandard,omitempty"`
 	// ResourceQuota specifies resource quota options.
 	ResourceQuota ResourceQuota `json:"resourceQuota,omitempty"`
-	// LimitRange specifies limit range options.
+	// LimitRange specifies limit range options. See https://kubernetes.io/docs/concepts/policy/limit-range/.
+	// vCluster creates a LimitRange resource in the same namespace as vCluster itself.
+	// LimitRange only applies to synced resources such as pods.
 	LimitRange LimitRange `json:"limitRange,omitempty"`
 	// CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
 	CentralAdmission CentralAdmission `json:"centralAdmission,omitempty" product:"pro"`
@@ -1050,12 +1052,13 @@ type LabelSelectorRequirement struct {
 }
 
 type LimitRange struct {
-	// Enabled defines if the limit range should be deployed by vCluster.
+	// Enabled defines if vCluster should deploy the LimitRange resource.
 	Enabled bool `json:"enabled,omitempty"`
-
-	// Default are the default limits for the limit range
+	// Default are the default limits for the LimitRange resource.
+    // See https://kubernetes.io/docs/concepts/policy/limit-range/.
 	Default map[string]interface{} `json:"default,omitempty"`
-	// DefaultRequest are the default request options for the limit range
+	// DefaultRequest are the default request options for the LimitRange resource.
+	// See https://kubernetes.io/docs/concepts/policy/limit-range/.
 	DefaultRequest map[string]interface{} `json:"defaultRequest,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
