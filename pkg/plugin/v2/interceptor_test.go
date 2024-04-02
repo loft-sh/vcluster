@@ -252,7 +252,7 @@ func TestResourcePort(t *testing.T) {
 			} else {
 				m.ResourceInterceptorsPorts[tC.registeredGroup][tC.registeredResource][tC.registeredVerb][tC.registeredResourceName] = portHandlerName{handlerName: tC.registeredHandler, port: tC.registeredPort}
 			}
-			ok, port, handlername := m.InterceptorPortForResource(tC.group, tC.resource, tC.verb, "jeff")
+			ok, port, handlername := m.interceptorPortForResource(tC.group, tC.resource, tC.verb, "jeff")
 			if ok != tC.wantOk {
 				t.Errorf("wanted ok to be %t but got %t ", tC.wantOk, ok)
 			}

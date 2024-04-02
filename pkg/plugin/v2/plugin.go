@@ -150,17 +150,17 @@ func (m *Manager) Start(
 	return nil
 }
 
-// InterceptorPortForResource returns the port and handler name for the given group, resource and verb
-func (m *Manager) InterceptorPortForResource(group, resource, verb, resourceName string) (ok bool, port int, handlerName string) {
+// interceptorPortForResource returns the port and handler name for the given group, resource and verb
+func (m *Manager) interceptorPortForResource(group, resource, verb, resourceName string) (ok bool, port int, handlerName string) {
 	groups := m.ResourceInterceptorsPorts
 	if resourcesMap, ok := groups[group]; ok {
-		portHandlerName, ok := PortForResource(resourcesMap, resource, verb, resourceName)
+		portHandlerName, ok := portForResource(resourcesMap, resource, verb, resourceName)
 		if ok {
 			return true, portHandlerName.port, portHandlerName.handlerName
 		}
 	}
 	if resourcesMap, ok := groups["*"]; ok {
-		portHandlerName, ok := PortForResource(resourcesMap, resource, verb, resourceName)
+		portHandlerName, ok := portForResource(resourcesMap, resource, verb, resourceName)
 		if ok {
 			return true, portHandlerName.port, portHandlerName.handlerName
 		}
@@ -169,15 +169,15 @@ func (m *Manager) InterceptorPortForResource(group, resource, verb, resourceName
 	return false, 0, ""
 }
 
-func PortForResource(resources map[string]map[string]map[string]portHandlerName, resource, verb, resourceName string) (portHandlerName, bool) {
+func portForResource(resources map[string]map[string]map[string]portHandlerName, resource, verb, resourceName string) (portHandlerName, bool) {
 	if verbsMap, ok := resources[resource]; ok {
-		portHandlerName, ok := PortForResourceNameAndVerb(verbsMap, verb, resourceName)
+		portHandlerName, ok := portForResourceNameAndVerb(verbsMap, verb, resourceName)
 		if ok {
 			return portHandlerName, true
 		}
 	}
 	if verbsMap, ok := resources["*"]; ok {
-		portHandlerName, ok := PortForResourceNameAndVerb(verbsMap, verb, resourceName)
+		portHandlerName, ok := portForResourceNameAndVerb(verbsMap, verb, resourceName)
 		if ok {
 			return portHandlerName, true
 		}
@@ -186,15 +186,15 @@ func PortForResource(resources map[string]map[string]map[string]portHandlerName,
 	return portHandlerName{}, false
 }
 
-func PortForResourceNameAndVerb(verbs map[string]map[string]portHandlerName, verb, resourceName string) (portHandlerName, bool) {
+func portForResourceNameAndVerb(verbs map[string]map[string]portHandlerName, verb, resourceName string) (portHandlerName, bool) {
 	if resourcesNamesMap, ok := verbs[verb]; ok {
-		portHandlerName, ok := PortForResourceName(resourcesNamesMap, resourceName)
+		portHandlerName, ok := portForResourceName(resourcesNamesMap, resourceName)
 		if ok {
 			return portHandlerName, true
 		}
 	}
 	if resourcesNamesMap, ok := verbs["*"]; ok {
-		portHandlerName, ok := PortForResourceName(resourcesNamesMap, "*")
+		portHandlerName, ok := portForResourceName(resourcesNamesMap, "*")
 		if ok {
 			return portHandlerName, true
 		}
@@ -203,7 +203,7 @@ func PortForResourceNameAndVerb(verbs map[string]map[string]portHandlerName, ver
 	return portHandlerName{}, false
 }
 
-func PortForResourceName(resourceNames map[string]portHandlerName, resourceName string) (portHandlerName, bool) {
+func portForResourceName(resourceNames map[string]portHandlerName, resourceName string) (portHandlerName, bool) {
 	if portHandler, ok := resourceNames[resourceName]; ok {
 		return portHandler, true
 	}
@@ -835,7 +835,7 @@ func (m *Manager) WithInterceptors(next http.Handler) http.Handler {
 		handlerName := ""
 		// check if this is a match for the non resource url that we registered
 		if info.IsResourceRequest {
-			ok, port, handlerName = m.InterceptorPortForResource(info.APIGroup, info.Resource, info.Verb, info.Name)
+			ok, port, handlerName = m.interceptorPortForResource(info.APIGroup, info.Resource, info.Verb, info.Name)
 			if !ok {
 				// no interceptor, business as usual
 				next.ServeHTTP(w, r)
