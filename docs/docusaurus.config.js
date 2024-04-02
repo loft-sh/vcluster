@@ -23,6 +23,14 @@ module.exports = {
       },
       items: [
         {
+          type: "docsVersionDropdown",
+          position: "left",
+          dropdownItemsAfter: [
+            { to: "https://vcluster.com/docs", label: "Latest" },
+          ],
+          dropdownActiveClassDisabled: true,
+        },
+        {
           href: "https://vcluster.com/",
           label: "Website",
           position: "left",
@@ -75,6 +83,11 @@ module.exports = {
           routeBasePath: "/",
           sidebarPath: require.resolve("./sidebars.js"),
           editUrl: "https://github.com/loft-sh/vcluster/edit/main/docs/",
+          versions: {
+            current: {
+              label: "Legacy",
+            },
+          },
         },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
