@@ -1009,11 +1009,13 @@ type LabelsAndAnnotations struct {
 type Policies struct {
 	// NetworkPolicy specifies network policy options.
 	NetworkPolicy NetworkPolicy `json:"networkPolicy,omitempty"`
-	// PodSecurityStandard that can be enforced can be one of: empty (""), baseline, restricted or privileged
+	// PodSecurityStandard that can be enforced can be one of: empty (""), baseline, restricted or privileged.
+	// See https://kubernetes.io/docs/concepts/security/pod-security-standards/.
 	PodSecurityStandard string `json:"podSecurityStandard,omitempty"`
-	// ResourceQuota specifies resource quota options.
+	// Specify ResourceQuota options. See https://kubernetes.io/docs/concepts/policy/resource-quotas/.
+	// Resource quotas are enforced by the host cluster and only apply to resources synced to the host cluster.
 	ResourceQuota ResourceQuota `json:"resourceQuota,omitempty"`
-	// LimitRange specifies limit range options. See https://kubernetes.io/docs/concepts/policy/limit-range/.
+	// Specify LimitRange options. See https://kubernetes.io/docs/concepts/policy/limit-range/.
 	// vCluster creates a LimitRange resource in the same namespace as vCluster itself.
 	// LimitRange only applies to synced resources such as pods.
 	LimitRange LimitRange `json:"limitRange,omitempty"`
@@ -1026,9 +1028,11 @@ type ResourceQuota struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// Quota are the quota options
 	Quota map[string]interface{} `json:"quota,omitempty"`
-	// ScopeSelector is the resource quota scope selector
+	// ScopeSelector is the resource quota scope selector.
+	// See  https://kubernetes.io/docs/concepts/policy/resource-quotas/#quota-scopes.
 	ScopeSelector ScopeSelector `json:"scopeSelector,omitempty"`
 	// Scopes are the resource quota scopes
+	// See  https://kubernetes.io/docs/concepts/policy/resource-quotas/#quota-scopes.
 	Scopes []string `json:"scopes,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
@@ -1067,7 +1071,9 @@ type LimitRange struct {
 type NetworkPolicy struct {
 	// Enabled defines if the network policy should be deployed by vCluster.
 	Enabled bool `json:"enabled,omitempty"`
-
+    
+	// The IP address of a DNS server to fall back to if the vCluster's DNS server is 
+	// not able to resolve the hostname.
 	FallbackDNS         string              `json:"fallbackDns,omitempty"`
 	OutgoingConnections OutgoingConnections `json:"outgoingConnections,omitempty"`
 
@@ -1081,6 +1087,7 @@ type OutgoingConnections struct {
 // IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
 // to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
 // that should not be included within this rule.
+// See https://kubernetes.io/docs/concepts/services-networking/network-policies/
 type IPBlock struct {
 	// cidr is a string representing the IPBlock
 	// Valid examples are "192.168.1.0/24" or "2001:db8::/64"
