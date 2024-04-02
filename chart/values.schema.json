@@ -1513,8 +1513,7 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "description": "IPBlock describes a particular CIDR (Ex."
+      "type": "object"
     },
     "Image": {
       "properties": {
@@ -1769,7 +1768,8 @@
     "OutgoingConnections": {
       "properties": {
         "ipBlock": {
-          "$ref": "#/$defs/IPBlock"
+          "$ref": "#/$defs/IPBlock",
+          "description": "IPBlock describes a particular CIDR (Ex. \"192.168.1.0/24\",\"2001:db8::/64\") that is allowed\nto the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs\nthat should not be included within this rule."
         }
       },
       "additionalProperties": false,
