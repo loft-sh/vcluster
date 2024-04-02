@@ -9,7 +9,7 @@
 {{- if .Values.controlPlane.backingStore.etcd.deploy.enabled -}}
 {{- $backingStores = add1 $backingStores -}}
 {{- end -}}
-{{- if .Values.controlPlane.backingStore.database.embeddedSqlite.enabled -}}
+{{- if .Values.controlPlane.backingStore.database.embedded.enabled -}}
 {{- $backingStores = add1 $backingStores -}}
 {{- end -}}
 {{- if .Values.controlPlane.backingStore.database.external.enabled -}}
@@ -17,7 +17,7 @@
 {{- end -}}
 {{- if gt $backingStores 1 -}}
 {{- fail "you can only enable one backingStore at the same time" -}}
-{{- else if or (eq $backingStores 0) .Values.controlPlane.backingStore.database.embeddedSqlite.enabled -}}
+{{- else if or (eq $backingStores 0) .Values.controlPlane.backingStore.database.embedded.enabled -}}
 {{- true -}}
 {{- end -}}
 {{- end -}}

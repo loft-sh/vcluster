@@ -170,7 +170,7 @@ controlPlane:
 
   backingStore:
     database:
-      embeddedSqlite:
+      embedded:
         enabled: false
         # Optional sqlite dataSource
         # dataSource: ""

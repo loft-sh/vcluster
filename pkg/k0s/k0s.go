@@ -76,11 +76,11 @@ spec:
     type: kine
     kine:
       dataSource: {{ .Values.controlPlane.backingStore.database.external.dataSource }}
-  {{- else if .Values.controlPlane.backingStore.database.embeddedSqlite.dataSource }}
+  {{- else if .Values.controlPlane.backingStore.database.embedded.dataSource }}
   storage:
     type: kine
     kine:
-      dataSource: {{ .Values.controlPlane.backingStore.database.embeddedSqlite.dataSource }}
+      dataSource: {{ .Values.controlPlane.backingStore.database.embedded.dataSource }}
   {{- end }}`
 
 func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.VirtualClusterConfig) error {

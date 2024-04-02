@@ -634,7 +634,7 @@ type BackingStore struct {
 
 type Database struct {
 	// Embedded defines that an embedded database (sqlite) should be used as the backend for the virtual cluster
-	Embedded DatabaseKine `json:"embeddedSqlite,omitempty"`
+	Embedded DatabaseKine `json:"embedded,omitempty"`
 
 	// External defines that an external database should be used as the backend for the virtual cluster
 	External DatabaseKine `json:"external,omitempty"`

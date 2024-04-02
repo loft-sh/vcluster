@@ -601,7 +601,7 @@
     },
     "Database": {
       "properties": {
-        "embeddedSqlite": {
+        "embedded": {
           "$ref": "#/$defs/DatabaseKine",
           "description": "Embedded defines that an embedded database (sqlite) should be used as the backend for the virtual cluster"
         },

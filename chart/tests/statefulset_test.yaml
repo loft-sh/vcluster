@@ -133,7 +133,7 @@ tests:
             enabled: true
         backingStore:
           database:
-            embeddedSqlite:
+            embedded:
               enabled: true
     asserts:
       - equal:
