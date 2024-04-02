@@ -151,46 +151,66 @@ func (m *Manager) Start(
 }
 
 // InterceptorPortForResource returns the port and handler name for the given group, resource and verb
-func (m *Manager) InterceptorPortForResource(apigroup, resource, verb, resourceName string) (ok bool, port int, handlerName string) {
-	// resource not registered and no wildcard
-	if m.ResourceInterceptorsPorts[apigroup] == nil && m.ResourceInterceptorsPorts["*"] == nil {
-		return false, 0, ""
+func (m *Manager) InterceptorPortForResource(group, resource, verb, resourceName string) (ok bool, port int, handlerName string) {
+	groups := m.ResourceInterceptorsPorts
+	if resourcesMap, ok := groups[group]; ok {
+		portHandlerName, ok := PortForResource(resourcesMap, resource, verb, resourceName)
+		if ok {
+			return true, portHandlerName.port, portHandlerName.handlerName
+		}
 	}
-	effectiveGroup := "*"
-	if _, ok := m.ResourceInterceptorsPorts[apigroup]; ok {
-		effectiveGroup = apigroup
-	}
-
-	effectiveResource := ""
-	//check if the wildcard or resource is set for that group, otherwise return not found
-	if m.ResourceInterceptorsPorts[effectiveGroup]["*"] != nil {
-		effectiveResource = "*"
-	} else if m.ResourceInterceptorsPorts[effectiveGroup][resource] != nil {
-		effectiveResource = resource
-	} else {
-		return false, 0, ""
-	}
-
-	effectiveVerb := ""
-	if _, ok := m.ResourceInterceptorsPorts[effectiveGroup][effectiveResource]["*"]; ok {
-		effectiveVerb = "*"
-	} else if _, ok := m.ResourceInterceptorsPorts[effectiveGroup][effectiveResource][verb]; ok {
-		effectiveVerb = verb
-	} else {
-		// verb does not match
-		return false, 0, ""
-	}
-
-	// if resource is allowed by name
-	if portAndName, ok := m.ResourceInterceptorsPorts[effectiveGroup][effectiveResource][effectiveVerb][resourceName]; ok {
-		return true, portAndName.port, portAndName.handlerName
-	}
-	// no resource name in the rule means all is allowed, (if empty list we put a * instead, to have a real entry)
-	if portAndName, ok := m.ResourceInterceptorsPorts[effectiveGroup][effectiveResource][effectiveVerb]["*"]; ok {
-		return true, portAndName.port, portAndName.handlerName
+	if resourcesMap, ok := groups["*"]; ok {
+		portHandlerName, ok := PortForResource(resourcesMap, resource, verb, resourceName)
+		if ok {
+			return true, portHandlerName.port, portHandlerName.handlerName
+		}
 	}
 
 	return false, 0, ""
+}
+
+func PortForResource(resources map[string]map[string]map[string]portHandlerName, resource, verb, resourceName string) (portHandlerName, bool) {
+	if verbsMap, ok := resources[resource]; ok {
+		portHandlerName, ok := PortForResourceNameAndVerb(verbsMap, verb, resourceName)
+		if ok {
+			return portHandlerName, true
+		}
+	}
+	if verbsMap, ok := resources["*"]; ok {
+		portHandlerName, ok := PortForResourceNameAndVerb(verbsMap, verb, resourceName)
+		if ok {
+			return portHandlerName, true
+		}
+	}
+
+	return portHandlerName{}, false
+}
+
+func PortForResourceNameAndVerb(verbs map[string]map[string]portHandlerName, verb, resourceName string) (portHandlerName, bool) {
+	if resourcesNamesMap, ok := verbs[verb]; ok {
+		portHandlerName, ok := PortForResourceName(resourcesNamesMap, resourceName)
+		if ok {
+			return portHandlerName, true
+		}
+	}
+	if resourcesNamesMap, ok := verbs["*"]; ok {
+		portHandlerName, ok := PortForResourceName(resourcesNamesMap, "*")
+		if ok {
+			return portHandlerName, true
+		}
+	}
+
+	return portHandlerName{}, false
+}
+
+func PortForResourceName(resourceNames map[string]portHandlerName, resourceName string) (portHandlerName, bool) {
+	if portHandler, ok := resourceNames[resourceName]; ok {
+		return portHandler, true
+	}
+	if portHandler, ok := resourceNames["*"]; ok {
+		return portHandler, true
+	}
+	return portHandlerName{}, false
 }
 
 // InterceptorPortForNonResourceURL returns the port and handler name for the given nonResourceUrl and verb
