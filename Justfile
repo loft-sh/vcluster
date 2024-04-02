@@ -72,6 +72,9 @@ generate-vcluster-images version="0.0.0":
 generate-cli-docs:
   go run -mod vendor -tags pro ./hack/docs/main.go
 
+generate-config-schema:
+  go run -mod vendor ./hack/schema/main.go
+
 # Embed the charts into the vcluster binary
 [private]
 embed-charts version="0.0.0":
