@@ -769,7 +769,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 			}
 		} else if term.NamespaceSelector != nil {
 			// translate namespace label selector
-			newAffinityTerm.LabelSelector = translate.LabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector)
+			newAffinityTerm.LabelSelector = translate.MergeLabelSelectors(newAffinityTerm.LabelSelector, translate.LabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector))
 		} else {
 			// Match namespace where pod is in
 			// k8s docs: "a null or empty namespaces list and null namespaceSelector means "this pod's namespace""
