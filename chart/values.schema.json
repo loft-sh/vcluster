@@ -19,12 +19,16 @@
     "CentralAdmission": {
       "properties": {
         "validatingWebhooks": {
-          "items": true,
+          "items": {
+            "$ref": "#/$defs/ValidatingWebhookConfiguration"
+          },
           "type": "array",
           "description": "ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster"
         },
         "mutatingWebhooks": {
-          "items": true,
+          "items": {
+            "$ref": "#/$defs/MutatingWebhookConfiguration"
+          },
           "type": "array",
           "description": "MutatingWebhooks are mutating webhooks that should be enforced in the virtual cluster"
         }
@@ -1662,6 +1666,88 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "MutatingWebhook": {
+      "properties": {
+        "reinvocationPolicy": {
+          "type": "string",
+          "description": "reinvocationPolicy indicates whether this webhook should be called multiple times as part of a single admission evaluation.\nAllowed values are \"Never\" and \"IfNeeded\"."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the admission webhook.\nName should be fully qualified, e.g., imagepolicy.kubernetes.io, where\n\"imagepolicy\" is the name of the webhook, and kubernetes.io is the name\nof the organization."
+        },
+        "clientConfig": {
+          "$ref": "#/$defs/ValidatingWebhookClientConfig",
+          "description": "ClientConfig defines how to communicate with the hook."
+        },
+        "rules": {
+          "items": true,
+          "type": "array",
+          "description": "Rules describes what operations on what resources/subresources the webhook cares about.\nThe webhook cares about an operation if it matches _any_ Rule."
+        },
+        "failurePolicy": {
+          "type": "string",
+          "description": "FailurePolicy defines how unrecognized errors from the admission endpoint are handled -\nallowed values are Ignore or Fail. Defaults to Fail."
+        },
+        "matchPolicy": {
+          "type": "string",
+          "description": "matchPolicy defines how the \"rules\" list is used to match incoming requests.\nAllowed values are \"Exact\" or \"Equivalent\"."
+        },
+        "namespaceSelector": {
+          "description": "NamespaceSelector decides whether to run the webhook on an object based\non whether the namespace for that object matches the selector. If the\nobject itself is a namespace, the matching is performed on\nobject.metadata.labels. If the object is another cluster scoped resource,\nit never skips the webhook."
+        },
+        "objectSelector": {
+          "description": "ObjectSelector decides whether to run the webhook based on if the\nobject has matching labels. objectSelector is evaluated against both\nthe oldObject and newObject that would be sent to the webhook, and\nis considered to match if either object matches the selector."
+        },
+        "sideEffects": {
+          "type": "string",
+          "description": "SideEffects states whether this webhook has side effects."
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "description": "TimeoutSeconds specifies the timeout for this webhook."
+        },
+        "admissionReviewVersions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`\nversions the Webhook expects."
+        },
+        "matchConditions": {
+          "items": true,
+          "type": "array",
+          "description": "MatchConditions is a list of conditions that must be met for a request to be sent to this\nwebhook. Match conditions filter requests that have already been matched by the rules,\nnamespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.\nThere are a maximum of 64 match conditions allowed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MutatingWebhookConfiguration": {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to."
+        },
+        "apiVersion": {
+          "type": "string",
+          "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values."
+        },
+        "metadata": {
+          "$ref": "#/$defs/ObjectMeta",
+          "description": "Standard object metadata; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata."
+        },
+        "webhooks": {
+          "items": {
+            "$ref": "#/$defs/MutatingWebhook"
+          },
+          "type": "array",
+          "description": "Webhooks is a list of webhooks and the affected resources and operations."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "NetworkPolicy": {
       "properties": {
         "enabled": {
@@ -1740,6 +1826,30 @@
         "proxyKubelets": {
           "$ref": "#/$defs/NetworkProxyKubelets",
           "description": "ProxyKubelets allows rewriting certain metrics and stats from the Kubelet to \"fake\" this for applications such as\nprometheus or other node exporters."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ObjectMeta": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name must be unique within a namespace. Is required when creating resources, although\nsome resources may allow a client to request the generation of an appropriate name\nautomatically. Name is primarily intended for creation idempotence and configuration\ndefinition."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Map of string keys and values that can be used to organize and categorize\n(scope and select) objects. May match selectors of replication controllers\nand services."
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations is an unstructured key value map stored with a resource that may be\nset by external tools to store and retrieve arbitrary metadata."
         }
       },
       "additionalProperties": false,
@@ -2203,7 +2313,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled"
+          "description": "Enabled defines if the role should be enabled or disabled."
         },
         "extraRules": {
           "items": {
@@ -2671,6 +2781,126 @@
         },
         "platformInstanceID": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ValidatingWebhook": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the admission webhook.\nName should be fully qualified, e.g., imagepolicy.kubernetes.io, where\n\"imagepolicy\" is the name of the webhook, and kubernetes.io is the name\nof the organization."
+        },
+        "clientConfig": {
+          "$ref": "#/$defs/ValidatingWebhookClientConfig",
+          "description": "ClientConfig defines how to communicate with the hook."
+        },
+        "rules": {
+          "items": true,
+          "type": "array",
+          "description": "Rules describes what operations on what resources/subresources the webhook cares about.\nThe webhook cares about an operation if it matches _any_ Rule."
+        },
+        "failurePolicy": {
+          "type": "string",
+          "description": "FailurePolicy defines how unrecognized errors from the admission endpoint are handled -\nallowed values are Ignore or Fail. Defaults to Fail."
+        },
+        "matchPolicy": {
+          "type": "string",
+          "description": "matchPolicy defines how the \"rules\" list is used to match incoming requests.\nAllowed values are \"Exact\" or \"Equivalent\"."
+        },
+        "namespaceSelector": {
+          "description": "NamespaceSelector decides whether to run the webhook on an object based\non whether the namespace for that object matches the selector. If the\nobject itself is a namespace, the matching is performed on\nobject.metadata.labels. If the object is another cluster scoped resource,\nit never skips the webhook."
+        },
+        "objectSelector": {
+          "description": "ObjectSelector decides whether to run the webhook based on if the\nobject has matching labels. objectSelector is evaluated against both\nthe oldObject and newObject that would be sent to the webhook, and\nis considered to match if either object matches the selector."
+        },
+        "sideEffects": {
+          "type": "string",
+          "description": "SideEffects states whether this webhook has side effects."
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "description": "TimeoutSeconds specifies the timeout for this webhook."
+        },
+        "admissionReviewVersions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`\nversions the Webhook expects."
+        },
+        "matchConditions": {
+          "items": true,
+          "type": "array",
+          "description": "MatchConditions is a list of conditions that must be met for a request to be sent to this\nwebhook. Match conditions filter requests that have already been matched by the rules,\nnamespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.\nThere are a maximum of 64 match conditions allowed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ValidatingWebhookClientConfig": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "URL gives the location of the webhook, in standard URL form\n(`scheme://host:port/path`). Exactly one of `url` or `service`\nmust be specified."
+        },
+        "service": {
+          "$ref": "#/$defs/ValidatingWebhookServiceReference",
+          "description": "Service is a reference to the service for this webhook. Either\n`service` or `url` must be specified.\n\nIf the webhook is running within the cluster, then you should use `service`."
+        },
+        "caBundle": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "CABundle is a PEM encoded CA bundle which will be used to validate the webhook's server certificate.\nIf unspecified, system trust roots on the apiserver are used."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ValidatingWebhookClientConfig contains the information to make a TLS connection with the webhook"
+    },
+    "ValidatingWebhookConfiguration": {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to."
+        },
+        "apiVersion": {
+          "type": "string",
+          "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values."
+        },
+        "metadata": {
+          "$ref": "#/$defs/ObjectMeta",
+          "description": "Standard object metadata; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata."
+        },
+        "webhooks": {
+          "items": {
+            "$ref": "#/$defs/ValidatingWebhook"
+          },
+          "type": "array",
+          "description": "Webhooks is a list of webhooks and the affected resources and operations."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ValidatingWebhookServiceReference": {
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "Namespace is the namespace of the service."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the service."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path is an optional URL path which will be sent in any request to\nthis service."
+        },
+        "port": {
+          "type": "integer",
+          "description": "If specified, the port on the service that hosting webhook.\nDefault to 443 for backward compatibility.\n`port` should be a valid port number (1-65535, inclusive)."
         }
       },
       "additionalProperties": false,
