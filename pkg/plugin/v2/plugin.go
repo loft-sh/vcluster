@@ -139,9 +139,11 @@ func (m *Manager) Start(
 		}
 
 		// register Interceptors
-		err = m.registerInterceptors(pluginConfig.Interceptors)
-		if err != nil {
-			return fmt.Errorf("error adding interceptor for plugin %s: %w", vClusterPlugin.Path, err)
+		if pluginConfig.Interceptors != nil {
+			err = m.registerInterceptors(*pluginConfig.Interceptors)
+			if err != nil {
+				return fmt.Errorf("error adding interceptor for plugin %s: %w", vClusterPlugin.Path, err)
+			}
 		}
 
 		klog.FromContext(ctx).Info("Successfully loaded plugin", "plugin", vClusterPlugin.Path)
@@ -386,8 +388,6 @@ func (m *Manager) registerInterceptors(interceptors InterceptorConfig) error {
 		if err != nil {
 			return err
 		}
-
-		//klog.Infof("Register interceptor for %s %s in plugin %s", interceptorsInfos.APIVersion, interceptorsInfos.Resource, vClusterPlugin.Path)
 	}
 
 	return nil
@@ -510,7 +510,6 @@ func (m *Manager) hasConflictWithExistingWildcard(apigroups, resources, verbs, r
 }
 
 func hasGroupConflict(existing map[string]map[string]map[string]map[string]portHandlerName, group, resource, verb, resourceName string) bool {
-	fmt.Println(group, resource, verb, resourceName)
 	if group == "*" {
 		for _, v := range existing {
 			hasConflict := hasResourceConflict(v, resource, verb, resourceName)
