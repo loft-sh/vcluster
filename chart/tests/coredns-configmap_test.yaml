@@ -88,7 +88,7 @@ tests:
                     rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
                     kubernetes cluster.local in-addr.arpa ip6.arpa {
                         pods insecure
-                        fallthrough cluster.local in-addr.arpa ip6.arpa
+                        fallthrough in-addr.arpa ip6.arpa
                     }
                     hosts /etc/NodeHosts {
                         ttl 60
@@ -96,7 +96,7 @@ tests:
                         fallthrough
                     }
                     prometheus :9153
-                    forward . {{.HOST_CLUSTER_DNS}}
+                    forward . /etc/resolv.conf
                     cache 30
                     loop
                     loadbalance
@@ -281,7 +281,7 @@ tests:
                 kubernetes cluster.local in-addr.arpa ip6.arpa {
                     kubeconfig /data/vcluster/admin.conf
                     pods insecure
-                    fallthrough cluster.local in-addr.arpa ip6.arpa
+                    fallthrough in-addr.arpa ip6.arpa
                 }
                 hosts /etc/NodeHosts {
                     ttl 60
@@ -289,7 +289,7 @@ tests:
                     fallthrough
                 }
                 prometheus :9153
-                forward . {{.HOST_CLUSTER_DNS}}
+                forward . /etc/resolv.conf
                 cache 30
                 loop
                 loadbalance

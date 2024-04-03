@@ -52,14 +52,14 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 
 	// local manager bind address
 	localManagerMetrics := "0"
-	if options.Experimental.SyncSettings.LocalManagerMetricsBindAddress != "" {
-		localManagerMetrics = options.Experimental.SyncSettings.LocalManagerMetricsBindAddress
+	if options.Experimental.SyncSettings.HostMetricsBindAddress != "" {
+		localManagerMetrics = options.Experimental.SyncSettings.HostMetricsBindAddress
 	}
 
 	// virtual manager bind address
 	virtualManagerMetrics := "0"
-	if options.Experimental.SyncSettings.VirtualManagerMetricsBindAddress != "" {
-		virtualManagerMetrics = options.Experimental.SyncSettings.VirtualManagerMetricsBindAddress
+	if options.Experimental.SyncSettings.VirtualMetricsBindAddress != "" {
+		virtualManagerMetrics = options.Experimental.SyncSettings.VirtualMetricsBindAddress
 	}
 
 	// create physical manager

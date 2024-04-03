@@ -1,8 +1,4 @@
-package config
-
-const (
-	DefaultHostsRewriteImage = "library/alpine:3.13.1"
-)
+package legacyconfig
 
 // LegacyVirtualClusterOptions holds the cmd flags
 type LegacyVirtualClusterOptions struct {

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/config/legacyconfig"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -166,7 +166,7 @@ func (m *Manager) Start(
 	virtualKubeConfig *rest.Config,
 	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
-	options *config.LegacyVirtualClusterOptions,
+	options *legacyconfig.LegacyVirtualClusterOptions,
 ) error {
 	// set if we have plugins
 	m.hasPlugins.Store(len(options.Plugins) > 0)
@@ -239,7 +239,7 @@ func (m *Manager) Start(
 	return m.waitForPlugins(ctx, options)
 }
 
-func (m *Manager) waitForPlugins(ctx context.Context, options *config.LegacyVirtualClusterOptions) error {
+func (m *Manager) waitForPlugins(ctx context.Context, options *legacyconfig.LegacyVirtualClusterOptions) error {
 	for _, plugin := range options.Plugins {
 		klog.Infof("Waiting for plugin %s to register...", plugin)
 		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, time.Minute*10, true, func(context.Context) (done bool, err error) {

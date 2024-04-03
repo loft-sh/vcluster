@@ -50,7 +50,7 @@ func diff(from, to any) any {
 	case map[string]interface{}:
 		toMap, ok := to.(map[string]interface{})
 		if !ok {
-			return to
+			return prune(to)
 		}
 
 		retMap := map[string]interface{}{}
@@ -88,9 +88,37 @@ func diff(from, to any) any {
 			}
 		}
 
-		return retMap
+		return prune(retMap)
 	default:
-		return to
+		return prune(to)
+	}
+}
+
+func prune(in interface{}) interface{} {
+	switch inType := in.(type) {
+	case []interface{}:
+		for i, v := range inType {
+			inType[i] = prune(v)
+		}
+		return in
+	case map[string]interface{}:
+		if len(inType) == 0 {
+			return nil
+		}
+
+		for k, v := range inType {
+			inType[k] = prune(v)
+			if inType[k] == nil {
+				delete(inType, k)
+			}
+		}
+
+		if len(inType) == 0 {
+			return nil
+		}
+		return inType
+	default:
+		return in
 	}
 }
 

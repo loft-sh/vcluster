@@ -4,12 +4,17 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/config/legacyconfig"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+)
+
+const (
+	DefaultHostsRewriteImage = "library/alpine:3.13.1"
 )
 
 // VirtualClusterConfig wraps the config and adds extra info such as name, serviceName and targetNamespace
@@ -116,7 +121,7 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 }
 
 // LegacyOptions converts the config to the legacy cluster options
-func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, error) {
+func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualClusterOptions, error) {
 	legacyPlugins := []string{}
 	for pluginName, plugin := range v.Plugin {
 		if plugin.Version != "" && !plugin.Optional {
@@ -136,8 +141,8 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		nodeSelector = strings.Join(selectors, ",")
 	}
 
-	return &LegacyVirtualClusterOptions{
-		ProOptions: LegacyVirtualClusterProOptions{
+	return &legacyconfig.LegacyVirtualClusterOptions{
+		ProOptions: legacyconfig.LegacyVirtualClusterProOptions{
 			RemoteKubeConfig:      v.Experimental.IsolatedControlPlane.KubeConfig,
 			RemoteNamespace:       v.Experimental.IsolatedControlPlane.Namespace,
 			RemoteServiceName:     v.Experimental.IsolatedControlPlane.Service,
