@@ -1425,6 +1425,12 @@ type ExperimentalSyncSettings struct {
 
 	// SyncLabels are labels that should get not rewritten when syncing from the virtual cluster.
 	SyncLabels []string `json:"syncLabels,omitempty"`
+
+	// LocalManagerMetricsBindAddress is the bind address for the local manager
+	LocalManagerMetricsBindAddress string `json:"localManagerMetricsBindAddress,omitempty"`
+
+	// VirtualManagerMetricsBindAddress is the bind address for the virtual manager
+	VirtualManagerMetricsBindAddress string `json:"virtualManagerMetricsBindAddress,omitempty"`
 }
 
 type ExperimentalDeploy struct {

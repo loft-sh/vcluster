@@ -15,6 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// IsPlugin signals if the current binary is a plugin
+var IsPlugin = false
+
 var DefaultManager = newManager()
 
 func newManager() plugintypes.Manager {

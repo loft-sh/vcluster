@@ -1292,6 +1292,14 @@
           },
           "type": "array",
           "description": "SyncLabels are labels that should get not rewritten when syncing from the virtual cluster."
+        },
+        "localManagerMetricsBindAddress": {
+          "type": "string",
+          "description": "LocalManagerMetricsBindAddress is the bind address for the local manager"
+        },
+        "virtualManagerMetricsBindAddress": {
+          "type": "string",
+          "description": "VirtualManagerMetricsBindAddress is the bind address for the virtual manager"
         }
       },
       "additionalProperties": false,
