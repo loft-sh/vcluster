@@ -30,10 +30,7 @@ import (
 )
 
 // Initialize creates the required secrets and configmaps for the control plane to start
-func Initialize(
-	ctx context.Context,
-	options *config.VirtualClusterConfig,
-) error {
+func Initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
 	// Ensure that service CIDR range is written into the expected location
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
 		err := initialize(
@@ -58,11 +55,7 @@ func Initialize(
 }
 
 // initialize creates the required secrets and configmaps for the control plane to start
-func initialize(
-	ctx context.Context,
-	parentCtx context.Context,
-	options *config.VirtualClusterConfig,
-) error {
+func initialize(ctx context.Context, parentCtx context.Context, options *config.VirtualClusterConfig) error {
 	distro := options.Distro()
 
 	// migrate from
