@@ -153,7 +153,7 @@ func (m *Manager) Start(
 }
 
 // interceptorPortForResource returns the port and handler name for the given group, resource and verb
-func (m *Manager) interceptorPortForResource(group, resource, verb, resourceName string) (ok bool, port int, handlerName string) {
+func (m *Manager) interceptorPortForResource(group, resource, verb, resourceName string) (bool, int, string) {
 	groups := m.ResourceInterceptorsPorts
 	if resourcesMap, ok := groups[group]; ok {
 		portHandlerName, ok := portForResource(resourcesMap, resource, verb, resourceName)
@@ -216,9 +216,10 @@ func portForResourceName(resourceNames map[string]portHandlerName, resourceName 
 }
 
 // InterceptorPortForNonResourceURL returns the port and handler name for the given nonResourceUrl and verb
-func (m *Manager) InterceptorPortForNonResourceURL(path, verb string) (ok bool, port int, handlerName string) {
+func (m *Manager) InterceptorPortForNonResourceURL(path, verb string) (bool, int, string) {
 	// matchedPath will contain either the original path or the wildcard path that matched
 	matchedPath := ""
+	ok := false
 	if ok, matchedPath = m.urlMatchWithWildcard(path); !ok {
 		return false, 0, ""
 	}
