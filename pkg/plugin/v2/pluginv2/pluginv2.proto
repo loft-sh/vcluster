@@ -47,6 +47,3 @@ message SetLeader {
 	message Request {}
 	message Response {}
 }
-
-
-

@@ -288,7 +288,7 @@ func validateCentralAdmissionControl(config *VirtualClusterConfig) error {
 	return err
 }
 
-func ParseExtraHooks(valHooks, mutHooks []interface{}) ([]admissionregistrationv1.ValidatingWebhookConfiguration, []admissionregistrationv1.MutatingWebhookConfiguration, error) {
+func ParseExtraHooks(valHooks []config.ValidatingWebhookConfiguration, mutHooks []config.MutatingWebhookConfiguration) ([]admissionregistrationv1.ValidatingWebhookConfiguration, []admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	decodedVal := make([]string, 0, len(valHooks))
 	for _, v := range valHooks {
 		bytes, err := yaml.Marshal(v)

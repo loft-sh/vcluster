@@ -86,7 +86,7 @@ tests:
       controlPlane:
         backingStore:
           database:
-            embeddedSqlite:
+            embedded:
               enabled: true
     asserts:
       - hasDocuments:

@@ -28,18 +28,68 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
+// NewLocalManager is used to create a new local manager
+var NewLocalManager = ctrl.NewManager
+
+// NewVirtualManager is used to create a new virtual manager
+var NewVirtualManager = ctrl.NewManager
+
 // NewControllerContext builds the controller context we can use to start the syncer
-func NewControllerContext(
-	ctx context.Context,
-	options *config.VirtualClusterConfig,
-) (*config.ControllerContext, error) {
-	// create controller context
-	controllerContext, err := InitManagers(
-		ctx,
-		options,
-	)
+func NewControllerContext(ctx context.Context, options *config.VirtualClusterConfig) (*config.ControllerContext, error) {
+	// load virtual config
+	virtualConfig, virtualRawConfig, err := loadVirtualConfig(ctx, options)
 	if err != nil {
 		return nil, err
+	}
+
+	// start plugins
+	if !plugin.IsPlugin {
+		err = startPlugins(ctx, virtualConfig, virtualRawConfig, options)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// local manager bind address
+	localManagerMetrics := "0"
+	if options.Experimental.SyncSettings.LocalManagerMetricsBindAddress != "" {
+		localManagerMetrics = options.Experimental.SyncSettings.LocalManagerMetricsBindAddress
+	}
+
+	// virtual manager bind address
+	virtualManagerMetrics := "0"
+	if options.Experimental.SyncSettings.VirtualManagerMetricsBindAddress != "" {
+		virtualManagerMetrics = options.Experimental.SyncSettings.VirtualManagerMetricsBindAddress
+	}
+
+	// create physical manager
+	klog.Info("Using physical cluster at " + options.WorkloadConfig.Host)
+	localManager, err := NewLocalManager(options.WorkloadConfig, ctrl.Options{
+		Scheme:         scheme.Scheme,
+		Metrics:        metricsserver.Options{BindAddress: localManagerMetrics},
+		LeaderElection: false,
+		Cache:          getLocalCacheOptions(options),
+		NewClient:      pro.NewPhysicalClient(options),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// create virtual manager
+	virtualClusterManager, err := NewVirtualManager(virtualConfig, ctrl.Options{
+		Scheme:         scheme.Scheme,
+		Metrics:        metricsserver.Options{BindAddress: virtualManagerMetrics},
+		LeaderElection: false,
+		NewClient:      pro.NewVirtualClient(options),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// init controller context
+	controllerContext, err := initControllerContext(ctx, localManager, virtualClusterManager, virtualRawConfig, options)
+	if err != nil {
+		return nil, fmt.Errorf("init controller context: %w", err)
 	}
 
 	// init pro controller context
@@ -51,62 +101,17 @@ func NewControllerContext(
 	return controllerContext, nil
 }
 
-func InitManagers(
-	ctx context.Context,
-	options *config.VirtualClusterConfig,
-) (*config.ControllerContext, error) {
-	// load virtual config
-	virtualConfig, virtualRawConfig, err := LoadVirtualConfig(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-
+func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	// is multi namespace mode?
 	var defaultNamespaces map[string]cache.Config
 	if !options.Experimental.MultiNamespaceMode.Enabled {
 		defaultNamespaces = map[string]cache.Config{options.WorkloadTargetNamespace: {}}
 	}
 
-	// start plugins
-	err = StartPlugins(ctx, virtualConfig, virtualRawConfig, options)
-	if err != nil {
-		return nil, err
-	}
-
-	// create physical manager
-	klog.Info("Using physical cluster at " + options.WorkloadConfig.Host)
-	localManager, err := ctrl.NewManager(options.WorkloadConfig, ctrl.Options{
-		Scheme:         scheme.Scheme,
-		Metrics:        metricsserver.Options{BindAddress: "0"},
-		LeaderElection: false,
-		Cache:          cache.Options{DefaultNamespaces: defaultNamespaces},
-		NewClient:      pro.NewPhysicalClient(options),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// create virtual manager
-	virtualClusterManager, err := ctrl.NewManager(virtualConfig, ctrl.Options{
-		Scheme:         scheme.Scheme,
-		Metrics:        metricsserver.Options{BindAddress: "0"},
-		LeaderElection: false,
-		NewClient:      pro.NewVirtualClient(options),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// init controller context
-	return InitControllerContext(ctx, localManager, virtualClusterManager, virtualRawConfig, options)
+	return cache.Options{DefaultNamespaces: defaultNamespaces}
 }
 
-func StartPlugins(
-	ctx context.Context,
-	virtualConfig *rest.Config,
-	virtualRawConfig *clientcmdapi.Config,
-	options *config.VirtualClusterConfig,
-) error {
+func startPlugins(ctx context.Context, virtualConfig *rest.Config, virtualRawConfig *clientcmdapi.Config, options *config.VirtualClusterConfig) error {
 	klog.Infof("Start Plugins Manager...")
 	syncerConfig, err := CreateVClusterKubeConfig(virtualRawConfig, options)
 	if err != nil {
@@ -121,9 +126,9 @@ func StartPlugins(
 	return nil
 }
 
-func LoadVirtualConfig(ctx context.Context, options *config.VirtualClusterConfig) (*rest.Config, *clientcmdapi.Config, error) {
+func loadVirtualConfig(ctx context.Context, options *config.VirtualClusterConfig) (*rest.Config, *clientcmdapi.Config, error) {
 	// wait for client config
-	clientConfig, err := WaitForClientConfig(ctx, options)
+	clientConfig, err := waitForClientConfig(ctx, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -147,7 +152,7 @@ func LoadVirtualConfig(ctx context.Context, options *config.VirtualClusterConfig
 	return virtualClusterConfig, &rawConfig, nil
 }
 
-func WaitForClientConfig(ctx context.Context, options *config.VirtualClusterConfig) (clientcmd.ClientConfig, error) {
+func waitForClientConfig(ctx context.Context, options *config.VirtualClusterConfig) (clientcmd.ClientConfig, error) {
 	// wait until kube config is available
 	var clientConfig clientcmd.ClientConfig
 	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Hour, true, func(ctx context.Context) (bool, error) {
@@ -247,7 +252,7 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *config.Virtu
 	return config, nil
 }
 
-func InitControllerContext(
+func initControllerContext(
 	ctx context.Context,
 	localManager,
 	virtualManager ctrl.Manager,
@@ -269,7 +274,7 @@ func InitControllerContext(
 	klog.Infof("Can connect to virtual cluster with version " + virtualClusterVersion.GitVersion)
 
 	// create a new current namespace client
-	currentNamespaceClient, err := NewCurrentNamespaceClient(ctx, localManager, vClusterOptions)
+	currentNamespaceClient, err := newCurrentNamespaceClient(ctx, localManager, vClusterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +303,7 @@ func InitControllerContext(
 	}, nil
 }
 
-func NewCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, options *config.VirtualClusterConfig) (client.Client, error) {
+func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, options *config.VirtualClusterConfig) (client.Client, error) {
 	var err error
 
 	// currentNamespaceCache is needed for tasks such as finding out fake kubelet ips

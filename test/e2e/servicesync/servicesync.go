@@ -331,6 +331,10 @@ func checkEndpointsSync(ctx context.Context, fromClient kubernetes.Interface, fr
 
 		_, err = fromClient.AppsV1().Deployments(fromNamespace).Update(ctx, deployment, metav1.UpdateOptions{})
 		if err != nil {
+			if kerrors.IsConflict(err) {
+				return false, nil
+			}
+
 			return false, err
 		}
 

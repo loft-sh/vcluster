@@ -21,7 +21,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes the default helm chart will be deployed, which holds a specific configuration to support k3s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k3s) for all available chart options.
+Behind the scenes the default helm chart will be deployed, which holds a specific configuration to support k3s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k3s) for all available chart options.
 
 ## k0s
 
@@ -39,7 +39,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes a different helm chart will be deployed (`vcluster-k0s`), that holds specific configuration to support k0s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k0s) for all available chart options.
+Behind the scenes a different helm chart will be deployed (`vcluster-k0s`), that holds specific configuration to support k0s. Check the [github repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k0s) for all available chart options.
 
 Please note that dual stack networking is not supported with k0s, you will be able to deploy it on a dual stack host cluster, but it will not have all the dual stack features.
 
@@ -59,7 +59,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes, a different helm chart will be deployed (`vcluster-k8s`), that holds specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.
+Behind the scenes, a different helm chart will be deployed (`vcluster-k8s`), that holds specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k8s) for all available chart options.
 
 
 ## eks
@@ -78,7 +78,7 @@ kubectl get ns
 ...
 ```
 
-Behind the scenes, a different helm chart will be deployed (`vcluster-eks`), that holds a specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/charts/eks) for all available chart options.
+Behind the scenes, a different helm chart will be deployed (`vcluster-eks`), that holds a specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/eks) for all available chart options.
 
 
 ## Other Distributions
@@ -104,13 +104,13 @@ And then deploy vCluster with:
 vcluster create my-vcluster -n test --distro k8s -f values.yaml
 ```
 
-If you want to create a separate chart for the Kubernetes distribution, a good starting point is to copy one of [our distro charts](https://github.com/loft-sh/vcluster/tree/main/charts) and then modify it to work with your distribution.
+If you want to create a separate chart for the Kubernetes distribution, a good starting point is to copy one of [our distro charts](https://github.com/loft-sh/vcluster/tree/v0.19/charts) and then modify it to work with your distribution.
 vCluster only needs the following information from the virtual Kubernetes distribution to function properly:
 1. The api server central authority certificate (usually found at `/pki/ca.crt`)
 2. The api server central authority key (usually found at `/pki/ca.key`)
 3. An admin kube config to contact the virtual Kubernetes control plane (usually found at `/pki/admin.conf`)
 
-For multi binary distributions, vCluster can even create those with a pre-install hook as found in the [k8s chart](https://github.com/loft-sh/vcluster/tree/main/charts/k8s/templates).
+For multi binary distributions, vCluster can even create those with a pre-install hook as found in the [k8s chart](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k8s/templates).
 
 In general, if you need vCluster to support another Kubernetes distribution, we are always happy to help you or accept a pull request in our GitHub repository.
 
