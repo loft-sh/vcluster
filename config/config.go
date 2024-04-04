@@ -368,7 +368,7 @@ type Plugins struct {
 	// ImagePullPolicy is the pull policy to use for the container image
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
 
-	// Config is the plugin config to use. This can be arbitrary config used for the plugin.
+	// Config is the plugin configuration and populates the PLUGIN_CONFIG variable that the plugin reads. This can be arbitrary config and has no specific format.
 	Config map[string]interface{} `json:"config,omitempty"`
 
 	// RBAC holds additional rbac configuration for the plugin
@@ -383,7 +383,7 @@ type Plugins struct {
 	// SecurityContext is the container security context used for the init container
 	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
 
-	// Resources are the container resources used for the init container
+	// Resources are the container resources used for the init container. This doesn't change the Syncer's resource requests. Configure controlePlane.statefulSet.resources to ensure deployment has enough resources to run the plugin
 	Resources map[string]interface{} `json:"resources,omitempty"`
 
 	// VolumeMounts are extra volume mounts for the init container
@@ -678,7 +678,7 @@ type EtcdDeploy struct {
 	// Enabled defines that an external etcd should be deployed.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// StatefulSet holds options for the external etcd statefulSet.
+	// Options for the external etcd StatefulSet. See https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/stateful-set-v1/
 	StatefulSet EtcdDeployStatefulSet `json:"statefulSet,omitempty"`
 
 	// Service holds options for the external etcd service.
@@ -763,46 +763,47 @@ type HostPathMapper struct {
 }
 
 type CoreDNS struct {
-	// Enabled defines if coredns is enabled
+	// Enabled defines if CoreDNS is enabled
 	Enabled bool `json:"enabled,omitempty"`
 
-	// Embedded defines if vCluster will start the embedded coredns service
+	// Embedded defines if vCluster will start the embedded CoreDNS service
 	Embedded bool `json:"embedded,omitempty" product:"pro"`
-
-	// Service holds extra options for the coredns service deployed within the virtual cluster
+	
+    // Service holds extra options for the CoreDNS service deployed within the virtual cluster
 	Service CoreDNSService `json:"service,omitempty"`
-
-	// Deployment holds extra options for the coredns deployment deployed within the virtual cluster
+	
+    // Deployment holds extra options for the CoreDNS deployment deployed within the virtual cluster. 
+	// Customize the CoreDNS Deployment spec, metadata.labels, and metadata.annotations.
 	Deployment CoreDNSDeployment `json:"deployment,omitempty"`
 
-	// OverwriteConfig can be used to overwrite the coredns config
+	// Overwrite default config. Path to a custom Corefile. See https://coredns.io/2017/07/23/corefile-explained/.
 	OverwriteConfig string `json:"overwriteConfig,omitempty"`
 
-	// OverwriteManifests can be used to overwrite the coredns manifests used to deploy coredns
+	// OverwriteManifests can be used to overwrite the CoreDNS manifests used to deploy CoreDNS. When used, coredns.deployment is ignored.
 	OverwriteManifests string `json:"overwriteManifests,omitempty"`
 }
 
 type CoreDNSService struct {
-	// Spec holds extra options for the coredns service
+	// Spec holds extra options for the CoreDNS service
 	Spec map[string]interface{} `json:"spec,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
 }
 
 type CoreDNSDeployment struct {
-	// Image is the coredns image to use
+	// Image is the CoreDNS image to use
 	Image string `json:"image,omitempty"`
 
-	// Replicas is the amount of coredns pods to run.
+	// Replicas is the amount of CoreDNS pods to run.
 	Replicas int `json:"replicas,omitempty"`
-
-	// NodeSelector is the node selector to use for coredns.
+	
+    // NodeSelector is the node selector to use for CoreDNS.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
-	// Resources are the desired resources for coredns.
+	
+    // Resources are the desired resources for CoreDNS.
 	Resources Resources `json:"resources,omitempty"`
-
-	// Pods is additional metadata for the coredns pods.
+	
+    // Pods is additional metadata for the CoreDNS pods.
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
@@ -870,7 +871,7 @@ type ControlPlaneAdvanced struct {
 	// upload all required vCluster images to a single private repository and set this value. Workload images are not affected by this.
 	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
 
-	// VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
+	// Defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
 	VirtualScheduler EnableSwitch `json:"virtualScheduler,omitempty"`
 
 	// ServiceAccount specifies options for the vCluster control plane service account.
@@ -1077,13 +1078,17 @@ type Policies struct {
 	// NetworkPolicy specifies network policy options.
 	NetworkPolicy NetworkPolicy `json:"networkPolicy,omitempty"`
 
-	// PodSecurityStandard that can be enforced can be one of: empty (""), baseline, restricted or privileged
+	// PodSecurityStandard that can be enforced can be one of: empty (""), baseline, restricted or privileged.
+	// See https://kubernetes.io/docs/concepts/security/pod-security-standards/.
 	PodSecurityStandard string `json:"podSecurityStandard,omitempty"`
-
-	// ResourceQuota specifies resource quota options.
+	
+    // Specify ResourceQuota options. See https://kubernetes.io/docs/concepts/policy/resource-quotas/.
+	// Resource quotas are enforced by the host cluster and only apply to resources synced to the host cluster.
 	ResourceQuota ResourceQuota `json:"resourceQuota,omitempty"`
-
-	// LimitRange specifies limit range options.
+	
+    // Specify LimitRange options. See https://kubernetes.io/docs/concepts/policy/limit-range/.
+	// vCluster creates a LimitRange resource in the same namespace as vCluster itself.
+	// LimitRange only applies to synced resources such as pods.
 	LimitRange LimitRange `json:"limitRange,omitempty"`
 
 	// CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
@@ -1097,10 +1102,12 @@ type ResourceQuota struct {
 	// Quota are the quota options
 	Quota map[string]interface{} `json:"quota,omitempty"`
 
-	// ScopeSelector is the resource quota scope selector
+	// ScopeSelector is the resource quota scope selector.
+	// See  https://kubernetes.io/docs/concepts/policy/resource-quotas/#quota-scopes.
 	ScopeSelector ScopeSelector `json:"scopeSelector,omitempty"`
 
 	// Scopes are the resource quota scopes
+	// See  https://kubernetes.io/docs/concepts/policy/resource-quotas/#quota-scopes.
 	Scopes []string `json:"scopes,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
@@ -1126,13 +1133,15 @@ type LabelSelectorRequirement struct {
 }
 
 type LimitRange struct {
-	// Enabled defines if the limit range should be deployed by vCluster.
+	// Enabled defines if vCluster should deploy the LimitRange resource.
 	Enabled bool `json:"enabled,omitempty"`
-
-	// Default are the default limits for the limit range
+	
+    // Default are the default limits for the LimitRange resource.
+    // See https://kubernetes.io/docs/concepts/policy/limit-range/.
 	Default map[string]interface{} `json:"default,omitempty"`
 
-	// DefaultRequest are the default request options for the limit range
+	// DefaultRequest are the default request options for the LimitRange resource.
+	// See https://kubernetes.io/docs/concepts/policy/limit-range/.
 	DefaultRequest map[string]interface{} `json:"defaultRequest,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
@@ -1141,7 +1150,9 @@ type LimitRange struct {
 type NetworkPolicy struct {
 	// Enabled defines if the network policy should be deployed by vCluster.
 	Enabled bool `json:"enabled,omitempty"`
-
+    
+	// The IP address of a DNS server to fall back to if the vCluster's DNS server is 
+	// not able to resolve the hostname.
 	FallbackDNS         string              `json:"fallbackDns,omitempty"`
 	OutgoingConnections OutgoingConnections `json:"outgoingConnections,omitempty"`
 
@@ -1155,6 +1166,11 @@ type OutgoingConnections struct {
 	IPBlock IPBlock `json:"ipBlock,omitempty"`
 }
 
+
+// IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
+// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
+// that should not be included within this rule.
+// See https://kubernetes.io/docs/concepts/services-networking/network-policies/
 type IPBlock struct {
 	// cidr is a string representing the IPBlock
 	// Valid examples are "192.168.1.0/24" or "2001:db8::/64"
@@ -1345,10 +1361,10 @@ type RBACRole struct {
 	// Enabled defines if the role should be enabled or disabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// ExtraRules will add rules to the role.
+	// ExtraRules will add rules to the role. Configure these to add additional permissions.
 	ExtraRules []map[string]interface{} `json:"extraRules,omitempty"`
-
-	// OverwriteRules will overwrite the role rules completely.
+	
+  // OverwriteRules will overwrite the role rules completely. Use this when you want complete control over vCluster's permissions.
 	OverwriteRules []map[string]interface{} `json:"overwriteRules,omitempty"`
 }
 
