@@ -67,7 +67,7 @@ And then deploy vCluster with:
 vcluster create my-vcluster -n test --distro k8s -f values.yaml
 ```
 
-If you want to create a separate chart for the Kubernetes distribution, a good starting point is to copy one of [our distro charts](https://github.com/loft-sh/vcluster/tree/main/charts) and then modify it to work with your distribution.
+If you want to create a separate chart for the Kubernetes distribution, a good starting point is to copy one of [our distro charts](https://github.com/loft-sh/vcluster/tree/v0.19/charts) and then modify it to work with your distribution.
 vCluster only needs the following information from the virtual Kubernetes distribution to function properly:
 1. The API server central authority certificate (usually found at `/pki/ca.crt`)
 2. The API server central authority key (usually found at `/pki/ca.key`)
