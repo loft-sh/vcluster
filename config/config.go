@@ -677,7 +677,7 @@ type EtcdDeploy struct {
 	// Enabled defines that an external etcd should be deployed.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// StatefulSet holds options for the external etcd statefulSet.
+	// Options for the external etcd StatefulSet. See https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/stateful-set-v1/
 	StatefulSet EtcdDeployStatefulSet `json:"statefulSet,omitempty"`
 	// Service holds options for the external etcd service.
 	Service EtcdDeployService `json:"service,omitempty"`
@@ -1126,9 +1126,9 @@ type RBACClusterRole struct {
 type RBACRole struct {
 	// Enabled
 	Enabled bool `json:"enabled,omitempty"`
-	// ExtraRules will add rules to the role.
+	// ExtraRules will add rules to the role. Configure these to add additional permissions.
 	ExtraRules []map[string]interface{} `json:"extraRules,omitempty"`
-	// OverwriteRules will overwrite the role rules completely.
+	// OverwriteRules will overwrite the role rules completely. Use this when you want complete control over vCluster's permissions.
 	OverwriteRules []map[string]interface{} `json:"overwriteRules,omitempty"`
 }
 
