@@ -368,7 +368,7 @@ type Plugins struct {
 	// ImagePullPolicy is the pull policy to use for the container image
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
 
-	// Config is the plugin config to use. This can be arbitrary config used for the plugin.
+	// Config is the plugin configuration and populates the PLUGIN_CONFIG variable that the plugin reads. This can be arbitrary config and has no specific format.
 	Config map[string]interface{} `json:"config,omitempty"`
 
 	// RBAC holds additional rbac configuration for the plugin
@@ -383,7 +383,7 @@ type Plugins struct {
 	// SecurityContext is the container security context used for the init container
 	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
 
-	// Resources are the container resources used for the init container
+	// Resources are the container resources used for the init container. This doesn't change the Syncer's resource requests. Configure controlePlane.statefulSet.resources to ensure deployment has enough resources to run the plugin
 	Resources map[string]interface{} `json:"resources,omitempty"`
 
 	// VolumeMounts are extra volume mounts for the init container
@@ -747,38 +747,38 @@ type HostPathMapper struct {
 }
 
 type CoreDNS struct {
-	// Enabled defines if coredns is enabled
+	// Enabled defines if CoreDNS is enabled
 	Enabled bool `json:"enabled,omitempty"`
-	// Embedded defines if vCluster will start the embedded coredns service
+	// Embedded defines if vCluster will start the embedded CoreDNS service
 	Embedded bool `json:"embedded,omitempty" product:"pro"`
-	// Service holds extra options for the coredns service deployed within the virtual cluster
+	// Service holds extra options for the CoreDNS service deployed within the virtual cluster
 	Service CoreDNSService `json:"service,omitempty"`
-	// Deployment holds extra options for the coredns deployment deployed within the virtual cluster
+	// Deployment holds extra options for the CoreDNS deployment deployed within the virtual cluster. Customize the CoreDNS Deployment spec, metadata.labels, and metadata.annotations.
 	Deployment CoreDNSDeployment `json:"deployment,omitempty"`
 
-	// OverwriteConfig can be used to overwrite the coredns config
+	// Overwrite default config. Path to a custom Corefile. See https://coredns.io/2017/07/23/corefile-explained/.
 	OverwriteConfig string `json:"overwriteConfig,omitempty"`
-	// OverwriteManifests can be used to overwrite the coredns manifests used to deploy coredns
+	// OverwriteManifests can be used to overwrite the CoreDNS manifests used to deploy CoreDNS. When used, coredns.deployment is ignored.
 	OverwriteManifests string `json:"overwriteManifests,omitempty"`
 }
 
 type CoreDNSService struct {
-	// Spec holds extra options for the coredns service
+	// Spec holds extra options for the CoreDNS service
 	Spec map[string]interface{} `json:"spec,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
 }
 
 type CoreDNSDeployment struct {
-	// Image is the coredns image to use
+	// Image is the CoreDNS image to use
 	Image string `json:"image,omitempty"`
-	// Replicas is the amount of coredns pods to run.
+	// Replicas is the amount of CoreDNS pods to run.
 	Replicas int `json:"replicas,omitempty"`
-	// NodeSelector is the node selector to use for coredns.
+	// NodeSelector is the node selector to use for CoreDNS.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Resources are the desired resources for coredns.
+	// Resources are the desired resources for CoreDNS.
 	Resources Resources `json:"resources,omitempty"`
-	// Pods is additional metadata for the coredns pods.
+	// Pods is additional metadata for the CoreDNS pods.
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
