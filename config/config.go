@@ -769,10 +769,11 @@ type CoreDNS struct {
 	// Embedded defines if vCluster will start the embedded CoreDNS service
 	Embedded bool `json:"embedded,omitempty" product:"pro"`
 	
-  // Service holds extra options for the CoreDNS service deployed within the virtual cluster
+    // Service holds extra options for the CoreDNS service deployed within the virtual cluster
 	Service CoreDNSService `json:"service,omitempty"`
 	
-  // Deployment holds extra options for the CoreDNS deployment deployed within the virtual cluster. Customize the CoreDNS Deployment spec, metadata.labels, and metadata.annotations.
+    // Deployment holds extra options for the CoreDNS deployment deployed within the virtual cluster. 
+	// Customize the CoreDNS Deployment spec, metadata.labels, and metadata.annotations.
 	Deployment CoreDNSDeployment `json:"deployment,omitempty"`
 
 	// Overwrite default config. Path to a custom Corefile. See https://coredns.io/2017/07/23/corefile-explained/.
@@ -796,13 +797,13 @@ type CoreDNSDeployment struct {
 	// Replicas is the amount of CoreDNS pods to run.
 	Replicas int `json:"replicas,omitempty"`
 	
-  // NodeSelector is the node selector to use for CoreDNS.
+    // NodeSelector is the node selector to use for CoreDNS.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	
-  // Resources are the desired resources for CoreDNS.
+    // Resources are the desired resources for CoreDNS.
 	Resources Resources `json:"resources,omitempty"`
 	
-  // Pods is additional metadata for the CoreDNS pods.
+    // Pods is additional metadata for the CoreDNS pods.
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
@@ -870,7 +871,7 @@ type ControlPlaneAdvanced struct {
 	// upload all required vCluster images to a single private repository and set this value. Workload images are not affected by this.
 	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
 
-	// VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
+	// Defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
 	VirtualScheduler EnableSwitch `json:"virtualScheduler,omitempty"`
 
 	// ServiceAccount specifies options for the vCluster control plane service account.
@@ -1081,11 +1082,11 @@ type Policies struct {
 	// See https://kubernetes.io/docs/concepts/security/pod-security-standards/.
 	PodSecurityStandard string `json:"podSecurityStandard,omitempty"`
 	
-  // Specify ResourceQuota options. See https://kubernetes.io/docs/concepts/policy/resource-quotas/.
+    // Specify ResourceQuota options. See https://kubernetes.io/docs/concepts/policy/resource-quotas/.
 	// Resource quotas are enforced by the host cluster and only apply to resources synced to the host cluster.
 	ResourceQuota ResourceQuota `json:"resourceQuota,omitempty"`
 	
-  // Specify LimitRange options. See https://kubernetes.io/docs/concepts/policy/limit-range/.
+    // Specify LimitRange options. See https://kubernetes.io/docs/concepts/policy/limit-range/.
 	// vCluster creates a LimitRange resource in the same namespace as vCluster itself.
 	// LimitRange only applies to synced resources such as pods.
 	LimitRange LimitRange `json:"limitRange,omitempty"`
@@ -1135,8 +1136,8 @@ type LimitRange struct {
 	// Enabled defines if vCluster should deploy the LimitRange resource.
 	Enabled bool `json:"enabled,omitempty"`
 	
-  // Default are the default limits for the LimitRange resource.
-  // See https://kubernetes.io/docs/concepts/policy/limit-range/.
+    // Default are the default limits for the LimitRange resource.
+    // See https://kubernetes.io/docs/concepts/policy/limit-range/.
 	Default map[string]interface{} `json:"default,omitempty"`
 
 	// DefaultRequest are the default request options for the LimitRange resource.
