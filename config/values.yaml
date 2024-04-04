@@ -61,7 +61,7 @@ sync:
 
 # Control Plane Options
 controlPlane:
-  # What distro to use for vCluster, if none is specified, k3s is used
+  # What distro to use for vCluster, if none is specified, k8s is used
   distro:
     k3s:
       enabled: false
