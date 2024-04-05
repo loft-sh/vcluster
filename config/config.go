@@ -995,7 +995,7 @@ type ControlPlaneScheduling struct {
 	Affinity map[string]interface{} `json:"affinity,omitempty"`
 
 	// Tolerations are the tolerations to apply to the pod.
-	Tolerations []interface{} `json:"tolerations,omitempty"`
+	Tolerations []map[string]interface{} `json:"tolerations,omitempty"`
 
 	// PriorityClassName is the priority class name for the the pod.
 	PriorityClassName string `json:"priorityClassName,omitempty"`
@@ -1098,16 +1098,12 @@ type ResourceQuota struct {
 	Quota map[string]interface{} `json:"quota,omitempty"`
 
 	// ScopeSelector is the resource quota scope selector
-	ScopeSelector ScopeSelector `json:"scopeSelector,omitempty"`
+	ScopeSelector map[string]interface{} `json:"scopeSelector,omitempty"`
 
 	// Scopes are the resource quota scopes
 	Scopes []string `json:"scopes,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
-}
-
-type ScopeSelector struct {
-	MatchExpressions []LabelSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
 type LabelSelectorRequirement struct {
@@ -1426,11 +1422,11 @@ type ExperimentalSyncSettings struct {
 	// SyncLabels are labels that should get not rewritten when syncing from the virtual cluster.
 	SyncLabels []string `json:"syncLabels,omitempty"`
 
-	// LocalManagerMetricsBindAddress is the bind address for the local manager
-	LocalManagerMetricsBindAddress string `json:"localManagerMetricsBindAddress,omitempty"`
+	// HostMetricsBindAddress is the bind address for the local manager
+	HostMetricsBindAddress string `json:"hostMetricsBindAddress,omitempty"`
 
-	// VirtualManagerMetricsBindAddress is the bind address for the virtual manager
-	VirtualManagerMetricsBindAddress string `json:"virtualManagerMetricsBindAddress,omitempty"`
+	// VirtualMetricsBindAddress is the bind address for the virtual manager
+	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
 }
 
 type ExperimentalDeploy struct {

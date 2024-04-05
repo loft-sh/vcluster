@@ -412,7 +412,7 @@ networking:
   resolveDNS: []
   advanced:
     clusterDomain: "cluster.local"
-    fallbackHostCluster: true
+    fallbackHostCluster: false
     proxyKubelets:
       byHostname: true
       byIP: true
