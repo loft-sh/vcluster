@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -22,7 +21,6 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -55,6 +53,8 @@ var (
 type Translator interface {
 	Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
 	Diff(ctx context.Context, vPod, pPod *corev1.Pod) (*corev1.Pod, error)
+
+	TranslateContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource)
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder) (Translator, error) {
@@ -78,6 +78,8 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		log:             loghelper.New("pods-syncer-translator"),
 
 		defaultImageRegistry: ctx.Config.ControlPlane.Advanced.DefaultImageRegistry,
+
+		multiNamespaceMode: ctx.Config.Experimental.MultiNamespaceMode.Enabled,
 
 		serviceAccountSecretsEnabled: ctx.Config.Sync.ToHost.Pods.UseSecretsForSATokens,
 		clusterDomain:                ctx.Config.Networking.Advanced.ClusterDomain,
@@ -106,6 +108,8 @@ type translator struct {
 	log             loghelper.Logger
 
 	defaultImageRegistry string
+
+	multiNamespaceMode bool
 
 	// this is needed for host path mapper (legacy)
 	mountPhysicalHostPaths bool
@@ -268,7 +272,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate containers
 	for i := range pPod.Spec.Containers {
-		envVar, envFrom := ContainerEnv(pPod.Spec.Containers[i].Env, pPod.Spec.Containers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := t.TranslateContainerEnv(pPod.Spec.Containers[i].Env, pPod.Spec.Containers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.Containers[i].Env = envVar
 		pPod.Spec.Containers[i].EnvFrom = envFrom
 		pPod.Spec.Containers[i].Image = t.imageTranslator.Translate(pPod.Spec.Containers[i].Image)
@@ -276,7 +280,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate init containers
 	for i := range pPod.Spec.InitContainers {
-		envVar, envFrom := ContainerEnv(pPod.Spec.InitContainers[i].Env, pPod.Spec.InitContainers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := t.TranslateContainerEnv(pPod.Spec.InitContainers[i].Env, pPod.Spec.InitContainers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.InitContainers[i].Env = envVar
 		pPod.Spec.InitContainers[i].EnvFrom = envFrom
 		pPod.Spec.InitContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.InitContainers[i].Image)
@@ -284,7 +288,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate ephemeral containers
 	for i := range pPod.Spec.EphemeralContainers {
-		envVar, envFrom := ContainerEnv(pPod.Spec.EphemeralContainers[i].Env, pPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := t.TranslateContainerEnv(pPod.Spec.EphemeralContainers[i].Env, pPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.EphemeralContainers[i].Env = envVar
 		pPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		pPod.Spec.EphemeralContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.EphemeralContainers[i].Image)
@@ -352,7 +356,11 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 
 	for i := range pPod.Spec.Volumes {
 		if pPod.Spec.Volumes[i].ConfigMap != nil {
-			pPod.Spec.Volumes[i].ConfigMap.Name = configmaps.ConfigMapNameTranslator(types.NamespacedName{Name: pPod.Spec.Volumes[i].ConfigMap.Name, Namespace: vPod.Namespace}, nil)
+			if t.multiNamespaceMode && pPod.Spec.Volumes[i].ConfigMap.Name == "kube-root-ca.crt" {
+				pPod.Spec.Volumes[i].ConfigMap.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
+			} else {
+				pPod.Spec.Volumes[i].ConfigMap.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].ConfigMap.Name, vPod.Namespace)
+			}
 		}
 		if pPod.Spec.Volumes[i].Secret != nil {
 			pPod.Spec.Volumes[i].Secret.SecretName = translate.Default.PhysicalName(pPod.Spec.Volumes[i].Secret.SecretName, vPod.Namespace)
@@ -575,7 +583,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	}
 }
 
-func ContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource) {
+func (t *translator) TranslateContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range envVar {
 		translateDownwardAPI(&envVar[j])
@@ -590,7 +598,11 @@ func ContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *
 	}
 	for j, from := range envFrom {
 		if from.ConfigMapRef != nil && from.ConfigMapRef.Name != "" {
-			envFrom[j].ConfigMapRef.Name = translate.Default.PhysicalName(from.ConfigMapRef.Name, vPod.Namespace)
+			if t.multiNamespaceMode && envFrom[j].ConfigMapRef.Name == "kube-root-ca.crt" {
+				envFrom[j].ConfigMapRef.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
+			} else {
+				envFrom[j].ConfigMapRef.Name = translate.Default.PhysicalName(from.ConfigMapRef.Name, vPod.Namespace)
+			}
 		}
 		if from.SecretRef != nil && from.SecretRef.Name != "" {
 			envFrom[j].SecretRef.Name = translate.Default.PhysicalName(from.SecretRef.Name, vPod.Namespace)

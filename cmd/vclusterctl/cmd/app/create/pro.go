@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/go-logr/logr"
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
@@ -517,8 +516,7 @@ func mergeValues(proClient procli.Client, options *Options, log log.Logger) (str
 	if err != nil {
 		return "", err
 	}
-	logger := logr.New(log.LogrLogSink())
-	chartValues, err := vclusterconfig.GetExtraValues(chartOptions, logger)
+	chartValues, err := vclusterconfig.GetExtraValues(chartOptions)
 	if err != nil {
 		return "", err
 	}
