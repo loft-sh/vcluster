@@ -93,9 +93,9 @@ type BaseHelm struct {
 	Proxy                ProxyValues              `json:"proxy,omitempty"`
 	Volumes              []map[string]interface{} `json:"volumes,omitempty"`
 	ServiceAccount       struct {
-		Create           *bool                         `json:"create,omitempty"`
-		Name             string                        `json:"name,omitempty"`
-		ImagePullSecrets []config.LocalObjectReference `json:"imagePullSecrets"`
+		Create           *bool                        `json:"create,omitempty"`
+		Name             string                       `json:"name,omitempty"`
+		ImagePullSecrets []config.ImagePullSecretName `json:"imagePullSecrets"`
 	} `json:"serviceAccount,omitempty"`
 	WorkloadServiceAccount struct {
 		Annotations map[string]string `json:"annotations,omitempty"`
