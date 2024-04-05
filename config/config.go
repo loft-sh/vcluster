@@ -23,6 +23,9 @@ func NewDefaultConfig() (*Config, error) {
 
 // Config is the vCluster config. This struct describes valid Helm values for vCluster as well as configuration used by the vCluster binary itself.
 type Config struct {
+	// Global values shared across all (sub)charts
+	Global interface{} `json:"global,omitempty"`
+
 	// ExportKubeConfig describes how vCluster should export the vCluster kubeConfig file.
 	ExportKubeConfig ExportKubeConfig `json:"exportKubeConfig,omitempty"`
 
