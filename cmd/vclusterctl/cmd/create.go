@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
@@ -197,8 +196,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	logger := logr.New(cmd.log.LogrLogSink())
-	chartValues, err := config.GetExtraValues(chartOptions, logger)
+	chartValues, err := config.GetExtraValues(chartOptions)
 	if err != nil {
 		return err
 	}

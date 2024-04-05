@@ -87,22 +87,6 @@ var EKSSchedulerVersionMap = map[string]string{
 	"1.25": "public.ecr.aws/eks-distro/kubernetes/kube-scheduler:v1.25.14-eks-1-25-23",
 }
 
-// EKSEtcdVersionMap holds the supported eks etcd
-var EKSEtcdVersionMap = map[string]string{
-	"1.28": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.9-eks-1-28-6",
-	"1.27": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.8-eks-1-27-13",
-	"1.26": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.8-eks-1-26-19",
-	"1.25": "public.ecr.aws/eks-distro/etcd-io/etcd:v3.5.8-eks-1-25-23",
-}
-
-// EKSCoreDNSVersionMap holds the supported eks core dns
-var EKSCoreDNSVersionMap = map[string]string{
-	"1.28": "public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-28-6",
-	"1.27": "public.ecr.aws/eks-distro/coredns/coredns:v1.10.1-eks-1-27-13",
-	"1.26": "public.ecr.aws/eks-distro/coredns/coredns:v1.9.3-eks-1-26-19",
-	"1.25": "public.ecr.aws/eks-distro/coredns/coredns:v1.9.3-eks-1-25-23",
-}
-
 // ExtraValuesOptions holds the chart options
 type ExtraValuesOptions struct {
 	Distro string
@@ -119,22 +103,18 @@ type ExtraValuesOptions struct {
 	PlatformUserID      string
 }
 
-type Logger interface {
-	Info(msg string, keysAndValues ...any)
-}
-
 type KubernetesVersion struct {
 	Major string
 	Minor string
 }
 
-func GetExtraValues(options *ExtraValuesOptions, log Logger) (string, error) {
+func GetExtraValues(options *ExtraValuesOptions) (string, error) {
 	fromConfig, err := NewDefaultConfig()
 	if err != nil {
 		return "", err
 	}
 
-	toConfig, err := getExtraValues(options, log)
+	toConfig, err := getExtraValues(options)
 	if err != nil {
 		return "", fmt.Errorf("get extra values: %w", err)
 	}
@@ -142,97 +122,93 @@ func GetExtraValues(options *ExtraValuesOptions, log Logger) (string, error) {
 	return Diff(fromConfig, toConfig)
 }
 
-func getExtraValues(options *ExtraValuesOptions, log Logger) (*Config, error) {
+func getExtraValues(options *ExtraValuesOptions) (*Config, error) {
 	vConfig, err := NewDefaultConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	switch options.Distro {
-	case K3SDistro:
-		return getK3SExtraValues(vConfig, options, log)
-	case K0SDistro:
-		return getK0SExtraValues(vConfig, options, log)
-	case K8SDistro:
-		return getK8SExtraValues(vConfig, options, log)
-	case EKSDistro:
-		return getEKSExtraValues(vConfig, options, log)
+	// apply k3s values
+	err = applyK3SExtraValues(vConfig, options)
+	if err != nil {
+		return nil, err
 	}
 
+	// apply k0s values
+	err = applyK0SExtraValues(vConfig, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// apply k8s values
+	err = applyK8SExtraValues(vConfig, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// apply eks values
+	err = applyEKSExtraValues(vConfig, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// add common release values
+	addCommonReleaseValues(vConfig, options)
 	return vConfig, nil
 }
 
 var replaceRegEx = regexp.MustCompile("[^0-9]+")
 
-func getK3SExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger) (*Config, error) {
+func applyK3SExtraValues(vConfig *Config, options *ExtraValuesOptions) error {
 	// get k3s image
-	image, err := getImageByVersion(options.KubernetesVersion, K3SVersionMap, log)
+	image, err := getImageByVersion(options.KubernetesVersion, K3SVersionMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// build values
-	vConfig.ControlPlane.Distro.K3S.Enabled = true
 	if image != "" {
 		vConfig.ControlPlane.Distro.K3S.Image = parseImage(image)
 	}
 
-	// add common release values
-	addCommonReleaseValues(vConfig, options)
-	return vConfig, nil
+	return nil
 }
 
-func getK0SExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger) (*Config, error) {
+func applyK0SExtraValues(vConfig *Config, options *ExtraValuesOptions) error {
 	// get k0s image
-	image, err := getImageByVersion(options.KubernetesVersion, K0SVersionMap, log)
+	image, err := getImageByVersion(options.KubernetesVersion, K0SVersionMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// build values
-	vConfig.ControlPlane.Distro.K0S.Enabled = true
 	if image != "" {
 		vConfig.ControlPlane.Distro.K0S.Image = parseImage(image)
 	}
 
-	// add common release values
-	addCommonReleaseValues(vConfig, options)
-	return vConfig, nil
+	return nil
 }
 
-func getEKSExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger) (*Config, error) {
+func applyEKSExtraValues(vConfig *Config, options *ExtraValuesOptions) error {
 	// get api server image
-	apiImage, err := getImageByVersion(options.KubernetesVersion, EKSAPIVersionMap, log)
+	apiImage, err := getImageByVersion(options.KubernetesVersion, EKSAPIVersionMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// get controller image
-	controllerImage, err := getImageByVersion(options.KubernetesVersion, EKSControllerVersionMap, log)
+	controllerImage, err := getImageByVersion(options.KubernetesVersion, EKSControllerVersionMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// get scheduler image
-	schedulerImage, err := getImageByVersion(options.KubernetesVersion, EKSSchedulerVersionMap, log)
+	schedulerImage, err := getImageByVersion(options.KubernetesVersion, EKSSchedulerVersionMap)
 	if err != nil {
-		return nil, err
-	}
-
-	// get etcd image
-	etcdImage, err := getImageByVersion(options.KubernetesVersion, EKSEtcdVersionMap, log)
-	if err != nil {
-		return nil, err
-	}
-
-	// get coredns image
-	coreDNSImage, err := getImageByVersion(options.KubernetesVersion, EKSCoreDNSVersionMap, log)
-	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// build values
-	vConfig.ControlPlane.Distro.EKS.Enabled = true
 	if apiImage != "" {
 		vConfig.ControlPlane.Distro.EKS.APIServer.Image = parseImage(apiImage)
 	}
@@ -242,40 +218,33 @@ func getEKSExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger)
 	if schedulerImage != "" {
 		vConfig.ControlPlane.Distro.EKS.Scheduler.Image = parseImage(schedulerImage)
 	}
-	if etcdImage != "" {
-		vConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image = parseImage(etcdImage)
-	}
-	if coreDNSImage != "" {
-		vConfig.ControlPlane.CoreDNS.Deployment.Image = coreDNSImage
-	}
 
-	addCommonReleaseValues(vConfig, options)
-	return vConfig, nil
+	return nil
 }
 
-func getK8SExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger) (*Config, error) {
+func applyK8SExtraValues(vConfig *Config, options *ExtraValuesOptions) error {
 	// get api server image
-	apiImage, err := getImageByVersion(options.KubernetesVersion, K8SAPIVersionMap, log)
+	apiImage, err := getImageByVersion(options.KubernetesVersion, K8SAPIVersionMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// get controller image
-	controllerImage, err := getImageByVersion(options.KubernetesVersion, K8SControllerVersionMap, log)
+	controllerImage, err := getImageByVersion(options.KubernetesVersion, K8SControllerVersionMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// get scheduler image
-	schedulerImage, err := getImageByVersion(options.KubernetesVersion, K8SSchedulerVersionMap, log)
+	schedulerImage, err := getImageByVersion(options.KubernetesVersion, K8SSchedulerVersionMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// get etcd image
-	etcdImage, err := getImageByVersion(options.KubernetesVersion, K8SEtcdVersionMap, log)
+	etcdImage, err := getImageByVersion(options.KubernetesVersion, K8SEtcdVersionMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// build values
@@ -292,8 +261,7 @@ func getK8SExtraValues(vConfig *Config, options *ExtraValuesOptions, log Logger)
 		vConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image = parseImage(etcdImage)
 	}
 
-	addCommonReleaseValues(vConfig, options)
-	return vConfig, nil
+	return nil
 }
 
 func parseImage(image string) Image {
@@ -308,7 +276,7 @@ func parseImage(image string) Image {
 	return Image{}
 }
 
-func getImageByVersion(kubernetesVersion KubernetesVersion, versionImageMap map[string]string, log Logger) (string, error) {
+func getImageByVersion(kubernetesVersion KubernetesVersion, versionImageMap map[string]string) (string, error) {
 	// check if there is a minor and major version
 	if kubernetesVersion.Minor == "" || kubernetesVersion.Major == "" {
 		return "", nil
@@ -347,10 +315,8 @@ func getImageByVersion(kubernetesVersion KubernetesVersion, versionImageMap map[
 	image, ok := versionImageMap[serverVersionString]
 	if !ok {
 		if serverMinorInt > highestMinorVersion {
-			log.Info(fmt.Sprintf("officially unsupported host server version %s, will fallback to virtual cluster version v1.%d", serverVersionString, highestMinorVersion))
 			image = versionImageMap["1."+strconv.Itoa(highestMinorVersion)]
 		} else {
-			log.Info(fmt.Sprintf("officially unsupported host server version %s, will fallback to virtual cluster version v1.%d", serverVersionString, lowestMinorVersion))
 			image = versionImageMap["1."+strconv.Itoa(lowestMinorVersion)]
 		}
 	}
@@ -384,6 +350,18 @@ func addCommonReleaseValues(config *Config, options *ExtraValuesOptions) {
 		config.Telemetry.PlatformUserID = options.PlatformUserID
 		config.Telemetry.PlatformInstanceID = options.PlatformInstanceID
 		config.Telemetry.MachineID = options.MachineID
+	}
+
+	if options.Distro != "" {
+		switch options.Distro {
+		case K3SDistro:
+			config.ControlPlane.Distro.K3S.Enabled = true
+		case K0SDistro:
+			config.ControlPlane.Distro.K0S.Enabled = true
+		case EKSDistro:
+			config.ControlPlane.Distro.EKS.Enabled = true
+		case K8SDistro:
+		}
 	}
 }
 
