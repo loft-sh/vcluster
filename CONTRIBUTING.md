@@ -150,7 +150,7 @@ Run:
 
 * A running Kubernetes cluster v1.26 or newer and Kubectl installed, verify Kubernetes version via `kubectl version`
 * Docker needs to be installed (e.g. docker-desktop, orbstack, rancher desktop etc.)
-* Helm installed and verify via `helm version`
+* Helm v3.10.0+ installed and verify via `helm version`
 * Golang version 1.22 and verify via `go version`
 
 #### 2. Git clone the repository `git clone https://github.com/loft-sh/vcluster.git`

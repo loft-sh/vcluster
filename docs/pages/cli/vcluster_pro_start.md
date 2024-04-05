@@ -29,7 +29,7 @@ Please make sure you meet the following requirements
 before running this command:
 
 1. Current kube-context has admin access to the cluster
-2. Helm v3 must be installed
+2. Helm v3.10.0+ must be installed
 3. kubectl must be installed
 
 ########################################################
