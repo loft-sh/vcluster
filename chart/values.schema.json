@@ -10,7 +10,7 @@
         },
         "database": {
           "$ref": "#/$defs/Database",
-          "description": "Database defines that a database backend should be used as the backend for the virtual cluster"
+          "description": "Database defines that a database backend should be used as the backend for the virtual cluster. This uses a project called kine under the hood which is a shim for bridging Kubernetes and relational databases."
         }
       },
       "additionalProperties": false,
@@ -40,15 +40,15 @@
       "properties": {
         "distro": {
           "$ref": "#/$defs/Distro",
-          "description": "Distro holds virtual cluster related distro options."
+          "description": "Distro holds virtual cluster related distro options. A distro cannot be changed after vCluster is deployed."
         },
         "backingStore": {
           "$ref": "#/$defs/BackingStore",
-          "description": "BackingStore defines which backing store to use for virtual cluster. If not defined will fallback to the default distro backing store."
+          "description": "BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store."
         },
         "coredns": {
           "$ref": "#/$defs/CoreDNS",
-          "description": "CoreDNS defines everything coredns related."
+          "description": "CoreDNS defines everything related to the coredns that is deployed and used within the vCluster."
         },
         "proxy": {
           "$ref": "#/$defs/ControlPlaneProxy",
@@ -260,7 +260,7 @@
         },
         "port": {
           "type": "integer",
-          "description": "Port under which vCluster will expose the proxy."
+          "description": "Port under which vCluster will expose the proxy. Changing port is currently not supported."
         },
         "extraSANs": {
           "items": {
@@ -369,7 +369,7 @@
         },
         "imagePullSecrets": {
           "items": {
-            "$ref": "#/$defs/LocalObjectReference"
+            "$ref": "#/$defs/ImagePullSecretName"
           },
           "type": "array",
           "description": "ImagePullSecrets defines extra image pull secrets for the service account."
@@ -434,7 +434,7 @@
         },
         "pods": {
           "$ref": "#/$defs/LabelsAndAnnotations",
-          "description": "Pods are additional labels or annotations for the statefulSet pod."
+          "description": "Additional labels or annotations for the statefulSet pods."
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -485,7 +485,7 @@
         },
         "imagePullSecrets": {
           "items": {
-            "$ref": "#/$defs/LocalObjectReference"
+            "$ref": "#/$defs/ImagePullSecretName"
           },
           "type": "array",
           "description": "ImagePullSecrets defines extra image pull secrets for the workload service account."
@@ -516,7 +516,7 @@
         },
         "embedded": {
           "type": "boolean",
-          "description": "Embedded defines if vCluster will start the embedded coredns service"
+          "description": "Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature."
         },
         "service": {
           "$ref": "#/$defs/CoreDNSService",
@@ -627,7 +627,7 @@
         },
         "dataSource": {
           "type": "string",
-          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format. This is optional for the embedded database."
+          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the embedded database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
         },
         "keyFile": {
           "type": "string",
@@ -649,28 +649,28 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "The name of the check.\n+optional"
+          "description": "The name of the check."
         },
         "namespaces": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Namespace describe a list of namespaces that will be affected by the check.\nAn empty list means that all namespaces will be affected.\nIn case of ClusterScoped rules, only the Namespace resource is affected.\n+optional"
+          "description": "Namespace describe a list of namespaces that will be affected by the check.\nAn empty list means that all namespaces will be affected.\nIn case of ClusterScoped rules, only the Namespace resource is affected."
         },
         "rules": {
           "items": {
             "$ref": "#/$defs/RuleWithVerbs"
           },
           "type": "array",
-          "description": "Rules describes on which verbs and on what resources/subresources the webhook is enforced.\nThe webhook is enforced if it matches any Rule.\nThe version of the request must match the rule version exactly. Equivalent matching is not supported.\n+optional"
+          "description": "Rules describes on which verbs and on what resources/subresources the webhook is enforced.\nThe webhook is enforced if it matches any Rule.\nThe version of the request must match the rule version exactly. Equivalent matching is not supported."
         },
         "excludedUsers": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "ExcludedUsers describe a list of users for which the checks will be skipped.\nImpersonation attempts on these users will still be subjected to the checks.\n+optional"
+          "description": "ExcludedUsers describe a list of users for which the checks will be skipped.\nImpersonation attempts on these users will still be subjected to the checks."
         }
       },
       "additionalProperties": false,
@@ -678,6 +678,10 @@
     },
     "Distro": {
       "properties": {
+        "k8s": {
+          "$ref": "#/$defs/DistroK8s",
+          "description": "K8S holds K8s relevant configuration."
+        },
         "k3s": {
           "$ref": "#/$defs/DistroK3s",
           "description": "K3S holds K3s relevant configuration."
@@ -685,10 +689,6 @@
         "k0s": {
           "$ref": "#/$defs/DistroK0s",
           "description": "K0S holds k0s relevant configuration."
-        },
-        "k8s": {
-          "$ref": "#/$defs/DistroK8s",
-          "description": "K8S holds K8s relevant configuration."
         },
         "eks": {
           "$ref": "#/$defs/DistroK8s",
@@ -773,15 +773,15 @@
             "type": "object"
           },
           "type": "array",
-          "description": "Env are extra environment variables to use for the main container."
+          "description": "Env are extra environment variables to use for the main container and NOT the init container."
         },
         "resources": {
           "type": "object",
-          "description": "Resources are the resources for the distro init container"
+          "description": "Resources for the distro init container"
         },
         "securityContext": {
           "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
+          "description": "Security options can be used for the distro init container"
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -824,15 +824,15 @@
             "type": "object"
           },
           "type": "array",
-          "description": "Env are extra environment variables to use for the main container."
+          "description": "Env are extra environment variables to use for the main container and NOT the init container."
         },
         "resources": {
           "type": "object",
-          "description": "Resources are the resources for the distro init container"
+          "description": "Resources for the distro init container"
         },
         "securityContext": {
           "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
+          "description": "Security options can be used for the distro init container"
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -872,26 +872,26 @@
         },
         "controllerManager": {
           "$ref": "#/$defs/DistroContainerEnabled",
-          "description": "ControllerManager holds configuration specific to starting the scheduler."
+          "description": "ControllerManager holds configuration specific to starting the controller manager."
         },
         "scheduler": {
           "$ref": "#/$defs/DistroContainer",
-          "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.virtualScheduler.enabled"
+          "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled"
         },
         "env": {
           "items": {
             "type": "object"
           },
           "type": "array",
-          "description": "Env are extra environment variables to use for the main container."
+          "description": "Env are extra environment variables to use for the main container and NOT the init container."
         },
         "resources": {
           "type": "object",
-          "description": "Resources are the resources for the distro init container"
+          "description": "Resources for the distro init container"
         },
         "securityContext": {
           "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
+          "description": "Security options can be used for the distro init container"
         }
       },
       "additionalProperties": false,
@@ -1543,6 +1543,16 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ImagePullSecretName": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the image pull secret to use."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Import": {
       "properties": {
         "apiVersion": {
@@ -1629,17 +1639,6 @@
       },
       "additionalProperties": false,
       "type": "object"
-    },
-    "LocalObjectReference": {
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace."
     },
     "MetricsProxy": {
       "properties": {
@@ -2450,32 +2449,32 @@
             "type": "string"
           },
           "type": "array",
-          "description": "APIGroups is the API groups the resources belong to. '*' is all groups.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
+          "description": "APIGroups is the API groups the resources belong to. '*' is all groups."
         },
         "apiVersions": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "APIVersions is the API versions the resources belong to. '*' is all versions.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
+          "description": "APIVersions is the API versions the resources belong to. '*' is all versions."
         },
         "resources": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Resources is a list of resources this rule applies to.\n\nFor example:\n'pods' means pods.\n'pods/log' means the log subresource of pods.\n'*' means all resources, but not subresources.\n'pods/*' means all subresources of pods.\n'*/scale' means all scale subresources.\n'*/*' means all resources and their subresources.\n\nIf wildcard is present, the validation rule will ensure resources do not\noverlap with each other.\n\nDepending on the enclosing object, subresources might not be allowed.\nRequired.\n+listType=atomic"
+          "description": "Resources is a list of resources this rule applies to."
         },
         "scope": {
           "type": "string",
-          "description": "scope specifies the scope of this rule.\nValid values are \"Cluster\", \"Namespaced\", and \"*\"\n\"Cluster\" means that only cluster-scoped resources will match this rule.\nNamespace API objects are cluster-scoped.\n\"Namespaced\" means that only namespaced resources will match this rule.\n\"*\" means that there are no scope restrictions.\nSubresources match the scope of their parent resource.\nDefault is \"*\".\n\n+optional"
+          "description": "Scope specifies the scope of this rule."
         },
         "operations": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.\nFor non-resource requests, this is the lowercase http verb.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
+          "description": "Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.\nFor non-resource requests, this is the lowercase http verb.\nIf '*' is present, the length of the slice must be one."
         }
       },
       "additionalProperties": false,

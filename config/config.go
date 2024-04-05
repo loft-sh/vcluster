@@ -424,13 +424,13 @@ type RBACPolicyRule struct {
 }
 
 type ControlPlane struct {
-	// Distro holds virtual cluster related distro options.
+	// Distro holds virtual cluster related distro options. A distro cannot be changed after vCluster is deployed.
 	Distro Distro `json:"distro,omitempty"`
 
-	// BackingStore defines which backing store to use for virtual cluster. If not defined will fallback to the default distro backing store.
+	// BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store.
 	BackingStore BackingStore `json:"backingStore,omitempty"`
 
-	// CoreDNS defines everything coredns related.
+	// CoreDNS defines everything related to the coredns that is deployed and used within the vCluster.
 	CoreDNS CoreDNS `json:"coredns,omitempty"`
 
 	// Proxy defines options for the virtual cluster control plane proxy that is used to do authentication and intercept requests.
@@ -476,7 +476,7 @@ type ControlPlaneStatefulSet struct {
 
 	LabelsAndAnnotations `json:",inline"`
 
-	// Pods are additional labels or annotations for the statefulSet pod.
+	// Additional labels or annotations for the statefulSet pods.
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
 	// Image is the image for the controlPlane statefulSet container
@@ -499,14 +499,14 @@ type ControlPlaneStatefulSet struct {
 }
 
 type Distro struct {
+	// K8S holds K8s relevant configuration.
+	K8S DistroK8s `json:"k8s,omitempty"`
+
 	// K3S holds K3s relevant configuration.
 	K3S DistroK3s `json:"k3s,omitempty"`
 
 	// K0S holds k0s relevant configuration.
 	K0S DistroK0s `json:"k0s,omitempty"`
-
-	// K8S holds K8s relevant configuration.
-	K8S DistroK8s `json:"k8s,omitempty"`
 
 	// EKS holds eks relevant configuration.
 	EKS DistroK8s `json:"eks,omitempty"`
@@ -530,10 +530,10 @@ type DistroK8s struct {
 	// APIServer holds configuration specific to starting the api server.
 	APIServer DistroContainerEnabled `json:"apiServer,omitempty"`
 
-	// ControllerManager holds configuration specific to starting the scheduler.
+	// ControllerManager holds configuration specific to starting the controller manager.
 	ControllerManager DistroContainerEnabled `json:"controllerManager,omitempty"`
 
-	// Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.virtualScheduler.enabled
+	// Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
 	Scheduler DistroContainer `json:"scheduler,omitempty"`
 
 	DistroCommon `json:",inline"`
@@ -551,13 +551,13 @@ type DistroK0s struct {
 }
 
 type DistroCommon struct {
-	// Env are extra environment variables to use for the main container.
+	// Env are extra environment variables to use for the main container and NOT the init container.
 	Env []map[string]interface{} `json:"env,omitempty"`
 
-	// Resources are the resources for the distro init container
+	// Resources for the distro init container
 	Resources map[string]interface{} `json:"resources,omitempty"`
 
-	// SecurityContext can be used for the distro init container
+	// Security options can be used for the distro init container
 	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
 }
 
@@ -600,11 +600,8 @@ type Image struct {
 	Tag string `json:"tag,omitempty"`
 }
 
-// LocalObjectReference contains enough information to let you locate the
-// referenced object inside the same namespace.
-type LocalObjectReference struct {
-	// Name of the referent.
-	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+type ImagePullSecretName struct {
+	// Name of the image pull secret to use.
 	Name string `json:"name,omitempty"`
 }
 
@@ -629,7 +626,7 @@ type BackingStore struct {
 	// Etcd defines that etcd should be used as the backend for the virtual cluster
 	Etcd Etcd `json:"etcd,omitempty"`
 
-	// Database defines that a database backend should be used as the backend for the virtual cluster
+	// Database defines that a database backend should be used as the backend for the virtual cluster. This uses a project called kine under the hood which is a shim for bridging Kubernetes and relational databases.
 	Database Database `json:"database,omitempty"`
 }
 
@@ -645,7 +642,10 @@ type DatabaseKine struct {
 	// Enabled defines if the database should be used.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// DataSource is the kine dataSource to use for the database. This depends on the database format. This is optional for the embedded database.
+	// DataSource is the kine dataSource to use for the database. This depends on the database format.
+	// This is optional for the embedded database. Examples:
+	// * mysql: mysql://username:password@tcp(hostname:3306)/k3s
+	// * postgres: postgres://username:password@hostname:5432/k3s
 	DataSource string `json:"dataSource,omitempty"`
 
 	// KeyFile is the key file to use for the database. This is optional.
@@ -766,7 +766,7 @@ type CoreDNS struct {
 	// Enabled defines if coredns is enabled
 	Enabled bool `json:"enabled,omitempty"`
 
-	// Embedded defines if vCluster will start the embedded coredns service
+	// Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature.
 	Embedded bool `json:"embedded,omitempty" product:"pro"`
 
 	// Service holds extra options for the coredns service deployed within the virtual cluster
@@ -812,7 +812,7 @@ type ControlPlaneProxy struct {
 	// BindAddress under which vCluster will expose the proxy.
 	BindAddress string `json:"bindAddress,omitempty"`
 
-	// Port under which vCluster will expose the proxy.
+	// Port under which vCluster will expose the proxy. Changing port is currently not supported.
 	Port int `json:"port,omitempty"`
 
 	// ExtraSANs are extra hostnames to sign the vCluster proxy certificate for.
@@ -1015,7 +1015,7 @@ type ControlPlaneServiceAccount struct {
 	Name string `json:"name,omitempty"`
 
 	// ImagePullSecrets defines extra image pull secrets for the service account.
-	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullSecrets []ImagePullSecretName `json:"imagePullSecrets,omitempty"`
 
 	// Annotations are extra annotations for this resource.
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -1032,7 +1032,7 @@ type ControlPlaneWorkloadServiceAccount struct {
 	Name string `json:"name,omitempty"`
 
 	// ImagePullSecrets defines extra image pull secrets for the workload service account.
-	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullSecrets []ImagePullSecretName `json:"imagePullSecrets,omitempty"`
 
 	// Annotations are extra annotations for this resource.
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -1675,74 +1675,38 @@ type PatchSync struct {
 
 type DenyRule struct {
 	// The name of the check.
-	// +optional
 	Name string `json:"name,omitempty"`
 
 	// Namespace describe a list of namespaces that will be affected by the check.
 	// An empty list means that all namespaces will be affected.
 	// In case of ClusterScoped rules, only the Namespace resource is affected.
-	// +optional
 	Namespaces []string `json:"namespaces,omitempty"`
 
 	// Rules describes on which verbs and on what resources/subresources the webhook is enforced.
 	// The webhook is enforced if it matches any Rule.
 	// The version of the request must match the rule version exactly. Equivalent matching is not supported.
-	// +optional
 	Rules []RuleWithVerbs `json:"rules,omitempty"`
 
 	// ExcludedUsers describe a list of users for which the checks will be skipped.
 	// Impersonation attempts on these users will still be subjected to the checks.
-	// +optional
 	ExcludedUsers []string `json:"excludedUsers,omitempty"`
 }
 
 type RuleWithVerbs struct {
 	// APIGroups is the API groups the resources belong to. '*' is all groups.
-	// If '*' is present, the length of the slice must be one.
-	// Required.
-	// +listType=atomic
 	APIGroups []string `json:"apiGroups,omitempty" protobuf:"bytes,1,rep,name=apiGroups"`
 
 	// APIVersions is the API versions the resources belong to. '*' is all versions.
-	// If '*' is present, the length of the slice must be one.
-	// Required.
-	// +listType=atomic
 	APIVersions []string `json:"apiVersions,omitempty" protobuf:"bytes,2,rep,name=apiVersions"`
 
 	// Resources is a list of resources this rule applies to.
-	//
-	// For example:
-	// 'pods' means pods.
-	// 'pods/log' means the log subresource of pods.
-	// '*' means all resources, but not subresources.
-	// 'pods/*' means all subresources of pods.
-	// '*/scale' means all scale subresources.
-	// '*/*' means all resources and their subresources.
-	//
-	// If wildcard is present, the validation rule will ensure resources do not
-	// overlap with each other.
-	//
-	// Depending on the enclosing object, subresources might not be allowed.
-	// Required.
-	// +listType=atomic
 	Resources []string `json:"resources,omitempty" protobuf:"bytes,3,rep,name=resources"`
 
-	// scope specifies the scope of this rule.
-	// Valid values are "Cluster", "Namespaced", and "*"
-	// "Cluster" means that only cluster-scoped resources will match this rule.
-	// Namespace API objects are cluster-scoped.
-	// "Namespaced" means that only namespaced resources will match this rule.
-	// "*" means that there are no scope restrictions.
-	// Subresources match the scope of their parent resource.
-	// Default is "*".
-	//
-	// +optional
+	// Scope specifies the scope of this rule.
 	Scope *string `json:"scope,omitempty" protobuf:"bytes,4,rep,name=scope"`
 
 	// Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.
 	// For non-resource requests, this is the lowercase http verb.
 	// If '*' is present, the length of the slice must be one.
-	// Required.
-	// +listType=atomic
 	Verbs []string `json:"operations,omitempty"`
 }

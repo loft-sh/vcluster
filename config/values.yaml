@@ -1,4 +1,6 @@
-# Sync Options
+# DO NOT ADD ANY COMMENTS TO THIS FILE.
+# Comments are added automatically in the hack/schema/main.go script according to the type defined in config.go
+# If you want to change or add any comment, please change/add it in the config.go and rerun hack/schema/main.go
 sync:
   toHost:
     services:
@@ -59,45 +61,8 @@ sync:
         all: false
         labels: {}
 
-# Control Plane Options
 controlPlane:
-  # What distro to use for vCluster, if none is specified, k8s is used
   distro:
-    k3s:
-      enabled: false
-      command: []
-      extraArgs: []
-      imagePullPolicy: ""
-      image:
-        repository: "rancher/k3s"
-        tag: "v1.29.0-k3s1"
-      securityContext: {}
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
-
-    k0s:
-      enabled: false
-      config: ""
-      command: []
-      extraArgs: []
-      imagePullPolicy: ""
-      image:
-        repository: "k0sproject/k0s"
-        tag: "v1.29.1-k0s.0"
-      securityContext: {}
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
-
     k8s:
       enabled: false
       apiServer:
@@ -124,6 +89,41 @@ controlPlane:
           repository: "registry.k8s.io/kube-scheduler"
           tag: "v1.29.0"
       env: []
+      securityContext: {}
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 40m
+          memory: 64Mi
+
+    k3s:
+      enabled: false
+      command: []
+      extraArgs: []
+      imagePullPolicy: ""
+      image:
+        repository: "rancher/k3s"
+        tag: "v1.29.0-k3s1"
+      securityContext: {}
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 40m
+          memory: 64Mi
+
+    k0s:
+      enabled: false
+      config: ""
+      command: []
+      extraArgs: []
+      imagePullPolicy: ""
+      image:
+        repository: "k0sproject/k0s"
+        tag: "v1.29.1-k0s.0"
       securityContext: {}
       resources:
         limits:
@@ -172,15 +172,12 @@ controlPlane:
     database:
       embedded:
         enabled: false
-        # Optional sqlite dataSource
-        # dataSource: ""
       external:
         enabled: false
         dataSource: ""
-        # Optional database certificates
-        # certFile: ""
-        # keyFile: ""
-        # caFile: ""
+        certFile: ""
+        keyFile: ""
+        caFile: ""
     etcd:
       embedded:
         enabled: false
@@ -219,7 +216,6 @@ controlPlane:
           persistence:
             volumeClaim:
               enabled: true
-              # Defines if the PVC should get automatically deleted when the StatefulSet is deleted. Can be either Delete or Retain
               retentionPolicy: Retain
               size: 5Gi
               storageClass: ""
@@ -244,13 +240,11 @@ controlPlane:
     embedded: false
     overwriteManifests: ""
     overwriteConfig: ""
-
     service:
       annotations: {}
       labels: {}
       spec:
         type: ClusterIP
-
     deployment:
       annotations: {}
       labels: {}
@@ -331,7 +325,6 @@ controlPlane:
     persistence:
       volumeClaim:
         enabled: auto
-        # Defines if the PVC should get automatically deleted when the StatefulSet is deleted. Can be either Delete or Retain
         retentionPolicy: Retain
         size: 5Gi
         storageClass: ""
@@ -405,7 +398,6 @@ observability:
       pods: false
 
 networking:
-  # Embedded CoreDNS plugin config
   replicateServices:
     toHost: []
     fromHost: []
@@ -474,7 +466,6 @@ policies:
     validatingWebhooks: []
     mutatingWebhooks: []
 
-# Export vCluster Kube Config
 exportKubeConfig:
   context: ""
   server: ""
@@ -482,10 +473,8 @@ exportKubeConfig:
     name: ""
     namespace: ""
 
-# What plugins should get used
 plugins: {}
 
-# Functionality that is likely to change, use with caution!
 experimental:
   multiNamespaceMode:
     enabled: false
