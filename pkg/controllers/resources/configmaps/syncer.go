@@ -58,6 +58,9 @@ func (s *configMapSyncer) HostToVirtual(ctx context.Context, req types.Namespace
 			Name:      "kube-root-ca.crt",
 			Namespace: s.NamespacedTranslator.HostToVirtual(ctx, req, pObj).Namespace,
 		}
+	} else if s.multiNamespaceMode && req.Name == "kube-root-ca.crt" {
+		// ignore kube-root-ca.crt from host
+		return types.NamespacedName{}
 	}
 
 	return s.NamespacedTranslator.HostToVirtual(ctx, req, pObj)

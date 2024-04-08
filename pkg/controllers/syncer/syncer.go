@@ -267,7 +267,7 @@ func (r *SyncController) excludePhysical(ctx context.Context, pObj, vObj client.
 		return false, fmt.Errorf("failed to check if physical object is managed: %w", err)
 	} else if !isManaged {
 		if vObj != nil {
-			msg := "conflict: cannot sync virtual object as unmanaged physical object exists with desired name"
+			msg := fmt.Sprintf("conflict: cannot sync virtual object %s/%s as unmanaged physical object %s/%s exists with desired name", vObj.GetNamespace(), vObj.GetName(), pObj.GetNamespace(), pObj.GetName())
 			r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
 			return false, fmt.Errorf(msg)
 		}

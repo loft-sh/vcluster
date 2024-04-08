@@ -233,7 +233,7 @@ func TestReconcile(t *testing.T) {
 			},
 
 			shouldErr: true,
-			errMsg:    "conflict: cannot sync virtual object as unmanaged physical object exists with desired name",
+			errMsg:    "conflict: cannot sync virtual object default/a as unmanaged physical object test/a-x-default-x-suffix exists with desired name",
 		},
 	}
 	sort.SliceStable(testCases, func(i, j int) bool {

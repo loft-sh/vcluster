@@ -826,7 +826,7 @@ func (m *Manager) WithInterceptors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		info, ok := request.RequestInfoFrom(r.Context())
 		if !ok {
-			klog.V(1).Info("could not determine the infos from the request, serving next handler")
+			klog.V(1).Infof("could not determine the infos from the request %s, serving next handler", r.URL.Path)
 			next.ServeHTTP(w, r)
 			return
 		}
