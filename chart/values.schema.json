@@ -2977,6 +2977,9 @@
     }
   },
   "properties": {
+    "global": {
+      "description": "Global values shared across all (sub)charts"
+    },
     "exportKubeConfig": {
       "$ref": "#/$defs/ExportKubeConfig",
       "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeConfig file."
