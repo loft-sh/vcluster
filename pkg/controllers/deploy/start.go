@@ -1,6 +1,8 @@
 package deploy
 
 import (
+	"time"
+
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -37,8 +39,8 @@ func RegisterInitManifestsController(controllerCtx *config.ControllerContext) er
 		for {
 			result, err := controller.Apply(controllerCtx.Context, controllerCtx.Config)
 			if err != nil {
-				klog.Errorf("Error reconciling init_configmap: %v", err)
-				break
+				klog.Errorf("Error deploying manifests: %v", err)
+				time.Sleep(time.Second * 10)
 			} else if !result.Requeue {
 				break
 			}

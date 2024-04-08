@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,7 +62,9 @@ var _ = ginkgo.Describe("map default/kubernetes endpoint to physical vcluster en
 			}
 
 			if !reflect.DeepEqual(hostClusterIps, vClusterIps) || !reflect.DeepEqual(hostClusterPorts, vClusterPorts) {
-				fmt.Println("IPs", hostClusterIps, vClusterIps)
+				out, _ := yaml.Marshal(vclusterEndpoint)
+
+				fmt.Println("IPs", hostClusterIps, vClusterIps, string(out))
 				fmt.Println("Ports", hostClusterPorts, vClusterPorts)
 				return false, nil
 			}

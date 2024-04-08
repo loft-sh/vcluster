@@ -56,5 +56,13 @@ func InitConfig(vConfig *config.VirtualClusterConfig) error {
 		}
 	}
 
+	// check if previously we were using k0s as distro
+	if vConfig.Distro() != vclusterconfig.K0SDistro {
+		_, err = os.Stat("/data/k0s")
+		if err == nil {
+			return fmt.Errorf("seems like you were using k0s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", vConfig.Distro())
+		}
+	}
+
 	return nil
 }
