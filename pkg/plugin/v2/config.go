@@ -36,6 +36,7 @@ type PluginConfig struct {
 
 type InterceptorConfig struct {
 	Port         int           `json:"port"`
+	Name         string        `json:"name"`
 	Interceptors []Interceptor `json:"interceptors"`
 }
 
@@ -47,7 +48,6 @@ type ClientHook struct {
 
 type Interceptor struct {
 	APIGroups       []string `json:"apiGroups,omitempty"`
-	HandlerName     string   `json:"name,omitempty"`
 	Resources       []string `json:"resources,omitempty"`
 	ResourceNames   []string `json:"resourceNames,omitempty"`
 	NonResourceURLs []string `json:"nonResourceURLs,omitempty"`
