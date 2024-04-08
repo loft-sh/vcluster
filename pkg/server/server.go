@@ -353,7 +353,6 @@ func createCachedClient(ctx context.Context, config *rest.Config, namespace stri
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := DefaultBuildHandlerChain(s.handler, serverConfig)
 	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.fakeKubeletIPs, s.cachedVirtualClient, s.currentNamespaceClient)
-	defaultHandler = plugin.DefaultManager.WithInterceptors(defaultHandler)
 	return defaultHandler
 }
 
@@ -424,6 +423,10 @@ func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Ha
 		handler = genericapifilters.WithTracing(handler, c.TracerProvider)
 	}
 	handler = genericapifilters.WithLatencyTrackers(handler)
+
+	// this is for the plugins to be able to catch the requests with the info in the
+	// context
+	handler = plugin.DefaultManager.WithInterceptors(handler)
 	handler = genericapifilters.WithRequestInfo(handler, c.RequestInfoResolver)
 	handler = genericapifilters.WithRequestReceivedTimestamp(handler)
 
