@@ -396,10 +396,6 @@ func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info, log log.Lo
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(create.AllowedDistros, ", "))
 	}
 
-	if cmd.ChartName == "vcluster" && cmd.Distro != "k3s" {
-		cmd.ChartName += "-" + cmd.Distro
-	}
-
 	// check if we should create with node port
 	clusterType := localkubernetes.DetectClusterType(&cmd.rawConfig)
 	if cmd.ExposeLocal && clusterType.LocalKubernetes() {
