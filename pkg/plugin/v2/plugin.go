@@ -108,7 +108,6 @@ func (m *Manager) Start(
 	for _, vClusterPlugin := range m.Plugins {
 		// build the start request
 		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), syncerConfig, vConfig, port)
-		port++
 
 		if err != nil {
 			return fmt.Errorf("build start request: %w", err)
@@ -139,14 +138,14 @@ func (m *Manager) Start(
 		}
 
 		// register Interceptors
-		if pluginConfig.Interceptors != nil {
-			err = m.registerInterceptors(*pluginConfig.Interceptors)
-			if err != nil {
-				return fmt.Errorf("error adding interceptor for plugin %s: %w", vClusterPlugin.Path, err)
-			}
+		err = m.registerInterceptors(pluginConfig.Interceptors, port)
+		if err != nil {
+			return fmt.Errorf("error adding interceptor for plugin %s: %w", vClusterPlugin.Path, err)
 		}
 
 		klog.FromContext(ctx).Info("Successfully loaded plugin", "plugin", vClusterPlugin.Path)
+
+		port++
 	}
 
 	return nil
@@ -332,7 +331,7 @@ func (m *Manager) HasPlugins() bool {
 	return len(m.Plugins) > 0
 }
 
-func validateInterceptor(interceptor Interceptor, name string) error {
+func validateInterceptor(interceptor InterceptorRule, name string) error {
 	if len(interceptor.Verbs) == 0 {
 		return fmt.Errorf("verb is empty in interceptor plugin %s  ", name)
 	}
@@ -370,31 +369,33 @@ func validateInterceptor(interceptor Interceptor, name string) error {
 	return nil
 }
 
-func (m *Manager) registerInterceptors(interceptors InterceptorConfig) error {
+func (m *Manager) registerInterceptors(interceptors map[string][]InterceptorRule, port int) error {
 	// register the interceptors
-	for _, interceptorsInfos := range interceptors.Interceptors {
+	for name, interceptorRules := range interceptors {
 		// make sure that it is valid
-		if err := validateInterceptor(interceptorsInfos, interceptors.Name); err != nil {
-			return err
-		}
+		for _, rule := range interceptorRules {
+			if err := validateInterceptor(rule, name); err != nil {
+				return err
+			}
 
-		// register resource interceptors for each verb
-		err := m.registerResourceInterceptor(interceptors.Port, interceptorsInfos, interceptors.Name)
-		if err != nil {
-			return err
-		}
+			// register resource interceptors for each verb
+			err := m.registerResourceInterceptor(port, rule, name)
+			if err != nil {
+				return err
+			}
 
-		// register nonresourceurls interceptors for each verb
-		err = m.registerNonResourceURL(interceptors, interceptorsInfos, interceptors.Name)
-		if err != nil {
-			return err
+			// register nonresourceurls interceptors for each verb
+			err = m.registerNonResourceURL(port, rule, name)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (m *Manager) registerResourceInterceptor(port int, interceptorsInfos Interceptor, interceptorName string) error {
+func (m *Manager) registerResourceInterceptor(port int, interceptorsInfos InterceptorRule, interceptorName string) error {
 	// add all group/version/verb/resourceName tuples to the map
 	// each group
 	if m.hasConflictWithExistingWildcard(interceptorsInfos.APIGroups, interceptorsInfos.Resources, interceptorsInfos.Verbs, interceptorsInfos.ResourceNames) {
@@ -563,7 +564,7 @@ func hasResourceNameConflit(existing map[string]portHandlerName, resourceName st
 	return ok
 }
 
-func (m *Manager) registerNonResourceURL(interceptors InterceptorConfig, interceptorsInfos Interceptor, interceptorName string) error {
+func (m *Manager) registerNonResourceURL(port int, interceptorsInfos InterceptorRule, interceptorName string) error {
 	// register nonresourceurls for each verb
 	for _, nonResourceURL := range interceptorsInfos.NonResourceURLs {
 		// ignore empty resources
@@ -575,7 +576,7 @@ func (m *Manager) registerNonResourceURL(interceptors InterceptorConfig, interce
 				return fmt.Errorf("error while loading the plugins, multiple interceptor plugins are registered for the same non resource url %s and verb %s", nonResourceURL, v)
 			}
 
-			m.NonResourceInterceptorsPorts[nonResourceURL][v] = portHandlerName{port: interceptors.Port, handlerName: interceptorName}
+			m.NonResourceInterceptorsPorts[nonResourceURL][v] = portHandlerName{port: port, handlerName: interceptorName}
 		}
 	}
 	return nil
