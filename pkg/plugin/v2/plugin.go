@@ -139,8 +139,8 @@ func (m *Manager) Start(
 		}
 
 		// register Interceptors
-		if pluginConfig.Interceptors != nil {
-			err = m.registerInterceptors(*pluginConfig.Interceptors)
+		for _, interceptor := range pluginConfig.Interceptors {
+			err = m.registerInterceptors(*interceptor)
 			if err != nil {
 				return fmt.Errorf("error adding interceptor for plugin %s: %w", vClusterPlugin.Path, err)
 			}
