@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -23,13 +22,10 @@ type VCluster struct {
 	Created    time.Time
 	Name       string
 	Namespace  string
-	Context    string
-	Cluster    string
 	Version    string
 	Status     string
 	AgeSeconds int
 	Connected  bool
-	Pro        bool
 }
 
 // ListCmd holds the login cmd flags
@@ -91,19 +87,13 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 		namespace = cmd.Namespace
 	}
 
-	proClient, err := procli.CreateProClient()
-	if err != nil {
-		cmd.log.Debugf("Error creating pro client: %v", err)
-	}
-
-	vClusters, proVClusters, err := find.ListVClusters(cobraCmd.Context(), proClient, cmd.Context, "", namespace, "", cmd.log.ErrorStreamOnly())
+	vClusters, err := find.ListVClusters(cobraCmd.Context(), cmd.Context, "", namespace, cmd.log.ErrorStreamOnly())
 	if err != nil {
 		return err
 	}
 
 	var output []VCluster
 	output = append(output, ossToVClusters(vClusters, currentContext)...)
-	output = append(output, proToVClusters(proVClusters, currentContext)...)
 
 	if cmd.output == "json" {
 		bytes, err := json.MarshalIndent(output, "", "    ")
@@ -112,7 +102,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 		}
 		cmd.log.WriteString(logrus.InfoLevel, string(bytes)+"\n")
 	} else {
-		header := []string{"NAME", "CLUSTER", "NAMESPACE", "STATUS", "VERSION", "CONNECTED", "CREATED", "AGE", "DISTRO"}
+		header := []string{"NAME", "NAMESPACE", "STATUS", "VERSION", "CONNECTED", "AGE"}
 		values := toValues(output)
 		table.PrintTable(cmd.log, header, values)
 		if strings.HasPrefix(cmd.Context, "vcluster_") || strings.HasPrefix(cmd.Context, "vcluster-pro_") {
@@ -132,42 +122,13 @@ func ossToVClusters(vClusters []find.VCluster, currentContext string) []VCluster
 			Created:    vCluster.Created.Time,
 			Version:    vCluster.Version,
 			AgeSeconds: int(time.Since(vCluster.Created.Time).Round(time.Second).Seconds()),
-			Cluster:    vCluster.Context,
 			Status:     string(vCluster.Status),
-			Pro:        false,
 		}
 		vClusterOutput.Connected = currentContext == find.VClusterContextName(
 			vCluster.Name,
 			vCluster.Namespace,
 			vCluster.Context,
 		)
-		output = append(output, vClusterOutput)
-	}
-	return output
-}
-
-func proToVClusters(vClusters []procli.VirtualClusterInstanceProject, currentContext string) []VCluster {
-	var output []VCluster
-	for _, vCluster := range vClusters {
-		status := string(vCluster.VirtualCluster.Status.Phase)
-		if vCluster.VirtualCluster.DeletionTimestamp != nil {
-			status = "Terminating"
-		} else if status == "" {
-			status = "Pending"
-		}
-
-		connected := strings.HasPrefix(currentContext, "vcluster-pro_"+vCluster.VirtualCluster.Name+"_"+vCluster.Project.Name)
-		vClusterOutput := VCluster{
-			Name:       vCluster.VirtualCluster.Spec.ClusterRef.VirtualCluster,
-			Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
-			Cluster:    vCluster.VirtualCluster.Spec.ClusterRef.Cluster,
-			Connected:  connected,
-			Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
-			AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
-			Status:     status,
-			Pro:        true,
-			Version:    vCluster.VirtualCluster.Status.VirtualCluster.HelmRelease.Chart.Version,
-		}
 		output = append(output, vClusterOutput)
 	}
 	return output
@@ -181,21 +142,13 @@ func toValues(vClusters []VCluster) [][]string {
 			isConnected = "True"
 		}
 
-		distro := "OSS"
-		if vCluster.Pro {
-			distro = "Pro"
-		}
-
 		values = append(values, []string{
 			vCluster.Name,
-			vCluster.Cluster,
 			vCluster.Namespace,
 			vCluster.Status,
 			vCluster.Version,
 			isConnected,
-			vCluster.Created.String(),
 			time.Since(vCluster.Created).Round(1 * time.Second).String(),
-			distro,
 		})
 	}
 	return values
