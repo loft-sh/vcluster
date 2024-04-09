@@ -483,7 +483,7 @@ type ControlPlaneStatefulSet struct {
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
 	// Image is the image for the controlPlane statefulSet container
-	Image Image `json:"image,omitempty"`
+	Image StatefulSetImage `json:"image,omitempty"`
 
 	// ImagePullPolicy is the policy how to pull the image.
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
@@ -593,6 +593,16 @@ type DistroContainerEnabled struct {
 
 	// ExtraArgs are additional arguments to pass to the distro binary.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
+}
+
+type StatefulSetImage struct {
+	// Configure the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image.
+	// It defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.
+	// If you still want to use the pure OSS build, use 'ghcr.io/loft-sh/vcluster-oss' instead.
+	Repository string `json:"repository,omitempty"`
+
+	// Tag is the tag of the container image, e.g. latest
+	Tag string `json:"tag,omitempty"`
 }
 
 type Image struct {

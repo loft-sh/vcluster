@@ -182,6 +182,10 @@ dockers:
       - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster:latest-amd64{{ end }}'
       - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster:{{ .Major }}-amd64{{ end }}'
       - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-amd64
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:latest-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
       - loftsh/vcluster:{{ .Version }}-amd64
       - '{{ if eq .Prerelease "" }}loftsh/vcluster:latest-amd64{{ end }}'
       - '{{ if eq .Prerelease "" }}loftsh/vcluster:{{ .Major }}-amd64{{ end }}'
@@ -203,6 +207,10 @@ dockers:
       - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster:latest-arm64v8{{ end }}'
       - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster:{{ .Major }}-arm64v8{{ end }}'
       - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-arm64v8
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:latest-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
       - loftsh/vcluster:{{ .Version }}-arm64v8
       - '{{ if eq .Prerelease "" }}loftsh/vcluster:latest-arm64v8{{ end }}'
       - '{{ if eq .Prerelease "" }}loftsh/vcluster:{{ .Major }}-arm64v8{{ end }}'
@@ -266,6 +274,29 @@ dockers:
 
 docker_manifests:
   # --- Vcluster multi arch ---
+  - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Version }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-amd64
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-arm64v8
+
+  - name_template: ghcr.io/loft-sh/vcluster-oss:latest
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:latest-amd64
+      - ghcr.io/loft-sh/vcluster-oss:latest-arm64v8
+    skip_push: auto
+
+  - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Major }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-amd64
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-arm64v8
+    skip_push: auto
+
+  - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-amd64
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-arm64v8
+    skip_push: auto
+
   - name_template: ghcr.io/loft-sh/vcluster:{{ .Version }}
     image_templates:
       - ghcr.io/loft-sh/vcluster:{{ .Version }}-amd64

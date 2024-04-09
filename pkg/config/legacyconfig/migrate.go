@@ -658,7 +658,7 @@ func convertK8sSyncerConfig(oldConfig K8sSyncerValues, newConfig *config.Config)
 }
 
 func convertSyncerConfig(oldConfig SyncerValues, newConfig *config.Config) error {
-	convertImage(oldConfig.Image, &newConfig.ControlPlane.StatefulSet.Image)
+	convertStatefulSetImage(oldConfig.Image, &newConfig.ControlPlane.StatefulSet.Image)
 	if oldConfig.ImagePullPolicy != "" {
 		newConfig.ControlPlane.StatefulSet.ImagePullPolicy = oldConfig.ImagePullPolicy
 	}
@@ -1052,6 +1052,20 @@ func convertVClusterConfig(oldConfig VClusterValues, retDistroCommon *config.Dis
 	newConfig.ControlPlane.StatefulSet.Persistence.AddVolumeMounts = append(newConfig.ControlPlane.StatefulSet.Persistence.AddVolumeMounts, oldConfig.ExtraVolumeMounts...)
 	newConfig.ControlPlane.StatefulSet.Persistence.AddVolumes = append(newConfig.ControlPlane.StatefulSet.Persistence.AddVolumes, oldConfig.VolumeMounts...)
 	return nil
+}
+
+func convertStatefulSetImage(image string, into *config.StatefulSetImage) {
+	if image == "" {
+		return
+	}
+
+	imageSplitted := strings.Split(image, ":")
+	if len(imageSplitted) == 1 {
+		return
+	}
+
+	into.Repository = strings.Join(imageSplitted[:len(imageSplitted)-1], ":")
+	into.Tag = imageSplitted[len(imageSplitted)-1]
 }
 
 func convertImage(image string, into *config.Image) {
