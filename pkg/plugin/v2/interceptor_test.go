@@ -405,7 +405,7 @@ func TestValidateInterceptors(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			err := validateInterceptor(tC.interceptorInfos)
+			err := validateInterceptor(tC.interceptorInfos, "test")
 			if (tC.wantErr && err == nil) || (!tC.wantErr && err != nil) {
 				if err == nil {
 					t.Error("error was nil and shouldn't have been")
@@ -586,12 +586,12 @@ func TestRegistrationResource(t *testing.T) {
 			m := &Manager{
 				ResourceInterceptorsPorts: make(map[string]map[string]map[string]map[string]portHandlerName),
 			}
-			err := m.registerResourceInterceptor(tC.port, tC.existingInterceptorsInfos)
+			err := m.registerResourceInterceptor(tC.port, tC.existingInterceptorsInfos, "test")
 			if err != nil {
 				t.Errorf("could not put the existing interceptors")
 			}
 
-			err = m.registerResourceInterceptor(tC.port, tC.newInterceptorsInfos)
+			err = m.registerResourceInterceptor(tC.port, tC.newInterceptorsInfos, "test")
 			if (tC.wantErr && err == nil) || (!tC.wantErr && err != nil) {
 				if err == nil {
 					t.Error("error was nil and shouldn't have been")
