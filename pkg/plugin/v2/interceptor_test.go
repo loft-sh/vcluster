@@ -269,12 +269,12 @@ func TestResourcePort(t *testing.T) {
 func TestValidateInterceptors(t *testing.T) {
 	testCases := []struct {
 		desc             string
-		interceptorInfos Interceptor
+		interceptorInfos InterceptorRule
 		wantErr          bool
 	}{
 		{
 			desc: "valid interceptor",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				APIGroups: []string{"core"},
 				Resources: []string{"pods"},
 				Verbs:     []string{"get"},
@@ -283,7 +283,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "verb and verb wildcard",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				APIGroups: []string{"core"},
 				Resources: []string{"pods"},
 				Verbs:     []string{"get", "*"},
@@ -292,7 +292,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "resource and resource wildcard",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				APIGroups: []string{"core"},
 				Resources: []string{"pods", "*"},
 				Verbs:     []string{"get"},
@@ -301,26 +301,26 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc:             "empty interceptor",
-			interceptorInfos: Interceptor{},
+			interceptorInfos: InterceptorRule{},
 			wantErr:          true,
 		},
 		{
 			desc: "empty group and empty nonresourceURL",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				Resources: []string{"pods"},
 			},
 			wantErr: true,
 		},
 		{
 			desc: "empty resource and empty nonresourceURL",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				APIGroups: []string{"core"},
 			},
 			wantErr: true,
 		},
 		{
 			desc: "empty verbs",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				APIGroups: []string{"core"},
 				Resources: []string{"pods"},
 			},
@@ -328,7 +328,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "only url and verb",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				NonResourceURLs: []string{"/healthz"},
 				Verbs:           []string{"*"},
 			},
@@ -336,7 +336,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "resource group url and verb",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				NonResourceURLs: []string{"/healthz"},
 				APIGroups:       []string{"core"},
 				Resources:       []string{"*"},
@@ -346,7 +346,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "no nonresource and no group",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				Resources: []string{"*"},
 				Verbs:     []string{"*"},
 			},
@@ -354,7 +354,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "no nonresource and no resource",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				APIGroups: []string{"*"},
 				Verbs:     []string{"*"},
 			},
@@ -362,7 +362,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "wildcard apigroup and more",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				APIGroups: []string{"*", "core"},
 				Resources: []string{"*"},
 				Verbs:     []string{"*"},
@@ -371,7 +371,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "wildcard resource and more",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				Resources: []string{"*", "pods"},
 				APIGroups: []string{"*"},
 				Verbs:     []string{"*"},
@@ -380,7 +380,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "non resource url with wrong wildcard",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				Verbs:           []string{"*"},
 				NonResourceURLs: []string{"doner*kebab"},
 			},
@@ -388,7 +388,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "non resource url with right wildcard",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				Verbs:           []string{"*"},
 				NonResourceURLs: []string{"doner*"},
 			},
@@ -396,7 +396,7 @@ func TestValidateInterceptors(t *testing.T) {
 		},
 		{
 			desc: "non resource url with right wildcard",
-			interceptorInfos: Interceptor{
+			interceptorInfos: InterceptorRule{
 				Verbs:           []string{"*"},
 				NonResourceURLs: []string{"*"},
 			},
@@ -420,18 +420,18 @@ func TestValidateInterceptors(t *testing.T) {
 func TestRegistrationResource(t *testing.T) {
 	testCases := []struct {
 		desc                      string
-		newInterceptorsInfos      Interceptor
-		existingInterceptorsInfos Interceptor
+		newInterceptorsInfos      InterceptorRule
+		existingInterceptorsInfos InterceptorRule
 		port                      int
 		wantErr                   bool
 	}{
 		{
 			desc: "conflict with resource",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"core"},
 				Resources: []string{"pod"},
 				Verbs:     []string{"get"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"core"},
 				Resources: []string{"pod"},
 				Verbs:     []string{"get"},
 			},
@@ -440,11 +440,11 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "no conflict",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"core"},
 				Resources: []string{"service"},
 				Verbs:     []string{"get"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"core"},
 				Resources: []string{"pod"},
 				Verbs:     []string{"get"},
 			},
@@ -453,12 +453,12 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "no conflict resource name",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"core"},
 				Resources:     []string{"service"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"hello"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"core"},
 				Resources:     []string{"service"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"there"},
@@ -468,12 +468,12 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "conflict resource name",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"core"},
 				Resources:     []string{"service"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"hello"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"core"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"core"},
 				Resources:     []string{"service"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"hello"},
@@ -483,11 +483,11 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "conflict with apigroup wildcards",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"*"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"*"},
 				Resources: []string{"pod"},
 				Verbs:     []string{"get"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources: []string{"pod"},
 				Verbs:     []string{"get"},
 			},
@@ -496,11 +496,11 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "conflict with resource wildcards",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources: []string{"*"},
 				Verbs:     []string{"get"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources: []string{"pod"},
 				Verbs:     []string{"get"},
 			},
@@ -509,11 +509,11 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "conflict with verb wildcards",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources: []string{"pod"},
 				Verbs:     []string{"*"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources: []string{"pod"},
 				Verbs:     []string{"get"},
 			},
@@ -522,12 +522,12 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "conflict with resourcenames wildcards",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources:     []string{"pod"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"toto"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources:     []string{"pod"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"*"},
@@ -537,12 +537,12 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "conflict with new verb wildcards",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources:     []string{"pod"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"toto"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources:     []string{"pod"},
 				Verbs:         []string{"*"},
 				ResourceNames: []string{"toto"},
@@ -552,12 +552,12 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "conflict with new resource wildcards",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources:     []string{"pod"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"toto"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources:     []string{"*"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"toto"},
@@ -567,12 +567,12 @@ func TestRegistrationResource(t *testing.T) {
 		},
 		{
 			desc: "conflict with new group wildcards",
-			existingInterceptorsInfos: Interceptor{APIGroups: []string{"stuff"},
+			existingInterceptorsInfos: InterceptorRule{APIGroups: []string{"stuff"},
 				Resources:     []string{"pod"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"toto"},
 			},
-			newInterceptorsInfos: Interceptor{APIGroups: []string{"*"},
+			newInterceptorsInfos: InterceptorRule{APIGroups: []string{"*"},
 				Resources:     []string{"pod"},
 				Verbs:         []string{"get"},
 				ResourceNames: []string{"toto"},
