@@ -437,7 +437,7 @@
           "description": "Additional labels or annotations for the statefulSet pods."
         },
         "image": {
-          "$ref": "#/$defs/Image",
+          "$ref": "#/$defs/StatefulSetImage",
           "description": "Image is the image for the controlPlane statefulSet container"
         },
         "imagePullPolicy": {
@@ -2526,6 +2526,20 @@
           },
           "type": "object",
           "description": "Annotations are the extra annotations to add to the service monitor."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "StatefulSetImage": {
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Configure the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image.\nIt defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.\nIf you still want to use the pure OSS build, use 'ghcr.io/loft-sh/vcluster-oss' instead."
+        },
+        "tag": {
+          "type": "string",
+          "description": "Tag is the tag of the container image, e.g. latest"
         }
       },
       "additionalProperties": false,

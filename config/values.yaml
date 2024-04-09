@@ -288,7 +288,7 @@ controlPlane:
     annotations: {}
     imagePullPolicy: ""
     image:
-      repository: "ghcr.io/loft-sh/vcluster"
+      repository: "ghcr.io/loft-sh/vcluster-pro"
       tag: ""
 
     workingDir: ""

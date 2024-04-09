@@ -485,8 +485,10 @@ controlPlane:
     imagePullPolicy: ""
     # Image is the image for the controlPlane statefulSet container
     image:
-      # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
-      repository: "ghcr.io/loft-sh/vcluster"
+      # Configure the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image.
+      # It defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.
+      # If you still want to use the pure OSS build, use 'ghcr.io/loft-sh/vcluster-oss' instead.
+      repository: "ghcr.io/loft-sh/vcluster-pro"
       # Tag is the tag of the container image, e.g. latest
       tag: ""
     # WorkingDir specifies in what folder the main process should get started.
