@@ -102,9 +102,6 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 
 	// check if vcluster in vcluster
 	_, _, previousContext := find.VClusterFromContext(rawConfig.CurrentContext)
-	if previousContext == "" {
-		_, _, previousContext = find.VClusterProFromContext(rawConfig.CurrentContext)
-	}
 	if previousContext != "" {
 		if terminal.IsTerminalIn {
 			switchBackOption := "No, switch back to context " + previousContext

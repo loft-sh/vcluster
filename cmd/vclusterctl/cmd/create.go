@@ -17,7 +17,6 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/embed"
-	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	corev1 "k8s.io/api/core/v1"
@@ -25,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/create"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"golang.org/x/mod/semver"
@@ -45,6 +43,56 @@ import (
 
 var CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
 
+const LoftChartRepo = "https://charts.loft.sh"
+
+var AllowedDistros = []string{"k8s", "k3s", "k0s", "eks"}
+
+// Options holds the create cmd options
+type Options struct {
+	KubeConfigContextName string
+	ChartVersion          string
+	ChartName             string
+	ChartRepo             string
+	LocalChartDir         string
+	Distro                string
+	Values                []string
+	SetValues             []string
+
+	KubernetesVersion string
+
+	CreateNamespace bool
+	UpdateCurrent   bool
+	Expose          bool
+	ExposeLocal     bool
+
+	Connect bool
+	Upgrade bool
+}
+
+type Values struct {
+	Init Init `json:"init" mapstructure:"init"`
+}
+
+type Init struct {
+	Manifests string      `json:"manifests" mapstructure:"manifests"`
+	Helm      []HelmChart `json:"helm"      mapstructure:"helm"`
+}
+
+type HelmChart struct {
+	Bundle    string      `json:"bundle,omitempty"    mapstructure:"bundle,omitempty"`
+	Name      string      `json:"name,omitempty"      mapstructure:"name"`
+	Repo      string      `json:"repo,omitempty"      mapstructure:"repo"`
+	Version   string      `json:"version,omitempty"   mapstructure:"version"`
+	Namespace string      `json:"namespace,omitempty" mapstructure:"namespace"`
+	Values    string      `json:"values,omitempty"    mapstructure:"values"`
+	Release   HelmRelease `json:"release,omitempty"   mapstructure:"release"`
+}
+
+type HelmRelease struct {
+	Name      string `json:"name,omitempty"      mapstructure:"name"`
+	Namespace string `json:"namespace,omitempty" mapstructure:"namespace"`
+}
+
 // CreateCmd holds the login cmd flags
 type CreateCmd struct {
 	*flags.GlobalFlags
@@ -52,7 +100,7 @@ type CreateCmd struct {
 	log              log.Logger
 	kubeClientConfig clientcmd.ClientConfig
 	kubeClient       *kubernetes.Clientset
-	create.Options
+	Options
 	localCluster bool
 }
 
@@ -89,8 +137,8 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.KubeConfigContextName, "kube-config-context-name", "", "If set, will override the context name of the generated virtual cluster kube config with this name")
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.9.1)")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
-	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", create.LoftChartRepo, "The virtual cluster chart repo to use")
-	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k3s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(create.AllowedDistros, ", ")))
+	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", LoftChartRepo, "The virtual cluster chart repo to use")
+	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k8s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(AllowedDistros, ", ")))
 	cobraCmd.Flags().StringVar(&cmd.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cobraCmd.Flags().StringArrayVarP(&cmd.Values, "values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().StringArrayVar(&cmd.SetValues, "set", []string{}, "Set values for helm. E.g. --set 'persistence.enabled=true'")
@@ -101,18 +149,6 @@ vcluster create test --namespace test
 
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", true, "If true will run vcluster connect directly after the vcluster was created")
 	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
-	cobraCmd.Flags().BoolVar(&cmd.DisablePro, "disable-pro", false, "If true vcluster will not try to create a vCluster.Pro. You can also use 'vcluster logout' to prevent vCluster from creating any pro clusters")
-
-	// pro flags
-	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PRO] The vCluster.Pro project to use")
-	cobraCmd.Flags().StringSliceVarP(&cmd.Labels, "labels", "l", []string{}, "[PRO] Comma separated labels to apply to the virtualclusterinstance")
-	cobraCmd.Flags().StringSliceVar(&cmd.Annotations, "annotations", []string{}, "[PRO] Comma separated annotations to apply to the virtualclusterinstance")
-	cobraCmd.Flags().StringVar(&cmd.Cluster, "cluster", "", "[PRO] The vCluster.Pro connected cluster to use")
-	cobraCmd.Flags().StringVar(&cmd.Template, "template", "", "[PRO] The vCluster.Pro template to use")
-	cobraCmd.Flags().StringVar(&cmd.TemplateVersion, "template-version", "", "[PRO] The vCluster.Pro template version to use")
-	cobraCmd.Flags().StringArrayVar(&cmd.Links, "link", []string{}, "[PRO] A link to add to the vCluster. E.g. --link 'prod=http://exampleprod.com'")
-	cobraCmd.Flags().StringVar(&cmd.Params, "params", "", "[PRO] If a template is used, this can be used to use a file for the parameters. E.g. --params path/to/my/file.yaml")
-	cobraCmd.Flags().StringArrayVar(&cmd.SetParams, "set-param", []string{}, "[PRO] If a template is used, this can be used to set a specific parameter. E.g. --set-param 'my-param=my-value'")
 
 	// hidden / deprecated
 	cobraCmd.Flags().StringVar(&cmd.LocalChartDir, "local-chart-dir", "", "The virtual cluster local chart dir to use")
@@ -123,45 +159,8 @@ vcluster create test --namespace test
 	return cobraCmd
 }
 
-var loginText = "\nPlease run:\n * 'vcluster login' to connect to an existing vCluster.Pro instance\n * 'vcluster pro start' to deploy a new vCluster.Pro instance"
-
 // Run executes the functionality
 func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
-	// check if we should create a pro cluster
-	if !cmd.DisablePro {
-		proClient, err := procli.CreateProClient()
-		if err == nil {
-			// deploy pro cluster
-			err = create.DeployProCluster(ctx, &cmd.Options, proClient, args[0], cmd.Namespace, cmd.log)
-			if err != nil {
-				return err
-			}
-
-			// check if we should connect to the vcluster
-			if cmd.Connect {
-				connectCmd := &ConnectCmd{
-					GlobalFlags:           cmd.GlobalFlags,
-					UpdateCurrent:         cmd.UpdateCurrent,
-					KubeConfigContextName: cmd.KubeConfigContextName,
-					KubeConfig:            "./kubeconfig.yaml",
-					Project:               cmd.Project,
-					Log:                   cmd.log,
-				}
-
-				return connectCmd.Connect(ctx, proClient, args[0], nil)
-			}
-
-			cmd.log.Donef("Successfully created virtual cluster %s in project %s. \n- Use 'vcluster connect %s --project %s' to access the virtual cluster\n- Use `vcluster connect %s --project %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Project, args[0], cmd.Project, args[0], cmd.Project)
-			return nil
-		}
-	}
-
-	// validate oss flags
-	err := cmd.validateOSSFlags()
-	if err != nil {
-		return err
-	}
-
 	// make sure we deploy the correct version
 	if cmd.ChartVersion == upgrade.DevelopmentVersion {
 		cmd.ChartVersion = ""
@@ -251,7 +250,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 					Log:                   cmd.log,
 				}
 
-				return connectCmd.Connect(ctx, nil, args[0], nil)
+				return connectCmd.Connect(ctx, args[0], nil)
 			}
 
 			return fmt.Errorf("vcluster %s already exists in namespace %s\n- Use `vcluster create %s -n %s --upgrade` to upgrade the vcluster\n- Use `vcluster connect %s -n %s` to access the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
@@ -275,39 +274,13 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 			Log:                   cmd.log,
 		}
 
-		return connectCmd.Connect(ctx, nil, args[0], nil)
+		return connectCmd.Connect(ctx, args[0], nil)
 	}
 
 	if cmd.localCluster {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", args[0], cmd.Namespace, args[0], cmd.Namespace)
 	} else {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
-	}
-
-	return nil
-}
-
-func (cmd *CreateCmd) validateOSSFlags() error {
-	if cmd.Project != "" {
-		return fmt.Errorf("cannot use --project as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if cmd.Cluster != "" {
-		return fmt.Errorf("cannot use --cluster as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if cmd.Template != "" {
-		return fmt.Errorf("cannot use --template as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if cmd.TemplateVersion != "" {
-		return fmt.Errorf("cannot use --template-version as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if len(cmd.Links) > 0 {
-		return fmt.Errorf("cannot use --link as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if cmd.Params != "" {
-		return fmt.Errorf("cannot use --params as you are not connected to a vCluster.Pro instance." + loginText)
-	}
-	if len(cmd.SetParams) > 0 {
-		return fmt.Errorf("cannot use --set-params as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 
 	return nil
@@ -362,8 +335,8 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 
 		// rewrite chart location, this is an optimization to avoid
 		// downloading the whole index.yaml and parsing it
-		if !chartEmbedded && cmd.ChartRepo == create.LoftChartRepo && cmd.ChartVersion != "" { // specify versioned path to repo url
-			cmd.LocalChartDir = create.LoftChartRepo + "/charts/" + cmd.ChartName + "-" + strings.TrimPrefix(cmd.ChartVersion, "v") + ".tgz"
+		if !chartEmbedded && cmd.ChartRepo == LoftChartRepo && cmd.ChartVersion != "" { // specify versioned path to repo url
+			cmd.LocalChartDir = LoftChartRepo + "/charts/" + cmd.ChartName + "-" + strings.TrimPrefix(cmd.ChartVersion, "v") + ".tgz"
 		}
 	}
 
@@ -392,8 +365,8 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 }
 
 func (cmd *CreateCmd) ToChartOptions(kubernetesVersion *version.Info, log log.Logger) (*config.ExtraValuesOptions, error) {
-	if !util.Contains(cmd.Distro, create.AllowedDistros) {
-		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(create.AllowedDistros, ", "))
+	if !util.Contains(cmd.Distro, AllowedDistros) {
+		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(AllowedDistros, ", "))
 	}
 
 	// check if we should create with node port
@@ -435,9 +408,6 @@ func (cmd *CreateCmd) prepare(ctx context.Context, vClusterName string) error {
 
 	// check if vcluster in vcluster
 	_, _, previousContext := find.VClusterFromContext(rawConfig.CurrentContext)
-	if previousContext == "" {
-		_, _, previousContext = find.VClusterProFromContext(rawConfig.CurrentContext)
-	}
 	if previousContext != "" {
 		if terminal.IsTerminalIn {
 			switchBackOption := "No, switch back to context " + previousContext

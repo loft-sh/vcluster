@@ -66,13 +66,8 @@ func (cmd *DisconnectCmd) Run() error {
 	// get vcluster info from context
 	vClusterName, _, otherContext := find.VClusterFromContext(cmd.Context)
 	if vClusterName == "" {
-		// get vcluster-pro info from context
-		vClusterName, _, otherContext = find.VClusterProFromContext(cmd.Context)
-		if vClusterName == "" {
-			return fmt.Errorf("current selected context \"%s\" is not a vcluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
-		}
+		return fmt.Errorf("current selected context \"%s\" is not a vcluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
 	}
-
 	if otherContext == "" {
 		otherContext, err = cmd.selectContext(&rawConfig, otherContext)
 		if err != nil {

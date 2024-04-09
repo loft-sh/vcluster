@@ -7,14 +7,11 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 
-	proclient "github.com/loft-sh/loftctl/v3/pkg/client"
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
-	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
-	"github.com/loft-sh/vcluster/pkg/procli"
 )
 
 // ResumeCmd holds the cmd flags
@@ -61,19 +58,11 @@ vcluster resume test --namespace test
 
 // Run executes the functionality
 func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
-	// get pro client
-	proClient, err := procli.CreateProClient()
-	if err != nil {
-		cmd.Log.Debugf("Error creating pro client: %v", err)
-	}
-
 	// find vcluster
 	vClusterName := args[0]
-	vCluster, proVCluster, err := find.GetVCluster(ctx, proClient, cmd.Context, vClusterName, cmd.Namespace, cmd.Project, cmd.Log)
+	vCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace, cmd.Log)
 	if err != nil {
 		return err
-	} else if proVCluster != nil {
-		return cmd.resumeProVCluster(ctx, proClient, proVCluster)
 	}
 
 	err = cmd.prepare(vCluster)
@@ -87,23 +76,6 @@ func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	cmd.Log.Donef("Successfully resumed vcluster %s in namespace %s", args[0], cmd.Namespace)
-	return nil
-}
-
-func (cmd *ResumeCmd) resumeProVCluster(ctx context.Context, proClient proclient.Client, vCluster *procli.VirtualClusterInstanceProject) error {
-	managementClient, err := proClient.Management()
-	if err != nil {
-		return err
-	}
-
-	cmd.Log.Infof("Waking up virtual cluster %s in project %s", vCluster.VirtualCluster.Name, vCluster.Project.Name)
-
-	_, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, cmd.Log)
-	if err != nil {
-		return err
-	}
-
-	cmd.Log.Donef("Successfully woke up vcluster %s", vCluster.VirtualCluster.Name)
 	return nil
 }
 
