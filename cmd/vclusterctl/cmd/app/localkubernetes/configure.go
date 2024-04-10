@@ -28,7 +28,8 @@ func (c ClusterType) LocalKubernetes() bool {
 		c == ClusterTypeRancherDesktop ||
 		c == ClusterTypeKIND ||
 		c == ClusterTypeMinikube ||
-		c == ClusterTypeK3D
+		c == ClusterTypeK3D ||
+		c == ClusterTypeOrbstack
 }
 
 func ExposeLocal(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, log log.Logger) (string, error) {
@@ -36,6 +37,8 @@ func ExposeLocal(ctx context.Context, vClusterName, vClusterNamespace string, ra
 	timeout := time.Second * 30
 	clusterType := DetectClusterType(rawConfig)
 	switch clusterType {
+	case ClusterTypeOrbstack:
+		return directServiceConnection(ctx, vRawConfig, service, timeout)
 	case ClusterTypeDockerDesktop:
 		return directConnection(ctx, vRawConfig, service, timeout)
 	case ClusterTypeRancherDesktop:
@@ -202,6 +205,28 @@ func kindProxy(ctx context.Context, vClusterName, vClusterNamespace string, rawC
 	// name is prefixed with kind- and suffixed with -control-plane
 	controlPlane := strings.TrimPrefix(rawConfig.CurrentContext, "kind-") + "-control-plane"
 	return createProxyContainer(ctx, vClusterName, vClusterNamespace, rawConfig, vRawConfig, service, localPort, timeout, controlPlane, "kind", log)
+}
+
+func directServiceConnection(ctx context.Context, vRawConfig *clientcmdapi.Config, service *corev1.Service, timeout time.Duration) (string, error) {
+	if len(service.Spec.Ports) == 0 {
+		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
+	}
+
+	server := fmt.Sprintf("https://%s:443", service.Spec.ClusterIP)
+	var err error
+	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		err = testConnectionWithServer(ctx, vRawConfig, server)
+		if err != nil {
+			return false, nil
+		}
+
+		return true, nil
+	})
+	if waitErr != nil {
+		return "", fmt.Errorf("test connection: %w %w", waitErr, err)
+	}
+
+	return server, nil
 }
 
 func directConnection(ctx context.Context, vRawConfig *clientcmdapi.Config, service *corev1.Service, timeout time.Duration) (string, error) {

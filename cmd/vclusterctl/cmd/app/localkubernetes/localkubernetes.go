@@ -24,6 +24,7 @@ const (
 	ClusterTypeK3D            ClusterType = "k3d"
 	ClusterTypeRancherDesktop ClusterType = "rancher-desktop"
 	ClusterTypeColima         ClusterType = "colima"
+	ClusterTypeOrbstack       ClusterType = "orbstack"
 )
 
 // DetectClusterType detects the k8s distro locally.
@@ -44,7 +45,9 @@ func DetectClusterType(config *clientcmdapi.Config) ClusterType {
 	}
 
 	cn := c.Cluster
-	if strings.HasPrefix(cn, string(ClusterTypeVCluster)+"_") {
+	if strings.HasPrefix(cn, string(ClusterTypeOrbstack)) {
+		return ClusterTypeOrbstack
+	} else if strings.HasPrefix(cn, string(ClusterTypeVCluster)+"_") {
 		return ClusterTypeVCluster
 	} else if strings.HasPrefix(cn, string(ClusterTypeMinikube)) {
 		return ClusterTypeMinikube
