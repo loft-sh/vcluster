@@ -142,7 +142,7 @@ func (cmd *ConnectCmd) Connect(ctx context.Context, vClusterName string, command
 		return err
 	}
 
-	return cmd.connectOss(ctx, vCluster, command)
+	return cmd.connect(ctx, vCluster, command)
 }
 
 func (cmd *ConnectCmd) validateFlags() error {
@@ -153,7 +153,7 @@ func (cmd *ConnectCmd) validateFlags() error {
 	return nil
 }
 
-func (cmd *ConnectCmd) connectOss(ctx context.Context, vCluster *find.VCluster, command []string) error {
+func (cmd *ConnectCmd) connect(ctx context.Context, vCluster *find.VCluster, command []string) error {
 	// prepare clients and find vcluster
 	err := cmd.prepare(ctx, vCluster)
 	if err != nil {
