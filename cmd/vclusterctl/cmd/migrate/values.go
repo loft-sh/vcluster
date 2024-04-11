@@ -35,7 +35,7 @@ func migrateValues(globalFlags *flags.GlobalFlags) *cobra.Command {
 #######################################################
 ############### vcluster migrate values ###############
 #######################################################
-Migrates values for a vcluster to the new format
+Migrates values for a vcluster to the 0.20 format
 
 Examples:
 vcluster migrate values --distro k8s -f /my/k8s/values.yaml
