@@ -154,7 +154,7 @@ func StartK8S(
 				args = append(args, "--bind-address=127.0.0.1")
 				args = append(args, "--client-ca-file="+vConfig.VirtualClusterKubeConfig().ServerCACert)
 				args = append(args, "--cluster-name=kubernetes")
-				args = append(args, "--cluster-signing-cert-file"+vConfig.VirtualClusterKubeConfig().ServerCACert)
+				args = append(args, "--cluster-signing-cert-file="+vConfig.VirtualClusterKubeConfig().ServerCACert)
 				args = append(args, "--cluster-signing-key-file="+vConfig.VirtualClusterKubeConfig().ServerCAKey)
 				args = append(args, "--horizontal-pod-autoscaler-sync-period=60s")
 				args = append(args, "--kubeconfig=/data/pki/controller-manager.conf")
