@@ -165,7 +165,6 @@ func StartK8S(
 				args = append(args, "--root-ca-file="+vConfig.VirtualClusterKubeConfig().ServerCACert)
 				args = append(args, "--service-account-private-key-file=/data/pki/sa.key")
 				args = append(args, "--use-service-account-credentials=true")
-				args = append(args, "--v=8")
 				if vConfig.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
 					args = append(args, "--leader-elect=true")
 				} else {
