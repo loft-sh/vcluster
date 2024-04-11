@@ -516,7 +516,8 @@
         },
         "embedded": {
           "type": "boolean",
-          "description": "Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature."
+          "description": "Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature.",
+          "pro": true
         },
         "service": {
           "$ref": "#/$defs/CoreDNSService",
@@ -1506,7 +1507,8 @@
         },
         "central": {
           "type": "boolean",
-          "description": "Central specifies if the central host path mapper will be used"
+          "description": "Central specifies if the central host path mapper will be used",
+          "pro": true
         }
       },
       "additionalProperties": false,
@@ -2205,7 +2207,8 @@
         },
         "centralAdmission": {
           "$ref": "#/$defs/CentralAdmission",
-          "description": "CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster."
+          "description": "CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.",
+          "pro": true
         }
       },
       "additionalProperties": false,

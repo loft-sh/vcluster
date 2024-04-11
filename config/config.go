@@ -2,9 +2,12 @@ package config
 
 import (
 	_ "embed"
+	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/invopop/jsonschema"
 )
 
 //go:embed values.yaml
@@ -775,6 +778,10 @@ type HostPathMapper struct {
 	Central bool `json:"central,omitempty" product:"pro"`
 }
 
+func (h HostPathMapper) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(h))
+}
+
 type CoreDNS struct {
 	// Enabled defines if coredns is enabled
 	Enabled bool `json:"enabled,omitempty"`
@@ -793,6 +800,10 @@ type CoreDNS struct {
 
 	// OverwriteManifests can be used to overwrite the coredns manifests used to deploy coredns
 	OverwriteManifests string `json:"overwriteManifests,omitempty"`
+}
+
+func (c CoreDNS) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(c))
 }
 
 type CoreDNSService struct {
@@ -1101,6 +1112,10 @@ type Policies struct {
 
 	// CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
 	CentralAdmission CentralAdmission `json:"centralAdmission,omitempty" product:"pro"`
+}
+
+func (p Policies) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(p))
 }
 
 type ResourceQuota struct {
@@ -1722,4 +1737,32 @@ type RuleWithVerbs struct {
 	// For non-resource requests, this is the lowercase http verb.
 	// If '*' is present, the length of the slice must be one.
 	Verbs []string `json:"operations,omitempty"`
+}
+
+// addProToJSONSchema looks for fields with the `product:"pro"` tag and adds the pro tag to the central field.
+// Requires `json:""` tag to be set as well.
+func addProToJSONSchema(base *jsonschema.Schema, t reflect.Type) {
+	proFields := []string{}
+	for i := 0; i < t.NumField(); i++ {
+		tag := t.Field(i).Tag.Get("product")
+		jsonName := strings.Split(t.Field(i).Tag.Get("json"), ",")[0]
+		if tag == "" {
+			continue
+		}
+
+		proFields = append(proFields, jsonName)
+	}
+	if len(proFields) == 0 {
+		return
+	}
+	for _, field := range proFields {
+		central, ok := base.Properties.Get(field)
+		if !ok {
+			continue
+		}
+		if central.Extras == nil {
+			central.Extras = map[string]interface{}{}
+		}
+		central.Extras["pro"] = true
+	}
 }
