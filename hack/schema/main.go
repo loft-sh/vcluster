@@ -142,13 +142,12 @@ func getReflector() (*jsonschema.Reflector, error) {
 	r.ExpandedStruct = true
 
 	commentMap := map[string]string{}
-
 	err := jsonschema.ExtractGoComments("github.com/loft-sh/vcluster", "config", commentMap)
 	if err != nil {
 		return nil, err
 	}
-
 	r.CommentMap = commentMap
+
 	return r, nil
 }
 
