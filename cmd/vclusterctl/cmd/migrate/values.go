@@ -38,10 +38,9 @@ func migrateValues(globalFlags *flags.GlobalFlags) *cobra.Command {
 Migrates values for a vcluster to the new format
 
 Examples:
-vcluster migrate values -f /my/k8s/values.yaml
-vcluster migrate values --distro k3s -f /my/k3s/values.yaml
-vcluster migrate values --distro k0s < /my/k0s/values.yaml
-cat /my/k8s/values.yaml | vcluster migrate values --distro k8s
+vcluster migrate values --distro k8s -f /my/k8s/values.yaml
+vcluster migrate values --distro k3s < /my/k3s/values.yaml
+cat /my/k0s/values.yaml | vcluster migrate values --distro k0s
 #######################################################
 	`,
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -49,7 +48,7 @@ cat /my/k8s/values.yaml | vcluster migrate values --distro k8s
 		}}
 
 	cobraCmd.Flags().StringVarP(&c.filePath, "file", "f", "", "Path to the input file")
-	cobraCmd.Flags().StringVar(&c.distro, "distro", "k8s", fmt.Sprintf("Kubernetes distro of the values. Allowed distros: %s", strings.Join([]string{"k8s", "k3s", "k0s", "eks"}, ", ")))
+	cobraCmd.Flags().StringVar(&c.distro, "distro", "", fmt.Sprintf("Kubernetes distro of the values. Allowed distros: %s", strings.Join([]string{"k8s", "k3s", "k0s", "eks"}, ", ")))
 	cobraCmd.Flags().StringVarP(&c.format, "output", "o", "yaml", "Prints the output in the specified format. Allowed values: yaml, json")
 
 	return cobraCmd
@@ -60,6 +59,10 @@ func (cmd *valuesCmd) Run() error {
 		migratedConfig string
 		err            error
 	)
+
+	if cmd.distro == "" {
+		return fmt.Errorf("no distro given: please set \"--distro\" (IMPORTANT: distro must match the given values)")
+	}
 
 	if cmd.filePath != "" {
 		file, err := os.Open(cmd.filePath)
