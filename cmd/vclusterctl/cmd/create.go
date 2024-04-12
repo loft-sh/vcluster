@@ -225,9 +225,11 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		defer f.Close()
 
 		cfg := &config.Config{}
-		err = cfg.Validate(f)
+		err = cfg.DecodeYAML(f)
 		if err != nil {
-			cmd.log.Infof("Consider using %q to convert the old values format to the new 0.20 format", "vcluster migrate values")
+			if errors.Is(err, config.ErrInvalidFileFormat) {
+				cmd.log.Infof("If you are using the old values format, consider using %q to convert it to the new 0.20 format", "vcluster migrate values")
+			}
 			return err
 		}
 	}

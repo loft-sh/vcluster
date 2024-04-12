@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -16,6 +17,8 @@ import (
 
 //go:embed values.yaml
 var Values string
+
+var ErrInvalidFileFormat = errors.New("invalid file format")
 
 // NewDefaultConfig creates a new config based on the values.yaml, including all default values.
 func NewDefaultConfig() (*Config, error) {
@@ -76,7 +79,7 @@ type Config struct {
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
 }
 
-func (c *Config) Validate(r io.Reader) error {
+func (c *Config) DecodeYAML(r io.Reader) error {
 	o, err := io.ReadAll(r)
 	if err != nil {
 		return err
@@ -92,7 +95,7 @@ func (c *Config) Validate(r io.Reader) error {
 
 	err = dec.Decode(c)
 	if err != nil {
-		return fmt.Errorf("invalid values file format: %w", err)
+		return fmt.Errorf("%w: %w", ErrInvalidFileFormat, err)
 	}
 
 	return nil

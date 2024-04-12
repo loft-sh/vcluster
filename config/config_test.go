@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestConfig_Validate(t *testing.T) {
+func TestConfig_DecodeYAML(t *testing.T) {
 	type args struct {
 		r io.Reader
 	}
@@ -17,7 +17,7 @@ func TestConfig_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Invalid",
+			name: "Invalid: yaml",
 			args: args{
 				r: bytes.NewReader([]byte(`
 foo:
@@ -27,7 +27,20 @@ foo:
 			wantErr: true,
 		},
 		{
-			name: "Invalid (old values format)",
+			name: "Invalid: json",
+			args: args{
+				r: bytes.NewReader([]byte(`
+{
+  "foo": {
+    "bar": "baz"
+  }
+}
+`)),
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid: Old values format",
 			args: args{
 				r: bytes.NewReader([]byte(`
 api:
@@ -51,7 +64,7 @@ telemetry:
 			wantErr: true,
 		},
 		{
-			name: "Success (new values format)",
+			name: "Success: New values format",
 			args: args{
 				r: bytes.NewReader([]byte(`
 controlPlane:
@@ -62,11 +75,28 @@ controlPlane:
 			},
 			wantErr: false,
 		},
+		{
+			name: "Success: New values format (json)",
+			args: args{
+				r: bytes.NewReader([]byte(`
+{
+  "controlPlane": {
+    "distro": {
+      "k8s": {
+        "enabled": true
+      }
+    }
+  }
+}
+`)),
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Config{}
-			if err := c.Validate(tt.args.r); (err != nil) != tt.wantErr {
+			if err := c.DecodeYAML(tt.args.r); (err != nil) != tt.wantErr {
 				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
