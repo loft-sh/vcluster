@@ -114,6 +114,9 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 		defaultNamespaces[options.ExportKubeConfig.Secret.Namespace] = cache.Config{}
 	}
 
+	if len(defaultNamespaces) > 0 {
+		return cache.Options{DefaultNamespaces: nil}
+	}
 	return cache.Options{DefaultNamespaces: defaultNamespaces}
 }
 
