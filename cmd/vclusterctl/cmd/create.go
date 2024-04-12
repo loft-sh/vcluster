@@ -227,6 +227,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		cfg := &config.Config{}
 		err = cfg.Validate(f)
 		if err != nil {
+			cmd.log.Infof("Consider using %q to convert the old values format to the new 0.20 format", "vcluster migrate values")
 			return err
 		}
 	}
