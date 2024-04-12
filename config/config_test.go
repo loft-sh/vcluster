@@ -97,7 +97,7 @@ controlPlane:
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Config{}
 			if err := c.DecodeYAML(tt.args.r); (err != nil) != tt.wantErr {
-				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Config.DecodeYAML() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
