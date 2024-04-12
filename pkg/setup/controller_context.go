@@ -103,9 +103,15 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 
 func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	// is multi namespace mode?
-	var defaultNamespaces map[string]cache.Config
+	defaultNamespaces := make(map[string]cache.Config)
 	if !options.Experimental.MultiNamespaceMode.Enabled {
-		defaultNamespaces = map[string]cache.Config{options.WorkloadTargetNamespace: {}}
+		defaultNamespaces[options.WorkloadTargetNamespace] = cache.Config{}
+	}
+	// do we need access to another namespace to export the kubeconfig ?
+	// we will need access to all the objects that the vcluster usually has access to
+	// otherwise the controller will not start
+	if options.ExportKubeConfig.Secret.Namespace != "" {
+		defaultNamespaces[options.ExportKubeConfig.Secret.Namespace] = cache.Config{}
 	}
 
 	return cache.Options{DefaultNamespaces: defaultNamespaces}
