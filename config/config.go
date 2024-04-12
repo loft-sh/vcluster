@@ -1,7 +1,11 @@
 package config
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/json"
+	"fmt"
+	"io"
 	"reflect"
 	"regexp"
 	"strings"
@@ -70,6 +74,28 @@ type Config struct {
 
 	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
+}
+
+func (c *Config) Validate(r io.Reader) error {
+	o, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	j, err := yaml.YAMLToJSON(o)
+	if err != nil {
+		return err
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(j))
+	dec.DisallowUnknownFields()
+
+	err = dec.Decode(c)
+	if err != nil {
+		return fmt.Errorf("invalid values file format: %w", err)
+	}
+
+	return nil
 }
 
 // ExportKubeConfig describes how vCluster should export the vCluster kubeconfig.
