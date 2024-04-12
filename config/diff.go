@@ -9,10 +9,8 @@ import (
 	"github.com/ghodss/yaml"
 )
 
-var (
-	// ErrUnsupportedType is returned if the type is not implemented
-	ErrUnsupportedType = errors.New("unsupported type")
-)
+// ErrUnsupportedType is returned if the type is not implemented
+var ErrUnsupportedType = errors.New("unsupported type")
 
 func Diff(fromConfig *Config, toConfig *Config) (string, error) {
 	// convert to map[string]interface{}
@@ -151,11 +149,12 @@ func (f *StrBool) UnmarshalJSON(data []byte) error {
 }
 
 func (f *StrBool) MarshalJSON() ([]byte, error) {
-	if *f == "true" {
+	switch *f {
+	case "true":
 		return []byte("true"), nil
-	} else if *f == "false" {
+	case "false":
 		return []byte("false"), nil
+	default:
+		return []byte("\"" + *f + "\""), nil
 	}
-
-	return []byte("\"" + *f + "\""), nil
 }

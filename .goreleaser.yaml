@@ -3,7 +3,7 @@ project_name: vcluster
 before:
   hooks:
     - go mod tidy
-    - just embed-charts {{ .Version }}
+    - just embed-chart {{ .Version }}
     - just clean-release
     - just copy-assets
     - just generate-vcluster-images {{ .Version }}
@@ -29,7 +29,7 @@ builds:
       - -mod
       - vendor
     tags:
-      - embed_charts
+      - embed_chart
     ldflags:
       - -s -w
       - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
@@ -64,7 +64,7 @@ builds:
       - -mod
       - vendor
     tags:
-      - embed_charts
+      - embed_chart
     ldflags:
       - -s -w
       - -X main.version={{.Version}}

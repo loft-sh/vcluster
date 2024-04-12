@@ -1,17 +1,22 @@
 package setup
 
 import (
+	"context"
 	"fmt"
 	"os"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 )
 
-func InitConfig(vConfig *config.VirtualClusterConfig) error {
+const (
+	AnnotationDistro = "vcluster.loft.sh/distro"
+	AnnotationStore  = "vcluster.loft.sh/store"
+)
+
+func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
 	var err error
 
 	// set global vCluster name
@@ -48,20 +53,52 @@ func InitConfig(vConfig *config.VirtualClusterConfig) error {
 		translate.Default = translate.NewSingleNamespaceTranslator(vConfig.WorkloadTargetNamespace)
 	}
 
-	// check if previously we were using k3s as a default and now have switched to a different distro
-	if vConfig.Distro() != vclusterconfig.K3SDistro {
-		_, err := os.Stat(k3s.TokenPath)
-		if err == nil {
-			return fmt.Errorf("seems like you were using k3s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", vConfig.Distro())
+	// (ThomasK33): Below we read the secret containing the config and look for annotations inidicating the initial distro or backing store.
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		secret, err := vConfig.ControlPlaneClient.CoreV1().Secrets(vConfig.ControlPlaneNamespace).Get(ctx, "vc-config-"+vConfig.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get secret: %w", err)
 		}
-	}
 
-	// check if previously we were using k0s as distro
-	if vConfig.Distro() != vclusterconfig.K0SDistro {
-		_, err = os.Stat("/data/k0s")
-		if err == nil {
-			return fmt.Errorf("seems like you were using k0s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", vConfig.Distro())
+		if secret.Annotations == nil {
+			secret.Annotations = map[string]string{}
 		}
+
+		// (ThomasK33): If we already have an annotation set, we're dealing with an upgrade.
+		// Thus we can check if the distro has changed.
+		distro := vConfig.Distro()
+
+		if annotatedDistro, ok := secret.Annotations[AnnotationDistro]; ok {
+			if distro != annotatedDistro {
+				return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", annotatedDistro, vConfig.Distro())
+			}
+		} else {
+			// Otherwise we're dealing with a fresh start, and we can just set the initial used distro.
+			secret.Annotations[AnnotationDistro] = distro
+
+			if secret, err = vConfig.ControlPlaneClient.CoreV1().Secrets(vConfig.ControlPlaneNamespace).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("update secret: %w", err)
+			}
+		}
+
+		backingStoreType := vConfig.BackingStoreType()
+
+		if annotatedStore, ok := secret.Annotations[AnnotationStore]; ok {
+			if string(backingStoreType) != annotatedStore {
+				return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", annotatedStore, vConfig.BackingStoreType())
+			}
+		} else {
+			// Otherwise we're dealing with a fresh start, and we can just set the initial used store.
+			secret.Annotations[AnnotationStore] = string(backingStoreType)
+
+			if _, err := vConfig.ControlPlaneClient.CoreV1().Secrets(vConfig.ControlPlaneNamespace).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("update secret: %w", err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	return nil

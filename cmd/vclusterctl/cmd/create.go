@@ -263,7 +263,13 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		release, err := helm.NewSecrets(cmd.kubeClient).Get(ctx, args[0], cmd.Namespace)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get helm releases")
-		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") && release.Secret != nil && release.Secret.Labels != nil && release.Secret.Labels["status"] == "deployed" {
+		} else if release != nil &&
+			release.Chart != nil &&
+			release.Chart.Metadata != nil &&
+			(release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s" || release.Chart.Metadata.Name == "vcluster-eks") &&
+			release.Secret != nil &&
+			release.Secret.Labels != nil &&
+			release.Secret.Labels["status"] == "deployed" {
 			if cmd.Connect {
 				connectCmd := &ConnectCmd{
 					GlobalFlags:           cmd.GlobalFlags,
@@ -332,7 +338,7 @@ func (cmd *CreateCmd) deployChart(ctx context.Context, vClusterName, chartValues
 		if cmd.ChartVersion == upgrade.GetVersion() { // use embedded chart if default version
 			embeddedChartName := fmt.Sprintf("%s-%s.tgz", cmd.ChartName, upgrade.GetVersion())
 			// not using filepath.Join because the embed.FS separator is not OS specific
-			embeddedChartPath := fmt.Sprintf("charts/%s", embeddedChartName)
+			embeddedChartPath := fmt.Sprintf("chart/%s", embeddedChartName)
 			embeddedChartFile, err := embed.Charts.ReadFile(embeddedChartPath)
 			if err != nil && errors.Is(err, fs.ErrNotExist) {
 				cmd.log.Infof("Chart not embedded: %q, pulling from helm repository.", err)

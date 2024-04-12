@@ -11,6 +11,7 @@ profile.out
 /release
 /cmd/vclusterctl/cmd/charts/
 /pkg/embed/charts/vcluster-*
+/pkg/embed/chart/vcluster-*
 /dist
 *.test
 tests/__snapshot__
