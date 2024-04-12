@@ -3,6 +3,7 @@ package pro
 import (
 	"context"
 	"fmt"
+	"os"
 
 	loftctlflags "github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/start"
@@ -75,6 +76,9 @@ before running this command:
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {
+	cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
+	os.Exit(0)
+
 	// get version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {
 		cmd.Version = procli.MinimumVersionTag

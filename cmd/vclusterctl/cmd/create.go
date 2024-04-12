@@ -179,11 +179,6 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	err = cmd.prepare(ctx, args[0])
-	if err != nil {
-		return err
-	}
-
 	var newExtraValues []string
 	for _, value := range cmd.Values {
 		decodedString, err := getBase64DecodedString(value)
@@ -232,6 +227,16 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 			}
 			return err
 		}
+
+		if cfg.IsProFeatureEnabled() {
+			cmd.log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
+			os.Exit(0)
+		}
+	}
+
+	err = cmd.prepare(ctx, args[0])
+	if err != nil {
+		return err
 	}
 
 	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.

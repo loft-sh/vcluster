@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/go-logr/logr"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/plugin"
@@ -49,6 +50,16 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	vConfig, err := config.ParseConfig(options.Config, os.Getenv("VCLUSTER_NAME"), options.SetValues)
 	if err != nil {
 		return err
+	}
+
+	if vConfig.Config.IsProFeatureEnabled() {
+		log, err := logr.FromContext(ctx)
+		if err != nil {
+			return err
+		}
+
+		log.Info("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
+		os.Exit(0)
 	}
 
 	// get current namespace
