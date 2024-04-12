@@ -2,6 +2,7 @@ package clihelper
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"net"
 	"sort"
@@ -15,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
+	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -144,8 +146,9 @@ func HasPodProblem(pod *corev1.Pod) bool {
 }
 
 func CheckHelmVersion(output string) error {
-	if !(strings.Contains(output, "Version:\"v3.")) {
-		return errors.New("Please ensure that the \"helm\" binary in your PATH is valid. Only Helm v3 is supported")
+	min := "v3.10.0"
+	if semver.Compare(output, min) == -1 {
+		return fmt.Errorf("please ensure that the \"helm\" binary in your PATH is valid. Currently only Helm >= %s is supported", min)
 	}
 
 	return nil
