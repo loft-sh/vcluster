@@ -1,7 +1,12 @@
 package config
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"reflect"
 	"regexp"
 	"strings"
@@ -12,6 +17,8 @@ import (
 
 //go:embed values.yaml
 var Values string
+
+var ErrInvalidFileFormat = errors.New("invalid file format")
 
 // NewDefaultConfig creates a new config based on the values.yaml, including all default values.
 func NewDefaultConfig() (*Config, error) {
@@ -70,6 +77,28 @@ type Config struct {
 
 	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
+}
+
+func (c *Config) DecodeYAML(r io.Reader) error {
+	o, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	j, err := yaml.YAMLToJSON(o)
+	if err != nil {
+		return err
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(j))
+	dec.DisallowUnknownFields()
+
+	err = dec.Decode(c)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidFileFormat, err)
+	}
+
+	return nil
 }
 
 // ExportKubeConfig describes how vCluster should export the vCluster kubeconfig.

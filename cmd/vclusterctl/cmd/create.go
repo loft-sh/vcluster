@@ -184,22 +184,6 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// find out kubernetes version
-	kubernetesVersion, err := cmd.getKubernetesVersion()
-	if err != nil {
-		return err
-	}
-
-	// load the default values
-	chartOptions, err := cmd.ToChartOptions(kubernetesVersion, cmd.log)
-	if err != nil {
-		return err
-	}
-	chartValues, err := config.GetExtraValues(chartOptions)
-	if err != nil {
-		return err
-	}
-
 	var newExtraValues []string
 	for _, value := range cmd.Values {
 		decodedString, err := getBase64DecodedString(value)
@@ -232,8 +216,42 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		newExtraValues = append(newExtraValues, tempValuesFile)
 	}
 
+	// Check if the passed in values adhere to our config format.
+	for _, p := range newExtraValues {
+		f, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		cfg := &config.Config{}
+		err = cfg.DecodeYAML(f)
+		if err != nil {
+			if errors.Is(err, config.ErrInvalidFileFormat) {
+				cmd.log.Infof("If you are using the old values format, consider using %q to convert it to the new 0.20 format", "vcluster migrate values")
+			}
+			return err
+		}
+	}
+
 	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
 	cmd.Values = newExtraValues
+
+	// find out kubernetes version
+	kubernetesVersion, err := cmd.getKubernetesVersion()
+	if err != nil {
+		return err
+	}
+
+	// load the default values
+	chartOptions, err := cmd.ToChartOptions(kubernetesVersion, cmd.log)
+	if err != nil {
+		return err
+	}
+	chartValues, err := config.GetExtraValues(chartOptions)
+	if err != nil {
+		return err
+	}
 
 	// check if vcluster already exists
 	if !cmd.Upgrade {
