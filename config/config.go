@@ -306,6 +306,10 @@ type Networking struct {
 	Advanced NetworkingAdvanced `json:"advanced,omitempty"`
 }
 
+func (n Networking) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(n))
+}
+
 type ReplicateServices struct {
 	// ToHost defines the services that should get synced from virtual cluster to the host cluster. If services are
 	// synced to a different namespace than the virtual cluster is in, additional permissions for the other namespace
@@ -709,6 +713,10 @@ type Etcd struct {
 
 	// Deploy defines to use an external etcd that is deployed by the helm chart
 	Deploy EtcdDeploy `json:"deploy,omitempty"`
+}
+
+func (e Etcd) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type EtcdEmbedded struct {
@@ -1438,6 +1446,10 @@ type Experimental struct {
 	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
 }
 
+func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
+}
+
 type ExperimentalMultiNamespaceMode struct {
 	// Enabled specifies if multi namespace mode should get enabled
 	Enabled bool `json:"enabled,omitempty"`
@@ -1465,7 +1477,7 @@ type ExperimentalIsolatedControlPlane struct {
 
 type ExperimentalSyncSettings struct {
 	// DisableSync will not sync any resources and disable most control plane functionality.
-	DisableSync bool `json:"disableSync,omitempty" product:pro`
+	DisableSync bool `json:"disableSync,omitempty" product:"pro"`
 
 	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
 	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty" product:"pro"`
@@ -1484,6 +1496,10 @@ type ExperimentalSyncSettings struct {
 
 	// VirtualMetricsBindAddress is the bind address for the virtual manager
 	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
+}
+
+func (e ExperimentalSyncSettings) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type ExperimentalDeploy struct {

@@ -912,7 +912,8 @@
       "properties": {
         "embedded": {
           "$ref": "#/$defs/EtcdEmbedded",
-          "description": "Embedded defines to use embedded etcd as a storage backend for the virtual cluster"
+          "description": "Embedded defines to use embedded etcd as a storage backend for the virtual cluster",
+          "pro": true
         },
         "deploy": {
           "$ref": "#/$defs/EtcdDeploy",
@@ -1082,7 +1083,8 @@
         },
         "isolatedControlPlane": {
           "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
-          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves."
+          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.",
+          "pro": true
         },
         "virtualClusterKubeConfig": {
           "$ref": "#/$defs/VirtualClusterKubeConfig",
@@ -1093,7 +1095,8 @@
             "$ref": "#/$defs/DenyRule"
           },
           "type": "array",
-          "description": "DenyProxyRequests denies certain requests in the vCluster proxy."
+          "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
+          "pro": true
         }
       },
       "additionalProperties": false,
@@ -1275,11 +1278,13 @@
       "properties": {
         "disableSync": {
           "type": "boolean",
-          "description": "DisableSync will not sync any resources and disable most control plane functionality."
+          "description": "DisableSync will not sync any resources and disable most control plane functionality.",
+          "pro": true
         },
         "rewriteKubernetesService": {
           "type": "boolean",
-          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled"
+          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled",
+          "pro": true
         },
         "targetNamespace": {
           "type": "string",
@@ -1793,7 +1798,8 @@
             "$ref": "#/$defs/ResolveDNS"
           },
           "type": "array",
-          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured."
+          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.",
+          "pro": true
         },
         "advanced": {
           "$ref": "#/$defs/NetworkingAdvanced",
