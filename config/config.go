@@ -300,7 +300,7 @@ type Networking struct {
 	ReplicateServices ReplicateServices `json:"replicateServices,omitempty"`
 
 	// ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.
-	ResolveDNS []ResolveDNS `json:"resolveDNS,omitempty"`
+	ResolveDNS []ResolveDNS `json:"resolveDNS,omitempty" product:"pro"`
 
 	// Advanced holds advanced network options.
 	Advanced NetworkingAdvanced `json:"advanced,omitempty"`
@@ -705,7 +705,7 @@ type DatabaseKine struct {
 
 type Etcd struct {
 	// Embedded defines to use embedded etcd as a storage backend for the virtual cluster
-	Embedded EtcdEmbedded `json:"embedded,omitempty"`
+	Embedded EtcdEmbedded `json:"embedded,omitempty" product:"pro"`
 
 	// Deploy defines to use an external etcd that is deployed by the helm chart
 	Deploy EtcdDeploy `json:"deploy,omitempty"`
@@ -1429,13 +1429,13 @@ type Experimental struct {
 	MultiNamespaceMode ExperimentalMultiNamespaceMode `json:"multiNamespaceMode,omitempty"`
 
 	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
-	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty"`
+	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty" product:"pro"`
 
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.
 	VirtualClusterKubeConfig VirtualClusterKubeConfig `json:"virtualClusterKubeConfig,omitempty"`
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
-	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" pro:"true"`
+	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
 }
 
 type ExperimentalMultiNamespaceMode struct {
@@ -1465,10 +1465,10 @@ type ExperimentalIsolatedControlPlane struct {
 
 type ExperimentalSyncSettings struct {
 	// DisableSync will not sync any resources and disable most control plane functionality.
-	DisableSync bool `json:"disableSync,omitempty"`
+	DisableSync bool `json:"disableSync,omitempty" product:pro`
 
 	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
-	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty"`
+	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty" product:"pro"`
 
 	// TargetNamespace is the namespace where the workloads should get synced to.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
