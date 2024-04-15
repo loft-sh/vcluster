@@ -102,6 +102,23 @@ func (c *Config) DecodeYAML(r io.Reader) error {
 	return nil
 }
 
+// BackingStoreType returns the backing store type of the vCluster.
+// If no backing store is enabled, it returns StoreTypeUnknown.
+func (c *Config) BackingStoreType() StoreType {
+	switch {
+	case c.ControlPlane.BackingStore.Etcd.Embedded.Enabled:
+		return StoreTypeEmbeddedEtcd
+	case c.ControlPlane.BackingStore.Etcd.Deploy.Enabled:
+		return StoreTypeExternalEtcd
+	case c.ControlPlane.BackingStore.Database.Embedded.Enabled:
+		return StoreTypeEmbeddedDatabase
+	case c.ControlPlane.BackingStore.Database.External.Enabled:
+		return StoreTypeExternalDatabase
+	default:
+		return StoreTypeEmbeddedDatabase
+	}
+}
+
 func (c *Config) Distro() string {
 	if c.ControlPlane.Distro.K3S.Enabled {
 		return K3SDistro

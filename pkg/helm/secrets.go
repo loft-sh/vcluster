@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -168,6 +169,48 @@ func NewSecrets(clientSet kubernetes.Interface) *Secrets {
 
 func (secrets *Secrets) Update(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
 	return secrets.kubeClient.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{})
+}
+
+// ListUnfiltered fetches all releases and returns the list releases such
+// that filter(release) == true. An error is returned if the
+// secret fails to retrieve the releases.
+func (secrets *Secrets) ListUnfiltered(ctx context.Context, labels kblabels.Selector, namespace string) ([]*Release, error) {
+	req, err := kblabels.NewRequirement("owner", selection.Equals, []string{"helm"})
+	if err != nil {
+		return nil, err
+	}
+	if labels == nil {
+		labels = kblabels.Everything()
+	}
+	labels = labels.Add(*req)
+	list, err := secrets.kubeClient.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labels.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// iterate over the secrets object list
+	// and decode each release
+	var results []*Release
+	for _, item := range list.Items {
+		cpy := item
+		rls, err := decodeRelease(&cpy, string(item.Data["release"]))
+		if err != nil {
+			klog.Infof("list: failed to decode release: %v", err)
+			continue
+		} else if rls.Chart == nil || rls.Chart.Metadata == nil || rls.Info == nil {
+			klog.Infof("list: metadata info is empty of release: %s", rls.Name)
+			continue
+		}
+
+		results = append(results, rls)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Version < results[j].Version
+	})
+	return results, nil
 }
 
 // List fetches all releases and returns the list releases such
