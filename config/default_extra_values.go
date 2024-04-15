@@ -15,6 +15,15 @@ const (
 	Unknown   = "unknown"
 )
 
+type StoreType string
+
+const (
+	StoreTypeEmbeddedEtcd     StoreType = "embedded-etcd"
+	StoreTypeExternalEtcd     StoreType = "external-etcd"
+	StoreTypeEmbeddedDatabase StoreType = "embedded-database"
+	StoreTypeExternalDatabase StoreType = "external-database"
+)
+
 // K3SVersionMap holds the supported k3s versions
 var K3SVersionMap = map[string]string{
 	"1.29": "rancher/k3s:v1.29.0-k3s1",

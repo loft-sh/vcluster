@@ -57,47 +57,6 @@ func (v VirtualClusterConfig) EmbeddedDatabase() bool {
 	return !v.ControlPlane.BackingStore.Database.External.Enabled && !v.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !v.ControlPlane.BackingStore.Etcd.Deploy.Enabled
 }
 
-func (v VirtualClusterConfig) Distro() string {
-	switch {
-	case v.ControlPlane.Distro.K3S.Enabled:
-		return config.K3SDistro
-	case v.ControlPlane.Distro.K0S.Enabled:
-		return config.K0SDistro
-	case v.ControlPlane.Distro.K8S.Enabled:
-		return config.K8SDistro
-	case v.ControlPlane.Distro.EKS.Enabled:
-		return config.EKSDistro
-	default:
-		return config.K8SDistro
-	}
-}
-
-type StoreType string
-
-const (
-	StoreTypeEmbeddedEtcd     StoreType = "embedded-etcd"
-	StoreTypeExternalEtcd     StoreType = "external-etcd"
-	StoreTypeEmbeddedDatabase StoreType = "embedded-database"
-	StoreTypeExternalDatabase StoreType = "external-database"
-)
-
-// BackingStoreType returns the backing store type of the vCluster.
-// If no backing store is enabled, it returns StoreTypeUnknown.
-func (v VirtualClusterConfig) BackingStoreType() StoreType {
-	switch {
-	case v.ControlPlane.BackingStore.Etcd.Embedded.Enabled:
-		return StoreTypeEmbeddedEtcd
-	case v.ControlPlane.BackingStore.Etcd.Deploy.Enabled:
-		return StoreTypeExternalEtcd
-	case v.ControlPlane.BackingStore.Database.Embedded.Enabled:
-		return StoreTypeEmbeddedDatabase
-	case v.ControlPlane.BackingStore.Database.External.Enabled:
-		return StoreTypeExternalDatabase
-	default:
-		return StoreTypeEmbeddedDatabase
-	}
-}
-
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
 	distroConfig := config.VirtualClusterKubeConfig{}
 	switch v.Distro() {
