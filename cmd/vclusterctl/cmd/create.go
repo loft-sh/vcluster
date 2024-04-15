@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -11,11 +12,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/localkubernetes"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/config"
+	vclusterConfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/config/legacyconfig"
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
@@ -138,7 +142,6 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.9.1)")
 	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", LoftChartRepo, "The virtual cluster chart repo to use")
-	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k8s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(AllowedDistros, ", ")))
 	cobraCmd.Flags().StringVar(&cmd.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cobraCmd.Flags().StringArrayVarP(&cmd.Values, "values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().StringArrayVar(&cmd.SetValues, "set", []string{}, "Set values for helm. E.g. --set 'persistence.enabled=true'")
@@ -153,9 +156,11 @@ vcluster create test --namespace test
 	// hidden / deprecated
 	cobraCmd.Flags().StringVar(&cmd.LocalChartDir, "local-chart-dir", "", "The virtual cluster local chart dir to use")
 	cobraCmd.Flags().BoolVar(&cmd.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service. Will be set to false and the passed value will be ignored if --expose is set to true.")
+	cobraCmd.Flags().StringVar(&cmd.Distro, "distro", "k8s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(AllowedDistros, ", ")))
 
 	_ = cobraCmd.Flags().MarkHidden("local-chart-dir")
 	_ = cobraCmd.Flags().MarkHidden("expose-local")
+	_ = cobraCmd.Flags().MarkHidden("distro")
 	return cobraCmd
 }
 
@@ -178,6 +183,90 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	} else if err != nil {
 		return err
 	}
+
+	err = cmd.prepare(ctx, args[0])
+	if err != nil {
+		return err
+	}
+
+	release, err := helm.NewSecrets(cmd.kubeClient).Get(ctx, args[0], cmd.Namespace)
+	if err != nil && !kerrors.IsNotFound(err) {
+		return errors.Wrap(err, "get current helm release")
+	}
+
+	var currValues string
+	var oldVClusterRunning bool
+	if isVClusterDeployed(release) {
+		currValues, err = currentValues(release)
+		if err != nil {
+			return err
+		}
+		// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
+		// Signal and migrate potential < v0.20 vCluster values.
+		if semver.Compare(release.Chart.Metadata.Version, "v0.20.0") == -1 {
+			// If we are upgrading a vCluster < 0.20 the old k3s chart is the one without a prefix.
+			distro := strings.TrimPrefix(release.Chart.Metadata.Name, "vcluster-")
+			if distro == "vcluster" {
+				distro = "k3s"
+			}
+			currValues, err = legacyconfig.MigrateLegacyConfig(distro, currValues)
+			if err != nil {
+				return err
+			}
+			oldVClusterRunning = true
+		}
+		// TODO end
+	}
+
+	// check if vcluster already exists
+	if !cmd.Upgrade {
+		if isVClusterDeployed(release) {
+			if cmd.Connect {
+				connectCmd := &ConnectCmd{
+					GlobalFlags:           cmd.GlobalFlags,
+					UpdateCurrent:         cmd.UpdateCurrent,
+					KubeConfigContextName: cmd.KubeConfigContextName,
+					KubeConfig:            "./kubeconfig.yaml",
+					Log:                   cmd.log,
+				}
+				// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
+				if oldVClusterRunning {
+					cmd.log.Infof("Seems that you are trying to connect to a virtual cluster < v0.20 that was created with the old values format (< v0.20). Consider updating your config values to the following new 0.20 format:\n\n%s", currValues)
+				}
+				// TODO end
+
+				return connectCmd.Connect(ctx, args[0], nil)
+			}
+
+			return fmt.Errorf("vcluster %s already exists in namespace %s\n- Use `vcluster create %s -n %s --upgrade` to upgrade the vcluster\n- Use `vcluster connect %s -n %s` to access the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
+		}
+	}
+
+	// find out kubernetes version
+	kubernetesVersion, err := cmd.getKubernetesVersion()
+	if err != nil {
+		return err
+	}
+
+	// load the default values
+	chartOptions, err := cmd.ToChartOptions(kubernetesVersion, cmd.log)
+	if err != nil {
+		return err
+	}
+	chartValues, err := config.GetExtraValues(chartOptions)
+	if err != nil {
+		return err
+	}
+
+	// Add the default values if the user did not pass any values files, in order to validate them against the current values.
+	if len(cmd.Values) <= 0 {
+		// We append it to the values so that our validation (distro/backinstore check) below works.
+		cmd.Values = append(cmd.Values, base64.StdEncoding.EncodeToString([]byte(chartValues)))
+	}
+
+	// Always prepend our current values, which will then be aggregated into newExtraValues and validated.
+	vals := base64.StdEncoding.EncodeToString([]byte(currValues))
+	cmd.Values = append([]string{vals}, cmd.Values...)
 
 	var newExtraValues []string
 	for _, value := range cmd.Values {
@@ -211,7 +300,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		newExtraValues = append(newExtraValues, tempValuesFile)
 	}
 
-	// Check if the passed in values adhere to our config format.
+	// Check if the passed in values adhere to our config format and if they are valid (prevent distro/backingstore switch).
 	for _, p := range newExtraValues {
 		f, err := os.Open(p)
 		if err != nil {
@@ -223,7 +312,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		err = cfg.DecodeYAML(f)
 		if err != nil {
 			if errors.Is(err, config.ErrInvalidFileFormat) {
-				cmd.log.Infof("If you are using the old values format, consider using %q to convert it to the new 0.20 format", "vcluster migrate values")
+				cmd.log.Infof("If you are using the old values format, consider using %q to convert it to the new v0.20 format", "vcluster migrate values")
 			}
 			return err
 		}
@@ -232,53 +321,22 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 			cmd.log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
 			os.Exit(0)
 		}
-	}
 
-	err = cmd.prepare(ctx, args[0])
-	if err != nil {
-		return err
+		// TODO(johannesfrey): WIP: distro/backinstore switch validation should be happening here.
+		vConfig := vclusterConfig.VirtualClusterConfig{Config: *cfg}
+		fmt.Println(vConfig)
+
+		currentCfg := &config.Config{}
+		if err := currentCfg.DecodeYAML(bytes.NewReader([]byte(currValues))); err != nil {
+			return err
+		}
+
+		currentVconfig := vclusterConfig.VirtualClusterConfig{Config: *currentCfg}
+		fmt.Println(currentVconfig)
 	}
 
 	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
 	cmd.Values = newExtraValues
-
-	// find out kubernetes version
-	kubernetesVersion, err := cmd.getKubernetesVersion()
-	if err != nil {
-		return err
-	}
-
-	// load the default values
-	chartOptions, err := cmd.ToChartOptions(kubernetesVersion, cmd.log)
-	if err != nil {
-		return err
-	}
-	chartValues, err := config.GetExtraValues(chartOptions)
-	if err != nil {
-		return err
-	}
-
-	// check if vcluster already exists
-	if !cmd.Upgrade {
-		release, err := helm.NewSecrets(cmd.kubeClient).Get(ctx, args[0], cmd.Namespace)
-		if err != nil && !kerrors.IsNotFound(err) {
-			return errors.Wrap(err, "get helm releases")
-		} else if release != nil && release.Chart != nil && release.Chart.Metadata != nil && (release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s") && release.Secret != nil && release.Secret.Labels != nil && release.Secret.Labels["status"] == "deployed" {
-			if cmd.Connect {
-				connectCmd := &ConnectCmd{
-					GlobalFlags:           cmd.GlobalFlags,
-					UpdateCurrent:         cmd.UpdateCurrent,
-					KubeConfigContextName: cmd.KubeConfigContextName,
-					KubeConfig:            "./kubeconfig.yaml",
-					Log:                   cmd.log,
-				}
-
-				return connectCmd.Connect(ctx, args[0], nil)
-			}
-
-			return fmt.Errorf("vcluster %s already exists in namespace %s\n- Use `vcluster create %s -n %s --upgrade` to upgrade the vcluster\n- Use `vcluster connect %s -n %s` to access the vcluster", args[0], cmd.Namespace, args[0], cmd.Namespace, args[0], cmd.Namespace)
-		}
-	}
 
 	// we have to upgrade / install the chart
 	err = cmd.deployChart(ctx, args[0], chartValues, helmBinaryPath)
@@ -307,6 +365,28 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	return nil
+}
+
+func isVClusterDeployed(release *helm.Release) bool {
+	return release != nil &&
+		release.Chart != nil &&
+		release.Chart.Metadata != nil &&
+		(release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" ||
+			release.Chart.Metadata.Name == "vcluster-k8s" || release.Chart.Metadata.Name == "vcluster-eks") &&
+		release.Secret != nil &&
+		release.Secret.Labels != nil &&
+		release.Secret.Labels["status"] == "deployed"
+}
+
+// currentValues retrieves the the helm values for the currently running virtual cluster.
+func currentValues(release *helm.Release) (string, error) {
+	cfg := release.Config
+	currVals, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+
+	return string(currVals), nil
 }
 
 func getBase64DecodedString(values string) (string, error) {
