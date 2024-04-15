@@ -98,12 +98,9 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{
 			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
 		}).
-		For(&corev1.Endpoints{},
-			builder.WithPredicates(pfuncs, predicate.ResourceVersionChangedPredicate{})).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}),
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()),
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
+		For(&corev1.Endpoints{}, builder.WithPredicates(pfuncs)).
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
 		Complete(e)
 }
 
@@ -128,7 +125,6 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 			Name:      "kubernetes",
 		},
 	}
-
 	result, err := controllerutil.CreateOrPatch(ctx, virtualClient, vEndpoints, func() error {
 		if vEndpoints.Labels == nil {
 			vEndpoints.Labels = map[string]string{}
@@ -173,14 +169,14 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 		return nil
 	})
 	if err != nil {
-		return nil
+		return fmt.Errorf("error patching endpoints: %w", err)
 	}
 
 	if result == controllerutil.OperationResultCreated || result == controllerutil.OperationResultUpdated {
 		return e.provider.createOrPatch(ctx, virtualClient, vEndpoints)
 	}
 
-	return err
+	return nil
 }
 
 // allAddressesIPv6 returns true if all provided addresses are IPv6.
