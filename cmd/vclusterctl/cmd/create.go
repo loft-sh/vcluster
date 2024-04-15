@@ -228,7 +228,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 			return err
 		}
 
-		if cfg.IsProFeatureEnabled() {
+		if config.ShouldCheckForProFeatures() && cfg.IsProFeatureEnabled() {
 			cmd.log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
 			os.Exit(0)
 		}

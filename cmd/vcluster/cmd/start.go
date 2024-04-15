@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 
 	"github.com/go-logr/logr"
+	vconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/plugin"
@@ -52,7 +53,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return err
 	}
 
-	if vConfig.Config.IsProFeatureEnabled() {
+	if vconfig.ShouldCheckForProFeatures() && vConfig.IsProFeatureEnabled() {
 		log, err := logr.FromContext(ctx)
 		if err != nil {
 			return err

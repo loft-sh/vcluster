@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -76,8 +77,10 @@ before running this command:
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {
-	cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
-	os.Exit(0)
+	if config.ShouldCheckForProFeatures() {
+		cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
+		os.Exit(0)
+	}
 
 	// get version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -101,8 +102,40 @@ func (c *Config) DecodeYAML(r io.Reader) error {
 	return nil
 }
 
+func (c *Config) Distro() string {
+	if c.ControlPlane.Distro.K3S.Enabled {
+		return K3SDistro
+	} else if c.ControlPlane.Distro.K0S.Enabled {
+		return K0SDistro
+	} else if c.ControlPlane.Distro.K8S.Enabled {
+		return K8SDistro
+	} else if c.ControlPlane.Distro.EKS.Enabled {
+		return EKSDistro
+	}
+
+	return K8SDistro
+}
+
+func ShouldCheckForProFeatures() bool {
+	return os.Getenv("FORCE_VCLUSTER_PRO") != "true"
+}
+
 func (c *Config) IsProFeatureEnabled() bool {
 	if len(c.Networking.ResolveDNS) > 0 {
+		return true
+	}
+
+	if c.ControlPlane.CoreDNS.Embedded {
+		return true
+	}
+
+	if c.Distro() == K8SDistro || c.Distro() == EKSDistro {
+		if c.ControlPlane.BackingStore.Database.External.Enabled {
+			return true
+		}
+	}
+
+	if c.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 		return true
 	}
 
@@ -111,10 +144,6 @@ func (c *Config) IsProFeatureEnabled() bool {
 	}
 
 	if len(c.Policies.CentralAdmission.ValidatingWebhooks) > 0 {
-		return true
-	}
-
-	if c.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 		return true
 	}
 

@@ -1071,8 +1071,7 @@
         },
         "syncSettings": {
           "$ref": "#/$defs/ExperimentalSyncSettings",
-          "description": "SyncSettings are advanced settings for the syncer controller.",
-          "pro": true
+          "description": "SyncSettings are advanced settings for the syncer controller."
         },
         "genericSync": {
           "$ref": "#/$defs/ExperimentalGenericSync",

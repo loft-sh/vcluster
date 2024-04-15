@@ -57,20 +57,6 @@ func (v VirtualClusterConfig) EmbeddedDatabase() bool {
 	return !v.Config.ControlPlane.BackingStore.Database.External.Enabled && !v.Config.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !v.Config.ControlPlane.BackingStore.Etcd.Deploy.Enabled
 }
 
-func (v VirtualClusterConfig) Distro() string {
-	if v.Config.ControlPlane.Distro.K3S.Enabled {
-		return config.K3SDistro
-	} else if v.Config.ControlPlane.Distro.K0S.Enabled {
-		return config.K0SDistro
-	} else if v.Config.ControlPlane.Distro.K8S.Enabled {
-		return config.K8SDistro
-	} else if v.Config.ControlPlane.Distro.EKS.Enabled {
-		return config.EKSDistro
-	}
-
-	return config.K8SDistro
-}
-
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
 	distroConfig := config.VirtualClusterKubeConfig{}
 	switch v.Distro() {
