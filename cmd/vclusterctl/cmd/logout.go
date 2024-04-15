@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	loftctl "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/spf13/cobra"
 )
@@ -37,6 +39,11 @@ vcluster logout
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			if config.ShouldCheckForProFeatures() {
+				cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
+				os.Exit(0)
+			}
+
 			_, err := procli.CreateProClient()
 			if err != nil {
 				return err

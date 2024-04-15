@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -13,6 +14,7 @@ import (
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/procli"
 	"github.com/loft-sh/vcluster/pkg/util/compress"
 	"github.com/mgutz/ansi"
@@ -56,6 +58,11 @@ vcluster import my-vcluster --cluster connected-cluster \
 		Long:  description,
 		Args:  loftctlUtil.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			if config.ShouldCheckForProFeatures() {
+				cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
+				os.Exit(0)
+			}
+
 			proClient, err := procli.CreateProClient()
 			if err != nil {
 				return err
