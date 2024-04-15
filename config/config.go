@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -99,6 +100,74 @@ func (c *Config) DecodeYAML(r io.Reader) error {
 	}
 
 	return nil
+}
+
+func (c *Config) Distro() string {
+	if c.ControlPlane.Distro.K3S.Enabled {
+		return K3SDistro
+	} else if c.ControlPlane.Distro.K0S.Enabled {
+		return K0SDistro
+	} else if c.ControlPlane.Distro.K8S.Enabled {
+		return K8SDistro
+	} else if c.ControlPlane.Distro.EKS.Enabled {
+		return EKSDistro
+	}
+
+	return K8SDistro
+}
+
+func ShouldCheckForProFeatures() bool {
+	return os.Getenv("FORCE_VCLUSTER_PRO") != "true"
+}
+
+func (c *Config) IsProFeatureEnabled() bool {
+	if len(c.Networking.ResolveDNS) > 0 {
+		return true
+	}
+
+	if c.ControlPlane.CoreDNS.Embedded {
+		return true
+	}
+
+	if c.Distro() == K8SDistro || c.Distro() == EKSDistro {
+		if c.ControlPlane.BackingStore.Database.External.Enabled {
+			return true
+		}
+	}
+
+	if c.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+		return true
+	}
+
+	if len(c.Policies.CentralAdmission.MutatingWebhooks) > 0 {
+		return true
+	}
+
+	if len(c.Policies.CentralAdmission.ValidatingWebhooks) > 0 {
+		return true
+	}
+
+	if c.ControlPlane.HostPathMapper.Central {
+		return true
+	}
+
+	if c.Experimental.SyncSettings.DisableSync {
+		return true
+	}
+
+	if c.Experimental.SyncSettings.RewriteKubernetesService {
+		return true
+	}
+
+	if c.Experimental.IsolatedControlPlane.Enabled {
+		return true
+	}
+
+	if len(c.Experimental.DenyProxyRequests) > 0 {
+		return true
+	}
+
+	return false
 }
 
 // ExportKubeConfig describes how vCluster should export the vCluster kubeconfig.
@@ -300,10 +369,14 @@ type Networking struct {
 	ReplicateServices ReplicateServices `json:"replicateServices,omitempty"`
 
 	// ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.
-	ResolveDNS []ResolveDNS `json:"resolveDNS,omitempty"`
+	ResolveDNS []ResolveDNS `json:"resolveDNS,omitempty" product:"pro"`
 
 	// Advanced holds advanced network options.
 	Advanced NetworkingAdvanced `json:"advanced,omitempty"`
+}
+
+func (n Networking) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(n))
 }
 
 type ReplicateServices struct {
@@ -713,10 +786,14 @@ type Etcd struct {
 
 type EtcdEmbedded struct {
 	// Enabled defines if the embedded etcd should be used.
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty" product:"pro"`
 
 	// MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd.
 	MigrateFromDeployedEtcd bool `json:"migrateFromDeployedEtcd,omitempty"`
+}
+
+func (e EtcdEmbedded) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type EtcdDeploy struct {
@@ -1429,13 +1506,17 @@ type Experimental struct {
 	MultiNamespaceMode ExperimentalMultiNamespaceMode `json:"multiNamespaceMode,omitempty"`
 
 	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
-	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty"`
+	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty" product:"pro"`
 
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.
 	VirtualClusterKubeConfig VirtualClusterKubeConfig `json:"virtualClusterKubeConfig,omitempty"`
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
-	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" pro:"true"`
+	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
+}
+
+func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type ExperimentalMultiNamespaceMode struct {
@@ -1448,7 +1529,7 @@ type ExperimentalMultiNamespaceMode struct {
 
 type ExperimentalIsolatedControlPlane struct {
 	// Enabled specifies if the isolated control plane feature should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty" product:"pro"`
 
 	// Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
 	Headless bool `json:"headless,omitempty"`
@@ -1465,10 +1546,10 @@ type ExperimentalIsolatedControlPlane struct {
 
 type ExperimentalSyncSettings struct {
 	// DisableSync will not sync any resources and disable most control plane functionality.
-	DisableSync bool `json:"disableSync,omitempty"`
+	DisableSync bool `json:"disableSync,omitempty" product:"pro"`
 
 	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
-	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty"`
+	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty" product:"pro"`
 
 	// TargetNamespace is the namespace where the workloads should get synced to.
 	TargetNamespace string `json:"targetNamespace,omitempty"`

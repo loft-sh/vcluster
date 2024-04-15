@@ -1,0 +1,5 @@
+networking:
+  resolveDNS:
+    - hostname: wikipedia.com
+      target:
+        hostname: en.wikipedia.org

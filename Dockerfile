@@ -54,7 +54,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
 # RUN useradd -u 12345 nonroot
 # USER nonroot
 
-ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go"]
+ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go", "start"]
 
 # we use alpine for easier debugging
 FROM alpine:3.19

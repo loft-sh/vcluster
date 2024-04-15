@@ -1052,7 +1052,8 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if the embedded etcd should be used."
+          "description": "Enabled defines if the embedded etcd should be used.",
+          "pro": true
         },
         "migrateFromDeployedEtcd": {
           "type": "boolean",
@@ -1082,7 +1083,8 @@
         },
         "isolatedControlPlane": {
           "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
-          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves."
+          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.",
+          "pro": true
         },
         "virtualClusterKubeConfig": {
           "$ref": "#/$defs/VirtualClusterKubeConfig",
@@ -1093,7 +1095,8 @@
             "$ref": "#/$defs/DenyRule"
           },
           "type": "array",
-          "description": "DenyProxyRequests denies certain requests in the vCluster proxy."
+          "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
+          "pro": true
         }
       },
       "additionalProperties": false,
@@ -1793,7 +1796,8 @@
             "$ref": "#/$defs/ResolveDNS"
           },
           "type": "array",
-          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured."
+          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.",
+          "pro": true
         },
         "advanced": {
           "$ref": "#/$defs/NetworkingAdvanced",
