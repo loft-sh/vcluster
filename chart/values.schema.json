@@ -912,7 +912,8 @@
       "properties": {
         "embedded": {
           "$ref": "#/$defs/EtcdEmbedded",
-          "description": "Embedded defines to use embedded etcd as a storage backend for the virtual cluster"
+          "description": "Embedded defines to use embedded etcd as a storage backend for the virtual cluster",
+          "pro": true
         },
         "deploy": {
           "$ref": "#/$defs/EtcdDeploy",
@@ -1278,11 +1279,13 @@
       "properties": {
         "disableSync": {
           "type": "boolean",
-          "description": "DisableSync will not sync any resources and disable most control plane functionality."
+          "description": "DisableSync will not sync any resources and disable most control plane functionality.",
+          "pro": true
         },
         "rewriteKubernetesService": {
           "type": "boolean",
-          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled"
+          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled",
+          "pro": true
         },
         "targetNamespace": {
           "type": "string",

@@ -778,10 +778,14 @@ type DatabaseKine struct {
 
 type Etcd struct {
 	// Embedded defines to use embedded etcd as a storage backend for the virtual cluster
-	Embedded EtcdEmbedded `json:"embedded,omitempty"`
+	Embedded EtcdEmbedded `json:"embedded,omitempty" product:"pro"`
 
 	// Deploy defines to use an external etcd that is deployed by the helm chart
 	Deploy EtcdDeploy `json:"deploy,omitempty"`
+}
+
+func (e Etcd) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type EtcdEmbedded struct {
@@ -1565,6 +1569,10 @@ type ExperimentalSyncSettings struct {
 
 	// VirtualMetricsBindAddress is the bind address for the virtual manager
 	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
+}
+
+func (e ExperimentalSyncSettings) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type ExperimentalDeploy struct {
