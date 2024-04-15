@@ -545,7 +545,7 @@ type ControlPlane struct {
 	Proxy ControlPlaneProxy `json:"proxy,omitempty"`
 
 	// HostPathMapper defines if vCluster should rewrite host paths.
-	HostPathMapper HostPathMapper `json:"hostPathMapper,omitempty"`
+	HostPathMapper HostPathMapper `json:"hostPathMapper,omitempty" product:"pro"`
 
 	// Ingress defines options for vCluster ingress deployed by Helm.
 	Ingress ControlPlaneIngress `json:"ingress,omitempty"`
@@ -561,6 +561,10 @@ type ControlPlane struct {
 
 	// Advanced holds additional configuration for the vCluster control plane.
 	Advanced ControlPlaneAdvanced `json:"advanced,omitempty"`
+}
+
+func (c ControlPlane) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(c))
 }
 
 type ControlPlaneStatefulSet struct {
@@ -885,11 +889,7 @@ type HostPathMapper struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// Central specifies if the central host path mapper will be used
-	Central bool `json:"central,omitempty" product:"pro"`
-}
-
-func (h HostPathMapper) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(h))
+	Central bool `json:"central,omitempty"`
 }
 
 type CoreDNS struct {
