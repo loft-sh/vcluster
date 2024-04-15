@@ -25,6 +25,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
+const MinHelmVersion = "v3.10.0"
+
 // CriticalStatus container status
 var CriticalStatus = map[string]bool{
 	"Error":                      true,
@@ -146,9 +148,8 @@ func HasPodProblem(pod *corev1.Pod) bool {
 }
 
 func CheckHelmVersion(output string) error {
-	min := "v3.10.0"
-	if semver.Compare(output, min) == -1 {
-		return fmt.Errorf("please ensure that the \"helm\" binary in your PATH is valid. Currently only Helm >= %s is supported", min)
+	if semver.Compare(output, MinHelmVersion) == -1 {
+		return fmt.Errorf("please ensure that the \"helm\" binary in your PATH is valid. Currently only Helm >= %s is supported", MinHelmVersion)
 	}
 
 	return nil
