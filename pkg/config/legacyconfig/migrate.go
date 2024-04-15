@@ -558,6 +558,9 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	}
 	if oldConfig.Sync.Ingresses.Enabled != nil {
 		newConfig.Sync.ToHost.Ingresses.Enabled = *oldConfig.Sync.Ingresses.Enabled
+		if *oldConfig.Sync.Ingresses.Enabled {
+			newConfig.Sync.FromHost.IngressClasses.Enabled = true
+		}
 	}
 	if oldConfig.Sync.Ingressclasses.Enabled != nil {
 		newConfig.Sync.FromHost.IngressClasses.Enabled = *oldConfig.Sync.Ingressclasses.Enabled

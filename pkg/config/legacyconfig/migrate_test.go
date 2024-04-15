@@ -76,6 +76,9 @@ plugin:
     scheduling:
       podManagementPolicy: OrderedReady
 sync:
+  fromHost:
+    ingressClasses:
+      enabled: true
   toHost:
     ingresses:
       enabled: true`,
@@ -98,6 +101,9 @@ sync:
     scheduling:
       podManagementPolicy: OrderedReady
 sync:
+  fromHost:
+    ingressClasses:
+      enabled: true
   toHost:
     ingresses:
       enabled: true`,
