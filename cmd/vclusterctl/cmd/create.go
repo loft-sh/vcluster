@@ -191,16 +191,6 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		return errors.Wrap(err, "get current helm release")
 	}
 
-	// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-	var migratedValues string
-	if isVClusterDeployed(release) {
-		migratedValues, err = migrateLegacyHelmValues(release)
-		if err != nil {
-			return err
-		}
-	}
-	// TODO end
-
 	// check if vcluster already exists
 	if !cmd.Upgrade {
 		if isVClusterDeployed(release) {
@@ -212,11 +202,6 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 					KubeConfig:            "./kubeconfig.yaml",
 					Log:                   cmd.log,
 				}
-				// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-				if migratedValues != "" {
-					cmd.log.Infof("Seems that you are trying to connect to a virtual cluster < v0.20 that was created with the old values format (< v0.20). Consider updating your config values to the following new 0.20 format:\n\n%s", migratedValues)
-				}
-				// TODO end
 
 				return connectCmd.Connect(ctx, args[0], nil)
 			}
@@ -226,9 +211,16 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-	// we do not simply upgrade a vcluster without providing a values.yalm file when it is running with a previous release, as this might result in a distro/backingstore switch.
-	if len(cmd.Values) <= 0 && migratedValues != "" {
-		return fmt.Errorf("abort upgrade: no values files were provided while the current virtual cluster is running with an old values format (< v0.20)\nConsider updating your config values to the following new v0.20 format:\n\n%s", migratedValues)
+	if isVClusterDeployed(release) {
+		migratedValues, err := migrateLegacyHelmValues(release)
+		if err != nil {
+			return err
+		}
+
+		// we do not simply upgrade a vcluster without providing a values.yaml file when it is running with a previous release, as this might result in a distro/backingstore switch.
+		if len(cmd.Values) <= 0 && migratedValues != "" {
+			return fmt.Errorf("abort upgrade: no values files were provided while the current virtual cluster is running with an old values format (< v0.20)\nConsider updating your config values to the following new v0.20 format:\n\n%s", migratedValues)
+		}
 	}
 	// TODO end
 
@@ -352,7 +344,7 @@ func isVClusterDeployed(release *helm.Release) bool {
 // migratelegacyHelmValues migrates the values of the current vCluster to the new config format.
 // Only returns a non-empty string if the passed in release is < v0.20.0.
 func migrateLegacyHelmValues(release *helm.Release) (string, error) {
-	if semver.Compare(release.Chart.Metadata.Version, "v0.20.0") != -1 {
+	if semver.Compare(release.Chart.Metadata.Version, "v0.20.0-alpha.0") != -1 {
 		// No need to migrate new releases.
 		return "", nil
 	}
