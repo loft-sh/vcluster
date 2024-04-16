@@ -203,6 +203,8 @@ func (secrets *Secrets) ListUnfiltered(ctx context.Context, labels kblabels.Sele
 			klog.Infof("list: metadata info is empty of release: %s", rls.Name)
 			continue
 		}
+
+		results = append(results, rls)
 	}
 
 	sort.Slice(results, func(i, j int) bool {
