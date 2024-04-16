@@ -56,7 +56,7 @@
         },
         "hostPathMapper": {
           "$ref": "#/$defs/HostPathMapper",
-          "description": "HostPathMapper defines if vCluster should rewrite host paths.",
+          "description": "HostPathMapper defines if vCluster should rewrite host paths. This is a Pro feature since central is a Pro feature and we don't recommend using HostPathMapper without central.",
           "pro": true
         },
         "ingress": {
@@ -517,7 +517,7 @@
         },
         "embedded": {
           "type": "boolean",
-          "description": "Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature.",
+          "description": "Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a Pro feature.",
           "pro": true
         },
         "service": {
@@ -913,7 +913,7 @@
       "properties": {
         "embedded": {
           "$ref": "#/$defs/EtcdEmbedded",
-          "description": "Embedded defines to use embedded etcd as a storage backend for the virtual cluster",
+          "description": "Embedded defines to use embedded etcd as a storage backend for the virtual cluster. This is a Pro feature.",
           "pro": true
         },
         "deploy": {
@@ -1054,8 +1054,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if the embedded etcd should be used.",
-          "pro": true
+          "description": "Enabled defines if the embedded etcd should be used."
         },
         "migrateFromDeployedEtcd": {
           "type": "boolean",
@@ -1085,7 +1084,7 @@
         },
         "isolatedControlPlane": {
           "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
-          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.",
+          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves. This is a Pro feature.",
           "pro": true
         },
         "virtualClusterKubeConfig": {
@@ -1097,7 +1096,7 @@
             "$ref": "#/$defs/DenyRule"
           },
           "type": "array",
-          "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
+          "description": "DenyProxyRequests denies certain requests in the vCluster proxy. This is a Pro feature.",
           "pro": true
         }
       },
@@ -1280,12 +1279,12 @@
       "properties": {
         "disableSync": {
           "type": "boolean",
-          "description": "DisableSync will not sync any resources and disable most control plane functionality.",
+          "description": "DisableSync will not sync any resources and disable most control plane functionality. This is a Pro feature.",
           "pro": true
         },
         "rewriteKubernetesService": {
           "type": "boolean",
-          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled",
+          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled. This is a Pro feature.",
           "pro": true
         },
         "targetNamespace": {
@@ -1799,7 +1798,7 @@
             "$ref": "#/$defs/ResolveDNS"
           },
           "type": "array",
-          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.",
+          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured. This is a Pro feature since embedded coredns is a Pro feature.",
           "pro": true
         },
         "advanced": {
@@ -2214,7 +2213,7 @@
         },
         "centralAdmission": {
           "$ref": "#/$defs/CentralAdmission",
-          "description": "CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.",
+          "description": "CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster. This is a Pro feature.",
           "pro": true
         }
       },

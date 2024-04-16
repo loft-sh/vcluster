@@ -1894,6 +1894,6 @@ func addTierToJSONSchema(base *jsonschema.Schema, t reflect.Type) {
 		if central.Extras == nil {
 			central.Extras = map[string]interface{}{}
 		}
-		central.Extras["tier"] = "pro"
+		central.Extras["pro"] = true
 	}
 }

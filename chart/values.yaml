@@ -304,7 +304,7 @@ controlPlane:
         caFile: ""
     # Etcd defines that etcd should be used as the backend for the virtual cluster
     etcd:
-      # Embedded defines to use embedded etcd as a storage backend for the virtual cluster
+      # Embedded defines to use embedded etcd as a storage backend for the virtual cluster. This is a Pro feature.
       embedded:
         # Enabled defines if the embedded etcd should be used.
         enabled: false
@@ -408,7 +408,7 @@ controlPlane:
   coredns:
     # Enabled defines if coredns is enabled
     enabled: true
-    # Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature.
+    # Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a Pro feature.
     embedded: false
     # OverwriteManifests can be used to overwrite the coredns manifests used to deploy coredns
     overwriteManifests: ""
@@ -665,7 +665,7 @@ networking:
     # FromHost defines the services that should get synced from the host to the virtual cluster.
     fromHost: []
   
-  # ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.
+  # ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured. This is a Pro feature since embedded coredns is a Pro feature.
   resolveDNS: []
   
   # Advanced holds advanced network options.
@@ -759,7 +759,7 @@ policies:
           - 172.16.0.0/12
           - 192.168.0.0/16
   
-  # CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
+  # CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster. This is a Pro feature.
   centralAdmission:
     # ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster
     validatingWebhooks: []
@@ -796,16 +796,16 @@ experimental:
   
   # SyncSettings are advanced settings for the syncer controller.
   syncSettings:
-    # DisableSync will not sync any resources and disable most control plane functionality.
+    # DisableSync will not sync any resources and disable most control plane functionality. This is a Pro feature.
     disableSync: false
-    # RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
+    # RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled. This is a Pro feature.
     rewriteKubernetesService: false
     # TargetNamespace is the namespace where the workloads should get synced to.
     targetNamespace: ""
     # SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
     setOwner: true
   
-  # IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
+  # IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves. This is a Pro feature.
   isolatedControlPlane:
     # Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
     headless: false
