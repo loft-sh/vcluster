@@ -1,5 +1,5 @@
 [build]
-base = "docs/v0.19/"
+base = "docs/"
 publish = "public/"
 command = """
     set -e
