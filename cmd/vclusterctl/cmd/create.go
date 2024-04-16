@@ -372,7 +372,7 @@ func isVClusterDeployed(release *helm.Release) bool {
 // migratelegacyHelmValues migrates the values of the current vCluster to the new config format.
 // Only returns a non-empty string if the passed in release is < v0.20.0.
 func migrateLegacyHelmValues(release *helm.Release) (string, error) {
-	if semver.Compare(release.Chart.Metadata.Version, "v0.20.0-alpha.0") != -1 {
+	if semver.Compare("v"+release.Chart.Metadata.Version, "v0.20.0-alpha.0") != -1 {
 		// No need to migrate new releases.
 		return "", nil
 	}
