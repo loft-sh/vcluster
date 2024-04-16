@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config/legacyconfig"
 	"github.com/loft-sh/vcluster/pkg/embed"
+	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	corev1 "k8s.io/api/core/v1"
@@ -169,20 +171,21 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// check helm binary
-	helmBinaryPath, err := GetHelmBinaryPath(ctx, cmd.log)
+	helmBinaryPath, err := helm.GetHelmBinaryPath(ctx, cmd.log)
 	if err != nil {
 		return err
 	}
 
 	output, err := exec.Command(helmBinaryPath, "version", "--client", "--template", "{{.Version}}").CombinedOutput()
-	if errHelm := clihelper.CheckHelmVersion(string(output)); errHelm != nil {
-		return errHelm
-	} else if err != nil {
+	if err != nil {
 		return err
 	}
 
-	err = cmd.prepare(ctx, args[0])
-	if err != nil {
+	if err := clihelper.CheckHelmVersion(string(output)); err != nil {
+		return err
+	}
+
+	if err := cmd.prepare(ctx, args[0]); err != nil {
 		return err
 	}
 
@@ -191,9 +194,11 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		return errors.Wrap(err, "get current helm release")
 	}
 
+	isCurrentlyDeployed := isVClusterDeployed(release)
+
 	// check if vcluster already exists
 	if !cmd.Upgrade {
-		if isVClusterDeployed(release) {
+		if isCurrentlyDeployed {
 			if cmd.Connect {
 				connectCmd := &ConnectCmd{
 					GlobalFlags:           cmd.GlobalFlags,
@@ -211,7 +216,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-	if isVClusterDeployed(release) {
+	if isCurrentlyDeployed {
 		migratedValues, err := migrateLegacyHelmValues(release)
 		if err != nil {
 			return err
@@ -220,6 +225,27 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		// we do not simply upgrade a vcluster without providing a values.yaml file when it is running with a previous release, as this might result in a distro/backingstore switch.
 		if len(cmd.Values) <= 0 && migratedValues != "" {
 			return fmt.Errorf("abort upgrade: no values files were provided while the current virtual cluster is running with an old values format (< v0.20)\nConsider updating your config values to the following new v0.20 format:\n\n%s", migratedValues)
+		}
+
+		// (ThomasK33): Since no value was migrated, it's safe to assume that the previous installation was a 0.20+ one
+		if release != nil {
+			releaseValues, err := yaml.Marshal(release.Config)
+			if err != nil {
+				return err
+			}
+
+			cfg := config.Config{}
+			if err := cfg.DecodeYAML(bytes.NewReader(releaseValues)); err != nil {
+				return err
+			}
+
+			if ok, err := setup.CheckUsingHelm(ctx, cmd.kubeClient, args[0], cmd.Namespace, cmd.Distro, cfg.BackingStoreType()); err != nil {
+				return err
+			} else if ok {
+				if _, err := setup.CheckUsingSecretAnnotation(ctx, cmd.kubeClient, args[0], cmd.Namespace, cmd.Distro, cfg.BackingStoreType()); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	// TODO end
@@ -278,7 +304,18 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 			os.Exit(1)
 		}
 
-		// TODO(johannesfrey): We would also need to validate here if the user is about to perform changes which would lead to distro/store changes
+		// (johannesfrey): We would also need to validate here if the user is about to perform changes which would lead to distro/store changes
+		if isCurrentlyDeployed {
+			if ok, err := setup.CheckUsingHelm(ctx, cmd.kubeClient, args[0], cmd.Namespace, cfg.Distro(), cfg.BackingStoreType()); err != nil {
+				return err
+			} else if ok {
+				continue
+			}
+
+			if _, err := setup.CheckUsingSecretAnnotation(ctx, cmd.kubeClient, args[0], cmd.Namespace, cfg.Distro(), cfg.BackingStoreType()); err != nil {
+				return err
+			}
+		}
 	}
 
 	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
@@ -372,7 +409,7 @@ func isVClusterDeployed(release *helm.Release) bool {
 // migratelegacyHelmValues migrates the values of the current vCluster to the new config format.
 // Only returns a non-empty string if the passed in release is < v0.20.0.
 func migrateLegacyHelmValues(release *helm.Release) (string, error) {
-	if semver.Compare(release.Chart.Metadata.Version, "v0.20.0-alpha.0") != -1 {
+	if semver.Compare("v"+release.Chart.Metadata.Version, "v0.20.0-alpha.0") != -1 {
 		// No need to migrate new releases.
 		return "", nil
 	}

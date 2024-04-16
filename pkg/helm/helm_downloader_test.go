@@ -1,4 +1,4 @@
-package cmd
+package helm
 
 import (
 	"context"

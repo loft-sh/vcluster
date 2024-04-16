@@ -103,7 +103,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// test for helm
-	helmBinaryPath, err := GetHelmBinaryPath(ctx, cmd.log)
+	helmBinaryPath, err := helm.GetHelmBinaryPath(ctx, cmd.log)
 	if err != nil {
 		return err
 	}
