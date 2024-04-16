@@ -275,7 +275,7 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 
 		if config.ShouldCheckForProFeatures() && cfg.IsProFeatureEnabled() {
 			cmd.log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
-			os.Exit(0)
+			os.Exit(1)
 		}
 
 		// TODO(johannesfrey): We would also need to validate here if the user is about to perform changes which would lead to distro/store changes
