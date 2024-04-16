@@ -1,4 +1,4 @@
-__webpack_public_path__ = "/docs/";
+__webpack_public_path__ = "/docs/v0.19/";
 
 module.exports = {
   title: "vcluster docs | Virtual Clusters for Kubernetes",
@@ -88,7 +88,7 @@ module.exports = {
       async: true,
     },
     {
-      src: "/docs/js/custom.js",
+      src: "/docs/v0.19/js/custom.js",
       async: true,
     },
   ],
