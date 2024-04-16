@@ -4,7 +4,7 @@ sidebar_label: Pod Scheduling
 ---
 
 <figure>
-  <img src="/docs/media/diagrams/vcluster-pod-scheduling.svg" alt="vcluster Pod Scheduling" />
+  <img src="/docs/v0.19/media/diagrams/vcluster-pod-scheduling.svg" alt="vcluster Pod Scheduling" />
   <figcaption>vcluster - Pod Scheduling</figcaption>
 </figure>
 
@@ -60,13 +60,13 @@ then create or upgrade the vCluster with:
 vcluster create my-vcluster --upgrade -f values.yaml
 ```
 
-This will pass the necessary flags to the "syncer" container and create or update the ClusterRole used by vCluster to include necessary permissions. 
+This will pass the necessary flags to the "syncer" container and create or update the ClusterRole used by vCluster to include necessary permissions.
 
 
 ### Limiting pod scheduling to selected nodes
 
 Vcluster allows you to limit on which nodes the pods synced by vCluster will run.
-You can achieve this by combining `--node-selector` and `--enforce-node-selector` syncer flags. 
+You can achieve this by combining `--node-selector` and `--enforce-node-selector` syncer flags.
 The `--enforce-node-selector` flag is enabled by default.
 When `--enforce-node-selector` flag is disabled, and a `--node-selector` is specified nodes will be synced based on the
 selector, as well as nodes running pod workloads.
@@ -100,10 +100,10 @@ vcluster create my-vcluster --upgrade -f values.yaml
 
 :::info
 When sync of the real nodes is enabled and nodeSelector is set, all nodes that match the selector will be synced into vCluster. Read more about Node sync modes on the [Nodes documentation page](./nodes.mdx).
-::: 
+:::
 
 
-### Automatically applying tolerations to all pods synced by vCluster 
+### Automatically applying tolerations to all pods synced by vCluster
 
 Kubernetes has a concept of [Taints and Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/), which is used for controlling scheduling. If you have a use case requiring all pods synced by vCluster to have a toleration set automatically, then you can achieve this with the `--enforce-toleration` syncer flag. You can pass multiple `--enforce-toleration` flags with different toleration expressions, and syncer will add them to every new pod that gets synced by vCluster.
 
@@ -131,5 +131,5 @@ syncer:
 
 :::info
 vCluster does not support setting the `tolerationSeconds` field of a toleration through the syntax that the `--enforce-toleration` flag uses. If your use case requires this, please raise an issue in [the vCluster repo on GitHub](https://github.com/loft-sh/vcluster/issues).
-::: 
+:::
 

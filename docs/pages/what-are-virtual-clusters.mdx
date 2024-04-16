@@ -6,7 +6,7 @@ sidebar_label: What Are Virtual Clusters?
 Virtual clusters are fully working Kubernetes clusters that run on top of other Kubernetes clusters. Compared to fully separate "real" clusters, virtual clusters reuse worker nodes and networking of the host cluster. They have their own control plane and schedule all workloads into a single namespace of the host cluster. Like virtual machines, virtual clusters partition a single physical cluster into multiple separate ones.
 
 <figure>
-  <img src="/docs/media/diagrams/vcluster-architecture.svg" alt="vcluster Architecture" />
+  <img src="/docs/v0.19/media/diagrams/vcluster-architecture.svg" alt="vcluster Architecture" />
   <figcaption>vCluster - Architecture</figcaption>
 </figure>
 
@@ -42,7 +42,7 @@ Because you can have many virtual clusters within a single cluster, they are muc
 Finally, virtual clusters can be configured independently of the physical cluster. This is great for multi-tenancy, like giving your customers the ability to spin up a new environment or quickly setting up demo applications for your sales team.
 
 <figure>
-    <img src="/docs/media/vcluster-comparison.png" alt="vCluster Comparison" />
+    <img src="/docs/v0.19/media/vcluster-comparison.png" alt="vCluster Comparison" />
     <figcaption>vCluster - Comparison</figcaption>
 </figure>
 

@@ -5,8 +5,8 @@ command = """
     set -e
 
     yarn build
-    mkdir public/
-    mv build/ public/docs/
+    mkdir -p public/docs
+    mv build/ public/docs/v0.19
   """
 
 [build.processing]
