@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/migrate"
 	cmdpro "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
@@ -90,7 +90,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(NewDisconnectCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
-	rootCmd.AddCommand(migrate.NewMigrateCmd(globalFlags))
+	rootCmd.AddCommand(convert.NewConvertCmd(globalFlags))
 	rootCmd.AddCommand(cmdtelemetry.NewTelemetryCmd())
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(NewInfoCmd())
