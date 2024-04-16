@@ -22,6 +22,18 @@ type VirtualClusterConfig struct {
 	// Holds the vCluster config
 	config.Config `json:",inline"`
 
+	// WorkloadConfig is the config to access the workload cluster
+	WorkloadConfig *rest.Config `json:"-"`
+
+	// WorkloadClient is the client to access the workload cluster
+	WorkloadClient kubernetes.Interface `json:"-"`
+
+	// ControlPlaneConfig is the config to access the control plane cluster
+	ControlPlaneConfig *rest.Config `json:"-"`
+
+	// ControlPlaneClient is the client to access the control plane cluster
+	ControlPlaneClient kubernetes.Interface `json:"-"`
+
 	// Name is the name of the vCluster
 	Name string `json:"name"`
 
@@ -39,22 +51,10 @@ type VirtualClusterConfig struct {
 
 	// ControlPlaneNamespace is the namespace where the vCluster control plane is running
 	ControlPlaneNamespace string `json:"controlPlaneNamespace,omitempty"`
-
-	// WorkloadConfig is the config to access the workload cluster
-	WorkloadConfig *rest.Config `json:"-"`
-
-	// WorkloadClient is the client to access the workload cluster
-	WorkloadClient kubernetes.Interface `json:"-"`
-
-	// ControlPlaneConfig is the config to access the control plane cluster
-	ControlPlaneConfig *rest.Config `json:"-"`
-
-	// ControlPlaneClient is the client to access the control plane cluster
-	ControlPlaneClient kubernetes.Interface `json:"-"`
 }
 
 func (v VirtualClusterConfig) EmbeddedDatabase() bool {
-	return !v.Config.ControlPlane.BackingStore.Database.External.Enabled && !v.Config.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !v.Config.ControlPlane.BackingStore.Etcd.Deploy.Enabled
+	return !v.ControlPlane.BackingStore.Database.External.Enabled && !v.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !v.ControlPlane.BackingStore.Etcd.Deploy.Enabled
 }
 
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
@@ -86,7 +86,7 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 		}
 	}
 
-	retConfig := v.Config.Experimental.VirtualClusterKubeConfig
+	retConfig := v.Experimental.VirtualClusterKubeConfig
 	if retConfig.KubeConfig == "" {
 		retConfig.KubeConfig = distroConfig.KubeConfig
 	}

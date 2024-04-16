@@ -254,9 +254,9 @@ func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interf
 		)
 	}
 
-	//expect up to 20 etcd members, number could be lower since more
-	//than 5 is generally a bad idea
-	for i := 0; i < 20; i++ {
+	// expect up to 20 etcd members, number could be lower since more
+	// than 5 is generally a bad idea
+	for i := range 20 {
 		// this is for embedded etcd
 		hostname := vClusterName + "-" + strconv.Itoa(i)
 		etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)

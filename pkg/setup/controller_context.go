@@ -228,10 +228,10 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *config.Virtu
 			config.Clusters[i].CertificateAuthorityData = o
 		}
 
-		if options.Config.ExportKubeConfig.Server != "" {
-			config.Clusters[i].Server = options.Config.ExportKubeConfig.Server
+		if options.ExportKubeConfig.Server != "" {
+			config.Clusters[i].Server = options.ExportKubeConfig.Server
 		} else {
-			config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", options.Config.ControlPlane.Proxy.Port)
+			config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", options.ControlPlane.Proxy.Port)
 		}
 	}
 

@@ -284,8 +284,8 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 		return err
 	}
 
-	if options.Config.ExportKubeConfig.Context != "" {
-		syncerConfig.CurrentContext = options.Config.ExportKubeConfig.Context
+	if options.ExportKubeConfig.Context != "" {
+		syncerConfig.CurrentContext = options.ExportKubeConfig.Context
 		// update authInfo
 		for k := range syncerConfig.AuthInfos {
 			syncerConfig.AuthInfos[syncerConfig.CurrentContext] = syncerConfig.AuthInfos[k]
@@ -318,20 +318,20 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 	}
 
 	// check if we need to write the kubeconfig secrete to the default location as well
-	if options.Config.ExportKubeConfig.Secret.Name != "" {
+	if options.ExportKubeConfig.Secret.Name != "" {
 		// which namespace should we create the additional secret in?
-		secretNamespace := options.Config.ExportKubeConfig.Secret.Namespace
+		secretNamespace := options.ExportKubeConfig.Secret.Namespace
 		if secretNamespace == "" {
 			secretNamespace = currentNamespace
 		}
 
 		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.Config.ExportKubeConfig.Secret.Name, secretNamespace, syncerConfig, options.Config.Experimental.IsolatedControlPlane.KubeConfig != "")
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.ExportKubeConfig.Secret.Name, secretNamespace, syncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "")
 		if err != nil {
-			return fmt.Errorf("creating %s secret in the %s ns failed: %w", options.Config.ExportKubeConfig.Secret.Name, secretNamespace, err)
+			return fmt.Errorf("creating %s secret in the %s ns failed: %w", options.ExportKubeConfig.Secret.Name, secretNamespace, err)
 		}
 	}
 
 	// write the default Secret
-	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, syncerConfig, options.Config.Experimental.IsolatedControlPlane.KubeConfig != "")
+	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, syncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "")
 }

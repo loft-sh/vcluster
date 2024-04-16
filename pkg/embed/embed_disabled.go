@@ -1,4 +1,4 @@
-//go:build !embed_charts
+//go:build !embed_chart
 
 package embed
 

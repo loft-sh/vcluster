@@ -75,10 +75,10 @@ generate-cli-docs:
 generate-config-schema:
   go run -mod vendor ./hack/schema/main.go
 
-# Embed the charts into the vcluster binary
+# Embed the chart into the vcluster binary
 [private]
-embed-charts version="0.0.0":
-  RELEASE_VERSION={{ version }} go generate -tags embed_charts ./...
+embed-chart version="0.0.0":
+  RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
 
 # Run e2e tests
 e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && delete-kind
@@ -107,7 +107,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     --debug \
     --connect=false \
     --distro={{ distribution }} \
-    --local-chart-dir ./charts/{{ distribution }} \
+    --local-chart-dir ./chart/ \
     -f ./dist/commonValues.yaml \
     -f {{ path }}/values.yaml \
     $([[ "{{ multinamespace }}" = "true" ]] && echo "-f ./test/multins_values.yaml" || echo "")
@@ -122,8 +122,8 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
 
 cli version="0.0.0" *ARGS="":
-  RELEASE_VERSION={{ version }} go generate -tags embed_charts ./...
-  go run -tags embed_charts -mod vendor -ldflags "-X main.version={{ version }}" ./cmd/vclusterctl/main.go {{ ARGS }}
+  RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
+  go run -tags embed_chart -mod vendor -ldflags "-X main.version={{ version }}" ./cmd/vclusterctl/main.go {{ ARGS }}
 
 # --- Docs ---
 

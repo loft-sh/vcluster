@@ -70,7 +70,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	}
 
 	// init config
-	err = setup.InitConfig(vConfig)
+	err = setup.InitAndValidateConfig(ctx, vConfig)
 	if err != nil {
 		return err
 	}
