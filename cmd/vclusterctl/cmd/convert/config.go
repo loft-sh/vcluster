@@ -1,4 +1,4 @@
-package migrate
+package convert
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-type valuesCmd struct {
+type configCmd struct {
 	*flags.GlobalFlags
 	log      log.Logger
 	distro   string
@@ -22,46 +22,46 @@ type valuesCmd struct {
 	format   string
 }
 
-func migrateValues(globalFlags *flags.GlobalFlags) *cobra.Command {
-	c := &valuesCmd{
+func convertValues(globalFlags *flags.GlobalFlags) *cobra.Command {
+	c := &configCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "values",
-		Short: "Migrates current cluster values",
+		Use:   "config",
+		Short: "Converts virtual cluster config values to the v0.20 format",
 		Long: `
-#######################################################
-############### vcluster migrate values ###############
-#######################################################
-Migrates values for a vcluster to the 0.20 format
+##############################################################
+################## vcluster convert config ###################
+##############################################################
+Converts virtual cluster config config to the v0.20 format
 
 Examples:
-vcluster migrate values --distro k8s -f /my/k8s/values.yaml
-vcluster migrate values --distro k3s < /my/k3s/values.yaml
-cat /my/k0s/values.yaml | vcluster migrate values --distro k0s
-#######################################################
+vcluster convert config --distro k8s -f /my/k8s/values.yaml
+vcluster convert config --distro k3s < /my/k3s/values.yaml
+cat /my/k0s/values.yaml | vcluster convert config --distro k0s
+##############################################################
 	`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return c.Run()
 		}}
 
 	cobraCmd.Flags().StringVarP(&c.filePath, "file", "f", "", "Path to the input file")
-	cobraCmd.Flags().StringVar(&c.distro, "distro", "", fmt.Sprintf("Kubernetes distro of the values. Allowed distros: %s", strings.Join([]string{"k8s", "k3s", "k0s", "eks"}, ", ")))
+	cobraCmd.Flags().StringVar(&c.distro, "distro", "", fmt.Sprintf("Kubernetes distro of the config. Allowed distros: %s", strings.Join([]string{"k8s", "k3s", "k0s", "eks"}, ", ")))
 	cobraCmd.Flags().StringVarP(&c.format, "output", "o", "yaml", "Prints the output in the specified format. Allowed values: yaml, json")
 
 	return cobraCmd
 }
 
-func (cmd *valuesCmd) Run() error {
+func (cmd *configCmd) Run() error {
 	var (
-		migratedConfig string
-		err            error
+		convertedConfig string
+		err             error
 	)
 
 	if cmd.distro == "" {
-		return fmt.Errorf("no distro given: please set \"--distro\" (IMPORTANT: distro must match the given values)")
+		return fmt.Errorf("no distro given: please set \"--distro\" (IMPORTANT: distro must match the given config values)")
 	}
 
 	if cmd.filePath != "" {
@@ -69,32 +69,32 @@ func (cmd *valuesCmd) Run() error {
 		if err != nil {
 			return err
 		}
-		migratedConfig, err = migrate(cmd.distro, file)
+		convertedConfig, err = convert(cmd.distro, file)
 		if err != nil {
-			return fmt.Errorf("unable to migrate config values: %w", err)
+			return fmt.Errorf("unable to convert config values: %w", err)
 		}
 		defer file.Close()
 	} else {
 		// If no files provided, read from stdin
-		migratedConfig, err = migrate(cmd.distro, os.Stdin)
+		convertedConfig, err = convert(cmd.distro, os.Stdin)
 		if err != nil {
-			return fmt.Errorf("unable to migrate config values: %w", err)
+			return fmt.Errorf("unable to convert config values: %w", err)
 		}
 	}
 
 	var out string
 	switch cmd.format {
 	case "json":
-		j, err := yaml.ToJSON([]byte(migratedConfig))
+		j, err := yaml.ToJSON([]byte(convertedConfig))
 		if err != nil {
 			return err
 		}
 		out = string(j)
 	case "yaml":
-		out = migratedConfig
+		out = convertedConfig
 	default:
 		fmt.Fprintf(os.Stderr, "unsupported output format: %s. falling back to yaml\n", cmd.format)
-		out = migratedConfig
+		out = convertedConfig
 	}
 
 	cmd.log.WriteString(logrus.InfoLevel, out)
@@ -102,7 +102,7 @@ func (cmd *valuesCmd) Run() error {
 	return nil
 }
 
-func migrate(distro string, r io.Reader) (string, error) {
+func convert(distro string, r io.Reader) (string, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
 		return "", err
