@@ -1,12 +1,12 @@
 [build]
-base = "docs/"
+base = "docs/v0.19/"
 publish = "public/"
 command = """
     set -e
 
     yarn build
     mkdir public/
-    mv build/ public/docs/
+    mv build/ public/docs/v0.19
   """
 
 [build.processing]
