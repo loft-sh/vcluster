@@ -5,7 +5,7 @@ command = """
     set -e
 
     yarn build
-    mkdir public/
+    mkdir -p public/docs
     mv build/ public/docs/v0.19
   """
 
