@@ -79,7 +79,7 @@ before running this command:
 func (cmd *StartCmd) Run(ctx context.Context) error {
 	if config.ShouldCheckForProFeatures() {
 		cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	// get version to deploy

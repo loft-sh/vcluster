@@ -43,7 +43,7 @@ vcluster login https://my-vcluster-pro.com --access-key myaccesskey
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			if config.ShouldCheckForProFeatures() {
 				cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
-				os.Exit(0)
+				os.Exit(1)
 			}
 
 			return cmd.RunLogin(cobraCmd.Context(), args)
