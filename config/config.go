@@ -385,15 +385,15 @@ type Networking struct {
 	// ReplicateServices allows replicating services from the host within the virtual cluster or the other way around.
 	ReplicateServices ReplicateServices `json:"replicateServices,omitempty"`
 
-	// ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.
-	ResolveDNS []ResolveDNS `json:"resolveDNS,omitempty" product:"pro"`
+	// ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured. This is a Pro feature since embedded coredns is a Pro feature.
+	ResolveDNS []ResolveDNS `json:"resolveDNS,omitempty" tier:"pro"`
 
 	// Advanced holds advanced network options.
 	Advanced NetworkingAdvanced `json:"advanced,omitempty"`
 }
 
 func (n Networking) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(n))
+	addTierToJSONSchema(base, reflect.TypeOf(n))
 }
 
 type ReplicateServices struct {
@@ -561,8 +561,8 @@ type ControlPlane struct {
 	// Proxy defines options for the virtual cluster control plane proxy that is used to do authentication and intercept requests.
 	Proxy ControlPlaneProxy `json:"proxy,omitempty"`
 
-	// HostPathMapper defines if vCluster should rewrite host paths.
-	HostPathMapper HostPathMapper `json:"hostPathMapper,omitempty" product:"pro"`
+	// HostPathMapper defines if vCluster should rewrite host paths. This is a Pro feature since central is a Pro feature and we don't recommend using HostPathMapper without central.
+	HostPathMapper HostPathMapper `json:"hostPathMapper,omitempty" tier:"pro"`
 
 	// Ingress defines options for vCluster ingress deployed by Helm.
 	Ingress ControlPlaneIngress `json:"ingress,omitempty"`
@@ -581,7 +581,7 @@ type ControlPlane struct {
 }
 
 func (c ControlPlane) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(c))
+	addTierToJSONSchema(base, reflect.TypeOf(c))
 }
 
 type ControlPlaneStatefulSet struct {
@@ -798,27 +798,23 @@ type DatabaseKine struct {
 }
 
 type Etcd struct {
-	// Embedded defines to use embedded etcd as a storage backend for the virtual cluster
-	Embedded EtcdEmbedded `json:"embedded,omitempty" product:"pro"`
+	// Embedded defines to use embedded etcd as a storage backend for the virtual cluster. This is a Pro feature.
+	Embedded EtcdEmbedded `json:"embedded,omitempty" tier:"pro"`
 
 	// Deploy defines to use an external etcd that is deployed by the helm chart
 	Deploy EtcdDeploy `json:"deploy,omitempty"`
 }
 
 func (e Etcd) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(e))
+	addTierToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type EtcdEmbedded struct {
 	// Enabled defines if the embedded etcd should be used.
-	Enabled bool `json:"enabled,omitempty" product:"pro"`
+	Enabled bool `json:"enabled,omitempty"`
 
 	// MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd.
 	MigrateFromDeployedEtcd bool `json:"migrateFromDeployedEtcd,omitempty"`
-}
-
-func (e EtcdEmbedded) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type EtcdDeploy struct {
@@ -913,8 +909,8 @@ type CoreDNS struct {
 	// Enabled defines if coredns is enabled
 	Enabled bool `json:"enabled,omitempty"`
 
-	// Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature.
-	Embedded bool `json:"embedded,omitempty" product:"pro"`
+	// Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a Pro feature.
+	Embedded bool `json:"embedded,omitempty" tier:"pro"`
 
 	// Service holds extra options for the coredns service deployed within the virtual cluster
 	Service CoreDNSService `json:"service,omitempty"`
@@ -930,7 +926,7 @@ type CoreDNS struct {
 }
 
 func (c CoreDNS) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(c))
+	addTierToJSONSchema(base, reflect.TypeOf(c))
 }
 
 type CoreDNSService struct {
@@ -1237,12 +1233,12 @@ type Policies struct {
 	// LimitRange specifies limit range options.
 	LimitRange LimitRange `json:"limitRange,omitempty"`
 
-	// CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
-	CentralAdmission CentralAdmission `json:"centralAdmission,omitempty" product:"pro"`
+	// CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster. This is a Pro feature.
+	CentralAdmission CentralAdmission `json:"centralAdmission,omitempty" tier:"pro"`
 }
 
 func (p Policies) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(p))
+	addTierToJSONSchema(base, reflect.TypeOf(p))
 }
 
 type ResourceQuota struct {
@@ -1526,18 +1522,18 @@ type Experimental struct {
 	// MultiNamespaceMode tells virtual cluster to sync to multiple namespaces instead of a single one. This will map each virtual cluster namespace to a single namespace in the host cluster.
 	MultiNamespaceMode ExperimentalMultiNamespaceMode `json:"multiNamespaceMode,omitempty"`
 
-	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
-	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty" product:"pro"`
+	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves. This is a Pro feature.
+	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty" tier:"pro"`
 
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.
 	VirtualClusterKubeConfig VirtualClusterKubeConfig `json:"virtualClusterKubeConfig,omitempty"`
 
-	// DenyProxyRequests denies certain requests in the vCluster proxy.
-	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
+	// DenyProxyRequests denies certain requests in the vCluster proxy. This is a Pro feature.
+	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" tier:"pro"`
 }
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(e))
+	addTierToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type ExperimentalMultiNamespaceMode struct {
@@ -1550,7 +1546,7 @@ type ExperimentalMultiNamespaceMode struct {
 
 type ExperimentalIsolatedControlPlane struct {
 	// Enabled specifies if the isolated control plane feature should be enabled.
-	Enabled bool `json:"enabled,omitempty" product:"pro"`
+	Enabled bool `json:"enabled,omitempty"`
 
 	// Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
 	Headless bool `json:"headless,omitempty"`
@@ -1566,11 +1562,11 @@ type ExperimentalIsolatedControlPlane struct {
 }
 
 type ExperimentalSyncSettings struct {
-	// DisableSync will not sync any resources and disable most control plane functionality.
-	DisableSync bool `json:"disableSync,omitempty" product:"pro"`
+	// DisableSync will not sync any resources and disable most control plane functionality. This is a Pro feature.
+	DisableSync bool `json:"disableSync,omitempty" tier:"pro"`
 
-	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
-	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty" product:"pro"`
+	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled. This is a Pro feature.
+	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty" tier:"pro"`
 
 	// TargetNamespace is the namespace where the workloads should get synced to.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
@@ -1589,7 +1585,7 @@ type ExperimentalSyncSettings struct {
 }
 
 func (e ExperimentalSyncSettings) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(e))
+	addTierToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type ExperimentalDeploy struct {
@@ -1874,12 +1870,12 @@ type RuleWithVerbs struct {
 	Verbs []string `json:"operations,omitempty"`
 }
 
-// addProToJSONSchema looks for fields with the `product:"pro"` tag and adds the pro tag to the central field.
+// addTierToJSONSchema looks for fields with the `tier:"pro"` tag and adds the tier tag to the central field.
 // Requires `json:""` tag to be set as well.
-func addProToJSONSchema(base *jsonschema.Schema, t reflect.Type) {
+func addTierToJSONSchema(base *jsonschema.Schema, t reflect.Type) {
 	proFields := []string{}
 	for i := 0; i < t.NumField(); i++ {
-		tag := t.Field(i).Tag.Get("product")
+		tag := t.Field(i).Tag.Get("tier")
 		jsonName := strings.Split(t.Field(i).Tag.Get("json"), ",")[0]
 		if tag == "" {
 			continue
@@ -1898,6 +1894,6 @@ func addProToJSONSchema(base *jsonschema.Schema, t reflect.Type) {
 		if central.Extras == nil {
 			central.Extras = map[string]interface{}{}
 		}
-		central.Extras["pro"] = true
+		central.Extras["tier"] = "pro"
 	}
 }
