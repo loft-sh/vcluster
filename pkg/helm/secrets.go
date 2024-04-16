@@ -192,25 +192,25 @@ func (secrets *Secrets) ListUnfiltered(ctx context.Context, labels kblabels.Sele
 
 	// iterate over the secrets object list
 	// and decode each release
-	var results []*Release
+	var releases []*Release
 	for _, item := range list.Items {
 		cpy := item
-		rls, err := decodeRelease(&cpy, string(item.Data["release"]))
+		release, err := decodeRelease(&cpy, string(item.Data["release"]))
 		if err != nil {
-			klog.Infof("list: failed to decode release: %v", err)
+			klog.FromContext(ctx).Error(err, "list: failed to decode release")
 			continue
-		} else if rls.Chart == nil || rls.Chart.Metadata == nil || rls.Info == nil {
-			klog.Infof("list: metadata info is empty of release: %s", rls.Name)
+		} else if release.Chart == nil || release.Chart.Metadata == nil || release.Info == nil {
+			klog.FromContext(ctx).Info("list: metadata info is empty for release", "name", release.Name)
 			continue
 		}
 
-		results = append(results, rls)
+		releases = append(releases, release)
 	}
 
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Version < results[j].Version
+	sort.Slice(releases, func(i, j int) bool {
+		return releases[i].Version < releases[j].Version
 	})
-	return results, nil
+	return releases, nil
 }
 
 // List fetches all releases and returns the list releases such

@@ -135,12 +135,11 @@ func CheckUsingHelm(ctx context.Context, client kubernetes.Interface, name, name
 
 	// Try parsing as 0.20 values
 	if success, err := func() (bool, error) {
-		previousHelmValues := vclusterconfig.Config{}
-		if err := previousHelmValues.DecodeYAML(bytes.NewReader(previousConfigRaw)); err != nil {
+		previousConfig := vclusterconfig.Config{}
+		if err := previousConfig.DecodeYAML(bytes.NewReader(previousConfigRaw)); err != nil {
 			return false, nil
 		}
 
-		previousConfig := config.VirtualClusterConfig{Config: previousHelmValues}
 		if err := validateChanges(
 			backingStoreType,
 			previousConfig.BackingStoreType(),
@@ -160,15 +159,17 @@ func CheckUsingHelm(ctx context.Context, client kubernetes.Interface, name, name
 	// Try parsing as < 0.20 values
 	var previousStoreType vclusterconfig.StoreType
 	previousDistro := ""
-	if previousRelease.Chart.Metadata.Name == "vcluster-k8s" {
+
+	switch previousRelease.Chart.Metadata.Name {
+	case "vcluster-k8s":
 		previousDistro = vclusterconfig.K8SDistro
-	} else if previousRelease.Chart.Metadata.Name == "vcluster-eks" {
+	case "vcluster-eks":
 		previousDistro = vclusterconfig.EKSDistro
-	} else if previousRelease.Chart.Metadata.Name == "vcluster-k0s" {
+	case "vcluster-k0s":
 		previousDistro = vclusterconfig.K0SDistro
-	} else if previousRelease.Chart.Metadata.Name == "vcluster" {
+	case "vcluster":
 		previousDistro = vclusterconfig.K3SDistro
-	} else {
+	default:
 		// unknown chart, we should exit here
 		return true, nil
 	}
@@ -202,7 +203,7 @@ func CheckUsingHelm(ctx context.Context, client kubernetes.Interface, name, name
 	}
 
 	if err := validateChanges(backingStoreType, previousStoreType, distro, previousDistro); err != nil {
-		return false, nil
+		return false, err
 	}
 
 	return true, nil
