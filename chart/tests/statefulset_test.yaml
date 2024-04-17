@@ -377,4 +377,23 @@ tests:
             name: data
             emptyDir: {}
 
+  - it: append distro env
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+            env:
+            - name: KEY
+              value: VALUE
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KEY
+            value: VALUE
+
 
