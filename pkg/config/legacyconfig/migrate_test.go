@@ -310,6 +310,33 @@ sync:
     scheduling:
       podManagementPolicy: OrderedReady`,
 		},
+		{
+			Name:   "scheduler",
+			Distro: "k3s",
+			In: `sync:
+  csistoragecapacities:
+    enabled: false
+  csinodes:
+    enabled: false
+  nodes:
+    enableScheduler: true`,
+			Expected: `controlPlane:
+  advanced:
+    virtualScheduler:
+      enabled: true
+  distro:
+    k3s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+sync:
+  fromHost:
+    csiNodes:
+      enabled: false
+    csiStorageCapacities:
+      enabled: false`,
+		},
 	}
 
 	for _, testCase := range testCases {

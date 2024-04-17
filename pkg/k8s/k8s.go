@@ -222,7 +222,7 @@ func StartK8S(
 }
 
 func RunCommand(ctx context.Context, command []string, component string) error {
-	writer, err := commandwriter.NewCommandWriter(component)
+	writer, err := commandwriter.NewCommandWriter(component, false)
 	if err != nil {
 		return err
 	}

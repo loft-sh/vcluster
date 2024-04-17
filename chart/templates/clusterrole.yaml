@@ -36,6 +36,26 @@ rules:
     resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
     verbs: ["get", "watch", "list"]
   {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.storageClasses.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiNodes.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csidrivers"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiStorageCapacities.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csistoragecapacities"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
   {{- if .Values.sync.toHost.persistentVolumes.enabled }}
   - apiGroups: [""]
     resources: ["persistentvolumes"]
@@ -50,11 +70,6 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
-  {{- end }}
-  {{- if .Values.sync.fromHost.storageClasses.enabled }}
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses"]
-    verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if .Values.sync.toHost.priorityClasses.enabled }}
   - apiGroups: ["scheduling.k8s.io"]

@@ -44,14 +44,14 @@ sync:
     events:
       enabled: true
     csiDrivers:
-      enabled: false
+      enabled: auto
     csiNodes:
-      enabled: false
+      enabled: auto
     csiStorageCapacities:
-      enabled: false
-    ingressClasses:
-      enabled: false
+      enabled: auto
     storageClasses:
+      enabled: auto
+    ingressClasses:
       enabled: false
     nodes:
       enabled: false

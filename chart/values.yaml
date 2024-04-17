@@ -71,20 +71,24 @@ sync:
     # Events defines if events should get synced from the host cluster to the virtual cluster, but not back.
     events:
       enabled: true
-    # CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back.
+    # CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
     csiDrivers:
-      enabled: false
-    # CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back.
+      # Enabled defines if this option should be enabled.
+      enabled: auto
+    # CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
     csiNodes:
-      enabled: false
-    # CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back.
+      # Enabled defines if this option should be enabled.
+      enabled: auto
+    # CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
     csiStorageCapacities:
-      enabled: false
+      # Enabled defines if this option should be enabled.
+      enabled: auto
+    # StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+    storageClasses:
+      # Enabled defines if this option should be enabled.
+      enabled: auto
     # IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
     ingressClasses:
-      enabled: false
-    # StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back.
-    storageClasses:
       enabled: false
     # Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
     nodes:

@@ -196,20 +196,20 @@ func (v VirtualClusterConfig) DisableMissingAPIs(discoveryClient discovery.Disco
 	}
 
 	// check if found
-	if v.Sync.FromHost.CSINodes.Enabled && !findResource(resources, "csinodes") {
-		v.Sync.FromHost.CSINodes.Enabled = false
+	if v.Sync.FromHost.CSINodes.Enabled != "false" && !findResource(resources, "csinodes") {
+		v.Sync.FromHost.CSINodes.Enabled = "false"
 		klog.Warningf("host kubernetes apiserver not advertising resource csinodes in GroupVersion storage.k8s.io/v1, disabling the syncer")
 	}
 
 	// check if found
-	if v.Sync.FromHost.CSIDrivers.Enabled && !findResource(resources, "csidrivers") {
-		v.Sync.FromHost.CSIDrivers.Enabled = false
+	if v.Sync.FromHost.CSIDrivers.Enabled != "false" && !findResource(resources, "csidrivers") {
+		v.Sync.FromHost.CSIDrivers.Enabled = "false"
 		klog.Warningf("host kubernetes apiserver not advertising resource csidrivers in GroupVersion storage.k8s.io/v1, disabling the syncer")
 	}
 
 	// check if found
-	if v.Sync.FromHost.CSIStorageCapacities.Enabled && !findResource(resources, "csistoragecapacities") {
-		v.Sync.FromHost.CSIStorageCapacities.Enabled = false
+	if v.Sync.FromHost.CSIStorageCapacities.Enabled != "false" && !findResource(resources, "csistoragecapacities") {
+		v.Sync.FromHost.CSIStorageCapacities.Enabled = "false"
 		klog.Warningf("host kubernetes apiserver not advertising resource csistoragecapacities in GroupVersion storage.k8s.io/v1, disabling the syncer")
 	}
 

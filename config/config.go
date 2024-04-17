@@ -275,17 +275,22 @@ type SyncFromHost struct {
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
 	IngressClasses EnableSwitch `json:"ingressClasses,omitempty"`
 
-	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back.
-	StorageClasses EnableSwitch `json:"storageClasses,omitempty"`
+	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+	StorageClasses EnableAutoSwitch `json:"storageClasses,omitempty"`
 
-	// CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back.
-	CSINodes EnableSwitch `json:"csiNodes,omitempty"`
+	// CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+	CSINodes EnableAutoSwitch `json:"csiNodes,omitempty"`
 
-	// CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back.
-	CSIDrivers EnableSwitch `json:"csiDrivers,omitempty"`
+	// CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+	CSIDrivers EnableAutoSwitch `json:"csiDrivers,omitempty"`
 
-	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back.
-	CSIStorageCapacities EnableSwitch `json:"csiStorageCapacities,omitempty"`
+	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+	CSIStorageCapacities EnableAutoSwitch `json:"csiStorageCapacities,omitempty"`
+}
+
+type EnableAutoSwitch struct {
+	// Enabled defines if this option should be enabled.
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
 }
 
 type EnableSwitch struct {

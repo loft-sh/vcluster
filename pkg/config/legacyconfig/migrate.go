@@ -529,6 +529,8 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	}
 
 	// sync
+
+	// enable additional controllers required for scheduling with storage
 	if oldConfig.Sync.Services.Enabled != nil {
 		newConfig.Sync.ToHost.Services.Enabled = *oldConfig.Sync.Services.Enabled
 	}
@@ -596,7 +598,7 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 		newConfig.Sync.ToHost.StorageClasses.Enabled = *oldConfig.Sync.StorageClasses.Enabled
 	}
 	if oldConfig.Sync.Hoststorageclasses.Enabled != nil {
-		newConfig.Sync.FromHost.StorageClasses.Enabled = *oldConfig.Sync.Hoststorageclasses.Enabled
+		newConfig.Sync.FromHost.StorageClasses.Enabled = config.StrBool(strconv.FormatBool(*oldConfig.Sync.Hoststorageclasses.Enabled))
 	}
 	if oldConfig.Sync.Priorityclasses.Enabled != nil {
 		newConfig.Sync.ToHost.PriorityClasses.Enabled = *oldConfig.Sync.Priorityclasses.Enabled
@@ -612,6 +614,15 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	}
 	if oldConfig.Sync.Serviceaccounts.Enabled != nil {
 		newConfig.Sync.ToHost.ServiceAccounts.Enabled = *oldConfig.Sync.Serviceaccounts.Enabled
+	}
+	if oldConfig.Sync.CSINodes.Enabled != nil {
+		newConfig.Sync.FromHost.CSINodes.Enabled = config.StrBool(strconv.FormatBool(*oldConfig.Sync.CSINodes.Enabled))
+	}
+	if oldConfig.Sync.CSIStorageCapacities.Enabled != nil {
+		newConfig.Sync.FromHost.CSIStorageCapacities.Enabled = config.StrBool(strconv.FormatBool(*oldConfig.Sync.CSIStorageCapacities.Enabled))
+	}
+	if oldConfig.Sync.CSIDrivers.Enabled != nil {
+		newConfig.Sync.FromHost.CSIDrivers.Enabled = config.StrBool(strconv.FormatBool(*oldConfig.Sync.CSIDrivers.Enabled))
 	}
 	if oldConfig.Sync.Generic.Config != "" {
 		genericSyncConfig := &config.ExperimentalGenericSync{}
