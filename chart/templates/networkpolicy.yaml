@@ -30,7 +30,7 @@ spec:
     - ports:
         - port: 443
         - port: 8443
-      to:
+    - to:
         - podSelector:
             matchLabels:
               release: {{ .Release.Name }}
@@ -78,21 +78,25 @@ spec:
     matchLabels:
       release: {{ .Release.Name }}
   egress:
-    # Allows outgoing connections to all pods with
-    # port 443, 8443 or 6443. This is needed for host Kubernetes
-    # access
+    # Allows outgoing connections to all necessary pods with
+    # port 443, 8443 or 6443 or system dns. This is needed for
+    # host Kubernetes access.
     - ports:
         - port: 443
         - port: 8443
         - port: 6443
-    # Allows outgoing connections to all vcluster workloads
-    # or kube system dns server
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
     - to:
-        - podSelector: {}
+        - podSelector:
+            matchLabels:
+              release: {{ .Release.Name }}
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: 'kube-system'
-          podSelector:
+        - podSelector:
             matchLabels:
               k8s-app: kube-dns
   policyTypes:
