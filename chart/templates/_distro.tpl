@@ -1,12 +1,12 @@
 {{- define "vcluster.distro.env" -}}
 {{- if and (eq (include "vcluster.distro" .) "k3s") .Values.controlPlane.distro.k3s.env -}}
-{{ .Values.controlPlane.distro.k3s.env }}
+{{ toYaml .Values.controlPlane.distro.k3s.env }}
 {{- else if and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.env -}}
-{{ .Values.controlPlane.distro.k8s.env }}
+{{ toYaml .Values.controlPlane.distro.k8s.env }}
 {{- else if and (eq (include "vcluster.distro" .) "k0s") .Values.controlPlane.distro.k0s.env -}}
-{{ .Values.controlPlane.distro.k0s.env }}
+{{ toYaml .Values.controlPlane.distro.k0s.env }}
 {{- else if and (eq (include "vcluster.distro" .) "eks") .Values.controlPlane.distro.eks.env -}}
-{{ .Values.controlPlane.distro.eks.env }}
+{{ toYaml .Values.controlPlane.distro.eks.env }}
 {{- end -}}
 {{- end -}}
 
