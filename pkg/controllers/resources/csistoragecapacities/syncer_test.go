@@ -103,7 +103,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = true
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
@@ -116,7 +116,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = true
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).SyncToHost(syncCtx, vObj)
@@ -134,7 +134,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = true
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObjUpdated, vObj)
@@ -242,7 +242,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = false
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -267,7 +267,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = false
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -292,7 +292,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = false
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -312,7 +312,7 @@ func TestSyncStorageClass(t *testing.T) {
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = false
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -337,7 +337,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = false
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -362,7 +362,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = false
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
@@ -387,7 +387,7 @@ func TestSyncStorageClass(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = false
+				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)

@@ -26,7 +26,10 @@
     .Values.sync.toHost.volumeSnapshots.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.fromHost.ingressClasses.enabled
-    .Values.sync.fromHost.storageClasses.enabled
+    (eq (toString .Values.sync.fromHost.storageClasses.enabled) "true")
+    (eq (toString .Values.sync.fromHost.csiNodes.enabled) "true")
+    (eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true")
+    (eq (toString .Values.sync.fromHost.csiStorageCapacities.enabled) "true")
     .Values.sync.fromHost.nodes.enabled
     .Values.observability.metrics.proxy.nodes
     .Values.experimental.multiNamespaceMode.enabled -}}

@@ -899,6 +899,23 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "EnableAutoSwitch": {
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled defines if this option should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "EnableSwitch": {
       "properties": {
         "enabled": {
@@ -2598,20 +2615,20 @@
           "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "storageClasses": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back."
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiNodes": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back."
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiDrivers": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back."
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiStorageCapacities": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back."
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         }
       },
       "additionalProperties": false,

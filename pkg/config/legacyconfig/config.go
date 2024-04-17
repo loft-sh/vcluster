@@ -166,6 +166,9 @@ type SyncValues struct {
 	Volumesnapshots        EnabledSwitch  `json:"volumesnapshots,omitempty"`
 	Poddisruptionbudgets   EnabledSwitch  `json:"poddisruptionbudgets,omitempty"`
 	Serviceaccounts        EnabledSwitch  `json:"serviceaccounts,omitempty"`
+	CSIStorageCapacities   EnabledSwitch  `json:"csistoragecapacities,omitempty"`
+	CSINodes               EnabledSwitch  `json:"csinodes,omitempty"`
+	CSIDrivers             EnabledSwitch  `json:"csidrivers,omitempty"`
 	Generic                SyncGeneric    `json:"generic,omitempty"`
 }
 

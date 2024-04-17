@@ -127,7 +127,7 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 	args = append(args, vConfig.ControlPlane.Distro.K0S.ExtraArgs...)
 
 	// check what writer we should use
-	writer, err := commandwriter.NewCommandWriter("k0s")
+	writer, err := commandwriter.NewCommandWriter("k0s", false)
 	if err != nil {
 		return err
 	}

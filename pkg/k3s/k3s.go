@@ -86,7 +86,7 @@ func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, service
 	args = append(args, vConfig.ControlPlane.Distro.K3S.ExtraArgs...)
 
 	// check what writer we should use
-	writer, err := commandwriter.NewCommandWriter("k3s")
+	writer, err := commandwriter.NewCommandWriter("k3s", false)
 	if err != nil {
 		return err
 	}
