@@ -174,10 +174,13 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	output, err := exec.Command(helmBinaryPath, "version", "--client", "--template", "{{.Version}}").CombinedOutput()
-	if errHelm := clihelper.CheckHelmVersion(string(output)); errHelm != nil {
-		return errHelm
-	} else if err != nil {
+	output, err := exec.Command(helmBinaryPath, "version", "--client", "--template", "{{.Version}}").Output()
+	if err != nil {
+		return err
+	}
+
+	err = clihelper.CheckHelmVersion(string(output))
+	if err != nil {
 		return err
 	}
 

@@ -108,12 +108,14 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output, err := exec.Command(helmBinaryPath, "version", "--client", "--template", "{{.Version}}").CombinedOutput()
-	if errHelm := clihelper.CheckHelmVersion(string(output)); errHelm != nil {
-		return errHelm
-	}
+	output, err := exec.Command(helmBinaryPath, "version", "--client", "--template", "{{.Version}}").Output()
 	if err != nil {
-		return fmt.Errorf("seems like there are issues with your helm client: \n\n%s", output)
+		return err
+	}
+
+	err = clihelper.CheckHelmVersion(string(output))
+	if err != nil {
+		return err
 	}
 
 	// check if namespace
