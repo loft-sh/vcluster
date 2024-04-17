@@ -169,7 +169,7 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("error patching endpoints: %w", err)
+		return fmt.Errorf("error patching endpoints  : %w", err)
 	}
 
 	if result == controllerutil.OperationResultCreated || result == controllerutil.OperationResultUpdated {
