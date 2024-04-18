@@ -39,8 +39,20 @@ sync:
       rewriteHosts:
         # Enabled specifies if rewriting stateful set pods should be enabled.
         enabled: true
-        # InitContainerImage is the image virtual cluster should use to rewrite this FQDN.
-        initContainerImage: "library/alpine:3.13.1"
+        # InitContainer holds extra options for the init container used by vCluster to rewrite the FQDN for stateful set pods.
+        initContainer:
+          # Image is the image virtual cluster should use to rewrite this FQDN.
+          image: "library/alpine:3.13.1"
+          # Resources are the resources that should be assigned to the init container for each stateful set init container.
+          resources:
+            # Limits are resource limits for the container
+            limits:
+              cpu: 30m
+              memory: 64Mi
+            # Requests are minimal resources that will be consumed by the container
+            requests:
+              cpu: 30m
+              memory: 64Mi
     # Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
     ingresses:
       enabled: false
