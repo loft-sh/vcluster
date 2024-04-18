@@ -358,7 +358,10 @@ func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 
 // Copied from "k8s.io/apiserver/pkg/server" package
 func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Handler {
-	handler := filterlatency.TrackCompleted(apiHandler)
+	// adding here for plugins that request the req to be authorized
+	handler := plugin.DefaultManager.WithInterceptors(apiHandler)
+
+	handler = filterlatency.TrackCompleted(handler)
 	handler = genericapifilters.WithAuthorization(handler, c.Authorization.Authorizer, c.Serializer)
 	handler = filterlatency.TrackStarted(handler, c.TracerProvider, "authorization")
 
@@ -426,7 +429,6 @@ func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Ha
 
 	// this is for the plugins to be able to catch the requests with the info in the
 	// context
-	handler = plugin.DefaultManager.WithInterceptors(handler)
 	handler = genericapifilters.WithRequestInfo(handler, c.RequestInfoResolver)
 	handler = genericapifilters.WithRequestReceivedTimestamp(handler)
 
