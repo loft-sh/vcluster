@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -80,9 +81,12 @@ func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	// creating a predicate to receive reconcile requests for kubernetes endpoint only
 	pp := func(object client.Object) bool {
-		return object.GetNamespace() == e.ServiceNamespace && object.GetName() == e.ServiceName
+		pass := object.GetNamespace() == e.ServiceNamespace && object.GetName() == e.ServiceName
+
+		e.Log.Infof("fzf queue. uuid: %q, resourceVersion: %q, svc name: %q, svc namespace: %q, pass: %q", object.GetUID(), object.GetResourceVersion(), object.GetName(), object.GetNamespace(), pass)
+		return pass
 	}
-	pfuncs := predicate.NewPredicateFuncs(pp)
+	physicalServicePredicate := predicate.NewPredicateFuncs(pp)
 
 	vp := func(object client.Object) bool {
 		if object.GetNamespace() == specialservices.DefaultKubernetesSvcKey.Namespace && object.GetName() == specialservices.DefaultKubernetesSvcKey.Name {
@@ -91,16 +95,16 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 
 		return false
 	}
-	vfuncs := predicate.NewPredicateFuncs(vp)
+	virtualServicePredicate := predicate.NewPredicateFuncs(vp)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("kubernetes_default_endpoint").
 		WithOptions(controller.Options{
 			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
 		}).
-		For(&corev1.Endpoints{}, builder.WithPredicates(pfuncs)).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
+		For(&corev1.Endpoints{}, builder.WithPredicates(physicalServicePredicate)).
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}), &handler.EnqueueRequestForObject{}, builder.WithPredicates(virtualServicePredicate)).
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()), &handler.EnqueueRequestForObject{}, builder.WithPredicates(virtualServicePredicate)).
 		Complete(e)
 }
 
@@ -125,6 +129,16 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 			Name:      "kubernetes",
 		},
 	}
+
+	reconcileID := uuid.New().String()
+	log := e.Log.WithName(reconcileID)
+
+	logEndpoints := func(pe *corev1.Endpoints, msg string) {
+		log.Infof("fzf %q: ======== sync triggered with physical endpoints: %+v\n===", msg, pe)
+		log.Infof("fzf %q: ===== subsets %+v\n=====", msg, pe.Subsets)
+		log.Infof("fzf %q: ===== resourceVersion %+v\n=====", msg, pe.GetResourceVersion())
+	}
+	logEndpoints(pEndpoints, "1 outer")
 	result, err := controllerutil.CreateOrPatch(ctx, virtualClient, vEndpoints, func() error {
 		if vEndpoints.Labels == nil {
 			vEndpoints.Labels = map[string]string{}
@@ -133,7 +147,9 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 
 		// build new subsets
 		newSubsets := []corev1.EndpointSubset{}
+		logEndpoints(pEndpoints, "2 inner")
 		for _, subset := range pEndpoints.Subsets {
+			log.Infof("fzf  3 subset: %+v\n====", subset)
 			newPorts := []corev1.EndpointPort{}
 			for _, p := range subset.Ports {
 				if p.Name != "https" {
@@ -145,13 +161,16 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 
 			newAddresses := []corev1.EndpointAddress{}
 			for _, address := range subset.Addresses {
+				log.Infof("fzf 4: ready address: %+v\n ===", address)
 				address.Hostname = ""
 				address.NodeName = nil
 				address.TargetRef = nil
 				newAddresses = append(newAddresses, address)
 			}
+			log.Infof("fzf 5: ready addresses: %+v\n ===", newAddresses)
 			newNotReadyAddresses := []corev1.EndpointAddress{}
 			for _, address := range subset.NotReadyAddresses {
+				log.Infof("fzf 6: not ready address: %+v\n ===", address)
 				address.Hostname = ""
 				address.NodeName = nil
 				address.TargetRef = nil
@@ -165,6 +184,7 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 			})
 		}
 
+		log.Infof("fzf 7: new subsets: %+v\n===", newSubsets)
 		vEndpoints.Subsets = newSubsets
 		return nil
 	})

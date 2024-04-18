@@ -9,7 +9,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -27,15 +27,18 @@ var _ = ginkgo.Describe("map default/kubernetes endpoint to physical vcluster en
 		ctx := f.Context
 
 		waitErr := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, framework.PollTimeout*2, true, func(ctx context.Context) (done bool, err error) {
-			hostClusterEndpoint, err := f.HostClient.CoreV1().Endpoints(f.VclusterNamespace).Get(ctx, "vcluster", v1.GetOptions{})
+			hostClusterEndpoint, err := f.HostClient.CoreV1().Endpoints(f.VclusterNamespace).Get(ctx, "vcluster", metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
 
-			vclusterEndpoint, err := f.VclusterClient.CoreV1().Endpoints("default").Get(ctx, "kubernetes", v1.GetOptions{})
+			vclusterEndpoint, err := f.VclusterClient.CoreV1().Endpoints("default").Get(ctx, "kubernetes", metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
+
+			// reduce logs
+			vclusterEndpoint.ManagedFields = []metav1.ManagedFieldsEntry{}
 
 			hostClusterIps := make([]string, 0)
 			hostClusterPorts := make([]int32, 0)
@@ -62,9 +65,13 @@ var _ = ginkgo.Describe("map default/kubernetes endpoint to physical vcluster en
 			}
 
 			if !reflect.DeepEqual(hostClusterIps, vClusterIps) || !reflect.DeepEqual(hostClusterPorts, vClusterPorts) {
-				out, _ := yaml.Marshal(vclusterEndpoint)
 
-				fmt.Println("IPs", hostClusterIps, vClusterIps, string(out))
+				hostClusterEndpointYaml, _ := yaml.Marshal(hostClusterEndpoint)
+				fmt.Println("============ host cluster endpoint:\n ", string(hostClusterEndpointYaml), "======= end hostcluster endpoint =========")
+				vclusterEndpointYaml, _ := yaml.Marshal(vclusterEndpoint)
+				fmt.Println("============ vcluster cluster endpoint:\n ", string(vclusterEndpointYaml), "====== end vcluster endpoint ============")
+
+				fmt.Println("IPs", hostClusterIps, vClusterIps, "\n endpoints:", string(vclusterEndpointYaml))
 				fmt.Println("Ports", hostClusterPorts, vClusterPorts)
 				return false, nil
 			}
