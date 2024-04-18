@@ -924,7 +924,7 @@ func migrateFlag(key, value string, newConfig *config.Config) error {
 			return fmt.Errorf("value is missing")
 		}
 
-		newConfig.Sync.ToHost.Pods.RewriteHosts.InitContainerImage = value
+		newConfig.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image = value
 	case "cluster-domain":
 		if value == "" {
 			return fmt.Errorf("value is missing")

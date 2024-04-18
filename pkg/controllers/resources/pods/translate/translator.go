@@ -20,6 +20,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -68,6 +69,20 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 	virtualLogsPath := path.Join(virtualPath, "log")
 	virtualKubeletPath := path.Join(virtualPath, "kubelet")
 
+	// parse resource requirements
+	resourceRequirements := corev1.ResourceRequirements{
+		Limits:   map[corev1.ResourceName]resource.Quantity{},
+		Requests: map[corev1.ResourceName]resource.Quantity{},
+	}
+	resourceRequirements.Limits, err = parseResources(ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Resources.Limits)
+	if err != nil {
+		return nil, fmt.Errorf("parse init container resource limits: %w", err)
+	}
+	resourceRequirements.Requests, err = parseResources(ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Resources.Requests)
+	if err != nil {
+		return nil, fmt.Errorf("parse init container resource requests: %w", err)
+	}
+
 	return &translator{
 		vClientConfig: ctx.VirtualManager.GetConfig(),
 		vClient:       ctx.VirtualManager.GetClient(),
@@ -84,12 +99,15 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		serviceAccountSecretsEnabled: ctx.Config.Sync.ToHost.Pods.UseSecretsForSATokens,
 		clusterDomain:                ctx.Config.Networking.Advanced.ClusterDomain,
 		serviceAccount:               ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
-		overrideHosts:                ctx.Config.Sync.ToHost.Pods.RewriteHosts.Enabled,
-		overrideHostsImage:           ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainerImage,
-		serviceAccountsEnabled:       ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
-		priorityClassesEnabled:       ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
-		enableScheduler:              ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
-		syncedLabels:                 ctx.Config.Experimental.SyncSettings.SyncLabels,
+
+		overrideHosts:          ctx.Config.Sync.ToHost.Pods.RewriteHosts.Enabled,
+		overrideHostsImage:     ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image,
+		overrideHostsResources: resourceRequirements,
+
+		serviceAccountsEnabled: ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
+		priorityClassesEnabled: ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
+		enableScheduler:        ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		syncedLabels:           ctx.Config.Experimental.SyncSettings.SyncLabels,
 
 		mountPhysicalHostPaths: ctx.Config.ControlPlane.HostPathMapper.Enabled && !ctx.Config.ControlPlane.HostPathMapper.Central,
 
@@ -120,6 +138,7 @@ type translator struct {
 	serviceAccount               string
 	overrideHosts                bool
 	overrideHostsImage           string
+	overrideHostsResources       corev1.ResourceRequirements
 	priorityClassesEnabled       bool
 	enableScheduler              bool
 	syncedLabels                 []string
@@ -264,7 +283,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 	// would be deployed in a non virtual kubernetes cluster
 	if pPod.Spec.Subdomain != "" {
 		if t.overrideHosts {
-			rewritePodHostnameFQDN(pPod, t.defaultImageRegistry, t.overrideHostsImage, pPod.Spec.Hostname, pPod.Spec.Hostname, pPod.Spec.Hostname+"."+pPod.Spec.Subdomain+"."+vPod.Namespace+".svc."+t.clusterDomain)
+			t.rewritePodHostnameFQDN(pPod, pPod.Spec.Hostname, pPod.Spec.Hostname, pPod.Spec.Hostname+"."+pPod.Spec.Subdomain+"."+vPod.Namespace+".svc."+t.clusterDomain)
 		}
 
 		pPod.Spec.Subdomain = ""
@@ -854,4 +873,23 @@ func ServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1
 		retMap[k] = strings.ReplaceAll(v, "IP", kubeIP)
 	}
 	return retMap
+}
+
+func parseResources(resources map[string]interface{}) (corev1.ResourceList, error) {
+	resourceList := corev1.ResourceList{}
+	for key, value := range resources {
+		strValue, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("resource value of %s is not a string", key)
+		}
+
+		parsedQuantity, err := resource.ParseQuantity(strValue)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing resource value %s (%s): %w", key, strValue, err)
+		}
+
+		resourceList[corev1.ResourceName(key)] = parsedQuantity
+	}
+
+	return resourceList, nil
 }

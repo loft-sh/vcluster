@@ -331,8 +331,16 @@ type SyncRewriteHosts struct {
 	// Enabled specifies if rewriting stateful set pods should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// InitContainerImage is the image virtual cluster should use to rewrite this FQDN.
-	InitContainerImage string `json:"initContainerImage,omitempty"`
+	// InitContainer holds extra options for the init container used by vCluster to rewrite the FQDN for stateful set pods.
+	InitContainer SyncRewriteHostsInitContainer `json:"initContainer,omitempty"`
+}
+
+type SyncRewriteHostsInitContainer struct {
+	// Image is the image virtual cluster should use to rewrite this FQDN.
+	Image string `json:"image,omitempty"`
+
+	// Resources are the resources that should be assigned to the init container for each stateful set init container.
+	Resources Resources `json:"resources,omitempty"`
 }
 
 type SyncNodes struct {

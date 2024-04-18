@@ -22,7 +22,15 @@ sync:
       useSecretsForSATokens: false
       rewriteHosts:
         enabled: true
-        initContainerImage: "library/alpine:3.13.1"
+        initContainer:
+          image: "library/alpine:3.13.1"
+          resources:
+            limits:
+              cpu: 30m
+              memory: 64Mi
+            requests:
+              cpu: 30m
+              memory: 64Mi
     ingresses:
       enabled: false
     priorityClasses:

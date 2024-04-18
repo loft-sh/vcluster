@@ -2711,9 +2711,23 @@
           "type": "boolean",
           "description": "Enabled specifies if rewriting stateful set pods should be enabled."
         },
-        "initContainerImage": {
+        "initContainer": {
+          "$ref": "#/$defs/SyncRewriteHostsInitContainer",
+          "description": "InitContainer holds extra options for the init container used by vCluster to rewrite the FQDN for stateful set pods."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SyncRewriteHostsInitContainer": {
+      "properties": {
+        "image": {
           "type": "string",
-          "description": "InitContainerImage is the image virtual cluster should use to rewrite this FQDN."
+          "description": "Image is the image virtual cluster should use to rewrite this FQDN."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Resources are the resources that should be assigned to the init container for each stateful set init container."
         }
       },
       "additionalProperties": false,
