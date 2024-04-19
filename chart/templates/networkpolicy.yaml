@@ -30,7 +30,7 @@ spec:
     - ports:
         - port: 443
         - port: 8443
-    - to:
+      to:
         - podSelector:
             matchLabels:
               release: {{ .Release.Name }}
@@ -96,7 +96,7 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: 'kube-system'
-        - podSelector:
+          podSelector:
             matchLabels:
               k8s-app: kube-dns
   policyTypes:
