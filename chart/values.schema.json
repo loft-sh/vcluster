@@ -1360,12 +1360,38 @@
           "type": "boolean",
           "description": "Enabled specifies if multi namespace mode should get enabled"
         },
+        "namespaceNameFormat": {
+          "$ref": "#/$defs/ExperimentalMultiNamespaceNameFormat",
+          "description": "NamespaceNameFormat allows you to customize the name of the physical namespaces."
+        },
         "namespaceLabels": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
           "description": "NamespaceLabels are extra labels that will be added by vCluster to each created namespace."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalMultiNamespaceNameFormat": {
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "description": "Prefix is the prefix added to the physical namespaces.\nIf empty, the default is to use \"vcluster\""
+        },
+        "rawBase": {
+          "type": "boolean",
+          "description": "If RawBase is true, use the virtual namespace as is, otherwise hash it."
+        },
+        "rawSuffix": {
+          "type": "boolean",
+          "description": "If RawSuffix is true, use the cluster name as is, otherwise hash it."
+        },
+        "avoidRedundantFormatting": {
+          "type": "boolean",
+          "description": "If AvoidRedundantFormatting is true, we check if base (the name between prefix and suffix)\nalready contains the prefix and suffix. In that case, we just return base, instead of\nformatting again. Otherwise, we always add prefix and suffix."
         }
       },
       "additionalProperties": false,

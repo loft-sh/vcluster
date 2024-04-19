@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,14 +15,16 @@ import (
 
 var _ Translator = &multiNamespace{}
 
-func NewMultiNamespaceTranslator(currentNamespace string) Translator {
+func NewMultiNamespaceTranslator(currentNamespace string, nameFormat config.ExperimentalMultiNamespaceNameFormat) Translator {
 	return &multiNamespace{
 		currentNamespace: currentNamespace,
+		nameFormat:       nameFormat,
 	}
 }
 
 type multiNamespace struct {
 	currentNamespace string
+	nameFormat       config.ExperimentalMultiNamespaceNameFormat
 }
 
 func (s *multiNamespace) SingleNamespaceTarget() bool {
@@ -68,25 +71,34 @@ func (s *multiNamespace) IsManaged(_ *synccontext.SyncContext, pObj client.Objec
 }
 
 func (s *multiNamespace) IsTargetedNamespace(ns string) bool {
-	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, getNamespaceSuffix(s.currentNamespace, VClusterName))
+	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, s.getNamespaceSuffix())
 }
 
 func (s *multiNamespace) getNamespacePrefix() string {
-	return "vcluster"
+	return s.nameFormat.Prefix
 }
 
 func (s *multiNamespace) HostNamespace(vNamespace string) string {
-	return hostNamespace(s.currentNamespace, vNamespace, s.getNamespacePrefix(), VClusterName)
+	base := vNamespace
+	if !s.nameFormat.RawBase {
+		sha := sha256.Sum256([]byte(base))
+		base = hex.EncodeToString(sha[0:])[0:8]
+	}
+	if s.nameFormat.AvoidRedundantFormatting && s.IsTargetedNamespace(base) {
+		return base
+	}
+	prefix := s.getNamespacePrefix()
+	suffix := s.getNamespaceSuffix()
+	return fmt.Sprintf("%s-%s-%s", prefix, base, suffix)
 }
 
-func hostNamespace(currentNamespace, vNamespace, prefix, suffix string) string {
-	sha := sha256.Sum256([]byte(vNamespace))
-	return fmt.Sprintf("%s-%s-%s", prefix, hex.EncodeToString(sha[0:])[0:8], getNamespaceSuffix(currentNamespace, suffix))
-}
-
-func getNamespaceSuffix(currentNamespace, suffix string) string {
-	sha := sha256.Sum256([]byte(currentNamespace + "x" + suffix))
-	return hex.EncodeToString(sha[0:])[0:8]
+func (s *multiNamespace) getNamespaceSuffix() string {
+	suffix := VClusterName
+	if !s.nameFormat.RawSuffix {
+		sha := sha256.Sum256([]byte(s.currentNamespace + "x" + suffix))
+		suffix = hex.EncodeToString(sha[0:])[0:8]
+	}
+	return suffix
 }
 
 func (s *multiNamespace) MarkerLabelCluster() string {

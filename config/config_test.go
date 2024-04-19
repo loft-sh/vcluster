@@ -334,6 +334,23 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "Namespace reformatting on multinamespace mode does not use Pro features",
+			config: &Config{
+				Experimental: Experimental{
+					MultiNamespaceMode: ExperimentalMultiNamespaceMode{
+						Enabled: true,
+						NamespaceNameFormat: ExperimentalMultiNamespaceNameFormat{
+							Prefix:                   "foo",
+							RawBase:                  true,
+							RawSuffix:                true,
+							AvoidRedundantFormatting: true,
+						},
+					},
+				},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {

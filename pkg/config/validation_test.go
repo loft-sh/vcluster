@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/loft-sh/vcluster/config"
@@ -124,4 +125,59 @@ func mutHook(clientCfg config.ValidatingWebhookClientConfig) config.MutatingWebh
 		},
 	}
 	return hook
+}
+
+func TestValidateConfigAndSetDefaults(t *testing.T) {
+	testCases := []struct {
+		name      string
+		wantErr   string
+		config    VirtualClusterConfig
+		checkFunc func(config *VirtualClusterConfig) error
+	}{
+		{
+			name:    "multi-namespace namespace name formatting default prefix",
+			wantErr: "",
+			config:  VirtualClusterConfig{},
+			checkFunc: func(config *VirtualClusterConfig) error {
+				if prefix := config.Experimental.MultiNamespaceMode.NamespaceNameFormat.Prefix; prefix != "vcluster" {
+					return fmt.Errorf("unexpected prefix %q", prefix)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "multi-namespace namespace name formatting custom prefix",
+			wantErr: "",
+			config: VirtualClusterConfig{
+				Config: config.Config{
+					Experimental: config.Experimental{
+						MultiNamespaceMode: config.ExperimentalMultiNamespaceMode{
+							NamespaceNameFormat: config.ExperimentalMultiNamespaceNameFormat{
+								Prefix: "foo",
+							},
+						},
+					},
+				},
+			},
+			checkFunc: func(config *VirtualClusterConfig) error {
+				if prefix := config.Experimental.MultiNamespaceMode.NamespaceNameFormat.Prefix; prefix != "foo" {
+					return fmt.Errorf("unexpected prefix %q", prefix)
+				}
+				return nil
+			},
+		},
+	}
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			outputConfig := tt.config
+			err := ValidateConfigAndSetDefaults(&outputConfig)
+			if err != nil && (tt.wantErr == "" || tt.wantErr != err.Error()) {
+				t.Errorf("wanted err to be %s but got %s", tt.wantErr, err.Error())
+			} else if err == nil && tt.wantErr != "" {
+				t.Errorf("wanted err to be %s but got nil", tt.wantErr)
+			} else if err := tt.checkFunc(&outputConfig); err != nil {
+				t.Errorf("wanted check err to be nil but got %s", err.Error())
+			}
+		})
+	}
 }

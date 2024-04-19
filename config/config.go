@@ -1679,8 +1679,28 @@ type ExperimentalMultiNamespaceMode struct {
 	// Enabled specifies if multi namespace mode should get enabled
 	Enabled bool `json:"enabled,omitempty"`
 
+	// NamespaceNameFormat allows you to customize the name of the physical namespaces.
+	NamespaceNameFormat ExperimentalMultiNamespaceNameFormat `json:"namespaceNameFormat,omitempty"`
+
 	// NamespaceLabels are extra labels that will be added by vCluster to each created namespace.
 	NamespaceLabels map[string]string `json:"namespaceLabels,omitempty"`
+}
+
+type ExperimentalMultiNamespaceNameFormat struct {
+	// Prefix is the prefix added to the physical namespaces.
+	// If empty, the default is to use "vcluster"
+	Prefix string `json:"prefix,omitempty"`
+
+	// If RawBase is true, use the virtual namespace as is, otherwise hash it.
+	RawBase bool `json:"rawBase,omitempty"`
+
+	// If RawSuffix is true, use the cluster name as is, otherwise hash it.
+	RawSuffix bool `json:"rawSuffix,omitempty"`
+
+	// If AvoidRedundantFormatting is true, we check if base (the name between prefix and suffix)
+	// already contains the prefix and suffix. In that case, we just return base, instead of
+	// formatting again. Otherwise, we always add prefix and suffix.
+	AvoidRedundantFormatting bool `json:"avoidRedundantFormatting,omitempty"`
 }
 
 type ExperimentalIsolatedControlPlane struct {

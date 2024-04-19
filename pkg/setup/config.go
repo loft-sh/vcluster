@@ -47,7 +47,7 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 
 	// get workload target namespace
 	if vConfig.Experimental.MultiNamespaceMode.Enabled {
-		translate.Default = translate.NewMultiNamespaceTranslator(vConfig.WorkloadNamespace)
+		translate.Default = translate.NewMultiNamespaceTranslator(vConfig.WorkloadNamespace, vConfig.Experimental.MultiNamespaceMode.NamespaceNameFormat)
 	} else {
 		// ensure target namespace
 		vConfig.WorkloadTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace

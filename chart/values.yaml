@@ -821,6 +821,8 @@ experimental:
   multiNamespaceMode:
     # Enabled specifies if multi namespace mode should get enabled
     enabled: false
+    # NamespaceNameFormat allows you to customize the name of the physical namespaces.
+    namespaceNameFormat: {}
   
   # SyncSettings are advanced settings for the syncer controller.
   syncSettings:

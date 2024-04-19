@@ -9,6 +9,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
@@ -119,7 +120,9 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 
 	var multiNamespaceMode bool
 	if os.Getenv("MULTINAMESPACE_MODE") == "true" {
-		translate.Default = translate.NewMultiNamespaceTranslator(ns)
+		translate.Default = translate.NewMultiNamespaceTranslator(ns, config.ExperimentalMultiNamespaceNameFormat{
+			Prefix: "vcluster",
+		})
 		multiNamespaceMode = true
 	} else {
 		translate.Default = translate.NewSingleNamespaceTranslator(ns)
