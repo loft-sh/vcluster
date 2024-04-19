@@ -497,6 +497,7 @@ plugins: {}
 experimental:
   multiNamespaceMode:
     enabled: false
+    namespaceNameFormat: {}
 
   syncSettings:
     disableSync: false
