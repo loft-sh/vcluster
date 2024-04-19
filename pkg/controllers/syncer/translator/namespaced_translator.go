@@ -80,6 +80,10 @@ func (n *namespacedTranslator) SyncToHostCreate(ctx *context.SyncContext, vObj, 
 			ctx.Log.Debugf("error syncing %s %s/%s to physical cluster: %v", n.name, vObj.GetNamespace(), vObj.GetName(), err)
 			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
+		if kerrors.IsAlreadyExists(err) {
+			ctx.Log.Debugf("ignoring syncing %s %s/%s to physical cluster as it already exists", n.name, vObj.GetNamespace(), vObj.GetName())
+			return ctrl.Result{}, nil
+		}
 		ctx.Log.Infof("error syncing %s %s/%s to physical cluster: %v", n.name, vObj.GetNamespace(), vObj.GetName(), err)
 		n.eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, err
