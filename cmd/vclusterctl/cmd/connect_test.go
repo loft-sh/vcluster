@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"gotest.tools/v3/assert"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )

@@ -9,7 +9,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

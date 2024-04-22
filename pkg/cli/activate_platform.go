@@ -1,24 +1,19 @@
-package cmd
+package cli
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v3/pkg/client"
-	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/procli"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/util/compress"
 	"github.com/mgutz/ansi"
-	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,105 +21,50 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-type ImportCmd struct {
-	*flags.GlobalFlags
-	Log            log.Logger
-	ClusterName    string
-	Project        string
-	ImportName     string
-	DisableUpgrade bool
-}
-
-func NewImportCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
-	cmd := &ImportCmd{
-		GlobalFlags: globalFlags,
-		Log:         log.GetInstance(),
+func ActivatePlatform(ctx context.Context, options *ActivateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+	proClient, err := platform.CreatePlatformClient()
+	if err != nil {
+		return err
 	}
 
-	description := `########################################################
-################### vcluster import ####################
-########################################################
-Imports a vcluster into a vCluster.Pro project.
-
-Example:
-vcluster import my-vcluster --cluster connected-cluster \
---namespace vcluster-my-vcluster --project my-project --importname my-vcluster
-#######################################################
-	`
-
-	importCmd := &cobra.Command{
-		Use:   "import" + loftctlUtil.VClusterNameOnlyUseLine,
-		Short: "Imports a vcluster into a vCluster.Pro project",
-		Long:  description,
-		Args:  loftctlUtil.VClusterNameOnlyValidator,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			if config.ShouldCheckForProFeatures() {
-				cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
-				os.Exit(1)
-			}
-
-			proClient, err := procli.CreateProClient()
-			if err != nil {
-				return err
-			}
-
-			if cmd.Project == "" {
-				cmd.Project, err = getProjectName(cobraCmd.Context(), proClient)
-				if err != nil {
-					return err
-				}
-			}
-
-			if cmd.ClusterName == "" {
-				cmd.ClusterName, err = getClusterName(cobraCmd.Context(), globalFlags.Context)
-				if err != nil {
-					return err
-				}
-			}
-
-			return cmd.Run(cobraCmd.Context(), args, proClient)
-		},
+	if options.Project == "" {
+		options.Project, err = getProjectName(ctx, proClient)
+		if err != nil {
+			return err
+		}
 	}
 
-	importCmd.Flags().StringVar(&cmd.ClusterName, "cluster", "", "Cluster name of the cluster the virtual cluster is running on")
-	importCmd.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vcluster into")
-	importCmd.Flags().StringVar(&cmd.ImportName, "importname", "", "The name of the vcluster under projects. If unspecified, will use the vcluster name")
-	importCmd.Flags().BoolVar(&cmd.DisableUpgrade, "disable-upgrade", false, "If true, will disable auto-upgrade of the imported vcluster to vCluster.Pro")
-
-	return importCmd, nil
-}
-
-// Run executes the functionality
-func (cmd *ImportCmd) Run(ctx context.Context, args []string, proClient client.Client) error {
-	// Get vClusterName from command argument
-	vClusterName := args[0]
+	if options.ClusterName == "" {
+		options.ClusterName, err = getClusterName(ctx, globalFlags.Context)
+		if err != nil {
+			return err
+		}
+	}
 
 	managementClient, err := proClient.Management()
 	if err != nil {
 		return err
 	}
 
-	if cmd.Namespace == "" {
-		cmd.Namespace, err = GetVClusterNamespace(ctx, cmd.Context, vClusterName, cmd.Namespace, cmd.Log)
+	if globalFlags.Namespace == "" {
+		globalFlags.Namespace, err = GetVClusterNamespace(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 		if err != nil {
-			cmd.Log.Warnf("Error retrieving vcluster namespace: %v", err)
+			log.Warnf("Error retrieving vCluster namespace: %v", err)
 		}
 	}
 
-	if _, err = managementClient.Loft().ManagementV1().Projects().ImportVirtualCluster(ctx, cmd.Project, &managementv1.ProjectImportVirtualCluster{
+	if _, err = managementClient.Loft().ManagementV1().Projects().ImportVirtualCluster(ctx, options.Project, &managementv1.ProjectImportVirtualCluster{
 		SourceVirtualCluster: managementv1.ProjectImportVirtualClusterSource{
 			Name:       vClusterName,
-			Namespace:  cmd.Namespace,
-			Cluster:    cmd.ClusterName,
-			ImportName: cmd.ImportName,
+			Namespace:  globalFlags.Namespace,
+			Cluster:    options.ClusterName,
+			ImportName: options.ImportName,
 		},
-		UpgradeToPro: !cmd.DisableUpgrade,
 	}, metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
-	cmd.Log.Donef("Successfully imported vcluster %s into project %s", ansi.Color(vClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
-
+	log.Donef("Successfully imported vCluster %s into project %s", ansi.Color(vClusterName, "white+b"), ansi.Color(options.Project, "white+b"))
 	return nil
 }
 
@@ -133,7 +73,7 @@ func GetVClusterNamespace(ctx context.Context, context, name, namespace string, 
 		return "", fmt.Errorf("please specify a name")
 	}
 
-	// list vclusters
+	// list vClusters
 	ossVClusters, err := find.ListOSSVClusters(ctx, context, name, namespace)
 	if err != nil {
 		log.Warnf("Error retrieving vclusters: %v", err)
@@ -253,7 +193,7 @@ func findSecret(ctx context.Context, kubeContext, secretName string) (*corev1.Se
 	return nil, nil
 }
 
-func getProjectName(ctx context.Context, proClient client.Client) (string, error) {
+func getProjectName(ctx context.Context, proClient platform.Client) (string, error) {
 	managementClient, err := proClient.Management()
 	if err != nil {
 		return "", err

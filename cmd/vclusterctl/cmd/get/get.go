@@ -1,7 +1,7 @@
 package get
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
 

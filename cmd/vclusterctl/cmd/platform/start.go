@@ -1,4 +1,4 @@
-package pro
+package platform
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/procli"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -84,9 +84,9 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 
 	// get version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {
-		cmd.Version = procli.MinimumVersionTag
+		cmd.Version = platform.MinimumVersionTag
 
-		latestVersion, err := procli.LatestCompatibleVersion(context.TODO())
+		latestVersion, err := platform.LatestCompatibleVersion(context.TODO())
 		if err == nil {
 			cmd.Version = latestVersion
 		}

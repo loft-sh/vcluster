@@ -1,4 +1,4 @@
-package procli
+package platform
 
 import (
 	"context"

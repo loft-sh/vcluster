@@ -1,4 +1,4 @@
-package pro
+package platform
 
 import (
 	"encoding/json"
@@ -20,25 +20,28 @@ var (
 	ErrNotLoggedIn    = errors.New("not logged in")
 )
 
-// TokenCmd holds the cmd flags
-type TokenCmd struct {
-	log log.Logger
+// AccessKeyCmd holds the cmd flags
+type AccessKeyCmd struct {
 	*flags.GlobalFlags
+
 	Project               string
 	VirtualCluster        string
 	DirectClusterEndpoint bool
+
+	log log.Logger
 }
 
-// NewTokenCmd creates a new command
-func NewTokenCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &TokenCmd{
+// NewAccessKeyCmd creates a new command
+func NewAccessKeyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	cmd := &AccessKeyCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
 
-	tokenCmd := &cobra.Command{
-		Use:   "token",
-		Short: "Token prints the access token to a vCluster.Pro instance",
+	accessKeyCmd := &cobra.Command{
+		Use:     "access-key",
+		Aliases: []string{"token"},
+		Short:   "Token prints the access token to a vCluster.Pro instance",
 		Long: `########################################################
 ################## vcluster pro token ##################
 ########################################################
@@ -56,14 +59,14 @@ vcluster pro token
 		},
 	}
 
-	tokenCmd.Flags().BoolVar(&cmd.DirectClusterEndpoint, "direct-cluster-endpoint", false, "When enabled prints a direct cluster endpoint token")
-	tokenCmd.Flags().StringVar(&cmd.Project, "project", "", "The project containing the virtual cluster")
-	tokenCmd.Flags().StringVar(&cmd.VirtualCluster, "virtual-cluster", "", "The virtual cluster")
-	return tokenCmd
+	accessKeyCmd.Flags().BoolVar(&cmd.DirectClusterEndpoint, "direct-cluster-endpoint", false, "When enabled prints a direct cluster endpoint token")
+	accessKeyCmd.Flags().StringVar(&cmd.Project, "project", "", "The project containing the virtual cluster")
+	accessKeyCmd.Flags().StringVar(&cmd.VirtualCluster, "virtual-cluster", "", "The virtual cluster")
+	return accessKeyCmd
 }
 
 // Run executes the command
-func (cmd *TokenCmd) Run() error {
+func (cmd *AccessKeyCmd) Run() error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -79,7 +82,7 @@ func (cmd *TokenCmd) Run() error {
 	return tokenFunc(cmd, baseClient)
 }
 
-func getToken(cmd *TokenCmd, baseClient client.Client) error {
+func getToken(cmd *AccessKeyCmd, baseClient client.Client) error {
 	// get config
 	config := baseClient.Config()
 	if config == nil {
@@ -124,7 +127,7 @@ func printToken(token string) error {
 	return err
 }
 
-func getCertificate(cmd *TokenCmd, baseClient client.Client) error {
+func getCertificate(cmd *AccessKeyCmd, baseClient client.Client) error {
 	certificateData, keyData, err := baseClient.VirtualClusterAccessPointCertificate(cmd.Project, cmd.VirtualCluster, false)
 	if err != nil {
 		return err

@@ -1,4 +1,4 @@
-package cmd
+package helmdownloader
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/mitchellh/go-homedir"
 	"gotest.tools/assert"
 )
@@ -19,7 +19,7 @@ func TestGetHelmBinaryPath(t *testing.T) {
 		assert.NilError(t, err)
 		home, err := homedir.Dir()
 		assert.NilError(t, err)
-		installPath := filepath.Join(home, cliconfig.VClusterFolder, "bin", "helm")
+		installPath := filepath.Join(home, constants.VClusterFolder, "bin", "helm")
 		assert.Equal(t, helmBinaryPath, installPath)
 	}
 }

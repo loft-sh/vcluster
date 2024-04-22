@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -43,11 +44,11 @@ const (
 	StatusUnknown Status = "Unknown"
 )
 
-type VclusterNotFoundError struct {
+type VClusterNotFoundError struct {
 	Name string
 }
 
-func (e *VclusterNotFoundError) Error() string {
+func (e *VClusterNotFoundError) Error() string {
 	return fmt.Sprintf("couldn't find vcluster %s", e.Name)
 }
 
@@ -65,6 +66,49 @@ func CurrentContext() (string, *clientcmdapi.Config, error) {
 	return rawConfig.CurrentContext, &rawConfig, nil
 }
 
+func GetPlatformVCluster(ctx context.Context, proClient platform.Client, name, project string, log log.Logger) (*platform.VirtualClusterInstanceProject, error) {
+	platformVClusters, err := platform.ListVClusters(ctx, proClient, name, project)
+	if err != nil {
+		log.Warnf("Error retrieving pro vclusters: %v", err)
+	}
+
+	// figure out what we want to return
+	if len(platformVClusters) == 0 {
+		return nil, &VClusterNotFoundError{Name: name}
+	} else if len(platformVClusters) == 1 {
+		return &platformVClusters[0], nil
+	}
+
+	// check if terminal
+	if !terminal.IsTerminalIn {
+		return nil, fmt.Errorf("multiple vclusters with name %s found, please specify a project via --project to select the correct one", name)
+	}
+
+	// ask a question
+	questionOptionsUnformatted := [][]string{}
+	for _, vCluster := range platformVClusters {
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{name, vCluster.Project.Name})
+	}
+	questionOptions := FormatOptions("Name: %s | Project: %s", questionOptionsUnformatted)
+	selectedVCluster, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a virtual cluster to use",
+		DefaultValue: questionOptions[0],
+		Options:      questionOptions,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// match answer
+	for idx, s := range questionOptions {
+		if s == selectedVCluster {
+			return &platformVClusters[idx], nil
+		}
+	}
+
+	return nil, fmt.Errorf("unexpected error searching for selected vcluster")
+}
+
 func GetVCluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
 	if name == "" {
 		return nil, fmt.Errorf("please specify a name")
@@ -78,7 +122,7 @@ func GetVCluster(ctx context.Context, context, name, namespace string, log log.L
 
 	// figure out what we want to return
 	if len(ossVClusters) == 0 {
-		return nil, &VclusterNotFoundError{Name: name}
+		return nil, &VClusterNotFoundError{Name: name}
 	} else if len(ossVClusters) == 1 {
 		return &ossVClusters[0], nil
 	}
@@ -191,6 +235,25 @@ func ListOSSVClusters(ctx context.Context, context, name, namespace string) ([]V
 
 func VClusterContextName(vClusterName string, vClusterNamespace string, currentContext string) string {
 	return "vcluster_" + vClusterName + "_" + vClusterNamespace + "_" + currentContext
+}
+
+func VClusterPlatformContextName(vClusterName string, projectName string, currentContext string) string {
+	return "vcluster-platform_" + vClusterName + "_" + projectName + "_" + currentContext
+}
+
+func VClusterPlatformFromContext(originalContext string) (name string, project string, context string) {
+	if !strings.HasPrefix(originalContext, "vcluster-platform_") {
+		return "", "", ""
+	}
+
+	splitted := strings.Split(originalContext, "_")
+	// vcluster-pro_<name>_<namespace>_<context>
+	if len(splitted) >= 4 {
+		return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
+	}
+
+	// we don't know for sure, but most likely specified custom vcluster context name
+	return originalContext, "", ""
 }
 
 func VClusterConnectBackgroundProxyName(vClusterName string, vClusterNamespace string, currentContext string) string {
