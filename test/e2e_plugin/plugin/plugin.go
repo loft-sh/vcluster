@@ -1,4 +1,4 @@
-package e2eplugin
+package plugin
 
 import (
 	"time"

@@ -1,4 +1,4 @@
-package e2eisolatedmode
+package isolation
 
 import (
 	"context"

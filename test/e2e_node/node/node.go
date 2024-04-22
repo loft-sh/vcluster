@@ -1,4 +1,4 @@
-package e2enode
+package node
 
 import (
 	"reflect"

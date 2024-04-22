@@ -2009,11 +2009,11 @@
       "properties": {
         "value": {
           "type": "string",
-          "description": "Value specifies the api key as a regular text value."
+          "description": "Value specifies the access key as a regular text value."
         },
         "secretRef": {
           "$ref": "#/$defs/PlatformAccessKeySecretReference",
-          "description": "SecretRef defines where to find the platform access key. By default vCluster will search in the following locations in this precedence:\n* platform.apiKey.value\n* environment variable called LICENSE\n* secret specified under platform.secret.name\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
+          "description": "SecretRef defines where to find the platform access key. By default, vCluster will search in the following locations in this precedence:\n* platform.accessKey.value\n* environment variable called LICENSE\n* secret specified under platform.secret.name\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
         }
       },
       "additionalProperties": false,

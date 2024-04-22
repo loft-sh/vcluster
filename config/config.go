@@ -1673,11 +1673,11 @@ type PlatformOwner struct {
 }
 
 type PlatformAccessKey struct {
-	// Value specifies the api key as a regular text value.
+	// Value specifies the access key as a regular text value.
 	Value string `json:"value,omitempty"`
 
-	// SecretRef defines where to find the platform access key. By default vCluster will search in the following locations in this precedence:
-	// * platform.apiKey.value
+	// SecretRef defines where to find the platform access key. By default, vCluster will search in the following locations in this precedence:
+	// * platform.accessKey.value
 	// * environment variable called LICENSE
 	// * secret specified under platform.secret.name
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace

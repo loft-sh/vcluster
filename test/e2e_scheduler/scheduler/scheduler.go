@@ -1,4 +1,4 @@
-package e2escheduler
+package scheduler
 
 import (
 	"context"

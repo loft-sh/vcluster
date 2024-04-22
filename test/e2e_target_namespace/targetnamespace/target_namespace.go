@@ -1,4 +1,4 @@
-package e2etargetnamespace
+package targetnamespace
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package e2emetricsproxy
+package metricsproxy
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package e2erootlessmode
+package rootless
 
 import (
 	"strings"

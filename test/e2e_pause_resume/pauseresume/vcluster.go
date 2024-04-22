@@ -1,4 +1,4 @@
-package e2epauseresume
+package pauseresume
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-var _ = ginkgo.Describe("Pause Resume Vcluster", func() {
+var _ = ginkgo.Describe("Pause Resume VCluster", func() {
 	f := framework.DefaultFramework
 	ginkgo.It("run vcluster pause and vcluster resume", func() {
 		ginkgo.By("Make sure vcluster pods are running")
