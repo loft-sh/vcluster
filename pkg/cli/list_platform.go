@@ -18,6 +18,10 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 	}
 	currentContext := rawConfig.CurrentContext
 
+	if globalFlags.Context == "" {
+		globalFlags.Context = currentContext
+	}
+
 	platformClient, err := platform.CreatePlatformClient()
 	if err != nil {
 		return err
@@ -28,7 +32,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		return err
 	}
 
-	err = printVClusters(ctx, options, globalFlags, proToVClusters(proVClusters, currentContext), false, logger)
+	err = printVClusters(ctx, options, proToVClusters(proVClusters, currentContext), globalFlags, false, logger)
 	if err != nil {
 		return err
 	}

@@ -17,10 +17,10 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/legacyconfig"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
-	"github.com/loft-sh/vcluster/pkg/config/legacyconfig"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/helm"
@@ -82,7 +82,7 @@ var AllowedDistros = []string{"k8s", "k3s", "k0s", "eks"}
 
 type createHelm struct {
 	*flags.GlobalFlags
-	CreateOptions
+	*CreateOptions
 
 	rawConfig        clientcmdapi.Config
 	log              log.Logger
@@ -94,7 +94,7 @@ type createHelm struct {
 func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	cmd := &createHelm{
 		GlobalFlags:   globalFlags,
-		CreateOptions: *options,
+		CreateOptions: options,
 
 		log: log,
 	}

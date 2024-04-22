@@ -18,7 +18,7 @@ import (
 
 type connectPlatform struct {
 	*flags.GlobalFlags
-	ConnectOptions
+	*ConnectOptions
 
 	log log.Logger
 }
@@ -38,7 +38,7 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 	// create connect platform command
 	cmd := connectPlatform{
 		GlobalFlags:    globalFlags,
-		ConnectOptions: *options,
+		ConnectOptions: options,
 
 		log: log,
 	}
@@ -142,11 +142,11 @@ func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformC
 	if cmd.ServiceAccount != "" {
 		// check if its enabled on the pro vcluster
 		if !vCluster.VirtualCluster.Status.VirtualCluster.ForwardToken {
-			return nil, fmt.Errorf("forward token is not enabled on the vCluster and hence you cannot authenticate with a service account token")
+			return nil, fmt.Errorf("forward token is not enabled on the virtual cluster and hence you cannot authenticate with a service account token")
 		}
 
 		// create service account token
-		token, err := createServiceAccountToken(ctx, *kubeConfig, &cmd.ConnectOptions, cmd.log)
+		token, err := createServiceAccountToken(ctx, *kubeConfig, cmd.ConnectOptions, cmd.log)
 		if err != nil {
 			return nil, err
 		}

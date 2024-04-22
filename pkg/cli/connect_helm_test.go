@@ -89,7 +89,7 @@ func TestExchangeContextName(t *testing.T) {
 			GlobalFlags: &flags.GlobalFlags{
 				Namespace: namespace,
 			},
-			ConnectOptions: ConnectOptions{
+			ConnectOptions: &ConnectOptions{
 				KubeConfigContextName: testCase.newContextName,
 			},
 		}

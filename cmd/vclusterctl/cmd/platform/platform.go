@@ -29,13 +29,14 @@ Deprecated, please use vcluster platform instead
 
 	startCmd, err := NewStartCmd(loftctlGlobalFlags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vcluster pro start command: %w", err)
+		return nil, fmt.Errorf("failed to create vcluster platform start command: %w", err)
 	}
 
 	platformCmd.AddCommand(startCmd)
 	platformCmd.AddCommand(NewResetCmd(loftctlGlobalFlags))
 	platformCmd.AddCommand(connect.NewConnectCmd(loftctlGlobalFlags))
 	platformCmd.AddCommand(NewAccessKeyCmd(loftctlGlobalFlags))
+	platformCmd.AddCommand(NewImportCmd(globalFlags))
 
 	return platformCmd, nil
 }

@@ -47,7 +47,7 @@ vcluster login https://my-vcluster-platform.com --access-key myaccesskey
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			if config.ShouldCheckForProFeatures() {
-				log.GetInstance().Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
+				log.GetInstance().Warnf("In order to use a Platform feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
 				os.Exit(1)
 			}
 

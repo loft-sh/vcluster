@@ -19,7 +19,7 @@ const (
 func ConfigFilePath() (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
-		return "", fmt.Errorf("failed to open vcluster platform configuration file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+		return "", fmt.Errorf("failed to open vCluster platform configuration file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
 	return filepath.Join(home, constants.VClusterFolder, VClusterProFolder, constants.ConfigFileName), nil
@@ -28,7 +28,7 @@ func ConfigFilePath() (string, error) {
 func managerFilePath() (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
-		return "", fmt.Errorf("failed to open vcluster platform manager file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+		return "", fmt.Errorf("failed to open vCluster platform manager file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
 	return filepath.Join(home, constants.VClusterFolder, VClusterProFolder, constants.ManagerFileName), nil
@@ -42,10 +42,10 @@ func PrintManagerInfo(verb string, manager ManagerType, log log.Logger) {
 	_, err := CreatePlatformClient()
 	if err == nil {
 		if manager == ManagerHelm {
-			log.Infof("Using vCluster manager 'helm' to %s your vClusters, which means the vCluster CLI is running helm commands directly", verb)
-			log.Infof("If you prefer to use the vCluster platform API instead, use the flag '--manager platform' or run 'vcluster use manager platform' to change the default")
+			log.Infof("Using vCluster manager 'helm' to %s your virtual clusters, which means the vCluster CLI is running helm commands directly", verb)
+			log.Info("If you prefer to use the vCluster platform API instead, use the flag '--manager platform' or run 'vcluster use manager platform' to change the default")
 		} else {
-			log.Info("Using vCluster manager 'platform' to %s your vClusters, which means the CLI is using the vCluster platform API instead of helm", verb)
+			log.Infof("Using vCluster manager 'platform' to %s your virtual clusters, which means the CLI is using the vCluster platform API instead of helm", verb)
 			log.Info("If you prefer to use helm instead, use the flag '--manager helm' or run 'vcluster use manager helm' to change the default")
 		}
 	}

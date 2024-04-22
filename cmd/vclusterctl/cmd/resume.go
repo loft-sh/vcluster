@@ -65,7 +65,7 @@ func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// check if we should create a platform vCluster
+	// check if we should resume a platform backed virtual cluster
 	if manager == platform.ManagerPlatform {
 		return cli.ResumePlatform(ctx, &cmd.ResumeOptions, args[0], cmd.Log)
 	}

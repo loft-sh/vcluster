@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/config/legacyconfig"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/config/legacyconfig"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/yaml"

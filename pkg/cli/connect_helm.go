@@ -58,8 +58,7 @@ type ConnectOptions struct {
 
 type connectHelm struct {
 	*flags.GlobalFlags
-
-	ConnectOptions
+	*ConnectOptions
 
 	portForwarding   bool
 	rawConfig        clientcmdapi.Config
@@ -75,7 +74,7 @@ type connectHelm struct {
 func ConnectHelm(ctx context.Context, options *ConnectOptions, globalFlags *flags.GlobalFlags, vClusterName string, command []string, log log.Logger) error {
 	cmd := &connectHelm{
 		GlobalFlags:    globalFlags,
-		ConnectOptions: *options,
+		ConnectOptions: options,
 		Log:            log,
 	}
 
@@ -125,11 +124,11 @@ func (cmd *connectHelm) connect(ctx context.Context, vCluster *find.VCluster, co
 		}
 
 		// build vKubeConfig
-		return executeCommand(getLocalVClusterConfig(*kubeConfig, &cmd.ConnectOptions), command, cmd.errorChan, cmd.Log)
+		return executeCommand(getLocalVClusterConfig(*kubeConfig, cmd.ConnectOptions), command, cmd.errorChan, cmd.Log)
 	}
 
 	// write kube config
-	err = writeKubeConfig(kubeConfig, vCluster.Name, &cmd.ConnectOptions, cmd.GlobalFlags, cmd.portForwarding, cmd.Log)
+	err = writeKubeConfig(kubeConfig, vCluster.Name, cmd.ConnectOptions, cmd.GlobalFlags, cmd.portForwarding, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -155,7 +154,12 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 	}
 
 	// write kube config to file
-	if options.UpdateCurrent {
+	if options.Print {
+		_, err = os.Stdout.Write(out)
+		if err != nil {
+			return err
+		}
+	} else if options.UpdateCurrent {
 		var clusterConfig *clientcmdapi.Cluster
 		for _, c := range kubeConfig.Clusters {
 			clusterConfig = c
@@ -198,11 +202,6 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 		} else {
 			log.WriteString(logrus.InfoLevel, "- Use `vcluster disconnect` to return to your previous kube context\n")
 			log.WriteString(logrus.InfoLevel, "- Use `kubectl get namespaces` to access the vcluster\n")
-		}
-	} else if options.Print {
-		_, err = os.Stdout.Write(out)
-		if err != nil {
-			return err
 		}
 	} else {
 		err = os.WriteFile(options.KubeConfig, out, 0666)
@@ -377,7 +376,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 
 	// we want to use a service account token in the kube config
 	if cmd.ServiceAccount != "" {
-		token, err := createServiceAccountToken(ctx, *kubeConfig, &cmd.ConnectOptions, cmd.Log)
+		token, err := createServiceAccountToken(ctx, *kubeConfig, cmd.ConnectOptions, cmd.Log)
 		if err != nil {
 			return nil, err
 		}
@@ -595,7 +594,7 @@ func getLocalVClusterClient(vKubeConfig clientcmdapi.Config, options *ConnectOpt
 }
 
 func (cmd *connectHelm) waitForVCluster(ctx context.Context, vKubeConfig clientcmdapi.Config, errorChan chan error) error {
-	vKubeClient, err := getLocalVClusterClient(vKubeConfig, &cmd.ConnectOptions)
+	vKubeClient, err := getLocalVClusterClient(vKubeConfig, cmd.ConnectOptions)
 	if err != nil {
 		return err
 	}

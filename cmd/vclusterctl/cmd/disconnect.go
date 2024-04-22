@@ -69,7 +69,7 @@ func (cmd *DisconnectCmd) Run() error {
 		// get vCluster platform info from context
 		vClusterName, _, otherContext = find.VClusterPlatformFromContext(cmd.Context)
 		if vClusterName == "" {
-			return fmt.Errorf("current selected context \"%s\" is not a vcluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
+			return fmt.Errorf("current selected context \"%s\" is not a virtual cluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
 		}
 	}
 

@@ -73,7 +73,7 @@ func GetVClusterNamespace(ctx context.Context, context, name, namespace string, 
 		return "", fmt.Errorf("please specify a name")
 	}
 
-	// list vClusters
+	// list virtual clusters
 	ossVClusters, err := find.ListOSSVClusters(ctx, context, name, namespace)
 	if err != nil {
 		log.Warnf("Error retrieving vclusters: %v", err)
@@ -115,7 +115,7 @@ func GetVClusterNamespace(ctx context.Context, context, name, namespace string, 
 		}
 	}
 
-	return "", fmt.Errorf("unexpected error searching for selected vcluster")
+	return "", fmt.Errorf("unexpected error searching for selected virtual cluster")
 }
 
 func getClusterName(ctx context.Context, kubeContext string) (string, error) {

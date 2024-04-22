@@ -1651,8 +1651,8 @@ type ExperimentalDeployHelmChart struct {
 }
 
 type Platform struct {
-	// AccessKey defines how vCluster can find the access key used for the platform.
-	AccessKey PlatformAccessKey `json:"accessKey,omitempty"`
+	// API defines how vCluster can contact the platform api.
+	API PlatformAPI `json:"api,omitempty"`
 
 	// Name is the name of the vCluster instance in the vCluster platform
 	Name string `json:"name,omitempty"`
@@ -1672,14 +1672,20 @@ type PlatformOwner struct {
 	Team string `json:"team,omitempty"`
 }
 
-type PlatformAccessKey struct {
-	// Value specifies the access key as a regular text value.
-	Value string `json:"value,omitempty"`
+type PlatformAPI struct {
+	// AccessKey specifies the access key as a regular text value.
+	AccessKey string `json:"accessKey,omitempty"`
 
-	// SecretRef defines where to find the platform access key. By default, vCluster will search in the following locations in this precedence:
-	// * platform.accessKey.value
+	// Host specifies the platform host to use.
+	Host string `json:"host,omitempty"`
+
+	// Insecure specifies if the host uses a self-signed certificate.
+	Insecure bool `json:"insecure,omitempty"`
+
+	// SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:
+	// * platform.api.accessKey
 	// * environment variable called LICENSE
-	// * secret specified under platform.secret.name
+	// * secret specified under platform.api.secretRef.name
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace
 	SecretRef PlatformAccessKeySecretReference `json:"secretRef,omitempty"`
 }

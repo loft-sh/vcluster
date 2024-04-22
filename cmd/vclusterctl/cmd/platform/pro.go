@@ -12,7 +12,7 @@ import (
 func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	proCmd := &cobra.Command{
 		Use:   "pro",
-		Short: "vCluster pro subcommands",
+		Short: "vCluster platform subcommands",
 		Long: `#######################################################
 #################### vcluster pro #####################
 #######################################################

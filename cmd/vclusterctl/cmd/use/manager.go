@@ -25,13 +25,13 @@ func NewManagerCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	description := `########################################################
 ################# vcluster use manager #################
 ########################################################
-Either use helm or vCluster platform as the deployment method for managing vClusters.
+Either use helm or vCluster platform as the deployment method for managing virtual clusters.
 #######################################################
 	`
 
 	managerCmd := &cobra.Command{
 		Use:   "manager",
-		Short: "Switch managing method of vClusters between platform and helm",
+		Short: "Switch managing method of virtual clusters between platform and helm",
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {

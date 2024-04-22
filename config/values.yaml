@@ -508,8 +508,10 @@ experimental:
       extraRules: []
 
 platform:
-  accessKey:
-    value: ""
+  api:
+    accessKey: ""
+    host: ""
+    insecure: false
     secretRef:
       name: ""
       namespace: ""

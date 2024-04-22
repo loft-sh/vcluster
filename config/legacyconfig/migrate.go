@@ -238,10 +238,10 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	newConfig.Pro = oldConfig.Pro
 	if strings.Contains(oldConfig.ProLicenseSecret, "/") {
 		splitted := strings.Split(oldConfig.ProLicenseSecret, "/")
-		newConfig.Platform.AccessKey.SecretRef.Namespace = splitted[0]
-		newConfig.Platform.AccessKey.SecretRef.Name = splitted[1]
+		newConfig.Platform.API.SecretRef.Namespace = splitted[0]
+		newConfig.Platform.API.SecretRef.Name = splitted[1]
 	} else {
-		newConfig.Platform.AccessKey.SecretRef.Name = oldConfig.ProLicenseSecret
+		newConfig.Platform.API.SecretRef.Name = oldConfig.ProLicenseSecret
 	}
 
 	newConfig.Experimental.IsolatedControlPlane.Headless = oldConfig.Headless

@@ -55,7 +55,7 @@ func ListHelm(ctx context.Context, options *ListOptions, globalFlags *flags.Glob
 		return err
 	}
 
-	err = printVClusters(ctx, options, globalFlags, ossToVClusters(vClusters, currentContext), true, log)
+	err = printVClusters(ctx, options, ossToVClusters(vClusters, currentContext), globalFlags, true, log)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func ListHelm(ctx context.Context, options *ListOptions, globalFlags *flags.Glob
 	return nil
 }
 
-func printVClusters(ctx context.Context, options *ListOptions, globalFlags *flags.GlobalFlags, output []ListVCluster, showPlatform bool, logger log.Logger) error {
+func printVClusters(ctx context.Context, options *ListOptions, output []ListVCluster, globalFlags *flags.GlobalFlags, showPlatform bool, logger log.Logger) error {
 	if options.Output == "json" {
 		bytes, err := json.MarshalIndent(output, "", "    ")
 		if err != nil {

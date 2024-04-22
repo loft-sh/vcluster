@@ -41,7 +41,7 @@ func NewAccessKeyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	accessKeyCmd := &cobra.Command{
 		Use:     "access-key",
 		Aliases: []string{"token"},
-		Short:   "Token prints the access token to a vCluster platform instance",
+		Short:   "Prints the access token to a vCluster platform instance",
 		Long: `########################################################
 ################## vcluster pro token ##################
 ########################################################

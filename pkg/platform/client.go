@@ -42,7 +42,7 @@ func CreatePlatformClient() (Client, error) {
 
 	_, err = os.Stat(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("%w: please make sure to run 'vcluster login' to connect to an existing instance or 'vcluster pro start' to deploy a new instance", ErrConfigNotFound)
+		return nil, fmt.Errorf("%w: please make sure to run 'vcluster login' to connect to an existing instance or 'vcluster platform start' to deploy a new instance", ErrConfigNotFound)
 	}
 
 	platformClient, err := loftclient.NewClientFromPath(configPath)
@@ -86,6 +86,8 @@ func (c *client) Self() *managementv1.Self {
 	return c.self.DeepCopy()
 }
 
+// ListVClusters lists all virtual clusters across all projects if virtualClusterName and projectName are empty.
+// The list can be narrowed down by the given virtual cluster name and project name.
 func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error) {
 	managementClient, err := baseClient.Management()
 	if err != nil {
@@ -117,7 +119,7 @@ func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, p
 		}
 	}
 
-	// gather space instances in those projects
+	// gather virtual cluster instances in those projects
 	virtualClusters := []VirtualClusterInstanceProject{}
 	for _, p := range projects {
 		if virtualClusterName != "" {

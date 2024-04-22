@@ -38,7 +38,7 @@ type DeleteOptions struct {
 
 type deleteHelm struct {
 	*flags.GlobalFlags
-	DeleteOptions
+	*DeleteOptions
 
 	rawConfig  *clientcmdapi.Config
 	restConfig *rest.Config
@@ -50,7 +50,7 @@ type deleteHelm struct {
 func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	cmd := deleteHelm{
 		GlobalFlags:   globalFlags,
-		DeleteOptions: *options,
+		DeleteOptions: options,
 		log:           log,
 	}
 

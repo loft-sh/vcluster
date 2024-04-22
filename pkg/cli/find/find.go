@@ -69,7 +69,7 @@ func CurrentContext() (string, *clientcmdapi.Config, error) {
 func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, name, project string, log log.Logger) (*platform.VirtualClusterInstanceProject, error) {
 	platformVClusters, err := platform.ListVClusters(ctx, platformClient, name, project)
 	if err != nil {
-		log.Warnf("Error retrieving pro vclusters: %v", err)
+		log.Warnf("Error retrieving platform vclusters: %v", err)
 	}
 
 	// figure out what we want to return
@@ -106,7 +106,7 @@ func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, na
 		}
 	}
 
-	return nil, fmt.Errorf("unexpected error searching for selected vcluster")
+	return nil, fmt.Errorf("unexpected error searching for selected virtual cluster")
 }
 
 func GetVCluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
@@ -114,7 +114,7 @@ func GetVCluster(ctx context.Context, context, name, namespace string, log log.L
 		return nil, fmt.Errorf("please specify a name")
 	}
 
-	// list vclusters
+	// list virtual clusters
 	ossVClusters, err := ListVClusters(ctx, context, name, namespace, log)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func GetVCluster(ctx context.Context, context, name, namespace string, log log.L
 		}
 	}
 
-	return nil, fmt.Errorf("unexpected error searching for selected vcluster")
+	return nil, fmt.Errorf("unexpected error searching for selected virtual cluster")
 }
 
 func FormatOptions(format string, options [][]string) []string {

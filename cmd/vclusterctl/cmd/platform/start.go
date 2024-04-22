@@ -86,7 +86,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	if cmd.Version == "latest" || cmd.Version == "" {
 		cmd.Version = platform.MinimumVersionTag
 
-		latestVersion, err := platform.LatestCompatibleVersion(context.TODO())
+		latestVersion, err := platform.LatestCompatibleVersion(ctx)
 		if err == nil {
 			cmd.Version = latestVersion
 		}
