@@ -1,9 +1,9 @@
-package cmd
+package cli
 
 import (
 	"testing"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"gotest.tools/v3/assert"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -85,11 +85,13 @@ func TestExchangeContextName(t *testing.T) {
 	}
 
 	for _, testCase := range testTable {
-		cmd := &ConnectCmd{
+		cmd := &connectHelm{
 			GlobalFlags: &flags.GlobalFlags{
 				Namespace: namespace,
 			},
-			KubeConfigContextName: testCase.newContextName,
+			ConnectOptions: ConnectOptions{
+				KubeConfigContextName: testCase.newContextName,
+			},
 		}
 		assert.NilError(t, cmd.exchangeContextName(testCase.config, vclusterName))
 		newConfig := testCase.config.DeepCopy()

@@ -12,8 +12,8 @@ import (
 
 	loftkubeconfig "github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/podprinter"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/podprinter"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"

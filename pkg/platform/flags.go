@@ -1,10 +1,10 @@
-package procli
+package platform
 
 import (
 	"fmt"
 
 	loftctlflags "github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 )
 
 // GlobalFlags converts vcluster global flags to vcluster pro global flags

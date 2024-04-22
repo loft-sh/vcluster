@@ -5,7 +5,7 @@ import (
 	"runtime"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/procli"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -43,10 +43,12 @@ vcluster info
 				Arch:      runtime.GOARCH,
 				MachineID: telemetry.GetMachineID(log.GetInstance()),
 			}
-			proClient, err := procli.CreateProClient()
+
+			platformClient, err := platform.CreatePlatformClient()
 			if err == nil {
-				infos.InstanceID = proClient.Self().Status.InstanceID
+				infos.InstanceID = platformClient.Self().Status.InstanceID
 			}
+
 			return yaml.NewEncoder(os.Stdout).Encode(struct{ Info cliInfo }{infos})
 		},
 	}

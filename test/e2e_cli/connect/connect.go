@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 )
