@@ -508,7 +508,7 @@ experimental:
       extraRules: []
 
 platform:
-  apiKey:
+  accessKey:
     value: ""
     secretRef:
       name: ""

@@ -9,7 +9,7 @@ import (
 func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	connectCmd := &cobra.Command{
 		Use:   "connect",
-		Short: "Connects a cluster to vCluster.Pro",
+		Short: "Connects a cluster to vCluster platform",
 		Long: `#######################################################
 ################ vcluster pro connect #################
 #######################################################

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
 )
 
 func TestVClusterFromContext(t *testing.T) {

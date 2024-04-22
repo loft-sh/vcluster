@@ -10,8 +10,8 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -31,12 +31,12 @@ func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, 
 
 	startCmd := &cobra.Command{
 		Use:   "start",
-		Short: "Start a vCluster.Pro instance and connect via port-forwarding",
+		Short: "Start a vCluster platform instance and connect via port-forwarding",
 		Long: `########################################################
 ################## vcluster pro start ##################
 ########################################################
 
-Starts a vCluster.Pro instance in your Kubernetes cluster
+Starts a vCluster platform instance in your Kubernetes cluster
 and then establishes a port-forwarding connection.
 
 Please make sure you meet the following requirements
@@ -55,23 +55,23 @@ before running this command:
 	}
 
 	startCmd.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
-	startCmd.Flags().StringVar(&cmd.Namespace, "namespace", "vcluster-pro", "The namespace to install vCluster.Pro into")
+	startCmd.Flags().StringVar(&cmd.Namespace, "namespace", "vcluster-platform", "The namespace to install vCluster platform into")
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "", "The local port to bind to if using port-forwarding")
 	startCmd.Flags().StringVar(&cmd.Host, "host", "", "Provide a hostname to enable ingress and configure its hostname")
 	startCmd.Flags().StringVar(&cmd.Password, "password", "", "The password to use for the admin account. (If empty this will be the namespace UID)")
-	startCmd.Flags().StringVar(&cmd.Version, "version", "latest", "The vCluster.Pro version to install")
-	startCmd.Flags().StringVar(&cmd.Values, "values", "", "Path to a file for extra vCluster.Pro helm chart values")
-	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, "Reuse previous vCluster.Pro helm values on upgrade")
-	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true, vCluster.Pro will try to upgrade the release")
+	startCmd.Flags().StringVar(&cmd.Version, "version", "latest", "The vCluster platform version to install")
+	startCmd.Flags().StringVar(&cmd.Values, "values", "", "Path to a file for extra vCluster platform helm chart values")
+	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, "Reuse previous vCluster platform helm values on upgrade")
+	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true, vCluster platform will try to upgrade the release")
 	startCmd.Flags().StringVar(&cmd.Email, "email", "", "The email to use for the installation")
-	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing vCluster.Pro")
-	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, "If true, vCluster.Pro will not wait after installing it")
-	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, "If true, vCluster.Pro will not do port forwarding after installing it")
-	startCmd.Flags().BoolVar(&cmd.NoTunnel, "no-tunnel", false, "If true, vCluster.Pro will not create a loft.host tunnel for this installation")
-	startCmd.Flags().BoolVar(&cmd.NoLogin, "no-login", false, "If true, vCluster.Pro will not login to a vCluster.Pro instance on start")
-	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", "The vCluster.Pro chart path to deploy vCluster.Pro")
-	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy vCluster.Pro")
-	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-control-plane", "The chart name to deploy vCluster.Pro")
+	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing vCluster platform")
+	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, "If true, vCluster platform will not wait after installing it")
+	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, "If true, vCluster platform will not do port forwarding after installing it")
+	startCmd.Flags().BoolVar(&cmd.NoTunnel, "no-tunnel", false, "If true, vCluster platform will not create a loft.host tunnel for this installation")
+	startCmd.Flags().BoolVar(&cmd.NoLogin, "no-login", false, "If true, vCluster platform will not login to a vCluster platform instance on start")
+	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", "The vCluster platform chart path to deploy vCluster platform")
+	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy vCluster platform")
+	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-control-plane", "The chart name to deploy vCluster platform")
 
 	return startCmd, nil
 }
@@ -113,7 +113,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		if terminal.IsTerminalIn {
 			switchBackOption := "No, switch back to context " + previousContext
 			out, err := cmd.Log.Question(&survey.QuestionOptions{
-				Question:     "You are trying to create vCluster.Pro inside another vcluster, is this desired?",
+				Question:     "You are trying to create vCluster platform inside another vcluster, is this desired?",
 				DefaultValue: switchBackOption,
 				Options:      []string{switchBackOption, "Yes"},
 			})
@@ -136,7 +136,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 				}
 			}
 		} else {
-			cmd.Log.Warnf("You are trying to create vCluster.Pro inside another vcluster, is this desired?")
+			cmd.Log.Warnf("You are trying to create vCluster platform inside another vcluster, is this desired?")
 		}
 	}
 

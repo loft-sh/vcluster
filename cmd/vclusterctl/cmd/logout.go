@@ -27,7 +27,7 @@ func NewLogoutCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	description := `########################################################
 ################### vcluster logout ####################
 ########################################################
-Log out of vCluster.Pro
+Log out of vCluster platform
 
 Example:
 vcluster logout
@@ -36,7 +36,7 @@ vcluster logout
 
 	logoutCmd := &cobra.Command{
 		Use:   "logout",
-		Short: "Log out of a vCluster.Pro instance",
+		Short: "Log out of a vCluster platform instance",
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {

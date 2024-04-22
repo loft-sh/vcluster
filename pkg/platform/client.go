@@ -58,12 +58,12 @@ func CreatePlatformClient() (Client, error) {
 	self, err := managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
 	if err != nil {
 		if strings.Contains(err.Error(), "the server rejected our request for an unknown reason") {
-			return nil, fmt.Errorf("vCluster.Pro instance is not reachable at %s, please make sure you are correctly logged in via 'vcluster login'", platformClient.Config().Host)
+			return nil, fmt.Errorf("vCluster platform instance is not reachable at %s, please make sure you are correctly logged in via 'vcluster login'", platformClient.Config().Host)
 		}
 
 		return nil, fmt.Errorf("get self: %w", err)
 	} else if self.Status.User == nil && self.Status.Team == nil {
-		return nil, fmt.Errorf("no user or team name returned for vCluster.Pro credentials")
+		return nil, fmt.Errorf("no user or team name returned for vCluster platform credentials")
 	}
 
 	selfOnce.Do(func() {

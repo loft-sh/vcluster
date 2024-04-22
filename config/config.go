@@ -1651,8 +1651,8 @@ type ExperimentalDeployHelmChart struct {
 }
 
 type Platform struct {
-	// APIKey defines how vCluster can find the api key used for the platform.
-	APIKey PlatformAPIKey `json:"apiKey,omitempty"`
+	// AccessKey defines how vCluster can find the access key used for the platform.
+	AccessKey PlatformAccessKey `json:"accessKey,omitempty"`
 
 	// Name is the name of the vCluster instance in the vCluster platform
 	Name string `json:"name,omitempty"`
@@ -1672,24 +1672,24 @@ type PlatformOwner struct {
 	Team string `json:"team,omitempty"`
 }
 
-type PlatformAPIKey struct {
+type PlatformAccessKey struct {
 	// Value specifies the api key as a regular text value.
 	Value string `json:"value,omitempty"`
 
-	// SecretRef defines where to find the platform api key. By default vCluster will search in the following locations in this precedence:
+	// SecretRef defines where to find the platform access key. By default vCluster will search in the following locations in this precedence:
 	// * platform.apiKey.value
 	// * environment variable called LICENSE
 	// * secret specified under platform.secret.name
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace
-	SecretRef PlatformAPIKeySecretReference `json:"secretRef,omitempty"`
+	SecretRef PlatformAccessKeySecretReference `json:"secretRef,omitempty"`
 }
 
-// PlatformAPIKeySecretReference defines where to find the platform api key. The secret key name doesn't matter as long as the secret only contains a single key.
-type PlatformAPIKeySecretReference struct {
-	// Name is the name of the secret where the platform api key is stored. This defaults to vcluster-platform-api-key if undefined.
+// PlatformAccessKeySecretReference defines where to find the platform access key. The secret key name doesn't matter as long as the secret only contains a single key.
+type PlatformAccessKeySecretReference struct {
+	// Name is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined.
 	Name string `json:"name,omitempty"`
 
-	// Namespace defines the namespace where the api key secret should be retrieved from. If this is not equal to the namespace
+	// Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace
 	// where the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.
 	Namespace string `json:"namespace,omitempty"`
 }

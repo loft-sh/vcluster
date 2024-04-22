@@ -46,11 +46,11 @@ func NewClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	c := &cobra.Command{
 		Use:   "cluster",
-		Short: "connect current cluster to vCluster.Pro",
+		Short: "connect current cluster to vCluster platform",
 		Long: `#######################################################
-############ vcluster pro connect cluster #############
+########## vcluster platform connect cluster ##########
 #######################################################
-Connect a cluster to the vCluster.Pro instance.
+Connect a cluster to the vCluster platform instance.
 
 Example:
 vcluster pro connect cluster my-cluster

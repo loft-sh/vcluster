@@ -41,12 +41,12 @@ func NewAccessKeyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	accessKeyCmd := &cobra.Command{
 		Use:     "access-key",
 		Aliases: []string{"token"},
-		Short:   "Token prints the access token to a vCluster.Pro instance",
+		Short:   "Token prints the access token to a vCluster platform instance",
 		Long: `########################################################
 ################## vcluster pro token ##################
 ########################################################
 
-Prints an access token to a vCluster.Pro instance. This
+Prints an access token to a vCluster platform instance. This
 can be used as an ExecAuthenticator for kubernetes
 
 Example:

@@ -27,7 +27,7 @@ func NewUICmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	description := `########################################################
 ##################### vcluster ui ######################
 ########################################################
-Open the vCluster.Pro web UI
+Open the vCluster platform web UI
 
 Example:
 vcluster ui

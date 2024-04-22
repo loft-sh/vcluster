@@ -844,19 +844,19 @@ experimental:
 
 # Platform holds options for connecting to vCluster Platform.
 platform:
-  # APIKey defines how vCluster can find the api key used for the platform.
-  apiKey:
+  # AccessKey defines how vCluster can find the access key used for the platform.
+  accessKey:
     # Value specifies the api key as a regular text value.
     value: ""
-    # SecretRef defines where to find the platform api key. By default vCluster will search in the following locations in this precedence:
+    # SecretRef defines where to find the platform access key. By default vCluster will search in the following locations in this precedence:
     # * platform.apiKey.value
     # * environment variable called LICENSE
     # * secret specified under platform.secret.name
     # * secret called "vcluster-platform-api-key" in the vCluster namespace
     secretRef:
-      # Name is the name of the secret where the platform api key is stored. This defaults to vcluster-platform-api-key if undefined.
+      # Name is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined.
       name: ""
-      # Namespace defines the namespace where the api key secret should be retrieved from. If this is not equal to the namespace
+      # Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace
       # where the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.
       namespace: ""
 
