@@ -324,9 +324,9 @@ func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, o
 	currentNamespaceCache := localManager.GetCache()
 	if options.WorkloadNamespace != options.WorkloadTargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
-			Scheme:            localManager.GetScheme(),
-			Mapper:            localManager.GetRESTMapper(),
-			DefaultNamespaces: map[string]cache.Config{options.WorkloadNamespace: {}},
+			Scheme: localManager.GetScheme(),
+			Mapper: localManager.GetRESTMapper(),
+			// DefaultNamespaces: map[string]cache.Config{options.WorkloadNamespace: {}},
 		})
 		if err != nil {
 			return nil, err
