@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/config/legacyconfig"
+	"github.com/loft-sh/vcluster/config/legacyconfig"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"

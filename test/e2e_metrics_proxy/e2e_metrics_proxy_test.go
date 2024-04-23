@@ -17,7 +17,9 @@ import (
 
 	// Enable cloud provider auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
 	// Register tests
+	_ "github.com/loft-sh/vcluster/test/e2e_metrics_proxy/metricsproxy"
 )
 
 var (

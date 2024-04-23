@@ -15,6 +15,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
+	_ "github.com/loft-sh/vcluster/test/e2e_plugin/plugin"
+
 	// Enable cloud provider auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )

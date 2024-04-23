@@ -2,24 +2,22 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/spf13/cobra"
 )
 
 // ResumeCmd holds the cmd flags
 type ResumeCmd struct {
 	*flags.GlobalFlags
-	Log        log.Logger
-	kubeClient *kubernetes.Clientset
-	Project    string
+
+	cli.ResumeOptions
+
+	Log log.Logger
 }
 
 // NewResumeCmd creates a new command
@@ -52,46 +50,25 @@ vcluster resume test --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PRO] The pro project the vcluster is in")
+	cobraCmd.Flags().StringVar(&cmd.Manager, "manager", "", "The manager to use for managing the virtual cluster, can be either helm or platform.")
+
+	// Platform flags
+	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The vCluster platform project to use")
+
 	return cobraCmd
 }
 
 // Run executes the functionality
 func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
-	// find vcluster
-	vClusterName := args[0]
-	vCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace, cmd.Log)
+	manager, err := platform.GetManager(cmd.Manager)
 	if err != nil {
 		return err
 	}
 
-	err = cmd.prepare(vCluster)
-	if err != nil {
-		return err
+	// check if we should resume a platform backed virtual cluster
+	if manager == platform.ManagerPlatform {
+		return cli.ResumePlatform(ctx, &cmd.ResumeOptions, args[0], cmd.Log)
 	}
 
-	err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, args[0], cmd.Namespace, cmd.Log)
-	if err != nil {
-		return err
-	}
-
-	cmd.Log.Donef("Successfully resumed vcluster %s in namespace %s", args[0], cmd.Namespace)
-	return nil
-}
-
-func (cmd *ResumeCmd) prepare(vCluster *find.VCluster) error {
-	// load the rest config
-	kubeConfig, err := vCluster.ClientFactory.ClientConfig()
-	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		return err
-	}
-
-	cmd.Namespace = vCluster.Namespace
-	cmd.kubeClient = kubeClient
-	return nil
+	return cli.ResumeHelm(ctx, cmd.GlobalFlags, args[0], cmd.Log)
 }

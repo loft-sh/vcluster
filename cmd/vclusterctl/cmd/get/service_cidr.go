@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

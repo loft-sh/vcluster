@@ -5,8 +5,8 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -66,8 +66,13 @@ func (cmd *DisconnectCmd) Run() error {
 	// get vcluster info from context
 	vClusterName, _, otherContext := find.VClusterFromContext(cmd.Context)
 	if vClusterName == "" {
-		return fmt.Errorf("current selected context \"%s\" is not a vcluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
+		// get vCluster platform info from context
+		vClusterName, _, otherContext = find.VClusterPlatformFromContext(cmd.Context)
+		if vClusterName == "" {
+			return fmt.Errorf("current selected context \"%s\" is not a virtual cluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
+		}
 	}
+
 	if otherContext == "" {
 		otherContext, err = cmd.selectContext(&rawConfig, otherContext)
 		if err != nil {

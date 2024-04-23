@@ -1985,9 +1985,9 @@
     },
     "Platform": {
       "properties": {
-        "apiKey": {
-          "$ref": "#/$defs/PlatformAPIKey",
-          "description": "APIKey defines how vCluster can find the api key used for the platform."
+        "api": {
+          "$ref": "#/$defs/PlatformAPI",
+          "description": "API defines how vCluster can contact the platform api."
         },
         "name": {
           "type": "string",
@@ -2005,34 +2005,42 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "PlatformAPIKey": {
+    "PlatformAPI": {
       "properties": {
-        "value": {
+        "accessKey": {
           "type": "string",
-          "description": "Value specifies the api key as a regular text value."
+          "description": "AccessKey specifies the access key as a regular text value."
+        },
+        "host": {
+          "type": "string",
+          "description": "Host specifies the platform host to use."
+        },
+        "insecure": {
+          "type": "boolean",
+          "description": "Insecure specifies if the host uses a self-signed certificate."
         },
         "secretRef": {
-          "$ref": "#/$defs/PlatformAPIKeySecretReference",
-          "description": "SecretRef defines where to find the platform api key. By default vCluster will search in the following locations in this precedence:\n* platform.apiKey.value\n* environment variable called LICENSE\n* secret specified under platform.secret.name\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
+          "$ref": "#/$defs/PlatformAccessKeySecretReference",
+          "description": "SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* platform.api.accessKey\n* environment variable called LICENSE\n* secret specified under platform.api.secretRef.name\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "PlatformAPIKeySecretReference": {
+    "PlatformAccessKeySecretReference": {
       "properties": {
         "name": {
           "type": "string",
-          "description": "Name is the name of the secret where the platform api key is stored. This defaults to vcluster-platform-api-key if undefined."
+          "description": "Name is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined."
         },
         "namespace": {
           "type": "string",
-          "description": "Namespace defines the namespace where the api key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace."
+          "description": "Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace."
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "PlatformAPIKeySecretReference defines where to find the platform api key."
+      "description": "PlatformAccessKeySecretReference defines where to find the platform access key."
     },
     "PlatformOwner": {
       "properties": {

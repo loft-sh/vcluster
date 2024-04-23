@@ -9,7 +9,8 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,10 +156,12 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 			Namespace: ns,
 			Debug:     true,
 		},
-		KubeConfig: vKubeconfigFile.Name(),
-		LocalPort:  14550, // choosing a port that usually should be unused
+		ConnectOptions: cli.ConnectOptions{
+			KubeConfig: vKubeconfigFile.Name(),
+			LocalPort:  14550, // choosing a port that usually should be unused
+		},
 	}
-	err = connectCmd.Connect(ctx, name, nil)
+	err = connectCmd.Run(ctx, []string{name})
 	if err != nil {
 		l.Fatalf("failed to connect to the vcluster: %v", err)
 	}

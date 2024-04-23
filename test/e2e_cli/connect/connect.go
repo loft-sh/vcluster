@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 )
@@ -18,7 +18,7 @@ var _ = ginkgo.Describe("Connect to vCluster", func() {
 		disconnectCmd.SetArgs([]string{})
 
 		err := disconnectCmd.Execute()
-		if err != nil && !strings.Contains(err.Error(), "not a vcluster context") {
+		if err != nil && !strings.Contains(err.Error(), "not a virtual cluster context") {
 			framework.ExpectNoError(err)
 		}
 	})

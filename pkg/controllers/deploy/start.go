@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/klog/v2"
@@ -23,7 +23,7 @@ func RegisterInitManifestsController(controllerCtx *config.ControllerContext) er
 		return err
 	}
 
-	helmBinaryPath, err := cmd.GetHelmBinaryPath(controllerCtx.Context, log.GetInstance())
+	helmBinaryPath, err := helmdownloader.GetHelmBinaryPath(controllerCtx.Context, log.GetInstance())
 	if err != nil {
 		return err
 	}
