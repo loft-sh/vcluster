@@ -322,7 +322,7 @@ func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, o
 	// as the regular cache is scoped to the options.TargetNamespace and cannot return
 	// objects from the current namespace.
 	currentNamespaceCache := localManager.GetCache()
-	if options.WorkloadNamespace != options.WorkloadTargetNamespace {
+	if !options.Experimental.MultiNamespaceMode.Enabled && options.WorkloadNamespace != options.WorkloadTargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
 			Scheme:            localManager.GetScheme(),
 			Mapper:            localManager.GetRESTMapper(),
