@@ -73,15 +73,15 @@ type Signature struct {
 	IsPrimaryId                                             *bool
 	Notations                                               []*Notation
 
-	// TrustLevel and TrustAmount can be set by the signer to assert that 
-	// the key is not only valid but also trustworthy at the specified 
-	// level. 
-	// See RFC 4880, section 5.2.3.13 for details. 
-	TrustLevel TrustLevel
+	// TrustLevel and TrustAmount can be set by the signer to assert that
+	// the key is not only valid but also trustworthy at the specified
+	// level.
+	// See RFC 4880, section 5.2.3.13 for details.
+	TrustLevel  TrustLevel
 	TrustAmount TrustAmount
 
 	// TrustRegularExpression can be used in conjunction with trust Signature
-	// packets to limit the scope of the trust that is extended. 
+	// packets to limit the scope of the trust that is extended.
 	// See RFC 4880, section 5.2.3.14 for details.
 	TrustRegularExpression *string
 
@@ -271,6 +271,10 @@ func parseSignatureSubpacket(sig *Signature, subpacket []byte, isHashed bool) (r
 		packetType signatureSubpacketType
 		isCritical bool
 	)
+	if len(subpacket) == 0 {
+		err = errors.StructuralError("zero length signature subpacket")
+		return
+	}
 	switch {
 	case subpacket[0] < 192:
 		length = uint32(subpacket[0])
@@ -327,10 +331,18 @@ func parseSignatureSubpacket(sig *Signature, subpacket []byte, isHashed bool) (r
 		sig.SigLifetimeSecs = new(uint32)
 		*sig.SigLifetimeSecs = binary.BigEndian.Uint32(subpacket)
 	case trustSubpacket:
+		if len(subpacket) != 2 {
+			err = errors.StructuralError("trust subpacket with bad length")
+			return
+		}
 		// Trust level and amount, section 5.2.3.13
 		sig.TrustLevel = TrustLevel(subpacket[0])
 		sig.TrustAmount = TrustAmount(subpacket[1])
 	case regularExpressionSubpacket:
+		if len(subpacket) == 0 {
+			err = errors.StructuralError("regexp subpacket with bad length")
+			return
+		}
 		// Trust regular expression, section 5.2.3.14
 		// RFC specifies the string should be null-terminated; remove a null byte from the end
 		if subpacket[len(subpacket)-1] != 0x00 {
@@ -372,16 +384,16 @@ func parseSignatureSubpacket(sig *Signature, subpacket []byte, isHashed bool) (r
 
 		nameLength := uint32(subpacket[4])<<8 | uint32(subpacket[5])
 		valueLength := uint32(subpacket[6])<<8 | uint32(subpacket[7])
-		if len(subpacket) != int(nameLength) + int(valueLength) + 8 {
+		if len(subpacket) != int(nameLength)+int(valueLength)+8 {
 			err = errors.StructuralError("notation data subpacket with bad length")
 			return
 		}
 
 		notation := Notation{
 			IsHumanReadable: (subpacket[0] & 0x80) == 0x80,
-			Name: string(subpacket[8: (nameLength + 8)]),
-			Value: subpacket[(nameLength + 8) : (valueLength + nameLength + 8)],
-			IsCritical: isCritical,
+			Name:            string(subpacket[8:(nameLength + 8)]),
+			Value:           subpacket[(nameLength + 8):(valueLength + nameLength + 8)],
+			IsCritical:      isCritical,
 		}
 
 		sig.Notations = append(sig.Notations, &notation)
@@ -478,6 +490,10 @@ func parseSignatureSubpacket(sig *Signature, subpacket []byte, isHashed bool) (r
 		// Policy URI, section 5.2.3.20
 		sig.PolicyURI = string(subpacket)
 	case issuerFingerprintSubpacket:
+		if len(subpacket) == 0 {
+			err = errors.StructuralError("empty issuer fingerprint subpacket")
+			return
+		}
 		v, l := subpacket[0], len(subpacket[1:])
 		if v == 5 && l != 32 || v != 5 && l != 20 {
 			return nil, errors.StructuralError("bad fingerprint length")
@@ -493,14 +509,14 @@ func parseSignatureSubpacket(sig *Signature, subpacket []byte, isHashed bool) (r
 	case prefCipherSuitesSubpacket:
 		// Preferred AEAD cipher suites
 		// See https://www.ietf.org/archive/id/draft-ietf-openpgp-crypto-refresh-07.html#name-preferred-aead-ciphersuites
-		if len(subpacket) % 2 != 0 {
+		if len(subpacket)%2 != 0 {
 			err = errors.StructuralError("invalid aead cipher suite length")
 			return
 		}
 
-		sig.PreferredCipherSuites = make([][2]byte, len(subpacket) / 2)
+		sig.PreferredCipherSuites = make([][2]byte, len(subpacket)/2)
 
-		for i := 0; i < len(subpacket) / 2; i++ {
+		for i := 0; i < len(subpacket)/2; i++ {
 			sig.PreferredCipherSuites[i] = [2]uint8{subpacket[2*i], subpacket[2*i+1]}
 		}
 	default:
@@ -888,7 +904,7 @@ func (sig *Signature) buildSubpackets(issuer PublicKey) (subpackets []outputSubp
 	if sig.IssuerKeyId != nil && sig.Version == 4 {
 		keyId := make([]byte, 8)
 		binary.BigEndian.PutUint64(keyId, *sig.IssuerKeyId)
-		subpackets = append(subpackets, outputSubpacket{true, issuerSubpacket, true, keyId})
+		subpackets = append(subpackets, outputSubpacket{true, issuerSubpacket, false, keyId})
 	}
 	if sig.IssuerFingerprint != nil {
 		contents := append([]uint8{uint8(issuer.Version)}, sig.IssuerFingerprint...)
@@ -1039,7 +1055,7 @@ func (sig *Signature) AddMetadataToHashSuffix() {
 	n := sig.HashSuffix[len(sig.HashSuffix)-8:]
 	l := uint64(
 		uint64(n[0])<<56 | uint64(n[1])<<48 | uint64(n[2])<<40 | uint64(n[3])<<32 |
-		uint64(n[4])<<24 | uint64(n[5])<<16 | uint64(n[6])<<8 | uint64(n[7]))
+			uint64(n[4])<<24 | uint64(n[5])<<16 | uint64(n[6])<<8 | uint64(n[7]))
 
 	suffix := bytes.NewBuffer(nil)
 	suffix.Write(sig.HashSuffix[:l])

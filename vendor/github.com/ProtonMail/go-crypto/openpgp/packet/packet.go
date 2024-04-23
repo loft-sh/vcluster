@@ -384,18 +384,18 @@ func Read(r io.Reader) (p Packet, err error) {
 type SignatureType uint8
 
 const (
-	SigTypeBinary            SignatureType = 0x00
-	SigTypeText                            = 0x01
-	SigTypeGenericCert                     = 0x10
-	SigTypePersonaCert                     = 0x11
-	SigTypeCasualCert                      = 0x12
-	SigTypePositiveCert                    = 0x13
-	SigTypeSubkeyBinding                   = 0x18
-	SigTypePrimaryKeyBinding               = 0x19
-	SigTypeDirectSignature                 = 0x1F
-	SigTypeKeyRevocation                   = 0x20
-	SigTypeSubkeyRevocation                = 0x28
-	SigTypeCertificationRevocation         = 0x30
+	SigTypeBinary                  SignatureType = 0x00
+	SigTypeText                                  = 0x01
+	SigTypeGenericCert                           = 0x10
+	SigTypePersonaCert                           = 0x11
+	SigTypeCasualCert                            = 0x12
+	SigTypePositiveCert                          = 0x13
+	SigTypeSubkeyBinding                         = 0x18
+	SigTypePrimaryKeyBinding                     = 0x19
+	SigTypeDirectSignature                       = 0x1F
+	SigTypeKeyRevocation                         = 0x20
+	SigTypeSubkeyRevocation                      = 0x28
+	SigTypeCertificationRevocation               = 0x30
 )
 
 // PublicKeyAlgorithm represents the different public key system specified for
@@ -533,19 +533,19 @@ const (
 type Curve string
 
 const (
-	Curve25519 Curve = "Curve25519"
-	Curve448 Curve = "Curve448"
-	CurveNistP256 Curve = "P256"
-	CurveNistP384 Curve = "P384"
-	CurveNistP521 Curve = "P521"
-	CurveSecP256k1 Curve = "SecP256k1"
+	Curve25519         Curve = "Curve25519"
+	Curve448           Curve = "Curve448"
+	CurveNistP256      Curve = "P256"
+	CurveNistP384      Curve = "P384"
+	CurveNistP521      Curve = "P521"
+	CurveSecP256k1     Curve = "SecP256k1"
 	CurveBrainpoolP256 Curve = "BrainpoolP256"
 	CurveBrainpoolP384 Curve = "BrainpoolP384"
 	CurveBrainpoolP512 Curve = "BrainpoolP512"
 )
 
 // TrustLevel represents a trust level per RFC4880 5.2.3.13
-type TrustLevel uint8 
+type TrustLevel uint8
 
 // TrustAmount represents a trust amount per RFC4880 5.2.3.13
 type TrustAmount uint8

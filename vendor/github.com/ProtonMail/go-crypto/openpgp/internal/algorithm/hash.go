@@ -32,25 +32,25 @@ type Hash interface {
 
 // The following vars mirror the crypto/Hash supported hash functions.
 var (
-	SHA1      Hash = cryptoHash{2, crypto.SHA1}
-	SHA256    Hash = cryptoHash{8, crypto.SHA256}
-	SHA384    Hash = cryptoHash{9, crypto.SHA384}
-	SHA512    Hash = cryptoHash{10, crypto.SHA512}
-	SHA224    Hash = cryptoHash{11, crypto.SHA224}
-	SHA3_256  Hash = cryptoHash{12, crypto.SHA3_256}
-	SHA3_512  Hash = cryptoHash{14, crypto.SHA3_512}
+	SHA1     Hash = cryptoHash{2, crypto.SHA1}
+	SHA256   Hash = cryptoHash{8, crypto.SHA256}
+	SHA384   Hash = cryptoHash{9, crypto.SHA384}
+	SHA512   Hash = cryptoHash{10, crypto.SHA512}
+	SHA224   Hash = cryptoHash{11, crypto.SHA224}
+	SHA3_256 Hash = cryptoHash{12, crypto.SHA3_256}
+	SHA3_512 Hash = cryptoHash{14, crypto.SHA3_512}
 )
 
 // HashById represents the different hash functions specified for OpenPGP. See
 // http://www.iana.org/assignments/pgp-parameters/pgp-parameters.xhtml#pgp-parameters-14
 var (
 	HashById = map[uint8]Hash{
-		SHA256.Id():    SHA256,
-		SHA384.Id():    SHA384,
-		SHA512.Id():    SHA512,
-		SHA224.Id():    SHA224,
-		SHA3_256.Id():  SHA3_256,
-		SHA3_512.Id():  SHA3_512,
+		SHA256.Id():   SHA256,
+		SHA384.Id():   SHA384,
+		SHA512.Id():   SHA512,
+		SHA224.Id():   SHA224,
+		SHA3_256.Id(): SHA3_256,
+		SHA3_512.Id(): SHA3_512,
 	}
 )
 
@@ -67,12 +67,12 @@ func (h cryptoHash) Id() uint8 {
 }
 
 var hashNames = map[uint8]string{
-	SHA256.Id():    "SHA256",
-	SHA384.Id():    "SHA384",
-	SHA512.Id():    "SHA512",
-	SHA224.Id():    "SHA224",
-	SHA3_256.Id():  "SHA3-256",
-	SHA3_512.Id():  "SHA3-512",
+	SHA256.Id():   "SHA256",
+	SHA384.Id():   "SHA384",
+	SHA512.Id():   "SHA512",
+	SHA224.Id():   "SHA224",
+	SHA3_256.Id(): "SHA3-256",
+	SHA3_512.Id(): "SHA3-512",
 }
 
 func (h cryptoHash) String() string {

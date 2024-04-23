@@ -21,7 +21,7 @@ func PrintKlogLine(line string, args []interface{}) {
 
 	// try to parse structured logging
 	line, extraArgs := parseStructuredLogging(line)
-	klog.InfoS(line, append(args, extraArgs...)...)
+	klog.InfoSDepth(1, line, append(args, extraArgs...)...)
 }
 
 func parseStructuredLogging(line string) (string, []interface{}) {
