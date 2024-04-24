@@ -71,7 +71,7 @@ before running this command:
 	startCmd.Flags().BoolVar(&cmd.NoLogin, "no-login", false, "If true, vCluster platform will not login to a vCluster platform instance on start")
 	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", "The vCluster platform chart path to deploy vCluster platform")
 	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy vCluster platform")
-	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-control-plane", "The chart name to deploy vCluster platform")
+	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-platform", "The chart name to deploy vCluster platform")
 
 	return startCmd, nil
 }
