@@ -321,6 +321,7 @@ func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, o
 	// where vcluster is currently running in), we need to create a new object cache
 	// as the regular cache is scoped to the options.TargetNamespace and cannot return
 	// objects from the current namespace.
+	// test
 	currentNamespaceCache := localManager.GetCache()
 	if !options.Experimental.MultiNamespaceMode.Enabled && options.WorkloadNamespace != options.WorkloadTargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
