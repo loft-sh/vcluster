@@ -5,9 +5,8 @@ import (
 	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/config"
-	"k8s.io/client-go/kubernetes"
 )
 
-var ConnectToPlatform = func(context.Context, kubernetes.Interface, http.RoundTripper, *config.VirtualClusterConfig) error {
+var ConnectToPlatform = func(context.Context, *config.VirtualClusterConfig, http.RoundTripper) error {
 	return nil
 }
