@@ -133,9 +133,8 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 
 	if err := pro.ConnectToPlatform(
 		ctx,
-		controllerCtx.Config.ControlPlaneClient,
-		controllerCtx.VirtualManager.GetHTTPClient().Transport,
 		vConfig,
+		controllerCtx.VirtualManager.GetHTTPClient().Transport,
 	); err != nil {
 		return fmt.Errorf("connect to platform: %w", err)
 	}
