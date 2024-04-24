@@ -131,6 +131,15 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		}
 	}
 
+	if err := pro.ConnectToPlatform(
+		ctx,
+		controllerCtx.Config.ControlPlaneClient,
+		controllerCtx.VirtualManager.GetHTTPClient().Transport,
+		vConfig,
+	); err != nil {
+		return fmt.Errorf("connect to platform: %w", err)
+	}
+
 	// start leader election + controllers
 	err = StartLeaderElection(controllerCtx, func() error {
 		return setup.StartControllers(controllerCtx)

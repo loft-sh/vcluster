@@ -18,7 +18,7 @@ type aeadCrypter struct {
 	initialNonce   []byte
 	associatedData []byte       // Chunk-independent associated data
 	chunkIndex     []byte       // Chunk counter
-	packetTag      packetType
+	packetTag      packetType   // SEIP packet (v2) or AEAD Encrypted Data packet
 	bytesProcessed int          // Amount of plaintext bytes encrypted/decrypted
 	buffer         bytes.Buffer // Buffered bytes across chunks
 }
@@ -83,7 +83,7 @@ func (ar *aeadDecrypter) Read(dst []byte) (n int, err error) {
 	// Read a chunk
 	tagLen := ar.aead.Overhead()
 	cipherChunkBuf := new(bytes.Buffer)
-	_, errRead := io.CopyN(cipherChunkBuf, ar.reader, int64(ar.chunkSize + tagLen))
+	_, errRead := io.CopyN(cipherChunkBuf, ar.reader, int64(ar.chunkSize+tagLen))
 	cipherChunk := cipherChunkBuf.Bytes()
 	if errRead != nil && errRead != io.EOF {
 		return 0, errRead
@@ -176,7 +176,6 @@ type aeadEncrypter struct {
 	aeadCrypter                // Embedded plaintext sealer
 	writer      io.WriteCloser // 'writer' is a partialLengthWriter
 }
-
 
 // Write encrypts and writes bytes. It encrypts when necessary and buffers extra
 // plaintext bytes for next call. When the stream is finished, Close() MUST be

@@ -123,7 +123,7 @@ func SymmetricallyEncrypt(ciphertext io.Writer, passphrase []byte, hints *FileHi
 	var w io.WriteCloser
 	cipherSuite := packet.CipherSuite{
 		Cipher: config.Cipher(),
-		Mode: config.AEAD().Mode(),
+		Mode:   config.AEAD().Mode(),
 	}
 	w, err = packet.SerializeSymmetricallyEncrypted(ciphertext, config.Cipher(), config.AEAD() != nil, cipherSuite, key, config)
 	if err != nil {
@@ -381,7 +381,7 @@ func encrypt(keyWriter io.Writer, dataWriter io.Writer, to []*Entity, signed *En
 		}
 
 		sig := to[i].PrimaryIdentity().SelfSignature
-		if sig.SEIPDv2 == false {
+		if !sig.SEIPDv2 {
 			aeadSupported = false
 		}
 
@@ -409,7 +409,7 @@ func encrypt(keyWriter io.Writer, dataWriter io.Writer, to []*Entity, signed *En
 	cipher := packet.CipherFunction(candidateCiphers[0])
 	aeadCipherSuite := packet.CipherSuite{
 		Cipher: packet.CipherFunction(candidateCipherSuites[0][0]),
-		Mode: packet.AEADMode(candidateCipherSuites[0][1]),
+		Mode:   packet.AEADMode(candidateCipherSuites[0][1]),
 	}
 
 	// If the cipher specified by config is a candidate, we'll use that.
@@ -436,8 +436,8 @@ func encrypt(keyWriter io.Writer, dataWriter io.Writer, to []*Entity, signed *En
 	var payload io.WriteCloser
 	payload, err = packet.SerializeSymmetricallyEncrypted(dataWriter, cipher, aeadSupported, aeadCipherSuite, symKey, config)
 	if err != nil {
-			return
-		}
+		return
+	}
 
 	payload, err = handleCompression(payload, candidateCompression, config)
 	if err != nil {
