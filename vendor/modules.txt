@@ -274,7 +274,7 @@ github.com/google/pprof/profile
 # github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 ## explicit; go 1.13
 github.com/google/shlex
-# github.com/google/uuid v1.5.0
+# github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
 # github.com/gorilla/websocket v1.5.1
@@ -346,7 +346,7 @@ github.com/liggitt/tabwriter
 # github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
 ## explicit; go 1.21.1
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240207094449-7adc00ae1265
+# github.com/loft-sh/agentapi/v3 v3.4.5
 ## explicit; go 1.21.5
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1
@@ -358,7 +358,7 @@ github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typ
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v3 v3.0.0-20240207094436-f23808d5a185
+# github.com/loft-sh/api/v3 v3.4.5
 ## explicit; go 1.21.5
 github.com/loft-sh/api/v3/pkg/apis/audit/v1
 github.com/loft-sh/api/v3/pkg/apis/management
@@ -376,17 +376,18 @@ github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset/typed/storage
 github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset/typed/virtualcluster/v1
 github.com/loft-sh/api/v3/pkg/managerfactory
 github.com/loft-sh/api/v3/pkg/product
-# github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1
+# github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744
 ## explicit; go 1.21.5
 github.com/loft-sh/apiserver/pkg/builders
 # github.com/loft-sh/jspolicy v0.2.2
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v3 v3.0.0-20240207094551-f600825cc6f5
-## explicit; go 1.21.5
+# github.com/loft-sh/loftctl/v3 v3.5.0-alpha.0.0.20240425091019-24b84e25c22a
+## explicit; go 1.22.2
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create
+github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/credits
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/defaults
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/delete
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod
@@ -411,7 +412,9 @@ github.com/loft-sh/loftctl/v3/pkg/clihelper
 github.com/loft-sh/loftctl/v3/pkg/config
 github.com/loft-sh/loftctl/v3/pkg/constants
 github.com/loft-sh/loftctl/v3/pkg/defaults
+github.com/loft-sh/loftctl/v3/pkg/devpod
 github.com/loft-sh/loftctl/v3/pkg/docker
+github.com/loft-sh/loftctl/v3/pkg/httputil
 github.com/loft-sh/loftctl/v3/pkg/kube
 github.com/loft-sh/loftctl/v3/pkg/kubeconfig
 github.com/loft-sh/loftctl/v3/pkg/parameters
@@ -426,7 +429,7 @@ github.com/loft-sh/loftctl/v3/pkg/upgrade
 github.com/loft-sh/loftctl/v3/pkg/util
 github.com/loft-sh/loftctl/v3/pkg/vcluster
 github.com/loft-sh/loftctl/v3/pkg/version
-# github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
+# github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
 ## explicit; go 1.20
 github.com/loft-sh/log
 github.com/loft-sh/log/hash
@@ -506,8 +509,8 @@ github.com/oklog/ulid
 # github.com/olekukonko/tablewriter v0.0.5
 ## explicit; go 1.12
 github.com/olekukonko/tablewriter
-# github.com/onsi/ginkgo/v2 v2.14.0
-## explicit; go 1.18
+# github.com/onsi/ginkgo/v2 v2.15.0
+## explicit; go 1.20
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config
 github.com/onsi/ginkgo/v2/formatter
@@ -528,8 +531,8 @@ github.com/onsi/ginkgo/v2/internal/parallel_support
 github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.30.0
-## explicit; go 1.18
+# github.com/onsi/gomega v1.31.1
+## explicit; go 1.20
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/internal
@@ -574,7 +577,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/rhysd/go-github-selfupdate v1.2.3
 ## explicit; go 1.13
 github.com/rhysd/go-github-selfupdate/selfupdate
-# github.com/rivo/uniseg v0.4.4
+# github.com/rivo/uniseg v0.4.6
 ## explicit; go 1.18
 github.com/rivo/uniseg
 # github.com/russross/blackfriday/v2 v2.1.0
@@ -760,7 +763,7 @@ golang.org/x/crypto/sha3
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
 golang.org/x/exp/slices
-# golang.org/x/mod v0.14.0
+# golang.org/x/mod v0.15.0
 ## explicit; go 1.18
 golang.org/x/mod/semver
 # golang.org/x/net v0.23.0
@@ -778,7 +781,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/trace
 golang.org/x/net/websocket
-# golang.org/x/oauth2 v0.16.0
+# golang.org/x/oauth2 v0.17.0
 ## explicit; go 1.18
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
@@ -831,7 +834,7 @@ golang.org/x/text/width
 # golang.org/x/time v0.5.0
 ## explicit; go 1.18
 golang.org/x/time/rate
-# golang.org/x/tools v0.17.0
+# golang.org/x/tools v0.18.0
 ## explicit; go 1.18
 golang.org/x/tools/go/ast/inspector
 # gomodules.xyz/jsonpatch/v2 v2.4.0
@@ -919,7 +922,7 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.32.0
+# google.golang.org/protobuf v1.33.0
 ## explicit; go 1.17
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
@@ -928,6 +931,7 @@ google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
 google.golang.org/protobuf/internal/descopts
 google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/editiondefaults
 google.golang.org/protobuf/internal/encoding/defval
 google.golang.org/protobuf/internal/encoding/json
 google.golang.org/protobuf/internal/encoding/messageset
@@ -952,6 +956,7 @@ google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
 google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/dynamicpb
+google.golang.org/protobuf/types/gofeaturespb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/emptypb
@@ -1793,7 +1798,7 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/common/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/controller-runtime v0.17.0
+# sigs.k8s.io/controller-runtime v0.17.2
 ## explicit; go 1.21
 sigs.k8s.io/controller-runtime
 sigs.k8s.io/controller-runtime/pkg/builder

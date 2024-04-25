@@ -158,7 +158,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// determine cluster name
-	cmd.Cluster, cmd.Project, err = helper.SelectProjectOrCluster(baseClient, cmd.Cluster, cmd.Project, true, cmd.Log)
+	cmd.Cluster, cmd.Project, err = helper.SelectProjectOrCluster(ctx, baseClient, cmd.Cluster, cmd.Project, true, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, 
 	// create space if necessary
 	if spaceInstance == nil {
 		// resolve template
-		spaceTemplate, resolvedParameters, err := cmd.resolveTemplate(baseClient)
+		spaceTemplate, resolvedParameters, err := cmd.resolveTemplate(ctx, baseClient)
 		if err != nil {
 			return err
 		}
@@ -294,7 +294,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, 
 		}
 	} else if cmd.Update {
 		// resolve template
-		spaceTemplate, resolvedParameters, err := cmd.resolveTemplate(baseClient)
+		spaceTemplate, resolvedParameters, err := cmd.resolveTemplate(ctx, baseClient)
 		if err != nil {
 			return err
 		}
@@ -368,9 +368,9 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, 
 	return nil
 }
 
-func (cmd *SpaceCmd) resolveTemplate(baseClient client.Client) (*managementv1.SpaceTemplate, string, error) {
+func (cmd *SpaceCmd) resolveTemplate(ctx context.Context, baseClient client.Client) (*managementv1.SpaceTemplate, string, error) {
 	// determine space template to use
-	spaceTemplate, err := helper.SelectSpaceTemplate(baseClient, cmd.Project, cmd.Template, cmd.Log)
+	spaceTemplate, err := helper.SelectSpaceTemplate(ctx, baseClient, cmd.Project, cmd.Template, cmd.Log)
 	if err != nil {
 		return nil, "", err
 	}
@@ -416,7 +416,7 @@ func (cmd *SpaceCmd) legacyCreateSpace(ctx context.Context, baseClient client.Cl
 
 	// determine cluster name
 	if cmd.Cluster == "" {
-		cmd.Cluster, err = helper.SelectCluster(baseClient, cmd.Log)
+		cmd.Cluster, err = helper.SelectCluster(ctx, baseClient, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -424,7 +424,7 @@ func (cmd *SpaceCmd) legacyCreateSpace(ctx context.Context, baseClient client.Cl
 
 	// determine user or team name
 	if cmd.User == "" && cmd.Team == "" {
-		user, team, err := helper.SelectUserOrTeam(baseClient, cmd.Cluster, cmd.Log)
+		user, team, err := helper.SelectUserOrTeam(ctx, baseClient, cmd.Cluster, cmd.Log)
 		if err != nil {
 			return err
 		} else if user != nil {

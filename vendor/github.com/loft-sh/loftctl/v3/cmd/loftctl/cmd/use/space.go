@@ -109,7 +109,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 		spaceName = args[0]
 	}
 
-	cmd.Cluster, cmd.Project, spaceName, err = helper.SelectSpaceInstanceOrSpace(baseClient, spaceName, cmd.Project, cmd.Cluster, cmd.log)
+	cmd.Cluster, cmd.Project, spaceName, err = helper.SelectSpaceInstanceOrSpace(ctx, baseClient, spaceName, cmd.Project, cmd.Cluster, cmd.log)
 	if err != nil {
 		return err
 	}

@@ -3,7 +3,6 @@ package clihelper
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +20,7 @@ import (
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/pkg/httputil"
 	"github.com/sirupsen/logrus"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -274,11 +274,7 @@ type version struct {
 func IsLoftReachable(ctx context.Context, host string) (bool, error) {
 	// wait until loft is reachable at the given url
 	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
+		Transport: httputil.InsecureTransport(),
 	}
 	url := "https://" + host + "/version"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

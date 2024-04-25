@@ -107,7 +107,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	// determine cluster name
 	clusterName := ""
 	if len(args) == 0 {
-		clusterName, err = helper.SelectCluster(baseClient, cmd.log)
+		clusterName, err = helper.SelectCluster(ctx, baseClient, cmd.log)
 		if err != nil {
 			return err
 		}

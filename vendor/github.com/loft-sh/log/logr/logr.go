@@ -18,59 +18,69 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// NewLogger creates a new logr.Logger and sets it as configuration for other
-// global logger packages.
-func NewLogger(component string) (logr.Logger, error) {
-	path, _ := os.Getwd()
-	path = fmt.Sprintf("%s/", path)
-
-	loftLogEncoding, err := GetEncoding()
-	if err != nil {
-		return logr.Logger{}, fmt.Errorf("failed to get log encoding: %w", err)
+// NewLoggerWithOptions creates a new logr.Logger
+func NewLoggerWithOptions(opts ...Option) (logr.Logger, error) {
+	options := options{
+		logLevel:          "info",
+		logEncoding:       "console",
+		development:       false,
+		disableStacktrace: true,
+		logFullCallerPath: false,
+		globalKlog:        false,
+		globalZap:         false,
 	}
 
-	logFullCallerPath := LogFullCallerPath()
-
-	atomicLevel, kubernetesVerbosityLevel, err := GetLogLevel()
-	if err != nil {
-		return logr.Logger{}, fmt.Errorf("failed to get log level: %w", err)
+	for _, opt := range opts {
+		opt.apply(&options)
 	}
 
-	// -- Config --
-	config := zap.NewProductionConfig()
+	atomicLevel, kubernetesVerbosityLevel, err := loggerLevels(options.logLevel)
+	if err != nil {
+		return logr.Logger{}, fmt.Errorf("logger levels: %w", err)
+	}
 
-	if os.Getenv("DEVELOPMENT") == "true" {
+	var config zap.Config
+
+	if options.development {
 		config = zap.NewDevelopmentConfig()
+	} else {
+		config = zap.NewProductionConfig()
 	}
 
-	// -- Set log encoding --
-	config.Encoding = loftLogEncoding
-
-	config.DisableStacktrace = os.Getenv("LOFT_LOG_DISABLE_STACKTRACE") == "" || os.Getenv("LOFT_LOG_DISABLE_STACKTRACE") != "false"
+	config.Level = atomicLevel
+	config.Encoding = options.logEncoding
+	config.DisableStacktrace = options.disableStacktrace
 
 	if config.Encoding == "console" {
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05")
 	}
 
-	// -- Set log caller format --
-	if logFullCallerPath {
+	if options.logFullCallerPath {
+		path, _ := os.Getwd()
+		path = fmt.Sprintf("%s/", path)
+
 		config.EncoderConfig.EncodeCaller = func(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 			enc.AppendString(strings.TrimPrefix(caller.String(), path))
 		}
 	}
 
-	// -- Set log level --
-	config.Level = atomicLevel
-
 	// -- Build config --
-	zapLog, err := config.Build(zap.Fields(zap.String("component", component)))
+	fields := []zapcore.Field{}
+
+	if options.componentName != "" {
+		fields = append(fields, zap.String("component", options.componentName))
+	}
+
+	zapLog, err := config.Build(zap.Fields(fields...))
 	if err != nil {
-		return logr.Logger{}, fmt.Errorf("failed to build zap logger: %w", err)
+		return logr.Logger{}, fmt.Errorf("build zap logger: %w", err)
 	}
 
 	// Zap global logger
-	_ = zap.ReplaceGlobals(zapLog)
+	if options.globalZap {
+		_ = zap.ReplaceGlobals(zapLog)
+	}
 
 	// logr
 	kvl, err := strconv.Atoi(kubernetesVerbosityLevel)
@@ -80,9 +90,11 @@ func NewLogger(component string) (logr.Logger, error) {
 	log := zapr.NewLoggerWithOptions(zapLog, zapr.VerbosityLevel(kvl))
 
 	// Klog global logger
-	err = SetGlobalKlog(log, kubernetesVerbosityLevel)
-	if err != nil {
-		return logr.Logger{}, fmt.Errorf("failed to set global klog logger: %w", err)
+	if options.globalKlog {
+		err = SetGlobalKlog(log, kubernetesVerbosityLevel)
+		if err != nil {
+			return logr.Logger{}, fmt.Errorf("failed to set global klog logger: %w", err)
+		}
 	}
 
 	// Logrus
@@ -96,6 +108,19 @@ func NewLogger(component string) (logr.Logger, error) {
 	logrus.AddHook(hook)
 
 	return log, nil
+}
+
+// NewLogger creates a new logr.Logger and sets it as configuration for other
+// global logger packages.
+//
+// Deprecated: Use NewLoggerWithOptions instead.
+func NewLogger(component string) (logr.Logger, error) {
+	return NewLoggerWithOptions(
+		WithOptionsFromEnv(),
+		WithComponentName(component),
+		WithGlobalZap(true),
+		WithGlobalKlog(true),
+	)
 }
 
 // SetGlobalKlog sets the global klog logger
@@ -118,11 +143,11 @@ func SetGlobalKlog(logger logr.Logger, kubernetesVerbosityLevel string) error {
 
 // GetLogLevel returns the zap log level and the kubernetes verbosity level
 func GetLogLevel() (zap.AtomicLevel, string, error) {
-	logLevel := os.Getenv("LOFT_LOG_LEVEL") // debug, info, warn, error, dpanic, panic, fatal
-	if logLevel == "" {
-		logLevel = "info"
-	}
+	return loggerLevels(LoftLogLevel())
+}
 
+// loggerLevels returns the zap log level and the kubernetes verbosity level
+func loggerLevels(logLevel string) (zap.AtomicLevel, string, error) {
 	kubernetesVerbosityLevel := os.Getenv("KUBERNETES_VERBOSITY_LEVEL") // numerical values increasing: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 	if kubernetesVerbosityLevel == "" {
 		kubernetesVerbosityLevel = "0"
@@ -139,17 +164,24 @@ func GetLogLevel() (zap.AtomicLevel, string, error) {
 	return atomicLevel, kubernetesVerbosityLevel, err
 }
 
+// LoftLogLevel returns the log level; "debug", "info", "warn", "error", "dpanic", "panic", "fatal". (default: info)
+func LoftLogLevel() string {
+	logLevel := os.Getenv("LOFT_LOG_LEVEL") // debug, info, warn, error, dpanic, panic, fatal
+	if logLevel == "" {
+		logLevel = "info"
+	}
+
+	return logLevel
+}
+
 // GetEncoding returns the log encoding; "console" or "json". (default: console)
-func GetEncoding() (string, error) {
+func GetEncoding() string {
 	loftLogEncoding := os.Getenv("LOFT_LOG_ENCODING") // json or console
 	if loftLogEncoding == "" {
 		loftLogEncoding = "console"
 	}
-	if loftLogEncoding != "json" && loftLogEncoding != "console" {
-		return "", fmt.Errorf("invalid log encoding: %s", loftLogEncoding)
-	}
 
-	return loftLogEncoding, nil
+	return loftLogEncoding
 }
 
 // LogFullCallerPath returns true if the full caller path should be logged

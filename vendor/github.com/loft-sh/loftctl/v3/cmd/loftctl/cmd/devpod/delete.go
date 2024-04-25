@@ -9,6 +9,7 @@ import (
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
+	devpodpkg "github.com/loft-sh/loftctl/v3/pkg/devpod"
 	"github.com/loft-sh/loftctl/v3/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
@@ -28,8 +29,9 @@ func NewDeleteCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Log:         log.GetInstance(),
 	}
 	c := &cobra.Command{
-		Use:   "delete",
-		Short: "Runs delete on a workspace",
+		Hidden: true,
+		Use:    "delete",
+		Short:  "Runs delete on a workspace",
 		Long: `
 #######################################################
 ################# loft devpod delete ##################
@@ -50,14 +52,18 @@ func (cmd *DeleteCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer
 		return err
 	}
 
-	workspace, err := findWorkspace(ctx, baseClient)
+	info, err := devpodpkg.GetWorkspaceInfoFromEnv()
+	if err != nil {
+		return err
+	}
+	workspace, err := devpodpkg.FindWorkspace(ctx, baseClient, info.UID, info.ProjectName)
 	if err != nil {
 		return err
 	} else if workspace == nil {
 		return fmt.Errorf("couldn't find workspace")
 	}
 
-	conn, err := dialWorkspace(baseClient, workspace, "delete", optionsFromEnv(storagev1.DevPodFlagsDelete))
+	conn, err := devpodpkg.DialWorkspace(baseClient, workspace, "delete", devpodpkg.OptionsFromEnv(storagev1.DevPodFlagsDelete))
 	if err != nil {
 		return err
 	}

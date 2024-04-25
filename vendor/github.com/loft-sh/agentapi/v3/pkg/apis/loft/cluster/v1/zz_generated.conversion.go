@@ -1025,6 +1025,7 @@ func autoConvert_v1_LastActivityInfo_To_cluster_LastActivityInfo(in *LastActivit
 	out.Subresource = in.Subresource
 	out.Name = in.Name
 	out.VirtualCluster = in.VirtualCluster
+	out.MetricsRefreshInterval = in.MetricsRefreshInterval
 	return nil
 }
 
@@ -1042,6 +1043,7 @@ func autoConvert_cluster_LastActivityInfo_To_v1_LastActivityInfo(in *cluster.Las
 	out.Subresource = in.Subresource
 	out.Name = in.Name
 	out.VirtualCluster = in.VirtualCluster
+	out.MetricsRefreshInterval = in.MetricsRefreshInterval
 	return nil
 }
 

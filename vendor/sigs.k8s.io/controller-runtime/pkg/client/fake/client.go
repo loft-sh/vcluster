@@ -947,7 +947,7 @@ func dryPatch(action testing.PatchActionImpl, tracker testing.ObjectTracker) (ru
 		if err := json.Unmarshal(modified, obj); err != nil {
 			return nil, err
 		}
-	case types.StrategicMergePatchType, types.ApplyPatchType:
+	case types.StrategicMergePatchType:
 		mergedByte, err := strategicpatch.StrategicMergePatch(old, action.GetPatch(), obj)
 		if err != nil {
 			return nil, err
@@ -955,8 +955,10 @@ func dryPatch(action testing.PatchActionImpl, tracker testing.ObjectTracker) (ru
 		if err = json.Unmarshal(mergedByte, obj); err != nil {
 			return nil, err
 		}
+	case types.ApplyPatchType:
+		return nil, errors.New("apply patches are not supported in the fake client. Follow https://github.com/kubernetes/kubernetes/issues/115598 for the current status")
 	default:
-		return nil, fmt.Errorf("PatchType is not supported")
+		return nil, fmt.Errorf("%s PatchType is not supported", action.GetPatchType())
 	}
 	return obj, nil
 }

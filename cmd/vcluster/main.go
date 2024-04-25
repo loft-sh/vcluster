@@ -31,7 +31,12 @@ func main() {
 	}
 
 	// set global logger
-	logger, err := loftlogr.NewLogger("vcluster")
+	logger, err := loftlogr.NewLoggerWithOptions(
+		loftlogr.WithOptionsFromEnv(),
+		loftlogr.WithComponentName("vcluster"),
+		loftlogr.WithGlobalZap(true),
+		loftlogr.WithGlobalKlog(true),
+	)
 	if err != nil {
 		klog.Fatal(err)
 	}

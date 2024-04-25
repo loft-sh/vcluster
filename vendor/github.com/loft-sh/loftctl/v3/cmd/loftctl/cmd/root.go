@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/credits"
 	cmddefaults "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/defaults"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/delete"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod"
@@ -23,6 +24,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vars"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/wakeup"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
@@ -41,7 +43,11 @@ func NewRootCmd(streamLogger *log.StreamLogger) *cobra.Command {
 			if globalFlags.Silent {
 				streamLogger.SetLevel(logrus.FatalLevel)
 			}
-			if globalFlags.Config == "" && os.Getenv("LOFT_CONFIG") != "" {
+			if globalFlags.Debug {
+				streamLogger.SetLevel(logrus.DebugLevel)
+			}
+
+			if (globalFlags.Config == "" || globalFlags.Config == client.DefaultCacheConfig) && os.Getenv("LOFT_CONFIG") != "" {
 				globalFlags.Config = os.Getenv("LOFT_CONFIG")
 			}
 
@@ -118,6 +124,7 @@ func BuildRoot(log *log.StreamLogger) *cobra.Command {
 	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(cmddefaults.NewDefaultsCmd(globalFlags, defaults))
 	rootCmd.AddCommand(devpod.NewDevPodCmd(globalFlags))
+	rootCmd.AddCommand(credits.NewCreditsCmd())
 
 	return rootCmd
 }

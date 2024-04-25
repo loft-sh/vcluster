@@ -133,6 +133,10 @@ type ProjectSpec struct {
 	// RancherIntegration holds information about Rancher Integration
 	// +optional
 	RancherIntegration *RancherIntegrationSpec `json:"rancher,omitempty"`
+
+	// DevPod holds DevPod specific configuration for project
+	// +optional
+	DevPod *DevPodProjectSpec `json:"devPod,omitempty"`
 }
 
 type AutomaticImport struct {
@@ -509,6 +513,22 @@ type SyncMembersSpec struct {
 	// being synced.
 	// +optional
 	RoleMapping map[string]string `json:"roleMapping,omitempty"`
+}
+
+type DevPodProjectSpec struct {
+	// +optional
+	Git *GitProjectSpec `json:"git,omitempty"`
+}
+
+type GitProjectSpec struct {
+	// Token defines the token to use for authentication.
+	// +optional
+	Token string `json:"token,omitempty"`
+
+	// TokenSecretRef defines the project secret to use for token authentication.
+	// Will be used if `Token` is not provided.
+	// +optional
+	TokenProjectSecretRef *corev1.SecretKeySelector `json:"tokenSecretRef,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

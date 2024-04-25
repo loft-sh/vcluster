@@ -99,7 +99,7 @@ func (cmd *VClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		vClusterName = args[0]
 	}
 
-	cmd.Cluster, cmd.Project, cmd.Space, vClusterName, err = helper.SelectVirtualClusterInstanceOrVirtualCluster(baseClient, vClusterName, cmd.Space, cmd.Project, cmd.Cluster, cmd.Log)
+	cmd.Cluster, cmd.Project, cmd.Space, vClusterName, err = helper.SelectVirtualClusterInstanceOrVirtualCluster(cobraCmd.Context(), baseClient, vClusterName, cmd.Space, cmd.Project, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}

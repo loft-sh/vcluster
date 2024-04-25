@@ -43,22 +43,19 @@ const PortForwardProtocolV1Name = "portforward.k8s.io"
 // PortForwarder knows how to listen for local connections and forward them to
 // a remote pod via an upgraded HTTP request.
 type PortForwarder struct {
-	addresses []listenAddress
-	ports     []ForwardedPort
-	stopChan  <-chan struct{}
-
-	errChan chan<- error
-
-	dialer        httpstream.Dialer
-	streamConn    httpstream.Connection
-	listeners     []io.Closer
-	Ready         chan struct{}
-	requestIDLock sync.Mutex
-	requestID     int
-	out           io.Writer
-	errOut        io.Writer
-
+	errOut         io.Writer
+	dialer         httpstream.Dialer
+	streamConn     httpstream.Connection
+	out            io.Writer
+	Ready          chan struct{}
+	stopChan       <-chan struct{}
+	errChan        chan<- error
+	listeners      []io.Closer
+	addresses      []listenAddress
+	ports          []ForwardedPort
+	requestID      int
 	numConnections atomic.Int64
+	requestIDLock  sync.Mutex
 }
 
 // ForwardedPort contains a Local:Remote port pairing.
@@ -231,8 +228,8 @@ func (pf *PortForwarder) forward(ctx context.Context) error {
 	for i := range pf.ports {
 		port := &pf.ports[i]
 		err = pf.listenOnPort(ctx, port)
-		switch {
-		case err == nil:
+		switch err {
+		case nil:
 			listenSuccess = true
 		default:
 			if pf.errOut != nil {
@@ -352,7 +349,6 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 	defer conn.Close()
 
 	logger := klog.FromContext(ctx)
-
 	pf.numConnections.Inc()
 	defer pf.numConnections.Dec()
 	if pf.out != nil {
@@ -400,7 +396,9 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 	go func() {
 		// Copy from the remote side to the local port.
 		if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			logger.V(4).Error(err, "error copying from remote stream to local connection")
+			if logger := klog.FromContext(ctx).V(4); logger.Enabled() {
+				logger.Error(err, "error copying from remote stream to local connection", "debug", true)
+			}
 		}
 
 		// inform the select below that the remote copy is done
@@ -413,7 +411,9 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 
 		// Copy from the local port to the remote side.
 		if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			logger.V(4).Error(err, "error copying from local connection to remote stream")
+			if logger := klog.FromContext(ctx).V(4); logger.Enabled() {
+				logger.Error(err, "error copying from local connection to remote stream", "debug", true)
+			}
 
 			// break out of the select below without waiting for the other copy to finish
 			close(localError)

@@ -5178,6 +5178,7 @@ func Convert_management_DevPodStopOptionsList_To_v1_DevPodStopOptionsList(in *ma
 
 func autoConvert_v1_DevPodUpOptions_To_management_DevPodUpOptions(in *DevPodUpOptions, out *management.DevPodUpOptions, s conversion.Scope) error {
 	out.WebMode = in.WebMode
+	out.CLIMode = in.CLIMode
 	out.Debug = in.Debug
 	out.Options = in.Options
 	return nil
@@ -5190,6 +5191,7 @@ func Convert_v1_DevPodUpOptions_To_management_DevPodUpOptions(in *DevPodUpOption
 
 func autoConvert_management_DevPodUpOptions_To_v1_DevPodUpOptions(in *management.DevPodUpOptions, out *DevPodUpOptions, s conversion.Scope) error {
 	out.WebMode = in.WebMode
+	out.CLIMode = in.CLIMode
 	out.Debug = in.Debug
 	out.Options = in.Options
 	return nil
@@ -5209,6 +5211,13 @@ func autoConvert_url_Values_To_v1_DevPodUpOptions(in *url.Values, out *DevPodUpO
 		}
 	} else {
 		out.WebMode = false
+	}
+	if values, ok := map[string][]string(*in)["cliMode"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_bool(&values, &out.CLIMode, s); err != nil {
+			return err
+		}
+	} else {
+		out.CLIMode = false
 	}
 	if values, ok := map[string][]string(*in)["debug"]; ok && len(values) > 0 {
 		if err := runtime.Convert_Slice_string_To_bool(&values, &out.Debug, s); err != nil {

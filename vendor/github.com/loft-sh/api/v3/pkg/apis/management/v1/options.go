@@ -148,6 +148,10 @@ type DevPodUpOptions struct {
 	// +optional
 	WebMode bool `json:"webMode,omitempty"`
 
+	// CLIMode executes the up command directly.
+	// +optional
+	CLIMode bool `json:"cliMode,omitempty"`
+
 	// Debug includes debug logs.
 	// +optional
 	Debug bool `json:"debug,omitempty"`

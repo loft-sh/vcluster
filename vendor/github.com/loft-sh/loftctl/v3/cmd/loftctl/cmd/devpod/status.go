@@ -10,6 +10,7 @@ import (
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
+	devpodpkg "github.com/loft-sh/loftctl/v3/pkg/devpod"
 	"github.com/loft-sh/loftctl/v3/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
@@ -29,8 +30,9 @@ func NewStatusCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Log:         log.GetInstance(),
 	}
 	c := &cobra.Command{
-		Use:   "status",
-		Short: "Runs status on a workspace",
+		Hidden: true,
+		Use:    "status",
+		Short:  "Runs status on a workspace",
 		Long: `
 #######################################################
 ################# loft devpod status ##################
@@ -51,15 +53,19 @@ func (cmd *StatusCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer
 		return err
 	}
 
-	workspace, err := findWorkspace(ctx, baseClient)
+	info, err := devpodpkg.GetWorkspaceInfoFromEnv()
+	if err != nil {
+		return err
+	}
+	workspace, err := devpodpkg.FindWorkspace(ctx, baseClient, info.UID, info.ProjectName)
 	if err != nil {
 		return err
 	} else if workspace == nil {
 		out, err := json.Marshal(&storagev1.WorkspaceStatusResult{
-			ID:       os.Getenv(LOFT_WORKSPACE_ID),
-			Context:  os.Getenv(LOFT_WORKSPACE_CONTEXT),
+			ID:       os.Getenv(devpodpkg.LoftWorkspaceID),
+			Context:  os.Getenv(devpodpkg.LoftWorkspaceContext),
 			State:    string(storagev1.WorkspaceStatusNotFound),
-			Provider: os.Getenv(LOFT_WORKSPACE_PROVIDER),
+			Provider: os.Getenv(devpodpkg.LoftWorkspaceProvider),
 		})
 		if err != nil {
 			return err
@@ -69,7 +75,7 @@ func (cmd *StatusCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer
 		return nil
 	}
 
-	conn, err := dialWorkspace(baseClient, workspace, "getstatus", optionsFromEnv(storagev1.DevPodFlagsStatus))
+	conn, err := devpodpkg.DialWorkspace(baseClient, workspace, "getstatus", devpodpkg.OptionsFromEnv(storagev1.DevPodFlagsStatus))
 	if err != nil {
 		return err
 	}

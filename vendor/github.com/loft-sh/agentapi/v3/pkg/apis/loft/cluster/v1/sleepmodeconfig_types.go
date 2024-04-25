@@ -24,6 +24,7 @@ const (
 	SleepModeScheduledWakeupAnnotation   = "sleepmode.loft.sh/scheduled-wakeup"
 	SleepModeSleepTypeAnnotation         = "sleepmode.loft.sh/sleep-type"
 	SleepModeDisableIngressWakeup        = "sleepmode.loft.sh/disable-ingress-wakeup"
+	SleepModeDisableMetricsTracking      = "sleepmode.loft.sh/disable-metrics-tracking"
 
 	// Not yet in spec annotations
 	SleepModeIgnoreAll                     = "sleepmode.loft.sh/ignore-all"
@@ -249,4 +250,8 @@ type LastActivityInfo struct {
 	// VirtualCluster is the virtual cluster this activity happened in
 	// +optional
 	VirtualCluster string `json:"virtualCluster,omitempty"`
+
+	// MetricsRefreshInterval is the activity refresh interval. This is used to prevent sleeping instances if the last
+	// activity metrics have not been refreshed within the interval. Useful for metrics based activty tracking.
+	MetricsRefreshInterval int64 `json:"metricsRefreshInterval,omitempty"`
 }

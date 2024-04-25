@@ -99,7 +99,7 @@ func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 		virtualClusterName = args[0]
 	}
 
-	cmd.Cluster, cmd.Project, cmd.Space, virtualClusterName, err = helper.SelectVirtualClusterInstanceOrVirtualCluster(baseClient, virtualClusterName, cmd.Space, cmd.Project, cmd.Cluster, cmd.Log)
+	cmd.Cluster, cmd.Project, cmd.Space, virtualClusterName, err = helper.SelectVirtualClusterInstanceOrVirtualCluster(ctx, baseClient, virtualClusterName, cmd.Space, cmd.Project, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}

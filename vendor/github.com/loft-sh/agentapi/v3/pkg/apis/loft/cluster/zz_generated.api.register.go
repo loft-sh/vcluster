@@ -372,14 +372,15 @@ type Info struct {
 }
 
 type LastActivityInfo struct {
-	Subject        string `json:"subject,omitempty"`
-	Host           string `json:"host,omitempty"`
-	Verb           string `json:"verb,omitempty"`
-	APIGroup       string `json:"apiGroup,omitempty"`
-	Resource       string `json:"resource,omitempty"`
-	Subresource    string `json:"subresource,omitempty"`
-	Name           string `json:"name,omitempty"`
-	VirtualCluster string `json:"virtualCluster,omitempty"`
+	Subject                string `json:"subject,omitempty"`
+	Host                   string `json:"host,omitempty"`
+	Verb                   string `json:"verb,omitempty"`
+	APIGroup               string `json:"apiGroup,omitempty"`
+	Resource               string `json:"resource,omitempty"`
+	Subresource            string `json:"subresource,omitempty"`
+	Name                   string `json:"name,omitempty"`
+	VirtualCluster         string `json:"virtualCluster,omitempty"`
+	MetricsRefreshInterval int64  `json:"metricsRefreshInterval,omitempty"`
 }
 
 // +genclient

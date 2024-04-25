@@ -96,6 +96,10 @@ type DevPodWorkspaceTemplateDefinition struct {
 	// WorkspaceEnv are environment variables that should be available within the created workspace.
 	// +optional
 	WorkspaceEnv map[string]DevPodProviderOption `json:"workspaceEnv,omitempty"`
+
+	// UseProjectGitCredentials specifies if the project git credentials should be used instead of local ones for this workspace
+	// +optional
+	UseProjectGitCredentials bool `json:"useProjectGitCredentials,omitempty"`
 }
 
 type DevPodWorkspaceProvider struct {
