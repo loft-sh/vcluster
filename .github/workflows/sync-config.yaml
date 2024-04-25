@@ -30,6 +30,9 @@ jobs:
 
           cd vcluster-config
 
+          # We have to replace our config dependency so that we do not introduce vcluster as a whole as transitive dependecy.
+          find ./config/legacyconfig -type f -exec sed -i "s#github.com/loft-sh/vcluster/config#github.com/loft-sh/vcluster-config/config#g" {} +
+
           # Checkout new branch
           git add --all
 
