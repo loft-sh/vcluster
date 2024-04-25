@@ -1,6 +1,14 @@
 package legacyconfig
 
-import "github.com/loft-sh/vcluster/config"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+
+	"github.com/ghodss/yaml"
+	"github.com/loft-sh/vcluster/config"
+)
 
 type LegacyK0sAndK3s struct {
 	BaseHelm
@@ -12,6 +20,28 @@ type LegacyK0sAndK3s struct {
 	Storage                          Storage            `json:"storage,omitempty"`
 }
 
+func (c *LegacyK0sAndK3s) DecodeYAML(r io.Reader) error {
+	o, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	j, err := yaml.YAMLToJSON(o)
+	if err != nil {
+		return err
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(j))
+	dec.DisallowUnknownFields()
+
+	err = dec.Decode(c)
+	if err != nil {
+		return fmt.Errorf("%w: %w", config.ErrInvalidFileFormat, err)
+	}
+
+	return nil
+}
+
 type LegacyK8s struct {
 	BaseHelm
 	Syncer       K8sSyncerValues    `json:"syncer,omitempty"`
@@ -21,6 +51,28 @@ type LegacyK8s struct {
 	Etcd         EtcdValues         `json:"etcd,omitempty"`
 	EmbeddedEtcd EmbeddedEtcdValues `json:"embeddedEtcd,omitempty"`
 	Storage      Storage            `json:"storage,omitempty"`
+}
+
+func (c *LegacyK8s) DecodeYAML(r io.Reader) error {
+	o, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	j, err := yaml.YAMLToJSON(o)
+	if err != nil {
+		return err
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(j))
+	dec.DisallowUnknownFields()
+
+	err = dec.Decode(c)
+	if err != nil {
+		return fmt.Errorf("%w: %w", config.ErrInvalidFileFormat, err)
+	}
+
+	return nil
 }
 
 type K8sSyncerValues struct {

@@ -41,7 +41,7 @@ func MigrateLegacyConfig(distro, oldValues string) (string, error) {
 func migrateK8sAndEKS(distro, oldValues string, newConfig *config.Config) error {
 	// unmarshal legacy config
 	oldConfig := &LegacyK8s{}
-	err := yaml.Unmarshal([]byte(oldValues), oldConfig)
+	err := oldConfig.DecodeYAML(strings.NewReader(oldValues))
 	if err != nil {
 		return fmt.Errorf("unmarshal legacy config: %w", err)
 	}
@@ -97,7 +97,7 @@ func migrateK8sAndEKS(distro, oldValues string, newConfig *config.Config) error 
 func migrateK3sAndK0s(distro, oldValues string, newConfig *config.Config) error {
 	// unmarshal legacy config
 	oldConfig := &LegacyK0sAndK3s{}
-	err := yaml.Unmarshal([]byte(oldValues), oldConfig)
+	err := oldConfig.DecodeYAML(strings.NewReader(oldValues))
 	if err != nil {
 		return fmt.Errorf("unmarshal legacy config: %w", err)
 	}
