@@ -1,6 +1,7 @@
 package list
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -57,7 +58,7 @@ devspace list spaces
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.RunSpaces()
+			return cmd.RunSpaces(cobraCmd.Context())
 		},
 	}
 	listCmd.Flags().BoolVar(&cmd.ShowLegacy, "show-legacy", false, "If true, will always show the legacy spaces as well")
@@ -65,7 +66,7 @@ devspace list spaces
 }
 
 // RunSpaces executes the functionality
-func (cmd *SpacesCmd) RunSpaces() error {
+func (cmd *SpacesCmd) RunSpaces(ctx context.Context) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -80,14 +81,14 @@ func (cmd *SpacesCmd) RunSpaces() error {
 		"Age",
 	}
 	values := [][]string{}
-	spaceInstances, err := helper.GetSpaceInstances(baseClient)
+	spaceInstances, err := helper.GetSpaceInstances(ctx, baseClient)
 	if err != nil {
 		return err
 	}
 	for _, space := range spaceInstances {
 		values = append(values, []string{
 			clihelper.GetTableDisplayName(space.SpaceInstance.Name, space.SpaceInstance.Spec.DisplayName),
-			space.Project,
+			space.Project.Name,
 			space.SpaceInstance.Spec.ClusterRef.Cluster,
 			strconv.FormatBool(space.SpaceInstance.Status.Phase == storagev1.InstanceSleeping),
 			string(space.SpaceInstance.Status.Phase),
@@ -95,7 +96,7 @@ func (cmd *SpacesCmd) RunSpaces() error {
 		})
 	}
 	if len(spaceInstances) == 0 || cmd.ShowLegacy {
-		spaces, err := helper.GetSpaces(baseClient, cmd.log)
+		spaces, err := helper.GetSpaces(ctx, baseClient, cmd.log)
 		if err != nil {
 			return err
 		}

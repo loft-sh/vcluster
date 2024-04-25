@@ -99,7 +99,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		spaceName = args[0]
 	}
 
-	cmd.Cluster, cmd.Project, spaceName, err = helper.SelectSpaceInstanceOrSpace(baseClient, spaceName, cmd.Project, cmd.Cluster, cmd.Log)
+	cmd.Cluster, cmd.Project, spaceName, err = helper.SelectSpaceInstanceOrSpace(cobraCmd.Context(), baseClient, spaceName, cmd.Project, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (cmd *SpaceCmd) legacyShareSpace(ctx context.Context, baseClient client.Cli
 }
 
 func createRoleBinding(ctx context.Context, baseClient client.Client, clusterName, spaceName, userName, teamName, clusterRole string, log log.Logger) (*helper.ClusterUserOrTeam, error) {
-	userOrTeam, err := helper.SelectClusterUserOrTeam(baseClient, clusterName, userName, teamName, log)
+	userOrTeam, err := helper.SelectClusterUserOrTeam(ctx, baseClient, clusterName, userName, teamName, log)
 	if err != nil {
 		return nil, err
 	}

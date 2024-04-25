@@ -42,7 +42,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	}
 
 	// determine project & cluster name
-	options.Cluster, options.Project, err = helper.SelectProjectOrCluster(platformClient, options.Cluster, options.Project, false, log)
+	options.Cluster, options.Project, err = helper.SelectProjectOrCluster(ctx, platformClient, options.Cluster, options.Project, false, log)
 	if err != nil {
 		return err
 	}
@@ -338,6 +338,7 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 
 	// resolve template
 	virtualClusterTemplate, resolvedParameters, err := create.ResolveTemplate(
+		ctx,
 		platformClient,
 		options.Project,
 		options.Template,
@@ -415,6 +416,7 @@ func upgradeWithTemplate(ctx context.Context, platformClient platform.Client, op
 
 	// resolve template
 	virtualClusterTemplate, resolvedParameters, err := create.ResolveTemplate(
+		ctx,
 		platformClient,
 		options.Project,
 		options.Template,

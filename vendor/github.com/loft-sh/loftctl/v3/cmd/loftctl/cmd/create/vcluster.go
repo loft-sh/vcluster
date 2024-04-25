@@ -172,7 +172,7 @@ func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// determine cluster name
-	cmd.Cluster, cmd.Project, err = helper.SelectProjectOrCluster(baseClient, cmd.Cluster, cmd.Project, true, cmd.Log)
+	cmd.Cluster, cmd.Project, err = helper.SelectProjectOrCluster(ctx, baseClient, cmd.Cluster, cmd.Project, true, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -258,6 +258,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 	if virtualClusterInstance == nil {
 		// resolve template
 		virtualClusterTemplate, resolvedParameters, err := ResolveTemplate(
+			ctx,
 			baseClient,
 			cmd.Project,
 			cmd.Template,
@@ -322,6 +323,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 	} else if cmd.Update {
 		// resolve template
 		virtualClusterTemplate, resolvedParameters, err := ResolveTemplate(
+			ctx,
 			baseClient,
 			cmd.Project,
 			cmd.Template,
@@ -403,6 +405,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 }
 
 func ResolveTemplate(
+	ctx context.Context,
 	baseClient client.Client,
 	project,
 	template,
@@ -412,7 +415,7 @@ func ResolveTemplate(
 	log log.Logger,
 ) (*managementv1.VirtualClusterTemplate, string, error) {
 	// determine space template to use
-	virtualClusterTemplate, err := helper.SelectVirtualClusterTemplate(baseClient, project, template, log)
+	virtualClusterTemplate, err := helper.SelectVirtualClusterTemplate(ctx, baseClient, project, template, log)
 	if err != nil {
 		return nil, "", err
 	}
@@ -684,7 +687,7 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 
 		// determine user or team name
 		if cmd.User == "" && cmd.Team == "" {
-			user, team, err := helper.SelectUserOrTeam(baseClient, cmd.Cluster, cmd.Log)
+			user, team, err := helper.SelectUserOrTeam(ctx, baseClient, cmd.Cluster, cmd.Log)
 			if err != nil {
 				return err
 			} else if user != nil {

@@ -1843,6 +1843,7 @@ type DevPodStopOptions struct {
 type DevPodUpOptions struct {
 	metav1.TypeMeta `json:",inline"`
 	WebMode         bool   `json:"webMode,omitempty"`
+	CLIMode         bool   `json:"cliMode,omitempty"`
 	Debug           bool   `json:"debug,omitempty"`
 	Options         string `json:"options,omitempty"`
 }

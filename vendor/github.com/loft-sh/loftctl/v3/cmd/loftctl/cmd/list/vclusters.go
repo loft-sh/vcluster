@@ -1,6 +1,7 @@
 package list
 
 import (
+	"context"
 	"time"
 
 	"github.com/loft-sh/api/v3/pkg/product"
@@ -54,7 +55,7 @@ devspace list vclusters
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run()
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 	listCmd.Flags().BoolVar(&cmd.ShowLegacy, "show-legacy", false, "If true, will always show the legacy virtual clusters as well")
@@ -62,7 +63,7 @@ devspace list vclusters
 }
 
 // Run executes the functionality
-func (cmd *VirtualClustersCmd) Run() error {
+func (cmd *VirtualClustersCmd) Run(ctx context.Context) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -78,23 +79,23 @@ func (cmd *VirtualClustersCmd) Run() error {
 	}
 	values := [][]string{}
 
-	virtualClusterInstances, err := helper.GetVirtualClusterInstances(baseClient)
+	virtualClusterInstances, err := helper.GetVirtualClusterInstances(ctx, baseClient)
 	if err != nil {
 		return err
 	}
 
 	for _, virtualCluster := range virtualClusterInstances {
 		values = append(values, []string{
-			clihelper.GetTableDisplayName(virtualCluster.VirtualClusterInstance.Name, virtualCluster.VirtualClusterInstance.Spec.DisplayName),
-			virtualCluster.Project,
-			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Cluster,
-			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Namespace,
-			string(virtualCluster.VirtualClusterInstance.Status.Phase),
-			duration.HumanDuration(time.Since(virtualCluster.VirtualClusterInstance.CreationTimestamp.Time)),
+			clihelper.GetTableDisplayName(virtualCluster.VirtualCluster.Name, virtualCluster.VirtualCluster.Spec.DisplayName),
+			virtualCluster.Project.Name,
+			virtualCluster.VirtualCluster.Spec.ClusterRef.Cluster,
+			virtualCluster.VirtualCluster.Spec.ClusterRef.Namespace,
+			string(virtualCluster.VirtualCluster.Status.Phase),
+			duration.HumanDuration(time.Since(virtualCluster.VirtualCluster.CreationTimestamp.Time)),
 		})
 	}
 	if len(virtualClusterInstances) == 0 || cmd.ShowLegacy {
-		virtualClusters, err := helper.GetVirtualClusters(baseClient, cmd.log)
+		virtualClusters, err := helper.GetVirtualClusters(ctx, baseClient, cmd.log)
 		if err != nil {
 			return err
 		}

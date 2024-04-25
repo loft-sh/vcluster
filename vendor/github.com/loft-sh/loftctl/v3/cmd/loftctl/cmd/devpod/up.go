@@ -2,29 +2,27 @@ package devpod
 
 import (
 	"context"
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/gorilla/websocket"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod/list"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	devpodpkg "github.com/loft-sh/loftctl/v3/pkg/devpod"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/parameters"
 	"github.com/loft-sh/loftctl/v3/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -43,8 +41,9 @@ func NewUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Log:         log.GetInstance(),
 	}
 	c := &cobra.Command{
-		Use:   "up",
-		Short: "Runs up on a workspace",
+		Hidden: true,
+		Use:    "up",
+		Short:  "Runs up on a workspace",
 		Long: `
 #######################################################
 #################### loft devpod up ###################
@@ -60,12 +59,17 @@ func NewUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 }
 
 func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
+	l := cmd.Log.ErrorStreamOnly()
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
 
-	workspace, err := findWorkspace(ctx, baseClient)
+	info, err := devpodpkg.GetWorkspaceInfoFromEnv()
+	if err != nil {
+		return err
+	}
+	workspace, err := devpodpkg.FindWorkspace(ctx, baseClient, info.UID, info.ProjectName)
 	if err != nil {
 		return err
 	}
@@ -76,9 +80,77 @@ func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, st
 		if err != nil {
 			return fmt.Errorf("create workspace: %w", err)
 		}
+	} else if workspace.Spec.TemplateRef != nil {
+		oldWorkspace := workspace.DeepCopy()
+		managementClient, err := baseClient.Management()
+		if err != nil {
+			return err
+		}
+		template := os.Getenv(devpodpkg.LoftTemplateOption)
+		if template == "" {
+			return fmt.Errorf("%s is missing in environment", devpodpkg.LoftTemplateOption)
+		}
+		version := os.Getenv(devpodpkg.LoftTemplateVersionOption)
+		if version == "latest" {
+			version = ""
+		}
+
+		// set template and version
+		workspace.Spec.TemplateRef = &storagev1.TemplateRef{
+			Name:    template,
+			Version: version,
+		}
+
+		// find parameters for template
+		resolvedParameters, err := getParametersFromEnvironment(ctx, managementClient, info.ProjectName, template, version)
+		if err != nil {
+			return fmt.Errorf("resolve parameters: %w", err)
+		}
+		workspace.Spec.Parameters = resolvedParameters
+
+		if workspaceChanged(workspace, oldWorkspace) {
+			workspace.Spec.TemplateRef.SyncOnce = true
+			// update template synced condition
+			for i, condition := range workspace.Status.Conditions {
+				if condition.Type == storagev1.InstanceTemplateSynced {
+					workspace.Status.Conditions[i].Status = corev1.ConditionFalse
+					workspace.Status.Conditions[i].Reason = "TemplateChanged"
+					workspace.Status.Conditions[i].Message = "Template has been changed"
+				}
+			}
+
+			// update workspace resource
+			workspace, err = managementClient.Loft().ManagementV1().
+				DevPodWorkspaceInstances(naming.ProjectNamespace(info.ProjectName)).
+				Update(ctx, workspace, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+
+			//  wait until status is updated
+			err = wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (done bool, err error) {
+				workspace, err = managementClient.Loft().ManagementV1().
+					DevPodWorkspaceInstances(naming.ProjectNamespace(info.ProjectName)).
+					Get(ctx, workspace.Name, metav1.GetOptions{})
+				if err != nil {
+					return false, err
+				}
+
+				if !isReady(workspace) || !templateSynced(workspace) {
+					l.Debugf("Workspace %s is in phase %s, waiting until its ready", workspace.Name, workspace.Status.Phase)
+					return false, nil
+				}
+
+				l.Debugf("Workspace %s has been updated", workspace.Name)
+				return true, nil
+			})
+			if err != nil {
+				return fmt.Errorf("wait for instance to update: %w", err)
+			}
+		}
 	}
 
-	conn, err := dialWorkspace(baseClient, workspace, "up", optionsFromEnv(storagev1.DevPodFlagsUp))
+	conn, err := devpodpkg.DialWorkspace(baseClient, workspace, "up", devpodpkg.OptionsFromEnv(storagev1.DevPodFlagsUp))
 	if err != nil {
 		return err
 	}
@@ -92,15 +164,15 @@ func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, st
 }
 
 func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logger) (*managementv1.DevPodWorkspaceInstance, error) {
-	workspaceID, workspaceUID, projectName, err := getWorkspaceInfo()
+	workspaceInfo, err := devpodpkg.GetWorkspaceInfoFromEnv()
 	if err != nil {
 		return nil, err
 	}
 
 	// get template
-	template := os.Getenv(LOFT_TEMPLATE_OPTION)
+	template := os.Getenv(devpodpkg.LoftTemplateOption)
 	if template == "" {
-		return nil, fmt.Errorf("%s is missing in environment", LOFT_TEMPLATE_OPTION)
+		return nil, fmt.Errorf("%s is missing in environment", devpodpkg.LoftTemplateOption)
 	}
 
 	// create client
@@ -110,13 +182,13 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 	}
 
 	// get template version
-	templateVersion := os.Getenv(LOFT_TEMPLATE_VERSION_OPTION)
+	templateVersion := os.Getenv(devpodpkg.LoftTemplateVersionOption)
 	if templateVersion == "latest" {
 		templateVersion = ""
 	}
 
 	// find parameters
-	resolvedParameters, err := getParametersFromEnvironment(ctx, managementClient, projectName, template, templateVersion)
+	resolvedParameters, err := getParametersFromEnvironment(ctx, managementClient, workspaceInfo.ProjectName, template, templateVersion)
 	if err != nil {
 		return nil, fmt.Errorf("resolve parameters: %w", err)
 	}
@@ -128,11 +200,11 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 
 	workspace := &managementv1.DevPodWorkspaceInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: naming.SafeConcatNameMax([]string{workspaceID}, 53) + "-",
-			Namespace:    naming.ProjectNamespace(projectName),
+			GenerateName: naming.SafeConcatNameMax([]string{workspaceInfo.ID}, 53) + "-",
+			Namespace:    naming.ProjectNamespace(workspaceInfo.ProjectName),
 			Labels: map[string]string{
-				storagev1.DevPodWorkspaceIDLabel:  workspaceID,
-				storagev1.DevPodWorkspaceUIDLabel: workspaceUID,
+				storagev1.DevPodWorkspaceIDLabel:  workspaceInfo.ID,
+				storagev1.DevPodWorkspaceUIDLabel: workspaceInfo.UID,
 			},
 			Annotations: map[string]string{
 				storagev1.DevPodWorkspacePictureAnnotation: workspacePicture,
@@ -141,7 +213,7 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 		},
 		Spec: managementv1.DevPodWorkspaceInstanceSpec{
 			DevPodWorkspaceInstanceSpec: storagev1.DevPodWorkspaceInstanceSpec{
-				DisplayName: workspaceID,
+				DisplayName: workspaceInfo.ID,
 				Parameters:  resolvedParameters,
 				TemplateRef: &storagev1.TemplateRef{
 					Name:    template,
@@ -158,7 +230,7 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 	}
 
 	// create instance
-	workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).Create(ctx, workspace, metav1.CreateOptions{})
+	workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(workspaceInfo.ProjectName)).Create(ctx, workspace, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +238,7 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 
 	// we need to wait until instance is scheduled
 	err = wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (done bool, err error) {
-		workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).Get(ctx, workspace.Name, metav1.GetOptions{})
+		workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(workspaceInfo.ProjectName)).Get(ctx, workspace.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -246,103 +318,26 @@ func isReady(workspace *managementv1.DevPodWorkspaceInstance) bool {
 	return workspace.Status.Phase == storagev1.InstanceReady
 }
 
-func getWorkspaceInfo() (string, string, string, error) {
-	// get workspace id
-	workspaceID := os.Getenv(LOFT_WORKSPACE_ID)
-	if workspaceID == "" {
-		return "", "", "", fmt.Errorf("%s is missing in environment", LOFT_WORKSPACE_ID)
-	}
-
-	// get workspace uid
-	workspaceUID := os.Getenv(LOFT_WORKSPACE_UID)
-	if workspaceUID == "" {
-		return "", "", "", fmt.Errorf("%s is missing in environment", LOFT_WORKSPACE_UID)
-	}
-
-	// get project
-	projectName := os.Getenv(LOFT_PROJECT_OPTION)
-	if projectName == "" {
-		return "", "", "", fmt.Errorf("%s is missing in environment", LOFT_PROJECT_OPTION)
-	}
-
-	return workspaceID, workspaceUID, projectName, nil
-}
-
-func findWorkspace(ctx context.Context, baseClient client.Client) (*managementv1.DevPodWorkspaceInstance, error) {
-	_, workspaceUID, projectName, err := getWorkspaceInfo()
-	if err != nil {
-		return nil, err
-	}
-
-	// create client
-	managementClient, err := baseClient.Management()
-	if err != nil {
-		return nil, fmt.Errorf("create management client: %w", err)
-	}
-
-	// get workspace
-	workspaceList, err := managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).List(ctx, metav1.ListOptions{
-		LabelSelector: storagev1.DevPodWorkspaceUIDLabel + "=" + workspaceUID,
-	})
-	if err != nil {
-		return nil, err
-	} else if len(workspaceList.Items) == 0 {
-		return nil, nil
-	}
-
-	return &workspaceList.Items[0], nil
-}
-
-func optionsFromEnv(name string) url.Values {
-	options := os.Getenv(name)
-	if options != "" {
-		return url.Values{
-			"options": []string{options},
+func templateSynced(workspace *managementv1.DevPodWorkspaceInstance) bool {
+	for _, condition := range workspace.Status.Conditions {
+		if condition.Type == storagev1.InstanceTemplateSynced {
+			return condition.Status == corev1.ConditionTrue
 		}
 	}
 
-	return nil
+	return false
 }
 
-func dialWorkspace(baseClient client.Client, workspace *managementv1.DevPodWorkspaceInstance, subResource string, values url.Values) (*websocket.Conn, error) {
-	restConfig, err := baseClient.ManagementConfig()
-	if err != nil {
-		return nil, err
+func workspaceChanged(newWorkspace, workspace *managementv1.DevPodWorkspaceInstance) bool {
+	// compare template
+	if !equality.Semantic.DeepEqual(workspace.Spec.TemplateRef, newWorkspace.Spec.TemplateRef) {
+		return true
 	}
 
-	host := restConfig.Host
-	if workspace.Annotations != nil && workspace.Annotations[storagev1.DevPodWorkspaceRunnerEndpointAnnotation] != "" {
-		host = workspace.Annotations[storagev1.DevPodWorkspaceRunnerEndpointAnnotation]
+	// compare parameters
+	if !equality.Semantic.DeepEqual(workspace.Spec.Parameters, newWorkspace.Spec.Parameters) {
+		return true
 	}
 
-	parsedURL, _ := url.Parse(host)
-	if parsedURL != nil && parsedURL.Host != "" {
-		host = parsedURL.Host
-	}
-
-	loftURL := "wss://" + host + "/kubernetes/management/apis/management.loft.sh/v1/namespaces/" + workspace.Namespace + "/devpodworkspaceinstances/" + workspace.Name + "/" + subResource
-	if len(values) > 0 {
-		loftURL += "?" + values.Encode()
-	}
-
-	dialer := websocket.Dialer{
-		TLSClientConfig:  &tls.Config{InsecureSkipVerify: true},
-		Proxy:            http.ProxyFromEnvironment,
-		HandshakeTimeout: 45 * time.Second,
-	}
-
-	conn, response, err := dialer.Dial(loftURL, map[string][]string{
-		"Authorization": {"Bearer " + restConfig.BearerToken},
-	})
-	if err != nil {
-		if response != nil {
-			out, _ := io.ReadAll(response.Body)
-			headers, _ := json.Marshal(response.Header)
-			return nil, fmt.Errorf("error dialing websocket %s (code %d): headers - %s, response - %s, error - %w", loftURL, response.StatusCode, string(headers), string(out), err)
-		}
-
-		return nil, fmt.Errorf("error dialing websocket %s: %w", loftURL, err)
-	}
-
-	return conn, nil
+	return false
 }

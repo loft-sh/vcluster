@@ -2,13 +2,13 @@ package start
 
 import (
 	"context"
-	"crypto/tls"
 	"net/http"
 	"time"
 
 	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
+	"github.com/loft-sh/loftctl/v3/pkg/httputil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -22,11 +22,7 @@ func (l *LoftStarter) startPortForwarding(ctx context.Context, loftPod *corev1.P
 
 	// wait until loft is reachable at the given url
 	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
+		Transport: httputil.InsecureTransport(),
 	}
 	l.Log.Infof(product.Replace("Waiting until loft is reachable at https://localhost:%s"), l.LocalPort)
 	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {

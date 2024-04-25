@@ -34,16 +34,19 @@ import (
 
 type ClusterCmd struct {
 	*flags.GlobalFlags
-	Log             log.Logger
-	Context         string
-	DisplayName     string
-	HelmChartPath   string
+	Log         log.Logger
+	Context     string
+	DisplayName string
+
+	HelmChartPath    string
+	HelmChartVersion string
+	HelmSet          []string
+	HelmValues       []string
+
 	Namespace       string
 	Project         string
 	ServiceAccount  string
 	Description     string
-	HelmSet         []string
-	HelmValues      []string
 	Development     bool
 	EgressOnlyAgent bool
 	Insecure        bool
@@ -104,6 +107,7 @@ devspace connect cluster my-cluster
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project name to use for the project cluster")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The project name to use for the project cluster")
 
+	c.Flags().StringVar(&cmd.HelmChartVersion, "helm-chart-version", "", "The agent chart version to deploy")
 	c.Flags().StringVar(&cmd.HelmChartPath, "helm-chart-path", "", "The agent chart to deploy")
 	c.Flags().StringArrayVar(&cmd.HelmSet, "helm-set", []string{}, "Extra helm values for the agent chart")
 	c.Flags().StringArrayVar(&cmd.HelmValues, "helm-values", []string{}, "Extra helm values for the agent chart")
@@ -260,7 +264,9 @@ func (cmd *ClusterCmd) deployAgent(ctx context.Context, kubeClient kubernetes.In
 		args = append(args, "loft", "--repo", "https://charts.loft.sh")
 
 		// set version
-		if loftVersion != "" {
+		if cmd.HelmChartVersion != "" {
+			args = append(args, "--version", cmd.HelmChartVersion)
+		} else if loftVersion != "" {
 			args = append(args, "--version", loftVersion)
 		}
 	}

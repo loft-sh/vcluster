@@ -17,18 +17,18 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
-	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240207094449-7adc00ae1265
+	github.com/loft-sh/agentapi/v3 v3.4.5
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v3 v3.0.0-20240207094436-f23808d5a185
-	github.com/loft-sh/loftctl/v3 v3.0.0-20240207094551-f600825cc6f5
+	github.com/loft-sh/api/v3 v3.4.5
+	github.com/loft-sh/loftctl/v3 v3.5.0-alpha.0.0.20240425091019-24b84e25c22a
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/locker v1.0.1
 	github.com/moby/term v0.5.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/ginkgo/v2 v2.14.0
-	github.com/onsi/gomega v1.30.0
+	github.com/onsi/ginkgo/v2 v2.15.0
+	github.com/onsi/gomega v1.31.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.46.0
@@ -39,10 +39,10 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/vmware-labs/yaml-jsonpath v0.3.2
 	go.uber.org/atomic v1.11.0
-	golang.org/x/mod v0.14.0
+	golang.org/x/mod v0.15.0
 	golang.org/x/sync v0.6.0
 	google.golang.org/grpc v1.60.1
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
@@ -61,7 +61,7 @@ require (
 	k8s.io/metrics v0.29.1
 	k8s.io/pod-security-admission v0.29.1
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	sigs.k8s.io/controller-runtime v0.17.0
+	sigs.k8s.io/controller-runtime v0.17.2
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -90,14 +90,14 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
-	github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1 // indirect
+	github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744 // indirect
 	github.com/loft-sh/jspolicy v0.2.2 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/otiai10/copy v1.11.0 // indirect
-	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rivo/uniseg v0.4.6 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
@@ -147,7 +147,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20231205033806-a5a03c77bf08 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/uuid v1.5.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
@@ -158,7 +158,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
-	github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
+	github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -193,12 +193,12 @@ require (
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/oauth2 v0.16.0 // indirect
+	golang.org/x/oauth2 v0.17.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.17.0 // indirect
+	golang.org/x/tools v0.18.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240116215550-a9fa1716bcac // indirect

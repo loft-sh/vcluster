@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod/list"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -13,9 +14,8 @@ import (
 // NewDevPodCmd creates a new cobra command
 func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	c := &cobra.Command{
-		Use:    "devpod",
-		Hidden: true,
-		Short:  "DevPod commands",
+		Use:   "devpod",
+		Short: "DevPod commands",
 		Long: `
 ########################################################
 ##################### loft devpod ######################
@@ -25,7 +25,7 @@ func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 			if os.Getenv("DEVPOD_DEBUG") == "true" {
 				log.Default.SetLevel(logrus.DebugLevel)
 			}
-			if globalFlags.Config == "" && os.Getenv("LOFT_CONFIG") != "" {
+			if (globalFlags.Config == "" || globalFlags.Config == client.DefaultCacheConfig) && os.Getenv("LOFT_CONFIG") != "" {
 				globalFlags.Config = os.Getenv("LOFT_CONFIG")
 			}
 
@@ -41,5 +41,6 @@ func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	c.AddCommand(NewSshCmd(globalFlags))
 	c.AddCommand(NewStatusCmd(globalFlags))
 	c.AddCommand(NewDeleteCmd(globalFlags))
+	c.AddCommand(NewRebuildCmd(globalFlags))
 	return c
 }
