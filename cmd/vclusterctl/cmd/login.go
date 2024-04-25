@@ -78,7 +78,7 @@ vcluster login https://my-vcluster-platform.com --access-key myaccesskey
 		},
 	}
 
-	loginCmd.Flags().StringVar(&options.Manager, "manager", "", "Switch managing method of vClusters between platform and helm")
+	loginCmd.Flags().StringVar(&options.Manager, "use-manager", "", "Switch managing method of vClusters between platform and helm")
 
 	loginCmd.Flags().StringVar(&options.AccessKey, "access-key", "", "The access key to use")
 	loginCmd.Flags().BoolVar(&options.Insecure, "insecure", true, product.Replace("Allow login into an insecure Loft instance"))
