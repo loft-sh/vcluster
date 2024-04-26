@@ -248,18 +248,24 @@ $ ./dist/<ARCH>/vcluster version
 vcluster version 0.20.0-next
 ```
 
-### Build vCluster Container Image
+### Bring up a local K8s cluster using Kind
 
 ```
 just create-kind
 
-Note: Feel free to push this image into your own registry.
-
-#### Importing vCluster Container Image for kind Users
-
-If using kind as your local Kubernetes cluster, you need to import the image into kind.
+kind create cluster -n vcluster
+Creating cluster "vcluster" ...
+ ✓ Ensuring node image (kindest/node:v1.29.2) 🖼
+ ✓ Preparing nodes 📦
+ ✓ Writing configuration 📜
+ ✓ Starting control-plane 🕹️
+ ✓ Installing CNI 🔌
+ ✓ Installing StorageClass 💾
+Set kubectl context to "kind-vcluster"
+You can now use your cluster with:
 
 kubectl cluster-info --context kind-vcluster
+
 ```
 
 ### Create vCluster with self-compiled vCluster CLI
