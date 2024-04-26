@@ -21,6 +21,7 @@
     .Values.networking.replicateServices.fromHost
     .Values.pro
     .Values.sync.toHost.storageClasses.enabled
+    .Values.experimental.isolatedControlPlane.enabled
     .Values.sync.toHost.persistentVolumes.enabled
     .Values.sync.toHost.priorityClasses.enabled
     .Values.sync.toHost.volumeSnapshots.enabled
