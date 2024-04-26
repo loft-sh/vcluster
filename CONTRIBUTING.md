@@ -12,7 +12,7 @@ Thank you for contributing to vcluster! Here you can find common questions aroun
   - [Developing the Different vCluster Containers](#developing-the-different-vcluster-containers)
   - [Developing and Debugging with DevSpace](#developing-and-debugging-vcluster-containers--with-devspace)
   - [Build and Test the vcluster CLI tool](#build-and-test-the-vcluster-cli-tool)
-  - [Developing from Source Code](#developing-from-source-code)
+  - [Developing without DevSpace](#developing-without-devspace)
   
 - [Running vcluster Tests](#running-vcluster-tests)
 - [License](#license)
@@ -147,7 +147,7 @@ Now, your terminal is running in DevSpace, and you can develop and test with Dev
 
 ### Developing and Testing vCluster using DevSpace 
 
-Start vcluster in DevSpace
+Start vcluster in DevSpace via `go run`
 
 ```
 vcluster-0:vcluster-dev$ go run -mod vendor cmd/vcluster/main.go start
@@ -158,22 +158,7 @@ Now, you can start to work with the virtual cluster based on the source code. Th
 
 If you change a file locally, DevSpace will automatically sync the file into the Devspace container. After any changes, re-run the same command in the DevSpace terminal to apply the changes.
 
-```
-vcluster-dev$ go run -mod vendor cmd/vcluster/main.go start
-```
-
-
-### Developing the hostpath-mapper Component with DevSpace
-
-In case you need to develop the hostpath-mapper daemonset instead of the syncer, you can use the `dev-hostpath-mapper` profile in `devspace.yaml`. 
-
-```
-$ devspace dev -p dev-hostpath-mapper
-```
-
-This deploys the hostpath-mapper as a deployment instead of a daemonset and take care of other modifications to be made and allow you to develop the hostpath-mapper itself against the syncer.
-
-### Debug vCluster using Devspace and with Delve
+#### Start vcluster in DevSpace in debug mode via `dlv`
 
 You can either debug with Delve within DevSpace or locally. Devspace is more convenient as no port forwarding is required.
 
@@ -222,8 +207,7 @@ Test the built CLI tool
 ./vcluster create v1 # create vcluster
 ``` 
 
-## Developing from Source Code
-
+## Developing without DevSpace
 ### Pre-requisites
 
 * [Golang v1.22](https://go.dev/doc/install) 
@@ -250,6 +234,8 @@ vcluster version 0.0.1
 ```
 docker build . -t my-vcluster:0.0.1
 ```
+
+Note: Feel free to push this image into your own registry. 
 
 #### Importing vCluster Container Image for kind Users
 
@@ -289,7 +275,7 @@ $ vcluster create my-vcluster -n my-vcluster -f ./vcluster.yaml --local-chart-di
 By connecting to the vCluster using the CLI, you set your local KubeConfig to the virtual cluster
 
 ```
-$ vcluster connect vcluster
+$ vcluster connect my-vcluster
 ```
 
 # Running vCluster Tests
