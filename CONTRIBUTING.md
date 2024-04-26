@@ -2,7 +2,7 @@ Contributing
 
 # Contributing to vcluster
 
-Thank you for contributing to vcluster! Here you can find common questions around developing vcluster. 
+Thank you for contributing to vcluster! Here you can find common questions around developing vcluster.
 
 # Table of Contents
 
@@ -13,7 +13,7 @@ Thank you for contributing to vcluster! Here you can find common questions aroun
   - [Developing and Debugging with DevSpace](#developing-and-debugging-vcluster-containers--with-devspace)
   - [Build and Test the vcluster CLI tool](#build-and-test-the-vcluster-cli-tool)
   - [Developing without DevSpace](#developing-without-devspace)
-  
+
 - [Running vcluster Tests](#running-vcluster-tests)
 - [License](#license)
 - [Copyright notice](#copyright-notice)
@@ -22,15 +22,15 @@ Thank you for contributing to vcluster! Here you can find common questions aroun
 
 There are a number of areas where contributions can be accepted:
 
-- Write code to fix bugs or implement features 
+- Write code to fix bugs or implement features
 - Review pull requests
 - Try out our alphas and betas and give us feedback in our community Slack channel
-- Help respond to Github issues to help our community 
-- Create [docs](https://github.com/loft-sh/vcluster-docs) or guides 
+- Help respond to Github issues to help our community
+- Create [docs](https://github.com/loft-sh/vcluster-docs) or guides
 
 # Developing vCluster
 
-We recommend developing vCluster directly on a local Kubernetes cluster as it provides faster feedback. There are two ways that we recommend developing. 
+We recommend developing vCluster directly on a local Kubernetes cluster as it provides faster feedback. There are two ways that we recommend developing.
 
 * DevSpace
 * Locally
@@ -41,8 +41,8 @@ We recommend developing vCluster directly on a local Kubernetes cluster as it pr
 
 * Docker needs to be installed (e.g. docker-desktop, orbstack, rancher desktop etc.)
 * [kubectl](https://kubernetes.io/docs/tasks/tools/)
-* [Helm v3.10.0+](https://helm.sh/docs/intro/install/) 
-* Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD or similar) 
+* [Helm v3.10.0+](https://helm.sh/docs/intro/install/)
+* Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD or similar)
 
 ### Fork and Clone the vcluster repo
 
@@ -58,7 +58,7 @@ One of the primary containers of vCluster is the `syncer` but you can also work 
 
 ## Developing and Debugging vCluster Containers with DevSpace
 
-The vCluster repo is enabled to develop using [DevSpace](https://www.devspace.sh/). Devspace will automatically set up a vcluster and sync your code changes from the repository to a running container. So, you can easily develop and test. 
+The vCluster repo is enabled to develop using [DevSpace](https://www.devspace.sh/). Devspace will automatically set up a vcluster and sync your code changes from the repository to a running container. So, you can easily develop and test.
 
 ### Install DevSpace
 
@@ -88,7 +88,7 @@ build:vcluster Rebuild image ghcr.io/loft-sh/loft-enterprise/dev-vcluster becaus
 build:vcluster Building image 'ghcr.io/loft-sh/loft-enterprise/dev-vcluster:YwXtFIF' with engine 'buildkit'
 build:vcluster Execute BuildKit command with: docker buildx build --tag ghcr.io/loft-sh/loft-enterprise/dev-vcluster:YwXtFIF --file Dockerfile --target builder -
 #0 building with "default" instance using docker driver557.1kB
-build:vcluster 
+build:vcluster
 build:vcluster #1 [internal] load remote build context
 Sending build context to Docker daemon  99.17MBdaemon  17.83MB
 ...
@@ -100,7 +100,7 @@ build:vcluster #21 writing image sha256:35a71edf70fe3be275cfd42a775e15621a906788
 build:vcluster #21 writing image sha256:35a71edf70fe3be275cfd42a775e15621a9067880b5f397e957daedb0ed7b73b done
 build:vcluster #21 naming to ghcr.io/loft-sh/loft-enterprise/dev-vcluster:YwXtFIF done
 build:vcluster #21 DONE 3.9s
-build:vcluster 
+build:vcluster
 build:vcluster View build details: docker-desktop://dashboard/build/default/default/q7vc4iv3ip8v24qxnybv4eo5p
 build:vcluster Done processing image 'ghcr.io/loft-sh/loft-enterprise/dev-vcluster'
 deploy:vcluster-k8s Deploying chart ./chart (vcluster) with helm...
@@ -140,12 +140,12 @@ If you wish to run vcluster in the debug mode with delve, run:
 
 TIP: hit an up arrow on your keyboard to find the commands mentioned above :)
 
-vcluster-0:vcluster-dev$ 
+vcluster-0:vcluster-dev$
 ```
 
-Now, your terminal is running in DevSpace, and you can develop and test with DevSpace. 
+Now, your terminal is running in DevSpace, and you can develop and test with DevSpace.
 
-### Developing and Testing vCluster using DevSpace 
+### Developing and Testing vCluster using DevSpace
 
 Start vcluster in DevSpace via `go run`
 
@@ -162,7 +162,7 @@ If you change a file locally, DevSpace will automatically sync the file into the
 
 You can either debug with Delve within DevSpace or locally. Devspace is more convenient as no port forwarding is required.
 
-Run vCluster in the debug mode with Delve in the `vcluster` directory. Note: Other sessions of DevSpace will need to be terminated before starting another 
+Run vCluster in the debug mode with Delve in the `vcluster` directory. Note: Other sessions of DevSpace will need to be terminated before starting another
 
 ```
 $ devspace dev -n vcluster
@@ -195,7 +195,7 @@ $ vcluster connect vcluster
 
 ## Build and Test the vcluster CLI tool
 
-Build the CLI tool 
+Build the CLI tool
 
 ```
 $ go generate ./... && go build -o vcluster cmd/vclusterctl/main.go # build vcluster cli
@@ -205,12 +205,15 @@ Test the built CLI tool
 
 ```
 ./vcluster create v1 # create vcluster
-``` 
+```
 
 ## Developing without DevSpace
 ### Pre-requisites
 
-* [Golang v1.22](https://go.dev/doc/install) 
+* [Golang v1.22](https://go.dev/doc/install)
+* [Goreleaser](https://goreleaser.com/install/)
+* [Just](https://github.com/casey/just)
+* [Kind](https://kind.sigs.k8s.io/)
 
 ### Uninstall vCluster CLI
 
@@ -219,30 +222,44 @@ If you already have vCluster CLI installed, please make sure to uninstall it fir
 ### Build vCluster CLI from Source Code
 
 ```
-$ sudo go build -mod vendor -o /usr/local/bin/vcluster cmd/vclusterctl/main.go
+$ just build-snapshot
+
+• starting build...
+[...]
+  • running before hooks
+    • running                                        hook=go mod tidy
+    • running                                        hook=just embed-charts 0.20.0-next
+    • running                                        hook=just clean-release
+    • running                                        hook=just copy-assets
+    • running                                        hook=just generate-vcluster-images 0.20.0-next
+  [...]
+  • building binaries
+    • partial build                                  match=target=darwin_arm64
+    • partial build                                  match=target=darwin_arm64
+    • building                                       binary=dist/<ARCH>/vcluster
+  [...]
+  • build succeeded after 11s
 ```
 
 ### Verify vCluster CLI was compiled correctly
 
 ```
-$ vcluster version
-vcluster version 0.0.1
+$ ./dist/<ARCH>/vcluster version
+vcluster version 0.20.0-next
 ```
 
 ### Build vCluster Container Image
 
 ```
-docker build . -t my-vcluster:0.0.1
-```
+just create-kind
 
-Note: Feel free to push this image into your own registry. 
+Note: Feel free to push this image into your own registry.
 
 #### Importing vCluster Container Image for kind Users
 
 If using kind as your local Kubernetes cluster, you need to import the image into kind.
 
-```
-$ kind load docker-image my-vcluster:0.0.1
+kubectl cluster-info --context kind-vcluster
 ```
 
 ### Create vCluster with self-compiled vCluster CLI
@@ -251,7 +268,7 @@ For vCluster v0.20+:
 
 #### Create a `vcluster.yaml`
 
-Create a `vcluster.yaml` that sets the image to be your locally built Docker image. 
+Create a `vcluster.yaml` that sets the image to be your locally built Docker image.
 
 ```yaml
 controlPlane:
@@ -262,12 +279,12 @@ controlPlane:
       tag: 0.0.1
 ```
 
-#### Deploy vCluster 
+#### Deploy vCluster
 
 Launch your vCluster using your `vcluster.yaml`
 
 ```
-$ vcluster create my-vcluster -n my-vcluster -f ./vcluster.yaml --local-chart-dir chart
+$ ./dist/<ARCH>/vcluster create my-vcluster -n my-vcluster -f ./vcluster.yaml --local-chart-dir chart
 ```
 
 ### Access your vCluster and Set your local KubeConfig
@@ -275,12 +292,12 @@ $ vcluster create my-vcluster -n my-vcluster -f ./vcluster.yaml --local-chart-di
 By connecting to the vCluster using the CLI, you set your local KubeConfig to the virtual cluster
 
 ```
-$ vcluster connect my-vcluster
+$ ./dist/<ARCH>/vcluster connect vcluster
 ```
 
 # Running vCluster Tests
 
-All of the tests are located in the vcluster directory. 
+All of the tests are located in the vcluster directory.
 
 ## Running the Unit Test Suite
 
@@ -295,14 +312,14 @@ $ ./hack/test.sh
 Run the e2e tests, that are located in the e2e folder.
 
 ```
-$ cd e2e
-$ go test -v -ginkgo.v
+$ just delete-kind
+$ just e2e
 
 ```
 
 If [Ginkgo](https://github.com/onsi/ginkgo#global-installation) is already installed, run  `ginkgo -v`.
 
-## Run the Conformance Tests 
+## Run the Conformance Tests
 
 For running conformance tests, please take a look at [conformance tests](https://github.com/loft-sh/tree/vcluster/main/conformance/v1.21)
 
