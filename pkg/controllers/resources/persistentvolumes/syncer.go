@@ -34,7 +34,10 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &persistentVolumeSyncer{
 		Translator: translator.NewClusterTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, NewPersistentVolumeTranslator(), HostClusterPersistentVolumeAnnotation),
 
-		virtualClient: ctx.VirtualManager.GetClient(),
+		virtualClient:            ctx.VirtualManager.GetClient(),
+		physicalClient:           ctx.PhysicalManager.GetClient(),
+		useFakePersistentVolumes: !ctx.Config.Sync.ToHost.PersistentVolumes.Enabled,
+		isMultiNS:                ctx.Config.Experimental.MultiNamespaceMode.Enabled,
 	}, nil
 }
 
@@ -66,7 +69,10 @@ func NewPersistentVolumeTranslator() translate.PhysicalNameTranslator {
 type persistentVolumeSyncer struct {
 	translator.Translator
 
-	virtualClient client.Client
+	virtualClient            client.Client
+	physicalClient           client.Client
+	useFakePersistentVolumes bool
+	isMultiNS                bool
 }
 
 var _ syncertypes.IndicesRegisterer = &persistentVolumeSyncer{}
@@ -142,7 +148,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	}
 
 	// check if the persistent volume should get synced
-	sync, vPvc, err := s.shouldSync(ctx.Context, pPersistentVolume)
+	sync, vPvc, pPvc, err := s.shouldSync(ctx.Context, pPersistentVolume)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
@@ -151,17 +157,19 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	}
 
 	// check if there is a corresponding virtual pvc
-	updatedObj := s.translateUpdateBackwards(vPersistentVolume, pPersistentVolume, vPvc)
-	if updatedObj != nil {
-		ctx.Log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
-		translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
-		err = ctx.VirtualClient.Update(ctx.Context, updatedObj)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	if s.useFakePersistentVolumes || vPersistentVolume.Spec.ClaimRef != nil || pPersistentVolume.Spec.ClaimRef == nil || pPvc != nil {
+		updatedObj := s.translateUpdateBackwards(vPersistentVolume, pPersistentVolume, vPvc)
+		if updatedObj != nil {
+			ctx.Log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
+			translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
+			err = ctx.VirtualClient.Update(ctx.Context, updatedObj)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 
-		// we will reconcile anyways
-		return ctrl.Result{}, nil
+			// we will reconcile anyways
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// check status
@@ -180,7 +188,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	}
 
 	// update the physical persistent volume if the virtual has changed
-	if vPersistentVolume.Annotations == nil || vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] == "" {
+	if vPersistentVolume.Annotations == nil || vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] == "" || vPersistentVolume.Spec.ClaimRef == nil {
 		if vPersistentVolume.DeletionTimestamp != nil {
 			if pPersistentVolume.DeletionTimestamp != nil {
 				return ctrl.Result{}, nil
@@ -221,7 +229,7 @@ var _ syncertypes.ToVirtualSyncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
-	sync, vPvc, err := s.shouldSync(ctx.Context, pPersistentVolume)
+	sync, vPvc, _, err := s.shouldSync(ctx.Context, pPersistentVolume)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if translate.Default.IsManagedCluster(pObj) {
@@ -240,33 +248,50 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pOb
 	return ctrl.Result{}, nil
 }
 
-func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) (bool, *corev1.PersistentVolumeClaim, error) {
+func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) (shouldSync bool, vpvc *corev1.PersistentVolumeClaim, ppvc *corev1.PersistentVolumeClaim, err error) {
 	// is there an assigned PVC?
 	if pObj.Spec.ClaimRef == nil {
 		if translate.Default.IsManagedCluster(pObj) {
-			return true, nil, nil
+			return true, nil, nil, nil
 		}
 
-		return false, nil, nil
+		return false, nil, nil, nil
 	}
 
 	vPvc := &corev1.PersistentVolumeClaim{}
-	err := clienthelper.GetByIndex(ctx, s.virtualClient, vPvc, constants.IndexByPhysicalName, pObj.Spec.ClaimRef.Namespace+"/"+pObj.Spec.ClaimRef.Name)
+	err = clienthelper.GetByIndex(ctx, s.virtualClient, vPvc, constants.IndexByPhysicalName, pObj.Spec.ClaimRef.Namespace+"/"+pObj.Spec.ClaimRef.Name)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
-			return false, nil, err
+			return false, nil, nil, err
 		} else if translate.Default.IsManagedCluster(pObj) {
-			return true, nil, nil
+			return true, nil, nil, nil
 		}
 
+		// this will only work if multi ns isn't enabled, because translator returns an error
+		// as it is not a valid call
+		if s.isMultiNS {
+			return true, nil, nil, nil
+		}
 		namespace, err := translate.Default.LegacyGetTargetNamespace()
 		if err != nil {
-			return false, nil, nil
+			return false, nil, nil, nil
 		}
-		return pObj.Spec.ClaimRef.Namespace == namespace && pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil
+		return pObj.Spec.ClaimRef.Namespace == namespace && pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil, nil
 	}
 
-	return true, vPvc, nil
+	pPvc := &corev1.PersistentVolumeClaim{}
+	err = s.physicalClient.Get(ctx, types.NamespacedName{Namespace: pObj.Spec.ClaimRef.Namespace, Name: pObj.Spec.ClaimRef.Name}, pPvc)
+	switch {
+	case kerrors.IsNotFound(err):
+		return true, vPvc, nil, nil
+	case kerrors.IsForbidden(err):
+		// we don't own the physical pvc here so we don't sync
+		return false, vPvc, nil, nil
+	case err != nil:
+		return false, vPvc, nil, err
+	}
+
+	return true, vPvc, pPvc, nil
 }
 
 func (s *persistentVolumeSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
@@ -275,7 +300,7 @@ func (s *persistentVolumeSyncer) IsManaged(ctx context.Context, pObj client.Obje
 		return false, nil
 	}
 
-	sync, _, err := s.shouldSync(ctx, pPv)
+	sync, _, _, err := s.shouldSync(ctx, pPv)
 	if err != nil {
 		return false, nil
 	}

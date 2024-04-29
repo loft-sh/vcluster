@@ -29,6 +29,7 @@ import (
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/services"
 	_ "github.com/loft-sh/vcluster/test/e2e/webhook"
 	_ "github.com/loft-sh/vcluster/test/e2e_node/node"
+	_ "github.com/loft-sh/vcluster/test/e2e_node/pvcretain"
 )
 
 var (

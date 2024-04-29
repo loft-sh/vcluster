@@ -49,7 +49,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	}
 
 	// translate storage class if we manage those in vcluster
-	if s.storageClassesEnabled && storageClassName != "" {
+	if s.syncSCToHost && storageClassName != "" {
 		translated := translate.Default.PhysicalNameClusterScoped(storageClassName)
 		delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
 		vPvc.Spec.StorageClassName = &translated
@@ -61,11 +61,8 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 			if vPvc.Spec.Selector != nil {
 				vPvc.Spec.Selector = translate.Default.TranslateLabelSelectorCluster(vPvc.Spec.Selector)
 			}
-			if vPvc.Spec.VolumeName != "" {
-				vPvc.Spec.VolumeName = translate.Default.PhysicalNameClusterScoped(vPvc.Spec.VolumeName)
-			}
 			// check if the storage class exists in the physical cluster
-			if !s.storageClassesEnabled && storageClassName != "" {
+			if !(s.syncSCToHost || s.syncSCFromHost) && storageClassName != "" {
 				// Should the PVC be dynamically provisioned or not?
 				if vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
 					err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})

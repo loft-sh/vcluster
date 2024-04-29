@@ -35,12 +35,14 @@ const (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	storageClassesEnabled := ctx.Config.Sync.ToHost.StorageClasses.Enabled
+	syncSCToHost := ctx.Config.Sync.ToHost.StorageClasses.Enabled
+	syncSCFromHost := ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled || ctx.Config.Sync.FromHost.StorageClasses.Enabled == "true"
 	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
 	return &persistentVolumeClaimSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, excludedAnnotations...),
 
-		storageClassesEnabled:    storageClassesEnabled,
+		syncSCToHost:             syncSCToHost,
+		syncSCFromHost:           syncSCFromHost,
 		schedulerEnabled:         ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		useFakePersistentVolumes: !ctx.Config.Sync.ToHost.PersistentVolumes.Enabled,
 	}, nil
@@ -49,7 +51,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 type persistentVolumeClaimSyncer struct {
 	translator.NamespacedTranslator
 
-	storageClassesEnabled    bool
+	syncSCToHost             bool
+	syncSCFromHost           bool
 	schedulerEnabled         bool
 	useFakePersistentVolumes bool
 }
