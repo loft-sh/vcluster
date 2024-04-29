@@ -133,6 +133,27 @@ func (c *Config) Distro() string {
 	return K8SDistro
 }
 
+// ValidateChanges checks for disallowed config changes.
+// Currently only certain backingstore changes are allowed but no distro change.
+func ValidateChanges(oldCfg, newCfg *Config) error {
+	oldDistro, newDistro := oldCfg.Distro(), newCfg.Distro()
+	if oldDistro != newDistro {
+		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", oldDistro, newDistro)
+	}
+
+	oldBackingStore, newBackingStore := oldCfg.BackingStoreType(), newCfg.BackingStoreType()
+	if oldBackingStore != newBackingStore {
+		if newBackingStore != StoreTypeEmbeddedEtcd {
+			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", oldBackingStore, newBackingStore)
+		}
+		if oldBackingStore != StoreTypeExternalEtcd && oldBackingStore != StoreTypeEmbeddedDatabase {
+			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", oldBackingStore, newBackingStore)
+		}
+	}
+
+	return nil
+}
+
 func ShouldCheckForProFeatures() bool {
 	return os.Getenv("FORCE_VCLUSTER_PRO") != "true"
 }
