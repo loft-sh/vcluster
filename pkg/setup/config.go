@@ -1,7 +1,6 @@
 package setup
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -136,7 +135,7 @@ func CheckUsingHelm(ctx context.Context, client kubernetes.Interface, name, name
 	// Try parsing as 0.20 values
 	if success, err := func() (bool, error) {
 		previousConfig := vclusterconfig.Config{}
-		if err := previousConfig.DecodeYAML(bytes.NewReader(previousConfigRaw)); err != nil {
+		if err := previousConfig.UnmarshalYAMLStrict(previousConfigRaw); err != nil {
 			return false, nil
 		}
 

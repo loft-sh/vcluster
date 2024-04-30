@@ -1,14 +1,12 @@
 package legacyconfig
 
 import (
-	"io"
-	"strings"
 	"testing"
 )
 
-func TestLegacyK0sAndK3s_DecodeYAML(t *testing.T) {
+func TestLegacyK0sAndK3s_UnmarshalYAMLStrict(t *testing.T) {
 	type args struct {
-		r io.Reader
+		data []byte
 	}
 	tests := []struct {
 		name    string
@@ -18,7 +16,7 @@ func TestLegacyK0sAndK3s_DecodeYAML(t *testing.T) {
 		{
 			name: "Valid: k3s",
 			args: args{
-				r: strings.NewReader(`
+				data: []byte(`
 sync:
   nodes:
    enabled: true
@@ -31,7 +29,7 @@ telemetry:
 		{
 			name: "Invalid: k8s",
 			args: args{
-				r: strings.NewReader(`
+				data: []byte(`
 api:
   image: registry.k8s.io/kube-apiserver:v1.29.0
 controller:
@@ -56,16 +54,16 @@ telemetry:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &LegacyK0sAndK3s{}
-			if err := c.DecodeYAML(tt.args.r); (err != nil) != tt.wantErr {
-				t.Errorf("LegacyK0sAndK3s.DecodeYAML() error = %v, wantErr %v", err, tt.wantErr)
+			if err := c.UnmarshalYAMLStrict(tt.args.data); (err != nil) != tt.wantErr {
+				t.Errorf("LegacyK0sAndK3s.UnmarshalYAMLStrict() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestLegacyK8s_DecodeYAML(t *testing.T) {
+func TestLegacyK8s_UnmarshalYAMLStrict(t *testing.T) {
 	type args struct {
-		r io.Reader
+		data []byte
 	}
 	tests := []struct {
 		name    string
@@ -75,7 +73,7 @@ func TestLegacyK8s_DecodeYAML(t *testing.T) {
 		{
 			name: "Valid: k8s",
 			args: args{
-				r: strings.NewReader(`
+				data: []byte(`
 api:
   image: registry.k8s.io/kube-apiserver:v1.29.0
 controller:
@@ -98,7 +96,7 @@ telemetry:
 		{
 			name: "Valid: eks",
 			args: args{
-				r: strings.NewReader(`
+				data: []byte(`
 api:
   image: public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6
 controller:
@@ -121,7 +119,7 @@ telemetry:
 		{
 			name: "Invalid: k3s",
 			args: args{
-				r: strings.NewReader(`
+				data: []byte(`
 sync:
   nodes:
    enabled: true
@@ -135,7 +133,7 @@ telemetry:
 		{
 			name: "Invalid: k0s",
 			args: args{
-				r: strings.NewReader(`
+				data: []byte(`
 sync:
   nodes:
    enabled: true
@@ -151,8 +149,8 @@ telemetry:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &LegacyK8s{}
-			if err := c.DecodeYAML(tt.args.r); (err != nil) != tt.wantErr {
-				t.Errorf("LegacyK8s.DecodeYAML() error = %v, wantErr %v", err, tt.wantErr)
+			if err := c.UnmarshalYAMLStrict(tt.args.data); (err != nil) != tt.wantErr {
+				t.Errorf("LegacyK8s.UnmarshalYAMLStrict() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

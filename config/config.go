@@ -1,24 +1,21 @@
 package config
 
 import (
-	"bytes"
 	_ "embed"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"reflect"
 	"regexp"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/invopop/jsonschema"
+	"sigs.k8s.io/yaml"
 )
 
 //go:embed values.yaml
 var Values string
 
-var ErrInvalidFileFormat = errors.New("invalid file format")
+var ErrInvalidConfig = errors.New("invalid config")
 
 // NewDefaultConfig creates a new config based on the values.yaml, including all default values.
 func NewDefaultConfig() (*Config, error) {
@@ -79,26 +76,8 @@ type Config struct {
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
 }
 
-func (c *Config) DecodeYAML(r io.Reader) error {
-	o, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
-
-	j, err := yaml.YAMLToJSON(o)
-	if err != nil {
-		return err
-	}
-
-	dec := json.NewDecoder(bytes.NewReader(j))
-	dec.DisallowUnknownFields()
-
-	err = dec.Decode(c)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidFileFormat, err)
-	}
-
-	return nil
+func (c *Config) UnmarshalYAMLStrict(data []byte) error {
+	return UnmarshalYAMLStrict(data, c)
 }
 
 // BackingStoreType returns the backing store type of the vCluster.
@@ -180,6 +159,13 @@ func (c *Config) IsProFeatureEnabled() bool {
 	}
 
 	return false
+}
+
+func UnmarshalYAMLStrict(data []byte, i any) error {
+	if err := yaml.UnmarshalStrict(data, i); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+	return nil
 }
 
 // ExportKubeConfig describes how vCluster should export the vCluster kubeconfig.
