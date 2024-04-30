@@ -61,13 +61,6 @@ module.exports = {
         },
       ],
     },
-    algolia: {
-      appId: "K85RIQNFGF",
-      apiKey: "42375731adc726ebb99849e9051aa9b4",
-      indexName: "vcluster",
-      placeholder: "Search...",
-      algoliaOptions: {},
-    },
     footer: {
       style: "light",
       links: [],
