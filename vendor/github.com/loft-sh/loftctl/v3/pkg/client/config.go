@@ -26,6 +26,10 @@ type Config struct {
 	// +optional
 	AccessKey string `json:"accesskey,omitempty"`
 
+	// virtual cluster access key is the access key for the given loft host to create virtual clusters
+	// +optional
+	VirtualClusterAccessKey string `json:"virtualClusterAccessKey,omitempty"`
+
 	// DEPRECATED: do not use anymore
 	// the direct cluster endpoint token
 	// +optional

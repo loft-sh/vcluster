@@ -21,6 +21,7 @@ type ManagementV1Interface interface {
 	ClusterConnectsGetter
 	ClusterRoleTemplatesGetter
 	ConfigsGetter
+	ConvertVirtualClusterConfigsGetter
 	DevPodWorkspaceInstancesGetter
 	DevPodWorkspaceTemplatesGetter
 	DirectClusterEndpointTokensGetter
@@ -31,7 +32,6 @@ type ManagementV1Interface interface {
 	LicenseTokensGetter
 	LoftUpgradesGetter
 	OwnedAccessKeysGetter
-	PolicyViolationsGetter
 	ProjectsGetter
 	ProjectSecretsGetter
 	RedirectTokensGetter
@@ -92,6 +92,10 @@ func (c *ManagementV1Client) Configs() ConfigInterface {
 	return newConfigs(c)
 }
 
+func (c *ManagementV1Client) ConvertVirtualClusterConfigs() ConvertVirtualClusterConfigInterface {
+	return newConvertVirtualClusterConfigs(c)
+}
+
 func (c *ManagementV1Client) DevPodWorkspaceInstances(namespace string) DevPodWorkspaceInstanceInterface {
 	return newDevPodWorkspaceInstances(c, namespace)
 }
@@ -130,10 +134,6 @@ func (c *ManagementV1Client) LoftUpgrades() LoftUpgradeInterface {
 
 func (c *ManagementV1Client) OwnedAccessKeys() OwnedAccessKeyInterface {
 	return newOwnedAccessKeys(c)
-}
-
-func (c *ManagementV1Client) PolicyViolations() PolicyViolationInterface {
-	return newPolicyViolations(c)
 }
 
 func (c *ManagementV1Client) Projects() ProjectInterface {

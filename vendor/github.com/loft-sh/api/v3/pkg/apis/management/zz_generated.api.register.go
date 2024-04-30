@@ -117,7 +117,17 @@ var (
 	NewConfigREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewConfigRESTFunc(Factory)
 	}
-	NewConfigRESTFunc                        NewRESTFunc
+	NewConfigRESTFunc                            NewRESTFunc
+	ManagementConvertVirtualClusterConfigStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalConvertVirtualClusterConfig,
+		func() runtime.Object { return &ConvertVirtualClusterConfig{} },     // Register versioned resource
+		func() runtime.Object { return &ConvertVirtualClusterConfigList{} }, // Register versioned resource list
+		NewConvertVirtualClusterConfigREST,
+	)
+	NewConvertVirtualClusterConfigREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewConvertVirtualClusterConfigRESTFunc(Factory)
+	}
+	NewConvertVirtualClusterConfigRESTFunc   NewRESTFunc
 	ManagementDevPodWorkspaceInstanceStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalDevPodWorkspaceInstance,
 		func() runtime.Object { return &DevPodWorkspaceInstance{} },     // Register versioned resource
@@ -231,18 +241,8 @@ var (
 	NewOwnedAccessKeyREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewOwnedAccessKeyRESTFunc(Factory)
 	}
-	NewOwnedAccessKeyRESTFunc        NewRESTFunc
-	ManagementPolicyViolationStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
-		InternalPolicyViolation,
-		func() runtime.Object { return &PolicyViolation{} },     // Register versioned resource
-		func() runtime.Object { return &PolicyViolationList{} }, // Register versioned resource list
-		NewPolicyViolationREST,
-	)
-	NewPolicyViolationREST = func(getter generic.RESTOptionsGetter) rest.Storage {
-		return NewPolicyViolationRESTFunc(Factory)
-	}
-	NewPolicyViolationRESTFunc NewRESTFunc
-	ManagementProjectStorage   = builders.NewApiResourceWithStorage( // Resource status endpoint
+	NewOwnedAccessKeyRESTFunc NewRESTFunc
+	ManagementProjectStorage  = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalProject,
 		func() runtime.Object { return &Project{} },     // Register versioned resource
 		func() runtime.Object { return &ProjectList{} }, // Register versioned resource list
@@ -608,6 +608,18 @@ var (
 		func() runtime.Object { return &Config{} },
 		func() runtime.Object { return &ConfigList{} },
 	)
+	InternalConvertVirtualClusterConfig = builders.NewInternalResource(
+		"convertvirtualclusterconfig",
+		"ConvertVirtualClusterConfig",
+		func() runtime.Object { return &ConvertVirtualClusterConfig{} },
+		func() runtime.Object { return &ConvertVirtualClusterConfigList{} },
+	)
+	InternalConvertVirtualClusterConfigStatus = builders.NewInternalResourceStatus(
+		"convertvirtualclusterconfig",
+		"ConvertVirtualClusterConfigStatus",
+		func() runtime.Object { return &ConvertVirtualClusterConfig{} },
+		func() runtime.Object { return &ConvertVirtualClusterConfigList{} },
+	)
 	InternalDevPodWorkspaceInstance = builders.NewInternalResource(
 		"devpodworkspaceinstances",
 		"DevPodWorkspaceInstance",
@@ -795,18 +807,6 @@ var (
 		"OwnedAccessKeyStatus",
 		func() runtime.Object { return &OwnedAccessKey{} },
 		func() runtime.Object { return &OwnedAccessKeyList{} },
-	)
-	InternalPolicyViolation = builders.NewInternalResource(
-		"policyviolations",
-		"PolicyViolation",
-		func() runtime.Object { return &PolicyViolation{} },
-		func() runtime.Object { return &PolicyViolationList{} },
-	)
-	InternalPolicyViolationStatus = builders.NewInternalResourceStatus(
-		"policyviolations",
-		"PolicyViolationStatus",
-		func() runtime.Object { return &PolicyViolation{} },
-		func() runtime.Object { return &PolicyViolationList{} },
 	)
 	InternalProject = builders.NewInternalResource(
 		"projects",
@@ -1210,6 +1210,8 @@ var (
 		InternalClusterRoleTemplateStatus,
 		InternalConfig,
 		InternalConfigStatus,
+		InternalConvertVirtualClusterConfig,
+		InternalConvertVirtualClusterConfigStatus,
 		InternalDevPodWorkspaceInstance,
 		InternalDevPodWorkspaceInstanceStatus,
 		InternalDevPodDeleteOptionsREST,
@@ -1239,8 +1241,6 @@ var (
 		InternalLoftUpgradeStatus,
 		InternalOwnedAccessKey,
 		InternalOwnedAccessKeyStatus,
-		InternalPolicyViolation,
-		InternalPolicyViolationStatus,
 		InternalProject,
 		InternalProjectStatus,
 		InternalProjectChartInfoREST,
@@ -1810,6 +1810,27 @@ type ConnectorWithName struct {
 	Connector   `json:",inline"`
 }
 
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ConvertVirtualClusterConfig struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ConvertVirtualClusterConfigSpec   `json:"spec,omitempty"`
+	Status            ConvertVirtualClusterConfigStatus `json:"status,omitempty"`
+}
+
+type ConvertVirtualClusterConfigSpec struct {
+	Distro string `json:"distro,omitempty"`
+	Values string `json:"values,omitempty"`
+}
+
+type ConvertVirtualClusterConfigStatus struct {
+	Values    string `json:"values,omitempty"`
+	Converted bool   `json:"converted"`
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type DevPodDeleteOptions struct {
@@ -2014,7 +2035,7 @@ type KioskStatus struct {
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type License struct {
@@ -2120,27 +2141,6 @@ type OwnedAccessKeySpec struct {
 
 type OwnedAccessKeyStatus struct {
 	storagev1.AccessKeyStatus `json:",inline"`
-}
-
-// +genclient
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type PolicyViolation struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              PolicyViolationSpec   `json:"spec,omitempty"`
-	Status            PolicyViolationStatus `json:"status,omitempty"`
-}
-
-type PolicyViolationSpec struct {
-}
-
-type PolicyViolationStatus struct {
-	Policy    string                        `json:"policy,omitempty"`
-	Cluster   string                        `json:"cluster,omitempty"`
-	User      *clusterv1.EntityInfo         `json:"user,omitempty"`
-	Violation policyv1beta1.PolicyViolation `json:"violation,omitempty"`
 }
 
 type PredefinedApp struct {
@@ -2712,6 +2712,7 @@ type VirtualClusterInstanceStatus struct {
 	SleepModeConfig                        *clusterv1.SleepModeConfig `json:"sleepModeConfig,omitempty"`
 	CanUse                                 bool                       `json:"canUse,omitempty"`
 	CanUpdate                              bool                       `json:"canUpdate,omitempty"`
+	Online                                 bool                       `json:"online,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -3889,6 +3890,125 @@ func (s *storageConfig) UpdateConfig(ctx context.Context, object *Config) (*Conf
 }
 
 func (s *storageConfig) DeleteConfig(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// ConvertVirtualClusterConfig Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type ConvertVirtualClusterConfigStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type ConvertVirtualClusterConfigStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ConvertVirtualClusterConfigList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ConvertVirtualClusterConfig `json:"items"`
+}
+
+func (ConvertVirtualClusterConfig) NewStatus() interface{} {
+	return ConvertVirtualClusterConfigStatus{}
+}
+
+func (pc *ConvertVirtualClusterConfig) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *ConvertVirtualClusterConfig) SetStatus(s interface{}) {
+	pc.Status = s.(ConvertVirtualClusterConfigStatus)
+}
+
+func (pc *ConvertVirtualClusterConfig) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *ConvertVirtualClusterConfig) SetSpec(s interface{}) {
+	pc.Spec = s.(ConvertVirtualClusterConfigSpec)
+}
+
+func (pc *ConvertVirtualClusterConfig) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *ConvertVirtualClusterConfig) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc ConvertVirtualClusterConfig) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store ConvertVirtualClusterConfig.
+// +k8s:deepcopy-gen=false
+type ConvertVirtualClusterConfigRegistry interface {
+	ListConvertVirtualClusterConfigs(ctx context.Context, options *internalversion.ListOptions) (*ConvertVirtualClusterConfigList, error)
+	GetConvertVirtualClusterConfig(ctx context.Context, id string, options *metav1.GetOptions) (*ConvertVirtualClusterConfig, error)
+	CreateConvertVirtualClusterConfig(ctx context.Context, id *ConvertVirtualClusterConfig) (*ConvertVirtualClusterConfig, error)
+	UpdateConvertVirtualClusterConfig(ctx context.Context, id *ConvertVirtualClusterConfig) (*ConvertVirtualClusterConfig, error)
+	DeleteConvertVirtualClusterConfig(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewConvertVirtualClusterConfigRegistry(sp builders.StandardStorageProvider) ConvertVirtualClusterConfigRegistry {
+	return &storageConvertVirtualClusterConfig{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageConvertVirtualClusterConfig struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageConvertVirtualClusterConfig) ListConvertVirtualClusterConfigs(ctx context.Context, options *internalversion.ListOptions) (*ConvertVirtualClusterConfigList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ConvertVirtualClusterConfigList), err
+}
+
+func (s *storageConvertVirtualClusterConfig) GetConvertVirtualClusterConfig(ctx context.Context, id string, options *metav1.GetOptions) (*ConvertVirtualClusterConfig, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ConvertVirtualClusterConfig), nil
+}
+
+func (s *storageConvertVirtualClusterConfig) CreateConvertVirtualClusterConfig(ctx context.Context, object *ConvertVirtualClusterConfig) (*ConvertVirtualClusterConfig, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ConvertVirtualClusterConfig), nil
+}
+
+func (s *storageConvertVirtualClusterConfig) UpdateConvertVirtualClusterConfig(ctx context.Context, object *ConvertVirtualClusterConfig) (*ConvertVirtualClusterConfig, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ConvertVirtualClusterConfig), nil
+}
+
+func (s *storageConvertVirtualClusterConfig) DeleteConvertVirtualClusterConfig(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err
@@ -5254,125 +5374,6 @@ func (s *storageOwnedAccessKey) UpdateOwnedAccessKey(ctx context.Context, object
 }
 
 func (s *storageOwnedAccessKey) DeleteOwnedAccessKey(ctx context.Context, id string) (bool, error) {
-	st := s.GetStandardStorage()
-	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
-	return sync, err
-}
-
-// PolicyViolation Functions and Structs
-//
-// +k8s:deepcopy-gen=false
-type PolicyViolationStrategy struct {
-	builders.DefaultStorageStrategy
-}
-
-// +k8s:deepcopy-gen=false
-type PolicyViolationStatusStrategy struct {
-	builders.DefaultStatusStorageStrategy
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type PolicyViolationList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PolicyViolation `json:"items"`
-}
-
-func (PolicyViolation) NewStatus() interface{} {
-	return PolicyViolationStatus{}
-}
-
-func (pc *PolicyViolation) GetStatus() interface{} {
-	return pc.Status
-}
-
-func (pc *PolicyViolation) SetStatus(s interface{}) {
-	pc.Status = s.(PolicyViolationStatus)
-}
-
-func (pc *PolicyViolation) GetSpec() interface{} {
-	return pc.Spec
-}
-
-func (pc *PolicyViolation) SetSpec(s interface{}) {
-	pc.Spec = s.(PolicyViolationSpec)
-}
-
-func (pc *PolicyViolation) GetObjectMeta() *metav1.ObjectMeta {
-	return &pc.ObjectMeta
-}
-
-func (pc *PolicyViolation) SetGeneration(generation int64) {
-	pc.ObjectMeta.Generation = generation
-}
-
-func (pc PolicyViolation) GetGeneration() int64 {
-	return pc.ObjectMeta.Generation
-}
-
-// Registry is an interface for things that know how to store PolicyViolation.
-// +k8s:deepcopy-gen=false
-type PolicyViolationRegistry interface {
-	ListPolicyViolations(ctx context.Context, options *internalversion.ListOptions) (*PolicyViolationList, error)
-	GetPolicyViolation(ctx context.Context, id string, options *metav1.GetOptions) (*PolicyViolation, error)
-	CreatePolicyViolation(ctx context.Context, id *PolicyViolation) (*PolicyViolation, error)
-	UpdatePolicyViolation(ctx context.Context, id *PolicyViolation) (*PolicyViolation, error)
-	DeletePolicyViolation(ctx context.Context, id string) (bool, error)
-}
-
-// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
-func NewPolicyViolationRegistry(sp builders.StandardStorageProvider) PolicyViolationRegistry {
-	return &storagePolicyViolation{sp}
-}
-
-// Implement Registry
-// storage puts strong typing around storage calls
-// +k8s:deepcopy-gen=false
-type storagePolicyViolation struct {
-	builders.StandardStorageProvider
-}
-
-func (s *storagePolicyViolation) ListPolicyViolations(ctx context.Context, options *internalversion.ListOptions) (*PolicyViolationList, error) {
-	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
-		return nil, fmt.Errorf("field selector not supported yet")
-	}
-	st := s.GetStandardStorage()
-	obj, err := st.List(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*PolicyViolationList), err
-}
-
-func (s *storagePolicyViolation) GetPolicyViolation(ctx context.Context, id string, options *metav1.GetOptions) (*PolicyViolation, error) {
-	st := s.GetStandardStorage()
-	obj, err := st.Get(ctx, id, options)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*PolicyViolation), nil
-}
-
-func (s *storagePolicyViolation) CreatePolicyViolation(ctx context.Context, object *PolicyViolation) (*PolicyViolation, error) {
-	st := s.GetStandardStorage()
-	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*PolicyViolation), nil
-}
-
-func (s *storagePolicyViolation) UpdatePolicyViolation(ctx context.Context, object *PolicyViolation) (*PolicyViolation, error) {
-	st := s.GetStandardStorage()
-	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*PolicyViolation), nil
-}
-
-func (s *storagePolicyViolation) DeletePolicyViolation(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err

@@ -15,6 +15,8 @@ const (
 	InstanceVirtualClusterReady   agentstoragev1.ConditionType = "VirtualClusterReady"
 	InstanceProjectsSecretsSynced agentstoragev1.ConditionType = "ProjectSecretsSynced"
 
+	InstanceVirtualClusterAppsAndObjectsSynced agentstoragev1.ConditionType = "VirtualClusterAppsAndObjectsSynced"
+
 	// Workload VirtualCluster conditions
 
 	InstanceWorkloadSpaceSynced               agentstoragev1.ConditionType = "WorkloadSpaceSynced"
@@ -24,16 +26,14 @@ const (
 	InstanceWorkloadVirtualClusterReady       agentstoragev1.ConditionType = "WorkloadVirtualClusterReady"
 )
 
-var (
-	VirtualClusterConditions = []agentstoragev1.ConditionType{
-		InstanceScheduled,
-		InstanceTemplateResolved,
-		InstanceSpaceSynced,
-		InstanceSpaceReady,
-		InstanceVirtualClusterSynced,
-		InstanceVirtualClusterReady,
-	}
-)
+var VirtualClusterConditions = []agentstoragev1.ConditionType{
+	InstanceScheduled,
+	InstanceTemplateResolved,
+	InstanceSpaceSynced,
+	InstanceSpaceReady,
+	InstanceVirtualClusterSynced,
+	InstanceVirtualClusterReady,
+}
 
 // +genclient
 // +genclient:noStatus
@@ -118,6 +118,12 @@ type VirtualClusterInstanceSpec struct {
 	// Access to the virtual cluster object itself
 	// +optional
 	Access []Access `json:"access,omitempty"`
+
+	// NetworkPeer specifies if the cluster is connected via tailscale.
+	// When this is specified, the vCluster will not be scheduled to any connected cluster
+	// and no templates will be applied to it.
+	// +optional
+	NetworkPeer bool `json:"networkPeer,omitempty"`
 }
 
 type VirtualClusterInstanceStatus struct {

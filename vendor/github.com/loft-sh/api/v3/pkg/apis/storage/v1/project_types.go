@@ -516,8 +516,13 @@ type SyncMembersSpec struct {
 }
 
 type DevPodProjectSpec struct {
+	// Git defines additional git related settings like credentials
 	// +optional
 	Git *GitProjectSpec `json:"git,omitempty"`
+
+	// FallbackImage defines an image all workspace will fall back to if no devcontainer.json could be detected
+	// +optional
+	FallbackImage string `json:"fallbackImage,omitempty"`
 }
 
 type GitProjectSpec struct {

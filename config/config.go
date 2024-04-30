@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -131,10 +130,6 @@ func (c *Config) Distro() string {
 	}
 
 	return K8SDistro
-}
-
-func ShouldCheckForProFeatures() bool {
-	return os.Getenv("FORCE_VCLUSTER_PRO") != "true"
 }
 
 func (c *Config) IsProFeatureEnabled() bool {

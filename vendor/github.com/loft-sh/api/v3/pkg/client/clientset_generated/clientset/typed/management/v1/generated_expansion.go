@@ -20,6 +20,8 @@ type ClusterRoleTemplateExpansion interface{}
 
 type ConfigExpansion interface{}
 
+type ConvertVirtualClusterConfigExpansion interface{}
+
 type DevPodWorkspaceInstanceExpansion interface{}
 
 type DevPodWorkspaceTemplateExpansion interface{}
@@ -39,8 +41,6 @@ type LicenseTokenExpansion interface{}
 type LoftUpgradeExpansion interface{}
 
 type OwnedAccessKeyExpansion interface{}
-
-type PolicyViolationExpansion interface{}
 
 type ProjectExpansion interface{}
 
