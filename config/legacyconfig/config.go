@@ -175,6 +175,7 @@ type BaseHelm struct {
 	Init               InitValues       `json:"init,omitempty"`
 	MultiNamespaceMode EnabledSwitch    `json:"multiNamespaceMode,omitempty"`
 	Telemetry          TelemetryValues  `json:"telemetry,omitempty"`
+	ServiceCIDR        string           `json:"serviceCIDR,omitempty"`
 	NoopSyncer         NoopSyncerValues `json:"noopSyncer,omitempty"`
 	Monitoring         MonitoringValues `json:"monitoring,omitempty"`
 	CentralAdmission   AdmissionValues  `json:"centralAdmission,omitempty"`
@@ -251,6 +252,7 @@ type SyncNodes struct {
 }
 
 type SyncGeneric struct {
+	RBACValues
 	Config string `json:"config,omitempty"`
 }
 
