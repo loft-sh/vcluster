@@ -3,16 +3,11 @@ package find
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
-	"github.com/loft-sh/vcluster/pkg/platform"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +16,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
+	"time"
 )
 
 const VirtualClusterSelector = "app=vcluster"
@@ -66,6 +64,23 @@ func CurrentContext() (string, *clientcmdapi.Config, error) {
 	return rawConfig.CurrentContext, &rawConfig, nil
 }
 
+func TargetContext(kubeconfigPath, context string) (string, *clientcmdapi.Config, error) {
+	rule := clientcmd.NewDefaultClientConfigLoadingRules()
+	rule.ExplicitPath = kubeconfigPath
+	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rule, &clientcmd.ConfigOverrides{}).RawConfig()
+	if err != nil {
+		return "", nil, err
+	}
+	if context == "" {
+		return rawConfig.CurrentContext, &rawConfig, nil
+	}
+	_, ok := rawConfig.Contexts[context]
+	if !ok {
+		return "", nil, fmt.Errorf("context %s not found in kubeconfig %s", context, rule.GetDefaultFilename())
+	}
+	return context, &rawConfig, nil
+}
+
 func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, name, project string, log log.Logger) (*platform.VirtualClusterInstanceProject, error) {
 	platformVClusters, err := platform.ListVClusters(ctx, platformClient, name, project)
 	if err != nil {
@@ -109,13 +124,13 @@ func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, na
 	return nil, fmt.Errorf("unexpected error searching for selected virtual cluster")
 }
 
-func GetVCluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
+func GetVCluster(ctx context.Context, kubeconfigPath, context, name, namespace string, log log.Logger) (*VCluster, error) {
 	if name == "" {
 		return nil, fmt.Errorf("please specify a name")
 	}
 
 	// list virtual clusters
-	ossVClusters, err := ListVClusters(ctx, context, name, namespace, log)
+	ossVClusters, err := ListVClusters(ctx, kubeconfigPath, context, name, namespace, log)
 	if err != nil {
 		return nil, err
 	}
@@ -189,17 +204,21 @@ func FormatOptions(format string, options [][]string) []string {
 	return retOptions
 }
 
-func ListVClusters(ctx context.Context, context, name, namespace string, log log.Logger) ([]VCluster, error) {
+func ListVClusters(ctx context.Context, kubeconfigPath, context, name, namespace string, log log.Logger) ([]VCluster, error) {
 	var err error
-	if context == "" {
-		var err error
+	if kubeconfigPath == "" && context == "" {
 		context, _, err = CurrentContext()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		context, _, err = TargetContext(kubeconfigPath, context)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	ossVClusters, err := ListOSSVClusters(ctx, context, name, namespace)
+	ossVClusters, err := ListOSSVClusters(ctx, kubeconfigPath, context, name, namespace)
 	if err != nil {
 		log.Warnf("Error retrieving vclusters: %v", err)
 	}
@@ -207,7 +226,7 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 	return ossVClusters, nil
 }
 
-func ListOSSVClusters(ctx context.Context, context, name, namespace string) ([]VCluster, error) {
+func ListOSSVClusters(ctx context.Context, kubeconfigPath, context, name, namespace string) ([]VCluster, error) {
 	var err error
 
 	timeout := time.Minute
@@ -216,13 +235,13 @@ func ListOSSVClusters(ctx context.Context, context, name, namespace string) ([]V
 		timeout = time.Second * 5
 	}
 
-	vclusters, err := findInContext(ctx, context, name, namespace, timeout, false)
+	vclusters, err := findInContext(ctx, kubeconfigPath, context, name, namespace, timeout, false)
 	if err != nil && vClusterName == "" {
 		return nil, errors.Wrap(err, "find vcluster")
 	}
 
 	if vClusterName != "" {
-		parentContextVClusters, err := findInContext(ctx, vClusterContext, name, namespace, time.Minute, true)
+		parentContextVClusters, err := findInContext(ctx, kubeconfigPath, vClusterContext, name, namespace, time.Minute, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "find vcluster")
 		}
@@ -275,9 +294,11 @@ func VClusterFromContext(originalContext string) (name string, namespace string,
 	return originalContext, "", ""
 }
 
-func findInContext(ctx context.Context, context, name, namespace string, timeout time.Duration, isParentContext bool) ([]VCluster, error) {
+func findInContext(ctx context.Context, kubeconfigPath, context, name, namespace string, timeout time.Duration, isParentContext bool) ([]VCluster, error) {
 	vclusters := []VCluster{}
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	rules.ExplicitPath = kubeconfigPath
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{
 		CurrentContext: context,
 	})
 	restConfig, err := kubeClientConfig.ClientConfig()

@@ -50,7 +50,7 @@ func ListHelm(ctx context.Context, options *ListOptions, globalFlags *flags.Glob
 		namespace = globalFlags.Namespace
 	}
 
-	vClusters, err := find.ListVClusters(ctx, globalFlags.Context, "", namespace, log.ErrorStreamOnly())
+	vClusters, err := find.ListVClusters(ctx, globalFlags.UseKubeConfig, globalFlags.Context, "", namespace, log.ErrorStreamOnly())
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func printVClusters(ctx context.Context, options *ListOptions, output []ListVClu
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
 
-			vClusters, _ := find.ListVClusters(ctx, globalFlags.Context, "", "", log.Discard)
+			vClusters, _ := find.ListVClusters(ctx, globalFlags.UseKubeConfig, globalFlags.Context, "", "", log.Discard)
 			if len(vClusters) > 0 {
 				logger.Infof("You also have %d virtual clusters in your current kube-context.", len(vClusters))
 				logger.Info("If you want to see them, run: 'vcluster list --manager helm' or 'vcluster use manager helm' to change the default")

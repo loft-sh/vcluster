@@ -79,7 +79,7 @@ func ConnectHelm(ctx context.Context, options *ConnectOptions, globalFlags *flag
 	}
 
 	// retrieve the vcluster
-	vCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace, cmd.Log)
+	vCluster, err := find.GetVCluster(ctx, cmd.UseKubeConfig, cmd.Context, vClusterName, cmd.Namespace, cmd.Log)
 	if err != nil {
 		return err
 	}

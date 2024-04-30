@@ -55,7 +55,7 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 	}
 
 	// find vcluster
-	vCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace, cmd.log)
+	vCluster, err := find.GetVCluster(ctx, cmd.UseKubeConfig, cmd.Context, vClusterName, cmd.Namespace, cmd.log)
 	if err != nil {
 		if !cmd.IgnoreNotFound {
 			return err
@@ -159,7 +159,7 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 	}
 
 	// check if there are any other vclusters in the namespace you are deleting vcluster in.
-	vClusters, err := find.ListVClusters(ctx, cmd.Context, "", cmd.Namespace, cmd.log)
+	vClusters, err := find.ListVClusters(ctx, cmd.UseKubeConfig, cmd.Context, "", cmd.Namespace, cmd.log)
 	if err != nil {
 		return err
 	}
