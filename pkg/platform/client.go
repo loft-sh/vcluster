@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 var Self *managementv1.Self
@@ -25,6 +26,8 @@ type Client interface {
 	loftclient.Client
 
 	Self() *managementv1.Self
+	ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.Interface, name, namespace, project string) error
+	ListVClusters(ctx context.Context, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error)
 }
 
 type VirtualClusterInstanceProject struct {
@@ -88,8 +91,8 @@ func (c *client) Self() *managementv1.Self {
 
 // ListVClusters lists all virtual clusters across all projects if virtualClusterName and projectName are empty.
 // The list can be narrowed down by the given virtual cluster name and project name.
-func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error) {
-	managementClient, err := baseClient.Management()
+func (c *client) ListVClusters(ctx context.Context, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error) {
+	managementClient, err := c.Management()
 	if err != nil {
 		return nil, err
 	}

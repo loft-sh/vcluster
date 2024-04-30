@@ -49,6 +49,11 @@ type VirtualClusterInstanceStatus struct {
 	// CanUpdate specifies if the requester can update the instance
 	// +optional
 	CanUpdate bool `json:"canUpdate,omitempty"`
+
+	// Online specifies if there is at least one network peer available
+	// for an agentless vCluster.
+	// +optional
+	Online bool `json:"online,omitempty"`
 }
 
 func (a *VirtualClusterInstance) GetConditions() agentstoragev1.Conditions {

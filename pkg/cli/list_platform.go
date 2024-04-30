@@ -27,7 +27,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		return err
 	}
 
-	proVClusters, err := platform.ListVClusters(ctx, platformClient, "", "")
+	proVClusters, err := platformClient.ListVClusters(ctx, "", "")
 	if err != nil {
 		return err
 	}

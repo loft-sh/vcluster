@@ -2,13 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/loft-sh/api/v3/pkg/product"
 	loftctl "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
-	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
@@ -46,11 +44,6 @@ vcluster login https://my-vcluster-platform.com --access-key myaccesskey
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			if config.ShouldCheckForProFeatures() {
-				log.GetInstance().Warnf("In order to use a Platform feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
-				os.Exit(1)
-			}
-
 			loginCmd := &loftctl.LoginCmd{
 				GlobalFlags: loftGlobalFlags,
 

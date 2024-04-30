@@ -17,10 +17,10 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
-	github.com/loft-sh/agentapi/v3 v3.4.5
+	github.com/loft-sh/agentapi/v3 v3.4.6-beta.0
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v3 v3.4.5
-	github.com/loft-sh/loftctl/v3 v3.5.0-alpha.0.0.20240425091019-24b84e25c22a
+	github.com/loft-sh/api/v3 v3.5.0-alpha.1.0.20240426152201-dfdce426ab92
+	github.com/loft-sh/loftctl/v3 v3.5.0-alpha.1.0.20240430082516-88fe061dbac1
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0

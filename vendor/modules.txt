@@ -346,8 +346,8 @@ github.com/liggitt/tabwriter
 # github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
 ## explicit; go 1.21.1
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v3 v3.4.5
-## explicit; go 1.21.5
+# github.com/loft-sh/agentapi/v3 v3.4.6-beta.0
+## explicit; go 1.22.2
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1
 github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1
@@ -358,8 +358,8 @@ github.com/loft-sh/agentapi/v3/pkg/client/loft/clientset_generated/clientset/typ
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v3 v3.4.5
-## explicit; go 1.21.5
+# github.com/loft-sh/api/v3 v3.5.0-alpha.1.0.20240426152201-dfdce426ab92
+## explicit; go 1.22.2
 github.com/loft-sh/api/v3/pkg/apis/audit/v1
 github.com/loft-sh/api/v3/pkg/apis/management
 github.com/loft-sh/api/v3/pkg/apis/management/install
@@ -382,7 +382,7 @@ github.com/loft-sh/apiserver/pkg/builders
 # github.com/loft-sh/jspolicy v0.2.2
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v3 v3.5.0-alpha.0.0.20240425091019-24b84e25c22a
+# github.com/loft-sh/loftctl/v3 v3.5.0-alpha.1.0.20240430082516-88fe061dbac1
 ## explicit; go 1.22.2
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect

@@ -24,6 +24,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
@@ -65,6 +66,7 @@ type CreateOptions struct {
 	Upgrade bool
 
 	// Platform
+	Activate        bool
 	Project         string
 	Cluster         string
 	Template        string
@@ -159,6 +161,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	}
 	// TODO end
 
+	// build extra values
 	var newExtraValues []string
 	for _, value := range cmd.Values {
 		decodedString, err := getBase64DecodedString(value)
@@ -192,13 +195,17 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	}
 
 	// Check if the passed in values adhere to our config format.
+	hasPlatformConfiguration := false
 	for _, p := range newExtraValues {
 		f, err := os.Open(p)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			_ = f.Close()
+		}()
 
+		// parse config
 		cfg := &config.Config{}
 		err = cfg.DecodeYAML(f)
 		if err != nil {
@@ -208,9 +215,8 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			return err
 		}
 
-		if config.ShouldCheckForProFeatures() && cfg.IsProFeatureEnabled() {
-			cmd.log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
-			os.Exit(1)
+		if cfg.Platform.API.AccessKey != "" || cfg.Platform.API.SecretRef.Name != "" {
+			hasPlatformConfiguration = true
 		}
 
 		// TODO(johannesfrey): We would also need to validate here if the user is about to perform changes which would lead to distro/store changes
@@ -256,6 +262,19 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			}
 
 			return fmt.Errorf("vcluster %s already exists in namespace %s\n- Use `vcluster create %s -n %s --upgrade` to upgrade the vcluster\n- Use `vcluster connect %s -n %s` to access the vcluster", vClusterName, cmd.Namespace, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace)
+		}
+	}
+
+	// create platform secret
+	if !hasPlatformConfiguration && cmd.Activate {
+		platformClient, err := platform.CreatePlatformClient()
+		if err == nil {
+			err = platformClient.ApplyPlatformSecret(ctx, cmd.kubeClient, "vcluster-platform-api-key", cmd.Namespace, cmd.Project)
+			if err != nil {
+				return fmt.Errorf("apply platform secret: %w", err)
+			}
+		} else {
+			log.Debugf("Error creating platform client: %v", err)
 		}
 	}
 

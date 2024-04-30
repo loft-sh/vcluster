@@ -35,12 +35,12 @@ func PauseHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName
 		return err
 	}
 
-	err = lifecycle.DeleteVClusterWorkloads(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vClusterName, globalFlags.Namespace, log)
+	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vClusterName, globalFlags.Namespace, log)
 	if err != nil {
 		return fmt.Errorf("delete vcluster workloads: %w", err)
 	}
 
-	err = lifecycle.DeleteMultiNamespaceVclusterWorkloads(ctx, kubeClient, vClusterName, globalFlags.Namespace, log)
+	err = lifecycle.DeleteMultiNamespaceVClusterWorkloads(ctx, kubeClient, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
 		return fmt.Errorf("delete vcluster multinamespace workloads: %w", err)
 	}

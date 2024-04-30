@@ -80,7 +80,6 @@ func (cmd *RebuildCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	// TODO: needs git credentials and configure logging
 
 	_, err = remotecommand.ExecuteConn(ctx, conn, os.Stdin, os.Stdout, os.Stderr, cmd.Log.ErrorStreamOnly())
 	if err != nil {

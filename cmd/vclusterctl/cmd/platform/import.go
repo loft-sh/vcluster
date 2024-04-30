@@ -2,11 +2,9 @@ package platform
 
 import (
 	"context"
-	"os"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
@@ -43,11 +41,6 @@ vcluster platform import my-vcluster --cluster connected-cluster \
 		Long:  description,
 		Args:  loftctlUtil.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			if config.ShouldCheckForProFeatures() {
-				cmd.Log.Warnf("In order to use a Pro feature, please contact us at https://www.vcluster.com/pro-demo or downgrade by running `vcluster upgrade --version v0.19.5`")
-				os.Exit(1)
-			}
-
 			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
@@ -73,5 +66,5 @@ func (cmd *ImportCmd) Run(ctx context.Context, args []string) error {
 		return cli.ActivatePlatform(ctx, &cmd.ActivateOptions, cmd.GlobalFlags, args[0], cmd.Log)
 	}
 
-	return cli.ActivateHelm()
+	return cli.ActivateHelm(ctx, &cmd.ActivateOptions, cmd.GlobalFlags, args[0], cmd.Log)
 }

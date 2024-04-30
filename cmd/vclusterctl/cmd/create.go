@@ -70,6 +70,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
 
 	// Platform flags
+	cobraCmd.Flags().BoolVar(&cmd.Activate, "activate", true, "[PLATFORM] Activate the vCluster automatically when using helm manager")
 	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The vCluster platform project to use")
 	cobraCmd.Flags().StringSliceVarP(&cmd.Labels, "labels", "l", []string{}, "[PLATFORM] Comma separated labels to apply to the virtualclusterinstance")
 	cobraCmd.Flags().StringSliceVar(&cmd.Annotations, "annotations", []string{}, "[PLATFORM] Comma separated annotations to apply to the virtualclusterinstance")
