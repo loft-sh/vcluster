@@ -1,8 +1,28 @@
 package legacyconfig
 
 import (
+	_ "embed"
+
 	"github.com/loft-sh/vcluster/config"
+	"sigs.k8s.io/yaml"
 )
+
+//go:embed values_k3s.yaml
+var k3sValues string
+
+//go:embed values_k8s.yaml
+var k8sValues string
+
+// NewDefaultK3sLegacyConfig creates a new k3s legacy config based on the legacy_values.yaml, including all default values.
+func NewDefaultK3sLegacyConfig() (*LegacyK0sAndK3s, error) {
+	retConfig := &LegacyK0sAndK3s{}
+	err := yaml.Unmarshal([]byte(k3sValues), retConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return retConfig, nil
+}
 
 type LegacyK0sAndK3s struct {
 	BaseHelm
@@ -18,6 +38,21 @@ func (c *LegacyK0sAndK3s) UnmarshalYAMLStrict(data []byte) error {
 	return config.UnmarshalYAMLStrict(data, c)
 }
 
+func (c *LegacyK0sAndK3s) MarshalYAML() ([]byte, error) {
+	return yaml.Marshal(c)
+}
+
+// NewDefaultK8sLegacyConfig creates a new k8s legacy config based on the legacy_values.yaml, including all default values.
+func NewDefaultK8sLegacyConfig() (*LegacyK8s, error) {
+	retConfig := &LegacyK8s{}
+	err := yaml.Unmarshal([]byte(k8sValues), retConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return retConfig, nil
+}
+
 type LegacyK8s struct {
 	BaseHelm
 	Syncer       K8sSyncerValues    `json:"syncer,omitempty"`
@@ -31,6 +66,10 @@ type LegacyK8s struct {
 
 func (c *LegacyK8s) UnmarshalYAMLStrict(data []byte) error {
 	return config.UnmarshalYAMLStrict(data, c)
+}
+
+func (c *LegacyK8s) MarshalYAML() ([]byte, error) {
+	return yaml.Marshal(c)
 }
 
 type K8sSyncerValues struct {

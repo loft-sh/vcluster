@@ -148,19 +148,21 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		}
 	}
 
-	// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
 	if isVClusterDeployed(release) {
-		migratedValues, err := migrateLegacyHelmValues(release)
+		currentValues, currentDistro, isLegacy, err := configValuesYAML(release)
 		if err != nil {
 			return err
 		}
 
-		// we do not simply upgrade a vcluster without providing a values.yaml file when it is running with a previous release, as this might result in a distro/backingstore switch.
-		if len(cmd.Values) <= 0 && migratedValues != "" {
-			return fmt.Errorf("abort upgrade: no values files were provided while the current virtual cluster is running with an old values format (< v0.20)\nConsider updating your config values to the following new v0.20 format:\n\n%s", migratedValues)
+		// If a user runs a virtual cluster < v0.20 without providing any values files, we abort the upgrade with
+		// a prompt to convert the config first.
+		// We do this because we don't want to "automagically" convert the old config implicitly, without the user
+		// realizing that the virtual cluster is running with the old config format.
+		if len(cmd.Values) <= 0 && isLegacy {
+			command := fmt.Sprintf("vcluster convert config --distro %s - <<EOF\n%s\nEOF", currentDistro, string(currentValues))
+			return fmt.Errorf("your virtual cluster is running using the old config format, please issue the following to convert your current config values to the new v0.20 format before doing the upgrade again using the converted config file:\n%s", command)
 		}
 	}
-	// TODO end
 
 	// build extra values
 	var newExtraValues []string
@@ -195,7 +197,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		newExtraValues = append(newExtraValues, tempValuesFile)
 	}
 
-	// Check if the passed in values adhere to our config format.
 	hasPlatformConfiguration := false
 	for _, p := range newExtraValues {
 		f, err := os.Open(p)
@@ -213,19 +214,22 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 		// parse config
 		cfg := &config.Config{}
-		err = cfg.UnmarshalYAMLStrict(data)
-		if err != nil {
-			if errors.Is(err, config.ErrInvalidConfig) {
-				cmd.log.Infof("If you are using the old values format, consider using %q to convert it to the new v0.20 format", "vcluster convert config")
+		if err = cfg.UnmarshalYAMLStrict(data); err != nil {
+			if !errors.Is(err, config.ErrInvalidConfig) {
+				return err
 			}
+			// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
+			// If the user passed in a legacy config we abort the upgrade and log with a prompt to convert the values first.
+			if isLegacyConfig(data) {
+				return fmt.Errorf("you have passed a config with old values format, please use %q to convert your config first and then re-run the upgrade", "vcluster convert config")
+			}
+			// TODO end
 			return err
 		}
 
 		if cfg.Platform.API.AccessKey != "" || cfg.Platform.API.SecretRef.Name != "" {
 			hasPlatformConfiguration = true
 		}
-
-		// TODO(johannesfrey): We would also need to validate here if the user is about to perform changes which would lead to distro/store changes
 	}
 
 	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
@@ -245,30 +249,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	chartValues, err := config.GetExtraValues(chartOptions)
 	if err != nil {
 		return err
-	}
-
-	// check if vcluster already exists
-	if !cmd.Upgrade {
-		release, err := helm.NewSecrets(cmd.kubeClient).Get(ctx, vClusterName, cmd.Namespace)
-		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("get helm releases: %w", err)
-		} else if release != nil &&
-			release.Chart != nil &&
-			release.Chart.Metadata != nil &&
-			(release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" || release.Chart.Metadata.Name == "vcluster-k8s" || release.Chart.Metadata.Name == "vcluster-eks") &&
-			release.Secret != nil &&
-			release.Secret.Labels != nil &&
-			release.Secret.Labels["status"] == "deployed" {
-			if cmd.Connect {
-				return ConnectHelm(ctx, &ConnectOptions{
-					UpdateCurrent:         cmd.UpdateCurrent,
-					KubeConfigContextName: cmd.KubeConfigContextName,
-					KubeConfig:            "./kubeconfig.yaml",
-				}, cmd.GlobalFlags, vClusterName, nil, cmd.log)
-			}
-
-			return fmt.Errorf("vcluster %s already exists in namespace %s\n- Use `vcluster create %s -n %s --upgrade` to upgrade the vcluster\n- Use `vcluster connect %s -n %s` to access the vcluster", vClusterName, cmd.Namespace, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace)
-		}
 	}
 
 	// create platform secret
@@ -320,32 +300,102 @@ func isVClusterDeployed(release *helm.Release) bool {
 		release.Secret.Labels["status"] == "deployed"
 }
 
+// configValuesYAML retrieves the helm config values for the given release.
+// We have to handle both cases:
+// - Installation via vclusterctl
+// - Installation via helm
+// If there are no config values (installation via helm without customization) it returns the default config values based on the vcluster chart version.
+// Furthermore, it returns the distro as well as a bool that signalizes if the values are in legacy format.
+func configValuesYAML(release *helm.Release) ([]byte, string, bool, error) {
+	// If we have a < v0.20 virtual cluster running
+	if semver.Compare("v"+release.Chart.Metadata.Version, "v0.20.0-alpha.0") == -1 {
+		// We have to infer the distro from the current chart name.
+		// If we are upgrading a vCluster < v0.20 the old k3s chart is the one without a prefix.
+		currentDistro := strings.TrimPrefix(release.Chart.Metadata.Name, "vcluster-")
+		if currentDistro == "vcluster" {
+			currentDistro = "k3s"
+		}
+		// if we don't have any current values (e.g. because it was installed via helm directly) we construct
+		// the legacy default values based on the current distro.
+		if len(release.Config) <= 0 {
+			switch currentDistro {
+			case "k0s", "k3s":
+				cfg, err := legacyconfig.NewDefaultK3sLegacyConfig()
+				if err != nil {
+					return nil, "", false, err
+				}
+				vals, err := cfg.MarshalYAML()
+				if err != nil {
+					return nil, "", false, err
+				}
+				return vals, "k3s", true, nil
+			case "k8s", "eks":
+				cfg, err := legacyconfig.NewDefaultK8sLegacyConfig()
+				if err != nil {
+					return nil, "", false, err
+				}
+				vals, err := cfg.MarshalYAML()
+				if err != nil {
+					return nil, "", false, err
+				}
+				return vals, "k8s", true, nil
+			default:
+				return nil, "", false, fmt.Errorf("unknown distro")
+			}
+		}
+
+		vals, err := yaml.Marshal(release.Config)
+		if err != nil {
+			return nil, "", false, err
+		}
+		// Should not happen. virtual cluster < v0.20 running with invalid config values.
+		if ok := isLegacyConfig(vals); !ok {
+			return nil, "", false, err
+		}
+		return vals, currentDistro, true, nil
+	}
+
+	// if we don't have any current values (e.g. because it was installed via helm directly) we construct
+	// the legacy default values based on the current distro.
+	if len(release.Config) <= 0 {
+		cfg, err := config.NewDefaultConfig()
+		if err != nil {
+			return nil, "", false, err
+		}
+
+		vals, err := cfg.MarshalYAML()
+		if err != nil {
+			return nil, "", false, err
+		}
+
+		return vals, cfg.Distro(), false, nil
+	}
+
+	vals, err := yaml.Marshal(release.Config)
+	if err != nil {
+		return nil, "", false, err
+	}
+	cfg := config.Config{}
+	if err := cfg.UnmarshalYAMLStrict(vals); err != nil {
+		// Should not happen. virtual cluster running with invalid config values.
+		return nil, "", false, err
+	}
+	return vals, cfg.Distro(), false, nil
+}
+
 // TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-// migratelegacyHelmValues migrates the values of the current vCluster to the new config format.
-// Only returns a non-empty string if the passed in release is < v0.20.0.
-func migrateLegacyHelmValues(release *helm.Release) (string, error) {
-	if semver.Compare("v"+release.Chart.Metadata.Version, "v0.20.0-alpha.0") != -1 {
-		// No need to migrate new releases.
-		return "", nil
+// isLegacyConfig tries to parse a config in legacy format.
+// First as k0s or k3s then as k8s or eks.
+func isLegacyConfig(data []byte) bool {
+	k0sOrk3s := &legacyconfig.LegacyK0sAndK3s{}
+	if err := k0sOrk3s.UnmarshalYAMLStrict(data); err != nil {
+		k8sOrEKS := &legacyconfig.LegacyK8s{}
+		if err := k8sOrEKS.UnmarshalYAMLStrict(data); err != nil {
+			return false
+		}
 	}
 
-	// If we are upgrading a vCluster < 0.20 the old k3s chart is the one without a prefix.
-	distro := strings.TrimPrefix(release.Chart.Metadata.Name, "vcluster-")
-	if distro == "vcluster" {
-		distro = "k3s"
-	}
-
-	cfg := release.Config
-	y, err := yaml.Marshal(cfg)
-	if err != nil {
-		return "", err
-	}
-	migratedValues, err := legacyconfig.MigrateLegacyConfig(distro, string(y))
-	if err != nil {
-		return "", err
-	}
-
-	return migratedValues, nil
+	return true
 }
 
 // TODO end

@@ -80,6 +80,10 @@ func (c *Config) UnmarshalYAMLStrict(data []byte) error {
 	return UnmarshalYAMLStrict(data, c)
 }
 
+func (c *Config) MarshalYAML() ([]byte, error) {
+	return yaml.Marshal(c)
+}
+
 // BackingStoreType returns the backing store type of the vCluster.
 // If no backing store is enabled, it returns StoreTypeUnknown.
 func (c *Config) BackingStoreType() StoreType {
