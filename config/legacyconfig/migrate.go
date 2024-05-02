@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/config"
+	"sigs.k8s.io/yaml"
 )
 
 func MigrateLegacyConfig(distro, oldValues string) (string, error) {
