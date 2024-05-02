@@ -148,8 +148,9 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		}
 	}
 
+	var currentValues []byte
 	if isVClusterDeployed(release) {
-		currentValues, err := configValuesYAML(release)
+		currentValues, err = configValuesYAML(release)
 		if err != nil {
 			return err
 		}
@@ -171,6 +172,11 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				}
 			}
 
+			convertedValues, err := legacyconfig.MigrateLegacyConfig(currentDistro, string(currentValues))
+			if err != nil {
+				return err
+			}
+
 			// If users run a virtual cluster < v0.20 and they did not provide any values files, we abort the upgrade with
 			// a prompt to convert the config first.
 			// We do this because we don't want to "automagically" convert the old config implicitly, without the users
@@ -179,17 +185,41 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				command := fmt.Sprintf("vcluster convert config --distro %s - <<EOF\n%s\nEOF", currentDistro, string(currentValues))
 				return fmt.Errorf("your virtual cluster is running using the old config format, please issue the following to convert your current config values to the new v0.20 format before doing the upgrade again using the converted config file:\n%s", command)
 			}
+			// The user did provide a values file, so we use the converted values in order to be able to validate them down below.
+			currentValues = []byte(convertedValues)
 			// TODO end
 		}
 	}
 
+	// find out kubernetes version
+	kubernetesVersion, err := cmd.getKubernetesVersion()
+	if err != nil {
+		return err
+	}
+
+	// load the default values
+	chartOptions, err := cmd.ToChartOptions(kubernetesVersion, cmd.log)
+	if err != nil {
+		return err
+	}
+	chartValues, err := config.GetExtraValues(chartOptions)
+	if err != nil {
+		return err
+	}
+
+	// If the user did not pass any values files, add the default values to extraValues files to make
+	// them part of the validation against a potential distro/backingstore change down below.
+	if len(cmd.Values) <= 0 {
+		cmd.Values = append(cmd.Values, base64.StdEncoding.EncodeToString([]byte(chartValues)))
+	}
+
 	// build extra values
-	var newExtraValues []string
+	var extraValues []string
 	for _, value := range cmd.Values {
 		decodedString, err := getBase64DecodedString(value)
 		// ignore decoding errors and treat it as non-base64 string
 		if err != nil {
-			newExtraValues = append(newExtraValues, value)
+			extraValues = append(extraValues, value)
 			continue
 		}
 
@@ -213,11 +243,11 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			return fmt.Errorf("close temp values file: %w", err)
 		}
 		// setting new file to extraValues slice to process it further.
-		newExtraValues = append(newExtraValues, tempValuesFile)
+		extraValues = append(extraValues, tempValuesFile)
 	}
 
 	hasPlatformConfiguration := false
-	for _, p := range newExtraValues {
+	for _, p := range extraValues {
 		f, err := os.Open(p)
 		if err != nil {
 			return err
@@ -231,7 +261,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			return err
 		}
 
-		// parse config
+		// parse and validate given config
 		cfg := &config.Config{}
 		if err = cfg.UnmarshalYAMLStrict(data); err != nil {
 			if !errors.Is(err, config.ErrInvalidConfig) {
@@ -246,29 +276,25 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			return err
 		}
 
+		// Only perform validation if there currently is a virtual cluster running.
+		if isVClusterDeployed(release) && len(currentValues) > 0 {
+			currentConfig := &config.Config{}
+			if err = currentConfig.UnmarshalYAMLStrict(currentValues); err != nil {
+				return err
+			}
+
+			if err := config.ValidateChanges(currentConfig, cfg); err != nil {
+				return err
+			}
+		}
+
 		if cfg.Platform.API.AccessKey != "" || cfg.Platform.API.SecretRef.Name != "" {
 			hasPlatformConfiguration = true
 		}
 	}
 
 	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
-	cmd.Values = newExtraValues
-
-	// find out kubernetes version
-	kubernetesVersion, err := cmd.getKubernetesVersion()
-	if err != nil {
-		return err
-	}
-
-	// load the default values
-	chartOptions, err := cmd.ToChartOptions(kubernetesVersion, cmd.log)
-	if err != nil {
-		return err
-	}
-	chartValues, err := config.GetExtraValues(chartOptions)
-	if err != nil {
-		return err
-	}
+	cmd.Values = extraValues
 
 	// create platform secret
 	if !hasPlatformConfiguration && cmd.Activate {
