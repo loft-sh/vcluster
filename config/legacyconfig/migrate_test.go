@@ -31,6 +31,20 @@ func TestMigration(t *testing.T) {
       podManagementPolicy: OrderedReady`,
 		},
 		{
+			Name:   "k3s with deprecated serviceCIDR",
+			Distro: "k3s",
+			In: `
+serviceCIDR: 10.96.0.0/16
+`,
+			Expected: `controlPlane:
+  distro:
+    k3s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady`,
+		},
+		{
 			Name:   "Simple k0s",
 			Distro: "k0s",
 			Expected: `controlPlane:

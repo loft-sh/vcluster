@@ -1,6 +1,8 @@
 package legacyconfig
 
-import "github.com/loft-sh/vcluster/config"
+import (
+	"github.com/loft-sh/vcluster/config"
+)
 
 type LegacyK0sAndK3s struct {
 	BaseHelm
@@ -12,6 +14,10 @@ type LegacyK0sAndK3s struct {
 	Storage                          Storage            `json:"storage,omitempty"`
 }
 
+func (c *LegacyK0sAndK3s) UnmarshalYAMLStrict(data []byte) error {
+	return config.UnmarshalYAMLStrict(data, c)
+}
+
 type LegacyK8s struct {
 	BaseHelm
 	Syncer       K8sSyncerValues    `json:"syncer,omitempty"`
@@ -21,6 +27,10 @@ type LegacyK8s struct {
 	Etcd         EtcdValues         `json:"etcd,omitempty"`
 	EmbeddedEtcd EmbeddedEtcdValues `json:"embeddedEtcd,omitempty"`
 	Storage      Storage            `json:"storage,omitempty"`
+}
+
+func (c *LegacyK8s) UnmarshalYAMLStrict(data []byte) error {
+	return config.UnmarshalYAMLStrict(data, c)
 }
 
 type K8sSyncerValues struct {
@@ -123,6 +133,7 @@ type BaseHelm struct {
 	Init               InitValues       `json:"init,omitempty"`
 	MultiNamespaceMode EnabledSwitch    `json:"multiNamespaceMode,omitempty"`
 	Telemetry          TelemetryValues  `json:"telemetry,omitempty"`
+	ServiceCIDR        string           `json:"serviceCIDR,omitempty"`
 	NoopSyncer         NoopSyncerValues `json:"noopSyncer,omitempty"`
 	Monitoring         MonitoringValues `json:"monitoring,omitempty"`
 	CentralAdmission   AdmissionValues  `json:"centralAdmission,omitempty"`
@@ -199,6 +210,7 @@ type SyncNodes struct {
 }
 
 type SyncGeneric struct {
+	RBACValues
 	Config string `json:"config,omitempty"`
 }
 

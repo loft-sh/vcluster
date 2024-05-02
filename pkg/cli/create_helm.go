@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -205,11 +206,16 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			_ = f.Close()
 		}()
 
+		data, err := io.ReadAll(f)
+		if err != nil {
+			return err
+		}
+
 		// parse config
 		cfg := &config.Config{}
-		err = cfg.DecodeYAML(f)
+		err = cfg.UnmarshalYAMLStrict(data)
 		if err != nil {
-			if errors.Is(err, config.ErrInvalidFileFormat) {
+			if errors.Is(err, config.ErrInvalidConfig) {
 				cmd.log.Infof("If you are using the old values format, consider using %q to convert it to the new v0.20 format", "vcluster convert config")
 			}
 			return err

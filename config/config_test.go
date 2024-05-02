@@ -1,17 +1,15 @@
 package config
 
 import (
-	"bytes"
 	_ "embed"
-	"io"
 	"testing"
 
 	"gotest.tools/assert"
 )
 
-func TestConfig_DecodeYAML(t *testing.T) {
+func TestConfig_UnmarshalYAMLStrict(t *testing.T) {
 	type args struct {
-		r io.Reader
+		data []byte
 	}
 	tests := []struct {
 		name    string
@@ -21,30 +19,30 @@ func TestConfig_DecodeYAML(t *testing.T) {
 		{
 			name: "Invalid: yaml",
 			args: args{
-				r: bytes.NewReader([]byte(`
+				data: []byte(`
 foo:
   bar: baz
-`)),
+`),
 			},
 			wantErr: true,
 		},
 		{
 			name: "Invalid: json",
 			args: args{
-				r: bytes.NewReader([]byte(`
+				data: []byte(`
 {
   "foo": {
     "bar": "baz"
   }
 }
-`)),
+`),
 			},
 			wantErr: true,
 		},
 		{
 			name: "Invalid: Old values format",
 			args: args{
-				r: bytes.NewReader([]byte(`
+				data: []byte(`
 api:
   image: registry.k8s.io/kube-apiserver:v1.29.0
 controller:
@@ -61,26 +59,26 @@ sync:
    enabled: true
 telemetry:
   disabled: false
-`)),
+`),
 			},
 			wantErr: true,
 		},
 		{
 			name: "Success: New values format",
 			args: args{
-				r: bytes.NewReader([]byte(`
+				data: []byte(`
 controlPlane:
   distro:
     k8s:
       enabled: true
-`)),
+`),
 			},
 			wantErr: false,
 		},
 		{
 			name: "Success: New values format (json)",
 			args: args{
-				r: bytes.NewReader([]byte(`
+				data: []byte(`
 {
   "controlPlane": {
     "distro": {
@@ -90,7 +88,7 @@ controlPlane:
     }
   }
 }
-`)),
+`),
 			},
 			wantErr: false,
 		},
@@ -98,8 +96,8 @@ controlPlane:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Config{}
-			if err := c.DecodeYAML(tt.args.r); (err != nil) != tt.wantErr {
-				t.Errorf("Config.DecodeYAML() error = %v, wantErr %v", err, tt.wantErr)
+			if err := c.UnmarshalYAMLStrict(tt.args.data); (err != nil) != tt.wantErr {
+				t.Errorf("Config.UnmarshalYAMLStrict() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
