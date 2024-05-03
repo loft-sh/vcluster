@@ -6,8 +6,8 @@ vars:
   # Make sure vcluster is the default namespace
   DEVSPACE_FLAGS: "-n vcluster"
   SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
-  COMMON_VALUES:  ./test/commonValues.yaml
-  PRO_VALUES:  ./test/proValues.yaml
+  COMMON_VALUES: ./test/commonValues.yaml
+  PRO_VALUES: ./test/proValues.yaml
   VALUES_FILE: ./test/e2e/values.yaml
 
 # Images DevSpace will build for vcluster
@@ -37,7 +37,7 @@ deployments:
               tag: tag(${SYNCER_IMAGE})
             scheduling:
               tolerations:
-              - operator: "Exists"
+                - operator: "Exists"
           service:
             spec:
               type: NodePort
@@ -115,21 +115,21 @@ dev:
     terminal:
       command: "./devspace_start.sh"
     ports:
-    - port: 2346:2345
+      - port: 2346:2345
     sync:
-    - excludePaths:
-        - '**'
-        - '!/pkg'
-        - 'cmd/vclusterctl/cmd/charts'
-        - '!/cmd'
-        - '!/vendor'
-        - '!/config'
-        - '!/hack'
-        - '!/go.mod'
-        - '!/go.sum'
-        - '!/devspace_start.sh'
-        - '!/manifests'
-        - '/manifests/coredns' # shouldn't sync to this path because it is mounted from a ConfigMap as ReadOnly
+      - excludePaths:
+          - "**"
+          - "!/pkg"
+          - "cmd/vclusterctl/cmd/charts"
+          - "!/cmd"
+          - "!/vendor"
+          - "!/config"
+          - "!/hack"
+          - "!/go.mod"
+          - "!/go.sum"
+          - "!/devspace_start.sh"
+          - "!/manifests"
+          - "/manifests/coredns" # shouldn't sync to this path because it is mounted from a ConfigMap as ReadOnly
 
 # Pipelines used for vcluster
 pipelines:
@@ -183,8 +183,8 @@ profiles:
         path: deployments.vcluster-k3s.helm
         value:
           valuesFiles:
-          - ${COMMON_VALUES}
-          - ${VALUES_FILE}
+            - ${COMMON_VALUES}
+            - ${VALUES_FILE}
 
   - name: test-k8s
     patches:
@@ -192,8 +192,8 @@ profiles:
         path: deployments.vcluster-k8s.helm
         value:
           valuesFiles:
-          - ${COMMON_VALUES}
-          - ${VALUES_FILE}
+            - ${COMMON_VALUES}
+            - ${VALUES_FILE}
 
   - name: test-k0s
     patches:
@@ -201,8 +201,8 @@ profiles:
         path: deployments.vcluster-k0s.helm
         value:
           valuesFiles:
-          - ${COMMON_VALUES}
-          - ${VALUES_FILE}
+            - ${COMMON_VALUES}
+            - ${VALUES_FILE}
   - name: test-pro
     patches:
       - op: add

@@ -2,11 +2,11 @@ package pro
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-var ConnectToPlatform = func(context.Context, *config.VirtualClusterConfig, http.RoundTripper) error {
+var ConnectToPlatform = func(context.Context, *config.VirtualClusterConfig, manager.Manager) error {
 	return nil
 }
