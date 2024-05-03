@@ -49,9 +49,10 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
 	return &synccontext.RegisterContext{
-		Context:                context.Background(),
-		Config:                 NewFakeConfig(),
-		CurrentNamespace:       DefaultTestCurrentNamespace,
+		Context:          context.Background(),
+		Config:           NewFakeConfig(),
+		CurrentNamespace: DefaultTestCurrentNamespace,
+		// TODO: see if we need the currentnamespace cache here
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),

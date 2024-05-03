@@ -28,7 +28,7 @@ import (
 
 const hostObjectRequestPrefix = "host#"
 
-func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) *SyncController {
+func 		NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) *SyncController {
 	options := &syncertypes.Options{}
 	optionsProvider, ok := syncer.(syncertypes.OptionsProvider)
 	if ok {
@@ -42,6 +42,7 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		physicalClient: ctx.PhysicalManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
+		// TODO(rohan): check if the currentNamespaceClient is used without informers
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 
 		virtualClient: ctx.VirtualManager.GetClient(),

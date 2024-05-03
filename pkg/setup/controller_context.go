@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -115,9 +116,9 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	}
 
 	if len(defaultNamespaces) == 0 {
-		return cache.Options{DefaultNamespaces: nil}
+		return cache.Options{DefaultNamespaces: nil, ReaderFailOnMissingInformer: true}
 	}
-	return cache.Options{DefaultNamespaces: defaultNamespaces}
+	return cache.Options{DefaultNamespaces: defaultNamespaces, ReaderFailOnMissingInformer: true}
 }
 
 func startPlugins(ctx context.Context, virtualConfig *rest.Config, virtualRawConfig *clientcmdapi.Config, options *config.VirtualClusterConfig) error {
@@ -283,7 +284,7 @@ func initControllerContext(
 	klog.Infof("Can connect to virtual cluster with version " + virtualClusterVersion.GitVersion)
 
 	// create a new current namespace client
-	currentNamespaceClient, err := newCurrentNamespaceClient(ctx, localManager, vClusterOptions)
+	currentNamespaceCache, currentNamespaceClient, err := newCurrentNamespaceCache(ctx, localManager, vClusterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -306,13 +307,14 @@ func initControllerContext(
 		VirtualClusterVersion: virtualClusterVersion,
 
 		WorkloadNamespaceClient: currentNamespaceClient,
+		WorkloadNamespaceCache:  currentNamespaceCache,
 
 		StopChan: stopChan,
 		Config:   vClusterOptions,
 	}, nil
 }
 
-func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, options *config.VirtualClusterConfig) (client.Client, error) {
+func newCurrentNamespaceCache(ctx context.Context, localManager ctrl.Manager, options *config.VirtualClusterConfig) (cache.Cache, client.Client, error) {
 	var err error
 
 	// currentNamespaceCache is needed for tasks such as finding out fake kubelet ips
@@ -324,12 +326,18 @@ func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, o
 	currentNamespaceCache := localManager.GetCache()
 	if !options.Experimental.MultiNamespaceMode.Enabled && options.WorkloadNamespace != options.WorkloadTargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
-			Scheme:            localManager.GetScheme(),
-			Mapper:            localManager.GetRESTMapper(),
-			DefaultNamespaces: map[string]cache.Config{options.WorkloadNamespace: {}},
+			Scheme:                      localManager.GetScheme(),
+			Mapper:                      localManager.GetRESTMapper(),
+			DefaultNamespaces:           map[string]cache.Config{options.WorkloadNamespace: {}},
+			ReaderFailOnMissingInformer: true,
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+
+		_, err := currentNamespaceCache.GetInformer(ctx, &corev1.Service{}, cache.BlockUntilSynced(true))
+		if err != nil {
+			return nil, nil, fmt.Errorf("current namespace cache informer failed: %w", err)
 		}
 
 		// start cache now if it's not in the same namespace
@@ -351,8 +359,8 @@ func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, o
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return currentNamespaceClient, nil
+	return currentNamespaceCache, currentNamespaceClient, nil
 }

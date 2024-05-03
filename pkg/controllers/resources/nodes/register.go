@@ -16,6 +16,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		return nil, err
 	}
 
+	// TODO(rohan): check if the currentNamespaceClient is used without informers
 	nodeService := nodeservice.NewNodeServiceProvider(ctx.Config.WorkloadService, ctx.CurrentNamespace, ctx.CurrentNamespaceClient, ctx.VirtualManager.GetClient(), uncachedVirtualClient)
 	if !ctx.Config.Sync.FromHost.Nodes.Enabled {
 		return NewFakeSyncer(ctx, nodeService)

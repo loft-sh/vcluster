@@ -22,6 +22,7 @@ func RegisterFakeSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Fak
 		physicalClient: ctx.PhysicalManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
+		// TODO(rohan): check if the currentNamespaceClient is used without informers
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 
 		virtualClient: ctx.VirtualManager.GetClient(),

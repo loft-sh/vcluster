@@ -35,6 +35,7 @@ type EndpointController struct {
 	ServiceName      string
 	ServiceNamespace string
 	ServiceClient    client.Client
+	ServiceCache     cache.Cache
 
 	VirtualClient       client.Client
 	VirtualManagerCache cache.Cache
@@ -52,6 +53,7 @@ func NewEndpointController(ctx *config.ControllerContext, provider provider) *En
 		ServiceName:      ctx.Config.WorkloadService,
 		ServiceNamespace: ctx.Config.WorkloadNamespace,
 		ServiceClient:    ctx.WorkloadNamespaceClient,
+		ServiceCache:     ctx.WorkloadNamespaceCache,
 
 		Log:      loghelper.New("kubernetes-default-endpoint-controller"),
 		provider: provider,
@@ -96,7 +98,7 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{
 			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
 		}).
-		For(&corev1.Endpoints{}, builder.WithPredicates(pPredicates)).
+		WatchesRawSource(source.Kind(e.ServiceCache, &corev1.Endpoints{}), &handler.EnqueueRequestForObject{}, builder.WithPredicates(pPredicates)).
 		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vPredicates)).
 		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vPredicates)).
 		Complete(e)

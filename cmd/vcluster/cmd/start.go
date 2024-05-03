@@ -48,7 +48,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(options.Config, os.Getenv("VCLUSTER_NAME"), options.SetValues)
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing vcluster config: %w", err)
 	}
 
 	// get current namespace
@@ -60,7 +60,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	// init config
 	err = setup.InitAndValidateConfig(ctx, vConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("validating vcluster config: %w", err)
 	}
 
 	// start telemetry

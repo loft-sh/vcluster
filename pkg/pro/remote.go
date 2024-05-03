@@ -38,9 +38,12 @@ var AddRemoteNodePortSANs = func(_ context.Context, _, _ string, _ kubernetes.In
 }
 
 var ExchangeControlPlaneClient = func(controllerCtx *config.ControllerContext) (client.Client, error) {
+	// TODO(rohan): check that workloadnamespace client calls have the right informers set. Should we return the cache as well?
 	return controllerCtx.WorkloadNamespaceClient, nil
 }
 
 var SyncRemoteEndpoints = func(_ context.Context, _ types.NamespacedName, _ client.Client, _ types.NamespacedName, _ client.Client) error {
+	// TODO(rohan): check that workloadnamespace client calls have the right informers set. Should we return the cache as well?
+	// TODO: checkin pro
 	return NewFeatureError(string(licenseapi.VirtualClusterProDistroIsolatedControlPlane))
 }

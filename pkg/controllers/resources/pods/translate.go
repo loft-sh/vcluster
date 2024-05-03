@@ -70,6 +70,7 @@ func (s *podSyncer) translateUpdate(ctx context.Context, pClient client.Client, 
 
 func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, error) {
 	pService := &corev1.Service{}
+	// TODO(rohan): client-used
 	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{
 		Name:      s.serviceName,
 		Namespace: ctx.CurrentNamespace,

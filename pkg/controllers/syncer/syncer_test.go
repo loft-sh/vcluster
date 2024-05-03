@@ -274,7 +274,8 @@ func TestReconcile(t *testing.T) {
 			vEventRecorder: &testingutil.FakeEventRecorder{},
 			physicalClient: pClient,
 
-			currentNamespace:       fakeContext.CurrentNamespace,
+			currentNamespace: fakeContext.CurrentNamespace,
+			// TODO(rohan): check if the currentNamespaceClient is used without informers
 			currentNamespaceClient: fakeContext.CurrentNamespaceClient,
 
 			virtualClient: vClient,

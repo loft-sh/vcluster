@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -20,6 +21,7 @@ type ControllerContext struct {
 	VirtualClusterVersion *version.Info
 
 	WorkloadNamespaceClient client.Client
+	WorkloadNamespaceCache  cache.Cache
 
 	AdditionalServerFilters []servertypes.Filter
 	Config                  *VirtualClusterConfig

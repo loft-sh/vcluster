@@ -88,6 +88,7 @@ func StartControllers(controllerContext *config.ControllerContext) error {
 				Namespace: controllerContext.Config.WorkloadNamespace,
 				Name:      controllerContext.Config.WorkloadService,
 			},
+			// TODO(rohan)
 			controllerContext.WorkloadNamespaceClient,
 		)
 		if err != nil {
@@ -165,6 +166,7 @@ func ApplyCoreDNS(controllerContext *config.ControllerContext) {
 	})
 }
 
+// SetGlobalOwner sets the global Owner variable in the translate pkg
 func SetGlobalOwner(ctx context.Context, currentNamespaceClient client.Client, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
 	if currentNamespace != targetNamespace {
 		if setOwner {
