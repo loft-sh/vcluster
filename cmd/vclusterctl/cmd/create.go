@@ -88,6 +88,7 @@ vcluster create test --namespace test
 	_ = cobraCmd.Flags().MarkHidden("local-chart-dir")
 	_ = cobraCmd.Flags().MarkHidden("expose-local")
 	_ = cobraCmd.Flags().MarkHidden("distro")
+	_ = cobraCmd.Flags().MarkDeprecated("distro", fmt.Sprintf("please specify the distro by setting %q accordingly via values.yaml file.", "controlPlane.distro"))
 	return cobraCmd
 }
 
