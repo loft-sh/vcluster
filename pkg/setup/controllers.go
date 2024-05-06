@@ -130,6 +130,11 @@ func StartControllers(controllerContext *config.ControllerContext) error {
 		}
 	}
 
+	// register pro controllers
+	if err := pro.RegisterProControllers(controllerContext); err != nil {
+		return fmt.Errorf("register pro controllers: %w", err)
+	}
+
 	// write the kube config to secret
 	go func() {
 		wait.Until(func() {
