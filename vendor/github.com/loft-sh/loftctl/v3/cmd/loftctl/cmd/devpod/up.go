@@ -149,8 +149,12 @@ func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, st
 			}
 		}
 	}
+	options := devpodpkg.OptionsFromEnv(storagev1.DevPodFlagsUp)
+	if options != nil && os.Getenv("DEBUG") == "true" {
+		options.Add("debug", "true")
+	}
 
-	conn, err := devpodpkg.DialWorkspace(baseClient, workspace, "up", devpodpkg.OptionsFromEnv(storagev1.DevPodFlagsUp))
+	conn, err := devpodpkg.DialWorkspace(baseClient, workspace, "up", options)
 	if err != nil {
 		return err
 	}

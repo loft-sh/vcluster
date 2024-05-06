@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
@@ -18,6 +19,8 @@ func ResumePlatform(ctx context.Context, options *ResumeOptions, vClusterName st
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
 		return err
+	} else if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.NetworkPeer {
+		return fmt.Errorf("cannot resume a virtual cluster that was created via helm, please run 'vcluster use manager helm' or use the '--manager helm' flag")
 	}
 
 	managementClient, err := platformClient.Management()

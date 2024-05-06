@@ -32,7 +32,7 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 	// retrieve the vcluster
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
-		return err
+		return fmt.Errorf("get platform vcluster %s: %w", vClusterName, err)
 	}
 
 	// create connect platform command
