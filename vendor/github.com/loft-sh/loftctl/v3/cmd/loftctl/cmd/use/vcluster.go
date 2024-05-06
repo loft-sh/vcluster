@@ -168,9 +168,15 @@ func (cmd *VirtualClusterCmd) useVirtualCluster(ctx context.Context, baseClient 
 }
 
 func CreateVirtualClusterInstanceOptions(ctx context.Context, baseClient client.Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
-	cluster, err := findProjectCluster(ctx, baseClient, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
-	if err != nil {
-		return kubeconfig.ContextOptions{}, errors.Wrap(err, "find space instance cluster")
+	var cluster *managementv1.Cluster
+
+	// skip finding cluster if virtual cluster is directly connected
+	if !virtualClusterInstance.Spec.NetworkPeer {
+		var err error
+		cluster, err = findProjectCluster(ctx, baseClient, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
+		if err != nil {
+			return kubeconfig.ContextOptions{}, errors.Wrap(err, "find space instance cluster")
+		}
 	}
 
 	contextOptions := kubeconfig.ContextOptions{
@@ -192,7 +198,7 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, baseClient client.
 		contextOptions.InsecureSkipTLSVerify = true
 		contextOptions.VirtualClusterAccessPointEnabled = true
 	} else {
-		if !disableClusterGateway && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+		if !disableClusterGateway && cluster != nil && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
 			contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/project/"+projectName+"/virtualcluster/"+virtualClusterInstance.Name, log)
 			_, err := baseClient.DirectClusterEndpointToken(true)
 			if err != nil {

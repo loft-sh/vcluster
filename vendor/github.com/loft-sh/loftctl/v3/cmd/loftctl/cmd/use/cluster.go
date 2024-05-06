@@ -212,7 +212,7 @@ func ApplyDirectClusterEndpointOptions(options kubeconfig.ContextOptions, cluste
 }
 
 func retrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
-	if cluster.Annotations == nil || cluster.Annotations[LoftDirectClusterEndpointCaData] == "" {
+	if cluster == nil || cluster.Annotations == nil || cluster.Annotations[LoftDirectClusterEndpointCaData] == "" {
 		return nil, nil
 	}
 

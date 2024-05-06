@@ -382,7 +382,7 @@ github.com/loft-sh/apiserver/pkg/builders
 # github.com/loft-sh/jspolicy v0.2.2
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v3 v3.5.0-alpha.1.0.20240430082516-88fe061dbac1
+# github.com/loft-sh/loftctl/v3 v3.5.0-alpha.2.0.20240506133909-6e7c7415ee54
 ## explicit; go 1.22.2
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd
 github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect
