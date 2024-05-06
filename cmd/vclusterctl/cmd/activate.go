@@ -22,7 +22,7 @@ Imports a vCluster into a vCluster platform project.
 Example:
 vcluster activate my-vcluster --cluster connected-cluster \
 --namespace vcluster-my-vcluster --project my-project --import-name my-vcluster
-#######################################################
+########################################################
 	`
 
 	importCmd := &cobra.Command{

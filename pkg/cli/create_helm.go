@@ -275,7 +275,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if !hasPlatformConfiguration && cmd.Activate {
 		platformClient, err := platform.CreatePlatformClient()
 		if err == nil {
-			err = platformClient.ApplyPlatformSecret(ctx, cmd.kubeClient, "vcluster-platform-api-key", cmd.Namespace, cmd.Project)
+			err = platformClient.ApplyPlatformSecret(ctx, cmd.kubeClient, "", cmd.Namespace, cmd.Project)
 			if err != nil {
 				return fmt.Errorf("apply platform secret: %w", err)
 			}

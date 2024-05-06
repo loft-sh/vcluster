@@ -43,7 +43,7 @@ func ActivateHelm(ctx context.Context, options *ActivateOptions, globalFlags *fl
 	}
 
 	// apply platform secret
-	err = platformClient.ApplyPlatformSecret(ctx, kubeClient, vCluster.Name, vCluster.Namespace, options.Project)
+	err = platformClient.ApplyPlatformSecret(ctx, kubeClient, options.ImportName, vCluster.Namespace, options.Project)
 	if err != nil {
 		return err
 	}

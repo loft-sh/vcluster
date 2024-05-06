@@ -17,7 +17,9 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.Interface, name, namespace, project string) error {
+const DefaultPlatformSecretName = "vcluster-platform-api-key"
+
+func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.Interface, importName, namespace, project string) error {
 	managementClient, err := c.Management()
 	if err != nil {
 		return fmt.Errorf("create management client: %w", err)
@@ -84,21 +86,24 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 	if project != "" {
 		payload["project"] = []byte(project)
 	}
+	if importName != "" {
+		payload["name"] = []byte(importName)
+	}
 
 	// check if secret already exists
-	keySecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	keySecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, DefaultPlatformSecretName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("error getting platform secret %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("error getting platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if kerrors.IsNotFound(err) {
 		_, err = kubeClient.CoreV1().Secrets(namespace).Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
+				Name:      DefaultPlatformSecretName,
 				Namespace: namespace,
 			},
 			Data: payload,
 		}, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("error creating platform secret %s/%s: %w", namespace, name, err)
+			return fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 		}
 
 		return nil
@@ -112,13 +117,13 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 	keySecret.Data = payload
 	patchBytes, err := patch.Data(keySecret)
 	if err != nil {
-		return fmt.Errorf("error creating patch for platform secret %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("error creating patch for platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	}
 
 	// patch the secret
 	_, err = kubeClient.CoreV1().Secrets(namespace).Patch(ctx, keySecret.Name, patch.Type(), patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("error patching platform secret %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("error patching platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	}
 
 	return nil

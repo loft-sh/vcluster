@@ -136,7 +136,7 @@ func getAgentConfig(ctx context.Context, kubeContext string) (*managementv1.Agen
 	if err != nil {
 		return nil, err
 	} else if agentConfigSecret == nil {
-		return nil, fmt.Errorf("could not determine current vCluster.Pro cluster, please make sure the current context is connected to vCluster.Pro. If this is not an error, you can also specify the cluster manually via '--cluster'")
+		return nil, fmt.Errorf("could not determine connected vCluster platform cluster, please make sure the current context is connected to vCluster platform. If this is not an error, you can also specify the cluster manually via '--cluster'")
 	}
 
 	// get data
