@@ -312,6 +312,10 @@ type SyncRewriteHosts struct {
 	// Enabled specifies if rewriting stateful set pods should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// InitContainerImage is the image virtual cluster should use to rewrite this FQDN.
+	// DEPRECATED: TODO Remove with v0.20.0 GA
+	InitContainerImage string `json:"initContainerImage,omitempty" jsonschema_extras:"deprecated=true"`
+
 	// InitContainer holds extra options for the init container used by vCluster to rewrite the FQDN for stateful set pods.
 	InitContainer SyncRewriteHostsInitContainer `json:"initContainer,omitempty"`
 }
@@ -1632,6 +1636,10 @@ type ExperimentalDeployHelmChart struct {
 }
 
 type Platform struct {
+	// APIKey defines how vCluster can contact the platform api.
+	// DEPRECATED: TODO Remove with v0.20.0 GA
+	APIKey PlatformAPIKey `json:"apiKey,omitempty" jsonschema_extras:"deprecated=true"`
+
 	// API defines how vCluster can contact the platform api.
 	API PlatformAPI `json:"api,omitempty"`
 
@@ -1652,6 +1660,21 @@ type PlatformOwner struct {
 	// Team is the team id within the platform. This is mutually exclusive with user.
 	Team string `json:"team,omitempty"`
 }
+
+// TODO Remove with v0.20.0 GA
+type PlatformAPIKey struct {
+	// Value specifies the access key as a regular text value.
+	Value string `json:"value,omitempty"`
+
+	// SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:
+	// * platform.api.accessKey
+	// * environment variable called LICENSE
+	// * secret specified under platform.api.secretRef.name
+	// * secret called "vcluster-platform-api-key" in the vCluster namespace
+	SecretRef PlatformAccessKeySecretReference `json:"secretRef,omitempty"`
+}
+
+// TODO end
 
 type PlatformAPI struct {
 	// AccessKey specifies the access key as a regular text value.

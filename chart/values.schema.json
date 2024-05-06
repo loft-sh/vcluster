@@ -1985,6 +1985,11 @@
     },
     "Platform": {
       "properties": {
+        "apiKey": {
+          "$ref": "#/$defs/PlatformAPIKey",
+          "description": "APIKey defines how vCluster can contact the platform api.\nDEPRECATED: TODO Remove with v0.20.0 GA",
+          "deprecated": true
+        },
         "api": {
           "$ref": "#/$defs/PlatformAPI",
           "description": "API defines how vCluster can contact the platform api."
@@ -2026,6 +2031,21 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "PlatformAPIKey": {
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "Value specifies the access key as a regular text value."
+        },
+        "secretRef": {
+          "$ref": "#/$defs/PlatformAccessKeySecretReference",
+          "description": "SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* platform.api.accessKey\n* environment variable called LICENSE\n* secret specified under platform.api.secretRef.name\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "TODO Remove with v0.20.0 GA"
     },
     "PlatformAccessKeySecretReference": {
       "properties": {
@@ -2718,6 +2738,11 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled specifies if rewriting stateful set pods should be enabled."
+        },
+        "initContainerImage": {
+          "type": "string",
+          "description": "InitContainerImage is the image virtual cluster should use to rewrite this FQDN.\nDEPRECATED: TODO Remove with v0.20.0 GA",
+          "deprecated": true
         },
         "initContainer": {
           "$ref": "#/$defs/SyncRewriteHostsInitContainer",
