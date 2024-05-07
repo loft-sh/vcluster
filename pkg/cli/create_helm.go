@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -42,7 +40,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"sigs.k8s.io/yaml"
 )
 
 // CreateOptions holds the create cmd options
@@ -161,25 +158,16 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		if currentDistro == "vcluster" {
 			currentDistro = config.K3SDistro
 		}
-
 		// A virtual cluster could either be created via vcluster CLI or via helm.
 		// When using vcluster CLI we always have extra values configured.
 		// When using helm without any modifications we don't have any extra values,
 		// so we must take the default values from the release into account.
-		var currentValues []byte
-		if release.Config != nil {
-			currentValues, err = yaml.Marshal(release.Config)
-			if err != nil {
-				return err
-			}
-		} else {
-			currentValues, err = helmValuesYAML(release)
-			if err != nil {
-				return err
-			}
+		helmCommand := fmt.Sprintf("helm -n %s get values %s -o yaml", cmd.Namespace, vClusterName)
+		if release.Config == nil {
+			helmCommand = fmt.Sprintf("%s -a", helmCommand)
 		}
 
-		command := fmt.Sprintf("vcluster convert config --distro %s - <<EOF\n%s\nEOF", currentDistro, string(currentValues))
+		command := fmt.Sprintf("%s | vcluster convert config --distro %s", helmCommand, currentDistro)
 		return fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run the following to convert the values to the latest format:\n%s", command)
 
 		// TODO(johannesfrey): Later we want to save the current values in order to be able to validate them against newly given values below.
@@ -239,10 +227,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		// parse config
 		cfg := &config.Config{}
 		err = cfg.UnmarshalYAMLStrict(data)
-		if err != nil {
-			if !errors.Is(err, config.ErrInvalidConfig) {
-				return err
-			}
+		if errors.Is(err, config.ErrInvalidConfig) {
 			// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
 			// We cannot discriminate between k0s/k3s and eks/k8s. So we cannot prompt the actual values to convert, as this would cause false positives,
 			// because users are free to e.g. pass a k0s values file to a currently running k3s virtual cluster.
@@ -250,6 +235,9 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				return fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run %q to convert the values to the latest format", "vcluster convert config")
 			}
 			// TODO end
+			return err
+		} else if err != nil {
+			return err
 		}
 
 		// TODO(johannesfrey): Here, we need to validate the current config (possibly migrated) against the given config regarding a potential distro/backingstore change.
@@ -344,48 +332,6 @@ func isLegacyConfig(values []byte) bool {
 		}
 	}
 	return true
-}
-
-// helmValuesYAML returns the values yaml from the secret inside the Helm release.
-func helmValuesYAML(release *helm.Release) ([]byte, error) {
-	enc, ok := release.Secret.Data["release"]
-	if !ok {
-		return nil, fmt.Errorf("no helm release values")
-	}
-
-	// The helm release is a gzipped base64-encoded blob
-	dec, err := base64.StdEncoding.DecodeString(string(enc))
-	if err != nil {
-		return nil, err
-	}
-
-	gz, err := gzip.NewReader(bytes.NewReader(dec))
-	if err != nil {
-		return nil, err
-	}
-	defer gz.Close()
-
-	releaseRaw, err := io.ReadAll(gz)
-	if err != nil {
-		return nil, err
-	}
-
-	helmChart := struct {
-		Chart struct {
-			Values map[string]interface{} `json:"values"`
-		} `json:"chart"`
-	}{}
-
-	if err := yaml.Unmarshal(releaseRaw, &helmChart); err != nil {
-		return nil, err
-	}
-
-	values, err := yaml.Marshal(helmChart.Chart.Values)
-	if err != nil {
-		return nil, err
-	}
-
-	return values, nil
 }
 
 func getBase64DecodedString(values string) (string, error) {
