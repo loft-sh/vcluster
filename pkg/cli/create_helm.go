@@ -151,7 +151,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	// Early abort if a user runs a virtual cluster < v0.20 without providing any values files during an upgrade.
 	// We do this because we don't want to "automagically" convert the old config implicitly, without the user
 	// realizing that the virtual cluster is running with the old config format.
-	if isVClusterDeployed(release) && isLegacyVCluster(release.Chart.Metadata.Version) && len(cmd.Values) <= 0 {
+	if isVClusterDeployed(release) && isLegacyVCluster(release.Chart.Metadata.Version) && len(cmd.Values) == 0 {
 		// If we have a < v0.20 virtual cluster running we have to infer the distro from the current chart name.
 		currentDistro := strings.TrimPrefix(release.Chart.Metadata.Name, "vcluster-")
 		// If we are upgrading a vCluster < v0.20 the old k3s chart is the one without a prefix.
