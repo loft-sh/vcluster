@@ -79,7 +79,8 @@ controlPlane:
         extraArgs: []
         imagePullPolicy: ""
         image:
-          repository: "registry.k8s.io/kube-apiserver"
+          registry: registry.k8s.io
+          repository: kube-apiserver
           tag: "v1.29.0"
       controllerManager:
         enabled: true
@@ -87,14 +88,16 @@ controlPlane:
         extraArgs: []
         imagePullPolicy: ""
         image:
-          repository: "registry.k8s.io/kube-controller-manager"
+          registry: registry.k8s.io
+          repository: "kube-controller-manager"
           tag: "v1.29.0"
       scheduler:
         command: []
         extraArgs: []
         imagePullPolicy: ""
         image:
-          repository: "registry.k8s.io/kube-scheduler"
+          registry: registry.k8s.io
+          repository: "kube-scheduler"
           tag: "v1.29.0"
       env: []
       securityContext: {}
@@ -112,6 +115,7 @@ controlPlane:
       extraArgs: []
       imagePullPolicy: ""
       image:
+        registry: ""
         repository: "rancher/k3s"
         tag: "v1.29.0-k3s1"
       securityContext: {}
@@ -130,6 +134,7 @@ controlPlane:
       extraArgs: []
       imagePullPolicy: ""
       image:
+        registry: ""
         repository: "k0sproject/k0s"
         tag: "v1.29.1-k0s.0"
       securityContext: {}
@@ -149,7 +154,8 @@ controlPlane:
         extraArgs: []
         imagePullPolicy: ""
         image:
-          repository: "public.ecr.aws/eks-distro/kubernetes/kube-apiserver"
+          registry: "public.ecr.aws"
+          repository: "eks-distro/kubernetes/kube-apiserver"
           tag: "v1.28.2-eks-1-28-6"
       controllerManager:
         enabled: true
@@ -157,14 +163,16 @@ controlPlane:
         extraArgs: []
         imagePullPolicy: ""
         image:
-          repository: "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager"
+          registry: "public.ecr.aws"
+          repository: "eks-distro/kubernetes/kube-controller-manager"
           tag: "v1.28.2-eks-1-28-6"
       scheduler:
         command: []
         extraArgs: []
         imagePullPolicy: ""
         image:
-          repository: "public.ecr.aws/eks-distro/kubernetes/kube-scheduler"
+          registry: "public.ecr.aws"
+          repository: "eks-distro/kubernetes/kube-scheduler"
           tag: "v1.28.2-eks-1-28-6"
       env: []
       securityContext: {}
@@ -197,7 +205,8 @@ controlPlane:
           annotations: {}
           labels: {}
           image:
-            repository: "registry.k8s.io/etcd"
+            registry: "registry.k8s.io"
+            repository: "etcd"
             tag: "3.5.10-0"
           imagePullPolicy: ""
           extraArgs: []
@@ -296,7 +305,8 @@ controlPlane:
     annotations: {}
     imagePullPolicy: ""
     image:
-      repository: "ghcr.io/loft-sh/vcluster-pro"
+      registry: "ghcr.io"
+      repository: "loft-sh/vcluster-pro"
       tag: ""
 
     workingDir: ""

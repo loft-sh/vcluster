@@ -135,8 +135,11 @@ controlPlane:
         imagePullPolicy: ""
         # Image is the distro image
         image:
-          # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
-          repository: "registry.k8s.io/kube-apiserver"
+          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+          registry: registry.k8s.io
+          # Repository is the repository of the container image, e.g. my-repo/my-image
+          repository: kube-apiserver
           # Tag is the tag of the container image, e.g. latest
           tag: "v1.29.0"
       # ControllerManager holds configuration specific to starting the controller manager.
@@ -150,8 +153,11 @@ controlPlane:
         imagePullPolicy: ""
         # Image is the distro image
         image:
-          # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
-          repository: "registry.k8s.io/kube-controller-manager"
+          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+          registry: registry.k8s.io
+          # Repository is the repository of the container image, e.g. my-repo/my-image
+          repository: "kube-controller-manager"
           # Tag is the tag of the container image, e.g. latest
           tag: "v1.29.0"
       # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
@@ -164,8 +170,11 @@ controlPlane:
         imagePullPolicy: ""
         # Image is the distro image
         image:
-          # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
-          repository: "registry.k8s.io/kube-scheduler"
+          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+          registry: registry.k8s.io
+          # Repository is the repository of the container image, e.g. my-repo/my-image
+          repository: "kube-scheduler"
           # Tag is the tag of the container image, e.g. latest
           tag: "v1.29.0"
       # Env are extra environment variables to use for the main container and NOT the init container.
@@ -192,7 +201,10 @@ controlPlane:
       imagePullPolicy: ""
       # Image is the distro image
       image:
-        # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
+        # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+        # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+        registry: ""
+        # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
         # Tag is the tag of the container image, e.g. latest
         tag: "v1.29.0-k3s1"
@@ -220,7 +232,10 @@ controlPlane:
       imagePullPolicy: ""
       # Image is the distro image
       image:
-        # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
+        # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+        # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+        registry: ""
+        # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "k0sproject/k0s"
         # Tag is the tag of the container image, e.g. latest
         tag: "v1.29.1-k0s.0"
@@ -249,8 +264,11 @@ controlPlane:
         imagePullPolicy: ""
         # Image is the distro image
         image:
-          # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
-          repository: "public.ecr.aws/eks-distro/kubernetes/kube-apiserver"
+          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+          registry: "public.ecr.aws"
+          # Repository is the repository of the container image, e.g. my-repo/my-image
+          repository: "eks-distro/kubernetes/kube-apiserver"
           # Tag is the tag of the container image, e.g. latest
           tag: "v1.28.2-eks-1-28-6"
       # ControllerManager holds configuration specific to starting the controller manager.
@@ -264,8 +282,11 @@ controlPlane:
         imagePullPolicy: ""
         # Image is the distro image
         image:
-          # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
-          repository: "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager"
+          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+          registry: "public.ecr.aws"
+          # Repository is the repository of the container image, e.g. my-repo/my-image
+          repository: "eks-distro/kubernetes/kube-controller-manager"
           # Tag is the tag of the container image, e.g. latest
           tag: "v1.28.2-eks-1-28-6"
       # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
@@ -278,8 +299,11 @@ controlPlane:
         imagePullPolicy: ""
         # Image is the distro image
         image:
-          # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
-          repository: "public.ecr.aws/eks-distro/kubernetes/kube-scheduler"
+          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+          registry: "public.ecr.aws"
+          # Repository is the repository of the container image, e.g. my-repo/my-image
+          repository: "eks-distro/kubernetes/kube-scheduler"
           # Tag is the tag of the container image, e.g. latest
           tag: "v1.28.2-eks-1-28-6"
       # Env are extra environment variables to use for the main container and NOT the init container.
@@ -338,8 +362,11 @@ controlPlane:
           labels: {}
           # Image is the image to use for the external etcd statefulSet
           image:
-            # Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
-            repository: "registry.k8s.io/etcd"
+            # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+            # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+            registry: "registry.k8s.io"
+            # Repository is the repository of the container image, e.g. my-repo/my-image
+            repository: "etcd"
             # Tag is the tag of the container image, e.g. latest
             tag: "3.5.10-0"
           # ImagePullPolicy is the pull policy for the external etcd image
@@ -501,10 +528,13 @@ controlPlane:
     imagePullPolicy: ""
     # Image is the image for the controlPlane statefulSet container
     image:
-      # Configure the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image.
+      # Configure the registry of the container image, e.g. my-registry.com or ghcr.io
+      # It defaults to ghcr.io and can be overriding either by using this field or controlPlane.advanced.defaultImageRegistry
+      registry: "ghcr.io"
+      # Configure the repository of the container image, e.g. my-repo/my-image.
       # It defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.
-      # If you still want to use the pure OSS build, use 'ghcr.io/loft-sh/vcluster-oss' instead.
-      repository: "ghcr.io/loft-sh/vcluster-pro"
+      # If you still want to use the pure OSS build, use 'loft-sh/vcluster-oss' instead.
+      repository: "loft-sh/vcluster-pro"
       # Tag is the tag of the container image, e.g. latest
       tag: ""
     # WorkingDir specifies in what folder the main process should get started.

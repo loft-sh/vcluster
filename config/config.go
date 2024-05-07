@@ -716,9 +716,13 @@ type DistroContainerEnabled struct {
 }
 
 type StatefulSetImage struct {
-	// Configure the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image.
+	// Configure the registry of the container image, e.g. my-registry.com or ghcr.io
+	// It defaults to ghcr.io and can be overriding either by using this field or controlPlane.advanced.defaultImageRegistry
+	Registry string `json:"registry,omitempty"`
+
+	// Configure the repository of the container image, e.g. my-repo/my-image.
 	// It defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.
-	// If you still want to use the pure OSS build, use 'ghcr.io/loft-sh/vcluster-oss' instead.
+	// If you still want to use the pure OSS build, use 'loft-sh/vcluster-oss' instead.
 	Repository string `json:"repository,omitempty"`
 
 	// Tag is the tag of the container image, e.g. latest
@@ -726,7 +730,11 @@ type StatefulSetImage struct {
 }
 
 type Image struct {
-	// Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
+	// Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+	// overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+	Registry string `json:"registry,omitempty"`
+
+	// Repository is the repository of the container image, e.g. my-repo/my-image
 	Repository string `json:"repository,omitempty"`
 
 	// Tag is the tag of the container image, e.g. latest

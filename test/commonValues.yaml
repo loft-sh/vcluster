@@ -20,6 +20,7 @@ controlPlane:
 
   statefulSet:
     image:
+      registry: ""
       repository: REPLACE_REPOSITORY_NAME
       tag: REPLACE_TAG_NAME
     env:

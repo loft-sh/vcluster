@@ -134,7 +134,7 @@ spec:
       {{- end }}
       containers:
       - name: etcd
-        image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ $externalEtcd.image.repository }}:{{ $externalEtcd.image.tag }}"
+        image: '{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" $externalEtcd.image.registry "repository" $externalEtcd.image.repository "tag" $externalEtcd.image.tag) }}'
         command:
           - etcd
           - '--cert-file=/run/config/pki/etcd-server.crt'

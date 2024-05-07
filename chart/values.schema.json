@@ -1556,9 +1556,13 @@
     },
     "Image": {
       "properties": {
+        "registry": {
+          "type": "string",
+          "description": "Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally\noverridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub."
+        },
         "repository": {
           "type": "string",
-          "description": "Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image"
+          "description": "Repository is the repository of the container image, e.g. my-repo/my-image"
         },
         "tag": {
           "type": "string",
@@ -2568,9 +2572,13 @@
     },
     "StatefulSetImage": {
       "properties": {
+        "registry": {
+          "type": "string",
+          "description": "Configure the registry of the container image, e.g. my-registry.com or ghcr.io\nIt defaults to ghcr.io and can be overriding either by using this field or controlPlane.advanced.defaultImageRegistry"
+        },
         "repository": {
           "type": "string",
-          "description": "Configure the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image.\nIt defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.\nIf you still want to use the pure OSS build, use 'ghcr.io/loft-sh/vcluster-oss' instead."
+          "description": "Configure the repository of the container image, e.g. my-repo/my-image.\nIt defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.\nIf you still want to use the pure OSS build, use 'loft-sh/vcluster-oss' instead."
         },
         "tag": {
           "type": "string",
