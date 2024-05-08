@@ -2,9 +2,9 @@ package scheme
 
 import (
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	agentclusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
-	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
-	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	agentclusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/vcluster/pkg/apis"
 	apidiscoveryv2beta1 "k8s.io/api/apidiscovery/v2beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"

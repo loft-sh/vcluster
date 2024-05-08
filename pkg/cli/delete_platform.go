@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v4/pkg/kube"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
