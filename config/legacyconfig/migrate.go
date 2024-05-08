@@ -1073,7 +1073,7 @@ func convertStatefulSetImage(image string, into *config.StatefulSetImage) {
 		return
 	}
 
-	into.Registry, into.Repository, into.Tag = splitImage(image)
+	into.Registry, into.Repository, into.Tag = config.SplitImage(image)
 }
 
 func convertImage(image string, into *config.Image) {
@@ -1081,29 +1081,7 @@ func convertImage(image string, into *config.Image) {
 		return
 	}
 
-	into.Registry, into.Repository, into.Tag = splitImage(image)
-}
-
-func splitImage(image string) (string, string, string) {
-	imageSplitted := strings.Split(image, ":")
-	if len(imageSplitted) == 1 {
-		return "", "", ""
-	}
-
-	// check if registry needs to be filled
-	registryAndRepository := strings.Join(imageSplitted[:len(imageSplitted)-1], ":")
-	parts := strings.Split(registryAndRepository, "/")
-	registry := ""
-	repository := strings.Join(parts, "/")
-	if len(parts) >= 2 && (strings.ContainsRune(parts[0], '.') || strings.ContainsRune(parts[0], ':')) {
-		// The first part of the repository is treated as the registry domain
-		// iff it contains a '.' or ':' character, otherwise it is all repository
-		// and the domain defaults to Docker Hub.
-		registry = parts[0]
-		repository = strings.Join(parts[1:], "/")
-	}
-
-	return registry, repository, imageSplitted[len(imageSplitted)-1]
+	into.Registry, into.Repository, into.Tag = config.SplitImage(image)
 }
 
 func mergeIntoMap(retMap map[string]string, arr []string) map[string]string {
