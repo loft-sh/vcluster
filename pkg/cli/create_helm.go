@@ -177,8 +177,8 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	// build extra values
 	var newExtraValues []string
 	for _, value := range cmd.Values {
-		decodedString, err := getBase64DecodedString(value)
 		// ignore decoding errors and treat it as non-base64 string
+		decodedString, err := getBase64DecodedString(value)
 		if err != nil {
 			newExtraValues = append(newExtraValues, value)
 			continue

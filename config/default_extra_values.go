@@ -274,15 +274,34 @@ func applyK8SExtraValues(vConfig *Config, options *ExtraValuesOptions) error {
 }
 
 func parseImage(image string) Image {
-	splitTag := strings.SplitN(image, ":", 2)
-	if len(splitTag) == 2 {
-		return Image{
-			Repository: splitTag[0],
-			Tag:        splitTag[1],
-		}
+	registry, repository, tag := SplitImage(image)
+	return Image{
+		Registry:   registry,
+		Repository: repository,
+		Tag:        tag,
+	}
+}
+
+func SplitImage(image string) (string, string, string) {
+	imageSplitted := strings.Split(image, ":")
+	if len(imageSplitted) == 1 {
+		return "", "", ""
 	}
 
-	return Image{}
+	// check if registry needs to be filled
+	registryAndRepository := strings.Join(imageSplitted[:len(imageSplitted)-1], ":")
+	parts := strings.Split(registryAndRepository, "/")
+	registry := ""
+	repository := strings.Join(parts, "/")
+	if len(parts) >= 2 && (strings.ContainsRune(parts[0], '.') || strings.ContainsRune(parts[0], ':')) {
+		// The first part of the repository is treated as the registry domain
+		// iff it contains a '.' or ':' character, otherwise it is all repository
+		// and the domain defaults to Docker Hub.
+		registry = parts[0]
+		repository = strings.Join(parts[1:], "/")
+	}
+
+	return registry, repository, imageSplitted[len(imageSplitted)-1]
 }
 
 func getImageByVersion(kubernetesVersion KubernetesVersion, versionImageMap map[string]string) (string, error) {

@@ -559,12 +559,12 @@ func mergeAllValues(setValues []string, valueFiles []string, chartValues string)
 			return "", fmt.Errorf("parse values file %s: %w", valuesFile, err)
 		}
 
-		strvals.MergeMaps(outValues, extraValues)
+		outValues = strvals.MergeMaps(outValues, extraValues)
 	}
 
 	// merge set
 	for _, set := range setValues {
-		err = strvals.ParseIntoString(set, outValues)
+		err = strvals.ParseInto(set, outValues)
 		if err != nil {
 			return "", fmt.Errorf("apply --set %s: %w", set, err)
 		}
