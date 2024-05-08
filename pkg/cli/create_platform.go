@@ -26,6 +26,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -589,6 +590,10 @@ func parseString(str string) (map[string]interface{}, error) {
 }
 
 func toChartOptions(platformClient platform.Client, options *CreateOptions, log log.Logger) (*vclusterconfig.ExtraValuesOptions, error) {
+	if !util.Contains(options.Distro, AllowedDistros) {
+		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
+	}
+
 	kubernetesVersion := vclusterconfig.KubernetesVersion{}
 	if options.KubernetesVersion != "" {
 		if options.KubernetesVersion[0] != 'v' {
@@ -619,6 +624,7 @@ func toChartOptions(platformClient platform.Client, options *CreateOptions, log 
 	}
 
 	return &vclusterconfig.ExtraValuesOptions{
+		Distro:              options.Distro,
 		Expose:              options.Expose,
 		KubernetesVersion:   kubernetesVersion,
 		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,

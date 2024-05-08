@@ -27,6 +27,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
@@ -471,6 +472,10 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 }
 
 func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.Logger) (*config.ExtraValuesOptions, error) {
+	if !util.Contains(cmd.Distro, AllowedDistros) {
+		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(AllowedDistros, ", "))
+	}
+
 	// check if we should create with node port
 	clusterType := localkubernetes.DetectClusterType(&cmd.rawConfig)
 	if cmd.ExposeLocal && clusterType.LocalKubernetes() {
@@ -479,6 +484,7 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 	}
 
 	return &config.ExtraValuesOptions{
+		Distro:    cmd.Distro,
 		Expose:    cmd.Expose,
 		SyncNodes: cmd.localCluster,
 		NodePort:  cmd.localCluster,
