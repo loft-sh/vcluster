@@ -111,6 +111,33 @@ func (c *Config) Distro() string {
 	return K8SDistro
 }
 
+// ValidateChanges checks for disallowed config changes.
+// Currently only certain backingstore changes are allowed but no distro change.
+func ValidateChanges(oldCfg, newCfg *Config) error {
+	oldDistro, newDistro := oldCfg.Distro(), newCfg.Distro()
+	oldBackingStore, newBackingStore := oldCfg.BackingStoreType(), newCfg.BackingStoreType()
+
+	return ValidateStoreAndDistroChanges(newBackingStore, oldBackingStore, newDistro, oldDistro)
+}
+
+// ValidateStoreAndDistroChanges checks whether migrating from one store to the other is allowed.
+func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType, currentDistro, previousDistro string) error {
+	if currentDistro != previousDistro {
+		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
+	}
+
+	if currentStoreType != previousStoreType {
+		if currentStoreType != StoreTypeEmbeddedEtcd {
+			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
+		}
+		if previousStoreType != StoreTypeExternalEtcd && previousStoreType != StoreTypeEmbeddedDatabase {
+			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
+		}
+	}
+
+	return nil
+}
+
 func (c *Config) IsProFeatureEnabled() bool {
 	if len(c.Networking.ResolveDNS) > 0 {
 		return true
