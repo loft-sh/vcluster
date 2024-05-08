@@ -204,6 +204,7 @@ jobs:
       - name: install sed
         run: |
           sudo apt-get install -y sed
+
       - name: create vcluster with current cli
         run: |
           chmod +x ./vcluster-current

@@ -139,7 +139,7 @@ func CheckUsingHelm(ctx context.Context, client kubernetes.Interface, name, name
 			return false, nil
 		}
 
-		if err := validateChanges(
+		if err := vclusterconfig.ValidateStoreAndDistroChanges(
 			backingStoreType,
 			previousConfig.BackingStoreType(),
 			distro,
@@ -201,7 +201,7 @@ func CheckUsingHelm(ctx context.Context, client kubernetes.Interface, name, name
 		}
 	}
 
-	if err := validateChanges(backingStoreType, previousStoreType, distro, previousDistro); err != nil {
+	if err := vclusterconfig.ValidateStoreAndDistroChanges(backingStoreType, previousStoreType, distro, previousDistro); err != nil {
 		return false, err
 	}
 
@@ -247,7 +247,7 @@ func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface
 	// Thus we can check if the distro has changed.
 	okCounter := 0
 	if annotatedDistro, ok := secret.Annotations[AnnotationDistro]; ok {
-		if err := validateChanges("", "", distro, annotatedDistro); err != nil {
+		if err := vclusterconfig.ValidateStoreAndDistroChanges("", "", distro, annotatedDistro); err != nil {
 			return false, err
 		}
 
@@ -255,7 +255,7 @@ func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface
 	}
 
 	if annotatedStore, ok := secret.Annotations[AnnotationStore]; ok {
-		if err := validateChanges(backingStoreType, vclusterconfig.StoreType(annotatedStore), "", ""); err != nil {
+		if err := vclusterconfig.ValidateStoreAndDistroChanges(backingStoreType, vclusterconfig.StoreType(annotatedStore), "", ""); err != nil {
 			return false, err
 		}
 
@@ -289,22 +289,4 @@ func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, n
 
 		return nil
 	})
-}
-
-// validateChanges checks whether migrating from one store to the other is allowed.
-func validateChanges(currentStoreType, previousStoreType vclusterconfig.StoreType, currentDistro, previousDistro string) error {
-	if currentDistro != previousDistro {
-		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
-	}
-
-	if currentStoreType != previousStoreType {
-		if currentStoreType != vclusterconfig.StoreTypeEmbeddedEtcd {
-			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
-		}
-		if previousStoreType != vclusterconfig.StoreTypeExternalEtcd && previousStoreType != vclusterconfig.StoreTypeEmbeddedDatabase {
-			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
-		}
-	}
-
-	return nil
 }

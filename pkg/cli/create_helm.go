@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
@@ -146,33 +147,54 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		}
 	}
 
-	// TODO Refactor after vCluster 0.19.x resp. the old config format is out of support.
-	// Early abort if a user runs a virtual cluster < v0.20 without providing any values files during an upgrade.
-	// We do this because we don't want to "automagically" convert the old config implicitly, without the user
-	// realizing that the virtual cluster is running with the old config format.
-	if isVClusterDeployed(release) && isLegacyVCluster(release.Chart.Metadata.Version) && len(cmd.Values) == 0 {
-		// If we have a < v0.20 virtual cluster running we have to infer the distro from the current chart name.
-		currentDistro := strings.TrimPrefix(release.Chart.Metadata.Name, "vcluster-")
-		// If we are upgrading a vCluster < v0.20 the old k3s chart is the one without a prefix.
-		if currentDistro == "vcluster" {
-			currentDistro = config.K3SDistro
+	currentVClusterConfig := &config.Config{}
+	if isVClusterDeployed(release) {
+		currentValues, err := helmExtraValuesYAML(release)
+		if err != nil {
+			return err
 		}
-		// A virtual cluster could either be created via vcluster CLI or via helm.
-		// When using vcluster CLI we always have extra values configured.
-		// When using helm without any modifications we don't have any extra values,
-		// so we must take the default values from the release into account.
-		helmCommand := fmt.Sprintf("helm -n %s get values %s -o yaml", cmd.Namespace, vClusterName)
-		if release.Config == nil {
-			helmCommand = fmt.Sprintf("%s -a", helmCommand)
+		// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
+		if isLegacyVCluster(release.Chart.Metadata.Version) {
+			// If we have a < v0.20 virtual cluster running we have to infer the distro from the current chart name.
+			currentDistro := strings.TrimPrefix(release.Chart.Metadata.Name, "vcluster-")
+			// If we are upgrading a vCluster < v0.20 the old k3s chart is the one without a prefix.
+			if currentDistro == "vcluster" {
+				currentDistro = config.K3SDistro
+			}
+			// Early abort if a user runs a virtual cluster < v0.20 without providing any values files during an upgrade.
+			// We do this because we don't want to "automagically" convert the old config implicitly, without the user
+			// realizing that the virtual cluster is running with the old config format.
+			if len(cmd.Values) == 0 {
+				helmCommand := fmt.Sprintf("helm -n %s get values %s -o yaml", cmd.Namespace, vClusterName)
+				if currentValues == "" {
+					helmCommand = fmt.Sprintf("%s -a", helmCommand)
+				}
+
+				command := fmt.Sprintf("%s | vcluster convert config --distro %s", helmCommand, currentDistro)
+				return fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run the following to convert the values to the latest format:\n%s", command)
+			}
+
+			// At this point the user did pass a config file.
+			// We have to convert the current old vcluster config to the new format in order to be able validate it against the passed in vcluster configs below.
+			migratedValues, err := legacyconfig.MigrateLegacyConfig(currentDistro, currentValues)
+			// TODO(johannesfrey): Let's log here all unsupported fields that have been discovered during the migration.
+			if err != nil {
+				// If the user previously used values that are now unsupported create a fresh config for the given distro.
+				migratedValues, err = legacyconfig.MigrateLegacyConfig(currentDistro, "")
+				if err != nil {
+					return err
+				}
+			}
+			if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(migratedValues)); err != nil {
+				return err
+			}
+		} else {
+			if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(currentValues)); err != nil {
+				return err
+			}
 		}
-
-		command := fmt.Sprintf("%s | vcluster convert config --distro %s", helmCommand, currentDistro)
-		return fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run the following to convert the values to the latest format:\n%s", command)
-
-		// TODO(johannesfrey): Later we want to save the current values in order to be able to validate them against newly given values below.
-		// If it happens to be a legacy config, we need to convert values here as well to the new format in order to be able validate them against newly given values below.
+		// TODO end
 	}
-	// TODO end
 
 	// build extra values
 	var newExtraValues []string
@@ -230,6 +252,13 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	vClusterConfig, err := cmd.parseVClusterYAML(chartValues)
 	if err != nil {
 		return err
+	}
+
+	if isVClusterDeployed(release) {
+		// While certain backing store changes are allowed we prohibit changes to another distro.
+		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
+			return err
+		}
 	}
 
 	// create platform secret
@@ -349,6 +378,20 @@ func isLegacyConfig(values []byte) bool {
 }
 
 // TODO end
+
+// helmValuesYAML returns the extraValues from the helm release in yaml format.
+// If the extra values in the chart are nil it returns an empty string.
+func helmExtraValuesYAML(release *helm.Release) (string, error) {
+	if release.Config == nil {
+		return "", nil
+	}
+	extraValues, err := yaml.Marshal(release.Config)
+	if err != nil {
+		return "", err
+	}
+
+	return string(extraValues), nil
+}
 
 func getBase64DecodedString(values string) (string, error) {
 	strDecoded, err := base64.StdEncoding.DecodeString(values)
