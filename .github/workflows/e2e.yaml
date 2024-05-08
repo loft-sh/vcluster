@@ -204,6 +204,7 @@ jobs:
       - name: install sed
         run: |
           sudo apt-get install -y sed
+
       - name: create vcluster with current cli
         run: |
           chmod +x ./vcluster-current
@@ -226,10 +227,11 @@ jobs:
           sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" test/commonValues.yaml
           sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" test/commonValues.yaml
 
-          ./vcluster-dev/vcluster create vcluster --distro=${{ matrix.distribution }} \
+          ./vcluster-dev/vcluster create vcluster \
           --connect=false \
           --upgrade \
           --local-chart-dir ./chart \
+          --set="controlPlane.distro.${{ matrix.distribution }}.enabled=true" \
           -f ./test/commonValues.yaml
 
           sleep 20
@@ -361,7 +363,7 @@ jobs:
           --create-namespace \
           --debug \
           --connect=false \
-          --distro=${{ matrix.distribution }} \
+          --set="controlPlane.distro.${{ matrix.distribution }}.enabled=true" \
           --local-chart-dir ./chart \
           -f ./test/commonValues.yaml \
           $haValues \
