@@ -226,17 +226,15 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 		// parse config
 		cfg := &config.Config{}
-		err = cfg.UnmarshalYAMLStrict(data)
-		if errors.Is(err, config.ErrInvalidConfig) {
+		if err := cfg.UnmarshalYAMLStrict(data); err != nil {
 			// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
+			// It also might be a legacy config, so we try to parse it as such.
 			// We cannot discriminate between k0s/k3s and eks/k8s. So we cannot prompt the actual values to convert, as this would cause false positives,
 			// because users are free to e.g. pass a k0s values file to a currently running k3s virtual cluster.
 			if isLegacyConfig(data) {
 				return fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run %q to convert the values to the latest format", "vcluster convert config")
 			}
 			// TODO end
-			return err
-		} else if err != nil {
 			return err
 		}
 
@@ -315,6 +313,7 @@ func isVClusterDeployed(release *helm.Release) bool {
 		release.Secret.Labels["status"] == "deployed"
 }
 
+// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
 func isLegacyVCluster(version string) bool {
 	if version == upgrade.DevelopmentVersion {
 		return false
@@ -333,6 +332,8 @@ func isLegacyConfig(values []byte) bool {
 	}
 	return true
 }
+
+// TODO end
 
 func getBase64DecodedString(values string) (string, error) {
 	strDecoded, err := base64.StdEncoding.DecodeString(values)
