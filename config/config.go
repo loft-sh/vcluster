@@ -130,11 +130,7 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if len(c.Policies.CentralAdmission.MutatingWebhooks) > 0 {
-		return true
-	}
-
-	if len(c.Policies.CentralAdmission.ValidatingWebhooks) > 0 {
+	if len(c.Policies.CentralAdmission.ValidatingWebhooks) > 0 || len(c.Policies.CentralAdmission.MutatingWebhooks) > 0 {
 		return true
 	}
 

@@ -537,6 +537,10 @@ func mergeValues(platformClient platform.Client, options *CreateOptions, log log
 		return "", err
 	}
 
+	return mergeAllValues(options.SetValues, options.Values, chartValues)
+}
+
+func mergeAllValues(setValues []string, valueFiles []string, chartValues string) (string, error) {
 	// parse into map
 	outValues, err := parseString(chartValues)
 	if err != nil {
@@ -544,7 +548,7 @@ func mergeValues(platformClient platform.Client, options *CreateOptions, log log
 	}
 
 	// merge values
-	for _, valuesFile := range options.Values {
+	for _, valuesFile := range valueFiles {
 		out, err := os.ReadFile(valuesFile)
 		if err != nil {
 			return "", fmt.Errorf("reading values file %s: %w", valuesFile, err)
@@ -559,7 +563,7 @@ func mergeValues(platformClient platform.Client, options *CreateOptions, log log
 	}
 
 	// merge set
-	for _, set := range options.SetValues {
+	for _, set := range setValues {
 		err = strvals.ParseIntoString(set, outValues)
 		if err != nil {
 			return "", fmt.Errorf("apply --set %s: %w", set, err)

@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -208,43 +207,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		newExtraValues = append(newExtraValues, tempValuesFile)
 	}
 
-	// Check if the passed in values adhere to our config format.
-	hasPlatformConfiguration := false
-	for _, p := range newExtraValues {
-		f, err := os.Open(p)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			_ = f.Close()
-		}()
-
-		data, err := io.ReadAll(f)
-		if err != nil {
-			return err
-		}
-
-		// parse config
-		cfg := &config.Config{}
-		if err := cfg.UnmarshalYAMLStrict(data); err != nil {
-			// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-			// It also might be a legacy config, so we try to parse it as such.
-			// We cannot discriminate between k0s/k3s and eks/k8s. So we cannot prompt the actual values to convert, as this would cause false positives,
-			// because users are free to e.g. pass a k0s values file to a currently running k3s virtual cluster.
-			if isLegacyConfig(data) {
-				return fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run %q to convert the values to the latest format", "vcluster convert config")
-			}
-			// TODO end
-			return err
-		}
-
-		// TODO(johannesfrey): Here, we need to validate the current config (possibly migrated) against the given config regarding a potential distro/backingstore change.
-
-		if cfg.Platform.API.AccessKey != "" || cfg.Platform.API.SecretRef.Name != "" {
-			hasPlatformConfiguration = true
-		}
-	}
-
 	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
 	cmd.Values = newExtraValues
 
@@ -264,16 +226,17 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	// parse vCluster config
+	vClusterConfig, err := cmd.parseVClusterYAML(chartValues)
+	if err != nil {
+		return err
+	}
+
 	// create platform secret
-	if !hasPlatformConfiguration && cmd.Activate {
-		platformClient, err := platform.CreatePlatformClient()
-		if err == nil {
-			err = platformClient.ApplyPlatformSecret(ctx, cmd.kubeClient, "", cmd.Namespace, cmd.Project)
-			if err != nil {
-				return fmt.Errorf("apply platform secret: %w", err)
-			}
-		} else {
-			log.Debugf("Error creating platform client: %v", err)
+	if cmd.Activate {
+		err = cmd.activateVCluster(ctx, vClusterConfig)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -297,6 +260,58 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", vClusterName, cmd.Namespace, vClusterName, cmd.Namespace)
 	} else {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", vClusterName, cmd.Namespace, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace)
+	}
+
+	return nil
+}
+
+func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, error) {
+	finalValues, err := mergeAllValues(cmd.SetValues, cmd.Values, chartValues)
+	if err != nil {
+		return nil, fmt.Errorf("merge values: %w", err)
+	}
+
+	// parse config
+	vClusterConfig := &config.Config{}
+	if err := vClusterConfig.UnmarshalYAMLStrict([]byte(finalValues)); err != nil {
+		oldValues, err := mergeAllValues(cmd.SetValues, cmd.Values, "")
+		if err != nil {
+			return nil, fmt.Errorf("merge values: %w", err)
+		}
+
+		// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
+		// It also might be a legacy config, so we try to parse it as such.
+		// We cannot discriminate between k0s/k3s and eks/k8s. So we cannot prompt the actual values to convert, as this would cause false positives,
+		// because users are free to e.g. pass a k0s values file to a currently running k3s virtual cluster.
+		if isLegacyConfig([]byte(oldValues)) {
+			return nil, fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run %q to convert the values to the latest format", "vcluster convert config")
+		}
+
+		// TODO end
+		return nil, err
+	}
+
+	return vClusterConfig, nil
+}
+
+func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *config.Config) error {
+	if vClusterConfig.Platform.API.AccessKey != "" || vClusterConfig.Platform.API.SecretRef.Name != "" {
+		return nil
+	}
+
+	platformClient, err := platform.CreatePlatformClient()
+	if err != nil {
+		if vClusterConfig.IsProFeatureEnabled() {
+			return fmt.Errorf("you have vCluster pro features activated, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --activate=false", err)
+		}
+
+		cmd.log.Debugf("create platform client: %v", err)
+		return nil
+	}
+
+	err = platformClient.ApplyPlatformSecret(ctx, cmd.kubeClient, "", cmd.Namespace, cmd.Project)
+	if err != nil {
+		return fmt.Errorf("apply platform secret: %w", err)
 	}
 
 	return nil
