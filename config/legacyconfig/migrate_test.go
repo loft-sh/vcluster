@@ -351,6 +351,29 @@ sync:
     csiStorageCapacities:
       enabled: false`,
 		},
+		{
+			Name:   "image",
+			Distro: "k3s",
+			In: `vcluster:
+  image: my-registry.com:5000/private/private:v0.0.1
+syncer:
+  image: loft-sh/test:abc`,
+			Expected: `controlPlane:
+  distro:
+    k3s:
+      enabled: true
+      image:
+        registry: my-registry.com:5000
+        repository: private/private
+        tag: v0.0.1
+  statefulSet:
+    image:
+      registry: ""
+      repository: loft-sh/test
+      tag: abc
+    scheduling:
+      podManagementPolicy: OrderedReady`,
+		},
 	}
 
 	for _, testCase := range testCases {

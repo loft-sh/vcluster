@@ -21,6 +21,43 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: check default image registry
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                image:
+                  tag: "123"
+        advanced:
+          defaultImageRegistry: fabi.com
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: fabi.com/etcd:123
+
+  - it: change image registry
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                image:
+                  registry: fabi.com
+                  tag: "123"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: fabi.com/etcd:123
+
   - it: enabled for k3s & non persistent
     set:
       controlPlane:

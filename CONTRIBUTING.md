@@ -295,6 +295,7 @@ controlPlane:
   statefulSet:
     imagePullPolicy: Never
     image:
+      registry: ""
       repository: my-vcluster
       tag: 0.0.1
 ```

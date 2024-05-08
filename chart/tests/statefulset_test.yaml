@@ -12,6 +12,117 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: image name
+    set:
+      controlPlane:
+        statefulSet:
+          image:
+            registry: "custom-registry.com"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: custom-registry.com/loft-sh/vcluster-pro:0.0.1
+
+  - it: defaultImageRegistry
+    set:
+      controlPlane:
+        advanced:
+          defaultImageRegistry: docker.io
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: docker.io/loft-sh/vcluster-pro:0.0.1
+
+  - it: custom tag
+    set:
+      controlPlane:
+        statefulSet:
+          image:
+            repository: my-repo
+            tag: "custom-tag"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/my-repo:custom-tag
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+            image:
+              registry: "ghcr.io"
+              repository: "test"
+              tag: "123"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/test:123
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k0s:
+            enabled: true
+            image:
+              registry: ""
+              repository: "k0s"
+              tag: "123"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: k0s:123
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            controllerManager:
+              image:
+                registry: ""
+                repository: "k8s-controller"
+                tag: "123"
+            apiServer:
+              image:
+                registry: ""
+                repository: "k8s-api"
+                tag: "456"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: k8s-controller:123
+      - equal:
+          path: spec.template.spec.initContainers[2].image
+          value: k8s-api:456
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            controllerManager:
+              image:
+                repository: "k8s-controller"
+                tag: "123"
+            apiServer:
+              image:
+                repository: "k8s-api"
+                tag: "456"
+        advanced:
+          defaultImageRegistry: "bbb.com"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: bbb.com/k8s-controller:123
+      - equal:
+          path: spec.template.spec.initContainers[2].image
+          value: bbb.com/k8s-api:456
+
   - it: name & defaults
     release:
       name: my-release
@@ -28,6 +139,9 @@ tests:
       - lengthEqual:
           path: spec.template.spec.containers
           count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/loft-sh/vcluster-pro:0.0.1
       - contains:
           path: spec.template.spec.containers[0].env
           content:

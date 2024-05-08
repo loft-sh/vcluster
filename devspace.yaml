@@ -33,6 +33,7 @@ deployments:
               enabled: true
           statefulSet:
             image:
+              registry: ""
               repository: image(${SYNCER_IMAGE})
               tag: tag(${SYNCER_IMAGE})
             scheduling:
@@ -60,6 +61,7 @@ deployments:
               enabled: true
           statefulSet:
             image:
+              registry: ""
               repository: image(${SYNCER_IMAGE})
               tag: tag(${SYNCER_IMAGE})
             scheduling:
@@ -87,6 +89,7 @@ deployments:
               enabled: true
           statefulSet:
             image:
+              registry: ""
               repository: image(${SYNCER_IMAGE})
               tag: tag(${SYNCER_IMAGE})
             scheduling:

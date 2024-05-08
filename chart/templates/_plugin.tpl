@@ -60,7 +60,11 @@
 {{ continue }}
 {{- end }}
 {{- $counter = add1 $counter }}
-- image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}{{ $container.image }}
+- {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
+  image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
+  {{- else }}
+  image: {{ $container.image }}
+  {{- end }}
   {{- if $container.name }}
   name: {{ $container.name | quote }}
   {{- else }}
