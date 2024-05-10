@@ -1537,23 +1537,31 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "IPBlock": {
-      "properties": {
-        "cidr": {
-          "type": "string",
-          "description": "cidr is a string representing the IPBlock\nValid examples are \"192.168.1.0/24\" or \"2001:db8::/64\""
-        },
-        "except": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "except is a slice of CIDRs that should not be included within an IPBlock\nValid examples are \"192.168.1.0/24\" or \"2001:db8::/64\"\nExcept values will be rejected if they are outside the cidr range\n+optional"
+    "ipBlockList": {
+      "items": {
+        "type": "object",
+        "properties": {
+          "ipBlock": {
+            "type": "object",
+            "properties": {
+              "cidr": {
+                "type": "string",
+                "description": "cidr is a string representing the IPBlock\nValid examples are \"192.168.1.0/24\" or \"2001:db8::/64\""
+              },
+              "except": {
+                "items": {
+                    "type": "string"
+                },
+                "type": "array",
+                "description": "except is a slice of CIDRs that should not be included within an IPBlock\nValid examples are \"192.168.1.0/24\" or \"2001:db8::/64\"\nExcept values will be rejected if they are outside the cidr range\n+optional"
+              }
+            }
+          }
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
+      "type": "array"
+    },     
     "Image": {
       "properties": {
         "registry": {
@@ -1895,9 +1903,9 @@
     },
     "OutgoingConnections": {
       "properties": {
-        "ipBlock": {
-          "$ref": "#/$defs/IPBlock",
-          "description": "IPBlock describes a particular CIDR (Ex. \"192.168.1.0/24\",\"2001:db8::/64\") that is allowed\nto the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs\nthat should not be included within this rule."
+        "ipBlockList": {
+          "$ref": "#/$defs/ipBlockList",
+          "description": "List of IPBlocks describes a particular CIDR (Ex. \"192.168.1.0/24\",\"2001:db8::/64\") that is allowed\nto the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs\nthat should not be included within this rule."
         }
       },
       "additionalProperties": false,

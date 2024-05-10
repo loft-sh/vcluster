@@ -46,12 +46,11 @@ spec:
       - podSelector:
           matchLabels:
             vcluster.loft.sh/managed-by: {{ .Release.Name }}
+      {{- range .Values.policies.networkPolicy.outgoingConnections.ipBlockList }}
       - ipBlock:
-          cidr: {{ .Values.policies.networkPolicy.outgoingConnections.ipBlock.cidr }}
-          except:
-            {{- range .Values.policies.networkPolicy.outgoingConnections.ipBlock.except }}
-            - {{ . }}
-            {{- end }}
+        {{- toYaml .ipBlock | nindent 10 }}
+      {{- end }}
+
   policyTypes:
     - Egress
 ---

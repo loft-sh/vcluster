@@ -787,24 +787,25 @@ policies:
     annotations: {}
     fallbackDns: 8.8.8.8
     outgoingConnections:
-      # IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
-      # to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
-      # that should not be included within this rule.
-      ipBlock:
-        # cidr is a string representing the IPBlock
-        # Valid examples are "192.168.1.0/24" or "2001:db8::/64"
-        cidr: 0.0.0.0/0
-        # except is a slice of CIDRs that should not be included within an IPBlock
-        # Valid examples are "192.168.1.0/24" or "2001:db8::/64"
-        # Except values will be rejected if they are outside the cidr range
-        # +optional
-        except:
-          - 100.64.0.0/10
-          - 127.0.0.0/8
-          - 10.0.0.0/8
-          - 172.16.0.0/12
-          - 192.168.0.0/16
-  
+      ipBlockList:
+          # IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
+          # to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
+          # that should not be included within this rule.
+        - ipBlock:
+          # cidr is a string representing the IPBlock
+          # Valid examples are "192.168.1.0/24" or "2001:db8::/64"
+            cidr: 0.0.0.0/0
+          # except is a slice of CIDRs that should not be included within an IPBlock
+          # Valid examples are "192.168.1.0/24" or "2001:db8::/64"
+          # Except values will be rejected if they are outside the cidr range
+          # +optional
+            except:
+              - 100.64.0.0/10
+              - 127.0.0.0/8
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      
   # CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
   centralAdmission:
     # ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster
