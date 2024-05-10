@@ -58,6 +58,24 @@ tests:
           path: spec.template.spec.containers[0].image
           value: fabi.com/etcd:123
 
+  - it: check specified storage class is used
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                persistence:
+                  volumeClaim:
+                    storageClass: test-sc
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+          value: test-sc
+
   - it: enabled for k3s & non persistent
     set:
       controlPlane:
