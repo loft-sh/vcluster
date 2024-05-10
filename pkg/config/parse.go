@@ -69,7 +69,7 @@ func applySetValues(rawConfig []byte, setValues []string) ([]byte, error) {
 
 	// merge set
 	for _, set := range setValues {
-		err = strvals.ParseIntoString(set, rawConfigMap)
+		err = strvals.ParseInto(set, rawConfigMap)
 		if err != nil {
 			return nil, fmt.Errorf("apply --set %s: %w", set, err)
 		}
