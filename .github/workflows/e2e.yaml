@@ -217,7 +217,12 @@ jobs:
           --connect=false \
           --distro=${{ matrix.distribution }}
 
-          kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
+          _out=$(kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s 2>&1)
+          if [[ "${_out}" =~ "no matching resources" ]]
+          then
+            sleep 5
+            kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
+          fi
 
       - name: upgrade with the dev cli
         run: |
