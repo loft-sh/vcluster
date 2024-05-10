@@ -34,6 +34,7 @@ type ClusterCmd struct {
 	ServiceAccount string
 	DisplayName    string
 	Context        string
+	Insecure       bool
 	Wait           bool
 }
 
@@ -69,6 +70,7 @@ vcluster pro connect cluster my-cluster
 	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft-admin", "The service account name to create")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this cluster")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the cluster is initialized")
+	c.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If true, deploys the agent in insecure mode")
 	c.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
 
 	return c
@@ -160,7 +162,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		helmArgs = append(helmArgs, "--set", "token="+accessKey.AccessKey)
 	}
 
-	if accessKey.Insecure {
+	if cmd.Insecure || accessKey.Insecure || baseClient.Config().Insecure {
 		helmArgs = append(helmArgs, "--set", "insecureSkipVerify=true")
 	}
 
