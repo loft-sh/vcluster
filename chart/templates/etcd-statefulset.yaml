@@ -43,8 +43,8 @@ spec:
         name: data
       spec:
         accessModes: {{ $externalEtcd.persistence.volumeClaim.accessModes }}
-        {{- if $externalEtcd.persistence.volumeClaim.className }}
-        storageClassName: {{ $externalEtcd.persistence.volumeClaim.className }}
+        {{- if $externalEtcd.persistence.volumeClaim.storageClass }}
+        storageClassName: {{ $externalEtcd.persistence.volumeClaim.storageClass }}
         {{- end }}
         resources:
           requests:
