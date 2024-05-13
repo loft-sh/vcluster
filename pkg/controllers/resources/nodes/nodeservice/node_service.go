@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -25,8 +26,6 @@ var (
 	ServiceClusterLabel = "vcluster.loft.sh/belongs-to"
 	// ServiceNodeLabel specifies which node this service represents
 	ServiceNodeLabel = "vcluster.loft.sh/node"
-	// KubeletPort is the port we pretend the kubelet is running under
-	KubeletPort = int32(10250)
 	// KubeletTargetPort is the port vcluster will run under
 	KubeletTargetPort = 8443
 )
@@ -149,7 +148,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	}
 
 	// create the new service
-	targetPort := intstr.FromInt(KubeletTargetPort)
+	targetPort := intstr.FromInt32(int32(KubeletTargetPort))
 	if vclusterService.Spec.Selector == nil {
 		targetPort = intstr.IntOrString{}
 	}
@@ -166,7 +165,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "kubelet",
-					Port:       KubeletPort,
+					Port:       constants.KubeletPort,
 					TargetPort: targetPort,
 				},
 			},
@@ -198,8 +197,8 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 }
 
 func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, nodeServiceName string) error {
-	vclusterServiceEndpoints := &corev1.Endpoints{}
-	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vclusterServiceEndpoints)
+	vClusterServiceEndpoints := &corev1.Endpoints{}
+	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vClusterServiceEndpoints)
 	if err != nil {
 		return errors.Wrap(err, "get vcluster service endpoints")
 	}
@@ -214,14 +213,19 @@ func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, no
 	result, err := controllerutil.CreateOrPatch(ctx, n.currentNamespaceClient, nodeServiceEndpoints, func() error {
 		// build new subsets
 		newSubsets := []corev1.EndpointSubset{}
-		for _, subset := range vclusterServiceEndpoints.Subsets {
+		for _, subset := range vClusterServiceEndpoints.Subsets {
 			newPorts := []corev1.EndpointPort{}
 			for _, p := range subset.Ports {
-				if p.Name != "kubelet" {
+				if p.Name != "https" {
 					continue
 				}
 
-				newPorts = append(newPorts, p)
+				newPorts = append(newPorts, corev1.EndpointPort{
+					Name:        "kubelet",
+					Port:        p.Port,
+					Protocol:    p.Protocol,
+					AppProtocol: p.AppProtocol,
+				})
 			}
 
 			newAddresses := []corev1.EndpointAddress{}

@@ -10,7 +10,9 @@ Corefile: |-
       errors
       health
       ready
+      {{- if .Values.networking.advanced.proxyKubelets.byHostname }}
       rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
+      {{- end }}
       kubernetes cluster.local in-addr.arpa ip6.arpa {
           {{- if .Values.controlPlane.coredns.embedded }}
           kubeconfig /data/vcluster/admin.conf
