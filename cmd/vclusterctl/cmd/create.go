@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
+	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	loftctl "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
+	loftctl "github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"

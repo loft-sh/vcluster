@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	loftkubeconfig "github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	loftkubeconfig "github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/podprinter"

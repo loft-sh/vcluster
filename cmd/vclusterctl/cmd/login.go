@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/loft-sh/api/v3/pkg/product"
-	loftctl "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
+	"github.com/loft-sh/api/v4/pkg/product"
+	loftctl "github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"

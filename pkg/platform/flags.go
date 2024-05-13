@@ -3,7 +3,7 @@ package platform
 import (
 	"fmt"
 
-	loftctlflags "github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 )
 

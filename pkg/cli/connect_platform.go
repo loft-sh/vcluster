@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
-	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
+	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/use"
+	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
