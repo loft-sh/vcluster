@@ -303,9 +303,9 @@ func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, er
 	// parse config
 	vClusterConfig := &config.Config{}
 	if err := vClusterConfig.UnmarshalYAMLStrict([]byte(finalValues)); err != nil {
-		oldValues, err := mergeAllValues(cmd.SetValues, cmd.Values, "")
-		if err != nil {
-			return nil, fmt.Errorf("merge values: %w", err)
+		oldValues, mergeErr := mergeAllValues(cmd.SetValues, cmd.Values, "")
+		if mergeErr != nil {
+			return nil, fmt.Errorf("merge values: %w", mergeErr)
 		}
 
 		// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
