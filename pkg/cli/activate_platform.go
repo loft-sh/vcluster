@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"

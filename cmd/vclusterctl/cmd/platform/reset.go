@@ -1,8 +1,8 @@
 package platform
 
 import (
-	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/reset"
-	loftctlflags "github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/reset"
+	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )

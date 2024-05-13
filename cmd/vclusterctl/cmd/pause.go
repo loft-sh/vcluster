@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 
-	"github.com/loft-sh/api/v3/pkg/product"
-	loftctlUtil "github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/api/v4/pkg/product"
+	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
