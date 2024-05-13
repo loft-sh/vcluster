@@ -14,7 +14,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -335,20 +334,20 @@ func newCurrentNamespaceCache(ctx context.Context, localManager ctrl.Manager, op
 			return nil, nil, err
 		}
 
-		_, err := currentNamespaceCache.GetInformer(ctx, &corev1.Service{}, cache.BlockUntilSynced(true))
-		if err != nil {
-			return nil, nil, fmt.Errorf("current namespace cache informer failed: %w", err)
-		}
+		// _, err := currentNamespaceCache.GetInformer(ctx, &corev1.Service{}, cache.BlockUntilSynced(true))
+		// if err != nil {
+		// 	return nil, nil, fmt.Errorf("current namespace cache informer failed: %w", err)
+		// }
 
-		// start cache now if it's not in the same namespace
-		go func() {
-			err := currentNamespaceCache.Start(ctx)
-			if err != nil {
-				panic(err)
-			}
-		}()
-		currentNamespaceCache.WaitForCacheSync(ctx)
 	}
+	// start cache now
+	go func() {
+		err := currentNamespaceCache.Start(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}()
+	currentNamespaceCache.WaitForCacheSync(ctx)
 
 	// create a current namespace client
 	currentNamespaceClient, err := blockingcacheclient.NewCacheClient(localManager.GetConfig(), client.Options{

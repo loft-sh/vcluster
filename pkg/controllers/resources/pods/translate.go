@@ -86,28 +86,28 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 	pClient, namespace := specialservices.Default.DNSNamespace(ctx)
 
 	// first try to find the actual synced service, then fallback to a different if we have a suffix (only in the case of integrated coredns)
-	ip := s.translateAndFindService(
+	ip, err := s.translateAndFindService(
 		ctx,
 		pClient,
 		namespace,
 		translate.Default.PhysicalName(specialservices.DefaultKubeDNSServiceName, specialservices.DefaultKubeDNSServiceNamespace),
 	)
-	if ip == "" {
-		return "", fmt.Errorf("waiting for DNS service IP")
+	if ip == "" || err != nil {
+		return "", fmt.Errorf("waiting for DNS service IP: %w", err)
 	}
 
 	return ip, nil
 }
 
-func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, kubeClient client.Client, namespace, name string) string {
+func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, kubeClient client.Client, namespace, name string) (string, error) {
 	pService := &corev1.Service{}
 	err := kubeClient.Get(ctx.Context, types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}, pService)
 	if err != nil {
-		return ""
+		return "", err
 	}
 
-	return pService.Spec.ClusterIP
+	return pService.Spec.ClusterIP, nil
 }
