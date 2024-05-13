@@ -140,11 +140,13 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		}
 
 		// translate addresses
-		newAddresses := []corev1.NodeAddress{
-			{
+		newAddresses := []corev1.NodeAddress{}
+
+		if s.fakeKubeletHostnames {
+			newAddresses = append(newAddresses, corev1.NodeAddress{
 				Address: GetNodeHost(vNode.Name),
 				Type:    corev1.NodeHostName,
-			},
+			})
 		}
 
 		if s.fakeKubeletIPs {

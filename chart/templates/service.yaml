@@ -28,7 +28,7 @@ spec:
       {{- end }}
       nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
       protocol: TCP
-   {{- if or .Values.networking.advanced.proxyKubelets.byHostname .Values.networking.advanced.proxyKubelets.byIP }}
+   {{- if and .Values.networking.advanced.proxyKubelets.byHostname (not (eq .Values.controlPlane.service.spec.type "LoadBalancer")) }}
     - name: kubelet
       port: 10250
       {{- if not .Values.experimental.isolatedControlPlane.headless }}
