@@ -43,7 +43,7 @@ func StartK8S(
 		}
 
 		// start embedded mode
-		eg.Go(func() error {
+		go func() {
 			args := []string{}
 			args = append(args, "/usr/local/bin/kine")
 			args = append(args, "--endpoint="+dataSource)
@@ -53,9 +53,12 @@ func StartK8S(
 			args = append(args, "--metrics-bind-address=0")
 			args = append(args, "--listen-address="+KineEndpoint)
 
-			// now start the api server
-			return RunCommand(ctx, args, "kine")
-		})
+			// now start kine
+			err := RunCommand(ctx, args, "kine")
+			if err != nil {
+				klog.Fatal("could not run kine", err)
+			}
+		}()
 
 		etcdEndpoints = KineEndpoint
 	} else if vConfig.ControlPlane.BackingStore.Database.External.Enabled {
