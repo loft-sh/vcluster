@@ -308,6 +308,24 @@ sync:
       useSecretsForSATokens: true`,
 		},
 		{
+			Name:   "convert deprecated host-path-mapper flag",
+			Distro: "k0s",
+			In: `syncer:
+  extraArgs:
+  - --rewrite-host-paths=true
+`,
+			Expected: `controlPlane:
+  distro:
+    k0s:
+      enabled: true
+  hostPathMapper:
+    enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+`,
+		},
+		{
 			Name:   "embedded etcd",
 			Distro: "k8s",
 			In: `embeddedEtcd:

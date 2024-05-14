@@ -989,7 +989,7 @@ func migrateFlag(key, value string, newConfig *config.Config) error {
 			return fmt.Errorf("value is missing")
 		}
 		newConfig.Experimental.SyncSettings.VirtualMetricsBindAddress = value
-	case "mount-physical-host-paths":
+	case "mount-physical-host-paths", "rewrite-host-paths":
 		if value == "" || value == "true" {
 			newConfig.ControlPlane.HostPathMapper.Enabled = true
 		}
