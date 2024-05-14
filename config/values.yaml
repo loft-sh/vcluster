@@ -257,6 +257,7 @@ controlPlane:
     embedded: false
     overwriteManifests: ""
     overwriteConfig: ""
+    priorityClassName: ""
     service:
       annotations: {}
       labels: {}

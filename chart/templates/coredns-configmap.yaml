@@ -152,7 +152,7 @@ data:
 {{ toYaml .Values.controlPlane.coredns.deployment.pods.labels | indent 12 }}
           {{- end }}
         spec:
-          priorityClassName: "system-cluster-critical"
+          priorityClassName: {{ .Values.controlPlane.coredns.priorityClassName | default "\"system-cluster-critical\"" }}
           serviceAccountName: coredns
           nodeSelector:
             kubernetes.io/os: linux
