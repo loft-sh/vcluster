@@ -284,11 +284,9 @@ func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.Pe
 	switch {
 	case kerrors.IsNotFound(err):
 		return true, vPvc, nil, nil
-	case kerrors.IsForbidden(err):
+	case err != nil, !translate.Default.IsManaged(pPvc):
 		// we don't own the physical pvc here so we don't sync
 		return false, vPvc, nil, nil
-	case err != nil:
-		return false, vPvc, nil, err
 	}
 
 	return true, vPvc, pPvc, nil
