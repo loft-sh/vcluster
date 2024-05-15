@@ -54,7 +54,7 @@ func NewClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Connect a cluster to the vCluster platform instance.
 
 Example:
-vcluster pro connect cluster my-cluster
+vcluster platform connect cluster my-cluster
 ########################################################
 		`,
 		Args: cobra.ExactArgs(1),

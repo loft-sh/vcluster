@@ -9,7 +9,7 @@ import (
 
 func NewResetCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) *cobra.Command {
 	description := `########################################################
-################## vcluster pro reset ##################
+############# vcluster platform reset ##################
 ########################################################
 	`
 	cmd := &cobra.Command{
@@ -31,13 +31,13 @@ func NewPasswordCmd(globalFlags *loftctlflags.GlobalFlags) *cobra.Command {
 	}
 
 	description := `########################################################
-############## vcluster pro reset password #############
+######### vcluster platform reset password #############
 ########################################################
 Resets the password of a user.
 
 Example:
-vcluster pro reset password
-vcluster pro reset password --user admin
+vcluster platform reset password
+vcluster platform reset password --user admin
 #######################################################
 	`
 

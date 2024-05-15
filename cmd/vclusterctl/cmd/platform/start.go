@@ -31,7 +31,7 @@ func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, 
 		Use:   "start",
 		Short: "Start a vCluster platform instance and connect via port-forwarding",
 		Long: `########################################################
-################## vcluster pro start ##################
+############# vcluster platform start ##################
 ########################################################
 
 Starts a vCluster platform instance in your Kubernetes cluster

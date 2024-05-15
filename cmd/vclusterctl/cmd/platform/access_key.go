@@ -43,14 +43,14 @@ func NewAccessKeyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Aliases: []string{"token"},
 		Short:   "Prints the access token to a vCluster platform instance",
 		Long: `########################################################
-################## vcluster pro token ##################
+############# vcluster platform token ##################
 ########################################################
 
 Prints an access token to a vCluster platform instance. This
 can be used as an ExecAuthenticator for kubernetes
 
 Example:
-vcluster pro token
+vcluster platform token
 ########################################################
 	`,
 		Args: cobra.NoArgs,
