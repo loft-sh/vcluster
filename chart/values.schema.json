@@ -538,7 +538,7 @@
         },
         "priorityClassName": {
           "type": "string",
-          "description": "PriorityClassName specifies the priority class name for CoreDNS pods."
+          "description": "PriorityClassName specifies the priority class name for the CoreDNS pods."
         }
       },
       "additionalProperties": false,

@@ -953,7 +953,7 @@ type CoreDNS struct {
 	// OverwriteManifests can be used to overwrite the coredns manifests used to deploy coredns
 	OverwriteManifests string `json:"overwriteManifests,omitempty"`
 
-	// PriorityClassName specifies the priority class name for CoreDNS pods.
+	// PriorityClassName specifies the priority class name for the CoreDNS pods.
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 }
 

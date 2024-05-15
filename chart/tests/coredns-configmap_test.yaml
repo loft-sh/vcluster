@@ -127,7 +127,7 @@ tests:
                   labels:
                     k8s-app: kube-dns
                 spec:
-                  priorityClassName: "system-cluster-critical"
+                  priorityClassName: ""
                   serviceAccountName: coredns
                   nodeSelector:
                     kubernetes.io/os: linux
