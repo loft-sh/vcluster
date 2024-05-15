@@ -88,7 +88,7 @@ func getToken(cmd *AccessKeyCmd, baseClient client.Client) error {
 	if config == nil {
 		return ErrNoConfigLoaded
 	} else if config.Host == "" || config.AccessKey == "" {
-		return fmt.Errorf("%w: please make sure you have run '%s [%s]'", ErrNotLoggedIn, product.LoginCmd(), product.Url())
+		return fmt.Errorf("%w: please make sure you have run '%s' to create one or '%s [%s]' if one already exists", ErrNotLoggedIn, product.StartCmd(), product.LoginCmd(), product.Url())
 	}
 
 	// by default we print the access key as token

@@ -331,7 +331,7 @@ func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *con
 	platformClient, err := platform.CreatePlatformClient()
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
-			return fmt.Errorf("you have vCluster pro features activated, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --activate=false", err)
+			return fmt.Errorf("using vCluster Pro features requires the CLI to be logged into a vCluster Platform. If your CLI for some reason can't login but you already have a Platform set up, add the flag --activate=false to bypass this check: %w", err)
 		}
 
 		cmd.log.Debugf("create platform client: %v", err)
