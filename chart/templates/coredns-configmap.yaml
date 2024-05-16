@@ -152,7 +152,7 @@ data:
 {{ toYaml .Values.controlPlane.coredns.deployment.pods.labels | indent 12 }}
           {{- end }}
         spec:
-          priorityClassName: {{ .Values.controlPlane.coredns.priorityClassName | quote}}
+          priorityClassName: {{ .Values.controlPlane.coredns.priorityClassName | quote }}
           serviceAccountName: coredns
           nodeSelector:
             kubernetes.io/os: linux
