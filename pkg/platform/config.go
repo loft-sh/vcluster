@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	homedir "github.com/mitchellh/go-homedir"
 )
@@ -22,7 +21,7 @@ func ConfigFilePath() (string, error) {
 		return "", fmt.Errorf("failed to open vCluster platform configuration file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
-	return filepath.Join(home, constants.VClusterFolder, VClusterProFolder, constants.ConfigFileName), nil
+	return filepath.Join(home, constants.VClusterFolder, constants.ConfigFileName), nil
 }
 
 func managerFilePath() (string, error) {
@@ -31,24 +30,7 @@ func managerFilePath() (string, error) {
 		return "", fmt.Errorf("failed to open vCluster platform manager file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
-	return filepath.Join(home, constants.VClusterFolder, VClusterProFolder, constants.ManagerFileName), nil
-}
-
-func PrintManagerInfo(verb string, manager ManagerType, log log.Logger) {
-	// only print this to stderr
-	log = log.ErrorStreamOnly()
-
-	// check if there is a platform client or we skip the info message
-	_, err := CreatePlatformClient()
-	if err == nil {
-		if manager == ManagerHelm {
-			log.Infof("Using vCluster manager 'helm' to %s your virtual clusters, which means the vCluster CLI is running helm commands directly", verb)
-			log.Info("If you prefer to use the vCluster platform API instead, use the flag '--manager platform' or run 'vcluster use manager platform' to change the default")
-		} else {
-			log.Infof("Using vCluster manager 'platform' to %s your virtual clusters, which means the CLI is using the vCluster platform API instead of helm", verb)
-			log.Info("If you prefer to use helm instead, use the flag '--manager helm' or run 'vcluster use manager helm' to change the default")
-		}
-	}
+	return filepath.Join(home, constants.VClusterFolder, constants.ManagerFileName), nil
 }
 
 func GetManager(manager string) (ManagerType, error) {

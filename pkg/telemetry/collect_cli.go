@@ -9,8 +9,8 @@ import (
 	"github.com/loft-sh/analytics-client/client"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 )
 
@@ -34,7 +34,7 @@ type CLICollector interface {
 
 // StartCLI starts collecting events and sending them to the backend from the CLI
 func StartCLI() {
-	cliConfig := cliconfig.GetConfig(log.Discard)
+	cliConfig := config.Read(log.Discard)
 
 	// if disabled, we return noop collector
 	if cliConfig.TelemetryDisabled || upgrade.GetVersion() == upgrade.DevelopmentVersion {

@@ -20,6 +20,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
@@ -27,7 +28,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -627,7 +627,7 @@ func toChartOptions(platformClient platform.Client, options *CreateOptions, log 
 		Distro:              options.Distro,
 		Expose:              options.Expose,
 		KubernetesVersion:   kubernetesVersion,
-		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
+		DisableTelemetry:    cliconfig.Read(log).TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
 		PlatformInstanceID:  telemetry.GetPlatformInstanceID(platformClient.Self()),
 		PlatformUserID:      telemetry.GetPlatformUserID(platformClient.Self()),

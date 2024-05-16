@@ -3,8 +3,8 @@ package cmd
 import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -53,13 +53,13 @@ vcluster list --namespace test
 
 // Run executes the functionality
 func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
+	manager, err := config.GetManager(cmd.Manager)
 	if err != nil {
 		return err
 	}
 
 	// check if we should create a platform vCluster
-	if manager == platform.ManagerPlatform {
+	if manager == config.ManagerPlatform {
 		return cli.ListPlatform(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log)
 	}
 

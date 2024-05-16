@@ -9,7 +9,7 @@ import (
 	"github.com/denisbrodbeck/machineid"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	homedir "github.com/mitchellh/go-homedir"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
@@ -76,7 +76,7 @@ func toKubernetesVersion(vi *version.Info) *KubernetesVersion {
 
 // GetPlatformUserID returns the loft instance id
 func GetPlatformUserID(self *managementv1.Self) string {
-	if cliconfig.GetConfig(log.Discard).TelemetryDisabled || self == nil {
+	if config.Read(log.Discard).TelemetryDisabled || self == nil {
 		return ""
 	}
 	platformID := self.Status.Subject
@@ -88,7 +88,7 @@ func GetPlatformUserID(self *managementv1.Self) string {
 
 // GetPlatformInstanceID returns the loft instance id
 func GetPlatformInstanceID(self *managementv1.Self) string {
-	if cliconfig.GetConfig(log.Discard).TelemetryDisabled || self == nil {
+	if config.Read(log.Discard).TelemetryDisabled || self == nil {
 		return ""
 	}
 
@@ -98,7 +98,7 @@ func GetPlatformInstanceID(self *managementv1.Self) string {
 // GetMachineID retrieves machine ID and encodes it together with users $HOME path and
 // extra key to protect privacy. Returns a hex-encoded string.
 func GetMachineID(log log.Logger) string {
-	if cliconfig.GetConfig(log).TelemetryDisabled {
+	if config.Read(log).TelemetryDisabled {
 		return ""
 	}
 

@@ -4,6 +4,7 @@ import (
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
@@ -62,14 +63,18 @@ vcluster delete test --namespace test
 
 // Run executes the functionality
 func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
+	manager, err := config.GetManager(cmd.Manager)
 	if err != nil {
 		return err
 	}
 
-	// check if we should delete a platform vCluster
-	platform.PrintManagerInfo("delete", manager, cmd.log)
-	if manager == platform.ManagerPlatform {
+	// check if we should create a platform vCluster
+	// if there is a platform client we print an info message
+	_, err = platform.CreatePlatformClient()
+	if err == nil {
+		config.PrintManagerInfo("delete", manager, cmd.log)
+	}
+	if manager == config.ManagerPlatform {
 		// deploy platform cluster
 		return cli.DeletePlatform(cobraCmd.Context(), &cmd.DeleteOptions, args[0], cmd.log)
 	}

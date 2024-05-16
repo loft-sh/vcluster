@@ -2,7 +2,7 @@ package telemetry
 
 import (
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +37,7 @@ docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 }
 
 func (cmd *DisableCmd) Run(*cobra.Command) error {
-	c := cliconfig.GetConfig(cmd.log)
+	c := config.Read(cmd.log)
 	c.TelemetryDisabled = true
-	return cliconfig.WriteConfig(c)
+	return config.Write(c)
 }

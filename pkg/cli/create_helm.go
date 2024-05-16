@@ -18,6 +18,7 @@ import (
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/config/legacyconfig"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
@@ -28,7 +29,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"golang.org/x/mod/semver"
@@ -492,7 +492,7 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 			Major: kubernetesVersion.Major,
 			Minor: kubernetesVersion.Minor,
 		},
-		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
+		DisableTelemetry:    cliconfig.Read(log).TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
 		MachineID:           telemetry.GetMachineID(log),
 	}, nil
