@@ -3,9 +3,10 @@ package platform
 import (
 	"fmt"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
+	platformdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/spf13/cobra"
 )
 
@@ -22,20 +23,19 @@ Deprecated, please use vcluster platform instead
 		Args: cobra.NoArgs,
 	}
 
-	loftctlGlobalFlags, err := platform.GlobalFlags(globalFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse pro flags: %w", err)
-	}
-
-	startCmd, err := NewStartCmd(loftctlGlobalFlags)
+	startCmd, err := NewStartCmd(globalFlags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vcluster pro start command: %w", err)
 	}
+	d, err := platformdefaults.NewFromPath(platformdefaults.ConfigFolder, platformdefaults.ConfigFile)
+	if err != nil {
+		log.Default.Debugf(err.Error())
+	}
 
 	proCmd.AddCommand(startCmd)
-	proCmd.AddCommand(NewResetCmd(loftctlGlobalFlags))
-	proCmd.AddCommand(connect.NewConnectCmd(loftctlGlobalFlags))
-	proCmd.AddCommand(NewAccessKeyCmd(loftctlGlobalFlags))
+	proCmd.AddCommand(NewResetCmd(globalFlags))
+	proCmd.AddCommand(connect.NewConnectCmd(globalFlags, d))
+	proCmd.AddCommand(NewAccessKeyCmd(globalFlags))
 
 	return proCmd, nil
 }

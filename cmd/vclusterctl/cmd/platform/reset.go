@@ -1,13 +1,13 @@
 package platform
 
 import (
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/reset"
-	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/reset"
 	"github.com/spf13/cobra"
 )
 
-func NewResetCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) *cobra.Command {
+func NewResetCmd(loftctlGlobalFlags *flags.GlobalFlags) *cobra.Command {
 	description := `########################################################
 ############# vcluster platform reset ##################
 ########################################################
@@ -24,7 +24,7 @@ func NewResetCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) *cobra.Command {
 	return cmd
 }
 
-func NewPasswordCmd(globalFlags *loftctlflags.GlobalFlags) *cobra.Command {
+func NewPasswordCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &reset.PasswordCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),

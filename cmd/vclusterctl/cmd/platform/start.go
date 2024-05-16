@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/start"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/start"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -19,7 +19,7 @@ type StartCmd struct {
 	start.Options
 }
 
-func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, error) {
+func NewStartCmd(loftctlGlobalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	cmd := &StartCmd{
 		Options: start.Options{
 			GlobalFlags: loftctlGlobalFlags,
