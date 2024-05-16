@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -33,6 +34,14 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 				log.SetLevel(logrus.DebugLevel)
 			} else {
 				log.SetLevel(logrus.InfoLevel)
+			}
+
+			if globalFlags.Config == "" {
+				var err error
+				globalFlags.Config, err = cliconfig.ConfigFilePath()
+				if err != nil {
+					log.Fatalf("failed to get vcluster configuration file path: %w", err)
+				}
 			}
 		},
 		Long: `vcluster root command`,
@@ -76,7 +85,7 @@ func Execute() {
 func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
-	globalFlags = flags.SetGlobalFlags(persistentFlags)
+	globalFlags = flags.SetGlobalFlags(persistentFlags, log)
 
 	// Set version for --version flag
 	rootCmd.Version = upgrade.GetVersion()

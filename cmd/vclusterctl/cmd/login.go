@@ -5,10 +5,10 @@ import (
 
 	"github.com/loft-sh/api/v4/pkg/product"
 	loftctl "github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd"
+	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -21,11 +21,6 @@ type LoginOptions struct {
 }
 
 func NewLoginCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
-	loftGlobalFlags, err := platform.GlobalFlags(globalFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse pro flags: %w", err)
-	}
-
 	options := &LoginOptions{}
 	description := `########################################################
 #################### vcluster login ####################
@@ -45,7 +40,12 @@ vcluster login https://my-vcluster-platform.com --access-key myaccesskey
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			loginCmd := &loftctl.LoginCmd{
-				GlobalFlags: loftGlobalFlags,
+				GlobalFlags: &loftctlflags.GlobalFlags{
+					Config:    globalFlags.Config,
+					LogOutput: globalFlags.LogOutput,
+					Silent:    globalFlags.Silent,
+					Debug:     globalFlags.Debug,
+				},
 
 				AccessKey:   options.AccessKey,
 				Insecure:    options.Insecure,
@@ -54,7 +54,7 @@ vcluster login https://my-vcluster-platform.com --access-key myaccesskey
 				Log: log.GetInstance(),
 			}
 
-			err = loginCmd.RunLogin(cobraCmd.Context(), args)
+			err := loginCmd.RunLogin(cobraCmd.Context(), args)
 			if err != nil {
 				return err
 			}

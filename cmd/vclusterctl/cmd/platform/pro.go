@@ -3,9 +3,9 @@ package platform
 import (
 	"fmt"
 
+	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -22,9 +22,11 @@ Deprecated, please use vcluster platform instead
 		Args: cobra.NoArgs,
 	}
 
-	loftctlGlobalFlags, err := platform.GlobalFlags(globalFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse pro flags: %w", err)
+	loftctlGlobalFlags := &loftctlflags.GlobalFlags{
+		Config:    globalFlags.Config,
+		LogOutput: globalFlags.LogOutput,
+		Silent:    globalFlags.Silent,
+		Debug:     globalFlags.Debug,
 	}
 
 	startCmd, err := NewStartCmd(loftctlGlobalFlags)

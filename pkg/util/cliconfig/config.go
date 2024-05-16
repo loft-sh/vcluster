@@ -32,6 +32,16 @@ func getConfigFilePath(home string) string {
 	return filepath.Join(home, constants.VClusterFolder, constants.ConfigFileName)
 }
 
+// ConfigFilePath returns the path to the vcluster config file
+func ConfigFilePath() (string, error) {
+	home, err := homedir.Dir()
+	if err != nil {
+		return "", fmt.Errorf("failed to open vCluster configuration file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+	}
+
+	return getConfigFilePath(home), nil
+}
+
 func GetConfig(log log.Logger) *CLIConfig {
 	singleConfigOnce.Do(func() {
 		var err error
@@ -50,12 +60,10 @@ func GetConfig(log log.Logger) *CLIConfig {
 }
 
 func getConfig() (*CLIConfig, error) {
-	home, err := homedir.Dir()
+	path, err := ConfigFilePath()
 	if err != nil {
-		return getDefaultCLIConfig(), fmt.Errorf("failed to open vcluster configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+		return nil, err
 	}
-
-	path := getConfigFilePath(home)
 	// check if the file exists
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -82,11 +90,10 @@ func getConfig() (*CLIConfig, error) {
 }
 
 func WriteConfig(c *CLIConfig) error {
-	home, err := homedir.Dir()
+	path, err := ConfigFilePath()
 	if err != nil {
-		return fmt.Errorf("failed to write vcluster configuration file from, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
+		return err
 	}
-	path := getConfigFilePath(home)
 
 	err = os.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {

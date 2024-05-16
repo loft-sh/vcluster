@@ -5,21 +5,21 @@ import (
 	"fmt"
 
 	loftctl "github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd"
+	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
 
 func NewUICmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
-	loftctlGlobalFlags, err := platform.GlobalFlags(globalFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse pro flags: %w", err)
-	}
-
 	cmd := &loftctl.UiCmd{
-		GlobalFlags: loftctlGlobalFlags,
-		Log:         log.GetInstance(),
+		GlobalFlags: &loftctlflags.GlobalFlags{
+			Config:    globalFlags.Config,
+			LogOutput: globalFlags.LogOutput,
+			Silent:    globalFlags.Silent,
+			Debug:     globalFlags.Debug,
+		},
+		Log: log.GetInstance(),
 	}
 
 	description := `########################################################
