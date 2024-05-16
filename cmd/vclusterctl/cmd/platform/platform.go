@@ -16,8 +16,6 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 		Long: `#######################################################
 ################## vcluster platform ##################
 #######################################################
-
-Deprecated, please use vcluster platform instead
 		`,
 		Args: cobra.NoArgs,
 	}
