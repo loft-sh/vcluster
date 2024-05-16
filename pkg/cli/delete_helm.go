@@ -51,7 +51,7 @@ type deleteHelm struct {
 	log log.Logger
 }
 
-func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+func DeleteHelm(ctx context.Context, options *DeleteOptions, platformConfig platform.Config, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	cmd := deleteHelm{
 		GlobalFlags:   globalFlags,
 		DeleteOptions: options,
@@ -121,7 +121,7 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 
 	// try to delete the vCluster in the platform
 	if vClusterService != nil {
-		err = cmd.deleteVClusterInPlatform(ctx, vClusterService)
+		err = cmd.deleteVClusterInPlatform(ctx, platformConfig, vClusterService)
 		if err != nil {
 			return err
 		}
@@ -228,13 +228,12 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 	return nil
 }
 
-func (cmd *deleteHelm) deleteVClusterInPlatform(ctx context.Context, vClusterService *corev1.Service) error {
-	platformClient, err := platform.CreatePlatformClient()
+func (cmd *deleteHelm) deleteVClusterInPlatform(ctx context.Context, platformConfig platform.Config, vClusterService *corev1.Service) error {
+	platformClient, err := platform.CreateClientFromConfig(ctx, platformConfig)
 	if err != nil {
 		cmd.log.Debugf("Error creating platform client: %v", err)
 		return nil
 	}
-
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		cmd.log.Debugf("Error creating management client: %v", err)

@@ -18,6 +18,7 @@ import (
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/config/legacyconfig"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
@@ -28,7 +29,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"golang.org/x/mod/semver"
@@ -93,7 +93,7 @@ type createHelm struct {
 	localCluster     bool
 }
 
-func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+func CreateHelm(ctx context.Context, options *CreateOptions, platformClient platform.Client, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	cmd := &createHelm{
 		GlobalFlags:   globalFlags,
 		CreateOptions: options,
@@ -263,7 +263,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	// create platform secret
 	if cmd.Activate {
-		err = cmd.activateVCluster(ctx, vClusterConfig)
+		err = cmd.activateVCluster(ctx, platformClient, vClusterConfig)
 		if err != nil {
 			return err
 		}
@@ -323,24 +323,20 @@ func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, er
 	return vClusterConfig, nil
 }
 
-func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *config.Config) error {
+func (cmd *createHelm) activateVCluster(ctx context.Context, platformClient platform.Client, vClusterConfig *config.Config) error {
 	if vClusterConfig.Platform.API.AccessKey != "" || vClusterConfig.Platform.API.SecretRef.Name != "" {
 		return nil
 	}
 
-	platformClient, err := platform.CreatePlatformClient()
-	if err != nil {
+	if platformClient == nil {
 		if vClusterConfig.IsProFeatureEnabled() {
-			return fmt.Errorf("you have vCluster pro features activated, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --activate=false", err)
+			return fmt.Errorf("using vCluster Pro features requires the CLI to be logged into a vCluster Platform. If your CLI for some reason can't login but you already have a Platform set up, add the flag --activate=false to bypass this check")
 		}
-
-		cmd.log.Debugf("create platform client: %v", err)
-		return nil
-	}
-
-	err = platformClient.ApplyPlatformSecret(ctx, cmd.kubeClient, "", cmd.Namespace, cmd.Project)
-	if err != nil {
-		return fmt.Errorf("apply platform secret: %w", err)
+	} else {
+		err := platformClient.ApplyPlatformSecret(ctx, cmd.kubeClient, "", cmd.Namespace, cmd.Project)
+		if err != nil {
+			return fmt.Errorf("apply platform secret: %w", err)
+		}
 	}
 
 	return nil
@@ -492,9 +488,9 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 			Major: kubernetesVersion.Major,
 			Minor: kubernetesVersion.Minor,
 		},
-		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
+		DisableTelemetry:    cliconfig.Read(cmd.Config, log).TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
-		MachineID:           telemetry.GetMachineID(log),
+		MachineID:           telemetry.GetMachineID(cmd.Config, log),
 	}, nil
 }
 

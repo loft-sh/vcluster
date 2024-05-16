@@ -7,7 +7,9 @@ import (
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/manager"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
@@ -91,15 +93,13 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// get manager
-	manager, err := platform.GetManager(cmd.Manager)
-	if err != nil {
-		return err
-	}
-
-	// is platform manager?
-	if manager == platform.ManagerPlatform {
-		return cli.ConnectPlatform(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
+	cfg := config.Read(cmd.Config, cmd.Log)
+	if cfg.Manager.Type == manager.Platform {
+		platformClient, err := platform.CreateClientFromConfig(ctx, cfg.Platform.Config)
+		if err != nil {
+			return err
+		}
+		return cli.ConnectPlatform(ctx, &cmd.ConnectOptions, platformClient, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
 	}
 
 	return cli.ConnectHelm(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)

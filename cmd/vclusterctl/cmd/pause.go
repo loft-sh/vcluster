@@ -7,7 +7,9 @@ import (
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/manager"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
@@ -65,14 +67,15 @@ vcluster pause test --namespace test
 
 // Run executes the functionality
 func (cmd *PauseCmd) Run(ctx context.Context, args []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
-	if err != nil {
-		return err
-	}
+	cfg := config.Read(cmd.Config, cmd.Log)
 
 	// check if we should create a platform vCluster
-	if manager == platform.ManagerPlatform {
-		return cli.PausePlatform(ctx, &cmd.PauseOptions, args[0], cmd.Log)
+	if cfg.Manager.Type == manager.Platform {
+		platformClient, err := platform.CreateClientFromConfig(ctx, cfg.Platform.Config)
+		if err != nil {
+			return err
+		}
+		return cli.PausePlatform(ctx, &cmd.PauseOptions, platformClient, args[0], cmd.Log)
 	}
 
 	return cli.PauseHelm(ctx, cmd.GlobalFlags, args[0], cmd.Log)

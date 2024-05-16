@@ -21,12 +21,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func ActivatePlatform(ctx context.Context, options *ActivateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
-	if err != nil {
-		return err
-	}
-
+func ActivatePlatform(ctx context.Context, options *ActivateOptions, platformClient platform.Client, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+	var err error
 	if options.Project == "" {
 		options.Project, err = getProjectName(ctx, platformClient)
 		if err != nil {

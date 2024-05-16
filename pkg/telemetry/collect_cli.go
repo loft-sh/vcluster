@@ -9,8 +9,8 @@ import (
 	"github.com/loft-sh/analytics-client/client"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 )
 
@@ -26,15 +26,15 @@ const (
 var CollectorCLI CLICollector = &noopCollector{}
 
 type CLICollector interface {
-	RecordCLI(self *managementv1.Self, err error)
+	RecordCLI(configPath string, self *managementv1.Self, err error)
 
 	// Flush makes sure all events are sent to the backend
 	Flush()
 }
 
 // StartCLI starts collecting events and sending them to the backend from the CLI
-func StartCLI() {
-	cliConfig := cliconfig.GetConfig(log.Discard)
+func StartCLI(configPath string) {
+	cliConfig := config.Read(configPath, log.Discard)
 
 	// if disabled, we return noop collector
 	if cliConfig.TelemetryDisabled || upgrade.GetVersion() == upgrade.DevelopmentVersion {
@@ -70,7 +70,7 @@ func (d *cliCollector) Flush() {
 	d.analyticsClient.Flush()
 }
 
-func (d *cliCollector) RecordCLI(self *managementv1.Self, err error) {
+func (d *cliCollector) RecordCLI(configPath string, self *managementv1.Self, err error) {
 	timezone, _ := time.Now().Zone()
 	eventProperties := map[string]interface{}{
 		"command": os.Args,
@@ -91,16 +91,16 @@ func (d *cliCollector) RecordCLI(self *managementv1.Self, err error) {
 	d.analyticsClient.RecordEvent(client.Event{
 		"event": {
 			"type":                 "vcluster_cli",
-			"platform_user_id":     GetPlatformUserID(self),
-			"platform_instance_id": GetPlatformInstanceID(self),
-			"machine_id":           GetMachineID(log.Discard),
+			"platform_user_id":     GetPlatformUserID(configPath, self),
+			"platform_instance_id": GetPlatformInstanceID(configPath, self),
+			"machine_id":           GetMachineID(configPath, log.Discard),
 			"properties":           string(eventPropertiesRaw),
 			"timestamp":            time.Now().Unix(),
 		},
 		"user": {
-			"platform_user_id":     GetPlatformUserID(self),
-			"platform_instance_id": GetPlatformInstanceID(self),
-			"machine_id":           GetMachineID(log.Discard),
+			"platform_user_id":     GetPlatformUserID(configPath, self),
+			"platform_instance_id": GetPlatformInstanceID(configPath, self),
+			"machine_id":           GetMachineID(configPath, log.Discard),
 			"properties":           string(userPropertiesRaw),
 			"timestamp":            time.Now().Unix(),
 		},

@@ -20,12 +20,7 @@ type ActivateOptions struct {
 	ImportName  string
 }
 
-func ActivateHelm(ctx context.Context, options *ActivateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
-	if err != nil {
-		return err
-	}
-
+func ActivateHelm(ctx context.Context, options *ActivateOptions, platformClient platform.Client, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	// check if vCluster exists
 	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 	if err != nil {

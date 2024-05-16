@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/start"
+	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/start"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -19,10 +21,10 @@ type StartCmd struct {
 	start.Options
 }
 
-func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, error) {
+func NewStartCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	cmd := &StartCmd{
 		Options: start.Options{
-			GlobalFlags: loftctlGlobalFlags,
+			GlobalFlags: globalFlags,
 			Log:         log.GetInstance(),
 		},
 	}
@@ -133,5 +135,41 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	return start.NewLoftStarter(cmd.Options).Start(ctx)
+	cfg := config.Read(cmd.Config, cmd.Log)
+	platformClient, err := platform.CreateClientFromConfig(ctx, cfg.Platform.Config)
+	if err != nil {
+		return err
+	}
+	platformConfig := platformClient.Config()
+
+	// load the raw config
+	kubeConfig, err := kubeClientConfig.RawConfig()
+	if err != nil {
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+
+	// we switch the context to the install config
+	contextToLoad := kubeConfig.CurrentContext
+	if cmd.Context != "" {
+		contextToLoad = cmd.Context
+	} else if platformConfig.LastInstallContext != "" && platformConfig.LastInstallContext != contextToLoad {
+		contextToLoad, err = cmd.Log.Question(&survey.QuestionOptions{
+			Question:     product.Replace("Seems like you try to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use"),
+			DefaultValue: contextToLoad,
+			Options:      []string{contextToLoad, platformConfig.LastInstallContext},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	cmd.Context = contextToLoad
+
+	platformConfig.LastInstallContext = contextToLoad
+	cfg.Platform.Config = platformConfig
+
+	if err := config.Write(cmd.Config, cfg); err != nil {
+		return fmt.Errorf("save vCluster config: %w", err)
+	}
+
+	return start.NewLoftStarter(cmd.Options).Start(ctx, contextToLoad, kubeClientConfig)
 }

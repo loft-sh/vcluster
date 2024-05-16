@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.GlobalFlags, logger log.Logger) error {
+func ListPlatform(ctx context.Context, options *ListOptions, platformConfig platform.Config, globalFlags *flags.GlobalFlags, logger log.Logger) error {
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		globalFlags.Context = currentContext
 	}
 
-	platformClient, err := platform.CreatePlatformClient()
+	platformClient, err := platform.CreateClientFromConfig(ctx, platformConfig)
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		return err
 	}
 
-	err = printVClusters(ctx, options, proToVClusters(proVClusters, currentContext), globalFlags, false, logger)
+	err = printVClusters(ctx, options, platformConfig, proToVClusters(proVClusters, currentContext), globalFlags, false, logger)
 	if err != nil {
 		return err
 	}

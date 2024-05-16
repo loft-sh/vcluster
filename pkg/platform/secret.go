@@ -26,21 +26,21 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 	}
 
 	// is the access key still valid?
-	if c.Config().VirtualClusterAccessKey != "" {
+	if c.config.VirtualClusterAccessKey != "" {
 		selfCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 		self, err := managementClient.Loft().ManagementV1().Selves().Create(selfCtx, &managementv1.Self{
 			Spec: managementv1.SelfSpec{
-				AccessKey: c.Config().VirtualClusterAccessKey,
+				AccessKey: c.config.VirtualClusterAccessKey,
 			},
 		}, metav1.CreateOptions{})
 		cancel()
 		if err != nil || self.Status.Subject != c.self.Status.Subject {
-			c.Config().VirtualClusterAccessKey = ""
+			c.config.VirtualClusterAccessKey = ""
 		}
 	}
 
 	// check if we need to create a virtual cluster access key
-	if c.Config().VirtualClusterAccessKey == "" {
+	if c.config.VirtualClusterAccessKey == "" {
 		user := ""
 		team := ""
 		if c.self.Status.User != nil {
@@ -70,18 +70,14 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 			return fmt.Errorf("create owned access key: %w", err)
 		}
 
-		c.Config().VirtualClusterAccessKey = accessKey.Spec.Key
-		err = c.Save()
-		if err != nil {
-			return fmt.Errorf("save vCluster platform config: %w", err)
-		}
+		c.config.VirtualClusterAccessKey = accessKey.Spec.Key
 	}
 
 	// build secret payload
 	payload := map[string][]byte{
-		"accessKey": []byte(c.Config().VirtualClusterAccessKey),
-		"host":      []byte(strings.TrimPrefix(c.Config().Host, "https://")),
-		"insecure":  []byte(strconv.FormatBool(c.Config().Insecure)),
+		"accessKey": []byte(c.config.VirtualClusterAccessKey),
+		"host":      []byte(strings.TrimPrefix(c.config.Host, "https://")),
+		"insecure":  []byte(strconv.FormatBool(c.config.Insecure)),
 	}
 	if project != "" {
 		payload["project"] = []byte(project)

@@ -7,11 +7,10 @@ import (
 	"os/exec"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +62,7 @@ type LoftStarter struct {
 }
 
 // Start executes the functionality "loft start"
-func (l *LoftStarter) Start(ctx context.Context) error {
+func (l *LoftStarter) Start(ctx context.Context, contextToLoad string, kubeClientConfig clientcmd.ClientConfig) error {
 	// start in Docker?
 	if l.Docker {
 		return l.startDocker(ctx, "loft")
@@ -74,7 +73,7 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 		l.LocalPort = "9898"
 	}
 
-	err := l.prepare()
+	err := l.prepare(contextToLoad, kubeClientConfig)
 	if err != nil {
 		return err
 	}
@@ -132,46 +131,9 @@ func (l *LoftStarter) prepareInstall(ctx context.Context) error {
 	return clihelper.UninstallLoft(ctx, l.KubeClient, l.RestConfig, l.Context, l.Namespace, log.Discard)
 }
 
-func (l *LoftStarter) prepare() error {
-	loader, err := client.NewClientFromPath(l.Config)
-	if err != nil {
-		return err
-	}
-	loftConfig := loader.Config()
-
-	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-
-	// load the raw config
-	kubeConfig, err := kubeClientConfig.RawConfig()
-	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-	}
-
-	// we switch the context to the install config
-	contextToLoad := kubeConfig.CurrentContext
-	if l.Context != "" {
-		contextToLoad = l.Context
-	} else if loftConfig.LastInstallContext != "" && loftConfig.LastInstallContext != contextToLoad {
-		contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
-			Question:     product.Replace("Seems like you try to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use"),
-			DefaultValue: contextToLoad,
-			Options:      []string{contextToLoad, loftConfig.LastInstallContext},
-		})
-		if err != nil {
-			return err
-		}
-	}
-	l.Context = contextToLoad
-
-	loftConfig.LastInstallContext = contextToLoad
-	_ = loader.Save()
-
-	// kube client config
-	kubeClientConfig = clientcmd.NewNonInteractiveClientConfig(kubeConfig, contextToLoad, &clientcmd.ConfigOverrides{}, clientcmd.NewDefaultClientConfigLoadingRules())
-
+func (l *LoftStarter) prepare(contextToLoad string, kubeClientConfig clientcmd.ClientConfig) error {
 	// test for helm and kubectl
-	_, err = exec.LookPath("helm")
+	_, err := exec.LookPath("helm")
 	if err != nil {
 		return fmt.Errorf("seems like helm is not installed. Helm is required for the installation of loft. Please visit https://helm.sh/docs/intro/install/ for install instructions")
 	}

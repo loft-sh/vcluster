@@ -13,12 +13,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func DeletePlatform(ctx context.Context, options *DeleteOptions, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
-	if err != nil {
-		return err
-	}
-
+func DeletePlatform(ctx context.Context, options *DeleteOptions, platformClient platform.Client, vClusterName string, log log.Logger) error {
 	// retrieve the vcluster
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {

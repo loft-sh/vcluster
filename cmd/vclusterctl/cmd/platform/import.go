@@ -2,11 +2,14 @@ package platform
 
 import (
 	"context"
+	"fmt"
 
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/manager"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
@@ -56,15 +59,27 @@ vcluster platform import my-vcluster --cluster connected-cluster \
 
 // Run executes the functionality
 func (cmd *ImportCmd) Run(ctx context.Context, args []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
+	cfg := config.Read(cmd.Config, cmd.Log)
+	platformClient, err := platform.CreateClientFromConfig(ctx, cfg.Platform.Config)
 	if err != nil {
 		return err
 	}
 
 	// check if we should create a platform vCluster
-	if manager == platform.ManagerPlatform {
-		return cli.ActivatePlatform(ctx, &cmd.ActivateOptions, cmd.GlobalFlags, args[0], cmd.Log)
+	if cfg.Manager.Type == manager.Platform {
+		return cli.ActivatePlatform(ctx, &cmd.ActivateOptions, platformClient, cmd.GlobalFlags, args[0], cmd.Log)
 	}
 
-	return cli.ActivateHelm(ctx, &cmd.ActivateOptions, cmd.GlobalFlags, args[0], cmd.Log)
+	if err := cli.ActivateHelm(ctx, &cmd.ActivateOptions, platformClient, cmd.GlobalFlags, args[0], cmd.Log); err != nil {
+		return err
+	}
+	// ActivateHelm updates the VirtualClusterAccessKey in the platform config so we write the current config to file.
+	platformConfig := platformClient.Config()
+	cfg.Platform.Config = platformConfig
+
+	if err := config.Write(cmd.Config, cfg); err != nil {
+		return fmt.Errorf("save vCluster config: %w", err)
+	}
+
+	return nil
 }

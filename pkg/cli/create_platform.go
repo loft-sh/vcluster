@@ -14,12 +14,12 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/create"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
@@ -27,7 +27,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,19 +34,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, virtualClusterName string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
-	if err != nil {
-		return err
-	}
-
+func CreatePlatform(ctx context.Context, options *CreateOptions, platformClient platform.Client, globalFlags *flags.GlobalFlags, virtualClusterName string, log log.Logger) error {
 	// determine project & cluster name
-	options.Cluster, options.Project, err = helper.SelectProjectOrCluster(ctx, platformClient, options.Cluster, options.Project, false, log)
+	var err error
+	options.Cluster, options.Project, err = platformClient.SelectProjectOrCluster(ctx, options.Cluster, options.Project, false, log)
 	if err != nil {
 		return err
 	}
 
-	virtualClusterNamespace := naming.ProjectNamespace(options.Project)
+	virtualClusterNamespace := projectutil.ProjectNamespace((options.Project))
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
@@ -112,13 +107,13 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	} else {
 		if virtualClusterInstance == nil {
 			// create without template
-			virtualClusterInstance, err = createWithoutTemplate(ctx, platformClient, options, virtualClusterName, globalFlags.Namespace, log)
+			virtualClusterInstance, err = createWithoutTemplate(ctx, globalFlags.Config, platformClient, options, virtualClusterName, globalFlags.Namespace, log)
 			if err != nil {
 				return err
 			}
 		} else {
 			// upgrade via template
-			virtualClusterInstance, err = upgradeWithoutTemplate(ctx, platformClient, options, virtualClusterInstance, log)
+			virtualClusterInstance, err = upgradeWithoutTemplate(ctx, globalFlags.Config, platformClient, options, virtualClusterInstance, log)
 			if err != nil {
 				return err
 			}
@@ -139,21 +134,21 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 			KubeConfigContextName: options.KubeConfigContextName,
 			KubeConfig:            "./kubeconfig.yaml",
 			Project:               options.Project,
-		}, globalFlags, virtualClusterName, nil, log)
+		}, platformClient, globalFlags, virtualClusterName, nil, log)
 	}
 
 	log.Donef("Successfully created virtual cluster %s in project %s. \n- Use 'vcluster connect %s --project %s' to access the virtual cluster\n- Use `vcluster connect %s --project %s -- kubectl get ns` to run a command directly within the vcluster", virtualClusterName, options.Project, virtualClusterName, options.Project, virtualClusterName, options.Project)
 	return nil
 }
 
-func createWithoutTemplate(ctx context.Context, platformClient platform.Client, options *CreateOptions, virtualClusterName, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func createWithoutTemplate(ctx context.Context, configPath string, platformClient platform.Client, options *CreateOptions, virtualClusterName, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	err := validateNoTemplateOptions(options)
 	if err != nil {
 		return nil, err
 	}
 
 	// merge values
-	helmValues, err := mergeValues(platformClient, options, log)
+	helmValues, err := mergeValues(configPath, platformClient, options, log)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +157,7 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 	zone, offset := time.Now().Zone()
 	virtualClusterInstance := &managementv1.VirtualClusterInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: naming.ProjectNamespace(options.Project),
+			Namespace: projectutil.ProjectNamespace((options.Project)),
 			Name:      virtualClusterName,
 			Annotations: map[string]string{
 				clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
@@ -227,14 +222,14 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 	return virtualClusterInstance, nil
 }
 
-func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client, options *CreateOptions, virtualClusterInstance *managementv1.VirtualClusterInstance, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func upgradeWithoutTemplate(ctx context.Context, configPath string, platformClient platform.Client, options *CreateOptions, virtualClusterInstance *managementv1.VirtualClusterInstance, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	err := validateNoTemplateOptions(options)
 	if err != nil {
 		return nil, err
 	}
 
 	// merge values
-	helmValues, err := mergeValues(platformClient, options, log)
+	helmValues, err := mergeValues(configPath, platformClient, options, log)
 	if err != nil {
 		return nil, err
 	}
@@ -339,9 +334,8 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 	}
 
 	// resolve template
-	virtualClusterTemplate, resolvedParameters, err := create.ResolveTemplate(
+	virtualClusterTemplate, resolvedParameters, err := platformClient.ResolveTemplate(
 		ctx,
-		platformClient,
 		options.Project,
 		options.Template,
 		options.TemplateVersion,
@@ -357,7 +351,7 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 	zone, offset := time.Now().Zone()
 	virtualClusterInstance := &managementv1.VirtualClusterInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: naming.ProjectNamespace(options.Project),
+			Namespace: projectutil.ProjectNamespace((options.Project)),
 			Name:      virtualClusterName,
 			Annotations: map[string]string{
 				clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
@@ -417,9 +411,8 @@ func upgradeWithTemplate(ctx context.Context, platformClient platform.Client, op
 	}
 
 	// resolve template
-	virtualClusterTemplate, resolvedParameters, err := create.ResolveTemplate(
+	virtualClusterTemplate, resolvedParameters, err := platformClient.ResolveTemplate(
 		ctx,
-		platformClient,
 		options.Project,
 		options.Template,
 		options.TemplateVersion,
@@ -526,9 +519,9 @@ func validateTemplateOptions(options *CreateOptions) error {
 	return nil
 }
 
-func mergeValues(platformClient platform.Client, options *CreateOptions, log log.Logger) (string, error) {
+func mergeValues(configPath string, platformClient platform.Client, options *CreateOptions, log log.Logger) (string, error) {
 	// merge values
-	chartOptions, err := toChartOptions(platformClient, options, log)
+	chartOptions, err := toChartOptions(configPath, platformClient, options, log)
 	if err != nil {
 		return "", err
 	}
@@ -589,7 +582,7 @@ func parseString(str string) (map[string]interface{}, error) {
 	return out, nil
 }
 
-func toChartOptions(platformClient platform.Client, options *CreateOptions, log log.Logger) (*vclusterconfig.ExtraValuesOptions, error) {
+func toChartOptions(configPath string, platformClient platform.Client, options *CreateOptions, log log.Logger) (*vclusterconfig.ExtraValuesOptions, error) {
 	if !util.Contains(options.Distro, AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
 	}
@@ -627,10 +620,10 @@ func toChartOptions(platformClient platform.Client, options *CreateOptions, log 
 		Distro:              options.Distro,
 		Expose:              options.Expose,
 		KubernetesVersion:   kubernetesVersion,
-		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
+		DisableTelemetry:    cliconfig.Read(configPath, log).TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
-		PlatformInstanceID:  telemetry.GetPlatformInstanceID(platformClient.Self()),
-		PlatformUserID:      telemetry.GetPlatformUserID(platformClient.Self()),
-		MachineID:           telemetry.GetMachineID(log),
+		PlatformInstanceID:  telemetry.GetPlatformInstanceID(configPath, platformClient.Self()),
+		PlatformUserID:      telemetry.GetPlatformUserID(configPath, platformClient.Self()),
+		MachineID:           telemetry.GetMachineID(configPath, log),
 	}, nil
 }

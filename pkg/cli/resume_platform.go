@@ -10,12 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 )
 
-func ResumePlatform(ctx context.Context, options *ResumeOptions, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
-	if err != nil {
-		return err
-	}
-
+func ResumePlatform(ctx context.Context, options *ResumeOptions, platformClient platform.Client, vClusterName string, log log.Logger) error {
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
 		return err

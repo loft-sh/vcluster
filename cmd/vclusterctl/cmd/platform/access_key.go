@@ -1,15 +1,16 @@
 package platform
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
@@ -54,8 +55,8 @@ vcluster platform token
 ########################################################
 	`,
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return cmd.Run()
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -66,8 +67,9 @@ vcluster platform token
 }
 
 // Run executes the command
-func (cmd *AccessKeyCmd) Run() error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+func (cmd *AccessKeyCmd) Run(ctx context.Context) error {
+	cfg := config.Read(cmd.Config, cmd.log)
+	platformClient, err := platform.CreateClientFromConfig(ctx, cfg.Platform.Config)
 	if err != nil {
 		return err
 	}
@@ -76,33 +78,15 @@ func (cmd *AccessKeyCmd) Run() error {
 
 	if cmd.Project != "" && cmd.VirtualCluster != "" {
 		cmd.log.Debug("project and virtual cluster set, attempting fetch virtual cluster certificate data")
-		tokenFunc = getCertificate
+		tokenFunc = cmd.getCertificate
 	}
 
-	return tokenFunc(cmd, baseClient)
+	return tokenFunc(platformClient)
 }
 
-func getToken(cmd *AccessKeyCmd, baseClient client.Client) error {
-	// get config
-	config := baseClient.Config()
-	if config == nil {
-		return ErrNoConfigLoaded
-	} else if config.Host == "" || config.AccessKey == "" {
-		return fmt.Errorf("%w: please make sure you have run '%s [%s]'", ErrNotLoggedIn, product.LoginCmd(), product.Url())
-	}
-
+func getToken(platformClient platform.Client) error {
+	token := platformClient.Config().AccessKey
 	// by default we print the access key as token
-	token := config.AccessKey
-
-	// check if we should print a cluster gateway token instead
-	if cmd.DirectClusterEndpoint {
-		var err error
-		token, err = baseClient.DirectClusterEndpointToken(false)
-		if err != nil {
-			return err
-		}
-	}
-
 	return printToken(token)
 }
 
@@ -127,8 +111,8 @@ func printToken(token string) error {
 	return err
 }
 
-func getCertificate(cmd *AccessKeyCmd, baseClient client.Client) error {
-	certificateData, keyData, err := baseClient.VirtualClusterAccessPointCertificate(cmd.Project, cmd.VirtualCluster, false)
+func (cmd *AccessKeyCmd) getCertificate(platformClient platform.Client) error {
+	certificateData, keyData, err := platformClient.VirtualClusterAccessPointCertificate(cmd.Project, cmd.VirtualCluster, false)
 	if err != nil {
 		return err
 	}

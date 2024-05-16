@@ -19,4 +19,4 @@ func (n *noopCollector) Flush() {}
 
 func (n *noopCollector) SetVirtualClient(_ kubernetes.Interface) {}
 
-func (n *noopCollector) RecordCLI(_ *managementv1.Self, _ error) {}
+func (n *noopCollector) RecordCLI(_ string, _ *managementv1.Self, _ error) {}

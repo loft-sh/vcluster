@@ -2,17 +2,20 @@ package telemetry
 
 import (
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
 
 type DisableCmd struct {
+	*flags.GlobalFlags
 	log log.Logger
 }
 
-func disable() *cobra.Command {
+func disable(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &DisableCmd{
-		log: log.GetInstance(),
+		GlobalFlags: globalFlags,
+		log:         log.GetInstance(),
 	}
 
 	cobraCmd := &cobra.Command{
@@ -37,7 +40,7 @@ docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 }
 
 func (cmd *DisableCmd) Run(*cobra.Command) error {
-	c := cliconfig.GetConfig(cmd.log)
-	c.TelemetryDisabled = true
-	return cliconfig.WriteConfig(c)
+	cfg := config.Read(cmd.Config, cmd.log)
+	cfg.TelemetryDisabled = true
+	return config.Write(cmd.Config, cfg)
 }

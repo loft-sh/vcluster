@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/manager"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
@@ -35,7 +37,7 @@ Either use helm or vCluster platform as the deployment method for managing virtu
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			if args[0] != string(platform.ManagerHelm) && args[0] != string(platform.ManagerPlatform) {
+			if args[0] != string(manager.Helm) && args[0] != string(manager.Platform) {
 				return fmt.Errorf("you can only use helm or platform to use")
 			}
 
@@ -46,29 +48,26 @@ Either use helm or vCluster platform as the deployment method for managing virtu
 	return managerCmd
 }
 
-func (cmd *ManagerCmd) Run(_ context.Context, args []string) error {
-	return SwitchManager(args[0], cmd.Log)
+func (cmd *ManagerCmd) Run(ctx context.Context, args []string) error {
+	return SwitchManager(ctx, cmd.Config, args[0], cmd.Log)
 }
 
-func SwitchManager(manager string, log log.Logger) error {
-	if manager == string(platform.ManagerPlatform) {
-		_, err := platform.CreatePlatformClient()
+func SwitchManager(ctx context.Context, configPath, mngr string, log log.Logger) error {
+	cfg := config.Read(configPath, log)
+	mngrType := manager.Type(mngr)
+	if mngrType == manager.Platform {
+		_, err := platform.CreateClientFromConfig(ctx, cfg.Platform.Config)
 		if err != nil {
 			return fmt.Errorf("cannot switch to platform manager, because seems like you are not logged into a vCluster platform (%w)", err)
 		}
 	}
 
-	managerFile, err := platform.LoadManagerFile()
-	if err != nil {
-		return err
+	cfg.Manager.Type = mngrType
+	if err := config.Write(configPath, cfg); err != nil {
+		return fmt.Errorf("save vCluster config: %w", err)
 	}
 
-	managerFile.Manager = platform.ManagerType(manager)
-	err = platform.SaveManagerFile(managerFile)
-	if err != nil {
-		return err
-	}
+	log.Donef("Successfully switched manager to %s", mngr)
 
-	log.Donef("Successfully switched manager to %s", manager)
 	return nil
 }

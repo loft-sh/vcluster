@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
@@ -23,12 +22,7 @@ type connectPlatform struct {
 	log log.Logger
 }
 
-func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *flags.GlobalFlags, vClusterName string, command []string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
-	if err != nil {
-		return err
-	}
-
+func ConnectPlatform(ctx context.Context, options *ConnectOptions, platformClient platform.Client, globalFlags *flags.GlobalFlags, vClusterName string, command []string, log log.Logger) error {
 	// retrieve the vcluster
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
@@ -95,7 +89,7 @@ func (cmd *connectPlatform) validateProFlags() error {
 }
 
 func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformClient platform.Client, vCluster *platform.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
-	contextOptions, err := use.CreateVirtualClusterInstanceOptions(ctx, platformClient, "", vCluster.Project.Name, vCluster.VirtualCluster, false, false, cmd.log)
+	contextOptions, err := platformClient.CreateVirtualClusterInstanceOptions(ctx, "", vCluster.Project.Name, vCluster.VirtualCluster, false)
 	if err != nil {
 		return nil, fmt.Errorf("prepare vCluster kube config: %w", err)
 	}

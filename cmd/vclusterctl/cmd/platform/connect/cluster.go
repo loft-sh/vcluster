@@ -19,8 +19,8 @@ import (
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -28,8 +28,8 @@ import (
 )
 
 type ClusterCmd struct {
-	Log log.Logger
 	*flags.GlobalFlags
+	Log            log.Logger
 	Namespace      string
 	ServiceAccount string
 	DisplayName    string

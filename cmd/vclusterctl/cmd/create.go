@@ -8,8 +8,10 @@ import (
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/manager"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
@@ -94,16 +96,33 @@ vcluster create test --namespace test
 
 // Run executes the functionality
 func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
-	if err != nil {
-		return err
-	}
+	cfg := config.Read(cmd.Config, cmd.log)
+
+	config.PrintManagerInfo("create", cfg.Manager.Type, cmd.log)
+	platformClient, err := platform.CreateClientFromConfig(ctx, cfg.Platform.Config)
 
 	// check if we should create a platform vCluster
-	platform.PrintManagerInfo("create", manager, cmd.log)
-	if manager == platform.ManagerPlatform {
-		return cli.CreatePlatform(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
+	if cfg.Manager.Type == manager.Platform {
+		// when using the platform manager it is necessary to have a working platformClient.
+		if err != nil {
+			return err
+		}
+		return cli.CreatePlatform(ctx, &cmd.CreateOptions, platformClient, cmd.GlobalFlags, args[0], cmd.log)
 	}
 
-	return cli.CreateHelm(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
+	// when using helm the platformClient is not strictly necessary, only when the given vcluster values config of the user has platform features enabled.
+	if err := cli.CreateHelm(ctx, &cmd.CreateOptions, platformClient, cmd.GlobalFlags, args[0], cmd.log); err != nil {
+		return err
+	}
+	// if we have a platformClient we need to write the latest config to file because CreateHelm updates the VirtualClusterAccessKey in the platform config.
+	if platformClient != nil {
+		platformConfig := platformClient.Config()
+		cfg.Platform.Config = platformConfig
+
+		if err := config.Write(cmd.Config, cfg); err != nil {
+			return fmt.Errorf("save vCluster config: %w", err)
+		}
+	}
+
+	return nil
 }
