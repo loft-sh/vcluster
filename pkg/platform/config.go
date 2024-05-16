@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	VClusterProFolder = "pro"
+	ConfigDirName = "platform"
 )
 
 // ConfigFilePath returns the path to the loft config file
@@ -22,7 +22,7 @@ func ConfigFilePath() (string, error) {
 		return "", fmt.Errorf("failed to open vCluster platform configuration file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
-	return filepath.Join(home, constants.VClusterFolder, VClusterProFolder, constants.ConfigFileName), nil
+	return filepath.Join(home, constants.VClusterFolder, ConfigDirName, constants.ConfigFileName), nil
 }
 
 func managerFilePath() (string, error) {
@@ -31,7 +31,7 @@ func managerFilePath() (string, error) {
 		return "", fmt.Errorf("failed to open vCluster platform manager file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
-	return filepath.Join(home, constants.VClusterFolder, VClusterProFolder, constants.ManagerFileName), nil
+	return filepath.Join(home, constants.VClusterFolder, ConfigDirName, constants.ManagerFileName), nil
 }
 
 func PrintManagerInfo(verb string, manager ManagerType, log log.Logger) {

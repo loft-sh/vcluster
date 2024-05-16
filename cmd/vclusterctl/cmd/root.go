@@ -34,6 +34,14 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 			} else {
 				log.SetLevel(logrus.InfoLevel)
 			}
+
+			if globalFlags.Config == "" {
+				var err error
+				globalFlags.Config, err = platform.ConfigFilePath()
+				if err != nil {
+					log.Fatalf("failed to get vcluster configuration file path: %w", err)
+				}
+			}
 		},
 		Long: `vcluster root command`,
 	}
@@ -76,7 +84,7 @@ func Execute() {
 func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
-	globalFlags = flags.SetGlobalFlags(persistentFlags)
+	globalFlags = flags.SetGlobalFlags(persistentFlags, log)
 
 	// Set version for --version flag
 	rootCmd.Version = upgrade.GetVersion()
