@@ -535,6 +535,10 @@
         "overwriteManifests": {
           "type": "string",
           "description": "OverwriteManifests can be used to overwrite the coredns manifests used to deploy coredns"
+        },
+        "priorityClassName": {
+          "type": "string",
+          "description": "PriorityClassName specifies the priority class name for the CoreDNS pods."
         }
       },
       "additionalProperties": false,

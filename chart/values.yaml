@@ -457,6 +457,8 @@ controlPlane:
     overwriteManifests: ""
     # OverwriteConfig can be used to overwrite the coredns config
     overwriteConfig: ""
+    # PriorityClassName specifies the priority class name for the CoreDNS pods.
+    priorityClassName: ""
     # Service holds extra options for the coredns service deployed within the virtual cluster
     service:
       annotations: {}
