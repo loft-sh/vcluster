@@ -51,7 +51,10 @@ func Read(log log.Logger) *Config {
 		}
 		// set default if nil
 		if singleConfig == nil {
-			singleConfig = readOrNewCompat(home, log)
+			singleConfig, err = readOrNew(home)
+			if err != nil {
+				log.Debugf("Failed to load local configuration file: %v", err)
+			}
 		}
 	})
 
@@ -175,54 +178,6 @@ func PrintManagerInfo(verb string, manager ManagerType, log log.Logger) {
 	}
 }
 
-func managerFilePath() (string, error) {
-	home, err := homedir.Dir()
-	if err != nil {
-		return "", fmt.Errorf("failed to open vCluster manager file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
-	}
-
-	return filepath.Join(home, DirName, ManagerFileName), nil
-}
-
-func configFilePath(home string) string {
-	return filepath.Join(home, DirName, FileName)
-}
-
-// TODO delete after ".vcluster/pro/config.json" is not supported anymore.
-func configFilePathDeprecated(home string) string {
-	return filepath.Join(home, DirName, "pro", FileName)
-}
-
-// TODO end
-
-func readOrNewCompat(home string, log log.Logger) *Config {
-	// TODO delete after ".vcluster/pro/config.json" is not supported anymore.
-	// Try to read the old config file in the pro sub directory.
-	oldPath := configFilePathDeprecated(home)
-	oldPlatformConfig := tryReadPlatformConfig(oldPath)
-	if oldPlatformConfig != nil {
-		log.Infof("There is a config file located in %s, which is deprecated. If you did not configure this deliberately, feel free to remove this directory.", oldPath)
-	}
-	// TODO end
-
-	cfg, err := readOrNew(configFilePath(home))
-	if err != nil {
-		// At this point we didn't read an existing file but created a new default one in memory.
-		// So let's add our potential config file from the deprecated location.
-		log.Debugf("Failed to load local configuration file: %v", err)
-		cfg.Platform = oldPlatformConfig
-	}
-
-	// TODO delete after ".vcluster/pro/config.json" is not supported anymore.
-	// Only add the old config if there is nothing set in the new config.
-	if cfg.Platform == nil {
-		cfg.Platform = oldPlatformConfig
-	}
-	// TODO end
-
-	return cfg
-}
-
 func readOrNew(path string) (*Config, error) {
 	// check if the file exists
 	fi, err := os.Stat(path)
@@ -257,27 +212,15 @@ func readOrNew(path string) (*Config, error) {
 	return c, nil
 }
 
-// TODO delete after ".vcluster/pro/config.json" is not supported anymore.
-func tryReadPlatformConfig(path string) *PlatformConfig {
-	// Try to read the old config file in the pro sub directory.
-	file, err := os.Open(path)
+func managerFilePath() (string, error) {
+	home, err := homedir.Dir()
 	if err != nil {
-		return nil
-	}
-	defer file.Close()
-
-	bytes, err := io.ReadAll(file)
-	if err != nil {
-		return nil
+		return "", fmt.Errorf("failed to open vCluster manager file, unable to detect $HOME directory, falling back to default configuration, following error occurred: %w", err)
 	}
 
-	cfg := &PlatformConfig{}
-	err = json.Unmarshal(bytes, cfg)
-	if err != nil {
-		return nil
-	}
-
-	return cfg
+	return filepath.Join(home, DirName, ManagerFileName), nil
 }
 
-// TODO end
+func configFilePath(home string) string {
+	return filepath.Join(home, DirName, FileName)
+}
