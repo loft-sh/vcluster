@@ -62,7 +62,7 @@ devspace list clusters
 
 // RunClusters executes the functionality
 func (cmd *ClustersCmd) RunClusters(ctx context.Context) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

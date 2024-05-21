@@ -62,7 +62,7 @@ devspace list teams
 
 // RunUsers executes the functionality "loft list users"
 func (cmd *TeamsCmd) Run(ctx context.Context) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

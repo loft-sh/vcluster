@@ -34,7 +34,7 @@ func newUsernameCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 // Run executes the command logic
 func (cmd *usernameCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(cobraCmd.Context(), cmd.Config)
 	if err != nil {
 		return ErrUserSetNoLogin
 	}

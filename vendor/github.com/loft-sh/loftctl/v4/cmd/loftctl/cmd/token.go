@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,8 +66,8 @@ devspace token
 		Short: product.Replace("Token prints the access token to a loft instance"),
 		Long:  description,
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run()
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -77,8 +78,8 @@ devspace token
 }
 
 // Run executes the command
-func (cmd *TokenCmd) Run() error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+func (cmd *TokenCmd) Run(ctx context.Context) error {
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -99,7 +100,7 @@ func getToken(cmd *TokenCmd, baseClient client.Client) error {
 	if config == nil {
 		return ErrNoConfigLoaded
 	} else if config.Host == "" || config.AccessKey == "" {
-		return fmt.Errorf("%w: please make sure you have run '%s [%s]'", ErrNotLoggedIn, product.LoginCmd(), product.Url())
+		return fmt.Errorf("%w: please make sure you have run '%s' to create one or '%s [%s]' if one already exists", ErrNotLoggedIn, product.StartCmd(), product.LoginCmd(), product.Url())
 	}
 
 	// by default we print the access key as token

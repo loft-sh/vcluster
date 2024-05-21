@@ -85,9 +85,9 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 	// Get vclusterName from command argument
-	var vclusterName string = args[0]
+	var vclusterName = args[0]
 
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

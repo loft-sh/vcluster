@@ -47,7 +47,7 @@ func NewStopCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 }
 
 func (cmd *StopCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

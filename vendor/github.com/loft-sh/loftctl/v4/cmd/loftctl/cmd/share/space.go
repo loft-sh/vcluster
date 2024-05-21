@@ -9,8 +9,8 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
@@ -89,7 +89,7 @@ devspace share space myspace --project myproject --user admin
 
 // Run executes the command
 func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(cobraCmd.Context(), cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (cmd *SpaceCmd) shareSpace(ctx context.Context, baseClient client.Client, s
 		return err
 	}
 
-	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, spaceName, metav1.GetOptions{})
+	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(cmd.Project)).Get(ctx, spaceName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (cmd *SpaceCmd) shareSpace(ctx context.Context, baseClient client.Client, s
 	if spaceInstance.Spec.TemplateRef != nil {
 		spaceInstance.Spec.TemplateRef.SyncOnce = true
 	}
-	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Update(ctx, spaceInstance, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(cmd.Project)).Update(ctx, spaceInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

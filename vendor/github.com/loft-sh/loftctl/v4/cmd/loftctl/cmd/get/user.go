@@ -61,7 +61,7 @@ devspace get user
 
 // RunUsers executes the functionality
 func (cmd *UserCmd) Run(ctx context.Context) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

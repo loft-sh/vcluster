@@ -75,7 +75,7 @@ devspace login https://my-loft.com --access-key myaccesskey
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
-
+			// project prefix initializatin not necessary
 			return cmd.RunLogin(cobraCmd.Context(), args)
 		},
 	}
@@ -92,7 +92,6 @@ func (cmd *LoginCmd) RunLogin(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	var url string
 	// Print login information
 	if len(args) == 0 {

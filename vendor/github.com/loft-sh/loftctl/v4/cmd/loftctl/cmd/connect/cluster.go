@@ -123,7 +123,7 @@ devspace connect cluster my-cluster
 func (cmd *ClusterCmd) Run(ctx context.Context, localConfig *rest.Config, args []string) error {
 	// Get clusterName from command argument
 	clusterName := args[0]
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}

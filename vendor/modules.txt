@@ -346,7 +346,7 @@ github.com/liggitt/tabwriter
 # github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
 ## explicit; go 1.21.1
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v4 v4.0.0-alpha.3
+# github.com/loft-sh/agentapi/v4 v4.0.0-alpha.3.0.20240521134941-dc54ef9328bd
 ## explicit; go 1.22.2
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1
@@ -358,7 +358,7 @@ github.com/loft-sh/agentapi/v4/pkg/client/loft/clientset_generated/clientset/typ
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v4 v4.0.0-alpha.3
+# github.com/loft-sh/api/v4 v4.0.0-alpha.3.0.20240521135612-e966098770bf
 ## explicit; go 1.22.2
 github.com/loft-sh/api/v4/pkg/apis/audit/v1
 github.com/loft-sh/api/v4/pkg/apis/management
@@ -382,7 +382,7 @@ github.com/loft-sh/apiserver/pkg/builders
 # github.com/loft-sh/jspolicy v0.2.2
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v4 v4.0.0-alpha.3
+# github.com/loft-sh/loftctl/v4 v4.0.0-alpha.3.0.20240521140248-72c9120ca910
 ## explicit; go 1.22.2
 github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd
 github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/connect
@@ -420,6 +420,7 @@ github.com/loft-sh/loftctl/v4/pkg/kubeconfig
 github.com/loft-sh/loftctl/v4/pkg/parameters
 github.com/loft-sh/loftctl/v4/pkg/portforward
 github.com/loft-sh/loftctl/v4/pkg/printhelper
+github.com/loft-sh/loftctl/v4/pkg/projectutil
 github.com/loft-sh/loftctl/v4/pkg/random
 github.com/loft-sh/loftctl/v4/pkg/remotecommand
 github.com/loft-sh/loftctl/v4/pkg/space

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
@@ -84,7 +84,7 @@ devspace delete space myspace --project myproject
 
 // Run executes the command
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (cmd *SpaceCmd) deleteSpace(ctx context.Context, baseClient client.Client, 
 		return err
 	}
 
-	err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Delete(ctx, spaceName, metav1.DeleteOptions{})
+	err = managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(cmd.Project)).Delete(ctx, spaceName, metav1.DeleteOptions{})
 	if err != nil {
 		return errors.Wrap(err, "delete space")
 	}
@@ -132,7 +132,7 @@ func (cmd *SpaceCmd) deleteSpace(ctx context.Context, baseClient client.Client, 
 	// wait until deleted
 	if cmd.Wait {
 		cmd.Log.Info("Waiting for space to be deleted...")
-		for isSpaceInstanceStillThere(ctx, managementClient, naming.ProjectNamespace(cmd.Project), spaceName) {
+		for isSpaceInstanceStillThere(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName) {
 			time.Sleep(time.Second)
 		}
 		cmd.Log.Done("Space is deleted")

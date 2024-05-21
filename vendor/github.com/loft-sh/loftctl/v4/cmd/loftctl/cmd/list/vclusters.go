@@ -64,7 +64,7 @@ devspace list vclusters
 
 // Run executes the functionality
 func (cmd *VirtualClustersCmd) Run(ctx context.Context) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

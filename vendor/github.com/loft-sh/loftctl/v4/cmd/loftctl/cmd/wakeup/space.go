@@ -8,6 +8,7 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/space"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/pkg/errors"
@@ -16,7 +17,6 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
@@ -80,7 +80,7 @@ devspace wakeup space myspace --project myproject
 
 // Run executes the functionality
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (cmd *SpaceCmd) spaceWakeUp(ctx context.Context, baseClient client.Client, 
 		return err
 	}
 
-	_, err = space.WaitForSpaceInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), spaceName, true, cmd.Log)
+	_, err = space.WaitForSpaceInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName, true, cmd.Log)
 	if err != nil {
 		return err
 	}

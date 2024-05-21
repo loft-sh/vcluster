@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
@@ -29,9 +30,8 @@ var (
 type SecretType string
 
 const (
-	ProjectNamespacePrefix            = "loft-p-"
-	ProjectSecret          SecretType = "Project Secret"
-	SharedSecret           SecretType = "Shared Secret"
+	ProjectSecret SecretType = "Project Secret"
+	SharedSecret  SecretType = "Shared Secret"
 )
 
 // SecretCmd holds the flags
@@ -91,7 +91,7 @@ devspace set secret test-secret.key value --project myproject
 
 // RunUsers executes the functionality
 func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(cobraCmd.Context(), cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -126,11 +126,7 @@ func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	switch secretType {
 	case ProjectSecret:
 		// get target namespace
-		namespace, err := GetProjectSecretNamespace(cmd.Project)
-		if err != nil {
-			return errors.Wrap(err, "get project secrets namespace")
-		}
-
+		namespace := projectutil.ProjectNamespace(cmd.Project)
 		return cmd.setProjectSecret(ctx, managementClient, args, namespace, secretName, keyName)
 	case SharedSecret:
 		namespace, err := GetSharedSecretNamespace(cmd.Namespace)
@@ -286,8 +282,4 @@ func GetSharedSecretNamespace(namespace string) (string, error) {
 	}
 
 	return namespace, nil
-}
-
-func GetProjectSecretNamespace(project string) (string, error) {
-	return ProjectNamespacePrefix + project, nil
 }

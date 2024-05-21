@@ -45,6 +45,7 @@ loft ui
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// project prefix initialization not necessary
 			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}

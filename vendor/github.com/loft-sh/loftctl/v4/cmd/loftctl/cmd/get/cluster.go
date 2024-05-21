@@ -58,7 +58,7 @@ loft get cluster-access-key [CLUSTER_NAME]
 func (cmd *ClusterTokenCmd) Run(ctx context.Context, args []string) error {
 	clusterName := args[0]
 
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}

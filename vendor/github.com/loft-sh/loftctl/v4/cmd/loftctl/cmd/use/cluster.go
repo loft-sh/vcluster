@@ -94,7 +94,7 @@ devspace use cluster mycluster
 
 // Run executes the command
 func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

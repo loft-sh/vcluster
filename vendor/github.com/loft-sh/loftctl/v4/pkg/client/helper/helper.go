@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/api/v4/pkg/client/clientset_generated/clientset/scheme"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	authorizationv1 "k8s.io/api/authorization/v1"
 
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
@@ -18,6 +17,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
 	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/mgutz/ansi"
@@ -745,7 +745,7 @@ func GetProjectSecrets(ctx context.Context, managementClient kube.Interface, pro
 
 	var retSecrets []*ProjectProjectSecret
 	for _, project := range projects {
-		projectSecrets, err := managementClient.Loft().ManagementV1().ProjectSecrets(naming.ProjectNamespace(project.Name)).List(ctx, metav1.ListOptions{})
+		projectSecrets, err := managementClient.Loft().ManagementV1().ProjectSecrets(projectutil.ProjectNamespace(project.Name)).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -1056,7 +1056,7 @@ func getProjectSpaceInstance(ctx context.Context, managementClient kube.Interfac
 	err := managementClient.Loft().ManagementV1().RESTClient().
 		Get().
 		Resource("spaceinstances").
-		Namespace(naming.ProjectNamespace(project.Name)).
+		Namespace(projectutil.ProjectNamespace(project.Name)).
 		Name(spaceName).
 		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
 		Param("extended", "true").
@@ -1081,7 +1081,7 @@ func getProjectSpaceInstances(ctx context.Context, managementClient kube.Interfa
 	err := managementClient.Loft().ManagementV1().RESTClient().
 		Get().
 		Resource("spaceinstances").
-		Namespace(naming.ProjectNamespace(project.Name)).
+		Namespace(projectutil.ProjectNamespace(project.Name)).
 		VersionedParams(&metav1.ListOptions{}, scheme.ParameterCodec).
 		Param("extended", "true").
 		Do(ctx).
@@ -1110,7 +1110,7 @@ func getProjectVirtualClusterInstance(ctx context.Context, managementClient kube
 	err := managementClient.Loft().ManagementV1().RESTClient().
 		Get().
 		Resource("virtualclusterinstances").
-		Namespace(naming.ProjectNamespace(project.Name)).
+		Namespace(projectutil.ProjectNamespace(project.Name)).
 		Name(virtualClusterName).
 		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
 		Param("extended", "true").
@@ -1135,7 +1135,7 @@ func getProjectVirtualClusterInstances(ctx context.Context, managementClient kub
 	err := managementClient.Loft().ManagementV1().RESTClient().
 		Get().
 		Resource("virtualclusterinstances").
-		Namespace(naming.ProjectNamespace(project.Name)).
+		Namespace(projectutil.ProjectNamespace(project.Name)).
 		VersionedParams(&metav1.ListOptions{}, scheme.ParameterCodec).
 		Param("extended", "true").
 		Do(ctx).

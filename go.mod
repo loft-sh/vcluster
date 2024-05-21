@@ -6,6 +6,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/blang/semver/v4 v4.0.0
 	github.com/denisbrodbeck/machineid v1.0.1
+	github.com/docker/cli v25.0.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.4.1
 	github.com/go-openapi/loads v0.21.2
@@ -17,10 +18,10 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
-	github.com/loft-sh/agentapi/v4 v4.0.0-alpha.3
+	github.com/loft-sh/agentapi/v4 v4.0.0-alpha.3.0.20240521134941-dc54ef9328bd
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v4 v4.0.0-alpha.3
-	github.com/loft-sh/loftctl/v4 v4.0.0-alpha.3
+	github.com/loft-sh/api/v4 v4.0.0-alpha.3.0.20240521135612-e966098770bf
+	github.com/loft-sh/loftctl/v4 v4.0.0-alpha.3.0.20240521140248-72c9120ca910
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -35,6 +36,7 @@ require (
 	github.com/rhysd/go-github-selfupdate v1.2.3
 	github.com/samber/lo v1.38.1
 	github.com/sirupsen/logrus v1.9.3
+	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/vmware-labs/yaml-jsonpath v0.3.2
@@ -75,7 +77,6 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
-	github.com/docker/cli v25.0.0+incompatible // indirect
 	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960 // indirect
@@ -100,7 +101,6 @@ require (
 	github.com/rivo/uniseg v0.4.6 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
-	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.22.0 // indirect

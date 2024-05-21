@@ -18,6 +18,7 @@ import (
 	devpodpkg "github.com/loft-sh/loftctl/v4/pkg/devpod"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
 	"github.com/loft-sh/loftctl/v4/pkg/parameters"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
@@ -60,7 +61,7 @@ func NewUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 	l := cmd.Log.ErrorStreamOnly()
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -112,7 +113,7 @@ func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, st
 			workspace.Spec.TemplateRef.SyncOnce = true
 			// update template synced condition
 			for i, condition := range workspace.Status.Conditions {
-				if condition.Type == storagev1.InstanceTemplateSynced {
+				if condition.Type == storagev1.InstanceTemplateResolved {
 					workspace.Status.Conditions[i].Status = corev1.ConditionFalse
 					workspace.Status.Conditions[i].Reason = "TemplateChanged"
 					workspace.Status.Conditions[i].Message = "Template has been changed"
@@ -121,7 +122,7 @@ func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, st
 
 			// update workspace resource
 			workspace, err = managementClient.Loft().ManagementV1().
-				DevPodWorkspaceInstances(naming.ProjectNamespace(info.ProjectName)).
+				DevPodWorkspaceInstances(projectutil.ProjectNamespace(info.ProjectName)).
 				Update(ctx, workspace, metav1.UpdateOptions{})
 			if err != nil {
 				return err
@@ -130,7 +131,7 @@ func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, st
 			//  wait until status is updated
 			err = wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (done bool, err error) {
 				workspace, err = managementClient.Loft().ManagementV1().
-					DevPodWorkspaceInstances(naming.ProjectNamespace(info.ProjectName)).
+					DevPodWorkspaceInstances(projectutil.ProjectNamespace(info.ProjectName)).
 					Get(ctx, workspace.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
@@ -205,7 +206,7 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 	workspace := &managementv1.DevPodWorkspaceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: naming.SafeConcatNameMax([]string{workspaceInfo.ID}, 53) + "-",
-			Namespace:    naming.ProjectNamespace(workspaceInfo.ProjectName),
+			Namespace:    projectutil.ProjectNamespace(workspaceInfo.ProjectName),
 			Labels: map[string]string{
 				storagev1.DevPodWorkspaceIDLabel:  workspaceInfo.ID,
 				storagev1.DevPodWorkspaceUIDLabel: workspaceInfo.UID,
@@ -234,7 +235,7 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 	}
 
 	// create instance
-	workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(workspaceInfo.ProjectName)).Create(ctx, workspace, metav1.CreateOptions{})
+	workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(projectutil.ProjectNamespace(workspaceInfo.ProjectName)).Create(ctx, workspace, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +243,7 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 
 	// we need to wait until instance is scheduled
 	err = wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (done bool, err error) {
-		workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(workspaceInfo.ProjectName)).Get(ctx, workspace.Name, metav1.GetOptions{})
+		workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(projectutil.ProjectNamespace(workspaceInfo.ProjectName)).Get(ctx, workspace.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -324,7 +325,7 @@ func isReady(workspace *managementv1.DevPodWorkspaceInstance) bool {
 
 func templateSynced(workspace *managementv1.DevPodWorkspaceInstance) bool {
 	for _, condition := range workspace.Status.Conditions {
-		if condition.Type == storagev1.InstanceTemplateSynced {
+		if condition.Type == storagev1.InstanceTemplateResolved {
 			return condition.Status == corev1.ConditionTrue
 		}
 	}

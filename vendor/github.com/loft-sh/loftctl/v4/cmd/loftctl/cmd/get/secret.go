@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
@@ -87,7 +88,7 @@ devspace get secret test-secret.key --project myproject
 
 // RunUsers executes the functionality
 func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -122,10 +123,7 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 
 	switch secretType {
 	case set.ProjectSecret:
-		namespace, err = set.GetProjectSecretNamespace(cmd.Project)
-		if err != nil {
-			return errors.Wrap(err, "get project secrets namespace")
-		}
+		namespace = projectutil.ProjectNamespace(cmd.Project)
 	case set.SharedSecret:
 		namespace, err = set.GetSharedSecretNamespace(cmd.Namespace)
 		if err != nil {

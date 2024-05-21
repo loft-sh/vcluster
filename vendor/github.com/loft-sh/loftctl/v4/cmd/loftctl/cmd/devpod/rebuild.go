@@ -58,7 +58,7 @@ func (cmd *RebuildCmd) Run(ctx context.Context, args []string) error {
 	}
 	targetWorkspace := args[0]
 
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

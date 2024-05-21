@@ -12,9 +12,9 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
@@ -80,7 +80,7 @@ devspace sleep vcluster myvcluster --project myproject
 
 // Run executes the functionality
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (cmd *VClusterCmd) sleepVCluster(ctx context.Context, baseClient client.Cli
 		return err
 	}
 
-	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
+	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (cmd *VClusterCmd) sleepVCluster(ctx context.Context, baseClient client.Cli
 		virtualClusterInstance.Annotations[clusterv1.SleepModeForceDurationAnnotation] = strconv.FormatInt(cmd.ForceDuration, 10)
 	}
 
-	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (cmd *VClusterCmd) sleepVCluster(ctx context.Context, baseClient client.Cli
 	// wait for sleeping
 	cmd.Log.Info("Wait until virtual cluster is sleeping...")
 	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
-		virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
+		virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

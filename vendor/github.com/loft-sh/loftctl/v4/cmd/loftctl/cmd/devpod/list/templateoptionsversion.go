@@ -58,7 +58,7 @@ func (cmd *TemplateOptionsVersionCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("LOFT_TEMPLATE_VERSION environment variable is empty")
 	}
 
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}

@@ -63,7 +63,7 @@ func (cmd *TemplateOptionsCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("LOFT_TEMPLATE environment variable is empty")
 	}
 
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -88,8 +88,10 @@ func (cmd *TemplateOptionsCmd) Run(ctx context.Context) error {
 		}
 
 		options["LOFT_TEMPLATE_VERSION"] = &Option{
+			DisplayName:       "Template Version",
 			Description:       "The template version. If empty will use the latest version",
 			Required:          true,
+			Mutable:           true,
 			Default:           "latest",
 			Enum:              versions,
 			SubOptionsCommand: fmt.Sprintf("'%s' devpod list templateoptionsversion", executable),
@@ -109,11 +111,17 @@ func parametersToOptions(parameters []storagev1.AppParameter) map[string]*Option
 	options := map[string]*Option{}
 	for _, parameter := range parameters {
 		optionName := VariableToEnvironmentVariable(parameter.Variable)
+		displayName := parameter.Label
+		if displayName == "" {
+			displayName = optionName
+		}
 		options[optionName] = &Option{
+			DisplayName: displayName,
 			Description: parameter.Description,
 			Required:    parameter.Required,
 			Enum:        parameter.Options,
 			Default:     parameter.DefaultValue,
+			Mutable:     true,
 		}
 	}
 	return options

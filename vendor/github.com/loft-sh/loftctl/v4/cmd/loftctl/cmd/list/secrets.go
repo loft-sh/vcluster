@@ -74,7 +74,7 @@ devspace list secrets
 
 // Run executes the functionality
 func (cmd *SharedSecretsCmd) Run(command *cobra.Command, _ []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(command.Context(), cmd.Config)
 	if err != nil {
 		return err
 	}
