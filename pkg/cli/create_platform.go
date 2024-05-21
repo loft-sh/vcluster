@@ -15,8 +15,8 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/create"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -47,7 +47,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 		return err
 	}
 
-	virtualClusterNamespace := naming.ProjectNamespace(options.Project)
+	virtualClusterNamespace := projectutil.ProjectNamespace(options.Project)
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
@@ -162,7 +162,7 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 	zone, offset := time.Now().Zone()
 	virtualClusterInstance := &managementv1.VirtualClusterInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: naming.ProjectNamespace(options.Project),
+			Namespace: projectutil.ProjectNamespace(options.Project),
 			Name:      virtualClusterName,
 			Annotations: map[string]string{
 				clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
@@ -357,7 +357,7 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 	zone, offset := time.Now().Zone()
 	virtualClusterInstance := &managementv1.VirtualClusterInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: naming.ProjectNamespace(options.Project),
+			Namespace: projectutil.ProjectNamespace(options.Project),
 			Name:      virtualClusterName,
 			Annotations: map[string]string{
 				clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),

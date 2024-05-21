@@ -11,8 +11,8 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/api/v4/pkg/client/clientset_generated/clientset/scheme"
 	loftclient "github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -68,6 +68,8 @@ func CreatePlatformClient() (Client, error) {
 	} else if self.Status.User == nil && self.Status.Team == nil {
 		return nil, fmt.Errorf("no user or team name returned for vCluster platform credentials")
 	}
+
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	selfOnce.Do(func() {
 		Self = self
@@ -148,7 +150,7 @@ func getProjectVirtualClusterInstance(ctx context.Context, managementClient kube
 	err := managementClient.Loft().ManagementV1().RESTClient().
 		Get().
 		Resource("virtualclusterinstances").
-		Namespace(naming.ProjectNamespace(project.Name)).
+		Namespace(projectutil.ProjectNamespace(project.Name)).
 		Name(virtualClusterName).
 		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
 		Param("extended", "true").
@@ -173,7 +175,7 @@ func getProjectVirtualClusterInstances(ctx context.Context, managementClient kub
 	err := managementClient.Loft().ManagementV1().RESTClient().
 		Get().
 		Resource("virtualclusterinstances").
-		Namespace(naming.ProjectNamespace(project.Name)).
+		Namespace(projectutil.ProjectNamespace(project.Name)).
 		VersionedParams(&metav1.ListOptions{}, scheme.ParameterCodec).
 		Param("extended", "true").
 		Do(ctx).

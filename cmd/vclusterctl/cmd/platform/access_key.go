@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
@@ -67,9 +68,9 @@ vcluster platform token
 
 // Run executes the command
 func (cmd *AccessKeyCmd) Run() error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	platformClient, err := platform.CreatePlatformClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create platform client: %w", err)
 	}
 
 	tokenFunc := getToken
@@ -79,7 +80,7 @@ func (cmd *AccessKeyCmd) Run() error {
 		tokenFunc = getCertificate
 	}
 
-	return tokenFunc(cmd, baseClient)
+	return tokenFunc(cmd, platformClient)
 }
 
 func getToken(cmd *AccessKeyCmd, baseClient client.Client) error {
