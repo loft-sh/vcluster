@@ -1,4 +1,4 @@
-{{- if not .Values.experimental.isolatedControlPlane.headless }}
+{{- if .Values.experimental.isolatedControlPlane.headless }}
 {{- if eq (include "vcluster.kind" .) "StatefulSet" }}
 apiVersion: v1
 kind: Service
