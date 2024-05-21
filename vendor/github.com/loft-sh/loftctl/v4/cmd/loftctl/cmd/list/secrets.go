@@ -2,6 +2,7 @@ package list
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
@@ -78,6 +80,11 @@ func (cmd *SharedSecretsCmd) Run(command *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(command.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	managementClient, err := baseClient.Management()
 	if err != nil {

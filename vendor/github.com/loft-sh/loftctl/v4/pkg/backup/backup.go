@@ -6,7 +6,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -222,7 +222,7 @@ func virtualClusterInstances(ctx context.Context, client clientpkg.Client, proje
 	retList := []runtime.Object{}
 	for _, projectName := range projects {
 		virtualClusterInstanceList := &storagev1.VirtualClusterInstanceList{}
-		err := client.List(ctx, virtualClusterInstanceList, clientpkg.InNamespace(naming.ProjectNamespace(projectName)))
+		err := client.List(ctx, virtualClusterInstanceList, clientpkg.InNamespace(projectutil.ProjectNamespace(projectName)))
 		if err != nil {
 			return nil, err
 		}
@@ -246,7 +246,7 @@ func devPodWorkspaceInstances(ctx context.Context, client clientpkg.Client, proj
 	retList := []runtime.Object{}
 	for _, projectName := range projects {
 		devPodWorkspaceInstanceList := &storagev1.DevPodWorkspaceInstanceList{}
-		err := client.List(ctx, devPodWorkspaceInstanceList, clientpkg.InNamespace(naming.ProjectNamespace(projectName)))
+		err := client.List(ctx, devPodWorkspaceInstanceList, clientpkg.InNamespace(projectutil.ProjectNamespace(projectName)))
 		if err != nil {
 			return nil, err
 		}
@@ -270,7 +270,7 @@ func spaceInstances(ctx context.Context, client clientpkg.Client, projects []str
 	retList := []runtime.Object{}
 	for _, projectName := range projects {
 		spaceInstanceList := &storagev1.SpaceInstanceList{}
-		err := client.List(ctx, spaceInstanceList, clientpkg.InNamespace(naming.ProjectNamespace(projectName)))
+		err := client.List(ctx, spaceInstanceList, clientpkg.InNamespace(projectutil.ProjectNamespace(projectName)))
 		if err != nil {
 			return nil, err
 		}
@@ -294,7 +294,7 @@ func projectSecrets(ctx context.Context, client clientpkg.Client, projects []str
 	retList := []runtime.Object{}
 	for _, projectName := range projects {
 		secretList := &corev1.SecretList{}
-		err := client.List(ctx, secretList, clientpkg.InNamespace(naming.ProjectNamespace(projectName)))
+		err := client.List(ctx, secretList, clientpkg.InNamespace(projectutil.ProjectNamespace(projectName)))
 		if err != nil {
 			return nil, err
 		}

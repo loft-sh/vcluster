@@ -9,8 +9,8 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
@@ -93,6 +93,11 @@ func (cmd *VClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(cobraCmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	vClusterName := ""
 	if len(args) > 0 {
@@ -119,7 +124,7 @@ func (cmd *VClusterCmd) shareVCluster(ctx context.Context, baseClient client.Cli
 		return err
 	}
 
-	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
+	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -137,7 +142,7 @@ func (cmd *VClusterCmd) shareVCluster(ctx context.Context, baseClient client.Cli
 	if virtualClusterInstance.Spec.TemplateRef != nil {
 		virtualClusterInstance.Spec.TemplateRef.SyncOnce = true
 	}
-	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

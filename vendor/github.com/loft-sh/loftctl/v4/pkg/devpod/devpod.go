@@ -15,7 +15,7 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -71,7 +71,7 @@ func FindWorkspace(ctx context.Context, baseClient client.Client, uid, projectNa
 	}
 
 	// get workspace
-	workspaceList, err := managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).List(ctx, metav1.ListOptions{
+	workspaceList, err := managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(projectutil.ProjectNamespace(projectName)).List(ctx, metav1.ListOptions{
 		LabelSelector: storagev1.DevPodWorkspaceUIDLabel + "=" + uid,
 	})
 	if err != nil {
@@ -91,7 +91,7 @@ func FindWorkspaceByName(ctx context.Context, baseClient client.Client, name, pr
 	}
 
 	// get workspace
-	workspace, err := managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).Get(ctx, name, metav1.GetOptions{})
+	workspace, err := managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(projectutil.ProjectNamespace(projectName)).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

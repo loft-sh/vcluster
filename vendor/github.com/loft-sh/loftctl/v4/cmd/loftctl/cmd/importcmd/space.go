@@ -2,8 +2,10 @@ package importcmd
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
@@ -86,6 +88,11 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	err = client.VerifyVersion(baseClient)
 	if err != nil {

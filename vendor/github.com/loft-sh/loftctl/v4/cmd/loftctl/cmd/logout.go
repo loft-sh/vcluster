@@ -53,6 +53,7 @@ devspace logout
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// don't set project prefix here, unnecessary
 			return cmd.RunLogout(cobraCmd.Context(), args)
 		},
 	}

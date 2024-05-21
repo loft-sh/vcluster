@@ -2,6 +2,7 @@ package list
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/api/v4/pkg/product"
@@ -9,6 +10,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
@@ -68,6 +70,11 @@ func (cmd *VirtualClustersCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	header := []string{
 		"Name",

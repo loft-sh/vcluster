@@ -2,11 +2,13 @@ package get
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
@@ -65,6 +67,11 @@ func (cmd *UserCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	client, err := baseClient.Management()
 	if err != nil {

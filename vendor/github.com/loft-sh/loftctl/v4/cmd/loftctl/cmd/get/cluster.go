@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/sirupsen/logrus"
@@ -62,6 +63,11 @@ func (cmd *ClusterTokenCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	err = client.VerifyVersion(baseClient)
 	if err != nil {

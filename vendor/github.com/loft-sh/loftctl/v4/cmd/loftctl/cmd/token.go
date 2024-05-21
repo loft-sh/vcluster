@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
@@ -65,8 +67,8 @@ devspace token
 		Short: product.Replace("Token prints the access token to a loft instance"),
 		Long:  description,
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run()
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -77,11 +79,16 @@ devspace token
 }
 
 // Run executes the command
-func (cmd *TokenCmd) Run() error {
+func (cmd *TokenCmd) Run(ctx context.Context) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	tokenFunc := getToken
 

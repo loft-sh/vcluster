@@ -11,9 +11,9 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
 	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
@@ -108,6 +108,11 @@ func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	err = client.VerifyVersion(baseClient)
 	if err != nil {
@@ -137,7 +142,7 @@ func (cmd *VirtualClusterCmd) useVirtualCluster(ctx context.Context, baseClient 
 		return err
 	}
 
-	virtualClusterInstance, err := vcluster.WaitForVirtualClusterInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName, !cmd.SkipWait, cmd.Log)
+	virtualClusterInstance, err := vcluster.WaitForVirtualClusterInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), virtualClusterName, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}

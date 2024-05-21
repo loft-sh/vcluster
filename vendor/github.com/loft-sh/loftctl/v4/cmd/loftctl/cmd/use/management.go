@@ -1,12 +1,14 @@
 package use
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
@@ -59,7 +61,7 @@ devspace use management
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -67,11 +69,16 @@ devspace use management
 	return c
 }
 
-func (cmd *ManagementCmd) Run(args []string) error {
+func (cmd *ManagementCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(cobraCmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	// create kube context options
 	contextOptions, err := CreateManagementContextOptions(baseClient, cmd.Config, true, cmd.log)

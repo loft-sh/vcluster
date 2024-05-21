@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
@@ -91,6 +92,11 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	managementClient, err := baseClient.Management()
 	if err != nil {
@@ -122,10 +128,7 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 
 	switch secretType {
 	case set.ProjectSecret:
-		namespace, err = set.GetProjectSecretNamespace(cmd.Project)
-		if err != nil {
-			return errors.Wrap(err, "get project secrets namespace")
-		}
+		namespace = projectutil.ProjectNamespace(cmd.Project)
 	case set.SharedSecret:
 		namespace, err = set.GetSharedSecretNamespace(cmd.Namespace)
 		if err != nil {

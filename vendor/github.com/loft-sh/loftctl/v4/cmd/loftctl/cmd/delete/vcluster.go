@@ -2,12 +2,13 @@ package delete
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/constants"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
@@ -93,6 +94,11 @@ func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	virtualClusterName := ""
 	if len(args) > 0 {
@@ -117,7 +123,7 @@ func (cmd *VirtualClusterCmd) deleteVirtualCluster(ctx context.Context, baseClie
 		return err
 	}
 
-	err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Delete(ctx, virtualClusterName, metav1.DeleteOptions{})
+	err = managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Delete(ctx, virtualClusterName, metav1.DeleteOptions{})
 	if err != nil {
 		return errors.Wrap(err, "delete virtual cluster")
 	}
@@ -137,7 +143,7 @@ func (cmd *VirtualClusterCmd) deleteVirtualCluster(ctx context.Context, baseClie
 	// wait until deleted
 	if cmd.Wait {
 		cmd.Log.Info("Waiting for virtual cluster to be deleted...")
-		for isVirtualClusterInstanceStillThere(ctx, managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName) {
+		for isVirtualClusterInstanceStillThere(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), virtualClusterName) {
 			time.Sleep(time.Second)
 		}
 		cmd.Log.Done("Virtual Cluster is deleted")

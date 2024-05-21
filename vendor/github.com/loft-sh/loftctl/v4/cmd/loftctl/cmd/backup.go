@@ -8,7 +8,9 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/backup"
+	loftclient "github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/spf13/cobra"
@@ -56,6 +58,16 @@ loft backup
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// create new loft client with that config
+			loftClient, err := loftclient.NewClientFromPath(cmd.Config)
+			if err != nil {
+				return fmt.Errorf("create loft client: %w", err)
+			}
+			self, err := loftClient.GetSelf(cobraCmd.Context())
+			if err != nil {
+				return fmt.Errorf("failed to get self: %w", err)
+			}
+			projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 			return cmd.Run(cobraCmd, args)
 		},
 	}
@@ -87,7 +99,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	} else if !isInstalled {
 		answer, err := cmd.Log.Question(&survey.QuestionOptions{
-			Question:     product.Replace("Seems like Loft was not installed into namespace %s, do you want to continue?"),
+			Question:     fmt.Sprintf(product.Replace("Seems like Loft was not installed into namespace %q, do you want to continue?"), cmd.Namespace),
 			DefaultValue: "Yes",
 			Options:      []string{"Yes", "No"},
 		})

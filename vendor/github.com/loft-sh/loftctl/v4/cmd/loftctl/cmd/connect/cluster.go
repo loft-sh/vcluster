@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/log"
 	"github.com/sirupsen/logrus"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -127,6 +128,11 @@ func (cmd *ClusterCmd) Run(ctx context.Context, localConfig *rest.Config, args [
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	err = client.VerifyVersion(baseClient)
 	if err != nil {

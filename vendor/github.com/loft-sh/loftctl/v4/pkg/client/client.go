@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 
 	"github.com/loft-sh/api/v4/pkg/auth"
 	"github.com/loft-sh/api/v4/pkg/product"
@@ -65,6 +65,7 @@ func init() {
 type Client interface {
 	Management() (kube.Interface, error)
 	ManagementConfig() (*rest.Config, error)
+	GetSelf(ctx context.Context) (managementv1.Self, error)
 
 	SpaceInstance(project, name string) (kube.Interface, error)
 	SpaceInstanceConfig(project, name string) (*rest.Config, error)
@@ -114,6 +115,30 @@ type client struct {
 	config     *Config
 	configPath string
 	configOnce sync.Once
+
+	self     *managementv1.Self
+	selfOnce sync.Once
+}
+
+func (c *client) GetSelf(ctx context.Context) (managementv1.Self, error) {
+	var doErr error
+	c.selfOnce.Do(func() {
+		managementClient, err := c.Management()
+		if err != nil {
+			doErr = fmt.Errorf("create management client: %w", err)
+			return
+		}
+		self, err := managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
+		if err != nil {
+			doErr = fmt.Errorf("get self: %w", err)
+			return
+		}
+		c.self = self
+	})
+	if doErr != nil {
+		return managementv1.Self{}, fmt.Errorf("failed to inititalize self with loft instance: %w", doErr)
+	}
+	return *c.self.DeepCopy(), nil
 }
 
 // Logout implements Client.
@@ -188,7 +213,7 @@ func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster st
 		return "", "", err
 	}
 
-	kubeConfigResponse, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(project)).GetKubeConfig(
+	kubeConfigResponse, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(project)).GetKubeConfig(
 		context.Background(),
 		virtualCluster,
 		&managementv1.VirtualClusterInstanceKubeConfig{

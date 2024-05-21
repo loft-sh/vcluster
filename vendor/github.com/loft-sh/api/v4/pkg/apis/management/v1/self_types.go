@@ -67,6 +67,10 @@ type SelfStatus struct {
 	// InstanceID is the loft instance id
 	// +optional
 	InstanceID string `json:"instanceID"`
+
+	// ProjectNamespacePrefix is the prefix used to name project namespaces after defaulting has been applied
+	// +optional
+	ProjectNamespacePrefix string `json:"projectNamespacePrefix"`
 }
 
 type UserInfo struct {

@@ -1,12 +1,14 @@
 package vars
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +40,11 @@ func (cmd *usernameCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return ErrUserSetNoLogin
 	}
+	self, err := baseClient.GetSelf(cobraCmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	client, err := baseClient.Management()
 	if err != nil {

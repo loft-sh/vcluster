@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	devpodpkg "github.com/loft-sh/loftctl/v4/pkg/devpod"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
@@ -51,6 +52,11 @@ func (cmd *SshCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, s
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	info, err := devpodpkg.GetWorkspaceInfoFromEnv()
 	if err != nil {

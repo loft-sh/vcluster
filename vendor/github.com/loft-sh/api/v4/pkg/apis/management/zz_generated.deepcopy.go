@@ -2119,6 +2119,11 @@ func (in *ConfigStatus) DeepCopyInto(out *ConfigStatus) {
 		*out = new(Audit)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ProjectNamespacePrefix != nil {
+		in, out := &in.ProjectNamespacePrefix, &out.ProjectNamespacePrefix
+		*out = new(string)
+		**out = **in
+	}
 	if in.UISettings != nil {
 		in, out := &in.UISettings, &out.UISettings
 		*out = new(uiv1.UISettingsConfig)

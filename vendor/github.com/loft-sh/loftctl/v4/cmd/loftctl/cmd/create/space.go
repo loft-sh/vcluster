@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/space"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -151,6 +151,11 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	self, err := baseClient.GetSelf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get self: %w", err)
+	}
+	projectutil.SetProjectNamespacePrefix(self.Status.ProjectNamespacePrefix)
 
 	err = client.VerifyVersion(baseClient)
 	if err != nil {
@@ -174,11 +179,12 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 }
 
 func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
-	spaceNamespace := naming.ProjectNamespace(cmd.Project)
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
+
+	spaceNamespace := projectutil.ProjectNamespace(cmd.Project)
 
 	// get current user / team
 	if cmd.User == "" && cmd.Team == "" {
@@ -252,7 +258,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, 
 		zone, offset := time.Now().Zone()
 		spaceInstance = &managementv1.SpaceInstance{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: naming.ProjectNamespace(cmd.Project),
+				Namespace: projectutil.ProjectNamespace(cmd.Project),
 				Name:      spaceName,
 				Annotations: map[string]string{
 					clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
