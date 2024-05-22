@@ -75,6 +75,16 @@ tests:
           path: spec.template.spec.initContainers[0].image
           value: k0s:123
 
+  - it: disables serviceLinks for sts etcd pod
+    set:
+      controlPlane:
+        statefulSet:
+          enableServiceLinks: false
+    asserts:
+      - equal:
+          path: spec.template.spec.enableServiceLinks
+          value: false
+
   - it: custom init container
     set:
       controlPlane:

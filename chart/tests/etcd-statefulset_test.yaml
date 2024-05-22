@@ -40,6 +40,23 @@ tests:
           path: spec.template.spec.containers[0].image
           value: fabi.com/etcd:123
 
+  - it: disables serviceLinks for backingStore etcd pod
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                enabled: true
+                enableServiceLinks: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.enableServiceLinks
+          value: false
+
   - it: change image registry
     set:
       controlPlane:

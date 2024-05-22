@@ -129,6 +129,7 @@ spec:
       initContainers:
 {{ include "vcluster.initContainers" . | indent 8 }}
       {{- end }}
+      enableServiceLinks: {{ .Values.controlPlane.statefulSet.enableServiceLinks }}
       containers:
         - name: syncer
           image: {{ include "vcluster.controlPlane.image" . | quote }}
