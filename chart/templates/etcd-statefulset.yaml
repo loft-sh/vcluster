@@ -132,6 +132,7 @@ spec:
       securityContext:
 {{ toYaml $externalEtcd.security.podSecurityContext | indent 8 }}
       {{- end }}
+      enableServiceLinks: {{ .Values.controlPlane.backingStore.etcd.deploy.statefulSet.enableServiceLinks }}
       containers:
       - name: etcd
         image: '{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" $externalEtcd.image.registry "repository" $externalEtcd.image.repository "tag" $externalEtcd.image.tag) }}'

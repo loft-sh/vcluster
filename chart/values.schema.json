@@ -419,6 +419,10 @@
           "$ref": "#/$defs/ControlPlanePersistence",
           "description": "Persistence defines options around persistence for the statefulSet."
         },
+        "enableServiceLinks": {
+          "type": "boolean",
+          "description": "EnableServiceLinks for the StatefulSet pod"
+        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
@@ -1006,6 +1010,10 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if the statefulSet should be deployed"
+        },
+        "enableServiceLinks": {
+          "type": "boolean",
+          "description": "EnableServiceLinks for the StatefulSet pod"
         },
         "image": {
           "$ref": "#/$defs/Image",

@@ -202,6 +202,7 @@ controlPlane:
         enabled: false
         statefulSet:
           enabled: true
+          enableServiceLinks: true
           annotations: {}
           labels: {}
           image:
@@ -351,6 +352,8 @@ controlPlane:
       volumeClaimTemplates: []
       addVolumeMounts: []
       addVolumes: []
+
+    enableServiceLinks: true
 
     scheduling:
       podManagementPolicy: Parallel

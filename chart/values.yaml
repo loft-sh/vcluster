@@ -358,6 +358,8 @@ controlPlane:
         statefulSet:
           # Enabled defines if the statefulSet should be deployed
           enabled: true
+          # EnableServiceLinks for the StatefulSet pod
+          enableServiceLinks: true
           annotations: {}
           labels: {}
           # Image is the image to use for the external etcd statefulSet
@@ -602,6 +604,8 @@ controlPlane:
       addVolumeMounts: []
       # AddVolumes defines extra volumes for the pod
       addVolumes: []
+    # EnableServiceLinks for the StatefulSet pod
+    enableServiceLinks: true
     # Scheduling holds options related to scheduling.
     scheduling:
       # PodManagementPolicy is the statefulSet pod management policy.
