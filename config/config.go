@@ -620,7 +620,7 @@ type ControlPlaneStatefulSet struct {
 	// Persistence defines options around persistence for the statefulSet.
 	Persistence ControlPlanePersistence `json:"persistence,omitempty"`
 
-	// EnableServiceLinks for the sts pod
+	// EnableServiceLinks for the StatefulSet pod
 	EnableServiceLinks *bool `json:"enableServiceLinks,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
@@ -883,7 +883,7 @@ type EtcdDeployStatefulSet struct {
 	// Enabled defines if the statefulSet should be deployed
 	Enabled bool `json:"enabled,omitempty"`
 
-	// EnableServiceLinks for the sts pod
+	// EnableServiceLinks for the StatefulSet pod
 	EnableServiceLinks *bool `json:"enableServiceLinks,omitempty"`
 
 	// Image is the image to use for the external etcd statefulSet

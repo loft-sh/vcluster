@@ -358,7 +358,7 @@ controlPlane:
         statefulSet:
           # Enabled defines if the statefulSet should be deployed
           enabled: true
-          # EnableServiceLinks for the sts pod
+          # EnableServiceLinks for the StatefulSet pod
           enableServiceLinks: true
           annotations: {}
           labels: {}
@@ -604,7 +604,7 @@ controlPlane:
       addVolumeMounts: []
       # AddVolumes defines extra volumes for the pod
       addVolumes: []
-    # EnableServiceLinks for the sts pod
+    # EnableServiceLinks for the StatefulSet pod
     enableServiceLinks: true
     # Scheduling holds options related to scheduling.
     scheduling:

@@ -421,7 +421,7 @@
         },
         "enableServiceLinks": {
           "type": "boolean",
-          "description": "EnableServiceLinks for the sts pod"
+          "description": "EnableServiceLinks for the StatefulSet pod"
         },
         "annotations": {
           "additionalProperties": {
@@ -1013,7 +1013,7 @@
         },
         "enableServiceLinks": {
           "type": "boolean",
-          "description": "EnableServiceLinks for the sts pod"
+          "description": "EnableServiceLinks for the StatefulSet pod"
         },
         "image": {
           "$ref": "#/$defs/Image",
