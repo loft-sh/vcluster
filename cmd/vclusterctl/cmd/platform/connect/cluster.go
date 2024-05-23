@@ -174,6 +174,10 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		helmArgs = append(helmArgs, "--wait")
 	}
 
+	if cmd.Context != "" {
+		helmArgs = append(helmArgs, "--kube-context", cmd.Context)
+	}
+
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 
 	if cmd.Context != "" {
