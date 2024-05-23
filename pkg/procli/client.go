@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"os"
 	"strings"
 	"sync"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	loftclient "github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,7 +85,7 @@ func (c *client) Self() *managementv1.Self {
 	return c.self.DeepCopy()
 }
 
-func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error) {
+func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, namespace string, projectName string) ([]VirtualClusterInstanceProject, error) {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return nil, err
@@ -137,10 +137,13 @@ func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, p
 
 			for _, virtualClusterInstance := range virtualClusterInstanceList.Items {
 				s := virtualClusterInstance
-				virtualClusters = append(virtualClusters, VirtualClusterInstanceProject{
-					VirtualCluster: &s,
-					Project:        p,
-				})
+
+				if namespace == "" || s.Spec.ClusterRef.Namespace == namespace {
+					virtualClusters = append(virtualClusters, VirtualClusterInstanceProject{
+						VirtualCluster: &s,
+						Project:        p,
+					})
+				}
 			}
 		}
 	}

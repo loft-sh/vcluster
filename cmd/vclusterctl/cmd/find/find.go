@@ -176,7 +176,7 @@ func ListVClusters(ctx context.Context, proClient procli.Client, context, name, 
 
 	var proVClusters []procli.VirtualClusterInstanceProject
 	if proClient != nil {
-		proVClusters, err = procli.ListVClusters(ctx, proClient, name, project)
+		proVClusters, err = procli.ListVClusters(ctx, proClient, name, namespace, project)
 		if err != nil {
 			log.Warnf("Error retrieving pro vclusters: %v", err)
 		}
