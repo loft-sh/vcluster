@@ -19,5 +19,6 @@ func NewListCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	// TODO: change that with the actual globalFlag variable
 	listCmd.AddCommand(NewClustersCmd(globalFlags))
+	listCmd.AddCommand(NewSharedSecretsCmd(globalFlags))
 	return listCmd
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
+
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
@@ -77,6 +79,10 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags)
+	defaults, err := pdefaults.NewFromPath(pdefaults.ConfigFolder, pdefaults.ConfigFile)
+	if err != nil {
+		log.Debugf("Error loading defaults: %v", err)
+	}
 
 	// Set version for --version flag
 	rootCmd.Version = upgrade.GetVersion()
@@ -103,7 +109,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 		return nil, fmt.Errorf("failed to create pro command: %w", err)
 	}
 	rootCmd.AddCommand(proCmd)
-	platformCmd, err := cmdpro.NewPlatformCmd(globalFlags)
+	platformCmd, err := cmdpro.NewPlatformCmd(globalFlags, defaults)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create platform command: %w", err)
 	}
