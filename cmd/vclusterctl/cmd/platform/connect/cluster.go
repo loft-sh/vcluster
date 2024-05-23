@@ -1,6 +1,7 @@
 package connect
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -148,7 +149,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 			"--create-namespace",
 			"--namespace", namespace,
 			"--set", "agentOnly=true",
-			"--set", "image=ghcr.io/loft-sh/enterprise:release-test",
+			"--set", "image=" + cmp.Or(os.Getenv("DEVELOPMENT_IMAGE"), "ghcr.io/loft-sh/enterprise:release-test"),
 		}
 	} else if loftVersion.Version != "" {
 		helmArgs = append(helmArgs, "--version", loftVersion.Version)
