@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform/loftclient/helper"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/mgutz/ansi"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,25 +137,25 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
-//func findProjectCluster(ctx context.Context, baseClient client.Client, projectName, clusterName string) (*managementv1.Cluster, error) {
-//	managementClient, err := baseClient.Management()
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	projectClusters, err := managementClient.Loft().ManagementV1().Projects().ListClusters(ctx, projectName, metav1.GetOptions{})
-//	if err != nil {
-//		return nil, errors.Wrap(err, "list project clusters")
-//	}
-//
-//	for _, cluster := range projectClusters.Clusters {
-//		if cluster.Name == clusterName {
-//			return &cluster, nil
-//		}
-//	}
-//
-//	return nil, fmt.Errorf("couldn't find cluster %s in project %s", clusterName, projectName)
-//}
+func findProjectCluster(ctx context.Context, baseClient client.Client, projectName, clusterName string) (*managementv1.Cluster, error) {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	projectClusters, err := managementClient.Loft().ManagementV1().Projects().ListClusters(ctx, projectName, metav1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "list project clusters")
+	}
+
+	for _, cluster := range projectClusters.Clusters {
+		if cluster.Name == clusterName {
+			return &cluster, nil
+		}
+	}
+
+	return nil, fmt.Errorf("couldn't find cluster %s in project %s", clusterName, projectName)
+}
 
 func CreateClusterContextOptions(baseClient client.Client, config string, cluster *managementv1.Cluster, spaceName string, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
 	contextOptions := kubeconfig.ContextOptions{

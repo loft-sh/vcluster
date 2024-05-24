@@ -8,7 +8,7 @@ import (
 )
 
 // NewConnectCmd creates a new cobra command
-func NewConnectCmd(globalFlags *flags.GlobalFlags, _ *platformdefaults.Defaults) *cobra.Command {
+func NewConnectCmd(globalFlags *flags.GlobalFlags, pdefaults *platformdefaults.Defaults) *cobra.Command {
 	description := product.ReplaceWithHeader("use", `
 
 Activates a kube context for the given cluster / space / vcluster / management.
@@ -21,5 +21,6 @@ Activates a kube context for the given cluster / space / vcluster / management.
 	}
 
 	useCmd.AddCommand(NewClusterCmd(globalFlags))
+	useCmd.AddCommand(NewSpaceCmd(globalFlags, pdefaults))
 	return useCmd
 }
