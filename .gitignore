@@ -14,3 +14,4 @@ profile.out
 /dist
 *.test
 tests/__snapshot__
+/licenses
