@@ -57,7 +57,7 @@ devspace list spaces
 		Short: product.Replace("Lists the loft spaces you have access to"),
 		Long:  description,
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			return cmd.RunSpaces(cobraCmd.Context())
 		},
 	}

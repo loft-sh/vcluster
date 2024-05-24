@@ -100,7 +100,7 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	if cmd.All && output == OutputValue {
-		return errors.Errorf("output format %s is not allowed with the --all flag.", OutputValue)
+		return errors.Errorf("output format %s is not allowed with the --all flag", OutputValue)
 	}
 
 	// get target namespace

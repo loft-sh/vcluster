@@ -96,18 +96,17 @@ func (cmd *SharedSecretsCmd) Run(command *cobra.Command, _ []string) error {
 		}
 
 		return cmd.printProjectSecrets(projectSecrets)
-	} else {
-		if len(cmd.Project) == 0 {
-			return cmd.printSharedSecrets(command.Context(), managementClient, cmd.Namespace)
-		} else {
-			projectSecrets, err := helper.GetProjectSecrets(command.Context(), managementClient, cmd.Project...)
-			if err != nil {
-				return err
-			}
-
-			return cmd.printProjectSecrets(projectSecrets)
-		}
 	}
+
+	if len(cmd.Project) == 0 {
+		return cmd.printSharedSecrets(command.Context(), managementClient, cmd.Namespace)
+	}
+	projectSecrets, err := helper.GetProjectSecrets(command.Context(), managementClient, cmd.Project...)
+	if err != nil {
+		return err
+	}
+
+	return cmd.printProjectSecrets(projectSecrets)
 }
 
 func (cmd *SharedSecretsCmd) printSharedSecrets(ctx context.Context, managementClient kube.Interface, namespace string) error {

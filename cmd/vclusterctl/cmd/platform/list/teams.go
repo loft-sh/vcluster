@@ -39,7 +39,7 @@ loft list teams
 		Short: product.Replace("Lists the loft teams you are member of"),
 		Long:  description,
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			return cmd.Run(cobraCmd.Context())
 		},
 	}
