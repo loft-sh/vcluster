@@ -85,7 +85,7 @@ func (c *client) Self() *managementv1.Self {
 	return c.self.DeepCopy()
 }
 
-func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error) {
+func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, namespace string, projectName string) ([]VirtualClusterInstanceProject, error) {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return nil, err
@@ -137,10 +137,13 @@ func ListVClusters(ctx context.Context, baseClient Client, virtualClusterName, p
 
 			for _, virtualClusterInstance := range virtualClusterInstanceList.Items {
 				s := virtualClusterInstance
-				virtualClusters = append(virtualClusters, VirtualClusterInstanceProject{
-					VirtualCluster: &s,
-					Project:        p,
-				})
+
+				if namespace == "" || s.Spec.ClusterRef.Namespace == namespace {
+					virtualClusters = append(virtualClusters, VirtualClusterInstanceProject{
+						VirtualCluster: &s,
+						Project:        p,
+					})
+				}
 			}
 		}
 	}
