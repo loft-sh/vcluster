@@ -18,7 +18,7 @@ type ResumeOptions struct {
 }
 
 func ResumeHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
-	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+	vCluster, err := find.GetVCluster(ctx, globalFlags.UseKubeConfig, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
 		return err
 	}

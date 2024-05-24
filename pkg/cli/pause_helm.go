@@ -20,7 +20,7 @@ type PauseOptions struct {
 
 func PauseHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	// find vcluster
-	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+	vCluster, err := find.GetVCluster(ctx, globalFlags.UseKubeConfig, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
 		return err
 	}

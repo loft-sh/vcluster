@@ -47,7 +47,7 @@ func ActivatePlatform(ctx context.Context, options *ActivateOptions, globalFlags
 	}
 
 	if globalFlags.Namespace == "" {
-		globalFlags.Namespace, err = GetVClusterNamespace(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+		globalFlags.Namespace, err = GetVClusterNamespace(ctx, globalFlags.UseKubeConfig, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 		if err != nil {
 			log.Warnf("Error retrieving vCluster namespace: %v", err)
 		}
@@ -68,13 +68,13 @@ func ActivatePlatform(ctx context.Context, options *ActivateOptions, globalFlags
 	return nil
 }
 
-func GetVClusterNamespace(ctx context.Context, context, name, namespace string, log log.Logger) (string, error) {
+func GetVClusterNamespace(ctx context.Context, kubeconfigPath, context, name, namespace string, log log.Logger) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("please specify a name")
 	}
 
 	// list virtual clusters
-	ossVClusters, err := find.ListOSSVClusters(ctx, context, name, namespace)
+	ossVClusters, err := find.ListOSSVClusters(ctx, kubeconfigPath, context, name, namespace)
 	if err != nil {
 		log.Warnf("Error retrieving vclusters: %v", err)
 		return "", err

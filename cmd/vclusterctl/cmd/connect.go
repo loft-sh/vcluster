@@ -74,7 +74,6 @@ vcluster connect test -n test -- kubectl get ns
 
 	// platform
 	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The platform project the vCluster is in")
-
 	return cobraCmd
 }
 
