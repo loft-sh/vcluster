@@ -7,6 +7,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/credits"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
 	cmdpro "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
@@ -132,6 +133,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 		return nil, fmt.Errorf("failed to create activate command: %w", err)
 	}
 	rootCmd.AddCommand(importCmd)
+	rootCmd.AddCommand(credits.NewCreditsCmd())
 
 	// add completion command
 	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
