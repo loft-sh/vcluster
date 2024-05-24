@@ -12,6 +12,7 @@ import (
 	cmdpro "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -28,6 +29,17 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 		SilenceErrors: true,
 		Short:         "Welcome to vcluster!",
 		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+			if globalFlags.Config == "" {
+				var err error
+				globalFlags.Config, err = config.DefaultFilePath()
+				if err != nil {
+					log.Fatalf("failed to get vcluster configuration file path: %w", err)
+				}
+			}
+
+			// start telemetry
+			telemetry.StartCLI(globalFlags.LoadedConfig(log))
+
 			if globalFlags.Silent {
 				log.SetLevel(logrus.FatalLevel)
 			} else if globalFlags.Debug {
@@ -50,20 +62,16 @@ func Execute() {
 		panic(err)
 	}
 
-	// start telemetry
-	telemetry.StartCLI()
-
 	// start command
 	log := log.GetInstance()
 	rootCmd, err := BuildRoot(log)
 	if err != nil {
-		recordAndFlush(err)
 		log.Fatalf("error building root: %+v\n", err)
 	}
 
 	// Execute command
 	err = rootCmd.ExecuteContext(context.Background())
-	recordAndFlush(err)
+	recordAndFlush(err, log)
 	if err != nil {
 		if globalFlags.Debug {
 			log.Fatalf("%+v", err)
@@ -77,7 +85,7 @@ func Execute() {
 func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
-	globalFlags = flags.SetGlobalFlags(persistentFlags)
+	globalFlags = flags.SetGlobalFlags(persistentFlags, log)
 
 	// Set version for --version flag
 	rootCmd.Version = upgrade.GetVersion()
@@ -94,9 +102,9 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
 	rootCmd.AddCommand(use.NewUseCmd(globalFlags))
 	rootCmd.AddCommand(convert.NewConvertCmd(globalFlags))
-	rootCmd.AddCommand(cmdtelemetry.NewTelemetryCmd())
+	rootCmd.AddCommand(cmdtelemetry.NewTelemetryCmd(globalFlags))
 	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(NewInfoCmd())
+	rootCmd.AddCommand(NewInfoCmd(globalFlags))
 
 	// add pro commands
 	proCmd, err := cmdpro.NewProCmd(globalFlags)
@@ -144,7 +152,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	return rootCmd, nil
 }
 
-func recordAndFlush(err error) {
-	telemetry.CollectorCLI.RecordCLI(platform.Self, err)
+func recordAndFlush(err error, log log.Logger) {
+	telemetry.CollectorCLI.RecordCLI(globalFlags.LoadedConfig(log), platform.Self, err)
 	telemetry.CollectorCLI.Flush()
 }

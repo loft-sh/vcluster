@@ -6,15 +6,14 @@ import (
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
 
 // ResumeCmd holds the cmd flags
 type ResumeCmd struct {
 	*flags.GlobalFlags
-
 	cli.ResumeOptions
 
 	Log log.Logger
@@ -60,14 +59,10 @@ vcluster resume test --namespace test
 
 // Run executes the functionality
 func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
-	if err != nil {
-		return err
-	}
-
+	cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
 	// check if we should resume a platform backed virtual cluster
-	if manager == platform.ManagerPlatform {
-		return cli.ResumePlatform(ctx, &cmd.ResumeOptions, args[0], cmd.Log)
+	if cfg.Manager.Type == config.ManagerPlatform {
+		return cli.ResumePlatform(ctx, &cmd.ResumeOptions, cmd.Config, args[0], cmd.Log)
 	}
 
 	return cli.ResumeHelm(ctx, cmd.GlobalFlags, args[0], cmd.Log)

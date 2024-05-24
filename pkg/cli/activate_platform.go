@@ -22,7 +22,7 @@ import (
 )
 
 func ActivatePlatform(ctx context.Context, options *ActivateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
+	platformClient, err := platform.NewClientFromPath(ctx, globalFlags.Config)
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,7 @@ import (
 	"runtime"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/spf13/cobra"
@@ -20,7 +21,7 @@ type cliInfo struct {
 }
 
 // NewInfoCmd creates a new info command
-func NewInfoCmd() *cobra.Command {
+func NewInfoCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "info",
 		Short: "Displays informations about the cli and platform",
@@ -41,10 +42,10 @@ vcluster info
 				Version:   cobraCmd.Root().Version,
 				OS:        runtime.GOOS,
 				Arch:      runtime.GOARCH,
-				MachineID: telemetry.GetMachineID(log.GetInstance()),
+				MachineID: telemetry.GetMachineID(globalFlags.LoadedConfig(log.GetInstance())),
 			}
 
-			platformClient, err := platform.CreatePlatformClient()
+			platformClient, err := platform.NewClientFromPath(cobraCmd.Context(), globalFlags.Config)
 			if err == nil {
 				infos.InstanceID = platformClient.Self().Status.InstanceID
 			}

@@ -1301,6 +1301,11 @@ func (in *ClusterAgentConfigCommon) DeepCopyInto(out *ClusterAgentConfigCommon) 
 		*out = make([]byte, len(*in))
 		copy(*out, *in)
 	}
+	if in.ProjectNamespacePrefix != nil {
+		in, out := &in.ProjectNamespacePrefix, &out.ProjectNamespacePrefix
+		*out = new(string)
+		**out = **in
+	}
 	out.AnalyticsSpec = in.AnalyticsSpec
 	return
 }
@@ -2118,6 +2123,11 @@ func (in *ConfigStatus) DeepCopyInto(out *ConfigStatus) {
 		in, out := &in.Audit, &out.Audit
 		*out = new(Audit)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.ProjectNamespacePrefix != nil {
+		in, out := &in.ProjectNamespacePrefix, &out.ProjectNamespacePrefix
+		*out = new(string)
+		**out = **in
 	}
 	if in.UISettings != nil {
 		in, out := &in.UISettings, &out.UISettings
@@ -5338,6 +5348,11 @@ func (in *SelfStatus) DeepCopyInto(out *SelfStatus) {
 		in, out := &in.Groups, &out.Groups
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.ProjectNamespacePrefix != nil {
+		in, out := &in.ProjectNamespacePrefix, &out.ProjectNamespacePrefix
+		*out = new(string)
+		**out = **in
 	}
 	return
 }

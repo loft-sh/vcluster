@@ -59,7 +59,7 @@ devspace use management
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -67,8 +67,8 @@ devspace use management
 	return c
 }
 
-func (cmd *ManagementCmd) Run(args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+func (cmd *ManagementCmd) Run(cobraCmd *cobra.Command, args []string) error {
+	baseClient, err := client.InitClientFromPath(cobraCmd.Context(), cmd.Config)
 	if err != nil {
 		return err
 	}

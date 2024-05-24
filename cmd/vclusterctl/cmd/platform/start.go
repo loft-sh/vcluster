@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	loftctlflags "github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/start"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/start"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -19,10 +19,10 @@ type StartCmd struct {
 	start.Options
 }
 
-func NewStartCmd(loftctlGlobalFlags *loftctlflags.GlobalFlags) (*cobra.Command, error) {
+func NewStartCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	cmd := &StartCmd{
 		Options: start.Options{
-			GlobalFlags: loftctlGlobalFlags,
+			GlobalFlags: globalFlags,
 			Log:         log.GetInstance(),
 		},
 	}
@@ -78,19 +78,16 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	// get version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {
 		cmd.Version = platform.MinimumVersionTag
-
 		latestVersion, err := platform.LatestCompatibleVersion(ctx)
 		if err == nil {
 			cmd.Version = latestVersion
 		}
 	}
-
 	// make sure we are in the correct context
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: cmd.Context,
 	})
-
 	// load the raw config
 	rawConfig, err := kubeClientConfig.RawConfig()
 	if err != nil {
@@ -99,7 +96,6 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	if cmd.Context != "" {
 		rawConfig.CurrentContext = cmd.Context
 	}
-
 	// check if vcluster in vcluster
 	_, _, previousContext := find.VClusterFromContext(rawConfig.CurrentContext)
 	if previousContext != "" {
@@ -113,7 +109,6 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-
 			if out == switchBackOption {
 				cmd.Context = previousContext
 				kubeClientConfig = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{

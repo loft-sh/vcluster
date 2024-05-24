@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
@@ -24,7 +23,7 @@ type connectPlatform struct {
 }
 
 func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *flags.GlobalFlags, vClusterName string, command []string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
+	platformClient, err := platform.NewClientFromPath(ctx, globalFlags.Config)
 	if err != nil {
 		return err
 	}
@@ -95,14 +94,14 @@ func (cmd *connectPlatform) validateProFlags() error {
 }
 
 func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformClient platform.Client, vCluster *platform.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
-	contextOptions, err := use.CreateVirtualClusterInstanceOptions(ctx, platformClient, "", vCluster.Project.Name, vCluster.VirtualCluster, false, false, cmd.log)
+	contextOptions, err := platformClient.CreateVirtualClusterInstanceOptions(ctx, "", vCluster.Project.Name, vCluster.VirtualCluster, false)
 	if err != nil {
 		return nil, fmt.Errorf("prepare vCluster kube config: %w", err)
 	}
 
 	// make sure access key is set
 	if contextOptions.Token == "" && len(contextOptions.ClientCertificateData) == 0 && len(contextOptions.ClientKeyData) == 0 {
-		contextOptions.Token = platformClient.Config().AccessKey
+		contextOptions.Token = platformClient.Config().Platform.AccessKey
 	}
 
 	// get current context

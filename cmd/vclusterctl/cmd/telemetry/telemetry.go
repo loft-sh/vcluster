@@ -1,10 +1,11 @@
 package telemetry
 
 import (
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
 
-func NewTelemetryCmd() *cobra.Command {
+func NewTelemetryCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	telemetryCmd := &cobra.Command{
 		Use:   "telemetry",
 		Short: "Sets your vcluster telemetry preferences",
@@ -23,7 +24,7 @@ docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 
 	//TODO: hide global flags on this command and all sub-commands, same for the top-level upgrade command
 
-	telemetryCmd.AddCommand(disable())
-	telemetryCmd.AddCommand(enable())
+	telemetryCmd.AddCommand(disable(globalFlags))
+	telemetryCmd.AddCommand(enable(globalFlags))
 	return telemetryCmd
 }
