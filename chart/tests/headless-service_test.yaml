@@ -12,7 +12,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should not create if k8s
+  - it: should create if k8s
     set:
       controlPlane:
         distro:
@@ -20,14 +20,26 @@ tests:
             enabled: true
     asserts:
       - hasDocuments:
-          count: 0
+          count: 1
 
   - it: should not create if stateless
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            enabled: true
+          etcd:
+            deploy:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not create if stateless 2
+    set:
+      controlPlane:
+        backingStore:
+          database:
+            external:
+              enabled: true
     asserts:
       - hasDocuments:
           count: 0
@@ -53,8 +65,9 @@ tests:
     set:
       controlPlane:
         backingStore:
-          embeddedEtcd:
-            enabled: true
+          etcd:
+            embedded:
+              enabled: true
     asserts:
       - hasDocuments:
           count: 1
@@ -67,4 +80,18 @@ tests:
       - equal:
           path: spec.ports[2].name
           value: peer
+
+  - it: embedded-database
+    set:
+      controlPlane:
+        backingStore:
+          database:
+            embedded:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ports
+          count: 1
 

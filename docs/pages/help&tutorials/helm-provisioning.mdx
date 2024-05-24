@@ -156,7 +156,7 @@ We can see the complete list of values that can be modified and their default se
 If you’re not familiar with what a vCluster distro is, the distro is the distribution of Kubernetes that runs inside of the virtual cluster. The default is k3s, and the other supported distros are k0s, eks, and k8s (a larger Kubernetes install that uses etcd).
 
 We’ve used the default distro for this tutorial, k3s. To view its default values, we’d want to examine the file vcluster/charts/k3s/values.yaml.
-You can view the [entire file here](https://github.com/loft-sh/vcluster/blob/main/charts/k3s/values.yaml?_gl=1*8boa70*_ga*MjEzODEwMTQ1My4xNjY3MjA5OTgx*_ga_4RQQZ3WGE9*MTY5NjMyMTgwMy4xMzcuMS4xNjk2MzIzMzkwLjYwLjAuMA..*_gcl_au*MTYzMDM2NDc5NC4xNjkwMzczNjIyLjIwMTE4NTM2MTIuMTY5NTA0NjA0Ny4xNjk1MDQ2MDQ2/).
+You can view the [entire file here](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k3s/values.yaml).
 
 You’ll see the list of all the values supported for that distro and their defaults. To override those default values, put the option and the new value in your vcluster.yaml file that you use for the Helm install, as we did in the previous step.
 

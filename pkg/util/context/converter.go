@@ -11,8 +11,8 @@ func ToRegisterContext(ctx *config.ControllerContext) *synccontext.RegisterConte
 
 		Config: ctx.Config,
 
-		CurrentNamespace:       ctx.CurrentNamespace,
-		CurrentNamespaceClient: ctx.CurrentNamespaceClient,
+		CurrentNamespace:       ctx.Config.WorkloadNamespace,
+		CurrentNamespaceClient: ctx.WorkloadNamespaceClient,
 
 		VirtualManager:  ctx.VirtualManager,
 		PhysicalManager: ctx.LocalManager,

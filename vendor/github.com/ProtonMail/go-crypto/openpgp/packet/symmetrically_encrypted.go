@@ -21,20 +21,19 @@ type SymmetricallyEncrypted struct {
 	IntegrityProtected bool      // If true it is type 18 (with MDC or AEAD). False is packet type 9
 
 	// Specific to version 1
-	prefix   []byte
+	prefix []byte
 
 	// Specific to version 2
-	cipher CipherFunction
-	mode AEADMode
-	chunkSizeByte byte
-	salt [aeadSaltSize]byte
+	Cipher        CipherFunction
+	Mode          AEADMode
+	ChunkSizeByte byte
+	Salt          [aeadSaltSize]byte
 }
 
 const (
-	symmetricallyEncryptedVersionMdc = 1
+	symmetricallyEncryptedVersionMdc  = 1
 	symmetricallyEncryptedVersionAead = 2
 )
-
 
 func (se *SymmetricallyEncrypted) parse(r io.Reader) error {
 	if se.IntegrityProtected {

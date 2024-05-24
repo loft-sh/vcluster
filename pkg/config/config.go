@@ -4,10 +4,17 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/legacyconfig"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+)
+
+const (
+	DefaultHostsRewriteImage = "library/alpine:3.13.1"
 )
 
 // VirtualClusterConfig wraps the config and adds extra info such as name, serviceName and targetNamespace
@@ -15,28 +22,39 @@ type VirtualClusterConfig struct {
 	// Holds the vCluster config
 	config.Config `json:",inline"`
 
+	// WorkloadConfig is the config to access the workload cluster
+	WorkloadConfig *rest.Config `json:"-"`
+
+	// WorkloadClient is the client to access the workload cluster
+	WorkloadClient kubernetes.Interface `json:"-"`
+
+	// ControlPlaneConfig is the config to access the control plane cluster
+	ControlPlaneConfig *rest.Config `json:"-"`
+
+	// ControlPlaneClient is the client to access the control plane cluster
+	ControlPlaneClient kubernetes.Interface `json:"-"`
+
 	// Name is the name of the vCluster
 	Name string `json:"name"`
 
-	// ServiceName is the name of the service of the vCluster
-	ServiceName string `json:"serviceName,omitempty"`
+	// WorkloadService is the name of the service of the vCluster
+	WorkloadService string `json:"workloadService,omitempty"`
 
-	// TargetNamespace is the namespace where the workloads go
-	TargetNamespace string `json:"targetNamespace,omitempty"`
+	// WorkloadNamespace is the namespace of the target cluster
+	WorkloadNamespace string `json:"workloadNamespace,omitempty"`
+
+	// WorkloadTargetNamespace is the namespace of the target cluster where the workloads should get created in
+	WorkloadTargetNamespace string `json:"workloadTargetNamespace,omitempty"`
+
+	// ControlPlaneService is the name of the service for the vCluster control plane
+	ControlPlaneService string `json:"controlPlaneService,omitempty"`
+
+	// ControlPlaneNamespace is the namespace where the vCluster control plane is running
+	ControlPlaneNamespace string `json:"controlPlaneNamespace,omitempty"`
 }
 
-func (v VirtualClusterConfig) Distro() string {
-	if v.Config.ControlPlane.Distro.K3S.Enabled {
-		return config.K3SDistro
-	} else if v.Config.ControlPlane.Distro.K0S.Enabled {
-		return config.K0SDistro
-	} else if v.Config.ControlPlane.Distro.K8S.Enabled {
-		return config.K8SDistro
-	} else if v.Config.ControlPlane.Distro.EKS.Enabled {
-		return config.EKSDistro
-	}
-
-	return config.K3SDistro
+func (v VirtualClusterConfig) EmbeddedDatabase() bool {
+	return !v.ControlPlane.BackingStore.Database.External.Enabled && !v.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !v.ControlPlane.BackingStore.Etcd.Deploy.Enabled
 }
 
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
@@ -60,15 +78,15 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 		}
 	case config.EKSDistro, config.K8SDistro:
 		distroConfig = config.VirtualClusterKubeConfig{
-			KubeConfig:          "/pki/admin.conf",
-			ServerCAKey:         "/pki/ca.key",
-			ServerCACert:        "/pki/ca.crt",
-			ClientCACert:        "/pki/ca.crt",
-			RequestHeaderCACert: "/pki/front-proxy-ca.crt",
+			KubeConfig:          "/data/pki/admin.conf",
+			ServerCAKey:         "/data/pki/ca.key",
+			ServerCACert:        "/data/pki/ca.crt",
+			ClientCACert:        "/data/pki/ca.crt",
+			RequestHeaderCACert: "/data/pki/front-proxy-ca.crt",
 		}
 	}
 
-	retConfig := v.Config.Experimental.VirtualClusterKubeConfig
+	retConfig := v.Experimental.VirtualClusterKubeConfig
 	if retConfig.KubeConfig == "" {
 		retConfig.KubeConfig = distroConfig.KubeConfig
 	}
@@ -89,7 +107,7 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 }
 
 // LegacyOptions converts the config to the legacy cluster options
-func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, error) {
+func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualClusterOptions, error) {
 	legacyPlugins := []string{}
 	for pluginName, plugin := range v.Plugin {
 		if plugin.Version != "" && !plugin.Optional {
@@ -109,14 +127,14 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		nodeSelector = strings.Join(selectors, ",")
 	}
 
-	return &LegacyVirtualClusterOptions{
-		ProOptions: LegacyVirtualClusterProOptions{
+	return &legacyconfig.LegacyVirtualClusterOptions{
+		ProOptions: legacyconfig.LegacyVirtualClusterProOptions{
 			RemoteKubeConfig:      v.Experimental.IsolatedControlPlane.KubeConfig,
 			RemoteNamespace:       v.Experimental.IsolatedControlPlane.Namespace,
 			RemoteServiceName:     v.Experimental.IsolatedControlPlane.Service,
 			IntegratedCoredns:     v.ControlPlane.CoreDNS.Embedded,
 			EtcdReplicas:          int(v.ControlPlane.StatefulSet.HighAvailability.Replicas),
-			EtcdEmbedded:          v.ControlPlane.BackingStore.EmbeddedEtcd.Enabled,
+			EtcdEmbedded:          v.ControlPlane.BackingStore.Etcd.Embedded.Enabled,
 			NoopSyncer:            !v.Experimental.SyncSettings.DisableSync,
 			SyncKubernetesService: v.Experimental.SyncSettings.RewriteKubernetesService,
 		},
@@ -134,8 +152,8 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		BindAddress:                 v.ControlPlane.Proxy.BindAddress,
 		Port:                        v.ControlPlane.Proxy.Port,
 		Name:                        v.Name,
-		TargetNamespace:             v.TargetNamespace,
-		ServiceName:                 v.ServiceName,
+		TargetNamespace:             v.WorkloadNamespace,
+		ServiceName:                 v.WorkloadService,
 		SetOwner:                    v.Experimental.SyncSettings.SetOwner,
 		SyncAllNodes:                v.Sync.FromHost.Nodes.Selector.All,
 		EnableScheduler:             v.ControlPlane.Advanced.VirtualScheduler.Enabled,
@@ -147,7 +165,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*LegacyVirtualClusterOptions, err
 		EnforceNodeSelector:         true,
 		PluginListenAddress:         "localhost:10099",
 		OverrideHosts:               v.Sync.ToHost.Pods.RewriteHosts.Enabled,
-		OverrideHostsContainerImage: v.Sync.ToHost.Pods.RewriteHosts.InitContainerImage,
+		OverrideHostsContainerImage: v.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image,
 		ServiceAccountTokenSecrets:  v.Sync.ToHost.Pods.UseSecretsForSATokens,
 		ClusterDomain:               v.Networking.Advanced.ClusterDomain,
 		LeaderElect:                 v.ControlPlane.StatefulSet.HighAvailability.Replicas > 1,
@@ -178,20 +196,20 @@ func (v VirtualClusterConfig) DisableMissingAPIs(discoveryClient discovery.Disco
 	}
 
 	// check if found
-	if v.Sync.FromHost.CSINodes.Enabled && !findResource(resources, "csinodes") {
-		v.Sync.FromHost.CSINodes.Enabled = false
+	if v.Sync.FromHost.CSINodes.Enabled != "false" && !findResource(resources, "csinodes") {
+		v.Sync.FromHost.CSINodes.Enabled = "false"
 		klog.Warningf("host kubernetes apiserver not advertising resource csinodes in GroupVersion storage.k8s.io/v1, disabling the syncer")
 	}
 
 	// check if found
-	if v.Sync.FromHost.CSIDrivers.Enabled && !findResource(resources, "csidrivers") {
-		v.Sync.FromHost.CSIDrivers.Enabled = false
+	if v.Sync.FromHost.CSIDrivers.Enabled != "false" && !findResource(resources, "csidrivers") {
+		v.Sync.FromHost.CSIDrivers.Enabled = "false"
 		klog.Warningf("host kubernetes apiserver not advertising resource csidrivers in GroupVersion storage.k8s.io/v1, disabling the syncer")
 	}
 
 	// check if found
-	if v.Sync.FromHost.CSIStorageCapacities.Enabled && !findResource(resources, "csistoragecapacities") {
-		v.Sync.FromHost.CSIStorageCapacities.Enabled = false
+	if v.Sync.FromHost.CSIStorageCapacities.Enabled != "false" && !findResource(resources, "csistoragecapacities") {
+		v.Sync.FromHost.CSIStorageCapacities.Enabled = "false"
 		klog.Warningf("host kubernetes apiserver not advertising resource csistoragecapacities in GroupVersion storage.k8s.io/v1, disabling the syncer")
 	}
 

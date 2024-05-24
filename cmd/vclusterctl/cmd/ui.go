@@ -4,15 +4,15 @@ import (
 	"errors"
 	"fmt"
 
-	loftctl "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
+	loftctl "github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/pkg/procli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
 
 func NewUICmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
-	loftctlGlobalFlags, err := procli.GlobalFlags(globalFlags)
+	loftctlGlobalFlags, err := platform.GlobalFlags(globalFlags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pro flags: %w", err)
 	}
@@ -25,7 +25,7 @@ func NewUICmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	description := `########################################################
 ##################### vcluster ui ######################
 ########################################################
-Open the vCluster.Pro web UI
+Open the vCluster platform web UI
 
 Example:
 vcluster ui

@@ -2,6 +2,7 @@ package clihelper
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"net"
 	"sort"
@@ -9,12 +10,13 @@ import (
 	"strings"
 	"time"
 
-	loftkubeconfig "github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	loftkubeconfig "github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/app/podprinter"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/podprinter"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
+	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -22,6 +24,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
+
+const MinHelmVersion = "v3.10.0"
 
 // CriticalStatus container status
 var CriticalStatus = map[string]bool{
@@ -117,10 +121,6 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 
 		kubeConfig, err = kubeconfig.ReadKubeConfig(ctx, kubeClient, vclusterName, namespace)
 		if err != nil {
-			if !printedWaiting {
-				log.Errorf("Error while waiting for vcluster to come up:", err)
-				printedWaiting = true
-			}
 			return false, nil
 		}
 		return true, nil
@@ -148,8 +148,8 @@ func HasPodProblem(pod *corev1.Pod) bool {
 }
 
 func CheckHelmVersion(output string) error {
-	if !(strings.Contains(output, "Version:\"v3.")) {
-		return errors.New("Please ensure that the \"helm\" binary in your PATH is valid. Only Helm v3 is supported")
+	if semver.Compare(output, MinHelmVersion) == -1 {
+		return fmt.Errorf("please ensure that the \"helm\" binary in your PATH is valid. Currently only Helm >= %s is supported", MinHelmVersion)
 	}
 
 	return nil

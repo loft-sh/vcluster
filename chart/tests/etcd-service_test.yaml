@@ -15,10 +15,12 @@ tests:
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            service:
-              annotations:
-                test: test
+          etcd:
+            deploy:
+              enabled: true
+              service:
+                annotations:
+                  test: test
         distro:
           k8s:
             enabled: true

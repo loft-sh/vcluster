@@ -33,14 +33,16 @@ var (
 
 func NewFakeSyncer(ctx *synccontext.RegisterContext, nodeService nodeservice.Provider) (syncer.Object, error) {
 	return &fakeNodeSyncer{
-		nodeServiceProvider: nodeService,
-		fakeKubeletIPs:      ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		nodeServiceProvider:  nodeService,
+		fakeKubeletIPs:       ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		fakeKubeletHostnames: ctx.Config.Networking.Advanced.ProxyKubelets.ByHostname,
 	}, nil
 }
 
 type fakeNodeSyncer struct {
-	nodeServiceProvider nodeservice.Provider
-	fakeKubeletIPs      bool
+	nodeServiceProvider  nodeservice.Provider
+	fakeKubeletIPs       bool
+	fakeKubeletHostnames bool
 }
 
 func (r *fakeNodeSyncer) Resource() client.Object {
@@ -74,7 +76,7 @@ func (r *fakeNodeSyncer) FakeSyncToVirtual(ctx *synccontext.SyncContext, name ty
 	}
 
 	ctx.Log.Infof("Create fake node %s", name.Name)
-	return ctrl.Result{}, CreateFakeNode(ctx.Context, r.fakeKubeletIPs, r.nodeServiceProvider, ctx.VirtualClient, name.Name)
+	return ctrl.Result{}, createFakeNode(ctx.Context, r.fakeKubeletIPs, r.fakeKubeletHostnames, r.nodeServiceProvider, ctx.VirtualClient, name.Name)
 }
 
 func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -143,9 +145,10 @@ func newGUID() string {
 	return random.String(8) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(4) + "-" + random.String(12)
 }
 
-func CreateFakeNode(
+func createFakeNode(
 	ctx context.Context,
 	fakeKubeletIPs bool,
+	fakeKubeletHostnames bool,
 	nodeServiceProvider nodeservice.Provider,
 	virtualClient client.Client,
 	name string,
@@ -228,12 +231,7 @@ func CreateFakeNode(
 				Type:               corev1.NodeReady,
 			},
 		},
-		Addresses: []corev1.NodeAddress{
-			{
-				Address: GetNodeHost(node.Name),
-				Type:    corev1.NodeHostName,
-			},
-		},
+		Addresses: []corev1.NodeAddress{},
 		DaemonEndpoints: corev1.NodeDaemonEndpoints{
 			KubeletEndpoint: corev1.DaemonEndpoint{
 				Port: constants.KubeletPort,
@@ -252,6 +250,13 @@ func CreateFakeNode(
 			OSImage:                 "Fake Kubernetes Image",
 		},
 		Images: []corev1.ContainerImage{},
+	}
+
+	if fakeKubeletHostnames {
+		node.Status.Addresses = append(node.Status.Addresses, corev1.NodeAddress{
+			Address: GetNodeHost(node.Name),
+			Type:    corev1.NodeHostName,
+		})
 	}
 
 	if fakeKubeletIPs {

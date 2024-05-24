@@ -1,4 +1,4 @@
-__webpack_public_path__ = "/docs/";
+__webpack_public_path__ = "/docs/v0.19/";
 
 module.exports = {
   title: "vcluster docs | Virtual Clusters for Kubernetes",
@@ -22,6 +22,14 @@ module.exports = {
         target: "_self",
       },
       items: [
+        {
+          type: "docsVersionDropdown",
+          position: "left",
+          dropdownItemsAfter: [
+            { to: "https://vcluster.com/docs", label: "Latest" },
+          ],
+          dropdownActiveClassDisabled: true,
+        },
         {
           href: "https://vcluster.com/",
           label: "Website",
@@ -53,13 +61,6 @@ module.exports = {
         },
       ],
     },
-    algolia: {
-      appId: "K85RIQNFGF",
-      apiKey: "42375731adc726ebb99849e9051aa9b4",
-      indexName: "vcluster",
-      placeholder: "Search...",
-      algoliaOptions: {},
-    },
     footer: {
       style: "light",
       links: [],
@@ -75,6 +76,11 @@ module.exports = {
           routeBasePath: "/",
           sidebarPath: require.resolve("./sidebars.js"),
           editUrl: "https://github.com/loft-sh/vcluster/edit/main/docs/",
+          versions: {
+            current: {
+              label: "Legacy",
+            },
+          },
         },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
@@ -88,7 +94,7 @@ module.exports = {
       async: true,
     },
     {
-      src: "/docs/js/custom.js",
+      src: "/docs/v0.19/js/custom.js",
       async: true,
     },
   ],

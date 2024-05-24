@@ -1,6 +1,6 @@
 {{- if not .Values.experimental.isolatedControlPlane.headless }}
-{{- if or (include "vcluster.externalEtcd.enabled" .) (include "vcluster.externalEtcd.migrate" .) }}
-{{- if .Values.controlPlane.backingStore.externalEtcd.headlessService.enabled }}
+{{- if or .Values.controlPlane.backingStore.etcd.deploy.enabled (include "vcluster.etcd.embedded.migrate" .) }}
+{{- if .Values.controlPlane.backingStore.etcd.deploy.headlessService.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,7 +11,7 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.controlPlane.backingStore.externalEtcd.headlessService.annotations }}
+  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.controlPlane.backingStore.etcd.deploy.headlessService.annotations }}
   {{- if $annotations }}
   annotations:
 {{ toYaml $annotations | indent 4 }}

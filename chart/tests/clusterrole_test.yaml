@@ -8,8 +8,87 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: force enable
+    set:
+      rbac:
+        clusterRole:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: force disable
+    set:
+      rbac:
+        clusterRole:
+          enabled: false
+          extraRules:
+            - apiGroups: [""]
+              resources: ["test123"]
+              verbs: ["test123"]
+          overwriteRules:
+            - apiGroups: [""]
+              resources: ["test"]
+              verbs: ["test"]
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: enable isolated control plane
+    set:
+      experimental:
+        isolatedControlPlane:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "nodes" ]
+            verbs: [ "get", "watch", "list" ]
+
+  - it: enable scheduler
+    set:
+      controlPlane:
+        advanced:
+          virtualScheduler:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "storage.k8s.io" ]
+            resources: [ "storageclasses", "csinodes", "csidrivers", "csistoragecapacities" ]
+            verbs: [ "get", "watch", "list" ]
+
+  - it: enable csinodes
+    set:
+      sync:
+        fromHost:
+          csiNodes:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "storage.k8s.io" ]
+            resources: [ "csinodes" ]
+            verbs: [ "get", "watch", "list" ]
+
   - it: enable by multi namespace mode
     set:
+      rbac:
+        clusterRole:
+          enabled: auto
       experimental:
         multiNamespaceMode:
           enabled: true

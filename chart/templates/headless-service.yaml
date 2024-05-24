@@ -25,7 +25,7 @@ spec:
       port: 443
       targetPort: 8443
       protocol: TCP
-    {{- if .Values.controlPlane.backingStore.embeddedEtcd.enabled }}
+    {{- if .Values.controlPlane.backingStore.etcd.embedded.enabled }}
     - name: etcd
       port: 2379
       targetPort: 2379

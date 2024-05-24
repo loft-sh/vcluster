@@ -1,4 +1,7 @@
-# Build the manager binary
+ARG KINE_VERSION="v0.11.1"
+FROM rancher/kine:${KINE_VERSION} as kine
+
+# Build program
 FROM golang:1.22 as builder
 
 WORKDIR /vcluster-dev
@@ -9,13 +12,16 @@ ARG TELEMETRY_PRIVATE_KEY=""
 ARG HELM_VERSION="v3.13.3"
 
 # Install kubectl for development
-RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
 
 # Install helm binary
 RUN curl -s https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz > helm3.tar.gz && tar -zxvf helm3.tar.gz linux-${TARGETARCH}/helm && chmod +x linux-${TARGETARCH}/helm && mv linux-${TARGETARCH}/helm /usr/local/bin/helm && rm helm3.tar.gz && rm -R linux-${TARGETARCH}
 
 # Install Delve for debugging
 RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then go install github.com/go-delve/delve/cmd/dlv@latest; fi
+
+# Install kine
+COPY --from=kine /bin/kine /usr/local/bin/kine
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod
@@ -48,7 +54,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
 # RUN useradd -u 12345 nonroot
 # USER nonroot
 
-ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go"]
+ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go", "start"]
 
 # we use alpine for easier debugging
 FROM alpine:3.19
@@ -56,6 +62,7 @@ FROM alpine:3.19
 # Set root path as working directory
 WORKDIR /
 
+COPY --from=kine /bin/kine /usr/local/bin/kine
 COPY --from=builder /vcluster .
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 

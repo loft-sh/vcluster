@@ -70,15 +70,12 @@ done < "${list}"
 arch_list+=("linux-amd64")
 for i in "${linux_images[@]}"; do
     [ -z "${i}" ] && continue
-    case $i in
-    */*)
-        image_name="${reg}/${i}"
-        ;;
-    *)
-        image_name="${reg}/ghcr.io/loft-sh/${i}"
-        ;;
-    esac
 
-    docker tag "${i}" "${image_name}"
-    docker push "${image_name}"
+    # trim ghcr.io & registry.k8s.io
+    image_name=$(echo $i | sed 's/ghcr\.io\///')
+    image_name=$(echo $image_name | sed 's/registry\.k8s\.io\///')
+
+    echo "Push ${i} as ${reg}/${image_name}"
+    docker tag "${i}" "${reg}/${image_name}"
+    docker push "${reg}/${image_name}"
 done

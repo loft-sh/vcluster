@@ -38,9 +38,9 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 
 	// build config
 	retConfig := &VirtualClusterConfig{
-		Config:      *rawConfig,
-		Name:        name,
-		ServiceName: name,
+		Config:              *rawConfig,
+		Name:                name,
+		ControlPlaneService: name,
 	}
 	if name == "" {
 		return nil, fmt.Errorf("environment variable VCLUSTER_NAME is not defined")
@@ -69,7 +69,7 @@ func applySetValues(rawConfig []byte, setValues []string) ([]byte, error) {
 
 	// merge set
 	for _, set := range setValues {
-		err = strvals.ParseIntoString(set, rawConfigMap)
+		err = strvals.ParseInto(set, rawConfigMap)
 		if err != nil {
 			return nil, fmt.Errorf("apply --set %s: %w", set, err)
 		}

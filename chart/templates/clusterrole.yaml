@@ -26,6 +26,11 @@ rules:
     resources: ["pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy"]
     verbs: ["get", "watch", "list"]
   {{- end }}
+  {{- if .Values.experimental.isolatedControlPlane.enabled }}
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
   {{- if and .Values.sync.fromHost.nodes.enabled .Values.sync.fromHost.nodes.syncBackChanges }}
   - apiGroups: [""]
     resources: ["nodes", "nodes/status"]
@@ -34,6 +39,26 @@ rules:
   {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.storageClasses.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiNodes.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csidrivers"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiStorageCapacities.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csistoragecapacities"]
     verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if .Values.sync.toHost.persistentVolumes.enabled }}
@@ -50,11 +75,6 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
-  {{- end }}
-  {{- if .Values.sync.fromHost.storageClasses.enabled }}
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses"]
-    verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if .Values.sync.toHost.priorityClasses.enabled }}
   - apiGroups: ["scheduling.k8s.io"]

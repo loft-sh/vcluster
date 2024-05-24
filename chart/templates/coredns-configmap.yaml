@@ -152,7 +152,7 @@ data:
 {{ toYaml .Values.controlPlane.coredns.deployment.pods.labels | indent 12 }}
           {{- end }}
         spec:
-          priorityClassName: "system-cluster-critical"
+          priorityClassName: {{ .Values.controlPlane.coredns.priorityClassName | quote }}
           serviceAccountName: coredns
           nodeSelector:
             kubernetes.io/os: linux
@@ -174,7 +174,11 @@ data:
           containers:
             - name: coredns
               {{- if .Values.controlPlane.coredns.deployment.image }}
-              image: {{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.coredns.deployment.image }}
+              {{- if .Values.controlPlane.advanced.defaultImageRegistry }}
+              image: {{ .Values.controlPlane.advanced.defaultImageRegistry }}/{{ .Values.controlPlane.coredns.deployment.image }}
+              {{- else }}
+              image: {{ .Values.controlPlane.coredns.deployment.image }}
+              {{- end }}
               {{- else }}
               image: {{`{{.IMAGE}}`}}
               {{- end }}

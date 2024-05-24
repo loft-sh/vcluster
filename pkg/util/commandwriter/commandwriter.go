@@ -18,9 +18,9 @@ type CommandWriter interface {
 	Writer() io.Writer
 }
 
-func NewCommandWriter(component string) (CommandWriter, error) {
-	if klog.V(1).Enabled() {
-		writer, err := NewPipeWriter(component)
+func NewCommandWriter(component string, useRingBuffer bool) (CommandWriter, error) {
+	if useRingBuffer {
+		writer, err := NewRingBufferWriter(component)
 		if err != nil {
 			return nil, fmt.Errorf("creating pipe writer: %w", err)
 		}
@@ -28,7 +28,7 @@ func NewCommandWriter(component string) (CommandWriter, error) {
 		return writer, nil
 	}
 
-	writer, err := NewRingBufferWriter(component)
+	writer, err := NewPipeWriter(component)
 	if err != nil {
 		return nil, fmt.Errorf("creating pipe writer: %w", err)
 	}

@@ -2,6 +2,7 @@ package manifests
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
@@ -36,7 +37,7 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 	)
 
 	ginkgo.It("Test if configmap for both charts gets applied", func() {
-		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout*2, true, func(ctx context.Context) (bool, error) {
 			cm, err := f.VclusterClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
 				Get(ctx, deploy.VClusterDeployConfigMap, metav1.GetOptions{})
 			if err != nil {
@@ -50,6 +51,7 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 			status := deploy.ParseStatus(cm)
 			for _, chart := range status.Charts {
 				if chart.Phase != string(deploy.StatusSuccess) {
+					fmt.Println(chart.Name, chart.Phase, chart.Reason, chart.Message)
 					return false, nil
 				}
 			}

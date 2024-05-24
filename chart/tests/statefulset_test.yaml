@@ -12,6 +12,127 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: image name
+    set:
+      controlPlane:
+        statefulSet:
+          image:
+            registry: "custom-registry.com"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: custom-registry.com/loft-sh/vcluster-pro:0.0.1
+
+  - it: defaultImageRegistry
+    set:
+      controlPlane:
+        advanced:
+          defaultImageRegistry: docker.io
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: docker.io/loft-sh/vcluster-pro:0.0.1
+
+  - it: custom tag
+    set:
+      controlPlane:
+        statefulSet:
+          image:
+            repository: my-repo
+            tag: "custom-tag"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/my-repo:custom-tag
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+            image:
+              registry: "ghcr.io"
+              repository: "test"
+              tag: "123"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/test:123
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k0s:
+            enabled: true
+            image:
+              registry: ""
+              repository: "k0s"
+              tag: "123"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: k0s:123
+
+  - it: disables serviceLinks for sts etcd pod
+    set:
+      controlPlane:
+        statefulSet:
+          enableServiceLinks: false
+    asserts:
+      - equal:
+          path: spec.template.spec.enableServiceLinks
+          value: false
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            controllerManager:
+              image:
+                registry: ""
+                repository: "k8s-controller"
+                tag: "123"
+            apiServer:
+              image:
+                registry: ""
+                repository: "k8s-api"
+                tag: "456"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: k8s-controller:123
+      - equal:
+          path: spec.template.spec.initContainers[2].image
+          value: k8s-api:456
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            controllerManager:
+              image:
+                repository: "k8s-controller"
+                tag: "123"
+            apiServer:
+              image:
+                repository: "k8s-api"
+                tag: "456"
+        advanced:
+          defaultImageRegistry: "bbb.com"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: bbb.com/k8s-controller:123
+      - equal:
+          path: spec.template.spec.initContainers[2].image
+          value: bbb.com/k8s-api:456
+
   - it: name & defaults
     release:
       name: my-release
@@ -28,6 +149,9 @@ tests:
       - lengthEqual:
           path: spec.template.spec.containers
           count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/loft-sh/vcluster-pro:0.0.1
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -85,20 +209,22 @@ tests:
     set:
       controlPlane:
         backingStore:
-          embeddedEtcd:
-            enabled: true
-          externalEtcd:
-            enabled: true
+          etcd:
+            embedded:
+              enabled: true
+            deploy:
+              enabled: true
     asserts:
       - failedTemplate:
-          errorMessage: "embeddedEtcd and externalEtcd cannot be enabled at the same time together"
+          errorMessage: "you can only enable one backingStore at the same time"
 
   - it: not persistent when external etcd is enabled
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            enabled: true
+          etcd:
+            deploy:
+              enabled: true
     asserts:
       - equal:
           path: kind
@@ -106,28 +232,60 @@ tests:
       - notExists:
           path: spec.volumeClaimTemplates
 
-  - it: not persistent when k8s
+  - it: not persistent when k8s and external database
     set:
       controlPlane:
         distro:
           k8s:
             enabled: true
+        backingStore:
+          database:
+            external:
+              enabled: true
     asserts:
       - equal:
           path: kind
           value: Deployment
       - notExists:
           path: spec.volumeClaimTemplates
+
+  - it: persistent when embedded database
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        backingStore:
+          database:
+            embedded:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
 
   - it: persistent when k8s and embedded etcd
     set:
       controlPlane:
         backingStore:
-          embeddedEtcd:
-            enabled: true
+          etcd:
+            embedded:
+              enabled: true
         distro:
           k8s:
             enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: persistent when embedded database
     asserts:
       - equal:
           path: kind
@@ -148,10 +306,10 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 8
+          count: 7
       - lengthEqual:
           path: spec.template.spec.initContainers
-          count: 3
+          count: 5
 
   - it: plugin volumes 2
     set:
@@ -182,14 +340,17 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 7
+          count: 6
       - lengthEqual:
           path: spec.template.spec.initContainers
-          count: 1
+          count: 3
 
   - it: add volumes
     set:
       controlPlane:
+        distro:
+          k3s:
+            enabled: true
         statefulSet:
           persistence:
             addVolumes:
@@ -209,6 +370,24 @@ tests:
         distro:
           k8s:
             enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: enable k8s with deploy etcd
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
     asserts:
       - equal:
           path: kind
@@ -233,7 +412,7 @@ tests:
         statefulSet:
           persistence:
             volumeClaim:
-              disabled: true
+              enabled: false
             volumeClaimTemplates:
               - metadata:
                   name: data
@@ -264,6 +443,30 @@ tests:
         distro:
           eks:
             enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - equal:
+          path: spec.serviceName
+          value: my-release-headless
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: enable eks with deploy etcd
+    set:
+      controlPlane:
+        distro:
+          eks:
+            enabled: true
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
     asserts:
       - equal:
           path: kind
@@ -280,8 +483,9 @@ tests:
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            enabled: true
+          etcd:
+            deploy:
+              enabled: true
         distro:
           k0s:
             enabled: true
@@ -296,5 +500,24 @@ tests:
           content:
             name: data
             emptyDir: {}
+
+  - it: append distro env
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+            env:
+            - name: KEY
+              value: VALUE
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KEY
+            value: VALUE
 
 

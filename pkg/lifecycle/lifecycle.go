@@ -54,15 +54,15 @@ func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, 
 	return nil
 }
 
-// DeleteVClusterWorkloads deletes all pods associated with a running vcluster
-func DeleteVClusterWorkloads(ctx context.Context, kubeClient *kubernetes.Clientset, labelSelector, namespace string, log log.BaseLogger) error {
+// DeletePods deletes all pods associated with a running vcluster
+func DeletePods(ctx context.Context, kubeClient *kubernetes.Clientset, labelSelector, namespace string, log log.BaseLogger) error {
 	list, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return err
 	}
 
 	if len(list.Items) > 0 {
-		log.Infof("Delete %d vcluster workloads", len(list.Items))
+		log.Infof("Delete %d vcluster pods", len(list.Items))
 		for _, item := range list.Items {
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, item.Name, metav1.DeleteOptions{})
 
@@ -78,7 +78,7 @@ func DeleteVClusterWorkloads(ctx context.Context, kubeClient *kubernetes.Clients
 	return nil
 }
 
-func DeleteMultiNamespaceVclusterWorkloads(ctx context.Context, client *kubernetes.Clientset, vclusterName, vclusterNamespace string, _ log.BaseLogger) error {
+func DeleteMultiNamespaceVClusterWorkloads(ctx context.Context, client *kubernetes.Clientset, vclusterName, vclusterNamespace string, _ log.BaseLogger) error {
 	// get all host namespaces managed by this multinamespace mode enabled vcluster
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 		LabelSelector: labels.FormatLabels(map[string]string{

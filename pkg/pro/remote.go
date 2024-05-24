@@ -30,15 +30,15 @@ var GetRemoteClient = func(vConfig *config.VirtualClusterConfig) (*rest.Config, 
 		return nil, "", "", nil, "", "", NewFeatureError(string(licenseapi.VirtualClusterProDistroIsolatedControlPlane))
 	}
 
-	return inClusterConfig, currentNamespace, vConfig.ServiceName, inClusterConfig, currentNamespace, vConfig.ServiceName, nil
+	return inClusterConfig, currentNamespace, vConfig.ControlPlaneService, inClusterConfig, currentNamespace, vConfig.ControlPlaneService, nil
 }
 
 var AddRemoteNodePortSANs = func(_ context.Context, _, _ string, _ kubernetes.Interface) error {
 	return nil
 }
 
-var ExchangeControlPlaneClient = func(controllerCtx *config.ControllerContext, _ string, _ *rest.Config) (client.Client, error) {
-	return controllerCtx.CurrentNamespaceClient, nil
+var ExchangeControlPlaneClient = func(controllerCtx *config.ControllerContext) (client.Client, error) {
+	return controllerCtx.WorkloadNamespaceClient, nil
 }
 
 var SyncRemoteEndpoints = func(_ context.Context, _ types.NamespacedName, _ client.Client, _ types.NamespacedName, _ client.Client) error {

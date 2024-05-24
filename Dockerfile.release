@@ -1,3 +1,6 @@
+ARG KINE_VERSION="v0.11.1"
+FROM rancher/kine:${KINE_VERSION} as kine
+
 # Build the manager binary
 FROM alpine:3.19 as builder
 
@@ -21,6 +24,7 @@ FROM alpine:3.19
 WORKDIR /
 
 COPY vcluster .
+COPY --from=kine /bin/kine /usr/local/bin/kine
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 
 ENTRYPOINT ["/vcluster", "start"]

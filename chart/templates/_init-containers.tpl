@@ -32,9 +32,9 @@
 {{ toYaml .Values.controlPlane.distro.eks.securityContext | indent 4 }}
   resources:
 {{ toYaml .Values.controlPlane.distro.eks.resources | indent 4 }}
-{{- if not .Values.controlPlane.distro.eks.controllerManager.disabled }}
+{{- if .Values.controlPlane.distro.eks.controllerManager.enabled }}
 - name: kube-controller-manager
-  image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.eks.controllerManager.image.repository }}:{{ .Values.controlPlane.distro.eks.controllerManager.image.tag }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.eks.controllerManager.image.registry "repository" .Values.controlPlane.distro.eks.controllerManager.image.repository "tag" .Values.controlPlane.distro.eks.controllerManager.image.tag) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
@@ -54,7 +54,7 @@
 {{- end }}
 {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
 - name: kube-scheduler-manager
-  image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.eks.scheduler.image.repository }}:{{ .Values.controlPlane.distro.eks.scheduler.image.tag }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.eks.scheduler.image.registry "repository" .Values.controlPlane.distro.eks.scheduler.image.repository "tag" .Values.controlPlane.distro.eks.scheduler.image.tag) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
@@ -72,9 +72,9 @@
   resources:
 {{ toYaml .Values.controlPlane.distro.eks.resources | indent 4 }}
 {{- end }}
-{{- if not .Values.controlPlane.distro.eks.apiServer.disabled }}
+{{- if .Values.controlPlane.distro.eks.apiServer.enabled }}
 - name: kube-apiserver
-  image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.eks.apiServer.image.repository }}:{{ .Values.controlPlane.distro.eks.apiServer.image.tag }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.eks.apiServer.image.registry "repository" .Values.controlPlane.distro.eks.apiServer.image.repository "tag" .Values.controlPlane.distro.eks.apiServer.image.tag) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
@@ -116,9 +116,9 @@
 {{ toYaml .Values.controlPlane.distro.k8s.securityContext | indent 4 }}
   resources:
 {{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
-{{- if not .Values.controlPlane.distro.k8s.controllerManager.disabled }}
+{{- if .Values.controlPlane.distro.k8s.controllerManager.enabled }}
 - name: kube-controller-manager
-  image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.k8s.controllerManager.image.repository }}:{{ .Values.controlPlane.distro.k8s.controllerManager.image.tag }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.controllerManager.image.registry "repository" .Values.controlPlane.distro.k8s.controllerManager.image.repository "tag" .Values.controlPlane.distro.k8s.controllerManager.image.tag) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
@@ -138,7 +138,7 @@
 {{- end }}
 {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
 - name: kube-scheduler-manager
-  image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.k8s.scheduler.image.repository }}:{{ .Values.controlPlane.distro.k8s.scheduler.image.tag }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.scheduler.image.registry "repository" .Values.controlPlane.distro.k8s.scheduler.image.repository "tag" .Values.controlPlane.distro.k8s.scheduler.image.tag) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
@@ -156,9 +156,9 @@
   resources:
 {{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
 {{- end }}
-{{- if not .Values.controlPlane.distro.k8s.apiServer.disabled }}
+{{- if .Values.controlPlane.distro.k8s.apiServer.enabled }}
 - name: kube-apiserver
-  image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.k8s.apiServer.image.repository }}:{{ .Values.controlPlane.distro.k8s.apiServer.image.tag }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.apiServer.image.registry "repository" .Values.controlPlane.distro.k8s.apiServer.image.repository "tag" .Values.controlPlane.distro.k8s.apiServer.image.tag) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
@@ -181,8 +181,8 @@
 {{- define "vcluster.k3s.initContainers" -}}
 {{- include "vcluster.oldPlugins.initContainers" . }}
 {{- include "vcluster.plugins.initContainers" . }}
-- image: "{{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.k3s.image.repository }}:{{ .Values.controlPlane.distro.k3s.image.tag }}"
-  name: vcluster
+- name: vcluster
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k3s.image.registry "repository" .Values.controlPlane.distro.k3s.image.repository "tag" .Values.controlPlane.distro.k3s.image.tag) }}"
   command:
     - /bin/sh
   args:
@@ -203,8 +203,8 @@
 {{- define "vcluster.k0s.initContainers" -}}
 {{- include "vcluster.oldPlugins.initContainers" . }}
 {{- include "vcluster.plugins.initContainers" . }}
-- image: {{ .Values.controlPlane.advanced.defaultImageRegistry }}{{ .Values.controlPlane.distro.k0s.image.repository }}:{{ .Values.controlPlane.distro.k0s.image.tag }}
-  name: vcluster
+- name: vcluster
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k0s.image.registry "repository" .Values.controlPlane.distro.k0s.image.repository "tag" .Values.controlPlane.distro.k0s.image.tag) }}"
   command:
     - /bin/sh
   args:
@@ -230,7 +230,11 @@
 {{- if not $container.image }}
 {{- continue }}
 {{- end }}
-- image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}{{ $container.image }}
+- {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
+  image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
+  {{- else }}
+  image: {{ $container.image }}
+  {{- end }}
   {{- if $container.name }}
   name: {{ $container.name | quote }}
   {{- else }}
@@ -283,7 +287,11 @@
 {{- if or (ne $container.version "v2") (not $container.image) -}}
 {{- continue -}}
 {{- end -}}
-- image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}{{ $container.image }}
+- {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
+  image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
+  {{- else }}
+  image: {{ $container.image }}
+  {{- end }}
   {{- if $container.name }}
   name: {{ $container.name | quote }}
   {{- else }}

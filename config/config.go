@@ -1,12 +1,39 @@
 package config
 
 import (
+	_ "embed"
+	"errors"
+	"fmt"
+	"reflect"
 	"regexp"
+	"strings"
+
+	"github.com/invopop/jsonschema"
+	"sigs.k8s.io/yaml"
 )
+
+//go:embed values.yaml
+var Values string
+
+var ErrInvalidConfig = errors.New("invalid config")
+
+// NewDefaultConfig creates a new config based on the values.yaml, including all default values.
+func NewDefaultConfig() (*Config, error) {
+	retConfig := &Config{}
+	err := yaml.Unmarshal([]byte(Values), retConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return retConfig, nil
+}
 
 // Config is the vCluster config. This struct describes valid Helm values for vCluster as well as configuration used by the vCluster binary itself.
 type Config struct {
-	// ExportKubeConfig describes how vCluster should export the vCluster kubeconfig file.
+	// Global values shared across all (sub)charts
+	Global interface{} `json:"global,omitempty"`
+
+	// ExportKubeConfig describes how vCluster should export the vCluster kubeConfig file.
 	ExportKubeConfig ExportKubeConfig `json:"exportKubeConfig,omitempty"`
 
 	// Sync describes how to sync resources from the virtual cluster to host cluster and back.
@@ -49,6 +76,121 @@ type Config struct {
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
 }
 
+func (c *Config) UnmarshalYAMLStrict(data []byte) error {
+	return UnmarshalYAMLStrict(data, c)
+}
+
+// BackingStoreType returns the backing store type of the vCluster.
+// If no backing store is enabled, it returns StoreTypeUnknown.
+func (c *Config) BackingStoreType() StoreType {
+	switch {
+	case c.ControlPlane.BackingStore.Etcd.Embedded.Enabled:
+		return StoreTypeEmbeddedEtcd
+	case c.ControlPlane.BackingStore.Etcd.Deploy.Enabled:
+		return StoreTypeExternalEtcd
+	case c.ControlPlane.BackingStore.Database.Embedded.Enabled:
+		return StoreTypeEmbeddedDatabase
+	case c.ControlPlane.BackingStore.Database.External.Enabled:
+		return StoreTypeExternalDatabase
+	default:
+		return StoreTypeEmbeddedDatabase
+	}
+}
+
+func (c *Config) Distro() string {
+	if c.ControlPlane.Distro.K3S.Enabled {
+		return K3SDistro
+	} else if c.ControlPlane.Distro.K0S.Enabled {
+		return K0SDistro
+	} else if c.ControlPlane.Distro.K8S.Enabled {
+		return K8SDistro
+	} else if c.ControlPlane.Distro.EKS.Enabled {
+		return EKSDistro
+	}
+
+	return K8SDistro
+}
+
+// ValidateChanges checks for disallowed config changes.
+// Currently only certain backingstore changes are allowed but no distro change.
+func ValidateChanges(oldCfg, newCfg *Config) error {
+	oldDistro, newDistro := oldCfg.Distro(), newCfg.Distro()
+	oldBackingStore, newBackingStore := oldCfg.BackingStoreType(), newCfg.BackingStoreType()
+
+	return ValidateStoreAndDistroChanges(newBackingStore, oldBackingStore, newDistro, oldDistro)
+}
+
+// ValidateStoreAndDistroChanges checks whether migrating from one store to the other is allowed.
+func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType, currentDistro, previousDistro string) error {
+	if currentDistro != previousDistro {
+		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
+	}
+
+	if currentStoreType != previousStoreType {
+		if currentStoreType != StoreTypeEmbeddedEtcd {
+			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
+		}
+		if previousStoreType != StoreTypeExternalEtcd && previousStoreType != StoreTypeEmbeddedDatabase {
+			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
+		}
+	}
+
+	return nil
+}
+
+func (c *Config) IsProFeatureEnabled() bool {
+	if len(c.Networking.ResolveDNS) > 0 {
+		return true
+	}
+
+	if c.ControlPlane.CoreDNS.Embedded {
+		return true
+	}
+
+	if c.Distro() == K8SDistro || c.Distro() == EKSDistro {
+		if c.ControlPlane.BackingStore.Database.External.Enabled {
+			return true
+		}
+	}
+
+	if c.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+		return true
+	}
+
+	if len(c.Policies.CentralAdmission.ValidatingWebhooks) > 0 || len(c.Policies.CentralAdmission.MutatingWebhooks) > 0 {
+		return true
+	}
+
+	if c.ControlPlane.HostPathMapper.Central {
+		return true
+	}
+
+	if c.Experimental.SyncSettings.DisableSync {
+		return true
+	}
+
+	if c.Experimental.SyncSettings.RewriteKubernetesService {
+		return true
+	}
+
+	if c.Experimental.IsolatedControlPlane.Enabled {
+		return true
+	}
+
+	if len(c.Experimental.DenyProxyRequests) > 0 {
+		return true
+	}
+
+	return false
+}
+
+func UnmarshalYAMLStrict(data []byte, i any) error {
+	if err := yaml.UnmarshalStrict(data, i); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+	return nil
+}
+
 // ExportKubeConfig describes how vCluster should export the vCluster kubeconfig.
 type ExportKubeConfig struct {
 	// Context is the name of the context within the generated kubeconfig to use.
@@ -86,30 +228,43 @@ type Sync struct {
 type SyncToHost struct {
 	// Pods defines if pods created within the virtual cluster should get synced to the host cluster.
 	Pods SyncPods `json:"pods,omitempty"`
+
 	// Secrets defines if secrets created within the virtual cluster should get synced to the host cluster.
 	Secrets SyncAllResource `json:"secrets,omitempty"`
+
 	// ConfigMaps defines if config maps created within the virtual cluster should get synced to the host cluster.
 	ConfigMaps SyncAllResource `json:"configMaps,omitempty"`
+
 	// Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
 	Ingresses EnableSwitch `json:"ingresses,omitempty"`
+
 	// Services defines if services created within the virtual cluster should get synced to the host cluster.
 	Services EnableSwitch `json:"services,omitempty"`
+
 	// Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
 	Endpoints EnableSwitch `json:"endpoints,omitempty"`
+
 	// NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster.
 	NetworkPolicies EnableSwitch `json:"networkPolicies,omitempty"`
+
 	// PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster.
 	PersistentVolumeClaims EnableSwitch `json:"persistentVolumeClaims,omitempty"`
+
 	// PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster.
 	PersistentVolumes EnableSwitch `json:"persistentVolumes,omitempty"`
+
 	// VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.
 	VolumeSnapshots EnableSwitch `json:"volumeSnapshots,omitempty"`
+
 	// StorageClasses defines if storage classes created within the virtual cluster should get synced to the host cluster.
 	StorageClasses EnableSwitch `json:"storageClasses,omitempty"`
+
 	// ServiceAccounts defines if service accounts created within the virtual cluster should get synced to the host cluster.
 	ServiceAccounts EnableSwitch `json:"serviceAccounts,omitempty"`
+
 	// PodDisruptionBudgets defines if pod disruption budgets created within the virtual cluster should get synced to the host cluster.
 	PodDisruptionBudgets EnableSwitch `json:"podDisruptionBudgets,omitempty"`
+
 	// PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
 	PriorityClasses EnableSwitch `json:"priorityClasses,omitempty"`
 }
@@ -117,18 +272,29 @@ type SyncToHost struct {
 type SyncFromHost struct {
 	// Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
 	Nodes SyncNodes `json:"nodes,omitempty"`
+
 	// Events defines if events should get synced from the host cluster to the virtual cluster, but not back.
 	Events EnableSwitch `json:"events,omitempty"`
+
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
 	IngressClasses EnableSwitch `json:"ingressClasses,omitempty"`
-	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back.
-	StorageClasses EnableSwitch `json:"storageClasses,omitempty"`
-	// CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back.
-	CSINodes EnableSwitch `json:"csiNodes,omitempty"`
-	// CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back.
-	CSIDrivers EnableSwitch `json:"csiDrivers,omitempty"`
-	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back.
-	CSIStorageCapacities EnableSwitch `json:"csiStorageCapacities,omitempty"`
+
+	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+	StorageClasses EnableAutoSwitch `json:"storageClasses,omitempty"`
+
+	// CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+	CSINodes EnableAutoSwitch `json:"csiNodes,omitempty"`
+
+	// CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+	CSIDrivers EnableAutoSwitch `json:"csiDrivers,omitempty"`
+
+	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
+	CSIStorageCapacities EnableAutoSwitch `json:"csiStorageCapacities,omitempty"`
+}
+
+type EnableAutoSwitch struct {
+	// Enabled defines if this option should be enabled.
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
 }
 
 type EnableSwitch struct {
@@ -169,8 +335,16 @@ type SyncRewriteHosts struct {
 	// Enabled specifies if rewriting stateful set pods should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// InitContainerImage is the image virtual cluster should use to rewrite this FQDN.
-	InitContainerImage string `json:"initContainerImage,omitempty"`
+	// InitContainer holds extra options for the init container used by vCluster to rewrite the FQDN for stateful set pods.
+	InitContainer SyncRewriteHostsInitContainer `json:"initContainer,omitempty"`
+}
+
+type SyncRewriteHostsInitContainer struct {
+	// Image is the image virtual cluster should use to rewrite this FQDN.
+	Image string `json:"image,omitempty"`
+
+	// Resources are the resources that should be assigned to the init container for each stateful set init container.
+	Resources Resources `json:"resources,omitempty"`
 }
 
 type SyncNodes struct {
@@ -229,10 +403,14 @@ type Networking struct {
 	ReplicateServices ReplicateServices `json:"replicateServices,omitempty"`
 
 	// ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.
-	ResolveDNS []ResolveDNS `json:"resolveDNS,omitempty"`
+	ResolveDNS []ResolveDNS `json:"resolveDNS,omitempty" product:"pro"`
 
 	// Advanced holds advanced network options.
 	Advanced NetworkingAdvanced `json:"advanced,omitempty"`
+}
+
+func (n Networking) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(n))
 }
 
 type ReplicateServices struct {
@@ -248,26 +426,38 @@ type ReplicateServices struct {
 type ServiceMapping struct {
 	// From is the service that should get synced. Can be either in the form name or namespace/name.
 	From string `json:"from,omitempty"`
+
 	// To is the target service that it should get synced to. Can be either in the form name or namespace/name.
 	To string `json:"to,omitempty"`
 }
 
 type ResolveDNS struct {
-	Hostname  string `json:"hostname"`
-	Service   string `json:"service"`
+	// Hostname is the hostname within the vCluster that should be resolved from.
+	Hostname string `json:"hostname"`
+
+	// Service is the virtual cluster service that should be resolved from.
+	Service string `json:"service"`
+
+	// Namespace is the virtual cluster namespace that should be resolved from.
 	Namespace string `json:"namespace"`
 
+	// Target is the DNS target that should get mapped to
 	Target ResolveDNSTarget `json:"target,omitempty"`
 }
 
 type ResolveDNSTarget struct {
+	// Hostname to use as a DNS target
 	Hostname string `json:"hostname,omitempty"`
-	IP       string `json:"ip,omitempty"`
+
+	// IP to use as a DNS target
+	IP string `json:"ip,omitempty"`
 
 	// HostService to target, format is hostNamespace/hostService
 	HostService string `json:"hostService,omitempty"`
+
 	// HostNamespace to target
 	HostNamespace string `json:"hostNamespace,omitempty"`
+
 	// VClusterService format is hostNamespace/vClusterName/vClusterNamespace/vClusterService
 	VClusterService string `json:"vClusterService,omitempty"`
 }
@@ -313,23 +503,31 @@ type Plugin struct {
 type Plugins struct {
 	// Name is the name of the init-container and NOT the plugin name
 	Name string `json:"name,omitempty"`
+
 	// Image is the container image that should be used for the plugin
 	Image string `json:"image,omitempty"`
+
 	// ImagePullPolicy is the pull policy to use for the container image
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
 	// Config is the plugin config to use. This can be arbitrary config used for the plugin.
 	Config map[string]interface{} `json:"config,omitempty"`
+
 	// RBAC holds additional rbac configuration for the plugin
 	RBAC PluginsRBAC `json:"rbac,omitempty"`
 
 	// Command is the command that should be used for the init container
 	Command []string `json:"command,omitempty"`
+
 	// Args are the arguments that should be used for the init container
 	Args []string `json:"args,omitempty"`
+
 	// SecurityContext is the container security context used for the init container
 	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
+
 	// Resources are the container resources used for the init container
 	Resources map[string]interface{} `json:"resources,omitempty"`
+
 	// VolumeMounts are extra volume mounts for the init container
 	VolumeMounts []interface{} `json:"volumeMounts,omitempty"`
 }
@@ -337,6 +535,7 @@ type Plugins struct {
 type PluginsRBAC struct {
 	// Role holds extra virtual cluster role permissions for the plugin
 	Role PluginsExtraRules `json:"role,omitempty"`
+
 	// ClusterRole holds extra virtual cluster cluster role permissions required for the plugin
 	ClusterRole PluginsExtraRules `json:"clusterRole,omitempty"`
 }
@@ -353,8 +552,10 @@ type RBACPolicyRule struct {
 	// APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
 	// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
 	APIGroups []string `json:"apiGroups,omitempty"`
+
 	// Resources is a list of resources this rule applies to. '*' represents all resources.
 	Resources []string `json:"resources,omitempty"`
+
 	// ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
 	ResourceNames []string `json:"resourceNames,omitempty"`
 
@@ -365,68 +566,97 @@ type RBACPolicyRule struct {
 }
 
 type ControlPlane struct {
-	// Distro holds virtual cluster related distro options.
+	// Distro holds virtual cluster related distro options. A distro cannot be changed after vCluster is deployed.
 	Distro Distro `json:"distro,omitempty"`
-	// BackingStore defines which backing store to use for virtual cluster. If not defined will fallback to the default distro backing store.
+
+	// BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store.
 	BackingStore BackingStore `json:"backingStore,omitempty"`
-	// CoreDNS defines everything coredns related.
+
+	// CoreDNS defines everything related to the coredns that is deployed and used within the vCluster.
 	CoreDNS CoreDNS `json:"coredns,omitempty"`
+
 	// Proxy defines options for the virtual cluster control plane proxy that is used to do authentication and intercept requests.
 	Proxy ControlPlaneProxy `json:"proxy,omitempty"`
+
 	// HostPathMapper defines if vCluster should rewrite host paths.
-	HostPathMapper HostPathMapper `json:"hostPathMapper,omitempty"`
+	HostPathMapper HostPathMapper `json:"hostPathMapper,omitempty" product:"pro"`
+
 	// Ingress defines options for vCluster ingress deployed by Helm.
 	Ingress ControlPlaneIngress `json:"ingress,omitempty"`
+
 	// Service defines options for vCluster service deployed by Helm.
 	Service ControlPlaneService `json:"service,omitempty"`
+
 	// StatefulSet defines options for vCluster statefulSet deployed by Helm.
 	StatefulSet ControlPlaneStatefulSet `json:"statefulSet,omitempty"`
+
 	// ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself.
 	ServiceMonitor ServiceMonitor `json:"serviceMonitor,omitempty"`
+
 	// Advanced holds additional configuration for the vCluster control plane.
 	Advanced ControlPlaneAdvanced `json:"advanced,omitempty"`
+}
+
+func (c ControlPlane) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(c))
 }
 
 type ControlPlaneStatefulSet struct {
 	// HighAvailability holds options related to high availability.
 	HighAvailability ControlPlaneHighAvailability `json:"highAvailability,omitempty"`
+
 	// Resources are the resource requests and limits for the statefulSet container.
 	Resources Resources `json:"resources,omitempty"`
+
 	// Scheduling holds options related to scheduling.
 	Scheduling ControlPlaneScheduling `json:"scheduling,omitempty"`
+
 	// Security defines pod or container security context.
 	Security ControlPlaneSecurity `json:"security,omitempty"`
+
 	// Probes enables or disables the main container probes.
 	Probes ControlPlaneProbes `json:"probes,omitempty"`
+
 	// Persistence defines options around persistence for the statefulSet.
 	Persistence ControlPlanePersistence `json:"persistence,omitempty"`
 
+	// EnableServiceLinks for the StatefulSet pod
+	EnableServiceLinks *bool `json:"enableServiceLinks,omitempty"`
+
 	LabelsAndAnnotations `json:",inline"`
 
-	// Pods are additional labels or annotations for the statefulSet pod.
+	// Additional labels or annotations for the statefulSet pods.
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
 	// Image is the image for the controlPlane statefulSet container
-	Image Image `json:"image,omitempty"`
+	Image StatefulSetImage `json:"image,omitempty"`
+
 	// ImagePullPolicy is the policy how to pull the image.
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
 	// WorkingDir specifies in what folder the main process should get started.
 	WorkingDir string `json:"workingDir,omitempty"`
+
 	// Command allows you to override the main command.
 	Command []string `json:"command,omitempty"`
+
 	// Args allows you to override the main arguments.
 	Args []string `json:"args,omitempty"`
+
 	// Env are additional environment variables for the statefulSet container.
 	Env []map[string]interface{} `json:"env,omitempty"`
 }
 
 type Distro struct {
-	// K3S holds K3s relevant configuration.
-	K3S DistroK3s `json:"k3s,omitempty"`
-	// K0S holds k0s relevant configuration.
-	K0S DistroK0s `json:"k0s,omitempty"`
 	// K8S holds K8s relevant configuration.
 	K8S DistroK8s `json:"k8s,omitempty"`
+
+	// K3S holds K3s relevant configuration.
+	K3S DistroK3s `json:"k3s,omitempty"`
+
+	// K0S holds k0s relevant configuration.
+	K0S DistroK0s `json:"k0s,omitempty"`
+
 	// EKS holds eks relevant configuration.
 	EKS DistroK8s `json:"eks,omitempty"`
 }
@@ -434,6 +664,7 @@ type Distro struct {
 type DistroK3s struct {
 	// Enabled specifies if the K3s distro should be enabled. Only one distro can be enabled at the same time.
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Token is the K3s token to use. If empty, vCluster will choose one.
 	Token string `json:"token,omitempty"`
 
@@ -446,10 +677,12 @@ type DistroK8s struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// APIServer holds configuration specific to starting the api server.
-	APIServer DistroContainerDisabled `json:"apiServer,omitempty"`
-	// ControllerManager holds configuration specific to starting the scheduler.
-	ControllerManager DistroContainerDisabled `json:"controllerManager,omitempty"`
-	// Scheduler holds configuration specific to starting the scheduler.
+	APIServer DistroContainerEnabled `json:"apiServer,omitempty"`
+
+	// ControllerManager holds configuration specific to starting the controller manager.
+	ControllerManager DistroContainerEnabled `json:"controllerManager,omitempty"`
+
+	// Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
 	Scheduler DistroContainer `json:"scheduler,omitempty"`
 
 	DistroCommon `json:",inline"`
@@ -458,6 +691,7 @@ type DistroK8s struct {
 type DistroK0s struct {
 	// Enabled specifies if the k0s distro should be enabled. Only one distro can be enabled at the same time.
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Config allows you to override the k0s config passed to the k0s binary.
 	Config string `json:"config,omitempty"`
 
@@ -466,130 +700,221 @@ type DistroK0s struct {
 }
 
 type DistroCommon struct {
-	// Env are extra environment variables to use for the main container.
+	// Env are extra environment variables to use for the main container and NOT the init container.
 	Env []map[string]interface{} `json:"env,omitempty"`
-	// Resources are the resources for the distro init container
+
+	// Resources for the distro init container
 	Resources map[string]interface{} `json:"resources,omitempty"`
-	// SecurityContext can be used for the distro init container
+
+	// Security options can be used for the distro init container
 	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
 }
 
 type DistroContainer struct {
 	// Image is the distro image
 	Image Image `json:"image,omitempty"`
+
 	// ImagePullPolicy is the pull policy for the distro image
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
 	// Command is the command to start the distro binary. This will override the existing command.
 	Command []string `json:"command,omitempty"`
+
 	// ExtraArgs are additional arguments to pass to the distro binary.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
-type DistroContainerDisabled struct {
-	// Disabled signals this container should be disabled.
-	Disabled bool `json:"disabled,omitempty"`
+type DistroContainerEnabled struct {
+	// Enabled signals this container should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
 	// Image is the distro image
 	Image Image `json:"image,omitempty"`
+
 	// ImagePullPolicy is the pull policy for the distro image
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
 	// Command is the command to start the distro binary. This will override the existing command.
 	Command []string `json:"command,omitempty"`
+
 	// ExtraArgs are additional arguments to pass to the distro binary.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
-type Image struct {
-	// Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image
+type StatefulSetImage struct {
+	// Configure the registry of the container image, e.g. my-registry.com or ghcr.io
+	// It defaults to ghcr.io and can be overriding either by using this field or controlPlane.advanced.defaultImageRegistry
+	Registry string `json:"registry,omitempty"`
+
+	// Configure the repository of the container image, e.g. my-repo/my-image.
+	// It defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.
+	// If you still want to use the pure OSS build, use 'loft-sh/vcluster-oss' instead.
 	Repository string `json:"repository,omitempty"`
+
 	// Tag is the tag of the container image, e.g. latest
 	Tag string `json:"tag,omitempty"`
 }
 
-// LocalObjectReference contains enough information to let you locate the
-// referenced object inside the same namespace.
-type LocalObjectReference struct {
-	// Name of the referent.
-	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+type Image struct {
+	// Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+	// overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+	Registry string `json:"registry,omitempty"`
+
+	// Repository is the repository of the container image, e.g. my-repo/my-image
+	Repository string `json:"repository,omitempty"`
+
+	// Tag is the tag of the container image, e.g. latest
+	Tag string `json:"tag,omitempty"`
+}
+
+type ImagePullSecretName struct {
+	// Name of the image pull secret to use.
 	Name string `json:"name,omitempty"`
 }
 
 type VirtualClusterKubeConfig struct {
 	// KubeConfig is the virtual cluster kubeconfig path.
 	KubeConfig string `json:"kubeConfig,omitempty"`
+
 	// ServerCAKey is the server ca key path.
 	ServerCAKey string `json:"serverCAKey,omitempty"`
+
 	// ServerCAKey is the server ca cert path.
 	ServerCACert string `json:"serverCACert,omitempty"`
+
 	// ServerCAKey is the client ca cert path.
 	ClientCACert string `json:"clientCACert,omitempty"`
+
 	// RequestHeaderCACert is the request header ca cert path.
 	RequestHeaderCACert string `json:"requestHeaderCACert,omitempty"`
 }
 
 type BackingStore struct {
-	// EmbeddedEtcd defines to use embedded etcd as a storage backend for the virtual cluster
-	EmbeddedEtcd EmbeddedEtcd `json:"embeddedEtcd,omitempty" product:"pro"`
-	// ExternalEtcd defines to use an external etcd deployed by the Helm chart as a storage backend for the virtual cluster
-	ExternalEtcd ExternalEtcd `json:"externalEtcd,omitempty"`
+	// Etcd defines that etcd should be used as the backend for the virtual cluster
+	Etcd Etcd `json:"etcd,omitempty"`
+
+	// Database defines that a database backend should be used as the backend for the virtual cluster. This uses a project called kine under the hood which is a shim for bridging Kubernetes and relational databases.
+	Database Database `json:"database,omitempty"`
 }
 
-type EmbeddedEtcd struct {
-	// Enabled defines if the embedded etcd should be used.
+type Database struct {
+	// Embedded defines that an embedded database (sqlite) should be used as the backend for the virtual cluster
+	Embedded DatabaseKine `json:"embedded,omitempty"`
+
+	// External defines that an external database should be used as the backend for the virtual cluster
+	External DatabaseKine `json:"external,omitempty"`
+}
+
+type DatabaseKine struct {
+	// Enabled defines if the database should be used.
 	Enabled bool `json:"enabled,omitempty"`
-	// MigrateFromExternalEtcd signals that vCluster should migrate from the external etcd to embedded etcd.
-	MigrateFromExternalEtcd bool `json:"migrateFromExternalEtcd,omitempty"`
+
+	// DataSource is the kine dataSource to use for the database. This depends on the database format.
+	// This is optional for the embedded database. Examples:
+	// * mysql: mysql://username:password@tcp(hostname:3306)/k3s
+	// * postgres: postgres://username:password@hostname:5432/k3s
+	DataSource string `json:"dataSource,omitempty"`
+
+	// KeyFile is the key file to use for the database. This is optional.
+	KeyFile string `json:"keyFile,omitempty"`
+
+	// CertFile is the cert file to use for the database. This is optional.
+	CertFile string `json:"certFile,omitempty"`
+
+	// CaFile is the ca file to use for the database. This is optional.
+	CaFile string `json:"caFile,omitempty"`
 }
 
-type ExternalEtcd struct {
-	// Enabled defines if the external etcd should be used.
+type Etcd struct {
+	// Embedded defines to use embedded etcd as a storage backend for the virtual cluster
+	Embedded EtcdEmbedded `json:"embedded,omitempty" product:"pro"`
+
+	// Deploy defines to use an external etcd that is deployed by the helm chart
+	Deploy EtcdDeploy `json:"deploy,omitempty"`
+}
+
+func (e Etcd) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
+}
+
+type EtcdEmbedded struct {
+	// Enabled defines if the embedded etcd should be used.
+	Enabled bool `json:"enabled,omitempty" product:"pro"`
+
+	// MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd.
+	MigrateFromDeployedEtcd bool `json:"migrateFromDeployedEtcd,omitempty"`
+}
+
+func (e EtcdEmbedded) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
+}
+
+type EtcdDeploy struct {
+	// Enabled defines that an external etcd should be deployed.
 	Enabled bool `json:"enabled,omitempty"`
 
 	// StatefulSet holds options for the external etcd statefulSet.
-	StatefulSet ExternalEtcdStatefulSet `json:"statefulSet,omitempty"`
+	StatefulSet EtcdDeployStatefulSet `json:"statefulSet,omitempty"`
+
 	// Service holds options for the external etcd service.
-	Service ExternalEtcdService `json:"service,omitempty"`
+	Service EtcdDeployService `json:"service,omitempty"`
+
 	// HeadlessService holds options for the external etcd headless service.
-	HeadlessService ExternalEtcdHeadlessService `json:"headlessService,omitempty"`
+	HeadlessService EtcdDeployHeadlessService `json:"headlessService,omitempty"`
 }
 
-type ExternalEtcdService struct {
+type EtcdDeployService struct {
 	// Enabled defines if the etcd service should be deployed
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Annotations are extra annotations for the external etcd service
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-type ExternalEtcdHeadlessService struct {
+type EtcdDeployHeadlessService struct {
 	// Enabled defines if the etcd headless service should be deployed
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Annotations are extra annotations for the external etcd headless service
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-type ExternalEtcdStatefulSet struct {
+type EtcdDeployStatefulSet struct {
 	// Enabled defines if the statefulSet should be deployed
 	Enabled bool `json:"enabled,omitempty"`
+
+	// EnableServiceLinks for the StatefulSet pod
+	EnableServiceLinks *bool `json:"enableServiceLinks,omitempty"`
+
 	// Image is the image to use for the external etcd statefulSet
 	Image Image `json:"image,omitempty"`
+
 	// ImagePullPolicy is the pull policy for the external etcd image
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
 	// Env are extra environment variables
 	Env []map[string]interface{} `json:"env,omitempty"`
+
 	// ExtraArgs are appended to the etcd command.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 
 	// Resources the etcd can consume
 	Resources Resources `json:"resources,omitempty"`
+
 	// Pods defines extra metadata for the etcd pods.
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
+
 	// HighAvailability are high availability options
 	HighAvailability ExternalEtcdHighAvailability `json:"highAvailability,omitempty"`
+
 	// Scheduling options for the etcd pods.
 	Scheduling ControlPlaneScheduling `json:"scheduling,omitempty"`
+
 	// Security options for the etcd pods.
 	Security ControlPlaneSecurity `json:"security,omitempty"`
+
 	// Persistence options for the etcd pods.
-	Persistence ControlPlanePersistence `json:"persistence,omitempty"`
+	Persistence ExternalEtcdPersistence `json:"persistence,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
 }
@@ -597,6 +922,7 @@ type ExternalEtcdStatefulSet struct {
 type Resources struct {
 	// Limits are resource limits for the container
 	Limits map[string]interface{} `json:"limits,omitempty"`
+
 	// Requests are minimal resources that will be consumed by the container
 	Requests map[string]interface{} `json:"requests,omitempty"`
 }
@@ -609,24 +935,36 @@ type ExternalEtcdHighAvailability struct {
 type HostPathMapper struct {
 	// Enabled specifies if the host path mapper will be used
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Central specifies if the central host path mapper will be used
-	Central bool `json:"central,omitempty" product:"pro"`
+	Central bool `json:"central,omitempty"`
 }
 
 type CoreDNS struct {
 	// Enabled defines if coredns is enabled
 	Enabled bool `json:"enabled,omitempty"`
-	// Embedded defines if vCluster will start the embedded coredns service
+
+	// Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature.
 	Embedded bool `json:"embedded,omitempty" product:"pro"`
+
 	// Service holds extra options for the coredns service deployed within the virtual cluster
 	Service CoreDNSService `json:"service,omitempty"`
+
 	// Deployment holds extra options for the coredns deployment deployed within the virtual cluster
 	Deployment CoreDNSDeployment `json:"deployment,omitempty"`
 
 	// OverwriteConfig can be used to overwrite the coredns config
 	OverwriteConfig string `json:"overwriteConfig,omitempty"`
+
 	// OverwriteManifests can be used to overwrite the coredns manifests used to deploy coredns
 	OverwriteManifests string `json:"overwriteManifests,omitempty"`
+
+	// PriorityClassName specifies the priority class name for the CoreDNS pods.
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+}
+
+func (c CoreDNS) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(c))
 }
 
 type CoreDNSService struct {
@@ -639,12 +977,16 @@ type CoreDNSService struct {
 type CoreDNSDeployment struct {
 	// Image is the coredns image to use
 	Image string `json:"image,omitempty"`
+
 	// Replicas is the amount of coredns pods to run.
 	Replicas int `json:"replicas,omitempty"`
+
 	// NodeSelector is the node selector to use for coredns.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
 	// Resources are the desired resources for coredns.
 	Resources Resources `json:"resources,omitempty"`
+
 	// Pods is additional metadata for the coredns pods.
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
@@ -654,8 +996,10 @@ type CoreDNSDeployment struct {
 type ControlPlaneProxy struct {
 	// BindAddress under which vCluster will expose the proxy.
 	BindAddress string `json:"bindAddress,omitempty"`
-	// Port under which vCluster will expose the proxy.
+
+	// Port under which vCluster will expose the proxy. Changing port is currently not supported.
 	Port int `json:"port,omitempty"`
+
 	// ExtraSANs are extra hostnames to sign the vCluster proxy certificate for.
 	ExtraSANs []string `json:"extraSANs,omitempty"`
 }
@@ -666,8 +1010,10 @@ type ControlPlaneService struct {
 
 	// Spec allows you to configure extra service options.
 	Spec map[string]interface{} `json:"spec,omitempty"`
+
 	// KubeletNodePort is the node port where the fake kubelet is exposed. Defaults to 0.
 	KubeletNodePort int `json:"kubeletNodePort,omitempty"`
+
 	// HTTPSNodePort is the node port where https is exposed. Defaults to 0.
 	HTTPSNodePort int `json:"httpsNodePort,omitempty"`
 
@@ -680,8 +1026,10 @@ type ControlPlaneIngress struct {
 
 	// Host is the host where vCluster will be reachable
 	Host string `json:"host,omitempty"`
+
 	// PathType is the path type of the ingress
 	PathType string `json:"pathType,omitempty"`
+
 	// Spec allows you to configure extra ingress options.
 	Spec map[string]interface{} `json:"spec,omitempty"`
 
@@ -726,31 +1074,70 @@ type ControlPlaneAdvanced struct {
 type ControlPlaneHeadlessService struct {
 	// Annotations are extra annotations for this resource.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// Labels are extra labels for this resource.
 	Labels map[string]string `json:"labels,omitempty"`
+}
+
+type ExternalEtcdPersistence struct {
+	// VolumeClaim can be used to configure the persistent volume claim.
+	VolumeClaim ExternalEtcdPersistenceVolumeClaim `json:"volumeClaim,omitempty"`
+
+	// VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet
+	VolumeClaimTemplates []map[string]interface{} `json:"volumeClaimTemplates,omitempty"`
+
+	// AddVolumes defines extra volumes for the pod
+	AddVolumes []map[string]interface{} `json:"addVolumes,omitempty"`
+
+	// AddVolumeMounts defines extra volume mounts for the container
+	AddVolumeMounts []VolumeMount `json:"addVolumeMounts,omitempty"`
+}
+
+type ExternalEtcdPersistenceVolumeClaim struct {
+	// Enabled enables deploying a persistent volume claim.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// AccessModes are the persistent volume claim access modes.
+	AccessModes []string `json:"accessModes,omitempty"`
+
+	// RetentionPolicy is the persistent volume claim retention policy.
+	RetentionPolicy string `json:"retentionPolicy,omitempty"`
+
+	// Size is the persistent volume claim storage size.
+	Size string `json:"size,omitempty"`
+
+	// StorageClass is the persistent volume claim storage class.
+	StorageClass string `json:"storageClass,omitempty"`
 }
 
 type ControlPlanePersistence struct {
 	// VolumeClaim can be used to configure the persistent volume claim.
 	VolumeClaim VolumeClaim `json:"volumeClaim,omitempty"`
+
 	// VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet
 	VolumeClaimTemplates []map[string]interface{} `json:"volumeClaimTemplates,omitempty"`
+
 	// AddVolumes defines extra volumes for the pod
 	AddVolumes []map[string]interface{} `json:"addVolumes,omitempty"`
+
 	// AddVolumeMounts defines extra volume mounts for the container
 	AddVolumeMounts []VolumeMount `json:"addVolumeMounts,omitempty"`
 }
 
 type VolumeClaim struct {
-	// Disabled signals to disable deploying a persistent volume claim. If false, vCluster will automatically determine
+	// Enabled enables deploying a persistent volume claim. If auto, vCluster will automatically determine
 	// based on the chosen distro and other options if this is required.
-	Disabled bool `json:"disabled,omitempty"`
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
+
 	// AccessModes are the persistent volume claim access modes.
 	AccessModes []string `json:"accessModes,omitempty"`
+
 	// RetentionPolicy is the persistent volume claim retention policy.
 	RetentionPolicy string `json:"retentionPolicy,omitempty"`
+
 	// Size is the persistent volume claim storage size.
 	Size string `json:"size,omitempty"`
+
 	// StorageClass is the persistent volume claim storage class.
 	StorageClass string `json:"storageClass,omitempty"`
 }
@@ -759,20 +1146,25 @@ type VolumeClaim struct {
 type VolumeMount struct {
 	// This must match the Name of a Volume.
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
+
 	// Mounted read-only if true, read-write otherwise (false or unspecified).
 	// Defaults to false.
 	ReadOnly bool `json:"readOnly,omitempty" protobuf:"varint,2,opt,name=readOnly"`
+
 	// Path within the container at which the volume should be mounted.  Must
 	// not contain ':'.
 	MountPath string `json:"mountPath" protobuf:"bytes,3,opt,name=mountPath"`
+
 	// Path within the volume from which the container's volume should be mounted.
 	// Defaults to "" (volume's root).
 	SubPath string `json:"subPath,omitempty" protobuf:"bytes,4,opt,name=subPath"`
+
 	// mountPropagation determines how mounts are propagated from the host
 	// to container and the other way around.
 	// When not set, MountPropagationNone is used.
 	// This field is beta in 1.10.
 	MountPropagation *string `json:"mountPropagation,omitempty" protobuf:"bytes,5,opt,name=mountPropagation,casttype=MountPropagationMode"`
+
 	// Expanded path within the volume from which the container's volume should be mounted.
 	// Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment.
 	// Defaults to "" (volume's root).
@@ -783,14 +1175,19 @@ type VolumeMount struct {
 type ControlPlaneScheduling struct {
 	// NodeSelector is the node selector to apply to the pod.
 	NodeSelector map[string]interface{} `json:"nodeSelector,omitempty"`
+
 	// Affinity is the affinity to apply to the pod.
 	Affinity map[string]interface{} `json:"affinity,omitempty"`
+
 	// Tolerations are the tolerations to apply to the pod.
-	Tolerations []interface{} `json:"tolerations,omitempty"`
+	Tolerations []map[string]interface{} `json:"tolerations,omitempty"`
+
 	// PriorityClassName is the priority class name for the the pod.
 	PriorityClassName string `json:"priorityClassName,omitempty"`
+
 	// PodManagementPolicy is the statefulSet pod management policy.
 	PodManagementPolicy string `json:"podManagementPolicy,omitempty"`
+
 	// TopologySpreadConstraints are the topology spread constraints for the pod.
 	TopologySpreadConstraints []interface{} `json:"topologySpreadConstraints,omitempty"`
 }
@@ -798,12 +1195,16 @@ type ControlPlaneScheduling struct {
 type ControlPlaneServiceAccount struct {
 	// Enabled specifies if the service account should get deployed.
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Name specifies what name to use for the service account.
 	Name string `json:"name,omitempty"`
+
 	// ImagePullSecrets defines extra image pull secrets for the service account.
-	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullSecrets []ImagePullSecretName `json:"imagePullSecrets,omitempty"`
+
 	// Annotations are extra annotations for this resource.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// Labels are extra labels for this resource.
 	Labels map[string]string `json:"labels,omitempty"`
 }
@@ -811,12 +1212,16 @@ type ControlPlaneServiceAccount struct {
 type ControlPlaneWorkloadServiceAccount struct {
 	// Enabled specifies if the service account for the workloads should get deployed.
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Name specifies what name to use for the service account for the virtual cluster workloads.
 	Name string `json:"name,omitempty"`
+
 	// ImagePullSecrets defines extra image pull secrets for the workload service account.
-	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullSecrets []ImagePullSecretName `json:"imagePullSecrets,omitempty"`
+
 	// Annotations are extra annotations for this resource.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// Labels are extra labels for this resource.
 	Labels map[string]string `json:"labels,omitempty"`
 }
@@ -824,8 +1229,10 @@ type ControlPlaneWorkloadServiceAccount struct {
 type ControlPlaneProbes struct {
 	// LivenessProbe specifies if the liveness probe for the container should be enabled
 	LivenessProbe EnableSwitch `json:"livenessProbe,omitempty"`
+
 	// ReadinessProbe specifies if the readiness probe for the container should be enabled
 	ReadinessProbe EnableSwitch `json:"readinessProbe,omitempty"`
+
 	// StartupProbe specifies if the startup probe for the container should be enabled
 	StartupProbe EnableSwitch `json:"startupProbe,omitempty"`
 }
@@ -833,6 +1240,7 @@ type ControlPlaneProbes struct {
 type ControlPlaneSecurity struct {
 	// PodSecurityContext specifies security context options on the pod level.
 	PodSecurityContext map[string]interface{} `json:"podSecurityContext,omitempty"`
+
 	// ContainerSecurityContext specifies security context options on the container level.
 	ContainerSecurityContext map[string]interface{} `json:"containerSecurityContext,omitempty"`
 }
@@ -845,6 +1253,7 @@ type ControlPlaneGlobalMetadata struct {
 type LabelsAndAnnotations struct {
 	// Annotations are extra annotations for this resource.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// Labels are extra labels for this resource.
 	Labels map[string]string `json:"labels,omitempty"`
 }
@@ -852,39 +1261,48 @@ type LabelsAndAnnotations struct {
 type Policies struct {
 	// NetworkPolicy specifies network policy options.
 	NetworkPolicy NetworkPolicy `json:"networkPolicy,omitempty"`
+
 	// PodSecurityStandard that can be enforced can be one of: empty (""), baseline, restricted or privileged
 	PodSecurityStandard string `json:"podSecurityStandard,omitempty"`
+
 	// ResourceQuota specifies resource quota options.
 	ResourceQuota ResourceQuota `json:"resourceQuota,omitempty"`
+
 	// LimitRange specifies limit range options.
 	LimitRange LimitRange `json:"limitRange,omitempty"`
+
 	// CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
 	CentralAdmission CentralAdmission `json:"centralAdmission,omitempty" product:"pro"`
+}
+
+func (p Policies) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(p))
 }
 
 type ResourceQuota struct {
 	// Enabled defines if the resource quota should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
+
 	// Quota are the quota options
 	Quota map[string]interface{} `json:"quota,omitempty"`
+
 	// ScopeSelector is the resource quota scope selector
-	ScopeSelector ScopeSelector `json:"scopeSelector,omitempty"`
+	ScopeSelector map[string]interface{} `json:"scopeSelector,omitempty"`
+
 	// Scopes are the resource quota scopes
 	Scopes []string `json:"scopes,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
 }
 
-type ScopeSelector struct {
-	MatchExpressions []LabelSelectorRequirement `json:"matchExpressions,omitempty"`
-}
-
 type LabelSelectorRequirement struct {
 	// key is the label key that the selector applies to.
 	Key string `json:"key"`
+
 	// operator represents a key's relationship to a set of values.
 	// Valid operators are In, NotIn, Exists and DoesNotExist.
 	Operator string `json:"operator"`
+
 	// values is an array of string values. If the operator is In or NotIn,
 	// the values array must be non-empty. If the operator is Exists or DoesNotExist,
 	// the values array must be empty. This array is replaced during a strategic
@@ -898,6 +1316,7 @@ type LimitRange struct {
 
 	// Default are the default limits for the limit range
 	Default map[string]interface{} `json:"default,omitempty"`
+
 	// DefaultRequest are the default request options for the limit range
 	DefaultRequest map[string]interface{} `json:"defaultRequest,omitempty"`
 
@@ -915,12 +1334,12 @@ type NetworkPolicy struct {
 }
 
 type OutgoingConnections struct {
+	// IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
+	// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
+	// that should not be included within this rule.
 	IPBlock IPBlock `json:"ipBlock,omitempty"`
 }
 
-// IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
-// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
-// that should not be included within this rule.
 type IPBlock struct {
 	// cidr is a string representing the IPBlock
 	// Valid examples are "192.168.1.0/24" or "2001:db8::/64"
@@ -935,39 +1354,193 @@ type IPBlock struct {
 
 type CentralAdmission struct {
 	// ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster
-	ValidatingWebhooks []interface{} `json:"validatingWebhooks,omitempty"`
+	ValidatingWebhooks []ValidatingWebhookConfiguration `json:"validatingWebhooks,omitempty"`
+
 	// MutatingWebhooks are mutating webhooks that should be enforced in the virtual cluster
-	MutatingWebhooks []interface{} `json:"mutatingWebhooks,omitempty"`
+	MutatingWebhooks []MutatingWebhookConfiguration `json:"mutatingWebhooks,omitempty"`
+}
+
+type MutatingWebhookConfiguration struct {
+	// Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	Kind string `json:"kind,omitempty"`
+
+	// APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	APIVersion string `json:"apiVersion,omitempty"`
+
+	// Standard object metadata; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
+	Metadata ObjectMeta `json:"metadata,omitempty"`
+
+	// Webhooks is a list of webhooks and the affected resources and operations.
+	Webhooks []MutatingWebhook `json:"webhooks,omitempty"`
+}
+
+type MutatingWebhook struct {
+	// reinvocationPolicy indicates whether this webhook should be called multiple times as part of a single admission evaluation.
+	// Allowed values are "Never" and "IfNeeded".
+	ReinvocationPolicy *string `json:"reinvocationPolicy,omitempty" protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
+
+	ValidatingWebhook `json:",inline"`
+}
+
+type ValidatingWebhookConfiguration struct {
+	// Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	Kind string `json:"kind,omitempty"`
+
+	// APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	APIVersion string `json:"apiVersion,omitempty"`
+
+	// Standard object metadata; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
+	Metadata ObjectMeta `json:"metadata,omitempty"`
+
+	// Webhooks is a list of webhooks and the affected resources and operations.
+	Webhooks []ValidatingWebhook `json:"webhooks,omitempty"`
+}
+
+type ValidatingWebhook struct {
+	// The name of the admission webhook.
+	// Name should be fully qualified, e.g., imagepolicy.kubernetes.io, where
+	// "imagepolicy" is the name of the webhook, and kubernetes.io is the name
+	// of the organization.
+	Name string `json:"name"`
+
+	// ClientConfig defines how to communicate with the hook.
+	ClientConfig ValidatingWebhookClientConfig `json:"clientConfig"`
+
+	// Rules describes what operations on what resources/subresources the webhook cares about.
+	// The webhook cares about an operation if it matches _any_ Rule.
+	Rules []interface{} `json:"rules,omitempty"`
+
+	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled -
+	// allowed values are Ignore or Fail. Defaults to Fail.
+	FailurePolicy *string `json:"failurePolicy,omitempty"`
+
+	// matchPolicy defines how the "rules" list is used to match incoming requests.
+	// Allowed values are "Exact" or "Equivalent".
+	MatchPolicy *string `json:"matchPolicy,omitempty"`
+
+	// NamespaceSelector decides whether to run the webhook on an object based
+	// on whether the namespace for that object matches the selector. If the
+	// object itself is a namespace, the matching is performed on
+	// object.metadata.labels. If the object is another cluster scoped resource,
+	// it never skips the webhook.
+	NamespaceSelector interface{} `json:"namespaceSelector,omitempty"`
+
+	// ObjectSelector decides whether to run the webhook based on if the
+	// object has matching labels. objectSelector is evaluated against both
+	// the oldObject and newObject that would be sent to the webhook, and
+	// is considered to match if either object matches the selector.
+	ObjectSelector interface{} `json:"objectSelector,omitempty"`
+
+	// SideEffects states whether this webhook has side effects.
+	SideEffects *string `json:"sideEffects"`
+
+	// TimeoutSeconds specifies the timeout for this webhook.
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
+
+	// AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`
+	// versions the Webhook expects.
+	AdmissionReviewVersions []string `json:"admissionReviewVersions"`
+
+	// MatchConditions is a list of conditions that must be met for a request to be sent to this
+	// webhook. Match conditions filter requests that have already been matched by the rules,
+	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+	// There are a maximum of 64 match conditions allowed.
+	MatchConditions []interface{} `json:"matchConditions,omitempty"`
+}
+
+// ValidatingWebhookClientConfig contains the information to make a TLS
+// connection with the webhook
+type ValidatingWebhookClientConfig struct {
+	// URL gives the location of the webhook, in standard URL form
+	// (`scheme://host:port/path`). Exactly one of `url` or `service`
+	// must be specified.
+	URL *string `json:"url,omitempty"`
+
+	// Service is a reference to the service for this webhook. Either
+	// `service` or `url` must be specified.
+	//
+	// If the webhook is running within the cluster, then you should use `service`.
+	Service *ValidatingWebhookServiceReference `json:"service,omitempty"`
+
+	// CABundle is a PEM encoded CA bundle which will be used to validate the webhook's server certificate.
+	// If unspecified, system trust roots on the apiserver are used.
+	CABundle []byte `json:"caBundle,omitempty"`
+}
+
+type ValidatingWebhookServiceReference struct {
+	// Namespace is the namespace of the service.
+	Namespace string `json:"namespace"`
+
+	// Name is the name of the service.
+	Name string `json:"name"`
+
+	// Path is an optional URL path which will be sent in any request to
+	// this service.
+	Path *string `json:"path,omitempty"`
+
+	// If specified, the port on the service that hosting webhook.
+	// Default to 443 for backward compatibility.
+	// `port` should be a valid port number (1-65535, inclusive).
+	Port *int32 `json:"port,omitempty"`
+}
+
+type ObjectMeta struct {
+	// Name must be unique within a namespace. Is required when creating resources, although
+	// some resources may allow a client to request the generation of an appropriate name
+	// automatically. Name is primarily intended for creation idempotence and configuration
+	// definition.
+	Name string `json:"name,omitempty"`
+
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) objects. May match selectors of replication controllers
+	// and services.
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations is an unstructured key value map stored with a resource that may be
+	// set by external tools to store and retrieve arbitrary metadata.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 type RBAC struct {
 	// Role holds virtual cluster role configuration
 	Role RBACRole `json:"role,omitempty"`
+
 	// ClusterRole holds virtual cluster cluster role configuration
 	ClusterRole RBACClusterRole `json:"clusterRole,omitempty"`
 }
 
 type RBACClusterRole struct {
-	// Disabled defines if the cluster role should be disabled. Otherwise, vCluster automatically determines whether the virtual cluster requires a cluster role.
-	Disabled bool `json:"disabled,omitempty"`
+	// Enabled defines if the cluster role should be enabled or disabled. If auto, vCluster automatically determines whether the virtual cluster requires a cluster role.
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
+
 	// ExtraRules will add rules to the cluster role.
 	ExtraRules []map[string]interface{} `json:"extraRules,omitempty"`
+
 	// OverwriteRules will overwrite the cluster role rules completely.
 	OverwriteRules []map[string]interface{} `json:"overwriteRules,omitempty"`
 }
 
 type RBACRole struct {
-	// Enabled
+	// Enabled defines if the role should be enabled or disabled.
 	Enabled bool `json:"enabled,omitempty"`
+
 	// ExtraRules will add rules to the role.
 	ExtraRules []map[string]interface{} `json:"extraRules,omitempty"`
+
 	// OverwriteRules will overwrite the role rules completely.
 	OverwriteRules []map[string]interface{} `json:"overwriteRules,omitempty"`
 }
 
 type Telemetry struct {
-	// Disabled specifies that the telemetry for the vCluster control plane should be disabled.
-	Disabled           bool   `json:"disabled,omitempty"`
+	// Enabled specifies that the telemetry for the vCluster control plane should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
 	InstanceCreator    string `json:"instanceCreator,omitempty"`
 	MachineID          string `json:"machineID,omitempty"`
 	PlatformUserID     string `json:"platformUserID,omitempty"`
@@ -988,13 +1561,17 @@ type Experimental struct {
 	MultiNamespaceMode ExperimentalMultiNamespaceMode `json:"multiNamespaceMode,omitempty"`
 
 	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
-	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty"`
+	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty" product:"pro"`
 
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.
 	VirtualClusterKubeConfig VirtualClusterKubeConfig `json:"virtualClusterKubeConfig,omitempty"`
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
-	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" pro:"true"`
+	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
+}
+
+func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type ExperimentalMultiNamespaceMode struct {
@@ -1007,36 +1584,55 @@ type ExperimentalMultiNamespaceMode struct {
 
 type ExperimentalIsolatedControlPlane struct {
 	// Enabled specifies if the isolated control plane feature should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty" product:"pro"`
+
 	// Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
 	Headless bool `json:"headless,omitempty"`
+
 	// KubeConfig is the path where to find the remote workload cluster kubeconfig.
 	KubeConfig string `json:"kubeConfig,omitempty"`
+
 	// Namespace is the namespace where to sync the workloads into.
 	Namespace string `json:"namespace,omitempty"`
+
 	// Service is the vCluster service in the remote cluster.
 	Service string `json:"service,omitempty"`
 }
 
 type ExperimentalSyncSettings struct {
 	// DisableSync will not sync any resources and disable most control plane functionality.
-	DisableSync bool `json:"disableSync,omitempty"`
+	DisableSync bool `json:"disableSync,omitempty" product:"pro"`
+
 	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
-	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty"`
+	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty" product:"pro"`
 
 	// TargetNamespace is the namespace where the workloads should get synced to.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
+
 	// SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
 	SetOwner bool `json:"setOwner,omitempty"`
+
 	// SyncLabels are labels that should get not rewritten when syncing from the virtual cluster.
 	SyncLabels []string `json:"syncLabels,omitempty"`
+
+	// HostMetricsBindAddress is the bind address for the local manager
+	HostMetricsBindAddress string `json:"hostMetricsBindAddress,omitempty"`
+
+	// VirtualMetricsBindAddress is the bind address for the virtual manager
+	VirtualMetricsBindAddress string `json:"virtualMetricsBindAddress,omitempty"`
+}
+
+func (e ExperimentalSyncSettings) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
 type ExperimentalDeploy struct {
 	// Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
 	Manifests string `json:"manifests,omitempty"`
+
 	// ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster.
 	ManifestsTemplate string `json:"manifestsTemplate,omitempty"`
+
 	// Helm are Helm charts that should get deployed into the virtual cluster
 	Helm []ExperimentalDeployHelm `json:"helm,omitempty"`
 }
@@ -1044,12 +1640,16 @@ type ExperimentalDeploy struct {
 type ExperimentalDeployHelm struct {
 	// Chart defines what chart should get deployed.
 	Chart ExperimentalDeployHelmChart `json:"chart,omitempty"`
+
 	// Release defines what release should get deployed.
 	Release ExperimentalDeployHelmRelease `json:"release,omitempty"`
+
 	// Values defines what values should get used.
 	Values string `json:"values,omitempty"`
+
 	// Timeout defines the timeout for Helm
 	Timeout string `json:"timeout,omitempty"`
+
 	// Bundle allows to compress the Helm chart and specify this instead of an online chart
 	Bundle string `json:"bundle,omitempty"`
 }
@@ -1057,6 +1657,7 @@ type ExperimentalDeployHelm struct {
 type ExperimentalDeployHelmRelease struct {
 	// Name of the release
 	Name string `json:"name,omitempty"`
+
 	// Namespace of the release
 	Namespace string `json:"namespace,omitempty"`
 }
@@ -1071,8 +1672,8 @@ type ExperimentalDeployHelmChart struct {
 }
 
 type Platform struct {
-	// APIKey defines how vCluster can find the api key used for the platform.
-	APIKey PlatformAPIKey `json:"apiKey,omitempty"`
+	// API defines how vCluster can contact the platform api.
+	API PlatformAPI `json:"api,omitempty"`
 
 	// Name is the name of the vCluster instance in the vCluster platform
 	Name string `json:"name,omitempty"`
@@ -1092,24 +1693,30 @@ type PlatformOwner struct {
 	Team string `json:"team,omitempty"`
 }
 
-type PlatformAPIKey struct {
-	// Value specifies the api key as a regular text value.
-	Value string `json:"value,omitempty"`
+type PlatformAPI struct {
+	// AccessKey specifies the access key as a regular text value.
+	AccessKey string `json:"accessKey,omitempty"`
 
-	// SecretRef defines where to find the platform api key. By default vCluster will search in the following locations in this precedence:
-	// * platform.apiKey.value
+	// Host specifies the platform host to use.
+	Host string `json:"host,omitempty"`
+
+	// Insecure specifies if the host uses a self-signed certificate.
+	Insecure bool `json:"insecure,omitempty"`
+
+	// SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:
+	// * platform.api.accessKey
 	// * environment variable called LICENSE
-	// * secret specified under platform.secret.name
+	// * secret specified under platform.api.secretRef.name
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace
-	SecretRef PlatformAPIKeySecretReference `json:"secretRef,omitempty"`
+	SecretRef PlatformAccessKeySecretReference `json:"secretRef,omitempty"`
 }
 
-// PlatformAPIKeySecretReference defines where to find the platform api key. The secret key name doesn't matter as long as the secret only contains a single key.
-type PlatformAPIKeySecretReference struct {
-	// Name is the name of the secret where the platform api key is stored. This defaults to vcluster-platform-api-key if undefined.
+// PlatformAccessKeySecretReference defines where to find the platform access key. The secret key name doesn't matter as long as the secret only contains a single key.
+type PlatformAccessKeySecretReference struct {
+	// Name is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined.
 	Name string `json:"name,omitempty"`
 
-	// Namespace defines the namespace where the api key secret should be retrieved from. If this is not equal to the namespace
+	// Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace
 	// where the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.
 	Namespace string `json:"namespace,omitempty"`
 }
@@ -1271,74 +1878,66 @@ type PatchSync struct {
 
 type DenyRule struct {
 	// The name of the check.
-	// +optional
 	Name string `json:"name,omitempty"`
 
 	// Namespace describe a list of namespaces that will be affected by the check.
 	// An empty list means that all namespaces will be affected.
 	// In case of ClusterScoped rules, only the Namespace resource is affected.
-	// +optional
 	Namespaces []string `json:"namespaces,omitempty"`
 
 	// Rules describes on which verbs and on what resources/subresources the webhook is enforced.
 	// The webhook is enforced if it matches any Rule.
 	// The version of the request must match the rule version exactly. Equivalent matching is not supported.
-	// +optional
 	Rules []RuleWithVerbs `json:"rules,omitempty"`
 
 	// ExcludedUsers describe a list of users for which the checks will be skipped.
 	// Impersonation attempts on these users will still be subjected to the checks.
-	// +optional
 	ExcludedUsers []string `json:"excludedUsers,omitempty"`
 }
 
 type RuleWithVerbs struct {
 	// APIGroups is the API groups the resources belong to. '*' is all groups.
-	// If '*' is present, the length of the slice must be one.
-	// Required.
-	// +listType=atomic
 	APIGroups []string `json:"apiGroups,omitempty" protobuf:"bytes,1,rep,name=apiGroups"`
 
 	// APIVersions is the API versions the resources belong to. '*' is all versions.
-	// If '*' is present, the length of the slice must be one.
-	// Required.
-	// +listType=atomic
 	APIVersions []string `json:"apiVersions,omitempty" protobuf:"bytes,2,rep,name=apiVersions"`
 
 	// Resources is a list of resources this rule applies to.
-	//
-	// For example:
-	// 'pods' means pods.
-	// 'pods/log' means the log subresource of pods.
-	// '*' means all resources, but not subresources.
-	// 'pods/*' means all subresources of pods.
-	// '*/scale' means all scale subresources.
-	// '*/*' means all resources and their subresources.
-	//
-	// If wildcard is present, the validation rule will ensure resources do not
-	// overlap with each other.
-	//
-	// Depending on the enclosing object, subresources might not be allowed.
-	// Required.
-	// +listType=atomic
 	Resources []string `json:"resources,omitempty" protobuf:"bytes,3,rep,name=resources"`
 
-	// scope specifies the scope of this rule.
-	// Valid values are "Cluster", "Namespaced", and "*"
-	// "Cluster" means that only cluster-scoped resources will match this rule.
-	// Namespace API objects are cluster-scoped.
-	// "Namespaced" means that only namespaced resources will match this rule.
-	// "*" means that there are no scope restrictions.
-	// Subresources match the scope of their parent resource.
-	// Default is "*".
-	//
-	// +optional
+	// Scope specifies the scope of this rule.
 	Scope *string `json:"scope,omitempty" protobuf:"bytes,4,rep,name=scope"`
 
 	// Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.
 	// For non-resource requests, this is the lowercase http verb.
 	// If '*' is present, the length of the slice must be one.
-	// Required.
-	// +listType=atomic
 	Verbs []string `json:"operations,omitempty"`
+}
+
+// addProToJSONSchema looks for fields with the `product:"pro"` tag and adds the pro tag to the central field.
+// Requires `json:""` tag to be set as well.
+func addProToJSONSchema(base *jsonschema.Schema, t reflect.Type) {
+	proFields := []string{}
+	for i := 0; i < t.NumField(); i++ {
+		tag := t.Field(i).Tag.Get("product")
+		jsonName := strings.Split(t.Field(i).Tag.Get("json"), ",")[0]
+		if tag == "" {
+			continue
+		}
+
+		proFields = append(proFields, jsonName)
+	}
+	if len(proFields) == 0 {
+		return
+	}
+	for _, field := range proFields {
+		central, ok := base.Properties.Get(field)
+		if !ok {
+			continue
+		}
+		if central.Extras == nil {
+			central.Extras = map[string]interface{}{}
+		}
+		central.Extras["pro"] = true
+	}
 }

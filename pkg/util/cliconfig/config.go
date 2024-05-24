@@ -9,12 +9,8 @@ import (
 	"sync"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	homedir "github.com/mitchellh/go-homedir"
-)
-
-const (
-	VClusterFolder = ".vcluster"
-	ConfigFileName = "config.json"
 )
 
 var (
@@ -33,7 +29,7 @@ func getDefaultCLIConfig() *CLIConfig {
 }
 
 func getConfigFilePath(home string) string {
-	return filepath.Join(home, VClusterFolder, ConfigFileName)
+	return filepath.Join(home, constants.VClusterFolder, constants.ConfigFileName)
 }
 
 func GetConfig(log log.Logger) *CLIConfig {

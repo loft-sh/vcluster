@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +18,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var tokenPath = "/data/server/token"
+var TokenPath = "/data/server/token"
 
 func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, serviceCIDR, k3sToken string) error {
 	// build args
@@ -48,11 +49,36 @@ func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, service
 			args = append(args, "--kube-controller-manager-arg=controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
 			args = append(args, "--kube-apiserver-arg=endpoint-reconciler-type=none")
 		}
-		if vConfig.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
+		if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled {
+			// wait until etcd is up and running
+			_, err := etcd.WaitForEtcdClient(ctx, &etcd.Certificates{
+				CaCert:     "/data/pki/etcd/ca.crt",
+				ServerCert: "/data/pki/apiserver-etcd-client.crt",
+				ServerKey:  "/data/pki/apiserver-etcd-client.key",
+			}, "https://"+vConfig.Name+"-etcd:2379")
+			if err != nil {
+				return err
+			}
+
+			args = append(args, "--datastore-endpoint=https://"+vConfig.Name+"-etcd:2379")
+			args = append(args, "--datastore-cafile=/data/pki/etcd/ca.crt")
+			args = append(args, "--datastore-certfile=/data/pki/apiserver-etcd-client.crt")
+			args = append(args, "--datastore-keyfile=/data/pki/apiserver-etcd-client.key")
+		} else if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			args = append(args, "--datastore-endpoint=https://localhost:2379")
 			args = append(args, "--datastore-cafile=/data/pki/etcd/ca.crt")
 			args = append(args, "--datastore-certfile=/data/pki/apiserver-etcd-client.crt")
 			args = append(args, "--datastore-keyfile=/data/pki/apiserver-etcd-client.key")
+		} else if vConfig.EmbeddedDatabase() && vConfig.Config.ControlPlane.BackingStore.Database.Embedded.DataSource != "" {
+			args = append(args, "--datastore-endpoint="+vConfig.Config.ControlPlane.BackingStore.Database.Embedded.DataSource)
+			args = append(args, "--datastore-cafile="+vConfig.Config.ControlPlane.BackingStore.Database.Embedded.CaFile)
+			args = append(args, "--datastore-certfile="+vConfig.Config.ControlPlane.BackingStore.Database.Embedded.CertFile)
+			args = append(args, "--datastore-keyfile="+vConfig.Config.ControlPlane.BackingStore.Database.Embedded.KeyFile)
+		} else if vConfig.Config.ControlPlane.BackingStore.Database.External.Enabled {
+			args = append(args, "--datastore-endpoint="+vConfig.Config.ControlPlane.BackingStore.Database.External.DataSource)
+			args = append(args, "--datastore-cafile="+vConfig.Config.ControlPlane.BackingStore.Database.External.CaFile)
+			args = append(args, "--datastore-certfile="+vConfig.Config.ControlPlane.BackingStore.Database.External.CertFile)
+			args = append(args, "--datastore-keyfile="+vConfig.Config.ControlPlane.BackingStore.Database.External.KeyFile)
 		}
 	}
 
@@ -60,7 +86,7 @@ func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, service
 	args = append(args, vConfig.ControlPlane.Distro.K3S.ExtraArgs...)
 
 	// check what writer we should use
-	writer, err := commandwriter.NewCommandWriter("k3s")
+	writer, err := commandwriter.NewCommandWriter("k3s", false)
 	if err != nil {
 		return err
 	}
@@ -99,7 +125,7 @@ func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Inter
 	}
 
 	// try to read token file (migration case)
-	token, err := os.ReadFile(tokenPath)
+	token, err := os.ReadFile(TokenPath)
 	if err != nil {
 		token = []byte(random.String(64))
 	}

@@ -1,9 +1,10 @@
 package translate
 
 import (
+	"strings"
+
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -24,13 +25,18 @@ var (
 	}
 )
 
-func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewriteImage, fromHost, toHostname, toHostnameFQDN string) {
+func (t *translator) rewritePodHostnameFQDN(pPod *corev1.Pod, fromHost, toHostname, toHostnameFQDN string) {
 	if pPod.Annotations == nil || pPod.Annotations[DisableSubdomainRewriteAnnotation] != "true" || pPod.Annotations[HostsRewrittenAnnotation] != "true" {
+		image := t.overrideHostsImage
+		if t.defaultImageRegistry != "" {
+			image = strings.TrimSuffix(t.defaultImageRegistry, "/") + "/" + image
+		}
+
 		userID := coredns.GetUserID()
 		groupID := coredns.GetGroupID()
 		initContainer := corev1.Container{
 			Name:    HostsRewriteContainerName,
-			Image:   defaultImageRegistry + hostsRewriteImage,
+			Image:   image,
 			Command: []string{"sh"},
 			Args:    []string{"-c", "sed -E -e 's/^(\\d+.\\d+.\\d+.\\d+\\s+)" + fromHost + "$/\\1 " + toHostnameFQDN + " " + toHostname + "/' /etc/hosts > /hosts/hosts"},
 			SecurityContext: &corev1.SecurityContext{
@@ -41,16 +47,7 @@ func rewritePodHostnameFQDN(pPod *corev1.Pod, defaultImageRegistry, hostsRewrite
 				AllowPrivilegeEscalation: &privilegeEscalation,
 				SeccompProfile:           &seccompProfile,
 			},
-			Resources: corev1.ResourceRequirements{
-				Limits: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse("30m"),
-					corev1.ResourceMemory: resource.MustParse("64Mi"),
-				},
-				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse("30m"),
-					corev1.ResourceMemory: resource.MustParse("64Mi"),
-				},
-			},
+			Resources: t.overrideHostsResources,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					MountPath: "/hosts",

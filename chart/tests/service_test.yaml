@@ -17,7 +17,6 @@ tests:
       networking:
         advanced:
           proxyKubelets:
-            byIP: false
             byHostname: false
     asserts:
       - hasDocuments:
@@ -33,6 +32,43 @@ tests:
             targetPort: 8443
             protocol: TCP
             port: 443
+
+  - it: should not create kubelet port 2
+    set:
+      controlPlane:
+        service:
+          spec:
+            type: LoadBalancer
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ports
+          count: 1
+      - contains:
+          path: spec.ports
+          content:
+            name: https
+            nodePort: 0
+            targetPort: 8443
+            protocol: TCP
+            port: 443
+
+  - it: should create kubelet port
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ports
+          count: 2
+      - contains:
+          path: spec.ports
+          content:
+            name: kubelet
+            nodePort: 0
+            targetPort: 8443
+            protocol: TCP
+            port: 10250
 
   - it: service defaults
     release:

@@ -4,15 +4,16 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/server"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
-func StartProxy(ctx *config.ControllerContext, controlPlaneNamespace, controlPlaneService string, controlPlaneClient kubernetes.Interface) error {
+func StartProxy(ctx *config.ControllerContext) error {
 	// add remote node port sans
-	err := pro.AddRemoteNodePortSANs(ctx.Context, controlPlaneNamespace, controlPlaneService, controlPlaneClient)
-	if err != nil {
-		return err
+	if ctx.Config.Experimental.IsolatedControlPlane.Enabled {
+		err := pro.AddRemoteNodePortSANs(ctx.Context, ctx.Config.ControlPlaneNamespace, ctx.Config.ControlPlaneService, ctx.Config.ControlPlaneClient)
+		if err != nil {
+			return err
+		}
 	}
 
 	// start the proxy

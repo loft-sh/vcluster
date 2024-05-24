@@ -4,13 +4,13 @@
   "$defs": {
     "BackingStore": {
       "properties": {
-        "embeddedEtcd": {
-          "$ref": "#/$defs/EmbeddedEtcd",
-          "description": "EmbeddedEtcd defines to use embedded etcd as a storage backend for the virtual cluster"
+        "etcd": {
+          "$ref": "#/$defs/Etcd",
+          "description": "Etcd defines that etcd should be used as the backend for the virtual cluster"
         },
-        "externalEtcd": {
-          "$ref": "#/$defs/ExternalEtcd",
-          "description": "ExternalEtcd defines to use an external etcd deployed by the Helm chart as a storage backend for the virtual cluster"
+        "database": {
+          "$ref": "#/$defs/Database",
+          "description": "Database defines that a database backend should be used as the backend for the virtual cluster. This uses a project called kine under the hood which is a shim for bridging Kubernetes and relational databases."
         }
       },
       "additionalProperties": false,
@@ -19,12 +19,16 @@
     "CentralAdmission": {
       "properties": {
         "validatingWebhooks": {
-          "items": true,
+          "items": {
+            "$ref": "#/$defs/ValidatingWebhookConfiguration"
+          },
           "type": "array",
           "description": "ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster"
         },
         "mutatingWebhooks": {
-          "items": true,
+          "items": {
+            "$ref": "#/$defs/MutatingWebhookConfiguration"
+          },
           "type": "array",
           "description": "MutatingWebhooks are mutating webhooks that should be enforced in the virtual cluster"
         }
@@ -36,15 +40,15 @@
       "properties": {
         "distro": {
           "$ref": "#/$defs/Distro",
-          "description": "Distro holds virtual cluster related distro options."
+          "description": "Distro holds virtual cluster related distro options. A distro cannot be changed after vCluster is deployed."
         },
         "backingStore": {
           "$ref": "#/$defs/BackingStore",
-          "description": "BackingStore defines which backing store to use for virtual cluster. If not defined will fallback to the default distro backing store."
+          "description": "BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store."
         },
         "coredns": {
           "$ref": "#/$defs/CoreDNS",
-          "description": "CoreDNS defines everything coredns related."
+          "description": "CoreDNS defines everything related to the coredns that is deployed and used within the vCluster."
         },
         "proxy": {
           "$ref": "#/$defs/ControlPlaneProxy",
@@ -52,7 +56,8 @@
         },
         "hostPathMapper": {
           "$ref": "#/$defs/HostPathMapper",
-          "description": "HostPathMapper defines if vCluster should rewrite host paths."
+          "description": "HostPathMapper defines if vCluster should rewrite host paths.",
+          "pro": true
         },
         "ingress": {
           "$ref": "#/$defs/ControlPlaneIngress",
@@ -256,7 +261,7 @@
         },
         "port": {
           "type": "integer",
-          "description": "Port under which vCluster will expose the proxy."
+          "description": "Port under which vCluster will expose the proxy. Changing port is currently not supported."
         },
         "extraSANs": {
           "items": {
@@ -280,7 +285,9 @@
           "description": "Affinity is the affinity to apply to the pod."
         },
         "tolerations": {
-          "items": true,
+          "items": {
+            "type": "object"
+          },
           "type": "array",
           "description": "Tolerations are the tolerations to apply to the pod."
         },
@@ -363,7 +370,7 @@
         },
         "imagePullSecrets": {
           "items": {
-            "$ref": "#/$defs/LocalObjectReference"
+            "$ref": "#/$defs/ImagePullSecretName"
           },
           "type": "array",
           "description": "ImagePullSecrets defines extra image pull secrets for the service account."
@@ -412,6 +419,10 @@
           "$ref": "#/$defs/ControlPlanePersistence",
           "description": "Persistence defines options around persistence for the statefulSet."
         },
+        "enableServiceLinks": {
+          "type": "boolean",
+          "description": "EnableServiceLinks for the StatefulSet pod"
+        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
@@ -428,10 +439,10 @@
         },
         "pods": {
           "$ref": "#/$defs/LabelsAndAnnotations",
-          "description": "Pods are additional labels or annotations for the statefulSet pod."
+          "description": "Additional labels or annotations for the statefulSet pods."
         },
         "image": {
-          "$ref": "#/$defs/Image",
+          "$ref": "#/$defs/StatefulSetImage",
           "description": "Image is the image for the controlPlane statefulSet container"
         },
         "imagePullPolicy": {
@@ -479,7 +490,7 @@
         },
         "imagePullSecrets": {
           "items": {
-            "$ref": "#/$defs/LocalObjectReference"
+            "$ref": "#/$defs/ImagePullSecretName"
           },
           "type": "array",
           "description": "ImagePullSecrets defines extra image pull secrets for the workload service account."
@@ -510,7 +521,8 @@
         },
         "embedded": {
           "type": "boolean",
-          "description": "Embedded defines if vCluster will start the embedded coredns service"
+          "description": "Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature.",
+          "pro": true
         },
         "service": {
           "$ref": "#/$defs/CoreDNSService",
@@ -527,6 +539,10 @@
         "overwriteManifests": {
           "type": "string",
           "description": "OverwriteManifests can be used to overwrite the coredns manifests used to deploy coredns"
+        },
+        "priorityClassName": {
+          "type": "string",
+          "description": "PriorityClassName specifies the priority class name for the CoreDNS pods."
         }
       },
       "additionalProperties": false,
@@ -599,32 +615,72 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Database": {
+      "properties": {
+        "embedded": {
+          "$ref": "#/$defs/DatabaseKine",
+          "description": "Embedded defines that an embedded database (sqlite) should be used as the backend for the virtual cluster"
+        },
+        "external": {
+          "$ref": "#/$defs/DatabaseKine",
+          "description": "External defines that an external database should be used as the backend for the virtual cluster"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DatabaseKine": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the database should be used."
+        },
+        "dataSource": {
+          "type": "string",
+          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the embedded database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
+        },
+        "keyFile": {
+          "type": "string",
+          "description": "KeyFile is the key file to use for the database. This is optional."
+        },
+        "certFile": {
+          "type": "string",
+          "description": "CertFile is the cert file to use for the database. This is optional."
+        },
+        "caFile": {
+          "type": "string",
+          "description": "CaFile is the ca file to use for the database. This is optional."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "DenyRule": {
       "properties": {
         "name": {
           "type": "string",
-          "description": "The name of the check.\n+optional"
+          "description": "The name of the check."
         },
         "namespaces": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Namespace describe a list of namespaces that will be affected by the check.\nAn empty list means that all namespaces will be affected.\nIn case of ClusterScoped rules, only the Namespace resource is affected.\n+optional"
+          "description": "Namespace describe a list of namespaces that will be affected by the check.\nAn empty list means that all namespaces will be affected.\nIn case of ClusterScoped rules, only the Namespace resource is affected."
         },
         "rules": {
           "items": {
             "$ref": "#/$defs/RuleWithVerbs"
           },
           "type": "array",
-          "description": "Rules describes on which verbs and on what resources/subresources the webhook is enforced.\nThe webhook is enforced if it matches any Rule.\nThe version of the request must match the rule version exactly. Equivalent matching is not supported.\n+optional"
+          "description": "Rules describes on which verbs and on what resources/subresources the webhook is enforced.\nThe webhook is enforced if it matches any Rule.\nThe version of the request must match the rule version exactly. Equivalent matching is not supported."
         },
         "excludedUsers": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "ExcludedUsers describe a list of users for which the checks will be skipped.\nImpersonation attempts on these users will still be subjected to the checks.\n+optional"
+          "description": "ExcludedUsers describe a list of users for which the checks will be skipped.\nImpersonation attempts on these users will still be subjected to the checks."
         }
       },
       "additionalProperties": false,
@@ -632,6 +688,10 @@
     },
     "Distro": {
       "properties": {
+        "k8s": {
+          "$ref": "#/$defs/DistroK8s",
+          "description": "K8S holds K8s relevant configuration."
+        },
         "k3s": {
           "$ref": "#/$defs/DistroK3s",
           "description": "K3S holds K3s relevant configuration."
@@ -639,10 +699,6 @@
         "k0s": {
           "$ref": "#/$defs/DistroK0s",
           "description": "K0S holds k0s relevant configuration."
-        },
-        "k8s": {
-          "$ref": "#/$defs/DistroK8s",
-          "description": "K8S holds K8s relevant configuration."
         },
         "eks": {
           "$ref": "#/$defs/DistroK8s",
@@ -680,11 +736,11 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "DistroContainerDisabled": {
+    "DistroContainerEnabled": {
       "properties": {
-        "disabled": {
+        "enabled": {
           "type": "boolean",
-          "description": "Disabled signals this container should be disabled."
+          "description": "Enabled signals this container should be enabled."
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -727,15 +783,15 @@
             "type": "object"
           },
           "type": "array",
-          "description": "Env are extra environment variables to use for the main container."
+          "description": "Env are extra environment variables to use for the main container and NOT the init container."
         },
         "resources": {
           "type": "object",
-          "description": "Resources are the resources for the distro init container"
+          "description": "Resources for the distro init container"
         },
         "securityContext": {
           "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
+          "description": "Security options can be used for the distro init container"
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -778,15 +834,15 @@
             "type": "object"
           },
           "type": "array",
-          "description": "Env are extra environment variables to use for the main container."
+          "description": "Env are extra environment variables to use for the main container and NOT the init container."
         },
         "resources": {
           "type": "object",
-          "description": "Resources are the resources for the distro init container"
+          "description": "Resources for the distro init container"
         },
         "securityContext": {
           "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
+          "description": "Security options can be used for the distro init container"
         },
         "image": {
           "$ref": "#/$defs/Image",
@@ -821,45 +877,48 @@
           "description": "Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time."
         },
         "apiServer": {
-          "$ref": "#/$defs/DistroContainerDisabled",
+          "$ref": "#/$defs/DistroContainerEnabled",
           "description": "APIServer holds configuration specific to starting the api server."
         },
         "controllerManager": {
-          "$ref": "#/$defs/DistroContainerDisabled",
-          "description": "ControllerManager holds configuration specific to starting the scheduler."
+          "$ref": "#/$defs/DistroContainerEnabled",
+          "description": "ControllerManager holds configuration specific to starting the controller manager."
         },
         "scheduler": {
           "$ref": "#/$defs/DistroContainer",
-          "description": "Scheduler holds configuration specific to starting the scheduler."
+          "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled"
         },
         "env": {
           "items": {
             "type": "object"
           },
           "type": "array",
-          "description": "Env are extra environment variables to use for the main container."
+          "description": "Env are extra environment variables to use for the main container and NOT the init container."
         },
         "resources": {
           "type": "object",
-          "description": "Resources are the resources for the distro init container"
+          "description": "Resources for the distro init container"
         },
         "securityContext": {
           "type": "object",
-          "description": "SecurityContext can be used for the distro init container"
+          "description": "Security options can be used for the distro init container"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "EmbeddedEtcd": {
+    "EnableAutoSwitch": {
       "properties": {
         "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the embedded etcd should be used."
-        },
-        "migrateFromExternalEtcd": {
-          "type": "boolean",
-          "description": "MigrateFromExternalEtcd signals that vCluster should migrate from the external etcd to embedded etcd."
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled defines if this option should be enabled."
         }
       },
       "additionalProperties": false,
@@ -870,6 +929,166 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Etcd": {
+      "properties": {
+        "embedded": {
+          "$ref": "#/$defs/EtcdEmbedded",
+          "description": "Embedded defines to use embedded etcd as a storage backend for the virtual cluster",
+          "pro": true
+        },
+        "deploy": {
+          "$ref": "#/$defs/EtcdDeploy",
+          "description": "Deploy defines to use an external etcd that is deployed by the helm chart"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdDeploy": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines that an external etcd should be deployed."
+        },
+        "statefulSet": {
+          "$ref": "#/$defs/EtcdDeployStatefulSet",
+          "description": "StatefulSet holds options for the external etcd statefulSet."
+        },
+        "service": {
+          "$ref": "#/$defs/EtcdDeployService",
+          "description": "Service holds options for the external etcd service."
+        },
+        "headlessService": {
+          "$ref": "#/$defs/EtcdDeployHeadlessService",
+          "description": "HeadlessService holds options for the external etcd headless service."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdDeployHeadlessService": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the etcd headless service should be deployed"
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are extra annotations for the external etcd headless service"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdDeployService": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the etcd service should be deployed"
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are extra annotations for the external etcd service"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdDeployStatefulSet": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the statefulSet should be deployed"
+        },
+        "enableServiceLinks": {
+          "type": "boolean",
+          "description": "EnableServiceLinks for the StatefulSet pod"
+        },
+        "image": {
+          "$ref": "#/$defs/Image",
+          "description": "Image is the image to use for the external etcd statefulSet"
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the pull policy for the external etcd image"
+        },
+        "env": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "Env are extra environment variables"
+        },
+        "extraArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExtraArgs are appended to the etcd command."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Resources the etcd can consume"
+        },
+        "pods": {
+          "$ref": "#/$defs/LabelsAndAnnotations",
+          "description": "Pods defines extra metadata for the etcd pods."
+        },
+        "highAvailability": {
+          "$ref": "#/$defs/ExternalEtcdHighAvailability",
+          "description": "HighAvailability are high availability options"
+        },
+        "scheduling": {
+          "$ref": "#/$defs/ControlPlaneScheduling",
+          "description": "Scheduling options for the etcd pods."
+        },
+        "security": {
+          "$ref": "#/$defs/ControlPlaneSecurity",
+          "description": "Security options for the etcd pods."
+        },
+        "persistence": {
+          "$ref": "#/$defs/ExternalEtcdPersistence",
+          "description": "Persistence options for the etcd pods."
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are extra annotations for this resource."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels are extra labels for this resource."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdEmbedded": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the embedded etcd should be used.",
+          "pro": true
+        },
+        "migrateFromDeployedEtcd": {
+          "type": "boolean",
+          "description": "MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd."
         }
       },
       "additionalProperties": false,
@@ -895,7 +1114,8 @@
         },
         "isolatedControlPlane": {
           "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
-          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves."
+          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.",
+          "pro": true
         },
         "virtualClusterKubeConfig": {
           "$ref": "#/$defs/VirtualClusterKubeConfig",
@@ -906,7 +1126,8 @@
             "$ref": "#/$defs/DenyRule"
           },
           "type": "array",
-          "description": "DenyProxyRequests denies certain requests in the vCluster proxy."
+          "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
+          "pro": true
         }
       },
       "additionalProperties": false,
@@ -1088,11 +1309,13 @@
       "properties": {
         "disableSync": {
           "type": "boolean",
-          "description": "DisableSync will not sync any resources and disable most control plane functionality."
+          "description": "DisableSync will not sync any resources and disable most control plane functionality.",
+          "pro": true
         },
         "rewriteKubernetesService": {
           "type": "boolean",
-          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled"
+          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled",
+          "pro": true
         },
         "targetNamespace": {
           "type": "string",
@@ -1108,6 +1331,14 @@
           },
           "type": "array",
           "description": "SyncLabels are labels that should get not rewritten when syncing from the virtual cluster."
+        },
+        "hostMetricsBindAddress": {
+          "type": "string",
+          "description": "HostMetricsBindAddress is the bind address for the local manager"
+        },
+        "virtualMetricsBindAddress": {
+          "type": "string",
+          "description": "VirtualMetricsBindAddress is the bind address for the virtual manager"
         }
       },
       "additionalProperties": false,
@@ -1186,45 +1417,6 @@
       "type": "object",
       "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig."
     },
-    "ExternalEtcd": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the external etcd should be used."
-        },
-        "statefulSet": {
-          "$ref": "#/$defs/ExternalEtcdStatefulSet",
-          "description": "StatefulSet holds options for the external etcd statefulSet."
-        },
-        "service": {
-          "$ref": "#/$defs/ExternalEtcdService",
-          "description": "Service holds options for the external etcd service."
-        },
-        "headlessService": {
-          "$ref": "#/$defs/ExternalEtcdHeadlessService",
-          "description": "HeadlessService holds options for the external etcd headless service."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExternalEtcdHeadlessService": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the etcd headless service should be deployed"
-        },
-        "annotations": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "Annotations are extra annotations for the external etcd headless service"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ExternalEtcdHighAvailability": {
       "properties": {
         "replicas": {
@@ -1235,88 +1427,61 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ExternalEtcdService": {
+    "ExternalEtcdPersistence": {
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the etcd service should be deployed"
+        "volumeClaim": {
+          "$ref": "#/$defs/ExternalEtcdPersistenceVolumeClaim",
+          "description": "VolumeClaim can be used to configure the persistent volume claim."
         },
-        "annotations": {
-          "additionalProperties": {
-            "type": "string"
+        "volumeClaimTemplates": {
+          "items": {
+            "type": "object"
           },
-          "type": "object",
-          "description": "Annotations are extra annotations for the external etcd service"
+          "type": "array",
+          "description": "VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet"
+        },
+        "addVolumes": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "AddVolumes defines extra volumes for the pod"
+        },
+        "addVolumeMounts": {
+          "items": {
+            "$ref": "#/$defs/VolumeMount"
+          },
+          "type": "array",
+          "description": "AddVolumeMounts defines extra volume mounts for the container"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "ExternalEtcdStatefulSet": {
+    "ExternalEtcdPersistenceVolumeClaim": {
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if the statefulSet should be deployed"
+          "description": "Enabled enables deploying a persistent volume claim."
         },
-        "image": {
-          "$ref": "#/$defs/Image",
-          "description": "Image is the image to use for the external etcd statefulSet"
+        "accessModes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "AccessModes are the persistent volume claim access modes."
         },
-        "imagePullPolicy": {
+        "retentionPolicy": {
           "type": "string",
-          "description": "ImagePullPolicy is the pull policy for the external etcd image"
+          "description": "RetentionPolicy is the persistent volume claim retention policy."
         },
-        "env": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "Env are extra environment variables"
+        "size": {
+          "type": "string",
+          "description": "Size is the persistent volume claim storage size."
         },
-        "extraArgs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ExtraArgs are appended to the etcd command."
-        },
-        "resources": {
-          "$ref": "#/$defs/Resources",
-          "description": "Resources the etcd can consume"
-        },
-        "pods": {
-          "$ref": "#/$defs/LabelsAndAnnotations",
-          "description": "Pods defines extra metadata for the etcd pods."
-        },
-        "highAvailability": {
-          "$ref": "#/$defs/ExternalEtcdHighAvailability",
-          "description": "HighAvailability are high availability options"
-        },
-        "scheduling": {
-          "$ref": "#/$defs/ControlPlaneScheduling",
-          "description": "Scheduling options for the etcd pods."
-        },
-        "security": {
-          "$ref": "#/$defs/ControlPlaneSecurity",
-          "description": "Security options for the etcd pods."
-        },
-        "persistence": {
-          "$ref": "#/$defs/ControlPlanePersistence",
-          "description": "Persistence options for the etcd pods."
-        },
-        "annotations": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "Annotations are extra annotations for this resource."
-        },
-        "labels": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "Labels are extra labels for this resource."
+        "storageClass": {
+          "type": "string",
+          "description": "StorageClass is the persistent volume claim storage class."
         }
       },
       "additionalProperties": false,
@@ -1399,18 +1564,31 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "description": "IPBlock describes a particular CIDR (Ex."
+      "type": "object"
     },
     "Image": {
       "properties": {
+        "registry": {
+          "type": "string",
+          "description": "Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally\noverridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub."
+        },
         "repository": {
           "type": "string",
-          "description": "Repository is the registry and repository of the container image, e.g. my-registry.com/my-repo/my-image"
+          "description": "Repository is the repository of the container image, e.g. my-repo/my-image"
         },
         "tag": {
           "type": "string",
           "description": "Tag is the tag of the container image, e.g. latest"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ImagePullSecretName": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the image pull secret to use."
         }
       },
       "additionalProperties": false,
@@ -1446,27 +1624,6 @@
           },
           "type": "array",
           "description": "ReversePatches are the patches to apply to host cluster objects\nafter it has been synced to the virtual cluster"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "LabelSelectorRequirement": {
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "key is the label key that the selector applies to."
-        },
-        "operator": {
-          "type": "string",
-          "description": "operator represents a key's relationship to a set of values.\nValid operators are In, NotIn, Exists and DoesNotExist."
-        },
-        "values": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "values is an array of string values. If the operator is In or NotIn,\nthe values array must be non-empty. If the operator is Exists or DoesNotExist,\nthe values array must be empty. This array is replaced during a strategic\nmerge patch."
         }
       },
       "additionalProperties": false,
@@ -1524,17 +1681,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "LocalObjectReference": {
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the referent.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace."
-    },
     "MetricsProxy": {
       "properties": {
         "nodes": {
@@ -1544,6 +1690,88 @@
         "pods": {
           "type": "boolean",
           "description": "Pods defines if metrics-server pods api should get proxied from host to virtual cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MutatingWebhook": {
+      "properties": {
+        "reinvocationPolicy": {
+          "type": "string",
+          "description": "reinvocationPolicy indicates whether this webhook should be called multiple times as part of a single admission evaluation.\nAllowed values are \"Never\" and \"IfNeeded\"."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the admission webhook.\nName should be fully qualified, e.g., imagepolicy.kubernetes.io, where\n\"imagepolicy\" is the name of the webhook, and kubernetes.io is the name\nof the organization."
+        },
+        "clientConfig": {
+          "$ref": "#/$defs/ValidatingWebhookClientConfig",
+          "description": "ClientConfig defines how to communicate with the hook."
+        },
+        "rules": {
+          "items": true,
+          "type": "array",
+          "description": "Rules describes what operations on what resources/subresources the webhook cares about.\nThe webhook cares about an operation if it matches _any_ Rule."
+        },
+        "failurePolicy": {
+          "type": "string",
+          "description": "FailurePolicy defines how unrecognized errors from the admission endpoint are handled -\nallowed values are Ignore or Fail. Defaults to Fail."
+        },
+        "matchPolicy": {
+          "type": "string",
+          "description": "matchPolicy defines how the \"rules\" list is used to match incoming requests.\nAllowed values are \"Exact\" or \"Equivalent\"."
+        },
+        "namespaceSelector": {
+          "description": "NamespaceSelector decides whether to run the webhook on an object based\non whether the namespace for that object matches the selector. If the\nobject itself is a namespace, the matching is performed on\nobject.metadata.labels. If the object is another cluster scoped resource,\nit never skips the webhook."
+        },
+        "objectSelector": {
+          "description": "ObjectSelector decides whether to run the webhook based on if the\nobject has matching labels. objectSelector is evaluated against both\nthe oldObject and newObject that would be sent to the webhook, and\nis considered to match if either object matches the selector."
+        },
+        "sideEffects": {
+          "type": "string",
+          "description": "SideEffects states whether this webhook has side effects."
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "description": "TimeoutSeconds specifies the timeout for this webhook."
+        },
+        "admissionReviewVersions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`\nversions the Webhook expects."
+        },
+        "matchConditions": {
+          "items": true,
+          "type": "array",
+          "description": "MatchConditions is a list of conditions that must be met for a request to be sent to this\nwebhook. Match conditions filter requests that have already been matched by the rules,\nnamespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.\nThere are a maximum of 64 match conditions allowed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MutatingWebhookConfiguration": {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to."
+        },
+        "apiVersion": {
+          "type": "string",
+          "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values."
+        },
+        "metadata": {
+          "$ref": "#/$defs/ObjectMeta",
+          "description": "Standard object metadata; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata."
+        },
+        "webhooks": {
+          "items": {
+            "$ref": "#/$defs/MutatingWebhook"
+          },
+          "type": "array",
+          "description": "Webhooks is a list of webhooks and the affected resources and operations."
         }
       },
       "additionalProperties": false,
@@ -1604,7 +1832,8 @@
             "$ref": "#/$defs/ResolveDNS"
           },
           "type": "array",
-          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured."
+          "description": "ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.",
+          "pro": true
         },
         "advanced": {
           "$ref": "#/$defs/NetworkingAdvanced",
@@ -1627,6 +1856,30 @@
         "proxyKubelets": {
           "$ref": "#/$defs/NetworkProxyKubelets",
           "description": "ProxyKubelets allows rewriting certain metrics and stats from the Kubelet to \"fake\" this for applications such as\nprometheus or other node exporters."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ObjectMeta": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name must be unique within a namespace. Is required when creating resources, although\nsome resources may allow a client to request the generation of an appropriate name\nautomatically. Name is primarily intended for creation idempotence and configuration\ndefinition."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Map of string keys and values that can be used to organize and categorize\n(scope and select) objects. May match selectors of replication controllers\nand services."
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations is an unstructured key value map stored with a resource that may be\nset by external tools to store and retrieve arbitrary metadata."
         }
       },
       "additionalProperties": false,
@@ -1655,7 +1908,8 @@
     "OutgoingConnections": {
       "properties": {
         "ipBlock": {
-          "$ref": "#/$defs/IPBlock"
+          "$ref": "#/$defs/IPBlock",
+          "description": "IPBlock describes a particular CIDR (Ex. \"192.168.1.0/24\",\"2001:db8::/64\") that is allowed\nto the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs\nthat should not be included within this rule."
         }
       },
       "additionalProperties": false,
@@ -1747,9 +2001,9 @@
     },
     "Platform": {
       "properties": {
-        "apiKey": {
-          "$ref": "#/$defs/PlatformAPIKey",
-          "description": "APIKey defines how vCluster can find the api key used for the platform."
+        "api": {
+          "$ref": "#/$defs/PlatformAPI",
+          "description": "API defines how vCluster can contact the platform api."
         },
         "name": {
           "type": "string",
@@ -1767,34 +2021,42 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "PlatformAPIKey": {
+    "PlatformAPI": {
       "properties": {
-        "value": {
+        "accessKey": {
           "type": "string",
-          "description": "Value specifies the api key as a regular text value."
+          "description": "AccessKey specifies the access key as a regular text value."
+        },
+        "host": {
+          "type": "string",
+          "description": "Host specifies the platform host to use."
+        },
+        "insecure": {
+          "type": "boolean",
+          "description": "Insecure specifies if the host uses a self-signed certificate."
         },
         "secretRef": {
-          "$ref": "#/$defs/PlatformAPIKeySecretReference",
-          "description": "SecretRef defines where to find the platform api key. By default vCluster will search in the following locations in this precedence:\n* platform.apiKey.value\n* environment variable called LICENSE\n* secret specified under platform.secret.name\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
+          "$ref": "#/$defs/PlatformAccessKeySecretReference",
+          "description": "SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* platform.api.accessKey\n* environment variable called LICENSE\n* secret specified under platform.api.secretRef.name\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "PlatformAPIKeySecretReference": {
+    "PlatformAccessKeySecretReference": {
       "properties": {
         "name": {
           "type": "string",
-          "description": "Name is the name of the secret where the platform api key is stored. This defaults to vcluster-platform-api-key if undefined."
+          "description": "Name is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined."
         },
         "namespace": {
           "type": "string",
-          "description": "Namespace defines the namespace where the api key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace."
+          "description": "Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace."
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "PlatformAPIKeySecretReference defines where to find the platform api key."
+      "description": "PlatformAccessKeySecretReference defines where to find the platform access key."
     },
     "PlatformOwner": {
       "properties": {
@@ -1993,7 +2255,8 @@
         },
         "centralAdmission": {
           "$ref": "#/$defs/CentralAdmission",
-          "description": "CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster."
+          "description": "CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.",
+          "pro": true
         }
       },
       "additionalProperties": false,
@@ -2015,9 +2278,16 @@
     },
     "RBACClusterRole": {
       "properties": {
-        "disabled": {
-          "type": "boolean",
-          "description": "Disabled defines if the cluster role should be disabled. Otherwise, vCluster automatically determines whether the virtual cluster requires a cluster role."
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled defines if the cluster role should be enabled or disabled. If auto, vCluster automatically determines whether the virtual cluster requires a cluster role."
         },
         "extraRules": {
           "items": {
@@ -2082,7 +2352,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled"
+          "description": "Enabled defines if the role should be enabled or disabled."
         },
         "extraRules": {
           "items": {
@@ -2125,16 +2395,20 @@
     "ResolveDNS": {
       "properties": {
         "hostname": {
-          "type": "string"
+          "type": "string",
+          "description": "Hostname is the hostname within the vCluster that should be resolved from."
         },
         "service": {
-          "type": "string"
+          "type": "string",
+          "description": "Service is the virtual cluster service that should be resolved from."
         },
         "namespace": {
-          "type": "string"
+          "type": "string",
+          "description": "Namespace is the virtual cluster namespace that should be resolved from."
         },
         "target": {
-          "$ref": "#/$defs/ResolveDNSTarget"
+          "$ref": "#/$defs/ResolveDNSTarget",
+          "description": "Target is the DNS target that should get mapped to"
         }
       },
       "additionalProperties": false,
@@ -2143,10 +2417,12 @@
     "ResolveDNSTarget": {
       "properties": {
         "hostname": {
-          "type": "string"
+          "type": "string",
+          "description": "Hostname to use as a DNS target"
         },
         "ip": {
-          "type": "string"
+          "type": "string",
+          "description": "IP to use as a DNS target"
         },
         "hostService": {
           "type": "string",
@@ -2175,7 +2451,7 @@
           "description": "Quota are the quota options"
         },
         "scopeSelector": {
-          "$ref": "#/$defs/ScopeSelector",
+          "type": "object",
           "description": "ScopeSelector is the resource quota scope selector"
         },
         "scopes": {
@@ -2224,44 +2500,32 @@
             "type": "string"
           },
           "type": "array",
-          "description": "APIGroups is the API groups the resources belong to. '*' is all groups.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
+          "description": "APIGroups is the API groups the resources belong to. '*' is all groups."
         },
         "apiVersions": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "APIVersions is the API versions the resources belong to. '*' is all versions.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
+          "description": "APIVersions is the API versions the resources belong to. '*' is all versions."
         },
         "resources": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Resources is a list of resources this rule applies to.\n\nFor example:\n'pods' means pods.\n'pods/log' means the log subresource of pods.\n'*' means all resources, but not subresources.\n'pods/*' means all subresources of pods.\n'*/scale' means all scale subresources.\n'*/*' means all resources and their subresources.\n\nIf wildcard is present, the validation rule will ensure resources do not\noverlap with each other.\n\nDepending on the enclosing object, subresources might not be allowed.\nRequired.\n+listType=atomic"
+          "description": "Resources is a list of resources this rule applies to."
         },
         "scope": {
           "type": "string",
-          "description": "scope specifies the scope of this rule.\nValid values are \"Cluster\", \"Namespaced\", and \"*\"\n\"Cluster\" means that only cluster-scoped resources will match this rule.\nNamespace API objects are cluster-scoped.\n\"Namespaced\" means that only namespaced resources will match this rule.\n\"*\" means that there are no scope restrictions.\nSubresources match the scope of their parent resource.\nDefault is \"*\".\n\n+optional"
+          "description": "Scope specifies the scope of this rule."
         },
         "operations": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.\nFor non-resource requests, this is the lowercase http verb.\nIf '*' is present, the length of the slice must be one.\nRequired.\n+listType=atomic"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ScopeSelector": {
-      "properties": {
-        "matchExpressions": {
-          "items": {
-            "$ref": "#/$defs/LabelSelectorRequirement"
-          },
-          "type": "array"
+          "description": "Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.\nFor non-resource requests, this is the lowercase http verb.\nIf '*' is present, the length of the slice must be one."
         }
       },
       "additionalProperties": false,
@@ -2318,6 +2582,24 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "StatefulSetImage": {
+      "properties": {
+        "registry": {
+          "type": "string",
+          "description": "Configure the registry of the container image, e.g. my-registry.com or ghcr.io\nIt defaults to ghcr.io and can be overriding either by using this field or controlPlane.advanced.defaultImageRegistry"
+        },
+        "repository": {
+          "type": "string",
+          "description": "Configure the repository of the container image, e.g. my-repo/my-image.\nIt defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.\nIf you still want to use the pure OSS build, use 'loft-sh/vcluster-oss' instead."
+        },
+        "tag": {
+          "type": "string",
+          "description": "Tag is the tag of the container image, e.g. latest"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Sync": {
       "properties": {
         "toHost": {
@@ -2361,20 +2643,20 @@
           "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "storageClasses": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back."
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiNodes": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back."
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiDrivers": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back."
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiStorageCapacities": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back."
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         }
       },
       "additionalProperties": false,
@@ -2457,9 +2739,23 @@
           "type": "boolean",
           "description": "Enabled specifies if rewriting stateful set pods should be enabled."
         },
-        "initContainerImage": {
+        "initContainer": {
+          "$ref": "#/$defs/SyncRewriteHostsInitContainer",
+          "description": "InitContainer holds extra options for the init container used by vCluster to rewrite the FQDN for stateful set pods."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SyncRewriteHostsInitContainer": {
+      "properties": {
+        "image": {
           "type": "string",
-          "description": "InitContainerImage is the image virtual cluster should use to rewrite this FQDN."
+          "description": "Image is the image virtual cluster should use to rewrite this FQDN."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Resources are the resources that should be assigned to the init container for each stateful set init container."
         }
       },
       "additionalProperties": false,
@@ -2529,9 +2825,9 @@
     },
     "Telemetry": {
       "properties": {
-        "disabled": {
+        "enabled": {
           "type": "boolean",
-          "description": "Disabled specifies that the telemetry for the vCluster control plane should be disabled."
+          "description": "Enabled specifies that the telemetry for the vCluster control plane should be enabled."
         },
         "instanceCreator": {
           "type": "string"
@@ -2544,6 +2840,126 @@
         },
         "platformInstanceID": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ValidatingWebhook": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the admission webhook.\nName should be fully qualified, e.g., imagepolicy.kubernetes.io, where\n\"imagepolicy\" is the name of the webhook, and kubernetes.io is the name\nof the organization."
+        },
+        "clientConfig": {
+          "$ref": "#/$defs/ValidatingWebhookClientConfig",
+          "description": "ClientConfig defines how to communicate with the hook."
+        },
+        "rules": {
+          "items": true,
+          "type": "array",
+          "description": "Rules describes what operations on what resources/subresources the webhook cares about.\nThe webhook cares about an operation if it matches _any_ Rule."
+        },
+        "failurePolicy": {
+          "type": "string",
+          "description": "FailurePolicy defines how unrecognized errors from the admission endpoint are handled -\nallowed values are Ignore or Fail. Defaults to Fail."
+        },
+        "matchPolicy": {
+          "type": "string",
+          "description": "matchPolicy defines how the \"rules\" list is used to match incoming requests.\nAllowed values are \"Exact\" or \"Equivalent\"."
+        },
+        "namespaceSelector": {
+          "description": "NamespaceSelector decides whether to run the webhook on an object based\non whether the namespace for that object matches the selector. If the\nobject itself is a namespace, the matching is performed on\nobject.metadata.labels. If the object is another cluster scoped resource,\nit never skips the webhook."
+        },
+        "objectSelector": {
+          "description": "ObjectSelector decides whether to run the webhook based on if the\nobject has matching labels. objectSelector is evaluated against both\nthe oldObject and newObject that would be sent to the webhook, and\nis considered to match if either object matches the selector."
+        },
+        "sideEffects": {
+          "type": "string",
+          "description": "SideEffects states whether this webhook has side effects."
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "description": "TimeoutSeconds specifies the timeout for this webhook."
+        },
+        "admissionReviewVersions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`\nversions the Webhook expects."
+        },
+        "matchConditions": {
+          "items": true,
+          "type": "array",
+          "description": "MatchConditions is a list of conditions that must be met for a request to be sent to this\nwebhook. Match conditions filter requests that have already been matched by the rules,\nnamespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.\nThere are a maximum of 64 match conditions allowed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ValidatingWebhookClientConfig": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "URL gives the location of the webhook, in standard URL form\n(`scheme://host:port/path`). Exactly one of `url` or `service`\nmust be specified."
+        },
+        "service": {
+          "$ref": "#/$defs/ValidatingWebhookServiceReference",
+          "description": "Service is a reference to the service for this webhook. Either\n`service` or `url` must be specified.\n\nIf the webhook is running within the cluster, then you should use `service`."
+        },
+        "caBundle": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "CABundle is a PEM encoded CA bundle which will be used to validate the webhook's server certificate.\nIf unspecified, system trust roots on the apiserver are used."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ValidatingWebhookClientConfig contains the information to make a TLS connection with the webhook"
+    },
+    "ValidatingWebhookConfiguration": {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to."
+        },
+        "apiVersion": {
+          "type": "string",
+          "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values."
+        },
+        "metadata": {
+          "$ref": "#/$defs/ObjectMeta",
+          "description": "Standard object metadata; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata."
+        },
+        "webhooks": {
+          "items": {
+            "$ref": "#/$defs/ValidatingWebhook"
+          },
+          "type": "array",
+          "description": "Webhooks is a list of webhooks and the affected resources and operations."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ValidatingWebhookServiceReference": {
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "Namespace is the namespace of the service."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the service."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path is an optional URL path which will be sent in any request to\nthis service."
+        },
+        "port": {
+          "type": "integer",
+          "description": "If specified, the port on the service that hosting webhook.\nDefault to 443 for backward compatibility.\n`port` should be a valid port number (1-65535, inclusive)."
         }
       },
       "additionalProperties": false,
@@ -2577,9 +2993,16 @@
     },
     "VolumeClaim": {
       "properties": {
-        "disabled": {
-          "type": "boolean",
-          "description": "Disabled signals to disable deploying a persistent volume claim. If false, vCluster will automatically determine\nbased on the chosen distro and other options if this is required."
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled enables deploying a persistent volume claim. If auto, vCluster will automatically determine\nbased on the chosen distro and other options if this is required."
         },
         "accessModes": {
           "items": {
@@ -2637,9 +3060,12 @@
     }
   },
   "properties": {
+    "global": {
+      "description": "Global values shared across all (sub)charts"
+    },
     "exportKubeConfig": {
       "$ref": "#/$defs/ExportKubeConfig",
-      "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeconfig file."
+      "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeConfig file."
     },
     "sync": {
       "$ref": "#/$defs/Sync",

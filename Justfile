@@ -14,11 +14,11 @@ _default:
 # --- Build ---
 
 # Build the vcluster binary
-build-snapshot:
+build-snapshot: gen-license-report
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean --single-target
 
 # Build the vcluster release binary in snapshot mode
-release-snapshot:
+release-snapshot: gen-license-report
   TELEMETRY_PRIVATE_KEY="" goreleaser release --snapshot --clean
 
 # --- Code quality ---
@@ -72,10 +72,13 @@ generate-vcluster-images version="0.0.0":
 generate-cli-docs:
   go run -mod vendor -tags pro ./hack/docs/main.go
 
-# Embed the charts into the vcluster binary
+generate-config-schema:
+  go run -mod vendor ./hack/schema/main.go
+
+# Embed the chart into the vcluster binary
 [private]
-embed-charts version="0.0.0":
-  RELEASE_VERSION={{ version }} go generate -tags embed_charts ./...
+embed-chart version="0.0.0":
+  RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
 
 # Run e2e tests
 e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && delete-kind
@@ -104,7 +107,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     --debug \
     --connect=false \
     --distro={{ distribution }} \
-    --local-chart-dir ./charts/{{ distribution }} \
+    --local-chart-dir ./chart/ \
     -f ./dist/commonValues.yaml \
     -f {{ path }}/values.yaml \
     $([[ "{{ multinamespace }}" = "true" ]] && echo "-f ./test/multins_values.yaml" || echo "")
@@ -119,8 +122,8 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
 
 cli version="0.0.0" *ARGS="":
-  RELEASE_VERSION={{ version }} go generate -tags embed_charts ./...
-  go run -tags embed_charts -mod vendor -ldflags "-X main.version={{ version }}" ./cmd/vclusterctl/main.go {{ ARGS }}
+  RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
+  go run -tags embed_chart -mod vendor -ldflags "-X main.version={{ version }}" ./cmd/vclusterctl/main.go {{ ARGS }}
 
 # --- Docs ---
 
@@ -133,3 +136,17 @@ generate-compatibility:
 
 validate-compat-matrix:
   go run hack/compat-matrix/main.go validate docs/pages/deploying-vclusters/compat-matrix.mdx
+
+gen-license-report:
+  rm -rf ./licenses
+  (cd ./cmd/vclusterctl/cmd/credits/licenses && find . -type d -exec rm -rf "{}" \;) || true
+
+  go-licenses save --save_path=./licenses --ignore github.com/loft-sh --ignore modernc.org/mathutil --ignore github.com/mattn/go-localereader $(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/...")[]') || exit 0
+
+  mkdir -p ./licenses/github.com/mattn/go-localereader
+  cd ./licenses/github.com/mattn/go-localereader && curl -O https://raw.githubusercontent.com/mattn/go-localereader/master/LICENSE
+
+  mkdir -p ./licenses/modernc.org/mathutil
+  cd ./licenses/modernc.org/mathutil && curl -O https://gitlab.com/cznic/mathutil/-/raw/master/LICENSE?ref_type=heads
+
+  cp -r ./licenses ./cmd/vclusterctl/cmd/credits

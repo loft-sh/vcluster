@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -21,8 +20,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -55,6 +54,8 @@ var (
 type Translator interface {
 	Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
 	Diff(ctx context.Context, vPod, pPod *corev1.Pod) (*corev1.Pod, error)
+
+	TranslateContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource)
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder) (Translator, error) {
@@ -68,6 +69,20 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 	virtualLogsPath := path.Join(virtualPath, "log")
 	virtualKubeletPath := path.Join(virtualPath, "kubelet")
 
+	// parse resource requirements
+	resourceRequirements := corev1.ResourceRequirements{
+		Limits:   map[corev1.ResourceName]resource.Quantity{},
+		Requests: map[corev1.ResourceName]resource.Quantity{},
+	}
+	resourceRequirements.Limits, err = parseResources(ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Resources.Limits)
+	if err != nil {
+		return nil, fmt.Errorf("parse init container resource limits: %w", err)
+	}
+	resourceRequirements.Requests, err = parseResources(ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Resources.Requests)
+	if err != nil {
+		return nil, fmt.Errorf("parse init container resource requests: %w", err)
+	}
+
 	return &translator{
 		vClientConfig: ctx.VirtualManager.GetConfig(),
 		vClient:       ctx.VirtualManager.GetClient(),
@@ -79,15 +94,20 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 
 		defaultImageRegistry: ctx.Config.ControlPlane.Advanced.DefaultImageRegistry,
 
+		multiNamespaceMode: ctx.Config.Experimental.MultiNamespaceMode.Enabled,
+
 		serviceAccountSecretsEnabled: ctx.Config.Sync.ToHost.Pods.UseSecretsForSATokens,
 		clusterDomain:                ctx.Config.Networking.Advanced.ClusterDomain,
 		serviceAccount:               ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
-		overrideHosts:                ctx.Config.Sync.ToHost.Pods.RewriteHosts.Enabled,
-		overrideHostsImage:           ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainerImage,
-		serviceAccountsEnabled:       ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
-		priorityClassesEnabled:       ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
-		enableScheduler:              ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
-		syncedLabels:                 ctx.Config.Experimental.SyncSettings.SyncLabels,
+
+		overrideHosts:          ctx.Config.Sync.ToHost.Pods.RewriteHosts.Enabled,
+		overrideHostsImage:     ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image,
+		overrideHostsResources: resourceRequirements,
+
+		serviceAccountsEnabled: ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
+		priorityClassesEnabled: ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
+		enableScheduler:        ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		syncedLabels:           ctx.Config.Experimental.SyncSettings.SyncLabels,
 
 		mountPhysicalHostPaths: ctx.Config.ControlPlane.HostPathMapper.Enabled && !ctx.Config.ControlPlane.HostPathMapper.Central,
 
@@ -107,6 +127,8 @@ type translator struct {
 
 	defaultImageRegistry string
 
+	multiNamespaceMode bool
+
 	// this is needed for host path mapper (legacy)
 	mountPhysicalHostPaths bool
 
@@ -116,6 +138,7 @@ type translator struct {
 	serviceAccount               string
 	overrideHosts                bool
 	overrideHostsImage           string
+	overrideHostsResources       corev1.ResourceRequirements
 	priorityClassesEnabled       bool
 	enableScheduler              bool
 	syncedLabels                 []string
@@ -260,7 +283,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 	// would be deployed in a non virtual kubernetes cluster
 	if pPod.Spec.Subdomain != "" {
 		if t.overrideHosts {
-			rewritePodHostnameFQDN(pPod, t.defaultImageRegistry, t.overrideHostsImage, pPod.Spec.Hostname, pPod.Spec.Hostname, pPod.Spec.Hostname+"."+pPod.Spec.Subdomain+"."+vPod.Namespace+".svc."+t.clusterDomain)
+			t.rewritePodHostnameFQDN(pPod, pPod.Spec.Hostname, pPod.Spec.Hostname, pPod.Spec.Hostname+"."+pPod.Spec.Subdomain+"."+vPod.Namespace+".svc."+t.clusterDomain)
 		}
 
 		pPod.Spec.Subdomain = ""
@@ -268,7 +291,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate containers
 	for i := range pPod.Spec.Containers {
-		envVar, envFrom := ContainerEnv(pPod.Spec.Containers[i].Env, pPod.Spec.Containers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := t.TranslateContainerEnv(pPod.Spec.Containers[i].Env, pPod.Spec.Containers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.Containers[i].Env = envVar
 		pPod.Spec.Containers[i].EnvFrom = envFrom
 		pPod.Spec.Containers[i].Image = t.imageTranslator.Translate(pPod.Spec.Containers[i].Image)
@@ -276,7 +299,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate init containers
 	for i := range pPod.Spec.InitContainers {
-		envVar, envFrom := ContainerEnv(pPod.Spec.InitContainers[i].Env, pPod.Spec.InitContainers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := t.TranslateContainerEnv(pPod.Spec.InitContainers[i].Env, pPod.Spec.InitContainers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.InitContainers[i].Env = envVar
 		pPod.Spec.InitContainers[i].EnvFrom = envFrom
 		pPod.Spec.InitContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.InitContainers[i].Image)
@@ -284,7 +307,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate ephemeral containers
 	for i := range pPod.Spec.EphemeralContainers {
-		envVar, envFrom := ContainerEnv(pPod.Spec.EphemeralContainers[i].Env, pPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+		envVar, envFrom := t.TranslateContainerEnv(pPod.Spec.EphemeralContainers[i].Env, pPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
 		pPod.Spec.EphemeralContainers[i].Env = envVar
 		pPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		pPod.Spec.EphemeralContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.EphemeralContainers[i].Image)
@@ -352,7 +375,11 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 
 	for i := range pPod.Spec.Volumes {
 		if pPod.Spec.Volumes[i].ConfigMap != nil {
-			pPod.Spec.Volumes[i].ConfigMap.Name = configmaps.ConfigMapNameTranslator(types.NamespacedName{Name: pPod.Spec.Volumes[i].ConfigMap.Name, Namespace: vPod.Namespace}, nil)
+			if t.multiNamespaceMode && pPod.Spec.Volumes[i].ConfigMap.Name == "kube-root-ca.crt" {
+				pPod.Spec.Volumes[i].ConfigMap.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
+			} else {
+				pPod.Spec.Volumes[i].ConfigMap.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].ConfigMap.Name, vPod.Namespace)
+			}
 		}
 		if pPod.Spec.Volumes[i].Secret != nil {
 			pPod.Spec.Volumes[i].Secret.SecretName = translate.Default.PhysicalName(pPod.Spec.Volumes[i].Secret.SecretName, vPod.Namespace)
@@ -575,7 +602,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	}
 }
 
-func ContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource) {
+func (t *translator) TranslateContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range envVar {
 		translateDownwardAPI(&envVar[j])
@@ -590,7 +617,11 @@ func ContainerEnv(envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *
 	}
 	for j, from := range envFrom {
 		if from.ConfigMapRef != nil && from.ConfigMapRef.Name != "" {
-			envFrom[j].ConfigMapRef.Name = translate.Default.PhysicalName(from.ConfigMapRef.Name, vPod.Namespace)
+			if t.multiNamespaceMode && envFrom[j].ConfigMapRef.Name == "kube-root-ca.crt" {
+				envFrom[j].ConfigMapRef.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
+			} else {
+				envFrom[j].ConfigMapRef.Name = translate.Default.PhysicalName(from.ConfigMapRef.Name, vPod.Namespace)
+			}
 		}
 		if from.SecretRef != nil && from.SecretRef.Name != "" {
 			envFrom[j].SecretRef.Name = translate.Default.PhysicalName(from.SecretRef.Name, vPod.Namespace)
@@ -764,7 +795,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 			}
 		} else if term.NamespaceSelector != nil {
 			// translate namespace label selector
-			newAffinityTerm.LabelSelector = translate.LabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector)
+			newAffinityTerm.LabelSelector = translate.MergeLabelSelectors(newAffinityTerm.LabelSelector, translate.LabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector))
 		} else {
 			// Match namespace where pod is in
 			// k8s docs: "a null or empty namespaces list and null namespaceSelector means "this pod's namespace""
@@ -842,4 +873,23 @@ func ServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1
 		retMap[k] = strings.ReplaceAll(v, "IP", kubeIP)
 	}
 	return retMap
+}
+
+func parseResources(resources map[string]interface{}) (corev1.ResourceList, error) {
+	resourceList := corev1.ResourceList{}
+	for key, value := range resources {
+		strValue, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("resource value of %s is not a string", key)
+		}
+
+		parsedQuantity, err := resource.ParseQuantity(strValue)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing resource value %s (%s): %w", key, strValue, err)
+		}
+
+		resourceList[corev1.ResourceName(key)] = parsedQuantity
+	}
+
+	return resourceList, nil
 }

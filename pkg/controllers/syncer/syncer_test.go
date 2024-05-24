@@ -47,7 +47,7 @@ func (s *mockSyncer) naiveTranslateUpdate(ctx *synccontext.SyncContext, vObj cli
 	return newPObj
 }
 
-// SyncDown is called when a virtual object was created and needs to be synced down to the physical cluster
+// SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
 func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	return s.SyncToHostCreate(ctx, vObj, s.naiveTranslateCreate(ctx, vObj))
 }
@@ -233,7 +233,7 @@ func TestReconcile(t *testing.T) {
 			},
 
 			shouldErr: true,
-			errMsg:    "conflict: cannot sync virtual object as unmanaged physical object exists with desired name",
+			errMsg:    "conflict: cannot sync virtual object default/a as unmanaged physical object test/a-x-default-x-suffix exists with desired name",
 		},
 	}
 	sort.SliceStable(testCases, func(i, j int) bool {

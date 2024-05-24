@@ -13,10 +13,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -33,71 +31,54 @@ func NewStartCommand() *cobra.Command {
 		Short: "Execute the vcluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) (err error) {
-			// start telemetry
-			telemetry.Start(false)
-			defer telemetry.Collector.Flush()
-
-			// capture errors
-			defer func() {
-				if r := recover(); r != nil {
-					telemetry.Collector.RecordError(cobraCmd.Context(), telemetry.PanicSeverity, fmt.Errorf("panic: %v %s", r, string(debug.Stack())))
-					panic(r)
-				} else if err != nil {
-					telemetry.Collector.RecordError(cobraCmd.Context(), telemetry.FatalSeverity, err)
-				}
-			}()
-
-			// parse vCluster config
-			vClusterConfig, err := config.ParseConfig(startOptions.Config, os.Getenv("VCLUSTER_NAME"), startOptions.SetValues)
-			if err != nil {
-				return err
-			}
-
 			// execute command
-			return ExecuteStart(cobraCmd.Context(), vClusterConfig)
+			return ExecuteStart(cobraCmd.Context(), startOptions)
 		},
 	}
 
 	cmd.Flags().StringVar(&startOptions.Config, "config", "/var/vcluster/config.yaml", "The path where to find the vCluster config to load")
 
-	// Should only used for development
+	// Should only be used for development
 	cmd.Flags().StringArrayVar(&startOptions.SetValues, "set", []string{}, "Set values for the config. E.g. --set 'exportKubeConfig.secret.name=my-name'")
-
 	_ = cmd.Flags().MarkHidden("set")
 	return cmd
 }
 
-func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
-	// set global vCluster name
-	translate.VClusterName = vConfig.Name
-
-	// set service name
-	if vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
-		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
-	}
-
-	// get current namespace
-	controlPlaneConfig, controlPlaneNamespace, controlPlaneService, workloadConfig, workloadNamespace, workloadService, err := pro.GetRemoteClient(vConfig)
+func ExecuteStart(ctx context.Context, options *StartOptions) error {
+	// parse vCluster config
+	vConfig, err := config.ParseConfig(options.Config, os.Getenv("VCLUSTER_NAME"), options.SetValues)
 	if err != nil {
 		return err
 	}
-	vConfig.ServiceName = workloadService
-	err = os.Setenv("NAMESPACE", workloadNamespace)
+
+	// get current namespace
+	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
 	if err != nil {
-		return fmt.Errorf("set NAMESPACE env var: %w", err)
+		return err
 	}
 
-	// set target namespace
-	vConfig.TargetNamespace = workloadNamespace
-	if vConfig.Experimental.SyncSettings.TargetNamespace != "" {
-		vConfig.TargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
+	// init config
+	err = setup.InitAndValidateConfig(ctx, vConfig)
+	if err != nil {
+		return err
 	}
 
-	// init telemetry
-	telemetry.Collector.Init(controlPlaneConfig, controlPlaneNamespace, vConfig)
+	// start telemetry
+	telemetry.StartControlPlane(vConfig)
+	defer telemetry.CollectorControlPlane.Flush()
+
+	// capture errors
+	defer func() {
+		if r := recover(); r != nil {
+			telemetry.CollectorControlPlane.RecordError(ctx, vConfig, telemetry.PanicSeverity, fmt.Errorf("panic: %v %s", r, string(debug.Stack())))
+			panic(r)
+		} else if err != nil {
+			telemetry.CollectorControlPlane.RecordError(ctx, vConfig, telemetry.FatalSeverity, err)
+		}
+	}()
 
 	// initialize feature gate from environment
-	err = pro.LicenseInit(ctx, controlPlaneConfig, controlPlaneNamespace, vConfig)
+	err = pro.LicenseInit(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("init license: %w", err)
 	}
@@ -105,43 +86,20 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 	// set features for plugins to recognize
 	plugin.DefaultManager.SetProFeatures(pro.LicenseFeatures())
 
-	// get host cluster config and tweak rate-limiting configuration
-	controlPlaneClient, err := kubernetes.NewForConfig(controlPlaneConfig)
-	if err != nil {
-		return err
-	}
-
 	// check if we should create certs
-	err = setup.Initialize(
-		ctx,
-		controlPlaneClient,
-		controlPlaneNamespace,
-		translate.VClusterName,
-		vConfig,
-	)
+	err = setup.Initialize(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
 	// build controller context
-	controllerCtx, err := setup.NewControllerContext(
-		ctx,
-		vConfig,
-		workloadNamespace,
-		workloadConfig,
-		scheme.Scheme,
-	)
+	controllerCtx, err := setup.NewControllerContext(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("create controller context: %w", err)
 	}
 
 	// start proxy
-	err = setup.StartProxy(
-		controllerCtx,
-		controlPlaneNamespace,
-		controlPlaneService,
-		controlPlaneClient,
-	)
+	err = setup.StartProxy(controllerCtx)
 	if err != nil {
 		return fmt.Errorf("start proxy: %w", err)
 	}
@@ -161,9 +119,17 @@ func ExecuteStart(ctx context.Context, vConfig *config.VirtualClusterConfig) err
 		}
 	}
 
+	if err := pro.ConnectToPlatform(
+		ctx,
+		vConfig,
+		controllerCtx.VirtualManager,
+	); err != nil {
+		return fmt.Errorf("connect to platform: %w", err)
+	}
+
 	// start leader election + controllers
 	err = StartLeaderElection(controllerCtx, func() error {
-		return setup.StartControllers(controllerCtx, controlPlaneNamespace, controlPlaneService, controlPlaneConfig)
+		return setup.StartControllers(controllerCtx)
 	})
 	if err != nil {
 		return fmt.Errorf("start controllers: %w", err)

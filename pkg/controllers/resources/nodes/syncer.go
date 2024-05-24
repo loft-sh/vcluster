@@ -52,11 +52,12 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 	return &nodeSyncer{
 		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 
-		enforceNodeSelector: true,
-		nodeSelector:        nodeSelector,
-		clearImages:         ctx.Config.Sync.FromHost.Nodes.ClearImageStatus,
-		useFakeKubelets:     ctx.Config.Networking.Advanced.ProxyKubelets.ByHostname || ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
-		fakeKubeletIPs:      ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		enforceNodeSelector:  true,
+		nodeSelector:         nodeSelector,
+		clearImages:          ctx.Config.Sync.FromHost.Nodes.ClearImageStatus,
+		useFakeKubelets:      ctx.Config.Networking.Advanced.ProxyKubelets.ByHostname || ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		fakeKubeletIPs:       ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		fakeKubeletHostnames: ctx.Config.Networking.Advanced.ProxyKubelets.ByHostname,
 
 		physicalClient:      ctx.PhysicalManager.GetClient(),
 		virtualClient:       ctx.VirtualManager.GetClient(),
@@ -66,17 +67,18 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 }
 
 type nodeSyncer struct {
-	nodeSelector        labels.Selector
-	physicalClient      client.Client
-	virtualClient       client.Client
-	unmanagedPodCache   client.Reader
-	nodeServiceProvider nodeservice.Provider
-	enforcedTolerations []*corev1.Toleration
-	enableScheduler     bool
-	clearImages         bool
-	enforceNodeSelector bool
-	useFakeKubelets     bool
-	fakeKubeletIPs      bool
+	nodeSelector         labels.Selector
+	physicalClient       client.Client
+	virtualClient        client.Client
+	unmanagedPodCache    client.Reader
+	nodeServiceProvider  nodeservice.Provider
+	enforcedTolerations  []*corev1.Toleration
+	enableScheduler      bool
+	clearImages          bool
+	enforceNodeSelector  bool
+	useFakeKubelets      bool
+	fakeKubeletIPs       bool
+	fakeKubeletHostnames bool
 }
 
 func (s *nodeSyncer) Resource() client.Object {

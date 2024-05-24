@@ -4,7 +4,6 @@ import (
 	"context"
 
 	syncercontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,7 +55,4 @@ type NamespacedTranslator interface {
 
 	// SyncToHostUpdate updates the given pObj (if not nil) in the target namespace
 	SyncToHostUpdate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)
-
-	// SetNameTranslator is a function to override default VirtualToHost name translation
-	SetNameTranslator(nameTranslator translate.PhysicalNamespacedNameTranslator)
 }

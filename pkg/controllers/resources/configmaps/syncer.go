@@ -23,32 +23,57 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	t := translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{})
-	t.SetNameTranslator(ConfigMapNameTranslator)
+
 	return &configMapSyncer{
 		NamespacedTranslator: t,
 
-		syncAllConfigMaps: ctx.Config.Sync.ToHost.ConfigMaps.All,
+		syncAllConfigMaps:  ctx.Config.Sync.ToHost.ConfigMaps.All,
+		multiNamespaceMode: ctx.Config.Experimental.MultiNamespaceMode.Enabled,
 	}, nil
 }
 
 type configMapSyncer struct {
 	translator.NamespacedTranslator
 
-	syncAllConfigMaps bool
-}
-
-func ConfigMapNameTranslator(vNN types.NamespacedName, _ client.Object) string {
-	name := translate.Default.PhysicalName(vNN.Name, vNN.Namespace)
-	if name == "kube-root-ca.crt" {
-		name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
-	}
-	return name
+	syncAllConfigMaps  bool
+	multiNamespaceMode bool
 }
 
 var _ syncer.IndicesRegisterer = &configMapSyncer{}
 
+func (s *configMapSyncer) VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+	if s.multiNamespaceMode && req.Name == "kube-root-ca.crt" {
+		return types.NamespacedName{
+			Name:      translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName),
+			Namespace: s.NamespacedTranslator.VirtualToHost(ctx, req, vObj).Namespace,
+		}
+	}
+
+	return s.NamespacedTranslator.VirtualToHost(ctx, req, vObj)
+}
+
+func (s *configMapSyncer) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+	if s.multiNamespaceMode && req.Name == translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName) {
+		return types.NamespacedName{
+			Name:      "kube-root-ca.crt",
+			Namespace: s.NamespacedTranslator.HostToVirtual(ctx, req, pObj).Namespace,
+		}
+	} else if s.multiNamespaceMode && req.Name == "kube-root-ca.crt" {
+		// ignore kube-root-ca.crt from host
+		return types.NamespacedName{}
+	}
+
+	return s.NamespacedTranslator.HostToVirtual(ctx, req, pObj)
+}
+
 func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	err := s.NamespacedTranslator.RegisterIndices(ctx)
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.ConfigMap{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		if s.multiNamespaceMode && rawObj.GetName() == "kube-root-ca.crt" {
+			return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)}
+		}
+
+		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
+	})
 	if err != nil {
 		return err
 	}
@@ -56,7 +81,7 @@ func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 	// index pods by their used config maps
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
-		return ConfigNamesFromPod(pod)
+		return configNamesFromPod(pod)
 	})
 }
 
@@ -128,7 +153,7 @@ func mapPods(_ context.Context, obj client.Object) []reconcile.Request {
 	}
 
 	requests := []reconcile.Request{}
-	names := ConfigNamesFromPod(pod)
+	names := configNamesFromPod(pod)
 	for _, name := range names {
 		splitted := strings.Split(name, "/")
 		if len(splitted) == 2 {

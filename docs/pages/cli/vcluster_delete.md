@@ -32,6 +32,7 @@ vcluster delete test --namespace test
       --delete-configmap        If enabled, vCluster will delete the ConfigMap of the vCluster
       --delete-namespace        If enabled, vcluster will delete the namespace of the vcluster. In the case of multi-namespace mode, will also delete all other namespaces created by vcluster
   -h, --help                    help for delete
+      --ignore-not-found        If enabled, vcluster will not error out in case the target vcluster does not exist
       --keep-pvc                If enabled, vcluster will not delete the persistent volume claim of the vcluster
       --project string          [PRO] The pro project the vcluster is in
       --wait                    If enabled, vcluster will wait until the vcluster is deleted (default true)

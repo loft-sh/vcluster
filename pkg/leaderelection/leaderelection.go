@@ -31,7 +31,7 @@ func StartLeaderElection(ctx *config.ControllerContext, scheme *runtime.Scheme, 
 	}
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(func(format string, args ...interface{}) { klog.Infof(format, args...) })
-	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: recorderClient.CoreV1().Events(ctx.CurrentNamespace)})
+	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: recorderClient.CoreV1().Events(ctx.Config.WorkloadNamespace)})
 	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "vcluster"})
 
 	// create the leader election client
@@ -49,7 +49,7 @@ func StartLeaderElection(ctx *config.ControllerContext, scheme *runtime.Scheme, 
 	// Lock required for leader election
 	rl, err := resourcelock.New(
 		resourcelock.LeasesResourceLock,
-		ctx.CurrentNamespace,
+		ctx.Config.WorkloadNamespace,
 		translate.SafeConcatName("vcluster", translate.VClusterName, "controller"),
 		leaderElectionClient.CoreV1(),
 		leaderElectionClient.CoordinationV1(),
@@ -82,8 +82,8 @@ func StartLeaderElection(ctx *config.ControllerContext, scheme *runtime.Scheme, 
 				klog.Info("leader election lost")
 
 				// vcluster_error
-				telemetry.Collector.RecordError(ctx.Context, telemetry.WarningSeverity, fmt.Errorf("leader election lost"))
-				telemetry.Collector.Flush()
+				telemetry.CollectorControlPlane.RecordError(ctx.Context, ctx.Config, telemetry.WarningSeverity, fmt.Errorf("leader election lost"))
+				telemetry.CollectorControlPlane.Flush()
 
 				os.Exit(1)
 			},

@@ -6,11 +6,14 @@ import (
 	"os"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/credits"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
-	cmdpro "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/pro"
+	cmdpro "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/pkg/procli"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/sirupsen/logrus"
@@ -48,7 +51,7 @@ func Execute() {
 	}
 
 	// start telemetry
-	telemetry.Start(true)
+	telemetry.StartCLI()
 
 	// start command
 	log := log.GetInstance()
@@ -89,6 +92,8 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(NewDisconnectCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
+	rootCmd.AddCommand(use.NewUseCmd(globalFlags))
+	rootCmd.AddCommand(convert.NewConvertCmd(globalFlags))
 	rootCmd.AddCommand(cmdtelemetry.NewTelemetryCmd())
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(NewInfoCmd())
@@ -99,6 +104,11 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 		return nil, fmt.Errorf("failed to create pro command: %w", err)
 	}
 	rootCmd.AddCommand(proCmd)
+	platformCmd, err := cmdpro.NewPlatformCmd(globalFlags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create platform command: %w", err)
+	}
+	rootCmd.AddCommand(platformCmd)
 
 	loginCmd, err := NewLoginCmd(globalFlags)
 	if err != nil {
@@ -118,11 +128,12 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	}
 	rootCmd.AddCommand(uiCmd)
 
-	importCmd, err := NewImportCmd(globalFlags)
+	importCmd, err := NewActivateCmd(globalFlags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create import command: %w", err)
+		return nil, fmt.Errorf("failed to create activate command: %w", err)
 	}
 	rootCmd.AddCommand(importCmd)
+	rootCmd.AddCommand(credits.NewCreditsCmd())
 
 	// add completion command
 	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
@@ -134,6 +145,6 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 }
 
 func recordAndFlush(err error) {
-	telemetry.Collector.RecordCLI(procli.Self, err)
-	telemetry.Collector.Flush()
+	telemetry.CollectorCLI.RecordCLI(platform.Self, err)
+	telemetry.CollectorCLI.Flush()
 }

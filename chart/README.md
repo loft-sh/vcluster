@@ -8,7 +8,7 @@ Create fully functional virtual Kubernetes clusters - Each vcluster runs inside 
 ## Prerequisites
 
 - Kubernetes 1.18+
-- Helm 3+
+- Helm 3.10.0+
 
 ## Get Helm Repository Info
 

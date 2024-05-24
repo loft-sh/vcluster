@@ -10,7 +10,9 @@
   Whether to create a cluster role or not
 */}}
 {{- define "vcluster.createClusterRole" -}}
-{{- if not .Values.rbac.clusterRole.disabled -}}
+{{- if eq (toString .Values.rbac.clusterRole.enabled) "true" -}}
+{{- true -}}
+{{- else if eq (toString .Values.rbac.clusterRole.enabled) "auto" -}}
 {{- if or
     .Values.rbac.clusterRole.overwriteRules
     (not (empty (include "vcluster.rbac.clusterRoleExtraRules" . )))
@@ -19,12 +21,16 @@
     .Values.networking.replicateServices.fromHost
     .Values.pro
     .Values.sync.toHost.storageClasses.enabled
+    .Values.experimental.isolatedControlPlane.enabled
     .Values.sync.toHost.persistentVolumes.enabled
     .Values.sync.toHost.priorityClasses.enabled
     .Values.sync.toHost.volumeSnapshots.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.fromHost.ingressClasses.enabled
-    .Values.sync.fromHost.storageClasses.enabled
+    (eq (toString .Values.sync.fromHost.storageClasses.enabled) "true")
+    (eq (toString .Values.sync.fromHost.csiNodes.enabled) "true")
+    (eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true")
+    (eq (toString .Values.sync.fromHost.csiStorageCapacities.enabled) "true")
     .Values.sync.fromHost.nodes.enabled
     .Values.observability.metrics.proxy.nodes
     .Values.experimental.multiNamespaceMode.enabled -}}

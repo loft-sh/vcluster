@@ -3,7 +3,6 @@ package k8sdefaultendpoint
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -35,8 +34,8 @@ type provider interface {
 type EndpointController struct {
 	ServiceName      string
 	ServiceNamespace string
+	ServiceClient    client.Client
 
-	LocalClient         client.Client
 	VirtualClient       client.Client
 	VirtualManagerCache cache.Cache
 
@@ -47,13 +46,15 @@ type EndpointController struct {
 
 func NewEndpointController(ctx *config.ControllerContext, provider provider) *EndpointController {
 	return &EndpointController{
-		LocalClient:         ctx.LocalManager.GetClient(),
 		VirtualClient:       ctx.VirtualManager.GetClient(),
-		ServiceName:         ctx.Config.ServiceName,
-		ServiceNamespace:    ctx.CurrentNamespace,
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),
-		Log:                 loghelper.New("kubernetes-default-endpoint-controller"),
-		provider:            provider,
+
+		ServiceName:      ctx.Config.WorkloadService,
+		ServiceNamespace: ctx.Config.WorkloadNamespace,
+		ServiceClient:    ctx.WorkloadNamespaceClient,
+
+		Log:      loghelper.New("kubernetes-default-endpoint-controller"),
+		provider: provider,
 	}
 }
 
@@ -62,13 +63,14 @@ func (e *EndpointController) Register(mgr ctrl.Manager) error {
 	if err != nil {
 		return fmt.Errorf("unable to setup pod security controller: %w", err)
 	}
+
 	return nil
 }
 
 func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	err := e.syncKubernetesServiceEndpoints(ctx, e.VirtualClient, e.LocalClient, e.ServiceName, e.ServiceNamespace)
+	err := e.syncKubernetesServiceEndpoints(ctx)
 	if err != nil {
-		return ctrl.Result{RequeueAfter: time.Second}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -77,40 +79,35 @@ func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 // SetupWithManager adds the controller to the manager
 func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	// creating a predicate to receive reconcile requests for kubernetes endpoint only
-	pp := func(object client.Object) bool {
+	pPredicates := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return object.GetNamespace() == e.ServiceNamespace && object.GetName() == e.ServiceName
-	}
-	pfuncs := predicate.NewPredicateFuncs(pp)
+	})
 
-	vp := func(object client.Object) bool {
+	vPredicates := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		if object.GetNamespace() == specialservices.DefaultKubernetesSvcKey.Namespace && object.GetName() == specialservices.DefaultKubernetesSvcKey.Name {
 			return true
 		}
 
 		return false
-	}
-	vfuncs := predicate.NewPredicateFuncs(vp)
+	})
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("kubernetes_default_endpoint").
 		WithOptions(controller.Options{
 			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
 		}).
-		For(&corev1.Endpoints{},
-			builder.WithPredicates(pfuncs, predicate.ResourceVersionChangedPredicate{})).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}),
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()),
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(vfuncs)).
+		For(&corev1.Endpoints{}, builder.WithPredicates(pPredicates)).
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vPredicates)).
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vPredicates)).
 		Complete(e)
 }
 
-func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context, virtualClient client.Client, localClient client.Client, serviceName, serviceNamespace string) error {
+func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context) error {
 	// get physical service endpoints
 	pEndpoints := &corev1.Endpoints{}
-	err := localClient.Get(ctx, types.NamespacedName{
-		Namespace: serviceNamespace,
-		Name:      serviceName,
+	err := e.ServiceClient.Get(ctx, types.NamespacedName{
+		Namespace: e.ServiceNamespace,
+		Name:      e.ServiceName,
 	}, pEndpoints)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -126,8 +123,7 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 			Name:      "kubernetes",
 		},
 	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, virtualClient, vEndpoints, func() error {
+	result, err := controllerutil.CreateOrPatch(ctx, e.VirtualClient, vEndpoints, func() error {
 		if vEndpoints.Labels == nil {
 			vEndpoints.Labels = map[string]string{}
 		}
@@ -171,14 +167,14 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context,
 		return nil
 	})
 	if err != nil {
-		return nil
+		return fmt.Errorf("error patching endpoints: %w", err)
 	}
 
 	if result == controllerutil.OperationResultCreated || result == controllerutil.OperationResultUpdated {
-		return e.provider.createOrPatch(ctx, virtualClient, vEndpoints)
+		return e.provider.createOrPatch(ctx, e.VirtualClient, vEndpoints)
 	}
 
-	return err
+	return nil
 }
 
 // allAddressesIPv6 returns true if all provided addresses are IPv6.

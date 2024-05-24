@@ -55,7 +55,7 @@ func (ops *OnePassSignature) Serialize(w io.Writer) error {
 	buf[0] = onePassSignatureVersion
 	buf[1] = uint8(ops.SigType)
 	var ok bool
-	buf[2], ok = algorithm.HashToHashId(ops.Hash)
+	buf[2], ok = algorithm.HashToHashIdWithSha1(ops.Hash)
 	if !ok {
 		return errors.UnsupportedError("hash type: " + strconv.Itoa(int(ops.Hash)))
 	}

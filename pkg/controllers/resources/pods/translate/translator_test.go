@@ -6,8 +6,8 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"gotest.tools/assert"
-	"gotest.tools/assert/cmp"
+	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
@@ -46,7 +46,10 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				Namespaces:    []string{},
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendToMatchLabels(basicSelectorTranslatedWithMarker, translate.NamespaceLabel, pod.GetNamespace()),
+				LabelSelector: translate.MergeLabelSelectors(
+					basicSelectorTranslatedWithMarker,
+					&metav1.LabelSelector{MatchLabels: map[string]string{translate.NamespaceLabel: pod.GetNamespace()}},
+				),
 			},
 		},
 		{
@@ -56,7 +59,9 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				Namespaces:    []string{pod.GetNamespace(), "dummy namespace"},
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendNamespacesToMatchExpressions(basicSelectorTranslatedWithMarker, pod.GetNamespace(), "dummy namespace"),
+				LabelSelector: appendNamespacesToMatchExpressions(
+					basicSelectorTranslatedWithMarker,
+					pod.GetNamespace(), "dummy namespace"),
 			},
 		},
 		{
@@ -78,7 +83,10 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				NamespaceSelector: basicSelector,
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendNamespacesToMatchExpressions(basicSelectorTranslatedWithMarker, pod.GetNamespace()),
+				LabelSelector: appendNamespacesToMatchExpressions(
+					basicSelectorTranslatedWithMarker,
+					pod.GetNamespace(),
+				),
 			},
 			expectedEvents: []string{"Warning SyncWarning Inter-pod affinity rule(s) that use both .namespaces and .namespaceSelector fields in the same term are not supported by vcluster yet. The .namespaceSelector fields of the unsupported affinity entries will be ignored."},
 		},
@@ -93,11 +101,12 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				},
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendToMatchLabels(&metav1.LabelSelector{
-					MatchLabels: map[string]string{
+				LabelSelector: translate.MergeLabelSelectors(
+					basicSelectorTranslatedWithMarker,
+					&metav1.LabelSelector{MatchLabels: map[string]string{
 						translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey): "good-value",
-					},
-				}, translate.MarkerLabel, translate.VClusterName),
+					}},
+				),
 			},
 		},
 		{
@@ -115,15 +124,18 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				},
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendToMatchLabels(&metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey),
-							Operator: metav1.LabelSelectorOpNotIn,
-							Values:   []string{"bad-value"},
+				LabelSelector: translate.MergeLabelSelectors(
+					basicSelectorTranslatedWithMarker,
+					&metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey),
+								Operator: metav1.LabelSelectorOpNotIn,
+								Values:   []string{"bad-value"},
+							},
 						},
 					},
-				}, translate.MarkerLabel, translate.VClusterName),
+				),
 			},
 		},
 	}
@@ -196,17 +208,19 @@ func TestVolumeTranslation(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		fakeRecorder := record.NewFakeRecorder(10)
-		tr := &translator{
-			eventRecorder: fakeRecorder,
-			log:           loghelper.New("pods-syncer-translator-test"),
-			pClient:       fake.NewClientBuilder().Build(),
-		}
+		t.Run(testCase.name, func(t *testing.T) {
+			fakeRecorder := record.NewFakeRecorder(10)
+			tr := &translator{
+				eventRecorder: fakeRecorder,
+				log:           loghelper.New("pods-syncer-translator-test"),
+				pClient:       fake.NewClientBuilder().Build(),
+			}
 
-		pPod := testCase.vPod.DeepCopy()
-		err := tr.translateVolumes(context.Background(), pPod, &testCase.vPod)
-		assert.NilError(t, err)
-		assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
+			pPod := testCase.vPod.DeepCopy()
+			err := tr.translateVolumes(context.Background(), pPod, &testCase.vPod)
+			assert.NilError(t, err)
+			assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
+		})
 	}
 }
 
@@ -214,15 +228,6 @@ type translatePodVolumesTestCase struct {
 	name            string
 	vPod            corev1.Pod
 	expectedVolumes []corev1.Volume
-}
-
-func appendToMatchLabels(source *metav1.LabelSelector, k, v string) *metav1.LabelSelector {
-	ls := source.DeepCopy()
-	if ls.MatchLabels == nil {
-		ls.MatchLabels = map[string]string{}
-	}
-	ls.MatchLabels[k] = v
-	return ls
 }
 
 func appendNamespacesToMatchExpressions(source *metav1.LabelSelector, namespaces ...string) *metav1.LabelSelector {

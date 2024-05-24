@@ -1,11 +1,12 @@
 ## this values are for k8s distro
 controlPlane:
   backingStore:
-    externalEtcd:
-      statefulSet:
-        security:
-          podSecurityContext:
-            fsGroup: 12345
+    etcd:
+      deploy:
+        statefulSet:
+          security:
+            podSecurityContext:
+              fsGroup: 12345
 
   statefulSet:
     security:

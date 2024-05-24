@@ -13,6 +13,7 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"k8s.io/klog/v2"
 )
@@ -52,7 +53,7 @@ spec:
       node-monitor-grace-period: 1h
       node-monitor-period: 1h
       {{- end }}
-  {{- if .Values.controlPlane.backingStore.embeddedEtcd.enabled }}
+  {{- if .Values.controlPlane.backingStore.etcd.embedded.enabled }}
   storage:
     etcd:
       externalCluster:
@@ -61,6 +62,25 @@ spec:
         etcdPrefix: "/registry"
         clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
         clientKeyFile: /data/k0s/pki/apiserver-etcd-client.key
+  {{- else if .Values.controlPlane.backingStore.etcd.deploy.enabled }}
+  storage:
+    etcd:
+      externalCluster:
+        endpoints: ["{{ .Release.Name }}-etcd:2379"]
+        caFile: /data/k0s/pki/etcd/ca.crt
+        etcdPrefix: "/registry"
+        clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
+        clientKeyFile: /data/k0s/pki/apiserver-etcd-client.key
+  {{- else if .Values.controlPlane.backingStore.database.external.enabled }}
+  storage:
+    type: kine
+    kine:
+      dataSource: {{ .Values.controlPlane.backingStore.database.external.dataSource }}
+  {{- else if .Values.controlPlane.backingStore.database.embedded.dataSource }}
+  storage:
+    type: kine
+    kine:
+      dataSource: {{ .Values.controlPlane.backingStore.database.embedded.dataSource }}
   {{- end }}`
 
 func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.VirtualClusterConfig) error {
@@ -72,6 +92,18 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 	dirEntries, _ := os.ReadDir(runDir)
 	for _, entry := range dirEntries {
 		_ = os.RemoveAll(filepath.Join(runDir, entry.Name()))
+	}
+
+	// wait until etcd is up and running
+	if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled {
+		_, err := etcd.WaitForEtcdClient(ctx, &etcd.Certificates{
+			CaCert:     "/data/k0s/pki/etcd/ca.crt",
+			ServerCert: "/data/k0s/pki/apiserver-etcd-client.crt",
+			ServerKey:  "/data/k0s/pki/apiserver-etcd-client.key",
+		}, "https://"+vConfig.Name+"-etcd:2379")
+		if err != nil {
+			return err
+		}
 	}
 
 	// build args
@@ -95,7 +127,7 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 	args = append(args, vConfig.ControlPlane.Distro.K0S.ExtraArgs...)
 
 	// check what writer we should use
-	writer, err := commandwriter.NewCommandWriter("k0s")
+	writer, err := commandwriter.NewCommandWriter("k0s", false)
 	if err != nil {
 		return err
 	}

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -51,7 +51,7 @@ func wrapCompletionFuncWithTimeout(defaultDirective cobra.ShellCompDirective, co
 // It takes into account the namespace if specified by the --namespace flag.
 func newValidVClusterNameFunc(globalFlags *flags.GlobalFlags) completionFunc {
 	fn := func(cmd *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		vclusters, _, err := find.ListVClusters(cmd.Context(), nil, globalFlags.Context, "", globalFlags.Namespace, "", log.Default.ErrorStreamOnly())
+		vclusters, err := find.ListVClusters(cmd.Context(), globalFlags.Context, "", globalFlags.Namespace, log.Default.ErrorStreamOnly())
 		if err != nil {
 			return []string{}, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
 		}

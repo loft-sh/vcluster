@@ -34,7 +34,6 @@ func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj clie
 type namespacedTranslator struct {
 	name string
 
-	nameTranslator      translate.PhysicalNamespacedNameTranslator
 	excludedAnnotations []string
 	syncedLabels        []string
 
@@ -42,10 +41,6 @@ type namespacedTranslator struct {
 	obj           client.Object
 
 	eventRecorder record.EventRecorder
-}
-
-func (n *namespacedTranslator) SetNameTranslator(nameTranslator translate.PhysicalNamespacedNameTranslator) {
-	n.nameTranslator = nameTranslator
 }
 
 func (n *namespacedTranslator) EventRecorder() record.EventRecorder {
@@ -103,11 +98,8 @@ func (n *namespacedTranslator) IsManaged(_ context2.Context, pObj client.Object)
 	return translate.Default.IsManaged(pObj), nil
 }
 
-func (n *namespacedTranslator) VirtualToHost(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (n *namespacedTranslator) VirtualToHost(_ context2.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	name := translate.Default.PhysicalName(req.Name, req.Namespace)
-	if n.nameTranslator != nil {
-		name = n.nameTranslator(req, vObj)
-	}
 
 	return types.NamespacedName{
 		Namespace: translate.Default.PhysicalNamespace(req.Namespace),

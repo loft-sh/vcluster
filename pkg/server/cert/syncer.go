@@ -45,7 +45,7 @@ func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClien
 		addSANs:   options.ControlPlane.Proxy.ExtraSANs,
 		listeners: []dynamiccertificates.Listener{},
 
-		serviceName:           options.ServiceName,
+		serviceName:           options.WorkloadService,
 		currentNamespace:      currentNamespace,
 		currentNamespaceCient: currentNamespaceClient,
 	}, nil

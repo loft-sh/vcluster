@@ -66,7 +66,7 @@ func (s *multiNamespace) IsManaged(obj runtime.Object) bool {
 	// If obj is not in the synced namespace OR
 	// If object-name annotation is not set OR
 	// If object-name annotation is different from actual name
-	if !s.IsTargetedNamespace(metaAccessor.GetNamespace()) || metaAccessor.GetAnnotations() == nil || metaAccessor.GetAnnotations()[NameAnnotation] == "" || metaAccessor.GetAnnotations()[NameAnnotation] != metaAccessor.GetName() {
+	if !s.IsTargetedNamespace(metaAccessor.GetNamespace()) || metaAccessor.GetAnnotations() == nil || metaAccessor.GetAnnotations()[NameAnnotation] == "" {
 		return false
 	}
 

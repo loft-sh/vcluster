@@ -11,14 +11,16 @@ sync:
 
 controlPlane:
   backingStore:
-    externalEtcd:
-      statefulSet:
-        resources:
-          requests:
-            cpu: "0"
+    etcd:
+      deploy:
+        statefulSet:
+          resources:
+            requests:
+              cpu: "0"
 
   statefulSet:
     image:
+      registry: ""
       repository: REPLACE_REPOSITORY_NAME
       tag: REPLACE_TAG_NAME
     env:

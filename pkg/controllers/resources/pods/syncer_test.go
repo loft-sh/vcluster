@@ -116,7 +116,8 @@ func TestSync(t *testing.T) {
 				IP:        pVclusterService.Spec.ClusterIP,
 				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 			}},
-			Hostname: vObjectMeta.Name,
+			ServiceAccountName: "vc-workload-vcluster",
+			Hostname:           vObjectMeta.Name,
 		},
 	}
 	vPodWithNodeName := &corev1.Pod{
@@ -263,7 +264,8 @@ func TestSync(t *testing.T) {
 				IP:        pVclusterService.Spec.ClusterIP,
 				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 			}},
-			Hostname: vHostPathPod.Name,
+			Hostname:           vHostPathPod.Name,
+			ServiceAccountName: "vc-workload-vcluster",
 			Containers: []corev1.Container{
 				{
 					Name:  "nginx-placeholder",

@@ -30,21 +30,12 @@ import (
 )
 
 // Initialize creates the required secrets and configmaps for the control plane to start
-func Initialize(
-	ctx context.Context,
-	currentNamespaceClient kubernetes.Interface,
-	currentNamespace,
-	vClusterName string,
-	options *config.VirtualClusterConfig,
-) error {
+func Initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
 	// Ensure that service CIDR range is written into the expected location
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
 		err := initialize(
 			waitCtx,
 			ctx,
-			currentNamespaceClient,
-			currentNamespace,
-			vClusterName,
 			options,
 		)
 		if err != nil {
@@ -59,31 +50,28 @@ func Initialize(
 	}
 
 	specialservices.Default = pro.InitDNSServiceSyncing(options)
-	telemetry.Collector.RecordStart(ctx)
+	telemetry.CollectorControlPlane.RecordStart(ctx, options)
 	return nil
 }
 
 // initialize creates the required secrets and configmaps for the control plane to start
-func initialize(
-	ctx context.Context,
-	parentCtx context.Context,
-	currentNamespaceClient kubernetes.Interface,
-	currentNamespace,
-	vClusterName string,
-	options *config.VirtualClusterConfig,
-) error {
+func initialize(ctx context.Context, parentCtx context.Context, options *config.VirtualClusterConfig) error {
 	distro := options.Distro()
 
 	// migrate from
 	migrateFrom := ""
-	if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled && options.ControlPlane.BackingStore.EmbeddedEtcd.MigrateFromExternalEtcd {
+	if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled && options.ControlPlane.BackingStore.Etcd.Embedded.MigrateFromDeployedEtcd {
 		migrateFrom = "https://" + options.Name + "-etcd:2379"
 	}
 
 	// retrieve service cidr
-	serviceCIDR, warning := servicecidr.GetServiceCIDR(ctx, currentNamespaceClient, currentNamespace)
-	if warning != "" {
-		klog.Warning(warning)
+	serviceCIDR := options.ServiceCIDR
+	if serviceCIDR == "" {
+		var warning string
+		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, options.WorkloadClient, options.WorkloadNamespace)
+		if warning != "" {
+			klog.Warning(warning)
+		}
 	}
 
 	// check what distro are we running
@@ -100,17 +88,17 @@ func initialize(
 
 		// create certificates if they are not there yet
 		certificatesDir := "/data/k0s/pki"
-		err = GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+		err = GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 		if err != nil {
 			return err
 		}
 
 		// should start embedded etcd?
-		if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
+		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			err = pro.StartEmbeddedEtcd(
 				parentCtx,
-				vClusterName,
-				currentNamespace,
+				options.Name,
+				options.ControlPlaneNamespace,
 				certificatesDir,
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
@@ -132,33 +120,33 @@ func initialize(
 		}()
 
 		// try to update the certs secret with the k0s certificates
-		err = UpdateSecretWithK0sCerts(ctx, currentNamespaceClient, currentNamespace, vClusterName)
+		err = UpdateSecretWithK0sCerts(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name)
 		if err != nil {
 			cancel()
 			return err
 		}
 	case vclusterconfig.K3SDistro:
 		// its k3s, let's create the token secret
-		k3sToken, err := k3s.EnsureK3SToken(ctx, currentNamespaceClient, currentNamespace, vClusterName, options)
+		k3sToken, err := k3s.EnsureK3SToken(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name, options)
+		if err != nil {
+			return err
+		}
+
+		// generate etcd certificates
+		certificatesDir := "/data/pki"
+		err = GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 		if err != nil {
 			return err
 		}
 
 		// should start embedded etcd?
-		if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
-			// generate certificates
-			certificatesDir := "/data/pki"
-			err := GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
-			if err != nil {
-				return err
-			}
-
+		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			// we need to run this with the parent ctx as otherwise this context
 			// will be cancelled by the wait loop in Initialize
 			err = pro.StartEmbeddedEtcd(
 				parentCtx,
-				vClusterName,
-				currentNamespace,
+				options.Name,
+				options.ControlPlaneNamespace,
 				certificatesDir,
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
@@ -180,20 +168,20 @@ func initialize(
 	case vclusterconfig.K8SDistro, vclusterconfig.EKSDistro:
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
-		if certificatesDir == "/pki" {
-			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+		if certificatesDir == "/data/pki" {
+			err := GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 			if err != nil {
 				return err
 			}
 		}
 
 		// should start embedded etcd?
-		if options.ControlPlane.BackingStore.EmbeddedEtcd.Enabled {
+		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			// start embedded etcd
 			err := pro.StartEmbeddedEtcd(
 				parentCtx,
-				vClusterName,
-				currentNamespace,
+				options.Name,
+				options.ControlPlaneNamespace,
 				certificatesDir,
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
@@ -233,9 +221,9 @@ func initialize(
 		}()
 	case vclusterconfig.Unknown:
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
-		if certificatesDir == "/pki" {
+		if certificatesDir == "/data/pki" {
 			// generate k8s certificates
-			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
+			err := GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options.Networking.Advanced.ClusterDomain)
 			if err != nil {
 				return err
 			}
@@ -245,26 +233,7 @@ func initialize(
 	return nil
 }
 
-func GenerateCertsWithEtcdSans(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
-	// generate etcd server and peer sans
-	etcdSans := []string{
-		"localhost",
-		"*." + vClusterName + "-headless",
-		"*." + vClusterName + "-headless" + "." + currentNamespace,
-		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc",
-		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc." + clusterDomain,
-	}
-
-	// generate certificates
-	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans)
-	if err != nil {
-		return fmt.Errorf("ensure certs: %w", err)
-	}
-
-	return nil
-}
-
-func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
+func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
 	// generate etcd server and peer sans
 	etcdService := vClusterName + "-etcd"
 	etcdSans := []string{
@@ -272,16 +241,26 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 		etcdService,
 		etcdService + "." + currentNamespace,
 		etcdService + "." + currentNamespace + ".svc",
-		"*." + etcdService + "-headless",
-		"*." + etcdService + "-headless" + "." + currentNamespace,
 	}
 
-	//expect up to 20 etcd members, number could be lower since more
-	//than 5 is generally a bad idea
-	for i := 0; i < 20; i++ {
+	// add wildcard
+	for _, service := range []string{vClusterName, etcdService} {
+		etcdSans = append(
+			etcdSans,
+			"*."+service+"-headless",
+			"*."+service+"-headless"+"."+currentNamespace,
+			"*."+service+"-headless"+"."+currentNamespace+".svc",
+			"*."+service+"-headless"+"."+currentNamespace+".svc."+clusterDomain,
+		)
+	}
+
+	// expect up to 20 etcd members, number could be lower since more
+	// than 5 is generally a bad idea
+	for i := range 20 {
 		// this is for embedded etcd
 		hostname := vClusterName + "-" + strconv.Itoa(i)
 		etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)
+
 		// this is for external etcd
 		etcdHostname := etcdService + "-" + strconv.Itoa(i)
 		etcdSans = append(etcdSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)

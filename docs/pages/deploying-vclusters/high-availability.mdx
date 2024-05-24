@@ -169,8 +169,9 @@ vcluster:
       value: mysql://username:password@tcp(hostname:3306)/database-name
 
 # Disable persistent storage as all data (including bootstrap data) is stored in external datastore
-storage:
-  persistence: false
+syncer:
+  storage:
+    persistence: false
 
 # Scale up CoreDNS replicas
 coredns:
@@ -206,7 +207,7 @@ kubectl get ns
 ```
 
 
-Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/main/charts/k3s) for all available chart options.
+Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k3s) for all available chart options.
 
 
 ### Enabling High Availability with Vanilla k8s
@@ -310,4 +311,4 @@ coredns:
       type: RuntimeDefault
 ```
 
-Check the [github repository](https://github.com/loft-sh/vcluster/tree/main/charts/k8s) for all available chart options.
+Check the [github repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k8s) for all available chart options.

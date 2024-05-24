@@ -21,24 +21,97 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: check default image registry
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                image:
+                  tag: "123"
+        advanced:
+          defaultImageRegistry: fabi.com
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: fabi.com/etcd:123
+
+  - it: disables serviceLinks for backingStore etcd pod
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                enabled: true
+                enableServiceLinks: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.enableServiceLinks
+          value: false
+
+  - it: change image registry
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                image:
+                  registry: fabi.com
+                  tag: "123"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: fabi.com/etcd:123
+
+  - it: check specified storage class is used
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                persistence:
+                  volumeClaim:
+                    storageClass: test-sc
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+          value: test-sc
+
   - it: enabled for k3s & non persistent
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            enabled: true
-            statefulSet:
-              extraArgs:
-                - "extra-arg"
-              env:
-                - name: my-new-env
-              persistence:
-                volumeClaim:
-                  disabled: true
-                addVolumes:
-                  - name: my-new-volume
-                addVolumeMounts:
-                  - name: my-new-volume
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                extraArgs:
+                  - "extra-arg"
+                env:
+                  - name: my-new-env
+                persistence:
+                  volumeClaim:
+                    enabled: false
+                  addVolumes:
+                    - name: my-new-volume
+                  addVolumeMounts:
+                    - name: my-new-volume
     asserts:
       - hasDocuments:
           count: 1
@@ -77,14 +150,16 @@ tests:
     set:
       controlPlane:
         backingStore:
-          externalEtcd:
-            statefulSet:
-              highAvailability:
-                replicas: 3
-              annotations:
-                test: test
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                highAvailability:
+                  replicas: 3
+                annotations:
+                  test: test
         distro:
-          k8s:
+          eks:
             enabled: true
     asserts:
       - hasDocuments:

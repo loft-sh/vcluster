@@ -1,7 +1,4 @@
 {{- if not .Values.experimental.isolatedControlPlane.headless }}
-{{- if and .Values.controlPlane.backingStore.embeddedEtcd.enabled (include "vcluster.externalEtcd.enabled" .) -}}
-{{- fail "embeddedEtcd and externalEtcd cannot be enabled at the same time together" }}
-{{- end -}}
 apiVersion: apps/v1
 kind: {{ include "vcluster.kind" . }}
 metadata:
@@ -132,6 +129,7 @@ spec:
       initContainers:
 {{ include "vcluster.initContainers" . | indent 8 }}
       {{- end }}
+      enableServiceLinks: {{ .Values.controlPlane.statefulSet.enableServiceLinks }}
       containers:
         - name: syncer
           image: {{ include "vcluster.controlPlane.image" . | quote }}
