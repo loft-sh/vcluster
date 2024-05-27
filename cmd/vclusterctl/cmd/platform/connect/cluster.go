@@ -109,7 +109,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// create kube context options
-	contextOptions, err := CreateClusterContextOptions(platformClient, cmd.Config, cluster, "", true, cmd.log)
+	contextOptions, err := CreateClusterContextOptions(platformClient, cmd.Config, cluster, "", true)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
-func CreateClusterContextOptions(platformClient platform.Client, config string, cluster *managementv1.Cluster, spaceName string, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
+func CreateClusterContextOptions(platformClient platform.Client, config string, cluster *managementv1.Cluster, spaceName string, setActive bool) (kubeconfig.ContextOptions, error) {
 	contextOptions := kubeconfig.ContextOptions{
 		Name:             kubeconfig.SpaceContextName(cluster.Name, spaceName),
 		ConfigPath:       config,
