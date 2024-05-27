@@ -152,7 +152,6 @@ func (l *LoftStarter) prepare(ctx context.Context) error {
 	contextToLoad := kubeConfig.CurrentContext
 	if l.Context != "" {
 		contextToLoad = l.Context
-
 	} else if platformConfig.LastInstallContext != "" && platformConfig.LastInstallContext != contextToLoad {
 		contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
 			Question:     product.Replace("Seems like you try to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use"),
@@ -164,7 +163,6 @@ func (l *LoftStarter) prepare(ctx context.Context) error {
 		}
 	}
 	l.Context = contextToLoad
-
 
 	platformConfig.LastInstallContext = contextToLoad
 	if err := platformClient.Save(); err != nil {
