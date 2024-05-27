@@ -1,8 +1,6 @@
 package platform
 
 import (
-	"fmt"
-
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"

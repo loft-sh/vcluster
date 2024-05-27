@@ -5,15 +5,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"strings"
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
-	client "github.com/loft-sh/vcluster/pkg/platform/loftclient"
-	"github.com/loft-sh/vcluster/pkg/platform/loftclient/helper"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
@@ -80,7 +78,7 @@ vcluster platform connect cluster mycluster
 
 // Run executes the command
 func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}
@@ -93,7 +91,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	// determine cluster name
 	clusterName := ""
 	if len(args) == 0 {
-		clusterName, err = helper.SelectCluster(ctx, baseClient, cmd.log)
+		clusterName, err = platformClient.SelectCluster(ctx, cmd.log)
 		if err != nil {
 			return err
 		}
@@ -112,7 +110,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// create kube context options
-	contextOptions, err := CreateClusterContextOptions(baseClient, cmd.Config, cluster, "", cmd.DisableDirectClusterEndpoint, true, cmd.log)
+	contextOptions, err := CreateClusterContextOptions(platformClient, cmd.Config, cluster, "", cmd.DisableDirectClusterEndpoint, true, cmd.log)
 	if err != nil {
 		return err
 	}
@@ -136,43 +134,15 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
-//func findProjectCluster(ctx context.Context, baseClient client.Client, projectName, clusterName string) (*managementv1.Cluster, error) {
-//	managementClient, err := baseClient.Management()
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	projectClusters, err := managementClient.Loft().ManagementV1().Projects().ListClusters(ctx, projectName, metav1.GetOptions{})
-//	if err != nil {
-//		return nil, errors.Wrap(err, "list project clusters")
-//	}
-//
-//	for _, cluster := range projectClusters.Clusters {
-//		if cluster.Name == clusterName {
-//			return &cluster, nil
-//		}
-//	}
-//
-//	return nil, fmt.Errorf("couldn't find cluster %s in project %s", clusterName, projectName)
-//}
-
-func CreateClusterContextOptions(baseClient client.Client, config string, cluster *managementv1.Cluster, spaceName string, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
+func CreateClusterContextOptions(platformClient platform.Client, config string, cluster *managementv1.Cluster, spaceName string, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
 	contextOptions := kubeconfig.ContextOptions{
 		Name:             kubeconfig.SpaceContextName(cluster.Name, spaceName),
 		ConfigPath:       config,
 		CurrentNamespace: spaceName,
 		SetActive:        setActive,
 	}
-	if !disableClusterGateway && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
-		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/cluster", log)
-		_, err := baseClient.DirectClusterEndpointToken(true)
-		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %w. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
-		}
-	} else {
-		contextOptions.Server = baseClient.Config().Host + "/kubernetes/cluster/" + cluster.Name
-		contextOptions.InsecureSkipTLSVerify = baseClient.Config().Insecure
-	}
+	contextOptions.Server = platformClient.Config().Platform.Host + "/kubernetes/cluster/" + cluster.Name
+	contextOptions.InsecureSkipTLSVerify = platformClient.Config().Platform.Insecure
 
 	data, err := retrieveCaData(cluster)
 	if err != nil {
@@ -180,21 +150,6 @@ func CreateClusterContextOptions(baseClient client.Client, config string, cluste
 	}
 	contextOptions.CaData = data
 	return contextOptions, nil
-}
-
-func ApplyDirectClusterEndpointOptions(options kubeconfig.ContextOptions, cluster *managementv1.Cluster, path string, log log.Logger) kubeconfig.ContextOptions {
-	server := strings.TrimSuffix(cluster.Annotations[LoftDirectClusterEndpoint], "/")
-	if !strings.HasPrefix(server, "https://") {
-		server = "https://" + server
-	}
-
-	log.Infof("Using direct cluster endpoint at %s", server)
-	options.Server = server + path
-	if cluster.Annotations[LoftDirectClusterEndpointInsecure] == "true" {
-		options.InsecureSkipTLSVerify = true
-	}
-	options.DirectClusterEndpointEnabled = true
-	return options
 }
 
 func retrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {

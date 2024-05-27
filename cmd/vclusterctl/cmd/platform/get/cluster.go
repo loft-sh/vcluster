@@ -8,10 +8,11 @@ import (
 	"time"
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/v4/pkg/config"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	client "github.com/loft-sh/vcluster/pkg/platform/loftclient"
-	"github.com/loft-sh/vcluster/pkg/platform/loftclient/naming"
-	config "github.com/loft-sh/vcluster/pkg/platform/loftconfig"
+	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -25,11 +26,13 @@ var (
 
 type clusterCmd struct {
 	*flags.GlobalFlags
+	cfg *cliconfig.CLI
 }
 
-func newClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func newClusterCmd(globalFlags *flags.GlobalFlags, cfg *cliconfig.CLI) *cobra.Command {
 	cmd := &clusterCmd{
 		GlobalFlags: globalFlags,
+		cfg:         cfg,
 	}
 
 	return &cobra.Command{
@@ -61,7 +64,7 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 
 	isProject, projectName := isProjectContext(cluster)
 	if isProject {
-		baseClient, err := client.NewClientFromPath(c.Config)
+		baseClient, err := platform.NewClientFromConfig(ctx, c.cfg)
 		if err != nil {
 			return err
 		}
@@ -76,7 +79,7 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 			err := wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 				var err error
 
-				spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(projectName)).Get(ctx, spaceName, metav1.GetOptions{})
+				spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(projectName)).Get(ctx, spaceName, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -101,7 +104,7 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 			err := wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 				var err error
 
-				virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(projectName)).Get(ctx, virtualClusterName, metav1.GetOptions{})
+				virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(projectName)).Get(ctx, virtualClusterName, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}

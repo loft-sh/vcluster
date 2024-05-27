@@ -4,11 +4,13 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/add"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/get"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
 
-func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
+func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Command, error) {
 	platformCmd := &cobra.Command{
 		Use:   "platform",
 		Short: "vCluster platform subcommands",
@@ -29,6 +31,7 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	platformCmd.AddCommand(add.NewAddCmd(globalFlags))
 	platformCmd.AddCommand(NewAccessKeyCmd(globalFlags))
 	platformCmd.AddCommand(NewImportCmd(globalFlags))
+	platformCmd.AddCommand(get.NewVarsCmd(globalFlags, cfg))
 
 	return platformCmd, nil
 }

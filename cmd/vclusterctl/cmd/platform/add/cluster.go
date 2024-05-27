@@ -9,18 +9,19 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v4/pkg/kube"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"github.com/loft-sh/vcluster/pkg/platform/kube"
-	client "github.com/loft-sh/vcluster/pkg/platform/loftclient"
-	"github.com/loft-sh/vcluster/pkg/platform/loftclient/helper"
 	"github.com/sirupsen/logrus"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,7 @@ import (
 type ClusterCmd struct {
 	Log log.Logger
 	*flags.GlobalFlags
+	Cfg              *config.CLI
 	Namespace        string
 	ServiceAccount   string
 	DisplayName      string
@@ -89,17 +91,17 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	// Get clusterName from command argument
 	clusterName := args[0]
 
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.Cfg)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}
 
-	err = client.VerifyVersion(baseClient)
+	err = platform.VerifyVersion(platformClient)
 	if err != nil {
 		return fmt.Errorf("verify loft version: %w", err)
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := platformClient.Management()
 	if err != nil {
 		return fmt.Errorf("create management client: %w", err)
 	}
@@ -110,7 +112,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("get user or team: %w", err)
 	}
 
-	loftVersion, err := baseClient.Version()
+	loftVersion, err := platformClient.Version()
 	if err != nil {
 		return fmt.Errorf("get loft version: %w", err)
 	}
@@ -189,7 +191,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		helmArgs = append(helmArgs, "--set", "token="+accessKey.AccessKey)
 	}
 
-	if cmd.Insecure || accessKey.Insecure || baseClient.Config().Insecure {
+	if cmd.Insecure || accessKey.Insecure {
 		helmArgs = append(helmArgs, "--set", "insecureSkipVerify=true")
 	}
 
