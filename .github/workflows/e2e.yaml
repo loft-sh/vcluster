@@ -235,7 +235,7 @@ jobs:
 
 
   e2e-tests:
-    name: Execute test suites
+    name: Execute test suites!
     needs:
       - build-and-push-syncer-image
       - build-vcluster-cli
