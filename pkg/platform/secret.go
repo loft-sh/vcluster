@@ -25,22 +25,24 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 		return fmt.Errorf("create management client: %w", err)
 	}
 
+	platformConfig := c.Config().Platform
+
 	// is the access key still valid?
-	if c.Config().VirtualClusterAccessKey != "" {
+	if platformConfig.VirtualClusterAccessKey != "" {
 		selfCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 		self, err := managementClient.Loft().ManagementV1().Selves().Create(selfCtx, &managementv1.Self{
 			Spec: managementv1.SelfSpec{
-				AccessKey: c.Config().VirtualClusterAccessKey,
+				AccessKey: platformConfig.VirtualClusterAccessKey,
 			},
 		}, metav1.CreateOptions{})
 		cancel()
 		if err != nil || self.Status.Subject != c.self.Status.Subject {
-			c.Config().VirtualClusterAccessKey = ""
+			platformConfig.VirtualClusterAccessKey = ""
 		}
 	}
 
 	// check if we need to create a virtual cluster access key
-	if c.Config().VirtualClusterAccessKey == "" {
+	if platformConfig.VirtualClusterAccessKey == "" {
 		user := ""
 		team := ""
 		if c.self.Status.User != nil {
@@ -70,18 +72,18 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 			return fmt.Errorf("create owned access key: %w", err)
 		}
 
-		c.Config().VirtualClusterAccessKey = accessKey.Spec.Key
-		err = c.Save()
-		if err != nil {
+		platformConfig.VirtualClusterAccessKey = accessKey.Spec.Key
+		c.Config().Platform = platformConfig
+		if err := c.Save(); err != nil {
 			return fmt.Errorf("save vCluster platform config: %w", err)
 		}
 	}
 
 	// build secret payload
 	payload := map[string][]byte{
-		"accessKey": []byte(c.Config().VirtualClusterAccessKey),
-		"host":      []byte(strings.TrimPrefix(c.Config().Host, "https://")),
-		"insecure":  []byte(strconv.FormatBool(c.Config().Insecure)),
+		"accessKey": []byte(c.config.Platform.VirtualClusterAccessKey),
+		"host":      []byte(strings.TrimPrefix(c.config.Platform.Host, "https://")),
+		"insecure":  []byte(strconv.FormatBool(c.config.Platform.Insecure)),
 	}
 	if project != "" {
 		payload["project"] = []byte(project)

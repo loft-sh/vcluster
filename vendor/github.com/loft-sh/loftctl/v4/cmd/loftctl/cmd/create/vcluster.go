@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -161,7 +161,7 @@ devspace create vcluster test --project myproject
 // Run executes the command
 func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 	virtualClusterName := args[0]
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 }
 
 func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClient client.Client, virtualClusterName string) error {
-	virtualClusterNamespace := naming.ProjectNamespace(cmd.Project)
+	virtualClusterNamespace := projectutil.ProjectNamespace(cmd.Project)
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
@@ -275,7 +275,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 		zone, offset := time.Now().Zone()
 		virtualClusterInstance = &managementv1.VirtualClusterInstance{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: naming.ProjectNamespace(cmd.Project),
+				Namespace: projectutil.ProjectNamespace(cmd.Project),
 				Name:      virtualClusterName,
 				Annotations: map[string]string{
 					clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),

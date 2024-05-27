@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
@@ -20,8 +19,9 @@ import (
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -29,8 +29,8 @@ import (
 )
 
 type ClusterCmd struct {
-	Log log.Logger
 	*flags.GlobalFlags
+	Log            log.Logger
 	Namespace      string
 	ServiceAccount string
 	DisplayName    string
@@ -81,17 +81,17 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	// Get clusterName from command argument
 	clusterName := args[0]
 
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	platformClient, err := platform.NewClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}
 
-	err = client.VerifyVersion(baseClient)
+	err = platform.VerifyVersion(platformClient)
 	if err != nil {
 		return fmt.Errorf("verify loft version: %w", err)
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := platformClient.Management()
 	if err != nil {
 		return fmt.Errorf("create management client: %w", err)
 	}
@@ -102,7 +102,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("get user or team: %w", err)
 	}
 
-	loftVersion, err := baseClient.Version()
+	platformVersion, err := platformClient.Version()
 	if err != nil {
 		return fmt.Errorf("get loft version: %w", err)
 	}
@@ -151,8 +151,8 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 			"--set", "agentOnly=true",
 			"--set", "image=" + cmp.Or(os.Getenv("DEVELOPMENT_IMAGE"), "ghcr.io/loft-sh/enterprise:release-test"),
 		}
-	} else if loftVersion.Version != "" {
-		helmArgs = append(helmArgs, "--version", loftVersion.Version)
+	} else if platformVersion.Version != "" {
+		helmArgs = append(helmArgs, "--version", platformVersion.Version)
 	}
 
 	if accessKey.LoftHost != "" {
@@ -163,7 +163,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		helmArgs = append(helmArgs, "--set", "token="+accessKey.AccessKey)
 	}
 
-	if cmd.Insecure || accessKey.Insecure || baseClient.Config().Insecure {
+	if cmd.Insecure || accessKey.Insecure || platformClient.Config().Platform.Insecure {
 		helmArgs = append(helmArgs, "--set", "insecureSkipVerify=true")
 	}
 

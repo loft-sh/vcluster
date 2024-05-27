@@ -28,7 +28,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"golang.org/x/mod/semver"
@@ -328,7 +327,7 @@ func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *con
 		return nil
 	}
 
-	platformClient, err := platform.CreatePlatformClient()
+	platformClient, err := platform.NewClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
 			return fmt.Errorf("you have vCluster pro features activated, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --activate=false", err)
@@ -483,6 +482,7 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 		cmd.localCluster = true
 	}
 
+	cfg := cmd.GlobalFlags.LoadedConfig(log)
 	return &config.ExtraValuesOptions{
 		Distro:    cmd.Distro,
 		Expose:    cmd.Expose,
@@ -492,9 +492,9 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 			Major: kubernetesVersion.Major,
 			Minor: kubernetesVersion.Minor,
 		},
-		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
+		DisableTelemetry:    cfg.TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
-		MachineID:           telemetry.GetMachineID(log),
+		MachineID:           telemetry.GetMachineID(cfg),
 	}, nil
 }
 

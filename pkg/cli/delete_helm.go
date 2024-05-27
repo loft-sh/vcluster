@@ -229,7 +229,7 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 }
 
 func (cmd *deleteHelm) deleteVClusterInPlatform(ctx context.Context, vClusterService *corev1.Service) error {
-	platformClient, err := platform.CreatePlatformClient()
+	platformClient, err := platform.NewClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		cmd.log.Debugf("Error creating platform client: %v", err)
 		return nil

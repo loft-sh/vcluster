@@ -14,8 +14,6 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/create"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
@@ -23,11 +21,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
 	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,18 +34,18 @@ import (
 )
 
 func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, virtualClusterName string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
+	platformClient, err := platform.NewClientFromPath(ctx, globalFlags.Config)
 	if err != nil {
 		return err
 	}
 
 	// determine project & cluster name
-	options.Cluster, options.Project, err = helper.SelectProjectOrCluster(ctx, platformClient, options.Cluster, options.Project, false, log)
+	options.Cluster, options.Project, err = platformClient.SelectProjectOrCluster(ctx, options.Cluster, options.Project, false, log)
 	if err != nil {
 		return err
 	}
 
-	virtualClusterNamespace := naming.ProjectNamespace(options.Project)
+	virtualClusterNamespace := projectutil.ProjectNamespace((options.Project))
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
@@ -162,7 +160,7 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 	zone, offset := time.Now().Zone()
 	virtualClusterInstance := &managementv1.VirtualClusterInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: naming.ProjectNamespace(options.Project),
+			Namespace: projectutil.ProjectNamespace((options.Project)),
 			Name:      virtualClusterName,
 			Annotations: map[string]string{
 				clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
@@ -339,9 +337,8 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 	}
 
 	// resolve template
-	virtualClusterTemplate, resolvedParameters, err := create.ResolveTemplate(
+	virtualClusterTemplate, resolvedParameters, err := platformClient.ResolveTemplate(
 		ctx,
-		platformClient,
 		options.Project,
 		options.Template,
 		options.TemplateVersion,
@@ -357,7 +354,7 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 	zone, offset := time.Now().Zone()
 	virtualClusterInstance := &managementv1.VirtualClusterInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: naming.ProjectNamespace(options.Project),
+			Namespace: projectutil.ProjectNamespace((options.Project)),
 			Name:      virtualClusterName,
 			Annotations: map[string]string{
 				clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
@@ -417,9 +414,8 @@ func upgradeWithTemplate(ctx context.Context, platformClient platform.Client, op
 	}
 
 	// resolve template
-	virtualClusterTemplate, resolvedParameters, err := create.ResolveTemplate(
+	virtualClusterTemplate, resolvedParameters, err := platformClient.ResolveTemplate(
 		ctx,
-		platformClient,
 		options.Project,
 		options.Template,
 		options.TemplateVersion,
@@ -623,14 +619,15 @@ func toChartOptions(platformClient platform.Client, options *CreateOptions, log 
 		options.ChartVersion = ""
 	}
 
+	cfg := platformClient.Config()
 	return &vclusterconfig.ExtraValuesOptions{
 		Distro:              options.Distro,
 		Expose:              options.Expose,
 		KubernetesVersion:   kubernetesVersion,
-		DisableTelemetry:    cliconfig.GetConfig(log).TelemetryDisabled,
+		DisableTelemetry:    cfg.TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
-		PlatformInstanceID:  telemetry.GetPlatformInstanceID(platformClient.Self()),
-		PlatformUserID:      telemetry.GetPlatformUserID(platformClient.Self()),
-		MachineID:           telemetry.GetMachineID(log),
+		PlatformInstanceID:  telemetry.GetPlatformInstanceID(cfg, platformClient.Self()),
+		PlatformUserID:      telemetry.GetPlatformUserID(cfg, platformClient.Self()),
+		MachineID:           telemetry.GetMachineID(cfg),
 	}, nil
 }

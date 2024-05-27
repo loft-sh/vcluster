@@ -16,12 +16,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func PausePlatform(ctx context.Context, options *PauseOptions, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.CreatePlatformClient()
+func PausePlatform(ctx context.Context, options *PauseOptions, configPath string, vClusterName string, log log.Logger) error {
+	platformClient, err := platform.NewClientFromPath(ctx, configPath)
 	if err != nil {
 		return err
 	}
-
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
 		return err
