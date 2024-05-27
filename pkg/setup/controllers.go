@@ -21,7 +21,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -175,29 +174,6 @@ func ApplyCoreDNS(controllerContext *options.ControllerContext) {
 	})
 }
 
-func SetGlobalOwner(ctx context.Context, currentNamespaceClient client.Client, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
-	if currentNamespace != targetNamespace {
-		if setOwner {
-			klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", currentNamespace, targetNamespace)
-		}
-
-		return nil
-	}
-
-	if setOwner {
-		service := &corev1.Service{}
-		err := currentNamespaceClient.Get(ctx, types.NamespacedName{Namespace: currentNamespace, Name: serviceName}, service)
-		if err != nil {
-			return errors.Wrap(err, "get vcluster service")
-		}
-
-		translate.Owner = service
-		return nil
-	}
-
-	return nil
-}
-
 func SyncKubernetesService(ctx *options.ControllerContext) error {
 	err := specialservices.SyncKubernetesService(
 		&synccontext.SyncContext{
@@ -264,19 +240,6 @@ func StartManagers(controllerContext *options.ControllerContext, syncers []synce
 
 	// register APIService
 	go RegisterOrDeregisterAPIService(controllerContext)
-
-	// make sure owner is set if it is there
-	err = SetGlobalOwner(
-		controllerContext.Context,
-		controllerContext.CurrentNamespaceClient,
-		controllerContext.CurrentNamespace,
-		controllerContext.Options.TargetNamespace,
-		controllerContext.Options.SetOwner,
-		controllerContext.Options.ServiceName,
-	)
-	if err != nil {
-		return errors.Wrap(err, "finding vcluster pod owner")
-	}
 
 	return nil
 }
