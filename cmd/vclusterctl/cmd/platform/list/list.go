@@ -19,6 +19,6 @@ func NewListCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command 
 	}
 
 	// TODO: change that with the actual globalFlag variable
-	listCmd.AddCommand(NewClustersCmd(globalFlags))
+	listCmd.AddCommand(NewClustersCmd(globalFlags, cfg))
 	return listCmd
 }
