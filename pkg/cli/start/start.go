@@ -7,11 +7,11 @@ import (
 	"os/exec"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,7 +74,7 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 		l.LocalPort = "9898"
 	}
 
-	err := l.prepare()
+	err := l.prepare(ctx)
 	if err != nil {
 		return err
 	}
@@ -132,12 +132,12 @@ func (l *LoftStarter) prepareInstall(ctx context.Context) error {
 	return clihelper.UninstallLoft(ctx, l.KubeClient, l.RestConfig, l.Context, l.Namespace, log.Discard)
 }
 
-func (l *LoftStarter) prepare() error {
-	loader, err := client.NewClientFromPath(l.Config)
+func (l *LoftStarter) prepare(ctx context.Context) error {
+	platformClient, err := platform.NewClientFromConfig(ctx, l.LoadedConfig(l.Log))
 	if err != nil {
 		return err
 	}
-	loftConfig := loader.Config()
+	platformConfig := platformClient.Config().Platform
 
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
@@ -152,11 +152,12 @@ func (l *LoftStarter) prepare() error {
 	contextToLoad := kubeConfig.CurrentContext
 	if l.Context != "" {
 		contextToLoad = l.Context
-	} else if loftConfig.LastInstallContext != "" && loftConfig.LastInstallContext != contextToLoad {
+
+	} else if platformConfig.LastInstallContext != "" && platformConfig.LastInstallContext != contextToLoad {
 		contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
 			Question:     product.Replace("Seems like you try to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use"),
 			DefaultValue: contextToLoad,
-			Options:      []string{contextToLoad, loftConfig.LastInstallContext},
+			Options:      []string{contextToLoad, platformConfig.LastInstallContext},
 		})
 		if err != nil {
 			return err
@@ -164,8 +165,11 @@ func (l *LoftStarter) prepare() error {
 	}
 	l.Context = contextToLoad
 
-	loftConfig.LastInstallContext = contextToLoad
-	_ = loader.Save()
+
+	platformConfig.LastInstallContext = contextToLoad
+	if err := platformClient.Save(); err != nil {
+		return fmt.Errorf("save vCluster config: %w", err)
+	}
 
 	// kube client config
 	kubeClientConfig = clientcmd.NewNonInteractiveClientConfig(kubeConfig, contextToLoad, &clientcmd.ConfigOverrides{}, clientcmd.NewDefaultClientConfigLoadingRules())

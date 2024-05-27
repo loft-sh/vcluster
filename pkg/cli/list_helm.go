@@ -78,7 +78,7 @@ func printVClusters(ctx context.Context, options *ListOptions, output []ListVClu
 
 		// show use manager command
 		if showPlatform {
-			platformClient, err := platform.CreatePlatformClient()
+			platformClient, err := platform.NewClientFromConfig(ctx, globalFlags.LoadedConfig(logger))
 			if err == nil {
 				ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 				defer cancel()

@@ -10,9 +10,9 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
 	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/loftctl/v4/pkg/space"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
@@ -94,7 +94,7 @@ devspace use space myspace --project myproject
 
 // Run executes the command
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (cmd *SpaceCmd) useSpace(ctx context.Context, baseClient client.Client, spa
 	}
 
 	// wait until space is ready
-	spaceInstance, err := space.WaitForSpaceInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
+	spaceInstance, err := space.WaitForSpaceInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
 	if err != nil {
 		return err
 	}

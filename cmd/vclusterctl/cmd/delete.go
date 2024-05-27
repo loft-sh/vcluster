@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"context"
+
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
@@ -41,7 +44,7 @@ vcluster delete test --namespace test
 		Aliases:           []string{"rm"},
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -61,18 +64,18 @@ vcluster delete test --namespace test
 }
 
 // Run executes the functionality
-func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
-	if err != nil {
-		return err
+func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
+	cfg := cmd.LoadedConfig(cmd.log)
+
+	// check if there is a platform client or we skip the info message
+	_, err := platform.NewClientFromConfig(ctx, cfg)
+	if err == nil {
+		config.PrintManagerInfo("delete", cfg.Manager.Type, cmd.log)
 	}
 
-	// check if we should delete a platform vCluster
-	platform.PrintManagerInfo("delete", manager, cmd.log)
-	if manager == platform.ManagerPlatform {
-		// deploy platform cluster
-		return cli.DeletePlatform(cobraCmd.Context(), &cmd.DeleteOptions, args[0], cmd.log)
+	if cfg.Manager.Type == config.ManagerPlatform {
+		return cli.DeletePlatform(ctx, &cmd.DeleteOptions, cfg, args[0], cmd.log)
 	}
 
-	return cli.DeleteHelm(cobraCmd.Context(), &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
+	return cli.DeleteHelm(ctx, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
 }

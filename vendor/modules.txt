@@ -346,7 +346,7 @@ github.com/liggitt/tabwriter
 # github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
 ## explicit; go 1.21.1
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v4 v4.0.0-alpha.3
+# github.com/loft-sh/agentapi/v4 v4.0.0-alpha.3.0.20240521134941-dc54ef9328bd
 ## explicit; go 1.22.2
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1
@@ -358,7 +358,7 @@ github.com/loft-sh/agentapi/v4/pkg/client/loft/clientset_generated/clientset/typ
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v4 v4.0.0-alpha.3
+# github.com/loft-sh/api/v4 v4.0.0-alpha.3.0.20240521135612-e966098770bf
 ## explicit; go 1.22.2
 github.com/loft-sh/api/v4/pkg/apis/audit/v1
 github.com/loft-sh/api/v4/pkg/apis/management
@@ -382,37 +382,17 @@ github.com/loft-sh/apiserver/pkg/builders
 # github.com/loft-sh/jspolicy v0.2.2
 ## explicit; go 1.16
 github.com/loft-sh/jspolicy/pkg/apis/policy/v1beta1
-# github.com/loft-sh/loftctl/v4 v4.0.0-alpha.3
+# github.com/loft-sh/loftctl/v4 v4.0.0-alpha.3.0.20240521140248-72c9120ca910
 ## explicit; go 1.22.2
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/connect
 github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/create
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/credits
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/defaults
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/delete
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/devpod
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/devpod/list
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/generate
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/get
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/importcmd
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/list
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/reset
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/set
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/share
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/sleep
 github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/use
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/vars
-github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/wakeup
 github.com/loft-sh/loftctl/v4/cmd/loftctl/flags
-github.com/loft-sh/loftctl/v4/pkg/backup
 github.com/loft-sh/loftctl/v4/pkg/client
 github.com/loft-sh/loftctl/v4/pkg/client/helper
-github.com/loft-sh/loftctl/v4/pkg/client/naming
 github.com/loft-sh/loftctl/v4/pkg/clihelper
 github.com/loft-sh/loftctl/v4/pkg/config
 github.com/loft-sh/loftctl/v4/pkg/constants
 github.com/loft-sh/loftctl/v4/pkg/defaults
-github.com/loft-sh/loftctl/v4/pkg/devpod
 github.com/loft-sh/loftctl/v4/pkg/docker
 github.com/loft-sh/loftctl/v4/pkg/httputil
 github.com/loft-sh/loftctl/v4/pkg/kube
@@ -420,10 +400,9 @@ github.com/loft-sh/loftctl/v4/pkg/kubeconfig
 github.com/loft-sh/loftctl/v4/pkg/parameters
 github.com/loft-sh/loftctl/v4/pkg/portforward
 github.com/loft-sh/loftctl/v4/pkg/printhelper
+github.com/loft-sh/loftctl/v4/pkg/projectutil
 github.com/loft-sh/loftctl/v4/pkg/random
-github.com/loft-sh/loftctl/v4/pkg/remotecommand
 github.com/loft-sh/loftctl/v4/pkg/space
-github.com/loft-sh/loftctl/v4/pkg/start
 github.com/loft-sh/loftctl/v4/pkg/task
 github.com/loft-sh/loftctl/v4/pkg/upgrade
 github.com/loft-sh/loftctl/v4/pkg/util

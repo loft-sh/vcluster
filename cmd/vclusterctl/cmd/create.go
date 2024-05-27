@@ -8,6 +8,7 @@ import (
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
@@ -19,6 +20,7 @@ import (
 type CreateCmd struct {
 	*flags.GlobalFlags
 	cli.CreateOptions
+
 	log log.Logger
 }
 
@@ -94,14 +96,15 @@ vcluster create test --namespace test
 
 // Run executes the functionality
 func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
-	if err != nil {
-		return err
-	}
+	cfg := cmd.LoadedConfig(cmd.log)
 
+	// check if there is a platform client or we skip the info message
+	_, err := platform.NewClientFromConfig(ctx, cfg)
+	if err == nil {
+		config.PrintManagerInfo("create", cfg.Manager.Type, cmd.log)
+	}
 	// check if we should create a platform vCluster
-	platform.PrintManagerInfo("create", manager, cmd.log)
-	if manager == platform.ManagerPlatform {
+	if cfg.Manager.Type == config.ManagerPlatform {
 		return cli.CreatePlatform(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
 	}
 

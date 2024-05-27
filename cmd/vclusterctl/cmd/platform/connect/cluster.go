@@ -85,7 +85,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
 	}

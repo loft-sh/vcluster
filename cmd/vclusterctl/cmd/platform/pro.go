@@ -6,7 +6,6 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	platformdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/spf13/cobra"
 )
 
@@ -25,16 +24,12 @@ Deprecated, please use vcluster platform instead
 
 	startCmd, err := NewStartCmd(globalFlags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vcluster pro start command: %w", err)
-	}
-	d, err := platformdefaults.NewFromPath(platformdefaults.ConfigFolder, platformdefaults.ConfigFile)
-	if err != nil {
 		log.Default.Debugf(err.Error())
 	}
 
 	proCmd.AddCommand(startCmd)
 	proCmd.AddCommand(NewResetCmd(globalFlags))
-	proCmd.AddCommand(connect.NewConnectCmd(globalFlags, d))
+	proCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	proCmd.AddCommand(NewAccessKeyCmd(globalFlags))
 
 	return proCmd, nil

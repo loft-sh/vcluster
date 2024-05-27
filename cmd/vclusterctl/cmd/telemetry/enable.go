@@ -1,18 +1,22 @@
 package telemetry
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
 
 type EnableCmd struct {
+	*flags.GlobalFlags
 	log log.Logger
 }
 
-func enable() *cobra.Command {
+func enable(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &EnableCmd{
-		log: log.GetInstance(),
+		GlobalFlags: globalFlags,
+		log:         log.GetInstance(),
 	}
 
 	cobraCmd := &cobra.Command{
@@ -29,15 +33,19 @@ docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 
 #######################################################
 	`,
-		RunE: func(cobraCmd *cobra.Command, _ []string) error {
-			return cmd.Run(cobraCmd)
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return cmd.Run()
 		}}
 
 	return cobraCmd
 }
 
-func (cmd *EnableCmd) Run(*cobra.Command) error {
-	c := cliconfig.GetConfig(cmd.log)
-	c.TelemetryDisabled = false
-	return cliconfig.WriteConfig(c)
+func (cmd *EnableCmd) Run() error {
+	cfg := cmd.LoadedConfig(cmd.log)
+	cfg.TelemetryDisabled = false
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("save vCluster config: %w", err)
+	}
+
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	loftctlUtil "github.com/loft-sh/vcluster/pkg/platform/loftutils"
@@ -46,7 +47,6 @@ vcluster platform import my-vcluster --cluster connected-cluster \
 	}
 
 	importCmd.Flags().StringVar(&cmd.Manager, "manager", "", "The manager to use for managing the virtual cluster, can be either helm or platform.")
-
 	importCmd.Flags().StringVar(&cmd.ClusterName, "cluster", "", "Cluster name of the cluster the virtual cluster is running on")
 	importCmd.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vCluster into")
 	importCmd.Flags().StringVar(&cmd.ImportName, "import-name", "", "The name of the vCluster under projects. If unspecified, will use the vcluster name")
@@ -56,13 +56,9 @@ vcluster platform import my-vcluster --cluster connected-cluster \
 
 // Run executes the functionality
 func (cmd *ImportCmd) Run(ctx context.Context, args []string) error {
-	manager, err := platform.GetManager(cmd.Manager)
-	if err != nil {
-		return err
-	}
-
+	cfg := cmd.LoadedConfig(cmd.Log)
 	// check if we should create a platform vCluster
-	if manager == platform.ManagerPlatform {
+	if cfg.Manager.Type == config.ManagerPlatform {
 		return cli.ActivatePlatform(ctx, &cmd.ActivateOptions, cmd.GlobalFlags, args[0], cmd.Log)
 	}
 
