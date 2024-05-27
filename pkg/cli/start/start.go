@@ -133,7 +133,7 @@ func (l *LoftStarter) prepareInstall(ctx context.Context) error {
 }
 
 func (l *LoftStarter) prepare(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromPath(ctx, l.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, l.LoadedConfig(l.Log))
 	if err != nil {
 		return err
 	}

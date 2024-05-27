@@ -22,7 +22,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		globalFlags.Context = currentContext
 	}
 
-	platformClient, err := platform.NewClientFromPath(ctx, globalFlags.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, globalFlags.LoadedConfig(logger))
 	if err != nil {
 		return err
 	}

@@ -10,14 +10,15 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/log"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func PausePlatform(ctx context.Context, options *PauseOptions, configPath string, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromPath(ctx, configPath)
+func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CLI, vClusterName string, log log.Logger) error {
+	platformClient, err := platform.NewClientFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}

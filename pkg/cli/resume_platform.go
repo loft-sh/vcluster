@@ -6,12 +6,13 @@ import (
 
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
 )
 
-func ResumePlatform(ctx context.Context, options *ResumeOptions, configPath string, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromPath(ctx, configPath)
+func ResumePlatform(ctx context.Context, options *ResumeOptions, config *config.CLI, vClusterName string, log log.Logger) error {
+	platformClient, err := platform.NewClientFromConfig(ctx, config)
 	if err != nil {
 		return err
 	}

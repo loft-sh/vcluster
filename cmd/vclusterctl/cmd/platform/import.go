@@ -55,7 +55,7 @@ vcluster platform import my-vcluster --cluster connected-cluster \
 
 // Run executes the functionality
 func (cmd *ImportCmd) Run(ctx context.Context, args []string) error {
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
+	cfg := cmd.LoadedConfig(cmd.Log)
 	// check if we should create a platform vCluster
 	if cfg.Manager.Type == config.ManagerPlatform {
 		return cli.ActivatePlatform(ctx, &cmd.ActivateOptions, cmd.GlobalFlags, args[0], cmd.Log)

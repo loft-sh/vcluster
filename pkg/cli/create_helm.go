@@ -327,7 +327,7 @@ func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *con
 		return nil
 	}
 
-	platformClient, err := platform.NewClientFromPath(ctx, cmd.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
 			return fmt.Errorf("you have vCluster pro features activated, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --activate=false", err)
@@ -482,7 +482,7 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 		cmd.localCluster = true
 	}
 
-	cfg := cmd.GlobalFlags.LoadedConfig(log)
+	cfg := cmd.LoadedConfig(log)
 	return &config.ExtraValuesOptions{
 		Distro:    cmd.Distro,
 		Expose:    cmd.Expose,

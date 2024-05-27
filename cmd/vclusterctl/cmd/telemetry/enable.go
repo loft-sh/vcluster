@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
@@ -42,9 +41,9 @@ docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 }
 
 func (cmd *EnableCmd) Run() error {
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.log)
+	cfg := cmd.LoadedConfig(cmd.log)
 	cfg.TelemetryDisabled = false
-	if err := config.Write(cmd.Config, cfg); err != nil {
+	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("save vCluster config: %w", err)
 	}
 

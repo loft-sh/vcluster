@@ -54,7 +54,7 @@ vcluster logout
 }
 
 func (cmd *LogoutCmd) Run(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromPath(ctx, cmd.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
 	}
@@ -79,5 +79,5 @@ func (cmd *LogoutCmd) Run(ctx context.Context) error {
 		cmd.Log.Donef(product.Replace("Successfully logged out of loft instance %s"), ansi.Color(configHost, "white+b"))
 	}
 
-	return use.SwitchManager(ctx, globalFlags.Config, cfg, string(config.ManagerHelm), cmd.Log)
+	return use.SwitchManager(ctx, cfg, string(config.ManagerHelm), cmd.Log)
 }

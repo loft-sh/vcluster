@@ -34,7 +34,7 @@ import (
 )
 
 func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, virtualClusterName string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromPath(ctx, globalFlags.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, globalFlags.LoadedConfig(log))
 	if err != nil {
 		return err
 	}

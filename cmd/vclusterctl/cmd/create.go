@@ -96,10 +96,10 @@ vcluster create test --namespace test
 
 // Run executes the functionality
 func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.log)
+	cfg := cmd.LoadedConfig(cmd.log)
 
 	// check if there is a platform client or we skip the info message
-	_, err := platform.NewClientFromPath(ctx, cmd.Config)
+	_, err := platform.NewClientFromConfig(ctx, cfg)
 	if err == nil {
 		config.PrintManagerInfo("create", cfg.Manager.Type, cmd.log)
 	}
