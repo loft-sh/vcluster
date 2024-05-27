@@ -72,7 +72,6 @@ vcluster platform connect cluster mycluster
 	}
 
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
-	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the cluster")
 	return c
 }
 
@@ -110,7 +109,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// create kube context options
-	contextOptions, err := CreateClusterContextOptions(platformClient, cmd.Config, cluster, "", cmd.DisableDirectClusterEndpoint, true, cmd.log)
+	contextOptions, err := CreateClusterContextOptions(platformClient, cmd.Config, cluster, "", true, cmd.log)
 	if err != nil {
 		return err
 	}
@@ -134,7 +133,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
-func CreateClusterContextOptions(platformClient platform.Client, config string, cluster *managementv1.Cluster, spaceName string, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
+func CreateClusterContextOptions(platformClient platform.Client, config string, cluster *managementv1.Cluster, spaceName string, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
 	contextOptions := kubeconfig.ContextOptions{
 		Name:             kubeconfig.SpaceContextName(cluster.Name, spaceName),
 		ConfigPath:       config,
