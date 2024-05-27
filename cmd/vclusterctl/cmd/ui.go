@@ -49,7 +49,7 @@ vcluster ui
 }
 
 func (cmd *UICmd) Run(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromPath(ctx, cmd.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
 	}

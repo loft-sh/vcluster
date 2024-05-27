@@ -59,10 +59,10 @@ vcluster resume test --namespace test
 
 // Run executes the functionality
 func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
+	cfg := cmd.LoadedConfig(cmd.Log)
 	// check if we should resume a platform backed virtual cluster
 	if cfg.Manager.Type == config.ManagerPlatform {
-		return cli.ResumePlatform(ctx, &cmd.ResumeOptions, cmd.Config, args[0], cmd.Log)
+		return cli.ResumePlatform(ctx, &cmd.ResumeOptions, cfg, args[0], cmd.Log)
 	}
 
 	return cli.ResumeHelm(ctx, cmd.GlobalFlags, args[0], cmd.Log)

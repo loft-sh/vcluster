@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -105,18 +104,12 @@ type VirtualClusterInstanceProject struct {
 	Project        *managementv1.Project
 }
 
-func NewClientFromPath(ctx context.Context, path string) (Client, error) {
+func NewClientFromConfig(ctx context.Context, config *config.CLI) (Client, error) {
 	c := &client{
-		configPath: path,
+		config: config,
 	}
 
-	err := c.initConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.RefreshSelf(ctx)
-	if err != nil {
+	if err := c.RefreshSelf(ctx); err != nil {
 		return nil, err
 	}
 
@@ -127,23 +120,14 @@ func NewClientFromPath(ctx context.Context, path string) (Client, error) {
 	return c, nil
 }
 
-func NewLoginClientFromPath(path string) (LoginClient, error) {
-	c := &client{
-		configPath: path,
+func NewLoginClientFromConfig(config *config.CLI) LoginClient {
+	return &client{
+		config: config,
 	}
-
-	err := c.initConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
 }
 
 type client struct {
-	config     *config.CLI
-	configPath string
-	configOnce sync.Once
+	config *config.CLI
 
 	self *managementv1.Self
 }
@@ -192,34 +176,6 @@ func (c *client) Logout(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (c *client) initConfig() error {
-	var retErr error
-	c.configOnce.Do(func() {
-		// load the config or create new one if not found
-		content, err := os.ReadFile(c.configPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				c.config = config.New()
-				return
-			}
-
-			retErr = err
-			return
-		}
-
-		config := config.New()
-		err = json.Unmarshal(content, config)
-		if err != nil {
-			retErr = err
-			return
-		}
-
-		c.config = config
-	})
-
-	return retErr
 }
 
 func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster string, forceRefresh bool) (string, string, error) {
@@ -550,30 +506,7 @@ func getCertificateAndKeyDataFromKubeConfig(config string) (string, string, erro
 }
 
 func (c *client) Save() error {
-	if c.configPath == "" {
-		return nil
-	}
-	if c.config == nil {
-		return perrors.New("no config to write")
-	}
-	if c.config.Platform.Kind == "" {
-		c.config.Platform.Kind = "Config"
-	}
-	if c.config.Platform.APIVersion == "" {
-		c.config.Platform.APIVersion = "storage.loft.sh/v1"
-	}
-
-	err := os.MkdirAll(filepath.Dir(c.configPath), 0o755)
-	if err != nil {
-		return err
-	}
-
-	out, err := json.Marshal(c.config)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(c.configPath, out, 0o660)
+	return c.config.Save()
 }
 
 func (c *client) ManagementConfig() (*rest.Config, error) {

@@ -65,11 +65,11 @@ vcluster pause test --namespace test
 
 // Run executes the functionality
 func (cmd *PauseCmd) Run(ctx context.Context, args []string) error {
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
+	cfg := cmd.LoadedConfig(cmd.Log)
 
 	// check if we should create a platform vCluster
 	if cfg.Manager.Type == config.ManagerPlatform {
-		return cli.PausePlatform(ctx, &cmd.PauseOptions, cmd.Config, args[0], cmd.Log)
+		return cli.PausePlatform(ctx, &cmd.PauseOptions, cfg, args[0], cmd.Log)
 	}
 
 	return cli.PauseHelm(ctx, cmd.GlobalFlags, args[0], cmd.Log)

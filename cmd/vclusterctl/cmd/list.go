@@ -55,7 +55,7 @@ vcluster list --namespace test
 func (cmd *ListCmd) Run(cobraCmd *cobra.Command) error {
 	// check if we should create a platform vCluster
 
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.log)
+	cfg := cmd.LoadedConfig(cmd.log)
 	if cfg.Manager.Type == config.ManagerPlatform {
 		return cli.ListPlatform(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log)
 	}

@@ -10,6 +10,8 @@ type CLI struct {
 	TelemetryDisabled bool     `json:"telemetryDisabled,omitempty"`
 	Manager           Manager  `json:"manager,omitempty"`
 	Platform          Platform `json:"platform,omitempty"`
+
+	path string
 }
 
 type Manager struct {

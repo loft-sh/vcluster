@@ -91,7 +91,7 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
+	cfg := cmd.LoadedConfig(cmd.Log)
 	if cfg.Manager.Type == config.ManagerPlatform {
 		return cli.ConnectPlatform(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
 	}

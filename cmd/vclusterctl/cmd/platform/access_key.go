@@ -56,7 +56,7 @@ vcluster platform token
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
-			return cmd.Run(cobraCmd.Context(), globalFlags.Config)
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -67,8 +67,8 @@ vcluster platform token
 }
 
 // Run executes the command
-func (cmd *AccessKeyCmd) Run(ctx context.Context, configPath string) error {
-	platformClient, err := platform.NewClientFromPath(ctx, configPath)
+func (cmd *AccessKeyCmd) Run(ctx context.Context) error {
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

@@ -7,14 +7,15 @@ import (
 
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func DeletePlatform(ctx context.Context, options *DeleteOptions, configPath string, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromPath(ctx, configPath)
+func DeletePlatform(ctx context.Context, options *DeleteOptions, config *config.CLI, vClusterName string, log log.Logger) error {
+	platformClient, err := platform.NewClientFromConfig(ctx, config)
 	if err != nil {
 		return err
 	}

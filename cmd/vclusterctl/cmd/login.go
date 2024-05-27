@@ -18,6 +18,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -80,7 +81,7 @@ vcluster login https://my-vcluster-platform.com --access-key myaccesskey
 }
 
 func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
+	cfg := cmd.LoadedConfig(cmd.Log)
 
 	var url string
 	// Print login information
@@ -115,12 +116,9 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// log into platform
-	loginClient, err := platform.NewLoginClientFromPath(cmd.Config)
-	if err != nil {
-		return err
-	}
-
+	loginClient := platform.NewLoginClientFromConfig(cfg)
 	url = strings.TrimSuffix(url, "/")
+	var err error
 	if cmd.AccessKey != "" {
 		err = loginClient.LoginWithAccessKey(url, cmd.AccessKey, cmd.Insecure)
 	} else {
@@ -136,14 +134,14 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	err = dockerLogin(ctx, cmd.Config, cmd.Log)
+	err = dockerLogin(ctx, cmd.LoadedConfig(cmd.Log), cmd.Log)
 	if err != nil {
 		return err
 	}
 
 	// should switch manager
 	if cmd.Manager != "" {
-		err := use.SwitchManager(ctx, globalFlags.Config, cfg, cmd.Manager, log.GetInstance())
+		err := use.SwitchManager(ctx, cfg, cmd.Manager, log.GetInstance())
 		if err != nil {
 			return fmt.Errorf("switch manager failed: %w", err)
 		}
@@ -153,7 +151,8 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 }
 
 func (cmd *LoginCmd) printLoginDetails(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromPath(ctx, cmd.Config)
+	cfg := cmd.LoadedConfig(cmd.Log)
+	platformClient, err := platform.NewClientFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -176,8 +175,8 @@ func (cmd *LoginCmd) printLoginDetails(ctx context.Context) error {
 	return nil
 }
 
-func dockerLogin(ctx context.Context, configPath string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromPath(ctx, configPath)
+func dockerLogin(ctx context.Context, config *config.CLI, log log.Logger) error {
+	platformClient, err := platform.NewClientFromConfig(ctx, config)
 	if err != nil {
 		return err
 	}

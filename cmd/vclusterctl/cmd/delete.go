@@ -65,16 +65,16 @@ vcluster delete test --namespace test
 
 // Run executes the functionality
 func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.log)
+	cfg := cmd.LoadedConfig(cmd.log)
 
 	// check if there is a platform client or we skip the info message
-	_, err := platform.NewClientFromPath(ctx, cmd.Config)
+	_, err := platform.NewClientFromConfig(ctx, cfg)
 	if err == nil {
 		config.PrintManagerInfo("delete", cfg.Manager.Type, cmd.log)
 	}
 
 	if cfg.Manager.Type == config.ManagerPlatform {
-		return cli.DeletePlatform(ctx, &cmd.DeleteOptions, cmd.Config, args[0], cmd.log)
+		return cli.DeletePlatform(ctx, &cmd.DeleteOptions, cfg, args[0], cmd.log)
 	}
 
 	return cli.DeleteHelm(ctx, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)

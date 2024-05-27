@@ -38,14 +38,15 @@ vcluster info
 		Args:   cobra.NoArgs,
 		Hidden: true,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
+			cfg := globalFlags.LoadedConfig(log.GetInstance())
 			infos := cliInfo{
 				Version:   cobraCmd.Root().Version,
 				OS:        runtime.GOOS,
 				Arch:      runtime.GOARCH,
-				MachineID: telemetry.GetMachineID(globalFlags.LoadedConfig(log.GetInstance())),
+				MachineID: telemetry.GetMachineID(cfg),
 			}
 
-			platformClient, err := platform.NewClientFromPath(cobraCmd.Context(), globalFlags.Config)
+			platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cfg)
 			if err == nil {
 				infos.InstanceID = platformClient.Self().Status.InstanceID
 			}

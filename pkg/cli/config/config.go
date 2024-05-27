@@ -43,6 +43,10 @@ func New() *CLI {
 	}
 }
 
+func (c *CLI) Save() error {
+	return Write(c.path, c)
+}
+
 // Read returns the current config by trying to read it from the given config path.
 // It returns a new default config if there have been any errors during the read.
 func Read(path string, log log.Logger) *CLI {
@@ -52,6 +56,7 @@ func Read(path string, log log.Logger) *CLI {
 			if err != nil {
 				log.Debugf("Failed to load local configuration file: %v", err)
 			}
+			cfg.path = path
 			singleConfig = cfg
 		}
 	})
