@@ -1,4 +1,4 @@
-package platform
+package cmd
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 type ImportCmd struct {
 	*flags.GlobalFlags
-	cli.ActivateOptions
+	cli.ImportOptions
 
 	Log log.Logger
 }
@@ -25,15 +25,15 @@ func NewImportCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Log:         log.GetInstance(),
 	}
 
-	description := `########################################################
-############### vcluster platform import ###############
-########################################################
+	description := `###############################################
+############### vcluster import ###############
+###############################################
 Imports a vCluster into a vCluster platform project.
 
 Example:
-vcluster platform import my-vcluster --cluster connected-cluster \
+vcluster import my-vcluster --cluster connected-cluster \
 --namespace vcluster-my-vcluster --project my-project --import-name my-vcluster
-#######################################################
+###############################################
 	`
 
 	importCmd := &cobra.Command{
@@ -59,8 +59,8 @@ func (cmd *ImportCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.Log)
 	// check if we should create a platform vCluster
 	if cfg.Manager.Type == config.ManagerPlatform {
-		return cli.ActivatePlatform(ctx, &cmd.ActivateOptions, cmd.GlobalFlags, args[0], cmd.Log)
+		return cli.ImportPlatform(ctx, &cmd.ImportOptions, cmd.GlobalFlags, args[0], cmd.Log)
 	}
 
-	return cli.ActivateHelm(ctx, &cmd.ActivateOptions, cmd.GlobalFlags, args[0], cmd.Log)
+	return cli.ImportHelm(ctx, &cmd.ImportOptions, cmd.GlobalFlags, args[0], cmd.Log)
 }

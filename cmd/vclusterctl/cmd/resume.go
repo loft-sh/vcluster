@@ -30,8 +30,7 @@ func NewResumeCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Use:     "resume" + loftctlUtil.VClusterNameOnlyUseLine,
 		Aliases: []string{"wakeup"},
 		Short:   "Resumes a virtual cluster",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################### vcluster resume ###################
 #######################################################
 Resume will start a vcluster after it was paused.

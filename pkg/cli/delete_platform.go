@@ -42,9 +42,11 @@ func DeletePlatform(ctx context.Context, options *DeleteOptions, config *config.
 	log.Donef("Successfully deleted virtual cluster %s in project %s", vCluster.VirtualCluster.Name, vCluster.Project.Name)
 
 	// update kube config
-	err = deletePlatformContext(vCluster.VirtualCluster.Name, vCluster.Project.Name)
-	if err != nil {
-		return fmt.Errorf("delete kube context: %w", err)
+	if options.DeleteContext {
+		err = deletePlatformContext(vCluster.VirtualCluster.Name, vCluster.Project.Name)
+		if err != nil {
+			return fmt.Errorf("delete kube context: %w", err)
+		}
 	}
 
 	// wait until deleted

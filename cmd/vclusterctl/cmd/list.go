@@ -26,8 +26,7 @@ func NewListCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists all virtual clusters",
-		Long: `
-#######################################################
+		Long: `#######################################################
 #################### vcluster list ####################
 #######################################################
 Lists all virtual clusters

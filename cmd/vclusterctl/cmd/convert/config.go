@@ -31,8 +31,7 @@ func convertValues(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "config",
 		Short: "Converts virtual cluster config values to the v0.20 format",
-		Long: `
-##############################################################
+		Long: `##############################################################
 ################## vcluster convert config ###################
 ##############################################################
 Converts virtual cluster config config to the v0.20 format

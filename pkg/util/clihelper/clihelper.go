@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	loftkubeconfig "github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/podprinter"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/kubeconfig"
+	utilkubeconfig "github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
@@ -44,7 +44,7 @@ var SortPodsByNewest = func(pods []corev1.Pod, i, j int) bool {
 }
 
 // GetProKubeConfig builds a pro kube config from options and client
-func GetProKubeConfig(options loftkubeconfig.ContextOptions) (*clientcmdapi.Config, error) {
+func GetProKubeConfig(options kubeconfig.ContextOptions) (*clientcmdapi.Config, error) {
 	contextName := options.Name
 	cluster := clientcmdapi.NewCluster()
 	cluster.Server = options.Server
@@ -119,7 +119,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 			}
 		}
 
-		kubeConfig, err = kubeconfig.ReadKubeConfig(ctx, kubeClient, vclusterName, namespace)
+		kubeConfig, err = utilkubeconfig.ReadKubeConfig(ctx, kubeClient, vclusterName, namespace)
 		if err != nil {
 			return false, nil
 		}

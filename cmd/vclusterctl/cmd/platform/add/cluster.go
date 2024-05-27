@@ -20,7 +20,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"github.com/loft-sh/vcluster/pkg/platform/helper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
@@ -276,7 +275,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 func getUserOrTeam(ctx context.Context, managementClient kube.Interface) (string, string, error) {
 	var user, team string
 
-	userName, teamName, err := helper.GetCurrentUser(ctx, managementClient)
+	userName, teamName, err := platform.GetCurrentUser(ctx, managementClient)
 	if err != nil {
 		return "", "", fmt.Errorf("get current user: %w", err)
 	}

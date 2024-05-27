@@ -9,8 +9,7 @@ func NewConvertCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	convertCmd := &cobra.Command{
 		Use:   "convert",
 		Short: "Convert virtual cluster config values",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################## vcluster convert ###################
 #######################################################
 	`,

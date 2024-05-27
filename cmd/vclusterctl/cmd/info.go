@@ -25,9 +25,8 @@ func NewInfoCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "info",
 		Short: "Displays informations about the cli and platform",
-		Long: `
-#######################################################
-################### vcluster info ###################
+		Long: `#######################################################
+################### vcluster info #####################
 #######################################################
 Displays information about vCluster
 

@@ -1,4 +1,4 @@
-package helper
+package platform
 
 import (
 	"context"
@@ -13,13 +13,12 @@ import (
 
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v4/pkg/kube"
+	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
-	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"github.com/loft-sh/vcluster/pkg/platform/kube"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
-	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/mgutz/ansi"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,8 +37,8 @@ type SpaceInstanceProject struct {
 	Project       *managementv1.Project
 }
 
-func SelectVirtualClusterTemplate(ctx context.Context, baseClient platform.Client, projectName, templateName string, log log.Logger) (*managementv1.VirtualClusterTemplate, error) {
-	managementClient, err := baseClient.Management()
+func SelectVirtualClusterTemplate(ctx context.Context, client Client, projectName, templateName string, log log.Logger) (*managementv1.VirtualClusterTemplate, error) {
+	managementClient, err := client.Management()
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +89,8 @@ func SelectVirtualClusterTemplate(ctx context.Context, baseClient platform.Clien
 	return nil, fmt.Errorf("answer not found")
 }
 
-func SelectSpaceTemplate(ctx context.Context, baseClient platform.Client, projectName, templateName string, log log.Logger) (*managementv1.SpaceTemplate, error) {
-	managementClient, err := baseClient.Management()
+func SelectSpaceTemplate(ctx context.Context, client Client, projectName, templateName string, log log.Logger) (*managementv1.SpaceTemplate, error) {
+	managementClient, err := client.Management()
 	if err != nil {
 		return nil, err
 	}
@@ -142,13 +141,13 @@ func SelectSpaceTemplate(ctx context.Context, baseClient platform.Client, projec
 	return nil, fmt.Errorf("answer not found")
 }
 
-func SelectVirtualClusterInstanceOrVirtualCluster(ctx context.Context, baseClient platform.Client, virtualClusterName, spaceName, projectName, clusterName string, log log.Logger) (string, string, string, string, error) {
+func SelectVirtualClusterInstanceOrVirtualCluster(ctx context.Context, client Client, virtualClusterName, spaceName, projectName, clusterName string, log log.Logger) (string, string, string, string, error) {
 	if clusterName != "" || spaceName != "" {
-		virtualCluster, space, cluster, err := SelectVirtualClusterAndSpaceAndClusterName(ctx, baseClient, virtualClusterName, spaceName, clusterName, log)
+		virtualCluster, space, cluster, err := SelectVirtualClusterAndSpaceAndClusterName(ctx, client, virtualClusterName, spaceName, clusterName, log)
 		return cluster, "", space, virtualCluster, err
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := client.Management()
 	if err != nil {
 		return "", "", "", "", err
 	}
@@ -169,7 +168,7 @@ func SelectVirtualClusterInstanceOrVirtualCluster(ctx context.Context, baseClien
 	} else {
 		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
 		if err != nil || len(projectsList.Items) == 0 {
-			virtualCluster, space, cluster, err := SelectVirtualClusterAndSpaceAndClusterName(ctx, baseClient, virtualClusterName, spaceName, clusterName, log)
+			virtualCluster, space, cluster, err := SelectVirtualClusterAndSpaceAndClusterName(ctx, client, virtualClusterName, spaceName, clusterName, log)
 			return cluster, "", space, virtualCluster, err
 		}
 
@@ -234,13 +233,13 @@ func SelectVirtualClusterInstanceOrVirtualCluster(ctx context.Context, baseClien
 	return "", "", "", "", fmt.Errorf("couldn't find answer")
 }
 
-func SelectSpaceInstanceOrSpace(ctx context.Context, baseClient platform.Client, spaceName, projectName, clusterName string, log log.Logger) (string, string, string, error) {
+func SelectSpaceInstanceOrSpace(ctx context.Context, client Client, spaceName, projectName, clusterName string, log log.Logger) (string, string, string, error) {
 	if clusterName != "" {
-		space, cluster, err := SelectSpaceAndClusterName(ctx, baseClient, spaceName, clusterName, log)
+		space, cluster, err := SelectSpaceAndClusterName(ctx, client, spaceName, clusterName, log)
 		return cluster, "", space, err
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := client.Management()
 	if err != nil {
 		return "", "", "", err
 	}
@@ -261,7 +260,7 @@ func SelectSpaceInstanceOrSpace(ctx context.Context, baseClient platform.Client,
 	} else {
 		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
 		if err != nil || len(projectsList.Items) == 0 {
-			space, cluster, err := SelectSpaceAndClusterName(ctx, baseClient, spaceName, clusterName, log)
+			space, cluster, err := SelectSpaceAndClusterName(ctx, client, spaceName, clusterName, log)
 			return cluster, "", space, err
 		}
 
@@ -326,14 +325,14 @@ func SelectSpaceInstanceOrSpace(ctx context.Context, baseClient platform.Client,
 	return "", "", "", fmt.Errorf("couldn't find answer")
 }
 
-func SelectProjectOrCluster(ctx context.Context, baseClient platform.Client, clusterName, projectName string, allowClusterOnly bool, log log.Logger) (cluster string, project string, err error) {
+func SelectProjectOrCluster(ctx context.Context, client Client, clusterName, projectName string, allowClusterOnly bool, log log.Logger) (cluster string, project string, err error) {
 	if projectName != "" {
 		return clusterName, projectName, nil
 	} else if allowClusterOnly && clusterName != "" {
 		return clusterName, "", nil
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := client.Management()
 	if err != nil {
 		return "", "", err
 	}
@@ -349,7 +348,7 @@ func SelectProjectOrCluster(ctx context.Context, baseClient platform.Client, clu
 	}
 
 	if len(projectNames) == 0 {
-		cluster, err := SelectCluster(ctx, baseClient, log)
+		cluster, err := SelectCluster(ctx, client, log)
 		if err != nil {
 			if errors.Is(err, errNoClusterAccess) {
 				return "", "", fmt.Errorf("the user has no access to a project")
@@ -384,7 +383,7 @@ func SelectProjectOrCluster(ctx context.Context, baseClient platform.Client, clu
 	}
 
 	if clusterName == "" {
-		clusterName, err = SelectProjectCluster(ctx, baseClient, selectedProject, log)
+		clusterName, err = SelectProjectCluster(ctx, client, selectedProject, log)
 		return clusterName, selectedProject.Name, err
 	}
 
@@ -392,8 +391,8 @@ func SelectProjectOrCluster(ctx context.Context, baseClient platform.Client, clu
 }
 
 // SelectCluster lets the user select a cluster
-func SelectCluster(ctx context.Context, baseClient platform.Client, log log.Logger) (string, error) {
-	managementClient, err := baseClient.Management()
+func SelectCluster(ctx context.Context, client Client, log log.Logger) (string, error) {
+	managementClient, err := client.Management()
 	if err != nil {
 		return "", err
 	}
@@ -431,13 +430,13 @@ func SelectCluster(ctx context.Context, baseClient platform.Client, log log.Logg
 }
 
 // SelectProjectCluster lets the user select a cluster from the project's allowed clusters
-func SelectProjectCluster(ctx context.Context, baseClient platform.Client, project *managementv1.Project, log log.Logger) (string, error) {
+func SelectProjectCluster(ctx context.Context, client Client, project *managementv1.Project, log log.Logger) (string, error) {
 	if !term.IsTerminal(os.Stdin) {
 		// Allow loft to schedule as before
 		return "", nil
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := client.Management()
 	if err != nil {
 		return "", err
 	}
@@ -488,8 +487,8 @@ func SelectProjectCluster(ctx context.Context, baseClient platform.Client, proje
 }
 
 // SelectUserOrTeam lets the user select an user or team in a cluster
-func SelectUserOrTeam(ctx context.Context, baseClient platform.Client, clusterName string, log log.Logger) (*clusterv1.EntityInfo, *clusterv1.EntityInfo, error) {
-	managementClient, err := baseClient.Management()
+func SelectUserOrTeam(ctx context.Context, client Client, clusterName string, log log.Logger) (*clusterv1.EntityInfo, *clusterv1.EntityInfo, error) {
+	managementClient, err := client.Management()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -552,12 +551,12 @@ type ClusterUserOrTeam struct {
 	ClusterMember managementv1.ClusterMember
 }
 
-func SelectClusterUserOrTeam(ctx context.Context, baseClient platform.Client, clusterName, userName, teamName string, log log.Logger) (*ClusterUserOrTeam, error) {
+func SelectClusterUserOrTeam(ctx context.Context, client Client, clusterName, userName, teamName string, log log.Logger) (*ClusterUserOrTeam, error) {
 	if userName != "" && teamName != "" {
 		return nil, fmt.Errorf("team and user specified, please only choose one")
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := client.Management()
 	if err != nil {
 		return nil, err
 	}
@@ -636,8 +635,8 @@ func SelectClusterUserOrTeam(ctx context.Context, baseClient platform.Client, cl
 	return nil, fmt.Errorf("selected question option not found")
 }
 
-func GetVirtualClusterInstances(ctx context.Context, baseClient platform.Client) ([]*VirtualClusterInstanceProject, error) {
-	managementClient, err := baseClient.Management()
+func GetVirtualClusterInstances(ctx context.Context, client Client) ([]*VirtualClusterInstanceProject, error) {
+	managementClient, err := client.Management()
 	if err != nil {
 		return nil, err
 	}
@@ -689,8 +688,8 @@ func CanAccessInstance(ctx context.Context, managementClient kube.Interface, nam
 	return true, nil
 }
 
-func GetSpaceInstances(ctx context.Context, baseClient platform.Client) ([]*SpaceInstanceProject, error) {
-	managementClient, err := baseClient.Management()
+func GetSpaceInstances(ctx context.Context, client Client) ([]*SpaceInstanceProject, error) {
+	managementClient, err := client.Management()
 	if err != nil {
 		return nil, err
 	}
@@ -774,8 +773,8 @@ type ClusterSpace struct {
 }
 
 // GetSpaces returns all spaces accessible by the user or team
-func GetSpaces(ctx context.Context, baseClient platform.Client, log log.Logger) ([]ClusterSpace, error) {
-	managementClient, err := baseClient.Management()
+func GetSpaces(ctx context.Context, client Client, log log.Logger) ([]ClusterSpace, error) {
+	managementClient, err := client.Management()
 	if err != nil {
 		return nil, err
 	}
@@ -787,7 +786,7 @@ func GetSpaces(ctx context.Context, baseClient platform.Client, log log.Logger) 
 
 	spaceList := []ClusterSpace{}
 	for _, cluster := range clusterList.Items {
-		clusterClient, err := baseClient.Cluster(cluster.Name)
+		clusterClient, err := client.Cluster(cluster.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -822,8 +821,8 @@ type ClusterVirtualCluster struct {
 }
 
 // GetVirtualClusters returns all virtual clusters the user has access to
-func GetVirtualClusters(ctx context.Context, baseClient platform.Client, log log.Logger) ([]ClusterVirtualCluster, error) {
-	managementClient, err := baseClient.Management()
+func GetVirtualClusters(ctx context.Context, client Client, log log.Logger) ([]ClusterVirtualCluster, error) {
+	managementClient, err := client.Management()
 	if err != nil {
 		return nil, err
 	}
@@ -835,7 +834,7 @@ func GetVirtualClusters(ctx context.Context, baseClient platform.Client, log log
 
 	virtualClusterList := []ClusterVirtualCluster{}
 	for _, cluster := range clusterList.Items {
-		clusterClient, err := baseClient.Cluster(cluster.Name)
+		clusterClient, err := client.Cluster(cluster.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -865,8 +864,8 @@ func GetVirtualClusters(ctx context.Context, baseClient platform.Client, log log
 }
 
 // SelectSpaceAndClusterName selects a space and cluster name
-func SelectSpaceAndClusterName(ctx context.Context, baseClient platform.Client, spaceName, clusterName string, log log.Logger) (string, string, error) {
-	spaces, err := GetSpaces(ctx, baseClient, log)
+func SelectSpaceAndClusterName(ctx context.Context, client Client, spaceName, clusterName string, log log.Logger) (string, string, error) {
+	spaces, err := GetSpaces(ctx, client, log)
 	if err != nil {
 		return "", "", err
 	}
@@ -946,8 +945,8 @@ func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (*mana
 	return self.Status.User, self.Status.Team, nil
 }
 
-func SelectVirtualClusterAndSpaceAndClusterName(ctx context.Context, baseClient platform.Client, virtualClusterName, spaceName, clusterName string, log log.Logger) (string, string, string, error) {
-	virtualClusters, err := GetVirtualClusters(ctx, baseClient, log)
+func SelectVirtualClusterAndSpaceAndClusterName(ctx context.Context, client Client, virtualClusterName, spaceName, clusterName string, log log.Logger) (string, string, string, error) {
+	virtualClusters, err := GetVirtualClusters(ctx, client, log)
 	if err != nil {
 		return "", "", "", err
 	}

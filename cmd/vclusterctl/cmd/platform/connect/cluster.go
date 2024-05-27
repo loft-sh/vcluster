@@ -2,7 +2,6 @@ package connect
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -17,18 +16,6 @@ import (
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	// LoftDirectClusterEndpoint is a cluster annotation that tells the loft cli to use this endpoint instead of
-	// the default loft server address to connect to this cluster.
-	LoftDirectClusterEndpoint = "loft.sh/direct-cluster-endpoint"
-
-	// LoftDirectClusterEndpointInsecure is a cluster annotation that tells the loft cli to allow untrusted certificates
-	LoftDirectClusterEndpointInsecure = "loft.sh/direct-cluster-endpoint-insecure"
-
-	// LoftDirectClusterEndpointCaData is a cluster annotation that tells the loft cli which cluster ca data to use
-	LoftDirectClusterEndpointCaData = "loft.sh/direct-cluster-endpoint-ca-data"
 )
 
 // ClusterCmd holds the cmd flags
@@ -90,7 +77,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	// determine cluster name
 	clusterName := ""
 	if len(args) == 0 {
-		clusterName, err = platformClient.SelectCluster(ctx, cmd.log)
+		clusterName, err = platform.SelectCluster(ctx, platformClient, cmd.log)
 		if err != nil {
 			return err
 		}
@@ -143,23 +130,10 @@ func CreateClusterContextOptions(platformClient platform.Client, config string, 
 	contextOptions.Server = platformClient.Config().Platform.Host + "/kubernetes/cluster/" + cluster.Name
 	contextOptions.InsecureSkipTLSVerify = platformClient.Config().Platform.Insecure
 
-	data, err := retrieveCaData(cluster)
+	data, err := platform.RetrieveCaData(cluster)
 	if err != nil {
 		return kubeconfig.ContextOptions{}, err
 	}
 	contextOptions.CaData = data
 	return contextOptions, nil
-}
-
-func retrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
-	if cluster == nil || cluster.Annotations == nil || cluster.Annotations[LoftDirectClusterEndpointCaData] == "" {
-		return nil, nil
-	}
-
-	data, err := base64.StdEncoding.DecodeString(cluster.Annotations[LoftDirectClusterEndpointCaData])
-	if err != nil {
-		return nil, fmt.Errorf("error decoding cluster %s annotation: %w", LoftDirectClusterEndpointCaData, err)
-	}
-
-	return data, nil
 }

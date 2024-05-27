@@ -40,7 +40,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 	return nil
 }
 
-func proToVClusters(vClusters []platform.VirtualClusterInstanceProject, currentContext string) []ListVCluster {
+func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, currentContext string) []ListVCluster {
 	var output []ListVCluster
 	for _, vCluster := range vClusters {
 		status := string(vCluster.VirtualCluster.Status.Phase)

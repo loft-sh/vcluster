@@ -22,8 +22,7 @@ func disable(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "disable",
 		Short: "Disables collection of anonymized vcluster telemetry",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ############## vcluster telemetry disable #############
 #######################################################
 Disables collection of anonymized vcluster telemetry.

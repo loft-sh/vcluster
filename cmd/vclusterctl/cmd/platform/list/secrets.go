@@ -12,7 +12,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/platform/helper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,14 +83,14 @@ func (cmd *SharedSecretsCmd) Run(command *cobra.Command, cfg *config.CLI) error 
 			sharedSecrets = append(sharedSecrets, &sharedSecretItem)
 		}
 
-		projectSecrets, err := helper.GetProjectSecrets(command.Context(), managementClient, cmd.Project...)
+		projectSecrets, err := platform.GetProjectSecrets(command.Context(), managementClient, cmd.Project...)
 		if err != nil {
 			return err
 		}
 
 		return cmd.printAllSecrets(sharedSecrets, projectSecrets)
 	} else if cmd.AllProjects {
-		projectSecrets, err := helper.GetProjectSecrets(command.Context(), managementClient)
+		projectSecrets, err := platform.GetProjectSecrets(command.Context(), managementClient)
 		if err != nil {
 			return err
 		}
@@ -101,7 +100,7 @@ func (cmd *SharedSecretsCmd) Run(command *cobra.Command, cfg *config.CLI) error 
 	if len(cmd.Project) == 0 {
 		return cmd.printSharedSecrets(command.Context(), managementClient, cmd.Namespace)
 	}
-	projectSecrets, err := helper.GetProjectSecrets(command.Context(), managementClient, cmd.Project...)
+	projectSecrets, err := platform.GetProjectSecrets(command.Context(), managementClient, cmd.Project...)
 	if err != nil {
 		return err
 	}
@@ -140,7 +139,7 @@ func (cmd *SharedSecretsCmd) printSharedSecrets(ctx context.Context, managementC
 	return nil
 }
 
-func (cmd *SharedSecretsCmd) printProjectSecrets(projectSecrets []*helper.ProjectProjectSecret) error {
+func (cmd *SharedSecretsCmd) printProjectSecrets(projectSecrets []*platform.ProjectProjectSecret) error {
 	header := []string{
 		"Name",
 		"Namespace",
@@ -172,7 +171,7 @@ func (cmd *SharedSecretsCmd) printProjectSecrets(projectSecrets []*helper.Projec
 
 func (cmd *SharedSecretsCmd) printAllSecrets(
 	sharedSecrets []*managementv1.SharedSecret,
-	projectSecrets []*helper.ProjectProjectSecret,
+	projectSecrets []*platform.ProjectProjectSecret,
 ) error {
 	header := []string{
 		"Name",

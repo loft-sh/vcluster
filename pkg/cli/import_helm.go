@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type ActivateOptions struct {
+type ImportOptions struct {
 	Manager string
 
 	ClusterName string
@@ -20,7 +20,7 @@ type ActivateOptions struct {
 	ImportName  string
 }
 
-func ActivateHelm(ctx context.Context, options *ActivateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+func ImportHelm(ctx context.Context, options *ImportOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	platformClient, err := platform.NewClientFromConfig(ctx, globalFlags.LoadedConfig(log))
 	if err != nil {
 		return err

@@ -20,17 +20,19 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
+	"github.com/mgutz/ansi"
 	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, virtualClusterName string, log log.Logger) error {
@@ -40,7 +42,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	}
 
 	// determine project & cluster name
-	options.Cluster, options.Project, err = platformClient.SelectProjectOrCluster(ctx, options.Cluster, options.Project, false, log)
+	options.Cluster, options.Project, err = platform.SelectProjectOrCluster(ctx, platformClient, options.Cluster, options.Project, false, log)
 	if err != nil {
 		return err
 	}
@@ -49,6 +51,20 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
+	}
+
+	// delete the existing cluster if needed
+	if options.Recreate {
+		_, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(ctx, virtualClusterName, metav1.GetOptions{})
+		if err != nil && !kerrors.IsNotFound(err) {
+			return fmt.Errorf("couldn't retrieve virtual cluster instance: %w", err)
+		} else if err == nil {
+			// delete the virtual cluster
+			err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Delete(ctx, virtualClusterName, metav1.DeleteOptions{})
+			if err != nil && !kerrors.IsNotFound(err) {
+				return fmt.Errorf("couldn't delete virtual cluster instance: %w", err)
+			}
+		}
 	}
 
 	// make sure there is not existing virtual cluster
@@ -80,7 +96,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	}
 
 	// if the virtual cluster already exists and flag is not set, we terminate
-	if !options.Upgrade && virtualClusterInstance != nil {
+	if !options.Upgrade && !options.UseExisting && virtualClusterInstance != nil {
 		return fmt.Errorf("virtual cluster %s already exists in project %s", virtualClusterName, options.Project)
 	} else if virtualClusterInstance != nil && virtualClusterInstance.Spec.NetworkPeer {
 		return fmt.Errorf("cannot upgrade a virtual cluster that was created via helm, please run 'vcluster use manager helm' or use the '--manager helm' flag")
@@ -124,16 +140,33 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	}
 
 	// wait until virtual cluster is ready
-	virtualClusterInstance, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, true, log)
+	virtualClusterInstance, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !options.SkipWait, log)
 	if err != nil {
 		return err
 	}
 	log.Donef("Successfully created the virtual cluster %s in project %s", virtualClusterName, options.Project)
 
-	// check if we should connect to the vcluster
-	if options.Connect {
+	if options.CreateContext {
+		// create kube context options
+		contextOptions, err := platformClient.CreateVirtualClusterInstanceOptions(ctx, "", options.Project, virtualClusterInstance, options.SwitchContext)
+		if err != nil {
+			return err
+		}
+
+		// update kube config
+		err = kubeconfig.UpdateKubeConfig(contextOptions)
+		if err != nil {
+			return err
+		}
+
+		log.Donef("Successfully updated kube context to use virtual cluster %s in project %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(options.Project, "white+b"))
+	}
+
+	// check if we should connect to the vcluster or print the kubeconfig
+	if options.Connect || options.Print {
 		return ConnectPlatform(ctx, &ConnectOptions{
 			UpdateCurrent:         options.UpdateCurrent,
+			Print:                 options.Print,
 			KubeConfigContextName: options.KubeConfigContextName,
 			KubeConfig:            "./kubeconfig.yaml",
 			Project:               options.Project,
@@ -168,6 +201,12 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 		},
 		Spec: managementv1.VirtualClusterInstanceSpec{
 			VirtualClusterInstanceSpec: storagev1.VirtualClusterInstanceSpec{
+				Description: options.Description,
+				DisplayName: options.DisplayName,
+				Owner: &storagev1.UserOrTeam{
+					User: options.User,
+					Team: options.Team,
+				},
 				Template: &storagev1.VirtualClusterTemplateDefinition{
 					VirtualClusterCommonSpec: agentstoragev1.VirtualClusterCommonSpec{
 						HelmRelease: agentstoragev1.VirtualClusterHelmRelease{
@@ -251,6 +290,10 @@ func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client,
 	chartRepoChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo != options.ChartRepo
 	chartVersionChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version != options.ChartVersion
 	valuesChanged := virtualClusterInstance.Spec.Template.HelmRelease.Values != helmValues
+	descriptionChanged := (options.Description != "" && virtualClusterInstance.Spec.Description != options.Description)
+	displayNameChanged := (options.DisplayName != "" && virtualClusterInstance.Spec.DisplayName != options.DisplayName)
+	teamChanged := (options.Team != "" && virtualClusterInstance.Spec.Owner.Team != options.Team)
+	userChanged := (options.User != "" && virtualClusterInstance.Spec.Owner.User != options.User)
 
 	// set links
 	linksChanged := create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
@@ -268,10 +311,14 @@ func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client,
 	}
 
 	// check if update is needed
-	if chartRepoChanged || chartVersionChanged || valuesChanged || linksChanged || labelsChanged || annotationsChanged {
+	if chartRepoChanged || chartVersionChanged || valuesChanged || descriptionChanged || displayNameChanged || teamChanged || userChanged || linksChanged || labelsChanged || annotationsChanged {
 		virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo = options.ChartRepo
 		virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version = options.ChartVersion
 		virtualClusterInstance.Spec.Template.HelmRelease.Values = helmValues
+		virtualClusterInstance.Spec.Description = options.Description
+		virtualClusterInstance.Spec.DisplayName = options.DisplayName
+		virtualClusterInstance.Spec.Owner.Team = options.Team
+		virtualClusterInstance.Spec.Owner.User = options.Team
 
 		// get management client
 		managementClient, err := platformClient.Management()
@@ -279,7 +326,7 @@ func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client,
 			return nil, err
 		}
 
-		patch := client.MergeFrom(oldVirtualCluster)
+		patch := crclient.MergeFrom(oldVirtualCluster)
 		patchData, err := patch.Data(virtualClusterInstance)
 		if err != nil {
 			return nil, fmt.Errorf("calculate update patch: %w", err)
@@ -362,6 +409,12 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 		},
 		Spec: managementv1.VirtualClusterInstanceSpec{
 			VirtualClusterInstanceSpec: storagev1.VirtualClusterInstanceSpec{
+				Description: options.Description,
+				DisplayName: options.DisplayName,
+				Owner: &storagev1.UserOrTeam{
+					User: options.User,
+					Team: options.Team,
+				},
 				TemplateRef: &storagev1.TemplateRef{
 					Name:    virtualClusterTemplate.Name,
 					Version: options.TemplateVersion,
@@ -436,6 +489,11 @@ func upgradeWithTemplate(ctx context.Context, platformClient platform.Client, op
 	templateRefChanged := virtualClusterInstance.Spec.TemplateRef.Name != virtualClusterTemplate.Name
 	paramsChanged := virtualClusterInstance.Spec.Parameters != resolvedParameters
 	versionChanged := (options.TemplateVersion != "" && virtualClusterInstance.Spec.TemplateRef.Version != options.TemplateVersion)
+	descriptionChanged := (options.Description != "" && virtualClusterInstance.Spec.Description != options.Description)
+	displayNameChanged := (options.DisplayName != "" && virtualClusterInstance.Spec.DisplayName != options.DisplayName)
+	teamChanged := (options.Team != "" && virtualClusterInstance.Spec.Owner.Team != options.Team)
+	userChanged := (options.User != "" && virtualClusterInstance.Spec.Owner.User != options.User)
+
 	linksChanged := create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
 	// set labels
@@ -451,7 +509,7 @@ func upgradeWithTemplate(ctx context.Context, platformClient platform.Client, op
 	}
 
 	// check if update is needed
-	if templateRefChanged || paramsChanged || versionChanged || linksChanged || labelsChanged || annotationsChanged {
+	if templateRefChanged || paramsChanged || versionChanged || descriptionChanged || displayNameChanged || teamChanged || userChanged || linksChanged || labelsChanged || annotationsChanged {
 		virtualClusterInstance.Spec.TemplateRef.Name = virtualClusterTemplate.Name
 		virtualClusterInstance.Spec.TemplateRef.Version = options.TemplateVersion
 		virtualClusterInstance.Spec.Parameters = resolvedParameters
@@ -462,7 +520,7 @@ func upgradeWithTemplate(ctx context.Context, platformClient platform.Client, op
 			return nil, err
 		}
 
-		patch := client.MergeFrom(oldVirtualCluster)
+		patch := crclient.MergeFrom(oldVirtualCluster)
 		patchData, err := patch.Data(virtualClusterInstance)
 		if err != nil {
 			return nil, fmt.Errorf("calculate update patch: %w", err)
