@@ -12,13 +12,13 @@ func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 Activates a kube context for the given cluster / space / vcluster / management.
 	`)
-	useCmd := &cobra.Command{
+	connectCmd := &cobra.Command{
 		Use:   "connect",
 		Short: product.Replace("Uses loft resources"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}
 
-	useCmd.AddCommand(NewClusterCmd(globalFlags))
-	return useCmd
+	connectCmd.AddCommand(NewClusterCmd(globalFlags))
+	return connectCmd
 }

@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewVarsCmd creates a new cobra command for the sub command
-func NewVarsCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+// NewGetCmd creates a new cobra command for the sub command
+func NewGetCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
 	description := product.ReplaceWithHeader("var", "")
 
 	cmd := &cobra.Command{

@@ -64,12 +64,12 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 
 	isProject, projectName := isProjectContext(cluster)
 	if isProject {
-		baseClient, err := platform.NewClientFromConfig(ctx, c.cfg)
+		platformClient, err := platform.NewClientFromConfig(ctx, c.cfg)
 		if err != nil {
 			return err
 		}
 
-		managementClient, err := baseClient.Management()
+		managementClient, err := platformClient.Management()
 		if err != nil {
 			return err
 		}

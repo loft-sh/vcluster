@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -19,13 +20,15 @@ type ClustersCmd struct {
 	*flags.GlobalFlags
 
 	log log.Logger
+	cfg *config.CLI
 }
 
 // NewClustersCmd creates a new spaces command
-func NewClustersCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewClustersCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
 	cmd := &ClustersCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
+		cfg:         cfg,
 	}
 	description := product.ReplaceWithHeader("list clusters", `
 List the vcluster platform clusters you have access to
@@ -49,12 +52,12 @@ vcluster platform list clusters
 
 // RunClusters executes the functionality
 func (cmd *ClustersCmd) RunClusters(ctx context.Context) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
 	if err != nil {
 		return err
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
 	}
