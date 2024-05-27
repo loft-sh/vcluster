@@ -102,7 +102,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("get user or team: %w", err)
 	}
 
-	loftVersion, err := platformClient.Version()
+	platformVersion, err := platformClient.Version()
 	if err != nil {
 		return fmt.Errorf("get loft version: %w", err)
 	}
@@ -151,8 +151,8 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 			"--set", "agentOnly=true",
 			"--set", "image=" + cmp.Or(os.Getenv("DEVELOPMENT_IMAGE"), "ghcr.io/loft-sh/enterprise:release-test"),
 		}
-	} else if loftVersion.Version != "" {
-		helmArgs = append(helmArgs, "--version", loftVersion.Version)
+	} else if platformVersion.Version != "" {
+		helmArgs = append(helmArgs, "--version", platformVersion.Version)
 	}
 
 	if accessKey.LoftHost != "" {

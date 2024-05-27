@@ -59,7 +59,7 @@ func Read(path string, log log.Logger) *CLI {
 	return singleConfig
 }
 
-// Writewrites the config content to the provided path.
+// Write writes the config content to the provided path.
 func Write(path string, c *CLI) error {
 	err := os.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
