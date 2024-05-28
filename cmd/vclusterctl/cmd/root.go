@@ -113,7 +113,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(cmdtelemetry.NewTelemetryCmd(globalFlags))
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(NewInfoCmd(globalFlags))
-	rootCmd.AddCommand(set.NewSetCmd(globalFlags, defaults))
+	rootCmd.AddCommand(set.NewSetCmd(globalFlags, defaults, cfg))
 
 	// add pro commands
 	proCmd, err := cmdpro.NewProCmd(globalFlags)

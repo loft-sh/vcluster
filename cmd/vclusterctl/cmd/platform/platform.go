@@ -38,7 +38,7 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 	platformCmd.AddCommand(get.NewGetCmd(globalFlags, defaults, cfg))
 	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	platformCmd.AddCommand(list.NewListCmd(globalFlags, cfg))
-	platformCmd.AddCommand(set.NewSetCmd(globalFlags, defaults))
+	platformCmd.AddCommand(set.NewSetCmd(globalFlags, defaults, cfg))
 
 	return platformCmd, nil
 }
