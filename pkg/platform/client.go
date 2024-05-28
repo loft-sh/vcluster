@@ -51,6 +51,7 @@ const (
 	AccessKeyPath                   = "%s/profile/access-keys"
 	ConfigFileName                  = "platform.json"
 	RefreshToken                    = time.Minute * 30
+	CacheFolder                     = ".vcluster"
 )
 
 var errNoClusterAccess = errors.New("the user has no access to any cluster")

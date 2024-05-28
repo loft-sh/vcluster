@@ -5,8 +5,11 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/get"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/list"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +23,10 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 		`,
 		Args: cobra.NoArgs,
 	}
+	defaults, err := defaults.NewFromPath(platform.CacheFolder, defaults.ConfigFile)
+	if err != nil {
+		return nil, err
+	}
 
 	startCmd := NewStartCmd(globalFlags)
 
@@ -28,9 +35,10 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 	platformCmd.AddCommand(add.NewAddCmd(globalFlags))
 	platformCmd.AddCommand(NewAccessKeyCmd(globalFlags))
 	platformCmd.AddCommand(NewImportCmd(globalFlags))
-	platformCmd.AddCommand(get.NewGetCmd(globalFlags, cfg))
+	platformCmd.AddCommand(get.NewGetCmd(globalFlags, defaults, cfg))
 	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	platformCmd.AddCommand(list.NewListCmd(globalFlags, cfg))
+	platformCmd.AddCommand(set.NewSetCmd(globalFlags, defaults, cfg))
 
 	return platformCmd, nil
 }
