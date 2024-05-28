@@ -52,10 +52,7 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 		return err
 	}
 
-	kubeContext := os.Getenv("DEVSPACE_PLUGIN_KUBE_CONTEXT_FLAG")
-	if kubeContext == "" {
-		kubeContext = kubeConfig.CurrentContext
-	}
+	kubeContext := kubeConfig.CurrentContext
 
 	cluster, ok := kubeConfig.Clusters[kubeContext]
 	if !ok {

@@ -19,7 +19,7 @@ type StartCmd struct {
 	start.Options
 }
 
-func NewStartCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
+func NewStartCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &StartCmd{
 		Options: start.Options{
 			GlobalFlags: globalFlags,
@@ -71,7 +71,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy vCluster platform")
 	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-platform", "The chart name to deploy vCluster platform")
 
-	return startCmd, nil
+	return startCmd
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {

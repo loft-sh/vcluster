@@ -11,7 +11,7 @@ func NewAddCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Use:   "add",
 		Short: "Adds a cluster to vCluster platform",
 		Long: `#######################################################
-########### vcluster platform add #################
+############# vcluster platform add ###################
 #######################################################
 		`,
 		Args: cobra.NoArgs,

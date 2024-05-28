@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
@@ -20,10 +19,7 @@ Deprecated, please use vcluster platform instead
 		Args: cobra.NoArgs,
 	}
 
-	startCmd, err := NewStartCmd(globalFlags)
-	if err != nil {
-		log.Default.Debugf(err.Error())
-	}
+	startCmd := NewStartCmd(globalFlags)
 
 	proCmd.AddCommand(startCmd)
 	proCmd.AddCommand(NewResetCmd(globalFlags))
