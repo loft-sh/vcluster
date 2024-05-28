@@ -86,6 +86,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags, log)
+	cfg := globalFlags.LoadedConfig(log)
 
 	// Set version for --version flag
 	rootCmd.Version = upgrade.GetVersion()
@@ -112,7 +113,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 		return nil, fmt.Errorf("failed to create pro command: %w", err)
 	}
 	rootCmd.AddCommand(proCmd)
-	platformCmd, err := cmdpro.NewPlatformCmd(globalFlags)
+	platformCmd, err := cmdpro.NewPlatformCmd(globalFlags, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create platform command: %w", err)
 	}

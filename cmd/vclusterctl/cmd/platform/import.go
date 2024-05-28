@@ -3,11 +3,12 @@ package platform
 import (
 	"context"
 
-	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+
+	loftctlUtil "github.com/loft-sh/vcluster/pkg/platform/loftutils"
 	"github.com/spf13/cobra"
 )
 

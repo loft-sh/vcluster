@@ -84,6 +84,7 @@ type Client interface {
 	ResolveTemplate(ctx context.Context, project, template, templateVersion string, setParams []string, fileParams string, log log.Logger) (*managementv1.VirtualClusterTemplate, string, error)
 
 	SelectProjectOrCluster(ctx context.Context, clusterName, projectName string, allowClusterOnly bool, log log.Logger) (cluster string, project string, err error)
+	SelectCluster(ctx context.Context, log log.Logger) (string, error)
 
 	ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.Interface, importName, namespace, project string) error
 

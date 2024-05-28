@@ -1,8 +1,6 @@
 package platform
 
 import (
-	"fmt"
-
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
@@ -21,10 +19,7 @@ Deprecated, please use vcluster platform instead
 		Args: cobra.NoArgs,
 	}
 
-	startCmd, err := NewStartCmd(globalFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vcluster pro start command: %w", err)
-	}
+	startCmd := NewStartCmd(globalFlags)
 
 	proCmd.AddCommand(startCmd)
 	proCmd.AddCommand(NewResetCmd(globalFlags))
