@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
@@ -12,13 +11,15 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/util/compress"
 	"github.com/mgutz/ansi"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	loftClusterAnnotation = "loft.sh/cluster-name"
 )
 
 func ActivatePlatform(ctx context.Context, options *ActivateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
@@ -119,78 +120,40 @@ func GetVClusterNamespace(ctx context.Context, context, name, namespace string, 
 }
 
 func getClusterName(ctx context.Context, kubeContext string) (string, error) {
-	config, err := getAgentConfig(ctx, kubeContext)
-	if err != nil {
-		return "", err
-	}
-
-	if config == nil {
-		return "", fmt.Errorf("could not find an agent config")
-	}
-
-	return config.Cluster, nil
-}
-
-func getAgentConfig(ctx context.Context, kubeContext string) (*managementv1.AgentLoftAccess, error) {
-	agentConfigSecret, err := findSecret(ctx, kubeContext, "loft-agent-config")
-	if err != nil {
-		return nil, err
-	} else if agentConfigSecret == nil {
-		return nil, fmt.Errorf("could not determine connected vCluster platform cluster, please make sure the current context is connected to vCluster platform. If this is not an error, you can also specify the cluster manually via '--cluster'")
-	}
-
-	// get data
-	data := []byte{}
-	for _, d := range agentConfigSecret.Data {
-		data = d
-	}
-
-	configString, err := compress.UncompressBytes(data)
-	if err != nil {
-		return nil, err
-	}
-
-	var agentConfig managementv1.AgentLoftAccess
-	err = json.Unmarshal([]byte(configString), &agentConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &agentConfig, nil
-}
-
-func findSecret(ctx context.Context, kubeContext, secretName string) (*corev1.Secret, error) {
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: kubeContext,
 	})
 
-	// load the rest config
 	kubeConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return "", fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
-	client, err := kubernetes.NewForConfig(kubeConfig)
+	currentClusterClient, err := client.New(kubeConfig, client.Options{})
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
-	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	podList := &corev1.PodList{}
+	err = currentClusterClient.List(ctx, podList, client.MatchingLabels{"app": "loft"})
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("error getting cluster name from loft agent pod: %w", err)
 	}
 
-	for _, namespace := range namespaces.Items {
-		secret, err := client.CoreV1().Secrets(namespace.Name).Get(ctx, secretName, metav1.GetOptions{})
-		if err == nil {
-			return secret, nil
-		} else if !kerrors.IsNotFound(err) {
-			return nil, err
-		}
+	if len(podList.Items) < 1 {
+		return "", fmt.Errorf("error getting cluster name from loft agent pod: no loft agent pods found")
+	}
+	if podList.Items[0].Annotations == nil {
+		return "", fmt.Errorf("error getting cluster name from loft agent pod: annotation %q not found on loft pod", loftClusterAnnotation)
 	}
 
-	return nil, nil
+	clusterName, found := podList.Items[0].Annotations[loftClusterAnnotation]
+	if !found {
+		return "", fmt.Errorf("error getting cluster name from loft agent pod: annotation %q not found on loft pod", loftClusterAnnotation)
+	}
+
+	return clusterName, nil
 }
 
 func getProjectName(ctx context.Context, platformClient platform.Client) (string, error) {
