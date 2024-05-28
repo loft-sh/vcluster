@@ -11,11 +11,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kblabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -69,6 +71,19 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 		vConfig.BackingStoreType(),
 	); err != nil {
 		return err
+	}
+
+	// set global owner for use in owner references
+	err = SetGlobalOwner(
+		ctx,
+		vConfig.ControlPlaneClient,
+		vConfig.WorkloadNamespace,
+		vConfig.WorkloadTargetNamespace,
+		vConfig.Experimental.SyncSettings.SetOwner,
+		vConfig.WorkloadService,
+	)
+	if err != nil {
+		return errors.Wrap(err, "finding vcluster pod owner")
 	}
 
 	return nil
@@ -289,4 +304,30 @@ func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, n
 
 		return nil
 	})
+}
+
+// SetGlobalOwner fetches the owning service and populates in translate.Owner if: the vcluster is configured to setOwner is,
+// and if the currentNamespace == targetNamespace (because cross namespace owner refs don't work).
+func SetGlobalOwner(ctx context.Context, currentNamespaceClient kubernetes.Interface, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
+	if currentNamespace != targetNamespace {
+		if setOwner {
+			klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", currentNamespace, targetNamespace)
+		}
+
+		return nil
+	}
+
+	if setOwner {
+		service, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, serviceName, metav1.GetOptions{})
+		if err != nil {
+			return errors.Wrap(err, "get vcluster service")
+		}
+		// client doesn't populate typemeta sometimes
+		service.TypeMeta.APIVersion = "v1"
+		service.TypeMeta.Kind = "Service"
+		translate.Owner = service
+		return nil
+	}
+
+	return nil
 }

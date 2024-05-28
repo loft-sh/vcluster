@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -103,8 +104,9 @@ func EnsureCerts(
 	// build secret
 	secret = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: currentNamespace,
+			Name:            secretName,
+			Namespace:       currentNamespace,
+			OwnerReferences: translate.GetOwnerReference(nil),
 		},
 		Data: map[string][]byte{},
 	}
