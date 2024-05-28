@@ -1,8 +1,6 @@
 package platform
 
 import (
-	"fmt"
-
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/add"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/get"
@@ -23,10 +21,7 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 		Args: cobra.NoArgs,
 	}
 
-	startCmd, err := NewStartCmd(globalFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vcluster platform start command: %w", err)
-	}
+	startCmd := NewStartCmd(globalFlags)
 
 	platformCmd.AddCommand(startCmd)
 	platformCmd.AddCommand(NewResetCmd(globalFlags))
