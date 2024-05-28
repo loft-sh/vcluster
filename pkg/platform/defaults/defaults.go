@@ -102,5 +102,5 @@ func (d *Defaults) ensureConfigFile() error {
 
 		return nil
 	}
-	return nil
+	return err
 }
