@@ -30,9 +30,8 @@ var (
 type SecretType string
 
 const (
-	ProjectNamespacePrefix            = "loft-p-"
-	ProjectSecret          SecretType = "Project Secret"
-	SharedSecret           SecretType = "Shared Secret"
+	ProjectSecret SecretType = "Project Secret"
+	SharedSecret  SecretType = "Shared Secret"
 )
 
 // SecretCmd holds the flags
