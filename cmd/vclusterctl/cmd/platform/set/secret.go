@@ -16,6 +16,7 @@ import (
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	util "github.com/loft-sh/vcluster/pkg/platform/loftutils"
+	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +46,7 @@ type SecretCmd struct {
 }
 
 // NewSecretCmd creates a new command
-func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults, cfg *config.CLI) *cobra.Command {
 	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -66,7 +67,7 @@ vcluster platform set secret test-secret.key value --project myproject
 		Long:  description,
 		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(cobraCmd, args, cfg)
 		},
 	}
 
@@ -76,10 +77,8 @@ vcluster platform set secret test-secret.key value --project myproject
 
 	return c
 }
-
-// RunUsers executes the functionality
-func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cmd.cfg)
+func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string, cfg *config.CLI) error {
+	platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cfg)
 	if err != nil {
 		return err
 	}
@@ -114,11 +113,7 @@ func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	switch secretType {
 	case ProjectSecret:
 		// get target namespace
-		namespace, err := GetProjectSecretNamespace(cmd.Project)
-		if err != nil {
-			return errors.Wrap(err, "get project secrets namespace")
-		}
-
+		namespace := projectutil.ProjectNamespace(cmd.Project)
 		return cmd.setProjectSecret(ctx, managementClient, args, namespace, secretName, keyName)
 	case SharedSecret:
 		namespace, err := GetSharedSecretNamespace(cmd.Namespace)
@@ -274,8 +269,4 @@ func GetSharedSecretNamespace(namespace string) (string, error) {
 	}
 
 	return namespace, nil
-}
-
-func GetProjectSecretNamespace(project string) (string, error) {
-	return ProjectNamespacePrefix + project, nil
 }
