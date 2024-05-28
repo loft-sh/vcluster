@@ -19,6 +19,6 @@ func NewGetCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults, cfg 
 	}
 
 	cmd.AddCommand(newClusterCmd(globalFlags, cfg))
-	cmd.AddCommand(NewSecretCmd(globalFlags, defaults))
+	cmd.AddCommand(newSecretCmd(globalFlags, defaults))
 	return cmd
 }

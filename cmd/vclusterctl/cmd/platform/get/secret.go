@@ -38,8 +38,8 @@ type SecretCmd struct {
 	All       bool
 }
 
-// NewSecretCmd creates a new command
-func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+// newSecretCmd creates a new command
+func newSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
