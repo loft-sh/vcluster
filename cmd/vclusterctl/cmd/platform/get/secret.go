@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	util "github.com/loft-sh/vcluster/pkg/platform/loftutils"
+	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -108,10 +109,7 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 
 	switch secretType {
 	case set.ProjectSecret:
-		namespace, err = set.GetProjectSecretNamespace(cmd.Project)
-		if err != nil {
-			return errors.Wrap(err, "get project secrets namespace")
-		}
+		namespace = projectutil.ProjectNamespace(cmd.Project)
 	case set.SharedSecret:
 		namespace, err = set.GetSharedSecretNamespace(cmd.Namespace)
 		if err != nil {
