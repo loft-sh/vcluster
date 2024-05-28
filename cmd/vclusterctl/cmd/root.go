@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 
+	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
+
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/credits"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/get"
 	cmdpro "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
@@ -87,6 +90,10 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags, log)
 	cfg := globalFlags.LoadedConfig(log)
+	defaults, err := pdefaults.NewFromPath(pdefaults.ConfigFolder, pdefaults.ConfigFile)
+	if err != nil {
+		log.Debugf("Error loading defaults: %v", err)
+	}
 
 	// Set version for --version flag
 	rootCmd.Version = upgrade.GetVersion()
@@ -106,6 +113,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(cmdtelemetry.NewTelemetryCmd(globalFlags))
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(NewInfoCmd(globalFlags))
+	rootCmd.AddCommand(set.NewSetCmd(globalFlags, defaults))
 
 	// add pro commands
 	proCmd, err := cmdpro.NewProCmd(globalFlags)
