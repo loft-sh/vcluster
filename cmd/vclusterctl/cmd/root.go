@@ -93,6 +93,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	defaults, err := pdefaults.NewFromPath(pdefaults.ConfigFolder, pdefaults.ConfigFile)
 	if err != nil {
 		log.Debugf("Error loading defaults: %v", err)
+		return nil, err
 	}
 
 	// Set version for --version flag
