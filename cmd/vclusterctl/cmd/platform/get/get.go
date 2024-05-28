@@ -7,6 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	OutputYAML  string = "yaml"
+	OutputJSON  string = "json"
+	OutputValue string = "value"
+)
+
 // NewGetCmd creates a new cobra command for the sub command
 func NewGetCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
 	description := product.ReplaceWithHeader("var", "")
@@ -19,5 +25,6 @@ func NewGetCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
 	}
 
 	cmd.AddCommand(newClusterCmd(globalFlags, cfg))
+	cmd.AddCommand(newClusterAccessKeyCmd(globalFlags, cfg))
 	return cmd
 }
