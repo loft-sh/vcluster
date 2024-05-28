@@ -141,12 +141,6 @@ gen-license-report:
   rm -rf ./licenses
   (cd ./cmd/vclusterctl/cmd/credits/licenses && find . -type d -exec rm -rf "{}" \;) || true
 
-  go-licenses save --save_path=./licenses --ignore github.com/loft-sh --ignore modernc.org/mathutil --ignore github.com/mattn/go-localereader $(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/...")[]') || exit 0
-
-  mkdir -p ./licenses/github.com/mattn/go-localereader
-  cd ./licenses/github.com/mattn/go-localereader && curl -O https://raw.githubusercontent.com/mattn/go-localereader/master/LICENSE
-
-  mkdir -p ./licenses/modernc.org/mathutil
-  cd ./licenses/modernc.org/mathutil && curl -O https://gitlab.com/cznic/mathutil/-/raw/master/LICENSE?ref_type=heads
+  go-licenses save --save_path=./licenses --ignore github.com/loft-sh ./...
 
   cp -r ./licenses ./cmd/vclusterctl/cmd/credits
