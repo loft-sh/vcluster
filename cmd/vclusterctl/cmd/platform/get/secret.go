@@ -8,11 +8,12 @@ import (
 	"strings"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	util "github.com/loft-sh/vcluster/pkg/platform/loftutils"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
@@ -37,13 +38,16 @@ type SecretCmd struct {
 	Project   string
 	Output    string
 	All       bool
+
+	cfg *config.CLI
 }
 
 // newSecretCmd creates a new command
-func newSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+func newSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults, cfg *config.CLI) *cobra.Command {
 	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
+		cfg:         cfg,
 	}
 	description := product.ReplaceWithHeader("get secret", `
 Returns the key value of a project / shared secret.
@@ -74,12 +78,12 @@ vcluster platform get secret test-secret.key --project myproject
 
 // RunUsers executes the functionality
 func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
 	if err != nil {
 		return err
 	}
 
-	managementClient, err := baseClient.Management()
+	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
 	}

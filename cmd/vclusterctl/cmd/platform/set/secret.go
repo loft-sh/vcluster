@@ -50,6 +50,7 @@ func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults, 
 	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
+		cfg:         cfg,
 	}
 	description := product.ReplaceWithHeader("set secret", `
 Sets the key value of a project / shared secret.
@@ -67,7 +68,7 @@ vcluster platform set secret test-secret.key value --project myproject
 		Long:  description,
 		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args, cfg)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -77,8 +78,8 @@ vcluster platform set secret test-secret.key value --project myproject
 
 	return c
 }
-func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string, cfg *config.CLI) error {
-	platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cfg)
+func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
+	platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cmd.cfg)
 	if err != nil {
 		return err
 	}
