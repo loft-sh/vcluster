@@ -48,7 +48,7 @@ vcluster platform list secrets
 		Short: "Lists all the shared secrets you have access to",
 		Long:  description,
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			return cmd.Run(cobraCmd, cfg)
 		},
 	}
