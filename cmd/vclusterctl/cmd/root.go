@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
-	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/mitchellh/go-homedir"
 
 	"github.com/loft-sh/log"
@@ -96,7 +95,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	if err != nil {
 		return nil, err
 	}
-	defaults, err := pdefaults.NewFromPath(filepath.Join(home, defaults.ConfigFolder), pdefaults.ConfigFile)
+	defaults, err := defaults.NewFromPath(filepath.Join(home, defaults.ConfigFolder), defaults.ConfigFile)
 	if err != nil {
 		log.Debugf("Error loading defaults: %v", err)
 		return nil, err
