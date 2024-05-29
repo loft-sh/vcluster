@@ -52,12 +52,12 @@ loft list teams
 
 // RunUsers executes the functionality "loft list users"
 func (cmd *TeamsCmd) Run(ctx context.Context) error {
-	baseClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
+	platformClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
 	if err != nil {
 		return err
 	}
 
-	client, err := baseClient.Management()
+	client, err := platformClient.Management()
 	if err != nil {
 		return err
 	}
