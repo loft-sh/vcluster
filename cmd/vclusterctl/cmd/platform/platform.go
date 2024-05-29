@@ -1,6 +1,8 @@
 package platform
 
 import (
+	"path/filepath"
+
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/add"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/get"
@@ -8,8 +10,8 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +25,11 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 		`,
 		Args: cobra.NoArgs,
 	}
-	defaults, err := defaults.NewFromPath(platform.CacheFolder, defaults.ConfigFile)
+	home, err := homedir.Dir()
+	if err != nil {
+		return nil, err
+	}
+	defaults, err := defaults.NewFromPath(filepath.Join(home, defaults.ConfigFolder), defaults.ConfigFile)
 	if err != nil {
 		return nil, err
 	}
