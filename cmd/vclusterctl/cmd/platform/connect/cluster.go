@@ -41,8 +41,8 @@ type ClusterCmd struct {
 	log log.Logger
 }
 
-// NewClusterCmd creates a new command
-func NewClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+// newClusterCmd creates a new command
+func newClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &ClusterCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
