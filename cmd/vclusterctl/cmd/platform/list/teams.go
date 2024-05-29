@@ -23,7 +23,6 @@ type TeamsCmd struct {
 	cfg *config.CLI
 }
 
-// newTeamsCmd creates a new command
 func newTeamsCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
 	cmd := &TeamsCmd{
 		GlobalFlags: globalFlags,
@@ -31,15 +30,15 @@ func newTeamsCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command
 		cfg:         cfg,
 	}
 	description := product.ReplaceWithHeader("list teams", `
-List the loft teams you are member of
+List the vCluster platform teams you are a member of
 
 Example:
-loft list teams
+vcluster platform list teams
 ########################################################
 	`)
 	clustersCmd := &cobra.Command{
 		Use:   "teams",
-		Short: product.Replace("Lists the loft teams you are member of"),
+		Short: product.Replace("Lists the vCluster platform teams you are member of"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
@@ -50,7 +49,6 @@ loft list teams
 	return clustersCmd
 }
 
-// RunUsers executes the functionality "loft list users"
 func (cmd *TeamsCmd) Run(ctx context.Context) error {
 	platformClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
 	if err != nil {
