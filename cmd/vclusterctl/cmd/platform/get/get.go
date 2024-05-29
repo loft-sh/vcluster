@@ -22,5 +22,6 @@ func NewGetCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults, cfg 
 	cmd.AddCommand(newClusterCmd(globalFlags, cfg))
 	cmd.AddCommand(newClusterAccessKeyCmd(globalFlags, cfg))
 	cmd.AddCommand(newSecretCmd(globalFlags, defaults, cfg))
+	cmd.AddCommand(newUserCmd(globalFlags, cfg))
 	return cmd
 }
