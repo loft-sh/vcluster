@@ -38,8 +38,8 @@ type BackupCmd struct {
 	cfg       *config.CLI
 }
 
-// NewBackupCmd creates a new command
-func NewBackupCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+// newBackupCmd creates a new command
+func newBackupCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
 	cmd := &BackupCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
@@ -66,7 +66,7 @@ vcluster platform backup
 				return fmt.Errorf("create vCluster platform client: %w", err)
 			}
 
-			return cmd.Run(cobraCmd)
+			return cmd.run(cobraCmd)
 		},
 	}
 
@@ -76,8 +76,8 @@ vcluster platform backup
 	return c
 }
 
-// Run executes the functionality
-func (cmd *BackupCmd) Run(cobraCmd *cobra.Command) error {
+// run executes the functionality
+func (cmd *BackupCmd) run(cobraCmd *cobra.Command) error {
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 
