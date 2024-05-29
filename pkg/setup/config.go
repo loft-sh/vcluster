@@ -77,6 +77,7 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 	err = SetGlobalOwner(
 		ctx,
 		vConfig.ControlPlaneClient,
+		vConfig.Experimental.MultiNamespaceMode.Enabled,
 		vConfig.WorkloadNamespace,
 		vConfig.WorkloadTargetNamespace,
 		vConfig.Experimental.SyncSettings.SetOwner,
@@ -308,26 +309,30 @@ func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, n
 
 // SetGlobalOwner fetches the owning service and populates in translate.Owner if: the vcluster is configured to setOwner is,
 // and if the currentNamespace == targetNamespace (because cross namespace owner refs don't work).
-func SetGlobalOwner(ctx context.Context, currentNamespaceClient kubernetes.Interface, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
+func SetGlobalOwner(ctx context.Context, currentNamespaceClient kubernetes.Interface, multins bool, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
+	if !setOwner {
+		return nil
+	}
+
+	if multins {
+		klog.Warningf("Skip setting owner, because multi namespace mode is enabled")
+		return nil
+	}
+
 	if currentNamespace != targetNamespace {
-		if setOwner {
-			klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", currentNamespace, targetNamespace)
-		}
+		klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", currentNamespace, targetNamespace)
 
 		return nil
 	}
 
-	if setOwner {
-		service, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, serviceName, metav1.GetOptions{})
-		if err != nil {
-			return errors.Wrap(err, "get vcluster service")
-		}
-		// client doesn't populate typemeta sometimes
-		service.TypeMeta.APIVersion = "v1"
-		service.TypeMeta.Kind = "Service"
-		translate.Owner = service
-		return nil
+	service, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, serviceName, metav1.GetOptions{})
+	if err != nil {
+		return errors.Wrap(err, "get vcluster service")
 	}
+	// client doesn't populate typemeta sometimes
+	service.TypeMeta.APIVersion = "v1"
+	service.TypeMeta.Kind = "Service"
+	translate.Owner = service
 
 	return nil
 }
