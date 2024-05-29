@@ -117,7 +117,7 @@ func (cmd *PasswordCmd) Run() error {
 					"system:masters",
 				},
 				PasswordRef: &storagev1.SecretRef{
-					SecretName:      "loft-password-" + random.RandomString(5),
+					SecretName:      "loft-password-" + random.String(5),
 					SecretNamespace: "loft",
 					Key:             "password",
 				},
@@ -135,7 +135,7 @@ func (cmd *PasswordCmd) Run() error {
 		}
 
 		user.Spec.PasswordRef = &storagev1.SecretRef{
-			SecretName:      "loft-password-" + random.RandomString(5),
+			SecretName:      "loft-password-" + random.String(5),
 			SecretNamespace: "loft",
 			Key:             "password",
 		}
