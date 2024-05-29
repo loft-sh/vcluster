@@ -66,7 +66,7 @@ vcluster platform backup
 				return fmt.Errorf("create vCluster platform client: %w", err)
 			}
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(cobraCmd)
 		},
 	}
 
@@ -77,7 +77,7 @@ vcluster platform backup
 }
 
 // Run executes the functionality
-func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *BackupCmd) Run(cobraCmd *cobra.Command) error {
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 
