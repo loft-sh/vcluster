@@ -46,7 +46,7 @@ func newBackupCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Comman
 		cfg:         cfg,
 	}
 
-	description := product.ReplaceWithHeader("backup", `
+	description := product.ReplaceWithHeader("platform backup", `
 Backup creates a backup for the vCluster platform management plane
 
 Example:
