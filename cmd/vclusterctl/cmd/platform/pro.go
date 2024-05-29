@@ -2,11 +2,12 @@ package platform
 
 import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
 
-func NewProCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
+func NewProCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Command, error) {
 	proCmd := &cobra.Command{
 		Use:   "pro",
 		Short: "vCluster platform subcommands",
@@ -23,7 +24,7 @@ Deprecated, please use vcluster platform instead
 
 	proCmd.AddCommand(startCmd)
 	proCmd.AddCommand(NewResetCmd(globalFlags))
-	proCmd.AddCommand(connect.NewConnectCmd(globalFlags))
+	proCmd.AddCommand(connect.NewConnectCmd(globalFlags, cfg))
 	proCmd.AddCommand(NewAccessKeyCmd(globalFlags))
 
 	return proCmd, nil

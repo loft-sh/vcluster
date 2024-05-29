@@ -115,7 +115,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(set.NewSetCmd(globalFlags, defaults, cfg))
 
 	// add pro commands
-	proCmd, err := cmdpro.NewProCmd(globalFlags)
+	proCmd, err := cmdpro.NewProCmd(globalFlags, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pro command: %w", err)
 	}
