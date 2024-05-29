@@ -72,9 +72,6 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 			Type:       corev1.SecretTypeOpaque,
 			StringData: tokens,
 		}
-		if translate.Owner != nil {
-			secret.SetOwnerReferences(translate.GetOwnerReference(nil))
-		}
 
 		// create the service account secret
 		err = pClient.Create(ctx, secret)

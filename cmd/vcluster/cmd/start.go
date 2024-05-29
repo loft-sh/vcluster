@@ -16,7 +16,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 )
 
 func NewStartCommand() *cobra.Command {
@@ -103,6 +105,20 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 		return err
 	}
 
+	// // set global owner for use in owner references
+	err = SetGlobalOwner(
+		ctx,
+		controlPlaneClient,
+		options.MultiNamespaceMode,
+		controlPlaneNamespace,
+		options.TargetNamespace,
+		options.SetOwner,
+		options.ServiceName,
+	)
+	if err != nil {
+		return errors.Wrap(err, "finding vcluster pod owner")
+	}
+
 	// check if we should create certs
 	err = setup.Initialize(
 		ctx,
@@ -173,5 +189,36 @@ func StartLeaderElection(ctx *options.ControllerContext, startLeading func() err
 		return errors.Wrap(err, "start controllers")
 	}
 
+	return nil
+}
+
+// SetGlobalOwner fetches the owning service and populates in translate.Owner if: the vcluster is configured to setOwner is,
+// and if the currentNamespace == targetNamespace (because cross namespace owner refs don't work).
+func SetGlobalOwner(ctx context.Context, currentNamespaceClient kubernetes.Interface, multins bool, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
+	if !setOwner {
+		return nil
+	}
+
+	if multins {
+		klog.Warningf("Skip setting owner, because multi namespace mode is enabled")
+
+		return nil
+	}
+
+	// this might be called before target namespace is defaulted to current namespace
+	if targetNamespace != "" && currentNamespace != targetNamespace {
+		klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", currentNamespace, targetNamespace)
+
+		return nil
+	}
+
+	service, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, serviceName, metav1.GetOptions{})
+	if err != nil {
+		return errors.Wrap(err, "get vcluster service")
+	}
+	// client doesn't populate typemeta
+	service.TypeMeta.APIVersion = "v1"
+	service.TypeMeta.Kind = "Service"
+	translate.Owner = service
 	return nil
 }
