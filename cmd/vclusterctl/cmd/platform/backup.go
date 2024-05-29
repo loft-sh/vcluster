@@ -59,7 +59,7 @@ vcluster platform backup
 		Short: product.Replace("Create a vCluster platform management plane backup"),
 		Long:  description,
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			// we need to set the project namespace prefix correctly here
 			_, err := platform.NewClientFromConfig(cobraCmd.Context(), cmd.cfg)
 			if err != nil {

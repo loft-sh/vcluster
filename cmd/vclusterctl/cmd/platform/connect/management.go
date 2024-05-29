@@ -45,7 +45,7 @@ vcluster platform connect management
 		Short: product.Replace("Creates a kube context to the vCluster platform Management API"),
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			// Check for newer version
 			if !cmd.Print {
 				upgrade.PrintNewerVersionWarning()
