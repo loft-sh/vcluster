@@ -23,8 +23,8 @@ type ClustersCmd struct {
 	cfg *config.CLI
 }
 
-// NewClustersCmd creates a new spaces command
-func NewClustersCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+// newClustersCmd creates a new spaces command
+func newClustersCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
 	cmd := &ClustersCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
