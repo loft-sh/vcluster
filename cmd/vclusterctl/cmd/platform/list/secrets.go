@@ -30,8 +30,8 @@ type SharedSecretsCmd struct {
 	log log.Logger
 }
 
-// NewSharedSecretsCmd creates a new command
-func NewSharedSecretsCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+// newSharedSecretsCmd creates a new command
+func newSharedSecretsCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
 	cmd := &SharedSecretsCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
