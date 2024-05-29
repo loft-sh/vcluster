@@ -51,7 +51,7 @@ vcluster platform connect management
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(cobraCmd)
 		},
 	}
 
@@ -59,14 +59,14 @@ vcluster platform connect management
 	return c
 }
 
-func (cmd *ManagementCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *ManagementCmd) Run(cobraCmd *cobra.Command) error {
 	platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cmd.cfg)
 	if err != nil {
 		return err
 	}
 
 	// create kube context options
-	contextOptions, err := CreateManagementContextOptions(platformClient, cmd.Config, true, cmd.log)
+	contextOptions, err := CreateManagementContextOptions(platformClient, cmd.Config, true)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (cmd *ManagementCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func CreateManagementContextOptions(platformClient platform.Client, config string, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
+func CreateManagementContextOptions(platformClient platform.Client, config string, setActive bool) (kubeconfig.ContextOptions, error) {
 	contextOptions := kubeconfig.ContextOptions{
 		Name:       kubeconfig.ManagementContextName(),
 		ConfigPath: config,
