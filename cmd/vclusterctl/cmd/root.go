@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
+	"github.com/mitchellh/go-homedir"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
@@ -89,7 +92,11 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags, log)
 	cfg := globalFlags.LoadedConfig(log)
-	defaults, err := pdefaults.NewFromPath(pdefaults.ConfigFolder, pdefaults.ConfigFile)
+	home, err := homedir.Dir()
+	if err != nil {
+		return nil, err
+	}
+	defaults, err := pdefaults.NewFromPath(filepath.Join(home, defaults.ConfigFolder), pdefaults.ConfigFile)
 	if err != nil {
 		log.Debugf("Error loading defaults: %v", err)
 		return nil, err
