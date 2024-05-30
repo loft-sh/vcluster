@@ -41,14 +41,14 @@ type ClusterCmd struct {
 	log log.Logger
 }
 
-// NewClusterCmd creates a new command
-func NewClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+// newClusterCmd creates a new command
+func newClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &ClusterCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
 
-	description := product.ReplaceWithHeader("use cluster", `
+	description := product.ReplaceWithHeader("connect cluster", `
 Creates a new kube context for the given cluster, if
 it does not yet exist.
 

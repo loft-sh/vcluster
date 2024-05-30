@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/add"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/backup"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/get"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/list"
@@ -42,9 +43,10 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 	platformCmd.AddCommand(NewAccessKeyCmd(globalFlags))
 	platformCmd.AddCommand(NewImportCmd(globalFlags))
 	platformCmd.AddCommand(get.NewGetCmd(globalFlags, defaults, cfg))
-	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags))
+	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags, cfg))
 	platformCmd.AddCommand(list.NewListCmd(globalFlags, cfg))
 	platformCmd.AddCommand(set.NewSetCmd(globalFlags, defaults, cfg))
+	platformCmd.AddCommand(backup.NewBackupCmd(globalFlags, cfg))
 
 	return platformCmd, nil
 }
