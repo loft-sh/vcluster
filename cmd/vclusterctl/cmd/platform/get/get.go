@@ -2,14 +2,13 @@ package get
 
 import (
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/spf13/cobra"
 )
 
 // NewGetCmd creates a new cobra command for the sub command
-func NewGetCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults, cfg *config.CLI) *cobra.Command {
+func NewGetCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
 	description := product.ReplaceWithHeader("get", "")
 
 	cmd := &cobra.Command{
@@ -19,9 +18,9 @@ func NewGetCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults, cfg 
 		Args:  cobra.NoArgs,
 	}
 
-	cmd.AddCommand(newClusterCmd(globalFlags, cfg))
-	cmd.AddCommand(newClusterAccessKeyCmd(globalFlags, cfg))
-	cmd.AddCommand(newSecretCmd(globalFlags, defaults, cfg))
-	cmd.AddCommand(newUserCmd(globalFlags, cfg))
+	cmd.AddCommand(newClusterCmd(globalFlags))
+	cmd.AddCommand(newClusterAccessKeyCmd(globalFlags))
+	cmd.AddCommand(newSecretCmd(globalFlags, defaults))
+	cmd.AddCommand(newUserCmd(globalFlags))
 	return cmd
 }

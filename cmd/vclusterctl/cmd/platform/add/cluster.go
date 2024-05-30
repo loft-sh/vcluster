@@ -16,7 +16,6 @@ import (
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
@@ -31,7 +30,6 @@ import (
 type ClusterCmd struct {
 	Log log.Logger
 	*flags.GlobalFlags
-	Cfg              *config.CLI
 	Namespace        string
 	ServiceAccount   string
 	DisplayName      string
@@ -90,7 +88,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	// Get clusterName from command argument
 	clusterName := args[0]
 
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.Cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
@@ -39,17 +38,14 @@ type SecretCmd struct {
 	*flags.GlobalFlags
 	Namespace string
 	Project   string
-
-	cfg *config.CLI
-	log log.Logger
+	log       log.Logger
 }
 
 // NewSecretCmd creates a new command
-func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults, cfg *config.CLI) *cobra.Command {
+func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
-		cfg:         cfg,
 	}
 	description := product.ReplaceWithHeader("set secret", `
 Sets the key value of a project / shared secret.
@@ -78,7 +74,7 @@ vcluster platform set secret test-secret.key value --project myproject
 	return c
 }
 func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

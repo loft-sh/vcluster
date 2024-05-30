@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	util "github.com/loft-sh/vcluster/pkg/platform/loftutils"
@@ -22,16 +21,14 @@ import (
 type ClusterTokenCmd struct {
 	*flags.GlobalFlags
 
-	cfg    *config.CLI
 	log    log.Logger
 	Output string
 }
 
-func newClusterAccessKeyCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+func newClusterAccessKeyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &ClusterTokenCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
-		cfg:         cfg,
 	}
 	description := product.ReplaceWithHeader("get cluster-access-key", `
 Returns the Network Peer Cluster Token
@@ -61,7 +58,7 @@ vcluster platform get cluster-access-key [CLUSTER_NAME]
 func (cmd *ClusterTokenCmd) Run(ctx context.Context, args []string) error {
 	clusterName := args[0]
 
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}

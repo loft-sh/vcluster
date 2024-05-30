@@ -9,7 +9,7 @@ import (
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
-	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
@@ -26,13 +26,12 @@ var (
 
 type clusterCmd struct {
 	*flags.GlobalFlags
-	cfg *cliconfig.CLI
+	log log.Logger
 }
 
-func newClusterCmd(globalFlags *flags.GlobalFlags, cfg *cliconfig.CLI) *cobra.Command {
+func newClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &clusterCmd{
 		GlobalFlags: globalFlags,
-		cfg:         cfg,
 	}
 
 	return &cobra.Command{
@@ -61,7 +60,7 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 
 	isProject, projectName := isProjectContext(cluster)
 	if isProject {
-		platformClient, err := platform.InitClientFromConfig(ctx, c.cfg)
+		platformClient, err := platform.InitClientFromConfig(ctx, c.LoadedConfig(c.log))
 		if err != nil {
 			return err
 		}
