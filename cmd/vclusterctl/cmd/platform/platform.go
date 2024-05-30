@@ -54,7 +54,7 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	platformCmd.AddCommand(NewAccessKeyCmd(globalFlags))
 	platformCmd.AddCommand(vimport.NewImportCmd(globalFlags))
 	platformCmd.AddCommand(get.NewGetCmd(globalFlags, defaults))
-	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags))
+	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags, defaults))
 	platformCmd.AddCommand(list.NewListCmd(globalFlags))
 	platformCmd.AddCommand(set.NewSetCmd(globalFlags, defaults))
 	platformCmd.AddCommand(backup.NewBackupCmd(globalFlags))
