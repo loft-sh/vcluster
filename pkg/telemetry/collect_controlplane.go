@@ -65,9 +65,10 @@ type controlPlaneCollector struct {
 
 	log loghelper.Logger
 
-	vClusterID            cachedValue[string]
-	hostClusterVersion    cachedValue[*KubernetesVersion]
-	virtualClusterVersion cachedValue[*KubernetesVersion]
+	vClusterID                cachedValue[string]
+	hostClusterVersion        cachedValue[*KubernetesVersion]
+	virtualClusterVersion     cachedValue[*KubernetesVersion]
+	vClusterCreationTimestamp cachedValue[int64]
 
 	hostClient    kubernetes.Interface
 	hostNamespace string
@@ -119,6 +120,7 @@ func (d *controlPlaneCollector) RecordStart(ctx context.Context, config *config.
 		"host_cluster_k8s_version":    d.getHostClusterVersion(),
 		"os_arch":                     runtime.GOOS + "/" + runtime.GOARCH,
 		"creation_method":             config.Telemetry.InstanceCreator,
+		"creation_timestamp":          d.getVClusterCreationTimestamp(ctx),
 	}
 	if chartInfo != nil {
 		properties["vcluster_k8s_distro"] = chartInfo.Name
@@ -213,6 +215,17 @@ func (d *controlPlaneCollector) getVClusterID(ctx context.Context) string {
 	}
 
 	return vClusterID
+}
+
+func (d *controlPlaneCollector) getVClusterCreationTimestamp(ctx context.Context) int64 {
+	vClusterCreationTimestamp, err := d.vClusterCreationTimestamp.Get(func() (int64, error) {
+		return getVClusterCreationTimestamp(ctx, d.hostClient, d.hostNamespace, d.hostService)
+	})
+	if err != nil {
+		klog.V(1).ErrorS(err, "Error retrieving vClusterCreationTimestamp")
+	}
+
+	return vClusterCreationTimestamp
 }
 
 func (d *controlPlaneCollector) getMetrics(ctx context.Context) map[string]interface{} {

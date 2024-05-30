@@ -34,6 +34,20 @@ func getVClusterID(ctx context.Context, hostClient kubernetes.Interface, vCluste
 	return string(o.GetUID()), nil
 }
 
+// getVClusterCreationTimestamp returns the creation timestamp of the vCluster service
+func getVClusterCreationTimestamp(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, vClusterService string) (int64, error) {
+	if hostClient == nil || vClusterService == "" {
+		return 0, fmt.Errorf("kubernetes client or service is undefined")
+	}
+
+	o, err := getUniqueSyncerObject(ctx, hostClient, vClusterNamespace, vClusterService)
+	if err != nil {
+		return 0, err
+	}
+
+	return o.GetCreationTimestamp().Unix(), nil
+}
+
 // returns a Kubernetes resource that can be used to uniquely identify this syncer instance - PVC or Service
 func getUniqueSyncerObject(ctx context.Context, c kubernetes.Interface, vClusterNamespace string, serviceName string) (client.Object, error) {
 	// If vCluster PVC doesn't exist we try to get UID from the vCluster Service
