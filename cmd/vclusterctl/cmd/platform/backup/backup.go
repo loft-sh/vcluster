@@ -18,6 +18,6 @@ func NewBackupCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Comman
 		Args: cobra.NoArgs,
 	}
 
-	addCmd.AddCommand(newBackupCmd(globalFlags, cfg))
+	addCmd.AddCommand(newManagementCmd(globalFlags, cfg))
 	return addCmd
 }

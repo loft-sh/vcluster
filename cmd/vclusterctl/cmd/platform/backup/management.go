@@ -28,8 +28,8 @@ var (
 	_ = storagev1.AddToScheme(scheme)
 )
 
-// BackupCmd holds the cmd flags
-type BackupCmd struct {
+// ManagementCmd holds the cmd flags
+type ManagementCmd struct {
 	*flags.GlobalFlags
 	Log       log.Logger
 	Namespace string
@@ -38,9 +38,9 @@ type BackupCmd struct {
 	cfg       *config.CLI
 }
 
-// newBackupCmd creates a new command
-func newBackupCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
-	cmd := &BackupCmd{
+// newManagementCmd creates a new command for backing up the management plane
+func newManagementCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+	cmd := &ManagementCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 		cfg:         cfg,
@@ -77,7 +77,7 @@ vcluster platform backup management
 }
 
 // run executes the functionality
-func (cmd *BackupCmd) run(cobraCmd *cobra.Command) error {
+func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 
