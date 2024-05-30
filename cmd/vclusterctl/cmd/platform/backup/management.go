@@ -1,4 +1,4 @@
-package platform
+package backup
 
 import (
 	"fmt"
@@ -46,16 +46,16 @@ func newBackupCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Comman
 		cfg:         cfg,
 	}
 
-	description := product.ReplaceWithHeader("platform backup management", `
+	description := product.ReplaceWithHeader("backup management", `
 Backup creates a backup for the vCluster platform management plane
 
 Example:
-vcluster platform backup
+vcluster platform backup management
 ########################################################
 	`)
 
 	c := &cobra.Command{
-		Use:   "backup",
+		Use:   "management",
 		Short: product.Replace("Create a vCluster platform management plane backup"),
 		Long:  description,
 		Args:  cobra.NoArgs,

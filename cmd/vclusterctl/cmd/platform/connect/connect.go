@@ -9,7 +9,7 @@ import (
 
 // NewConnectCmd creates a new cobra command
 func NewConnectCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
-	description := product.ReplaceWithHeader("use", `
+	description := product.ReplaceWithHeader("connect", `
 
 Activates a kube context for the given cluster / space / vcluster / management.
 	`)

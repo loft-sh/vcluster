@@ -33,7 +33,7 @@ func newManagementCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Co
 		cfg:         cfg,
 	}
 
-	description := product.ReplaceWithHeader("platform connect management", `
+	description := product.ReplaceWithHeader("connect management", `
 Creates a new kube context to the vCluster platform Management API.
 
 Example:
