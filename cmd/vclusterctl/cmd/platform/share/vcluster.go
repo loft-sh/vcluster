@@ -69,7 +69,7 @@ vcluster platform share vcluster myvcluster --project myproject --user admin
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 	vClusterName := args[0]
 
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
 	}

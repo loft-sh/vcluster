@@ -45,7 +45,7 @@ vcluster info
 				MachineID: telemetry.GetMachineID(cfg),
 			}
 
-			platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cfg)
+			platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cfg)
 			if err == nil {
 				infos.InstanceID = platformClient.Self().Status.InstanceID
 			}

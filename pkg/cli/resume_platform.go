@@ -12,7 +12,7 @@ import (
 )
 
 func ResumePlatform(ctx context.Context, options *ResumeOptions, config *config.CLI, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, config)
+	platformClient, err := platform.InitClientFromConfig(ctx, config)
 	if err != nil {
 		return err
 	}

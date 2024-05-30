@@ -68,7 +68,7 @@ func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.log)
 
 	// check if there is a platform client or we skip the info message
-	_, err := platform.NewClientFromConfig(ctx, cfg)
+	_, err := platform.InitClientFromConfig(ctx, cfg)
 	if err == nil {
 		config.PrintManagerInfo("delete", cfg.Manager.Type, cmd.log)
 	}

@@ -54,16 +54,14 @@ vcluster logout
 }
 
 func (cmd *LogoutCmd) Run(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
-	if err != nil {
-		return err
-	}
+	platformClient := platform.NewClientFromConfig(cmd.LoadedConfig(cmd.Log))
+
 	cfg := platformClient.Config()
 
 	// delete old access key if were logged in before
 	if cfg.Platform.AccessKey != "" {
 		if err := platformClient.Logout(ctx); err != nil {
-			return err
+			return fmt.Errorf("failed to logout: %w", err)
 		}
 		configHost := cfg.Platform.Host
 

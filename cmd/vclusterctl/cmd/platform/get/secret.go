@@ -78,7 +78,7 @@ vcluster platform get secret test-secret.key --project myproject
 
 // RunUsers executes the functionality
 func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.cfg)
 	if err != nil {
 		return err
 	}

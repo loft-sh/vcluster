@@ -61,7 +61,7 @@ vcluster platform get cluster-access-key [CLUSTER_NAME]
 func (cmd *ClusterTokenCmd) Run(ctx context.Context, args []string) error {
 	clusterName := args[0]
 
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.cfg)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}

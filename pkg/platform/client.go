@@ -93,10 +93,10 @@ type LoginClient interface {
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
 }
 
-func NewClientFromConfig(ctx context.Context, config *config.CLI) (Client, error) {
-	c := &client{
-		config: config,
-	}
+// InitClientFromConfig returns a client with the client identity initialized through the selves api.
+// Use this by default, unless performing actions that don't require a log in (like login itself).
+func InitClientFromConfig(ctx context.Context, config *config.CLI) (Client, error) {
+	c := NewClientFromConfig(config)
 
 	if err := c.RefreshSelf(ctx); err != nil {
 		return nil, err
@@ -107,6 +107,15 @@ func NewClientFromConfig(ctx context.Context, config *config.CLI) (Client, error
 	})
 
 	return c, nil
+}
+
+// NewClientFromConfig returns a client without the client identity initialized through the selves api.
+// Use this only when performing actions that don't require a log in (like login itself).
+func NewClientFromConfig(config *config.CLI) Client {
+	c := &client{
+		config: config,
+	}
+	return c
 }
 
 func NewLoginClientFromConfig(config *config.CLI) LoginClient {

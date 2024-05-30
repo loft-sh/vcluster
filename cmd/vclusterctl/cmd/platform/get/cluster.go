@@ -61,7 +61,7 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 
 	isProject, projectName := isProjectContext(cluster)
 	if isProject {
-		platformClient, err := platform.NewClientFromConfig(ctx, c.cfg)
+		platformClient, err := platform.InitClientFromConfig(ctx, c.cfg)
 		if err != nil {
 			return err
 		}

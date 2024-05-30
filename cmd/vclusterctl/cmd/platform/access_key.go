@@ -68,7 +68,7 @@ vcluster platform token
 
 // Run executes the command
 func (cmd *AccessKeyCmd) Run(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

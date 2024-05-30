@@ -74,7 +74,7 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 		l.LocalPort = "9898"
 	}
 
-	err := l.prepare(ctx)
+	err := l.prepare()
 	if err != nil {
 		return err
 	}
@@ -132,11 +132,9 @@ func (l *LoftStarter) prepareInstall(ctx context.Context) error {
 	return clihelper.UninstallLoft(ctx, l.KubeClient, l.RestConfig, l.Context, l.Namespace, log.Discard)
 }
 
-func (l *LoftStarter) prepare(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, l.LoadedConfig(l.Log))
-	if err != nil {
-		return err
-	}
+func (l *LoftStarter) prepare() error {
+	platformClient := platform.NewClientFromConfig(l.LoadedConfig(l.Log))
+
 	platformConfig := platformClient.Config().Platform
 
 	// first load the kube config

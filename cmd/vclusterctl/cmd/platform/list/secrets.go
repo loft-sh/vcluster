@@ -61,7 +61,7 @@ vcluster platform list secrets
 
 // Run executes the functionality
 func (cmd *SharedSecretsCmd) Run(command *cobra.Command, cfg *config.CLI) error {
-	platformClient, err := platform.NewClientFromConfig(command.Context(), cfg)
+	platformClient, err := platform.InitClientFromConfig(command.Context(), cfg)
 	if err != nil {
 		return err
 	}

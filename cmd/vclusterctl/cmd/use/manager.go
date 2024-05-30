@@ -53,7 +53,7 @@ func (cmd *ManagerCmd) Run(ctx context.Context, args []string) error {
 
 func SwitchManager(ctx context.Context, cfg *config.CLI, manager string, log log.Logger) error {
 	if cfg.Manager.Type == config.ManagerPlatform {
-		_, err := platform.NewClientFromConfig(ctx, cfg)
+		_, err := platform.InitClientFromConfig(ctx, cfg)
 		if err != nil {
 			return fmt.Errorf("cannot switch to platform manager, because seems like you are not logged into a vCluster platform (%w)", err)
 		}

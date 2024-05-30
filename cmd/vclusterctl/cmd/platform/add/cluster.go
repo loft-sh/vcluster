@@ -90,7 +90,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	// Get clusterName from command argument
 	clusterName := args[0]
 
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.Cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.Cfg)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}

@@ -64,7 +64,7 @@ vcluster platform connect cluster mycluster
 
 // Run executes the command
 func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

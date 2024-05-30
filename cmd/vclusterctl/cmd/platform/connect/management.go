@@ -60,7 +60,7 @@ vcluster platform connect management
 }
 
 func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
-	platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.cfg)
 	if err != nil {
 		return err
 	}

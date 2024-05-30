@@ -78,7 +78,7 @@ vcluster platform set secret test-secret.key value --project myproject
 	return c
 }
 func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	platformClient, err := platform.NewClientFromConfig(cobraCmd.Context(), cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.cfg)
 	if err != nil {
 		return err
 	}
