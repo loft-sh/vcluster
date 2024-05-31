@@ -23,7 +23,7 @@ const (
 )
 
 func ImportPlatform(ctx context.Context, options *ImportOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, globalFlags.LoadedConfig(log))
+	platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(log))
 	if err != nil {
 		return err
 	}

@@ -18,7 +18,7 @@ import (
 )
 
 func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CLI, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}

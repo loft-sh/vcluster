@@ -23,7 +23,7 @@ type connectPlatform struct {
 }
 
 func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *flags.GlobalFlags, vClusterName string, command []string, log log.Logger) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, globalFlags.LoadedConfig(log))
+	platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(log))
 	if err != nil {
 		return err
 	}

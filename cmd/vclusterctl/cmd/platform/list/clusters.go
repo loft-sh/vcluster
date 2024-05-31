@@ -52,7 +52,7 @@ vcluster platform list clusters
 
 // RunClusters executes the functionality
 func (cmd *ClustersCmd) RunClusters(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.cfg)
 	if err != nil {
 		return err
 	}

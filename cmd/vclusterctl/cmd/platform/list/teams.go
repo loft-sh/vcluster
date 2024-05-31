@@ -49,7 +49,7 @@ vcluster platform list teams
 }
 
 func (cmd *TeamsCmd) Run(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.cfg)
 	if err != nil {
 		return err
 	}

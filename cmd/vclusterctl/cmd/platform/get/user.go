@@ -60,7 +60,7 @@ vcluster platform get current-user
 
 // RunUsers executes the functionality
 func (cmd *UserCmd) Run(ctx context.Context, cfg *config.CLI) error {
-	baseClient, err := platform.NewClientFromConfig(ctx, cfg)
+	baseClient, err := platform.InitClientFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}

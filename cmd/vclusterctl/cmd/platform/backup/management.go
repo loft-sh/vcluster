@@ -61,7 +61,7 @@ vcluster platform backup management
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			// we need to set the project namespace prefix correctly here
-			_, err := platform.NewClientFromConfig(cobraCmd.Context(), cmd.cfg)
+			_, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.cfg)
 			if err != nil {
 				return fmt.Errorf("create vCluster platform client: %w", err)
 			}
