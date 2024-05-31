@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/add"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/backup"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/create"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/get"
 	vimport "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/import"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/list"
@@ -61,6 +62,7 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	platformCmd.AddCommand(wakeup.NewWakeupCmd(globalFlags, defaults))
 	platformCmd.AddCommand(sleep.NewSleepCmd(globalFlags, defaults))
 	platformCmd.AddCommand(share.NewShareCmd(globalFlags, defaults))
+	platformCmd.AddCommand(create.NewCreateCmd(globalFlags, defaults))
 
 	return platformCmd, nil
 }
