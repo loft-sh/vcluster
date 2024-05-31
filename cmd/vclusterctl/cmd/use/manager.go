@@ -48,9 +48,9 @@ func (cmd *ManagerCmd) Run(ctx context.Context, args []string) error {
 }
 
 func SwitchManager(ctx context.Context, cfg *config.CLI, manager string, log log.Logger) error {
-	managerType := config.ManagerType(manager)
-	if managerType != config.ManagerHelm && managerType != config.ManagerPlatform {
-		return fmt.Errorf("invalid manager type: %q, only \"helm\" or \"platform\" are valid", managerType)
+	managerType, err := config.ParseManagerType(manager)
+	if err != nil {
+		return fmt.Errorf("parse manager type: %w", err)
 	}
 
 	if managerType == config.ManagerPlatform {

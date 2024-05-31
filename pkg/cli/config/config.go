@@ -97,6 +97,17 @@ func PrintManagerInfo(verb string, manager ManagerType, log log.Logger) {
 	}
 }
 
+func ParseManagerType(manager string) (ManagerType, error) {
+	switch manager {
+	case "helm":
+		return ManagerHelm, nil
+	case "platform":
+		return ManagerPlatform, nil
+	default:
+		return "", fmt.Errorf("invalid manager type: %q, only \"helm\" or \"platform\" are valid", manager)
+	}
+}
+
 func DefaultFilePath() (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
