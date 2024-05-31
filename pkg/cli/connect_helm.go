@@ -53,7 +53,11 @@ type ConnectOptions struct {
 	BackgroundProxy           bool
 	Insecure                  bool
 
-	Project string
+	Cluster     string
+	Project     string
+	ClusterRole string
+	User        string
+	Team        string
 }
 
 type connectHelm struct {
