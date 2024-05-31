@@ -60,7 +60,7 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	platformCmd.AddCommand(backup.NewBackupCmd(globalFlags))
 	platformCmd.AddCommand(wakeup.NewWakeupCmd(globalFlags, defaults))
 	platformCmd.AddCommand(sleep.NewSleepCmd(globalFlags, defaults))
-	platformCmd.AddCommand(share.NewShareCmd(globalFlags))
+	platformCmd.AddCommand(share.NewShareCmd(globalFlags, defaults))
 
 	return platformCmd, nil
 }
