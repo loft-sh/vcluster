@@ -67,6 +67,7 @@ type Client interface {
 
 	SpaceInstance(project, name string) (kube.Interface, error)
 	SpaceInstanceConfig(project, name string) (*rest.Config, error)
+	CreateSpaceInstanceOptions(ctx context.Context, config string, projectName string, spaceInstance *managementv1.SpaceInstance, setActive bool) (kubeconfig.ContextOptions, error)
 
 	VirtualClusterInstance(project, name string) (kube.Interface, error)
 	VirtualClusterInstanceConfig(project, name string) (*rest.Config, error)
@@ -375,6 +376,29 @@ func (c *client) SpaceInstance(project, name string) (kube.Interface, error) {
 	}
 
 	return kube.NewForConfig(restConfig)
+}
+
+func (c *client) CreateSpaceInstanceOptions(ctx context.Context, config string, projectName string, spaceInstance *managementv1.SpaceInstance, setActive bool) (kubeconfig.ContextOptions, error) {
+	cluster, err := c.findProjectCluster(ctx, projectName, spaceInstance.Spec.ClusterRef.Cluster)
+	if err != nil {
+		return kubeconfig.ContextOptions{}, fmt.Errorf("find space instance cluster: %w", err)
+	}
+
+	contextOptions := kubeconfig.ContextOptions{
+		Name:             kubeconfig.SpaceInstanceContextName(projectName, spaceInstance.Name),
+		ConfigPath:       config,
+		CurrentNamespace: spaceInstance.Spec.ClusterRef.Namespace,
+		SetActive:        setActive,
+	}
+	contextOptions.Server = c.Config().Platform.Host + "/kubernetes/project/" + projectName + "/space/" + spaceInstance.Name
+	contextOptions.InsecureSkipTLSVerify = c.Config().Platform.Insecure
+
+	data, err := RetrieveCaData(cluster)
+	if err != nil {
+		return kubeconfig.ContextOptions{}, err
+	}
+	contextOptions.CaData = data
+	return contextOptions, nil
 }
 
 func (c *client) VirtualClusterInstanceConfig(project, name string) (*rest.Config, error) {

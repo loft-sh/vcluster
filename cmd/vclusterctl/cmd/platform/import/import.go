@@ -1,4 +1,4 @@
-package vimport
+package importcmd
 
 import (
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
@@ -15,11 +15,12 @@ func NewImportCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	importCmd := &cobra.Command{
 		Use:   "import",
-		Short: "Imports a vCluster into a vCluster platform project",
+		Short: "Imports a virtual cluster / space into a vCluster platform project",
 		Long:  description,
 		Args:  loftctlUtil.VClusterNameOnlyValidator,
 	}
 
 	importCmd.AddCommand(NewVClusterCmd(globalFlags))
+	importCmd.AddCommand(NewSpaceCmd(globalFlags))
 	return importCmd
 }
