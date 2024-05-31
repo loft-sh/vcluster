@@ -70,7 +70,7 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 	}
 
 	accessRule := agentstoragev1.InstanceAccessRule{
-		ClusterRole: options.ClusterRole,
+		ClusterRole: options.ServiceAccountClusterRole,
 	}
 	if options.User != "" {
 		accessRule.Users = append(accessRule.Users, options.User)
