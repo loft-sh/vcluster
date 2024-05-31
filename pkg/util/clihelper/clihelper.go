@@ -13,7 +13,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/podprinter"
-	"github.com/loft-sh/vcluster/pkg/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	utilkubeconfig "github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
