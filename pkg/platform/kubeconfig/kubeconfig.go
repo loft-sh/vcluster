@@ -248,13 +248,13 @@ func createContext(options ContextOptions) (string, *api.Cluster, *api.AuthInfo,
 			authInfo.Exec = &api.ExecConfig{
 				APIVersion: v1beta1.SchemeGroupVersion.String(),
 				Command:    command,
-				Args:       []string{"token", "--silent", "--project", projectName, "--virtual-cluster", virtualClusterName},
+				Args:       []string{"platform", "token", "--silent", "--project", projectName, "--virtual-cluster", virtualClusterName},
 			}
 		} else {
 			authInfo.Exec = &api.ExecConfig{
 				APIVersion: v1beta1.SchemeGroupVersion.String(),
 				Command:    command,
-				Args:       []string{"token", "--silent", "--config", absConfigPath},
+				Args:       []string{"platform", "token", "--silent", "--config", absConfigPath},
 			}
 			if options.DirectClusterEndpointEnabled {
 				authInfo.Exec.Args = append(authInfo.Exec.Args, "--direct-cluster-endpoint")
