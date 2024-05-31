@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
+	"github.com/mgutz/ansi"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -24,6 +28,12 @@ type connectPlatform struct {
 
 func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *flags.GlobalFlags, vClusterName string, command []string, log log.Logger) error {
 	platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(log))
+	if err != nil {
+		return err
+	}
+
+	// determine project & cluster name
+	options.Cluster, options.Project, err = platform.SelectProjectOrCluster(ctx, platformClient, options.Cluster, options.Project, false, log)
 	if err != nil {
 		return err
 	}
@@ -57,6 +67,32 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 	vCluster.VirtualCluster, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, log)
 	if err != nil {
 		return err
+	}
+
+	accessRule := agentstoragev1.InstanceAccessRule{
+		ClusterRole: options.ServiceAccountClusterRole,
+	}
+	if options.User != "" {
+		accessRule.Users = append(accessRule.Users, options.User)
+	}
+	if options.Team != "" {
+		accessRule.Teams = append(accessRule.Teams, options.Team)
+	}
+	vCluster.VirtualCluster.Spec.ExtraAccessRules = append(vCluster.VirtualCluster.Spec.ExtraAccessRules, accessRule)
+	if vCluster.VirtualCluster.Spec.TemplateRef != nil {
+		vCluster.VirtualCluster.Spec.TemplateRef.SyncOnce = true
+	}
+	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Update(ctx, vCluster.VirtualCluster, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	if cmd.User != "" {
+		cmd.log.Donef("Successfully granted user %s access to vcluster %s", ansi.Color(cmd.User, "white+b"), ansi.Color(vClusterName, "white+b"))
+		cmd.log.Infof("The user can access the virtual cluster now via: %s", ansi.Color(fmt.Sprintf("vcluster connect %s --project %s", vClusterName, cmd.Project), "white+b"))
+	} else {
+		cmd.log.Donef("Successfully granted team %s access to vcluster %s", ansi.Color(cmd.Team, "white+b"), ansi.Color(vClusterName, "white+b"))
+		cmd.log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf("vcluster connect %s --project %s", vClusterName, cmd.Project), "white+b"))
 	}
 
 	// retrieve vCluster kube config
