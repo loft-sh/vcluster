@@ -323,7 +323,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 	// should we create a kube context for the space
 	if cmd.CreateContext {
 		// create kube context options
-		contextOptions, err := platformClient.CreateSpaceInstanceOptions(ctx, cmd.Config, cmd.Project, spaceInstance, cmd.SwitchContext)
+		contextOptions, err := platform.CreateSpaceInstanceOptions(ctx, platformClient, cmd.Config, cmd.Project, spaceInstance, cmd.SwitchContext)
 		if err != nil {
 			return err
 		}

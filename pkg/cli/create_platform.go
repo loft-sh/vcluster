@@ -149,7 +149,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 
 	if options.CreateContext {
 		// create kube context options
-		contextOptions, err := platformClient.CreateVirtualClusterInstanceOptions(ctx, "", options.Project, virtualClusterInstance, options.SwitchContext)
+		contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, "", options.Project, virtualClusterInstance, options.SwitchContext)
 		if err != nil {
 			return err
 		}
@@ -397,8 +397,9 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 	}
 
 	// resolve template
-	virtualClusterTemplate, resolvedParameters, err := platformClient.ResolveTemplate(
+	virtualClusterTemplate, resolvedParameters, err := platform.ResolveVirtualClusterTemplate(
 		ctx,
+		platformClient,
 		options.Project,
 		options.Template,
 		options.TemplateVersion,
@@ -480,8 +481,9 @@ func upgradeWithTemplate(ctx context.Context, platformClient platform.Client, op
 	}
 
 	// resolve template
-	virtualClusterTemplate, resolvedParameters, err := platformClient.ResolveTemplate(
+	virtualClusterTemplate, resolvedParameters, err := platform.ResolveVirtualClusterTemplate(
 		ctx,
+		platformClient,
 		options.Project,
 		options.Template,
 		options.TemplateVersion,

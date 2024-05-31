@@ -130,7 +130,7 @@ func (cmd *connectPlatform) validateProFlags() error {
 }
 
 func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformClient platform.Client, vCluster *platform.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
-	contextOptions, err := platformClient.CreateVirtualClusterInstanceOptions(ctx, "", vCluster.Project.Name, vCluster.VirtualCluster, false)
+	contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, "", vCluster.Project.Name, vCluster.VirtualCluster, false)
 	if err != nil {
 		return nil, fmt.Errorf("prepare vCluster kube config: %w", err)
 	}
