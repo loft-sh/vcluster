@@ -508,8 +508,8 @@ tests:
           k3s:
             enabled: true
             env:
-            - name: KEY
-              value: VALUE
+              - name: KEY
+                value: VALUE
     asserts:
       - equal:
           path: kind
@@ -520,4 +520,17 @@ tests:
             name: KEY
             value: VALUE
 
+  - it: should correctly set labels on the statefulset
+    set:
+      controlPlane:
+        statefulSet:
+          labels:
+            my-label: my-value
 
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - equal:
+          path: metadata.labels["my-label"]
+          value: "my-value"

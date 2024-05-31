@@ -10,7 +10,7 @@ metadata:
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.statefulSet.labels }}
-{{ toYaml .Values.labels | indent 4 }}
+{{ toYaml .Values.controlPlane.statefulSet.labels | indent 4 }}
   {{- end }}
   {{- $annotations := merge dict .Values.controlPlane.statefulSet.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}
   {{- if $annotations }}
