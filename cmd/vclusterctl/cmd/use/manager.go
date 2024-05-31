@@ -26,7 +26,7 @@ func NewManagerCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	description := `########################################################
 ################# vcluster use manager #################
 ########################################################
-Either use helm or vCluster platform as the deployment method for managing virtual clusters.
+Either use "helm" or "platform" as the deployment method for managing virtual clusters.
 #######################################################
 	`
 
@@ -36,10 +36,6 @@ Either use helm or vCluster platform as the deployment method for managing virtu
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			if args[0] != string(config.ManagerHelm) && args[0] != string(config.ManagerPlatform) {
-				return fmt.Errorf("you can only use helm or platform to use")
-			}
-
 			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
@@ -52,13 +48,19 @@ func (cmd *ManagerCmd) Run(ctx context.Context, args []string) error {
 }
 
 func SwitchManager(ctx context.Context, cfg *config.CLI, manager string, log log.Logger) error {
-	if cfg.Manager.Type == config.ManagerPlatform {
+	managerType, err := config.ParseManagerType(manager)
+	if err != nil {
+		return fmt.Errorf("parse manager type: %w", err)
+	}
+
+	if managerType == config.ManagerPlatform {
 		_, err := platform.InitClientFromConfig(ctx, cfg)
 		if err != nil {
 			return fmt.Errorf("cannot switch to platform manager, because seems like you are not logged into a vCluster platform (%w)", err)
 		}
 	}
 
+	cfg.Manager.Type = managerType
 	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("save vCluster config: %w", err)
 	}
