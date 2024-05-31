@@ -11,7 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/create"
 	cmddelete "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/delete"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/get"
-	vimport "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/import"
+	cmdimport "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/import"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/list"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/share"
@@ -54,7 +54,7 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	platformCmd.AddCommand(NewResetCmd(globalFlags))
 	platformCmd.AddCommand(add.NewAddCmd(globalFlags))
 	platformCmd.AddCommand(NewAccessKeyCmd(globalFlags))
-	platformCmd.AddCommand(vimport.NewImportCmd(globalFlags))
+	platformCmd.AddCommand(cmdimport.NewImportCmd(globalFlags))
 	platformCmd.AddCommand(get.NewGetCmd(globalFlags, defaults))
 	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags, defaults))
 	platformCmd.AddCommand(list.NewListCmd(globalFlags))

@@ -15,7 +15,7 @@ Activates a kube context for the given cluster / space / vcluster / management.
 	`)
 	connectCmd := &cobra.Command{
 		Use:   "connect",
-		Short: product.Replace("Uses loft resources"),
+		Short: product.Replace("connects to vCluster platform resources"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}

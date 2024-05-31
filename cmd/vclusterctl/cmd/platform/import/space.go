@@ -1,4 +1,4 @@
-package vimport
+package importcmd
 
 import (
 	"context"

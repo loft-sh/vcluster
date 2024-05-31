@@ -1,4 +1,4 @@
-package vimport
+package importcmd
 
 import (
 	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
