@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/loftctl/v4/pkg/version"
 	"github.com/loft-sh/log"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
@@ -123,7 +124,8 @@ vcluster platform create space myspace --project myproject --team myteam
 // Run executes the command
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	spaceName := args[0]
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
+	cfg := cmd.LoadedConfig(cmd.Log)
+	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -140,10 +142,10 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// create space
-	return cmd.createSpace(ctx, platformClient, spaceName)
+	return cmd.createSpace(ctx, platformClient, spaceName, cfg)
 }
 
-func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Client, spaceName string) error {
+func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Client, spaceName string, cfg *cliconfig.CLI) error {
 	spaceNamespace := projectutil.ProjectNamespace(cmd.Project)
 	managementClient, err := platformClient.Management()
 	if err != nil {
@@ -327,7 +329,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 		}
 
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions)
+		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}

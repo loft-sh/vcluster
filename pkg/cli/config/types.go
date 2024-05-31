@@ -7,11 +7,11 @@ import (
 )
 
 type CLI struct {
-	TelemetryDisabled bool     `json:"telemetryDisabled,omitempty"`
 	Manager           Manager  `json:"manager,omitempty"`
+	PreviousContext   string   `json:"previousContext,omitempty"`
+	path              string   `json:"-"`
 	Platform          Platform `json:"platform,omitempty"`
-
-	path string
+	TelemetryDisabled bool     `json:"telemetryDisabled,omitempty"`
 }
 
 type Manager struct {
@@ -24,34 +24,23 @@ type ManagerType string
 type Platform struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// host is the http endpoint of how to access loft
-	// +optional
+	// VirtualClusterAccessPointCertificates is a map of cached certificates for "access point" mode virtual clusters
+	VirtualClusterAccessPointCertificates map[string]VirtualClusterCertificatesEntry `json:"virtualClusterAccessPointCertificates,omitempty"`
+	// Host is the https endpoint of how to access loft
 	Host string `json:"host,omitempty"`
-
 	// LastInstallContext is the last install context
-	// +optional
 	LastInstallContext string `json:"lastInstallContext,omitempty"`
-
-	// insecure specifies if the loft instance is insecure
-	// +optional
-	Insecure bool `json:"insecure,omitempty"`
-
-	// access key is the access key for the given loft host
-	// +optional
+	// AccessKey is the access key for the given loft host
 	AccessKey string `json:"accesskey,omitempty"`
-
-	// virtual cluster access key is the access key for the given loft host to create virtual clusters
-	// +optional
+	// VirtualClusterAccessKey is the access key for the given loft host to create virtual clusters
 	VirtualClusterAccessKey string `json:"virtualClusterAccessKey,omitempty"`
-
-	// map of cached certificates for "access point" mode virtual clusters
-	// +optional
-	VirtualClusterAccessPointCertificates map[string]VirtualClusterCertificatesEntry
+	// Insecure specifies if the loft instance is insecure
+	Insecure bool `json:"insecure,omitempty"`
 }
 
 type VirtualClusterCertificatesEntry struct {
-	CertificateData string
-	KeyData         string
-	LastRequested   metav1.Time
-	ExpirationTime  time.Time
+	LastRequested   metav1.Time `json:"lastRequested,omitempty"`
+	ExpirationTime  time.Time   `json:"expirationTime,omitempty"`
+	CertificateData string      `json:"certificateData,omitempty"`
+	KeyData         string      `json:"keyData,omitempty"`
 }

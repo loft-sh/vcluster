@@ -7,7 +7,6 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -29,12 +28,13 @@ func NewDisconnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	cobraCmd := &cobra.Command{
 		Use:   "disconnect",
-		Short: "Disconnects from a virtual cluster",
+		Short: "Disconnects from a vCluster platform context",
 		Long: `#######################################################
 ################# vcluster disconnect #################
 #######################################################
 Disconnect switches back the kube context if
-vcluster connect --update-current was used
+"vcluster connect --update-current" or "vcluster platform
+connect" was used
 
 Example:
 vcluster connect --update-current
@@ -62,14 +62,20 @@ func (cmd *DisconnectCmd) Run() error {
 		cmd.Context = rawConfig.CurrentContext
 	}
 
+	cfg := cmd.LoadedConfig(cmd.log)
+
 	// get vcluster info from context
 	vClusterName, _, otherContext := find.VClusterFromContext(cmd.Context)
 	if vClusterName == "" {
 		// get vCluster platform info from context
 		vClusterName, _, otherContext = find.VClusterPlatformFromContext(cmd.Context)
 		if vClusterName == "" {
-			return fmt.Errorf("current selected context \"%s\" is not a virtual cluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
+			return fmt.Errorf("current selected context %q is not a virtual cluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
 		}
+	}
+
+	if cfg.PreviousContext != "" {
+		otherContext = cfg.PreviousContext
 	}
 
 	if otherContext == "" {
@@ -81,10 +87,17 @@ func (cmd *DisconnectCmd) Run() error {
 
 	err = find.SwitchContext(&rawConfig, otherContext)
 	if err != nil {
-		return errors.Wrap(err, "switch kube context")
+		return fmt.Errorf("switch kube context: %w", err)
 	}
 
-	cmd.log.Infof("Successfully disconnected from vcluster: %s and switched back to the original context: %s", vClusterName, otherContext)
+	if cfg.PreviousContext != "" {
+		cfg.PreviousContext = ""
+		if err := cfg.Save(); err != nil {
+			return fmt.Errorf("save config: %w", err)
+		}
+	}
+
+	cmd.log.Infof("Successfully disconnected and switched back to the original context: %s", otherContext)
 	return nil
 }
 
