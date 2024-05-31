@@ -80,7 +80,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	// Get spaceName from command argument
 	spaceName := args[0]
 
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

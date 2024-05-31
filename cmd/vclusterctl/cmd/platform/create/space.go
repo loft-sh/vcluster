@@ -138,7 +138,7 @@ devspace create space myspace --project myproject --team myteam
 // Run executes the command
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	spaceName := args[0]
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
 	}

@@ -61,7 +61,7 @@ devspace list spaces
 
 // RunSpaces executes the functionality
 func (cmd *SpacesCmd) RunSpaces(ctx context.Context) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

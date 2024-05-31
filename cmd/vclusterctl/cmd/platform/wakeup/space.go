@@ -68,7 +68,7 @@ devspace wakeup space myspace --project myproject
 
 // Run executes the functionality
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
-	platformClient, err := platform.NewClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
 	}
