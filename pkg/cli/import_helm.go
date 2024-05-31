@@ -43,7 +43,7 @@ func ImportHelm(ctx context.Context, options *ImportOptions, globalFlags *flags.
 	}
 
 	// apply platform secret
-	err = platformClient.ApplyPlatformSecret(ctx, kubeClient, options.ImportName, vCluster.Namespace, options.Project)
+	err = platform.ApplyPlatformSecret(ctx, platformClient, kubeClient, options.ImportName, vCluster.Namespace, options.Project)
 	if err != nil {
 		return err
 	}

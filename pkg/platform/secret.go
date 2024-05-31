@@ -19,13 +19,13 @@ import (
 
 const DefaultPlatformSecretName = "vcluster-platform-api-key"
 
-func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.Interface, importName, namespace, project string) error {
-	managementClient, err := c.Management()
+func ApplyPlatformSecret(ctx context.Context, client Client, kubeClient kubernetes.Interface, importName, namespace, project string) error {
+	managementClient, err := client.Management()
 	if err != nil {
 		return fmt.Errorf("create management client: %w", err)
 	}
 
-	platformConfig := c.Config().Platform
+	platformConfig := client.Config().Platform
 
 	// is the access key still valid?
 	if platformConfig.VirtualClusterAccessKey != "" {
@@ -36,7 +36,7 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 			},
 		}, metav1.CreateOptions{})
 		cancel()
-		if err != nil || self.Status.Subject != c.self.Status.Subject {
+		if err != nil || self.Status.Subject != client.Self().Status.Subject {
 			platformConfig.VirtualClusterAccessKey = ""
 		}
 	}
@@ -45,11 +45,11 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 	if platformConfig.VirtualClusterAccessKey == "" {
 		user := ""
 		team := ""
-		if c.self.Status.User != nil {
-			user = c.self.Status.User.Name
+		if client.Self().Status.User != nil {
+			user = client.Self().Status.User.Name
 		}
-		if c.self.Status.Team != nil {
-			team = c.self.Status.Team.Name
+		if client.Self().Status.Team != nil {
+			team = client.Self().Status.Team.Name
 		}
 
 		accessKey, err := managementClient.Loft().ManagementV1().OwnedAccessKeys().Create(ctx, &managementv1.OwnedAccessKey{
@@ -73,17 +73,17 @@ func (c *client) ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.
 		}
 
 		platformConfig.VirtualClusterAccessKey = accessKey.Spec.Key
-		c.Config().Platform = platformConfig
-		if err := c.Save(); err != nil {
+		client.Config().Platform = platformConfig
+		if err := client.Save(); err != nil {
 			return fmt.Errorf("save vCluster platform config: %w", err)
 		}
 	}
 
 	// build secret payload
 	payload := map[string][]byte{
-		"accessKey": []byte(c.config.Platform.VirtualClusterAccessKey),
-		"host":      []byte(strings.TrimPrefix(c.config.Platform.Host, "https://")),
-		"insecure":  []byte(strconv.FormatBool(c.config.Platform.Insecure)),
+		"accessKey": []byte(client.Config().Platform.VirtualClusterAccessKey),
+		"host":      []byte(strings.TrimPrefix(client.Config().Platform.Host, "https://")),
+		"insecure":  []byte(strconv.FormatBool(client.Config().Platform.Insecure)),
 	}
 	if project != "" {
 		payload["project"] = []byte(project)

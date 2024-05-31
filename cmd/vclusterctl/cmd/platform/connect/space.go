@@ -111,7 +111,7 @@ func (cmd *SpaceCmd) connectSpace(ctx context.Context, platformClient platform.C
 	}
 
 	// create kube context options
-	contextOptions, err := platformClient.CreateSpaceInstanceOptions(ctx, cmd.Config, cmd.Project, spaceInstance, true)
+	contextOptions, err := platform.CreateSpaceInstanceOptions(ctx, platformClient, cmd.Config, cmd.Project, spaceInstance, true)
 	if err != nil {
 		return err
 	}

@@ -120,7 +120,7 @@ func printToken(token string) error {
 }
 
 func getCertificate(cmd *AccessKeyCmd, platformClient platform.Client) error {
-	certificateData, keyData, err := platformClient.VirtualClusterAccessPointCertificate(cmd.Project, cmd.VirtualCluster, false)
+	certificateData, keyData, err := platform.VirtualClusterAccessPointCertificate(platformClient, cmd.Project, cmd.VirtualCluster, false)
 	if err != nil {
 		return err
 	}
