@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
@@ -73,7 +74,8 @@ vcluster platform connect space myspace --project myproject
 
 // Run executes the command
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	cfg := cmd.LoadedConfig(cmd.log)
+	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -93,10 +95,10 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	return cmd.connectSpace(ctx, platformClient, spaceName)
+	return cmd.connectSpace(ctx, platformClient, spaceName, cfg)
 }
 
-func (cmd *SpaceCmd) connectSpace(ctx context.Context, platformClient platform.Client, spaceName string) error {
+func (cmd *SpaceCmd) connectSpace(ctx context.Context, platformClient platform.Client, spaceName string, cfg *config.CLI) error {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
@@ -122,7 +124,7 @@ func (cmd *SpaceCmd) connectSpace(ctx context.Context, platformClient platform.C
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions)
+		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}

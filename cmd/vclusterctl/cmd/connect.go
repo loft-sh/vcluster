@@ -15,10 +15,9 @@ import (
 
 // ConnectCmd holds the cmd flags
 type ConnectCmd struct {
+	Log log.Logger
 	*flags.GlobalFlags
 	cli.ConnectOptions
-
-	Log log.Logger
 }
 
 // NewConnectCmd creates a new command

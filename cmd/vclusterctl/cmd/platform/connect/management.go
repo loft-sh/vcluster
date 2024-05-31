@@ -55,7 +55,8 @@ vcluster platform connect management
 }
 
 func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
-	platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.LoadedConfig(cmd.log))
+	cfg := cmd.LoadedConfig(cmd.log)
+	platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cfg)
 	if err != nil {
 		return err
 	}
@@ -74,7 +75,7 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions)
+		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}

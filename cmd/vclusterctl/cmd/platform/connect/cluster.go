@@ -20,12 +20,11 @@ import (
 
 // ClusterCmd holds the cmd flags
 type ClusterCmd struct {
+	log log.Logger
 	*flags.GlobalFlags
 
 	Print                        bool
 	DisableDirectClusterEndpoint bool
-
-	log log.Logger
 }
 
 // newClusterCmd creates a new command
@@ -64,7 +63,8 @@ vcluster platform connect cluster mycluster
 
 // Run executes the command
 func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	cfg := cmd.LoadedConfig(cmd.log)
+	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions)
+		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}

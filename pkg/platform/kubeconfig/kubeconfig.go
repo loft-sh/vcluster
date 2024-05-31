@@ -1,11 +1,13 @@
 package kubeconfig
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -30,11 +32,11 @@ type ContextOptions struct {
 }
 
 func SpaceInstanceContextName(projectName, spaceInstanceName string) string {
-	return "loft_" + spaceInstanceName + "_" + projectName
+	return "vcluster-platform_" + spaceInstanceName + "_" + projectName
 }
 
 func VirtualClusterInstanceContextName(projectName, virtualClusterInstance string) string {
-	return "loft-vcluster_" + virtualClusterInstance + "_" + projectName
+	return "vcluster-platform-vcluster_" + virtualClusterInstance + "_" + projectName
 }
 
 func virtualClusterInstanceProjectAndNameFromContextName(contextName string) (string, string) {
@@ -42,7 +44,7 @@ func virtualClusterInstanceProjectAndNameFromContextName(contextName string) (st
 }
 
 func SpaceContextName(clusterName, namespaceName string) string {
-	contextName := "loft_"
+	contextName := "vcluster-platform_"
 	if namespaceName != "" {
 		contextName += namespaceName + "_"
 	}
@@ -52,21 +54,21 @@ func SpaceContextName(clusterName, namespaceName string) string {
 }
 
 func VirtualClusterContextName(clusterName, namespaceName, virtualClusterName string) string {
-	return "loft-vcluster_" + virtualClusterName + "_" + namespaceName + "_" + clusterName
+	return "vcluster-platform-vcluster_" + virtualClusterName + "_" + namespaceName + "_" + clusterName
 }
 
 func ManagementContextName() string {
-	return "loft-management"
+	return "vcluster-platform-management"
 }
 
-func ParseContext(contextName string) (isLoftContext bool, cluster string, namespace string, vCluster string) {
+func ParseContext(contextName string) (isPlatformContext bool, cluster string, namespace string, vCluster string) {
 	splitted := strings.Split(contextName, "_")
-	if len(splitted) == 0 || (splitted[0] != "loft" && splitted[0] != "loft-vcluster") {
+	if len(splitted) == 0 || (splitted[0] != "vcluster-platform" && splitted[0] != "vcluster-platform-vcluster") {
 		return false, "", "", ""
 	}
 
 	// cluster or space context
-	if splitted[0] == "loft" {
+	if splitted[0] == "vcluster-platform" {
 		if len(splitted) > 3 || len(splitted) == 1 {
 			return false, "", "", ""
 		} else if len(splitted) == 2 {
@@ -116,7 +118,7 @@ func DeleteContext(contextName string) error {
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), config, false)
 }
 
-func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, namespaceName string, setActive bool) error {
+func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, namespaceName string, setActive bool, cfg *config.CLI) error {
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return err
@@ -133,6 +135,13 @@ func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.Au
 
 	config.Contexts[contextName] = context
 	if setActive {
+		if !strings.HasPrefix(config.CurrentContext, "vcluster-platform") {
+			cfg.PreviousContext = config.CurrentContext
+			if err := cfg.Save(); err != nil {
+				return fmt.Errorf("save config: %w", err)
+			}
+		}
+
 		config.CurrentContext = contextName
 	}
 
@@ -169,14 +178,14 @@ func printKubeConfigTo(contextName string, cluster *api.Cluster, authInfo *api.A
 }
 
 // UpdateKubeConfig updates the kube config and adds the virtual cluster context
-func UpdateKubeConfig(options ContextOptions) error {
+func UpdateKubeConfig(options ContextOptions, cfg *config.CLI) error {
 	contextName, cluster, authInfo, err := createContext(options)
 	if err != nil {
 		return err
 	}
 
 	// we don't want to set the space name here as the default namespace in the virtual cluster, because it couldn't exist
-	return updateKubeConfig(contextName, cluster, authInfo, options.CurrentNamespace, options.SetActive)
+	return updateKubeConfig(contextName, cluster, authInfo, options.CurrentNamespace, options.SetActive, cfg)
 }
 
 // PrintKubeConfigTo prints the given config to the writer

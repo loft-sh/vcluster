@@ -36,7 +36,8 @@ import (
 )
 
 func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, virtualClusterName string, log log.Logger) error {
-	platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(log))
+	cfg := globalFlags.LoadedConfig(log)
+	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -154,7 +155,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 		}
 
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions)
+		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}
