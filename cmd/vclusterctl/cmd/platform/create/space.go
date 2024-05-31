@@ -13,7 +13,6 @@ import (
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/create"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/loftctl/v4/pkg/parameters"
-	"github.com/loft-sh/loftctl/v4/pkg/space"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/loftctl/v4/pkg/version"
@@ -327,7 +326,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 	}
 
 	// wait until space is ready
-	spaceInstance, err = space.WaitForSpaceInstance(ctx, managementClient, spaceInstance.Namespace, spaceInstance.Name, !cmd.SkipWait, cmd.Log)
+	spaceInstance, err = platform.WaitForSpaceInstance(ctx, managementClient, spaceInstance.Namespace, spaceInstance.Name, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}

@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/space"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -104,7 +103,7 @@ func (cmd *SpaceCmd) connectSpace(ctx context.Context, platformClient platform.C
 	}
 
 	// wait until space is ready
-	spaceInstance, err := space.WaitForSpaceInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
+	spaceInstance, err := platform.WaitForSpaceInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
 	if err != nil {
 		return err
 	}
