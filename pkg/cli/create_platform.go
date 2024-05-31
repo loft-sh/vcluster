@@ -203,10 +203,6 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 			VirtualClusterInstanceSpec: storagev1.VirtualClusterInstanceSpec{
 				Description: options.Description,
 				DisplayName: options.DisplayName,
-				Owner: &storagev1.UserOrTeam{
-					User: options.User,
-					Team: options.Team,
-				},
 				Template: &storagev1.VirtualClusterTemplateDefinition{
 					VirtualClusterCommonSpec: agentstoragev1.VirtualClusterCommonSpec{
 						HelmRelease: agentstoragev1.VirtualClusterHelmRelease{
@@ -231,6 +227,10 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 				},
 			},
 		},
+	}
+
+	if options.User != "" || options.Team != "" {
+		updateOwner(options.User, options.Team, virtualClusterInstance)
 	}
 
 	// set links
@@ -262,6 +262,18 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 	}
 
 	return virtualClusterInstance, nil
+}
+
+func updateOwner(user, team string, virtualClusterInstance *managementv1.VirtualClusterInstance) {
+	owner := &storagev1.UserOrTeam{}
+	if user != "" {
+		owner.User = user
+	}
+	if team != "" {
+		owner.Team = team
+	}
+
+	virtualClusterInstance.Spec.VirtualClusterInstanceSpec.Owner = owner
 }
 
 func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client, options *CreateOptions, virtualClusterInstance *managementv1.VirtualClusterInstance, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
@@ -411,10 +423,6 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 			VirtualClusterInstanceSpec: storagev1.VirtualClusterInstanceSpec{
 				Description: options.Description,
 				DisplayName: options.DisplayName,
-				Owner: &storagev1.UserOrTeam{
-					User: options.User,
-					Team: options.Team,
-				},
 				TemplateRef: &storagev1.TemplateRef{
 					Name:    virtualClusterTemplate.Name,
 					Version: options.TemplateVersion,
@@ -427,6 +435,10 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 				Parameters: resolvedParameters,
 			},
 		},
+	}
+
+	if options.User != "" || options.Team != "" {
+		updateOwner(options.User, options.Team, virtualClusterInstance)
 	}
 
 	// set links
