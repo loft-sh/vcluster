@@ -33,6 +33,7 @@ type DeleteOptions struct {
 	Wait                bool
 	KeepPVC             bool
 	DeleteNamespace     bool
+	DeleteContext       bool
 	DeleteConfigMap     bool
 	AutoDeleteNamespace bool
 	IgnoreNotFound      bool

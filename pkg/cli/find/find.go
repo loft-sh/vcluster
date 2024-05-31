@@ -76,7 +76,7 @@ func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, na
 	if len(platformVClusters) == 0 {
 		return nil, &VClusterNotFoundError{Name: name}
 	} else if len(platformVClusters) == 1 {
-		return &platformVClusters[0], nil
+		return platformVClusters[0], nil
 	}
 
 	// check if terminal
@@ -102,7 +102,7 @@ func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, na
 	// match answer
 	for idx, s := range questionOptions {
 		if s == selectedVCluster {
-			return &platformVClusters[idx], nil
+			return platformVClusters[idx], nil
 		}
 	}
 

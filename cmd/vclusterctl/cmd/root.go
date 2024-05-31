@@ -12,7 +12,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/credits"
-	cmdpro "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
+	cmdplatform "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
@@ -107,6 +107,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	// add top level commands
 	rootCmd.AddCommand(NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(NewCreateCmd(globalFlags))
+	rootCmd.AddCommand(NewImportCmd(globalFlags))
 	rootCmd.AddCommand(NewListCmd(globalFlags))
 	rootCmd.AddCommand(NewDeleteCmd(globalFlags))
 	rootCmd.AddCommand(NewPauseCmd(globalFlags))
@@ -120,13 +121,8 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(NewInfoCmd(globalFlags))
 	rootCmd.AddCommand(set.NewSetCmd(globalFlags, defaults, cfg))
 
-	// add pro commands
-	proCmd, err := cmdpro.NewProCmd(globalFlags, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create pro command: %w", err)
-	}
-	rootCmd.AddCommand(proCmd)
-	platformCmd, err := cmdpro.NewPlatformCmd(globalFlags, cfg)
+	// add platform commands
+	platformCmd, err := cmdplatform.NewPlatformCmd(globalFlags, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create platform command: %w", err)
 	}
@@ -149,12 +145,6 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 		return nil, fmt.Errorf("failed to create ui command: %w", err)
 	}
 	rootCmd.AddCommand(uiCmd)
-
-	importCmd, err := NewActivateCmd(globalFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create activate command: %w", err)
-	}
-	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(credits.NewCreditsCmd())
 
 	// add completion command

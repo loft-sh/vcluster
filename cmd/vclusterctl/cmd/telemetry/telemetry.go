@@ -9,8 +9,7 @@ func NewTelemetryCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	telemetryCmd := &cobra.Command{
 		Use:   "telemetry",
 		Short: "Sets your vcluster telemetry preferences",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################## vcluster telemetry #################
 #######################################################
 Sets your vcluster telemetry preferences.

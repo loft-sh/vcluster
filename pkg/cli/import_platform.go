@@ -22,7 +22,7 @@ const (
 	loftClusterAnnotation = "loft.sh/cluster-name"
 )
 
-func ActivatePlatform(ctx context.Context, options *ActivateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+func ImportPlatform(ctx context.Context, options *ImportOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	platformClient, err := platform.NewClientFromConfig(ctx, globalFlags.LoadedConfig(log))
 	if err != nil {
 		return err

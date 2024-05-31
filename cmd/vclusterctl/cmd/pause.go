@@ -31,8 +31,7 @@ func NewPauseCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Use:     "pause" + loftctlUtil.VClusterNameOnlyUseLine,
 		Aliases: []string{"sleep"},
 		Short:   "Pauses a virtual cluster",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################### vcluster pause ####################
 #######################################################
 Pause will stop a virtual cluster and free all its used

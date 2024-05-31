@@ -53,16 +53,18 @@ type CreateOptions struct {
 	Distro                string
 	Values                []string
 	SetValues             []string
+	Print                 bool
 
 	KubernetesVersion string
 
 	CreateNamespace bool
 	UpdateCurrent   bool
+	CreateContext   bool
+	SwitchContext   bool
 	Expose          bool
 	ExposeLocal     bool
-
-	Connect bool
-	Upgrade bool
+	Connect         bool
+	Upgrade         bool
 
 	// Platform
 	Activate        bool
@@ -75,6 +77,13 @@ type CreateOptions struct {
 	Labels          []string
 	Params          string
 	SetParams       []string
+	Description     string
+	DisplayName     string
+	Team            string
+	User            string
+	UseExisting     bool
+	Recreate        bool
+	SkipWait        bool
 }
 
 var CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
@@ -274,11 +283,12 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
-	// check if we should connect to the vcluster
-	if cmd.Connect {
+	// check if we should connect to the vcluster or print the kubeconfig
+	if cmd.Connect || cmd.Print {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s", vClusterName, cmd.Namespace)
 		return ConnectHelm(ctx, &ConnectOptions{
 			UpdateCurrent:         cmd.UpdateCurrent,
+			Print:                 cmd.Print,
 			KubeConfigContextName: cmd.KubeConfigContextName,
 			KubeConfig:            "./kubeconfig.yaml",
 		}, cmd.GlobalFlags, vClusterName, nil, cmd.log)

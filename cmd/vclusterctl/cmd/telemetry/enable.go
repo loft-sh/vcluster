@@ -22,8 +22,7 @@ func enable(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "enable",
 		Short: "Enables collection of anonymized vcluster telemetry",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ############### vcluster telemetry enable #############
 #######################################################
 Enables collection of anonymized vcluster telemetry

@@ -20,16 +20,16 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/auth"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v4/pkg/constants"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
-	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v4/pkg/parameters"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/version"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/vcluster/pkg/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	perrors "github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
@@ -39,7 +39,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/ptr"
 )
 
@@ -53,8 +52,6 @@ const (
 	RefreshToken                    = time.Minute * 30
 	CacheFolder                     = ".vcluster"
 )
-
-var errNoClusterAccess = errors.New("the user has no access to any cluster")
 
 var (
 	Self     *managementv1.Self
@@ -77,15 +74,10 @@ type Client interface {
 	Cluster(cluster string) (kube.Interface, error)
 	ClusterConfig(cluster string) (*rest.Config, error)
 
-	VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error)
-	ListVClusters(ctx context.Context, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error)
-	VirtualClusterConfig(cluster, namespace, virtualCluster string) (*rest.Config, error)
+	ListVClusters(ctx context.Context, virtualClusterName, projectName string) ([]*VirtualClusterInstanceProject, error)
 	CreateVirtualClusterInstanceOptions(ctx context.Context, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, setActive bool) (kubeconfig.ContextOptions, error)
 	VirtualClusterAccessPointCertificate(project, virtualCluster string, forceRefresh bool) (string, string, error)
 	ResolveTemplate(ctx context.Context, project, template, templateVersion string, setParams []string, fileParams string, log log.Logger) (*managementv1.VirtualClusterTemplate, string, error)
-
-	SelectProjectOrCluster(ctx context.Context, clusterName, projectName string, allowClusterOnly bool, log log.Logger) (cluster string, project string, err error)
-	SelectCluster(ctx context.Context, log log.Logger) (string, error)
 
 	ApplyPlatformSecret(ctx context.Context, kubeClient kubernetes.Interface, importName, namespace, project string) error
 
@@ -99,11 +91,6 @@ type Client interface {
 type LoginClient interface {
 	Login(host string, insecure bool, log log.Logger) error
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
-}
-
-type VirtualClusterInstanceProject struct {
-	VirtualCluster *managementv1.VirtualClusterInstance
-	Project        *managementv1.Project
 }
 
 func NewClientFromConfig(ctx context.Context, config *config.CLI) (Client, error) {
@@ -337,162 +324,6 @@ func (c *client) SelectVirtualClusterTemplate(ctx context.Context, projectName, 
 	return nil, fmt.Errorf("answer not found")
 }
 
-func (c *client) SelectProjectOrCluster(ctx context.Context, clusterName, projectName string, allowClusterOnly bool, log log.Logger) (cluster string, project string, err error) {
-	if projectName != "" {
-		return clusterName, projectName, nil
-	} else if allowClusterOnly && clusterName != "" {
-		return clusterName, "", nil
-	}
-
-	managementClient, err := c.Management()
-	if err != nil {
-		return "", "", err
-	}
-
-	projectList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return "", "", err
-	}
-
-	projectNames := []string{}
-	for _, project := range projectList.Items {
-		projectNames = append(projectNames, clihelper.GetDisplayName(project.Name, project.Spec.DisplayName))
-	}
-
-	if len(projectNames) == 0 {
-		cluster, err := c.SelectCluster(ctx, log)
-		if err != nil {
-			if errors.Is(err, errNoClusterAccess) {
-				return "", "", fmt.Errorf("the user has no access to a project")
-			}
-
-			return "", "", err
-		}
-
-		return cluster, "", nil
-	}
-
-	var selectedProject *managementv1.Project
-	if len(projectNames) == 1 {
-		selectedProject = &projectList.Items[0]
-	} else {
-		answer, err := log.Question(&survey.QuestionOptions{
-			Question:     "Please choose a project to use",
-			DefaultValue: projectNames[0],
-			Options:      projectNames,
-		})
-		if err != nil {
-			return "", "", err
-		}
-		for idx, project := range projectList.Items {
-			if answer == clihelper.GetDisplayName(project.Name, project.Spec.DisplayName) {
-				selectedProject = &projectList.Items[idx]
-			}
-		}
-		if selectedProject == nil {
-			return "", "", fmt.Errorf("answer not found")
-		}
-	}
-
-	if clusterName == "" {
-		clusterName, err = c.SelectProjectCluster(ctx, selectedProject, log)
-		return clusterName, selectedProject.Name, err
-	}
-
-	return clusterName, selectedProject.Name, nil
-}
-
-// SelectCluster lets the user select a cluster
-func (c *client) SelectCluster(ctx context.Context, log log.Logger) (string, error) {
-	managementClient, err := c.Management()
-	if err != nil {
-		return "", err
-	}
-
-	clusterList, err := managementClient.Loft().ManagementV1().Clusters().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	clusterNames := []string{}
-	for _, cluster := range clusterList.Items {
-		clusterNames = append(clusterNames, clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName))
-	}
-
-	if len(clusterList.Items) == 0 {
-		return "", errNoClusterAccess
-	} else if len(clusterList.Items) == 1 {
-		return clusterList.Items[0].Name, nil
-	}
-
-	answer, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a cluster to use",
-		DefaultValue: clusterNames[0],
-		Options:      clusterNames,
-	})
-	if err != nil {
-		return "", err
-	}
-	for _, cluster := range clusterList.Items {
-		if answer == clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName) {
-			return cluster.Name, nil
-		}
-	}
-	return "", fmt.Errorf("answer not found")
-}
-
-// SelectProjectCluster lets the user select a cluster from the project's allowed clusters
-func (c *client) SelectProjectCluster(ctx context.Context, project *managementv1.Project, log log.Logger) (string, error) {
-	managementClient, err := c.Management()
-	if err != nil {
-		return "", err
-	}
-
-	clusterList, err := managementClient.Loft().ManagementV1().Projects().ListClusters(ctx, project.Name, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	anyClusterOption := "Any Cluster [Loft Selects Cluster]"
-	clusterNames := []string{}
-	for _, allowedCluster := range project.Spec.AllowedClusters {
-		if allowedCluster.Name == "*" {
-			clusterNames = append(clusterNames, anyClusterOption)
-			break
-		}
-	}
-
-	for _, cluster := range clusterList.Clusters {
-		clusterNames = append(clusterNames, clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName))
-	}
-
-	if len(clusterList.Clusters) == 0 {
-		return "", errNoClusterAccess
-	} else if len(clusterList.Clusters) == 1 {
-		return clusterList.Clusters[0].Name, nil
-	}
-
-	answer, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a cluster to use",
-		DefaultValue: clusterNames[0],
-		Options:      clusterNames,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	if answer == anyClusterOption {
-		return "", nil
-	}
-
-	for _, cluster := range clusterList.Clusters {
-		if answer == clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName) {
-			return cluster.Name, nil
-		}
-	}
-	return "", fmt.Errorf("answer not found")
-}
-
 func getCertificateAndKeyDataFromKubeConfig(config string) (string, string, error) {
 	clientCfg, err := clientcmd.NewClientConfigFromBytes([]byte(config))
 	if err != nil {
@@ -563,8 +394,66 @@ func (c *client) Cluster(cluster string) (kube.Interface, error) {
 	return kube.NewForConfig(restConfig)
 }
 
-func (c *client) VirtualClusterConfig(cluster, namespace, virtualCluster string) (*rest.Config, error) {
-	return c.restConfig("/kubernetes/virtualcluster/" + cluster + "/" + namespace + "/" + virtualCluster)
+func (c *client) Config() *config.CLI {
+	return c.config
+}
+
+type keyStruct struct {
+	Key string
+}
+
+// ListVClusters lists all virtual clusters across all projects if virtualClusterName and projectName are empty.
+// The list can be narrowed down by the given virtual cluster name and project name.
+func (c *client) ListVClusters(ctx context.Context, virtualClusterName, projectName string) ([]*VirtualClusterInstanceProject, error) {
+	managementClient, err := c.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	// gather projects and virtual cluster instances to access
+	projects := []*managementv1.Project{}
+	if projectName != "" {
+		project, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, projectName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil, fmt.Errorf("couldn't find or access project %s", projectName)
+			}
+
+			return nil, err
+		}
+
+		projects = append(projects, project)
+	} else {
+		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
+		if err != nil || len(projectsList.Items) == 0 {
+			return nil, err
+		}
+
+		for _, p := range projectsList.Items {
+			proj := p
+			projects = append(projects, &proj)
+		}
+	}
+
+	// gather virtual cluster instances in those projects
+	virtualClusters := []*VirtualClusterInstanceProject{}
+	for _, p := range projects {
+		if virtualClusterName != "" {
+			virtualClusterInstance, err := getProjectVirtualClusterInstance(ctx, managementClient, p, virtualClusterName)
+			if err != nil {
+				continue
+			}
+
+			virtualClusters = append(virtualClusters, virtualClusterInstance)
+		} else {
+			virtualClusters, err = getProjectVirtualClusterInstances(ctx, managementClient, p)
+			if err != nil {
+				continue
+			}
+		}
+	}
+
+	return virtualClusters, nil
 }
 
 func (c *client) CreateVirtualClusterInstanceOptions(ctx context.Context, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, setActive bool) (kubeconfig.ContextOptions, error) {
@@ -601,7 +490,7 @@ func (c *client) CreateVirtualClusterInstanceOptions(ctx context.Context, config
 		contextOptions.Server = c.Config().Platform.Host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name
 		contextOptions.InsecureSkipTLSVerify = c.Config().Platform.Insecure
 
-		data, err := retrieveCaData(cluster)
+		data, err := RetrieveCaData(cluster)
 		if err != nil {
 			return kubeconfig.ContextOptions{}, err
 		}
@@ -662,7 +551,7 @@ func (c *client) getVirtualClusterInstanceAccessConfig(ctx context.Context, virt
 	return &apiCfg, nil
 }
 
-func retrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
+func RetrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
 	if cluster == nil || cluster.Annotations == nil || cluster.Annotations[LoftDirectClusterEndpointCaData] == "" {
 		return nil, nil
 	}
@@ -673,77 +562,6 @@ func retrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
 	}
 
 	return data, nil
-}
-
-func (c *client) VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error) {
-	restConfig, err := c.VirtualClusterConfig(cluster, namespace, virtualCluster)
-	if err != nil {
-		return nil, err
-	}
-
-	return kube.NewForConfig(restConfig)
-}
-
-func (c *client) Config() *config.CLI {
-	return c.config
-}
-
-type keyStruct struct {
-	Key string
-}
-
-// ListVClusters lists all virtual clusters across all projects if virtualClusterName and projectName are empty.
-// The list can be narrowed down by the given virtual cluster name and project name.
-func (c *client) ListVClusters(ctx context.Context, virtualClusterName, projectName string) ([]VirtualClusterInstanceProject, error) {
-	managementClient, err := c.Management()
-	if err != nil {
-		return nil, err
-	}
-
-	// gather projects and virtual cluster instances to access
-	projects := []*managementv1.Project{}
-	if projectName != "" {
-		project, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, projectName, metav1.GetOptions{})
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				return nil, fmt.Errorf("couldn't find or access project %s", projectName)
-			}
-
-			return nil, err
-		}
-
-		projects = append(projects, project)
-	} else {
-		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
-		if err != nil || len(projectsList.Items) == 0 {
-			return nil, err
-		}
-
-		for _, p := range projectsList.Items {
-			proj := p
-			projects = append(projects, &proj)
-		}
-	}
-
-	// gather virtual cluster instances in those projects
-	virtualClusters := []VirtualClusterInstanceProject{}
-	for _, p := range projects {
-		if virtualClusterName != "" {
-			virtualClusterInstance, err := getProjectVirtualClusterInstance(ctx, managementClient, p, virtualClusterName)
-			if err != nil {
-				continue
-			}
-
-			virtualClusters = append(virtualClusters, virtualClusterInstance)
-		} else {
-			virtualClusters, err = getProjectVirtualClusterInstances(ctx, managementClient, p)
-			if err != nil {
-				continue
-			}
-		}
-	}
-
-	return virtualClusters, nil
 }
 
 func verifyHost(host string) error {
@@ -982,58 +800,4 @@ func startServer(redirectURI string, keyChannel chan keyStruct, log log.Logger) 
 
 	// returning reference so caller can call Shutdown()
 	return srv
-}
-
-func getProjectVirtualClusterInstance(ctx context.Context, managementClient kube.Interface, project *managementv1.Project, virtualClusterName string) (VirtualClusterInstanceProject, error) {
-	virtualClusterInstance := &managementv1.VirtualClusterInstance{}
-	err := managementClient.Loft().ManagementV1().RESTClient().
-		Get().
-		Resource("virtualclusterinstances").
-		Namespace(projectutil.ProjectNamespace(project.Name)).
-		Name(virtualClusterName).
-		VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
-		Param("extended", "true").
-		Do(ctx).
-		Into(virtualClusterInstance)
-	if err != nil {
-		return VirtualClusterInstanceProject{}, err
-	}
-
-	if !virtualClusterInstance.Status.CanUse {
-		return VirtualClusterInstanceProject{}, fmt.Errorf("no use access")
-	}
-
-	return VirtualClusterInstanceProject{
-		VirtualCluster: virtualClusterInstance,
-		Project:        project,
-	}, nil
-}
-
-func getProjectVirtualClusterInstances(ctx context.Context, managementClient kube.Interface, project *managementv1.Project) ([]VirtualClusterInstanceProject, error) {
-	virtualClusterInstanceList := &managementv1.VirtualClusterInstanceList{}
-	err := managementClient.Loft().ManagementV1().RESTClient().
-		Get().
-		Resource("virtualclusterinstances").
-		Namespace(projectutil.ProjectNamespace(project.Name)).
-		VersionedParams(&metav1.ListOptions{}, scheme.ParameterCodec).
-		Param("extended", "true").
-		Do(ctx).
-		Into(virtualClusterInstanceList)
-	if err != nil {
-		return nil, err
-	}
-
-	var virtualClusters []VirtualClusterInstanceProject
-	for _, virtualClusterInstance := range virtualClusterInstanceList.Items {
-		if !virtualClusterInstance.Status.CanUse {
-			continue
-		}
-
-		v := virtualClusterInstance
-		virtualClusters = append(virtualClusters, VirtualClusterInstanceProject{
-			VirtualCluster: &v,
-			Project:        project,
-		})
-	}
-	return virtualClusters, nil
 }

@@ -34,8 +34,7 @@ func NewCreateCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "create" + loftctlUtil.VClusterNameOnlyUseLine,
 		Short: "Create a new virtual cluster",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################### vcluster create ###################
 #######################################################
 Creates a new virtual cluster
@@ -62,13 +61,16 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cobraCmd.Flags().StringArrayVarP(&cmd.Values, "values", "f", []string{}, "Path where to load extra helm values from")
 	cobraCmd.Flags().StringArrayVar(&cmd.SetValues, "set", []string{}, "Set values for helm. E.g. --set 'persistence.enabled=true'")
+	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "If enabled, prints the context to the console")
 
 	cobraCmd.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", true, "If true updates the current kube config")
+	cobraCmd.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If the CLI should create a kube context for the space")
+	cobraCmd.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If the CLI should switch the current context to the new context")
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
-
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", true, "If true will run vcluster connect directly after the vcluster was created")
 	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
+	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "update", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
 
 	// Platform flags
 	cobraCmd.Flags().BoolVar(&cmd.Activate, "activate", true, "[PLATFORM] Activate the vCluster automatically when using helm manager")
@@ -80,7 +82,16 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.TemplateVersion, "template-version", "", "[PLATFORM] The vCluster platform template version to use")
 	cobraCmd.Flags().StringArrayVar(&cmd.Links, "link", []string{}, "[PLATFORM] A link to add to the vCluster. E.g. --link 'prod=http://exampleprod.com'")
 	cobraCmd.Flags().StringVar(&cmd.Params, "params", "", "[PLATFORM] If a template is used, this can be used to use a file for the parameters. E.g. --params path/to/my/file.yaml")
+	cobraCmd.Flags().StringVar(&cmd.Params, "parameters", "", "[PLATFORM] If a template is used, this can be used to use a file for the parameters. E.g. --parameters path/to/my/file.yaml")
 	cobraCmd.Flags().StringArrayVar(&cmd.SetParams, "set-param", []string{}, "[PLATFORM] If a template is used, this can be used to set a specific parameter. E.g. --set-param 'my-param=my-value'")
+	cobraCmd.Flags().StringArrayVar(&cmd.SetParams, "set-parameter", []string{}, "[PLATFORM] If a template is used, this can be used to set a specific parameter. E.g. --set-parameter 'my-param=my-value'")
+	cobraCmd.Flags().StringVar(&cmd.Description, "description", "", "[PLATFORM] The description to show in the platform UI for this virtual cluster")
+	cobraCmd.Flags().StringVar(&cmd.DisplayName, "display-name", "", "[PLATFORM] The display name to show in the platform UI for this virtual cluster")
+	cobraCmd.Flags().StringVar(&cmd.Team, "team", "", "[PLATFORM] The team to create the space for")
+	cobraCmd.Flags().StringVar(&cmd.User, "user", "", "[PLATFORM] The user to create the space for")
+	cobraCmd.Flags().BoolVar(&cmd.UseExisting, "use", false, "[PLATFORM] If the platform should use the virtual cluster if its already there")
+	cobraCmd.Flags().BoolVar(&cmd.Recreate, "recreate", false, "[PLATFORM] If enabled and there already exists a virtual cluster with this name, it will be deleted first")
+	cobraCmd.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "[PLATFORM] If true, will not wait until the virtual cluster is running")
 
 	// hidden / deprecated
 	cobraCmd.Flags().StringVar(&cmd.LocalChartDir, "local-chart-dir", "", "The virtual cluster local chart dir to use")

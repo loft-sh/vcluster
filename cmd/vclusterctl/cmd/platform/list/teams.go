@@ -10,7 +10,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"github.com/loft-sh/vcluster/pkg/platform/helper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -60,7 +59,7 @@ func (cmd *TeamsCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	userName, teamName, err := helper.GetCurrentUser(ctx, client)
+	userName, teamName, err := platform.GetCurrentUser(ctx, client)
 	if err != nil {
 		return err
 	} else if teamName != nil {

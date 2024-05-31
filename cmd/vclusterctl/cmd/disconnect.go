@@ -30,8 +30,7 @@ func NewDisconnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "disconnect",
 		Short: "Disconnects from a virtual cluster",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################# vcluster disconnect #################
 #######################################################
 Disconnect switches back the kube context if

@@ -22,5 +22,6 @@ Activates a kube context for the given cluster / space / vcluster / management.
 
 	connectCmd.AddCommand(newClusterCmd(globalFlags))
 	connectCmd.AddCommand(newManagementCmd(globalFlags, cfg))
+	connectCmd.AddCommand(newVClusterCmd(globalFlags))
 	return connectCmd
 }

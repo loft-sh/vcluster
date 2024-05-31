@@ -1,14 +1,20 @@
 package platform
 
 import (
+	"os"
 	"path/filepath"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/add"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/backup"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/connect"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/get"
+	vimport "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/import"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/list"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/share"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/sleep"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/wakeup"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
@@ -24,7 +30,13 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 ################## vcluster platform ##################
 #######################################################
 		`,
-		Args: cobra.NoArgs,
+		Args:    cobra.NoArgs,
+		Aliases: []string{"pro"},
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+			if len(os.Args) > 1 && os.Args[1] == "pro" {
+				log.GetInstance().Warnf("The \"vcluster pro\" command is deprecated, please use \"vcluster platform\" instead")
+			}
+		},
 	}
 	home, err := homedir.Dir()
 	if err != nil {
@@ -41,12 +53,15 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 	platformCmd.AddCommand(NewResetCmd(globalFlags))
 	platformCmd.AddCommand(add.NewAddCmd(globalFlags))
 	platformCmd.AddCommand(NewAccessKeyCmd(globalFlags))
-	platformCmd.AddCommand(NewImportCmd(globalFlags))
+	platformCmd.AddCommand(vimport.NewImportCmd(globalFlags))
 	platformCmd.AddCommand(get.NewGetCmd(globalFlags, defaults, cfg))
 	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags, cfg))
 	platformCmd.AddCommand(list.NewListCmd(globalFlags, cfg))
 	platformCmd.AddCommand(set.NewSetCmd(globalFlags, defaults, cfg))
 	platformCmd.AddCommand(backup.NewBackupCmd(globalFlags, cfg))
+	platformCmd.AddCommand(wakeup.NewWakeupCmd(globalFlags))
+	platformCmd.AddCommand(sleep.NewSleepCmd(globalFlags))
+	platformCmd.AddCommand(share.NewShareCmd(globalFlags))
 
 	return platformCmd, nil
 }

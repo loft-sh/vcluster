@@ -33,8 +33,7 @@ func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "connect" + useLine,
 		Short: "Connect to a virtual cluster",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################## vcluster connect ###################
 #######################################################
 Connect to a virtual cluster
@@ -74,6 +73,11 @@ vcluster connect test -n test -- kubectl get ns
 
 	// platform
 	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The platform project the vCluster is in")
+
+	// deprecated
+	_ = cobraCmd.Flags().MarkDeprecated("kube-config", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
+	_ = cobraCmd.Flags().MarkDeprecated("kube-config-context-name", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
+	_ = cobraCmd.Flags().MarkDeprecated("update-current", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
 
 	return cobraCmd
 }

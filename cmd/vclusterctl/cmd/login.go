@@ -12,7 +12,6 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v4/pkg/docker"
 	"github.com/loft-sh/loftctl/v4/pkg/kube"
@@ -162,7 +161,7 @@ func (cmd *LoginCmd) printLoginDetails(ctx context.Context) error {
 		return err
 	}
 
-	userName, teamName, err := helper.GetCurrentUser(ctx, managementClient)
+	userName, teamName, err := platform.GetCurrentUser(ctx, managementClient)
 	if err != nil {
 		return err
 	}
@@ -186,7 +185,7 @@ func dockerLogin(ctx context.Context, config *config.CLI, log log.Logger) error 
 	}
 
 	// get user name
-	userName, teamName, err := helper.GetCurrentUser(ctx, managementClient)
+	userName, teamName, err := platform.GetCurrentUser(ctx, managementClient)
 	if err != nil {
 		return err
 	}

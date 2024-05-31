@@ -22,8 +22,7 @@ func NewUpgradeCmd() *cobra.Command {
 	upgradeCmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade the vcluster CLI to the newest version",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################## vcluster upgrade ###################
 #######################################################
 Upgrades the vcluster CLI to the newest version
