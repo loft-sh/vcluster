@@ -15,14 +15,13 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/share"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/sleep"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/wakeup"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 )
 
-func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Command, error) {
+func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	platformCmd := &cobra.Command{
 		Use:   "platform",
 		Short: "vCluster platform subcommands",
@@ -54,11 +53,11 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) (*cobra.Com
 	platformCmd.AddCommand(add.NewAddCmd(globalFlags))
 	platformCmd.AddCommand(NewAccessKeyCmd(globalFlags))
 	platformCmd.AddCommand(vimport.NewImportCmd(globalFlags))
-	platformCmd.AddCommand(get.NewGetCmd(globalFlags, defaults, cfg))
-	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags, cfg))
-	platformCmd.AddCommand(list.NewListCmd(globalFlags, cfg))
-	platformCmd.AddCommand(set.NewSetCmd(globalFlags, defaults, cfg))
-	platformCmd.AddCommand(backup.NewBackupCmd(globalFlags, cfg))
+	platformCmd.AddCommand(get.NewGetCmd(globalFlags, defaults))
+	platformCmd.AddCommand(connect.NewConnectCmd(globalFlags))
+	platformCmd.AddCommand(list.NewListCmd(globalFlags))
+	platformCmd.AddCommand(set.NewSetCmd(globalFlags, defaults))
+	platformCmd.AddCommand(backup.NewBackupCmd(globalFlags))
 	platformCmd.AddCommand(wakeup.NewWakeupCmd(globalFlags))
 	platformCmd.AddCommand(sleep.NewSleepCmd(globalFlags))
 	platformCmd.AddCommand(share.NewShareCmd(globalFlags))

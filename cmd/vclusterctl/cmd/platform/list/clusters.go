@@ -7,7 +7,6 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
@@ -20,15 +19,13 @@ type ClustersCmd struct {
 	*flags.GlobalFlags
 
 	log log.Logger
-	cfg *config.CLI
 }
 
 // newClustersCmd creates a new spaces command
-func newClustersCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+func newClustersCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &ClustersCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
-		cfg:         cfg,
 	}
 	description := product.ReplaceWithHeader("list clusters", `
 List the vcluster platform clusters you have access to
@@ -52,7 +49,7 @@ vcluster platform list clusters
 
 // RunClusters executes the functionality
 func (cmd *ClustersCmd) RunClusters(ctx context.Context) error {
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

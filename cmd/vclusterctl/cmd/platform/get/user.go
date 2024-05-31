@@ -11,7 +11,6 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
@@ -31,7 +30,7 @@ const (
 )
 
 // newUserCmd creates a new command
-func newUserCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+func newUserCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &UserCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -49,7 +48,7 @@ vcluster platform get current-user
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
-			return cmd.Run(cobraCmd.Context(), cfg)
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -59,8 +58,8 @@ vcluster platform get current-user
 }
 
 // RunUsers executes the functionality
-func (cmd *UserCmd) Run(ctx context.Context, cfg *config.CLI) error {
-	baseClient, err := platform.InitClientFromConfig(ctx, cfg)
+func (cmd *UserCmd) Run(ctx context.Context) error {
+	baseClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

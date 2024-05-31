@@ -9,7 +9,6 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
@@ -30,7 +29,7 @@ type SharedSecretsCmd struct {
 }
 
 // newSharedSecretsCmd creates a new command
-func newSharedSecretsCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+func newSharedSecretsCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &SharedSecretsCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -48,7 +47,7 @@ vcluster platform list secrets
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
-			return cmd.Run(cobraCmd, cfg)
+			return cmd.Run(cobraCmd)
 		},
 	}
 
@@ -60,8 +59,8 @@ vcluster platform list secrets
 }
 
 // Run executes the functionality
-func (cmd *SharedSecretsCmd) Run(command *cobra.Command, cfg *config.CLI) error {
-	platformClient, err := platform.InitClientFromConfig(command.Context(), cfg)
+func (cmd *SharedSecretsCmd) Run(command *cobra.Command) error {
+	platformClient, err := platform.InitClientFromConfig(command.Context(), cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

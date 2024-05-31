@@ -5,7 +5,6 @@ import (
 
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
@@ -17,20 +16,16 @@ import (
 // ManagementCmd holds the cmd flags
 type ManagementCmd struct {
 	*flags.GlobalFlags
-
-	Print bool
-
 	log log.Logger
 
-	cfg *config.CLI
+	Print bool
 }
 
 // NewManagementCmd creates a new command
-func newManagementCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+func newManagementCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &ManagementCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
-		cfg:         cfg,
 	}
 
 	description := product.ReplaceWithHeader("connect management", `
@@ -60,7 +55,7 @@ vcluster platform connect management
 }
 
 func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
-	platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

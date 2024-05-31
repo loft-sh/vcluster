@@ -6,7 +6,6 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
@@ -19,14 +18,12 @@ type TeamsCmd struct {
 	*flags.GlobalFlags
 
 	log log.Logger
-	cfg *config.CLI
 }
 
-func newTeamsCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+func newTeamsCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &TeamsCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
-		cfg:         cfg,
 	}
 	description := product.ReplaceWithHeader("list teams", `
 List the vCluster platform teams you are a member of
@@ -49,7 +46,7 @@ vcluster platform list teams
 }
 
 func (cmd *TeamsCmd) Run(ctx context.Context) error {
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
 	}

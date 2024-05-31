@@ -8,7 +8,6 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/backup"
@@ -35,15 +34,13 @@ type ManagementCmd struct {
 	Namespace string
 	Filename  string
 	Skip      []string
-	cfg       *config.CLI
 }
 
 // newManagementCmd creates a new command for backing up the management plane
-func newManagementCmd(globalFlags *flags.GlobalFlags, cfg *config.CLI) *cobra.Command {
+func newManagementCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &ManagementCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
-		cfg:         cfg,
 	}
 
 	description := product.ReplaceWithHeader("backup management", `
@@ -61,7 +58,7 @@ vcluster platform backup management
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			// we need to set the project namespace prefix correctly here
-			_, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.cfg)
+			_, err := platform.InitClientFromConfig(cobraCmd.Context(), cmd.LoadedConfig(cmd.Log))
 			if err != nil {
 				return fmt.Errorf("create vCluster platform client: %w", err)
 			}
