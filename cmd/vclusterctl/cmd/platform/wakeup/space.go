@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -37,19 +36,6 @@ vcluster platform wakeup space myspace
 vcluster platform wakeup space myspace --project myproject
 #######################################################
 	`)
-	if upgrade.IsPlugin == "true" {
-		description = `
-#######################################################
-################ devspace wakeup space ################
-#######################################################
-wakeup resumes a sleeping space
-Example:
-devspace wakeup space myspace
-devspace wakeup space myspace --project myproject
-#######################################################
-	`
-	}
-
 	c := &cobra.Command{
 		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Wakes up a space",

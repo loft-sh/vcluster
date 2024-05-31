@@ -46,19 +46,6 @@ vcluster platform delete space myspace
 vcluster platform delete space myspace --project myproject
 ########################################################
 	`)
-	if upgrade.IsPlugin == "true" {
-		description = `
-#######################################################
-############### devspace delete space #################
-#######################################################
-Deletes a space from a cluster
-
-Example:
-devspace delete space myspace
-devspace delete space myspace --project myproject
-#######################################################
-	`
-	}
 	c := &cobra.Command{
 		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Deletes a space from a cluster",

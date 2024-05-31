@@ -10,7 +10,6 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -48,19 +47,6 @@ vcluster platform sleep space myspace
 vcluster platform sleep space myspace --project myproject
 #######################################################
 	`)
-	if upgrade.IsPlugin == "true" {
-		description = `
-#######################################################
-################ devspace sleep space #################
-#######################################################
-Sleep puts a space to sleep
-Example:
-devspace sleep space myspace
-devspace sleep space myspace --project myproject
-#######################################################
-	`
-	}
-
 	c := &cobra.Command{
 		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Put a space to sleep",

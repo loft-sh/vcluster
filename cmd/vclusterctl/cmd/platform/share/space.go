@@ -46,20 +46,6 @@ vcluster platform share space myspace --project myproject
 vcluster platform share space myspace --project myproject --user admin
 ########################################################
 	`)
-	if upgrade.IsPlugin == "true" {
-		description = `
-########################################################
-################# devspace share space #################
-########################################################
-Shares a space with another vCluster platform user or team. The user
-or team need to have access to the cluster.
-Example:
-devspace share space myspace
-devspace share space myspace --project myproject
-devspace share space myspace --project myproject --user admin
-########################################################
-	`
-	}
 	c := &cobra.Command{
 		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: product.Replace("Shares a space with another vCluster platform user or team"),

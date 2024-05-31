@@ -83,20 +83,6 @@ vcluster platform create space myspace --project myproject
 vcluster platform create space myspace --project myproject --team myteam
 ########################################################
 	`)
-	if upgrade.IsPlugin == "true" {
-		description = `
-########################################################
-################ devspace create space #################
-########################################################
-Creates a new space for the given project, if
-it does not yet exist.
-Example:
-devspace create space myspace
-devspace create space myspace --project myproject
-devspace create space myspace --project myproject --team myteam
-########################################################
-	`
-	}
 	c := &cobra.Command{
 		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Creates a new space in the given cluster",

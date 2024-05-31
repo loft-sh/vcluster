@@ -41,18 +41,6 @@ vcluster platform import space my-space --cluster connected-cluster \
   --project my-project --importname my-space
 #######################################################
 	`)
-	if upgrade.IsPlugin == "true" {
-		description = `
-#######################################################
-################ devspace import space ################
-#######################################################
-Imports a space into a vCluster platform project.
-Example:
-devspace import space my-space --cluster connected-cluster \
-  --project my-project --importname my-space
-#######################################################
-	`
-	}
 	c := &cobra.Command{
 		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: product.Replace("Imports a space into a Loft project"),

@@ -7,7 +7,6 @@ import (
 
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -36,17 +35,6 @@ Example:
 vcluster platform list spaces
 ########################################################
 	`)
-	if upgrade.IsPlugin == "true" {
-		description = `
-########################################################
-################ devspace list spaces ##################
-########################################################
-List the vCluster platform spaces you have access to
-Example:
-devspace list spaces
-########################################################
-	`
-	}
 	listCmd := &cobra.Command{
 		Use:   "spaces",
 		Short: product.Replace("Lists the vCluster platform spaces you have access to"),
