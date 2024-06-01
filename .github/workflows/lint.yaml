@@ -48,4 +48,4 @@ jobs:
           fi
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v5
+        uses: golangci/golangci-lint-action@v6
