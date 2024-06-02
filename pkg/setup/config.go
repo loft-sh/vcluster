@@ -76,7 +76,7 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 	// set global owner for use in owner references
 	err = SetGlobalOwner(
 		ctx,
-		vConfig.ControlPlaneClient,
+		vConfig.WorkloadClient,
 		vConfig.Experimental.MultiNamespaceMode.Enabled,
 		vConfig.WorkloadNamespace,
 		vConfig.WorkloadTargetNamespace,
@@ -330,8 +330,8 @@ func SetGlobalOwner(ctx context.Context, currentNamespaceClient kubernetes.Inter
 		return errors.Wrap(err, "get vcluster service")
 	}
 	// client doesn't populate typemeta sometimes
-	service.TypeMeta.APIVersion = "v1"
-	service.TypeMeta.Kind = "Service"
+	service.APIVersion = "v1"
+	service.Kind = "Service"
 	translate.Owner = service
 
 	return nil
