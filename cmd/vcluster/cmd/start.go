@@ -108,7 +108,7 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 	// // set global owner for use in owner references
 	err = SetGlobalOwner(
 		ctx,
-		controlPlaneClient,
+		workloadClient,
 		options.MultiNamespaceMode,
 		controlPlaneNamespace,
 		options.TargetNamespace,
