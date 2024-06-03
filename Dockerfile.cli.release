@@ -1,5 +1,5 @@
 # we use alpine for easier debugging
-FROM alpine:3.19
+FROM alpine:3.20
 
 ARG HELM_VERSION="v3.13.3"
 ARG TARGETARCH
