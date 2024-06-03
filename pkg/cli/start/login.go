@@ -12,7 +12,7 @@ import (
 
 	types "github.com/loft-sh/api/v4/pkg/auth"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/mgutz/ansi"
 	"github.com/sirupsen/logrus"
 	"github.com/skratchdot/open-golang/open"
@@ -89,13 +89,9 @@ func (l *LoftStarter) loginViaCLI(url string) error {
 	}
 
 	// log into loft
-	loader, err := client.NewClientFromPath(l.Config)
-	if err != nil {
-		return err
-	}
-
+	loginClient := platform.NewLoginClientFromConfig(l.LoadedConfig(l.Log))
 	url = strings.TrimSuffix(url, "/")
-	err = loader.LoginWithAccessKey(url, accessKey.AccessKey, true)
+	err = loginClient.LoginWithAccessKey(url, accessKey.AccessKey, true)
 	if err != nil {
 		return err
 	}
