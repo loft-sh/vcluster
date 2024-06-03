@@ -156,6 +156,13 @@ func proToVClusters(vClusters []procli.VirtualClusterInstanceProject, currentCon
 			status = "Pending"
 		}
 
+		version := ""
+		if vCluster.VirtualCluster.Status.VirtualCluster != nil && vCluster.VirtualCluster.Status.VirtualCluster.HelmRelease.Chart.Version != "" {
+			version = vCluster.VirtualCluster.Status.VirtualCluster.HelmRelease.Chart.Version
+		} else if vCluster.VirtualCluster.Spec.Template != nil && vCluster.VirtualCluster.Spec.Template.HelmRelease.Chart.Version != "" {
+			version = vCluster.VirtualCluster.Spec.Template.HelmRelease.Chart.Version
+		}
+
 		connected := strings.HasPrefix(currentContext, "vcluster-pro_"+vCluster.VirtualCluster.Name+"_"+vCluster.Project.Name)
 		vClusterOutput := VCluster{
 			Name:       vCluster.VirtualCluster.Spec.ClusterRef.VirtualCluster,
@@ -166,7 +173,7 @@ func proToVClusters(vClusters []procli.VirtualClusterInstanceProject, currentCon
 			AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
 			Status:     status,
 			Pro:        true,
-			Version:    vCluster.VirtualCluster.Status.VirtualCluster.HelmRelease.Chart.Version,
+			Version:    version,
 		}
 		output = append(output, vClusterOutput)
 	}
