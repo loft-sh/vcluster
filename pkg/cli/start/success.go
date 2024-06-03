@@ -10,11 +10,11 @@ import (
 
 	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/loftctl/v4/pkg/printhelper"
 	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -178,8 +178,8 @@ func (l *LoftStarter) successLocal() error {
 func (l *LoftStarter) isLoggedIn(url string) bool {
 	url = strings.TrimPrefix(url, "https://")
 
-	c, err := client.NewClientFromPath(l.Config)
-	return err == nil && strings.TrimPrefix(strings.TrimSuffix(c.Config().Host, "/"), "https://") == strings.TrimSuffix(url, "/")
+	c := platform.NewClientFromConfig(l.LoadedConfig(l.Log))
+	return strings.TrimPrefix(strings.TrimSuffix(c.Config().Platform.Host, "/"), "https://") == strings.TrimSuffix(url, "/")
 }
 
 func (l *LoftStarter) successRemote(ctx context.Context, host string) error {
