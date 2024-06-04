@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loft-sh/loftctl/v4/pkg/kube"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
