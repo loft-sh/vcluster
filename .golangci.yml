@@ -1,5 +1,7 @@
 run:
   timeout: 10m
+  skip-dirs:
+    - licenses
 
 linters:
   disable-all: true
