@@ -10,7 +10,6 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/create"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/loftctl/v4/pkg/parameters"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
@@ -19,6 +18,7 @@ import (
 	"github.com/loft-sh/log"
 	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/kube"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
@@ -249,12 +249,12 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 				},
 			},
 		}
-		create.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
-		_, err = create.UpdateLabels(spaceInstance, cmd.Labels)
+		kube.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
+		_, err = kube.UpdateLabels(spaceInstance, cmd.Labels)
 		if err != nil {
 			return err
 		}
-		_, err = create.UpdateAnnotations(spaceInstance, cmd.Annotations)
+		_, err = kube.UpdateAnnotations(spaceInstance, cmd.Annotations)
 		if err != nil {
 			return err
 		}
@@ -281,12 +281,12 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 		templateRefChanged := spaceInstance.Spec.TemplateRef.Name != spaceTemplate.Name
 		paramsChanged := spaceInstance.Spec.Parameters != resolvedParameters
 		versionChanged := (cmd.Version != "" && spaceInstance.Spec.TemplateRef.Version != cmd.Version)
-		linksChanged := create.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
-		labelsChanged, err := create.UpdateLabels(spaceInstance, cmd.Labels)
+		linksChanged := kube.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
+		labelsChanged, err := kube.UpdateLabels(spaceInstance, cmd.Labels)
 		if err != nil {
 			return err
 		}
-		annotationsChanged, err := create.UpdateAnnotations(spaceInstance, cmd.Annotations)
+		annotationsChanged, err := kube.UpdateAnnotations(spaceInstance, cmd.Annotations)
 		if err != nil {
 			return err
 		}
