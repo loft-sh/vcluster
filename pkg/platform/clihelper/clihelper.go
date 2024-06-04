@@ -22,7 +22,6 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	loftclientset "github.com/loft-sh/api/v4/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/loftctl/v4/pkg/httputil"
 	"github.com/loft-sh/loftctl/v4/pkg/portforward"
 	"github.com/loft-sh/log"
@@ -161,7 +160,7 @@ func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, n
 	// wait until we have a running loft pod
 	now := time.Now()
 	pod := &corev1.Pod{}
-	err := wait.PollUntilContextTimeout(ctx, time.Second*2, config.Timeout(), true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second*2, Timeout(), true, func(ctx context.Context) (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})

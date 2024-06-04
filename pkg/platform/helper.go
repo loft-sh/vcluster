@@ -38,11 +38,6 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	defaultTimeout     = 10 * time.Minute
-	timeoutEnvVariable = "LOFT_TIMEOUT"
-)
-
 var errNoClusterAccess = errors.New("the user has no access to any cluster")
 
 var waitDuration = 20 * time.Second
@@ -1061,7 +1056,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 	}
 
 	warnCounter := 0
-	return spaceInstance, wait.PollUntilContextTimeout(ctx, time.Second, Timeout(), true, func(ctx context.Context) (bool, error) {
+	return spaceInstance, wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), true, func(ctx context.Context) (bool, error) {
 		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -1082,16 +1077,6 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 
 		return true, nil
 	})
-}
-
-func Timeout() time.Duration {
-	if timeout := os.Getenv(timeoutEnvVariable); timeout != "" {
-		if parsedTimeout, err := time.ParseDuration(timeout); err == nil {
-			return parsedTimeout
-		}
-	}
-
-	return defaultTimeout
 }
 
 func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, setActive bool) (kubeconfig.ContextOptions, error) {
