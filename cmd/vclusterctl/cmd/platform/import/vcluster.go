@@ -3,10 +3,10 @@ package importcmd
 import (
 	"context"
 
-	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/spf13/cobra"
 )
 
@@ -35,10 +35,10 @@ vcluster platform import vcluster my-vcluster --cluster connected-cluster \
 	`
 
 	importCmd := &cobra.Command{
-		Use:   "vcluster" + loftctlUtil.VClusterNameOnlyUseLine,
+		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Imports a vCluster into a vCluster platform project",
 		Long:  description,
-		Args:  loftctlUtil.VClusterNameOnlyValidator,
+		Args:  util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
 		},

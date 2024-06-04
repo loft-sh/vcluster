@@ -6,9 +6,9 @@ import (
 
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
-	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/mgutz/ansi"
@@ -37,7 +37,7 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "vcluster" + loftctlUtil.VClusterNameOnlyUseLine,
+		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Shares a vcluster with another Platform user or team",
 		Long: `##########################################################################
 #################### vcluster platform list vclusters ####################
@@ -50,7 +50,7 @@ vcluster platform share vcluster myvcluster --project myproject
 vcluster platform share vcluster myvcluster --project myproject --user admin
 ##########################################################################
 	`,
-		Args: loftctlUtil.VClusterNameOnlyValidator,
+		Args: util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
 		},

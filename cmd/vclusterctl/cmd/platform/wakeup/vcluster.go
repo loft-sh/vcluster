@@ -3,10 +3,10 @@ package wakeup
 import (
 	"context"
 
-	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +26,7 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "vcluster" + loftctlUtil.VClusterNameOnlyUseLine,
+		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Lists all virtual clusters that are connected to the current platform",
 		Long: `#########################################################################
 ################### vcluster platform wakeup vcluster ###################
@@ -39,7 +39,7 @@ Example:
 vcluster platform wakeup vcluster test --namespace test
 #########################################################################
 	`,
-		Args: loftctlUtil.VClusterNameOnlyValidator,
+		Args: util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
 		},

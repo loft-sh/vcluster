@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -32,7 +32,7 @@ func NewCreateCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "create" + loftctlUtil.VClusterNameOnlyUseLine,
+		Use:   "create" + util.VClusterNameOnlyUseLine,
 		Short: "Create a new virtual cluster",
 		Long: `#######################################################
 ################### vcluster create ###################
@@ -43,7 +43,7 @@ Example:
 vcluster create test --namespace test
 #######################################################
 	`,
-		Args: loftctlUtil.VClusterNameOnlyValidator,
+		Args: util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
