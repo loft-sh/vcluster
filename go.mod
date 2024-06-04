@@ -7,6 +7,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/docker/cli v25.0.0+incompatible
+	github.com/docker/docker v25.0.5+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.4.1
 	github.com/go-openapi/loads v0.21.2
@@ -22,7 +23,6 @@ require (
 	github.com/loft-sh/agentapi/v4 v4.0.0-alpha.3.0.20240521134941-dc54ef9328bd
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v4 v4.0.0-alpha.3.0.20240521135612-e966098770bf
-	github.com/loft-sh/loftctl/v4 v4.0.0-alpha.3.0.20240521140248-72c9120ca910
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -80,7 +80,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
-	github.com/docker/docker v25.0.5+incompatible // indirect
+	github.com/creack/pty v1.1.21 // indirect
 	github.com/docker/docker-credential-helpers v0.8.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
