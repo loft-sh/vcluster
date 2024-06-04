@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -62,14 +63,7 @@ func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.Log)
 
 	// If manager has been passed as flag use it, otherwise read it from the config file
-	var manager string
-	if cmd.Manager != "" {
-		manager = cmd.Manager
-	} else {
-		manager = string(cfg.Manager.Type)
-	}
-
-	managerType, err := config.ParseManagerType(manager)
+	managerType, err := config.ParseManagerType(cmp.Or(cmd.Manager, string(cfg.Manager.Type)))
 	if err != nil {
 		return fmt.Errorf("parse manager type: %w", err)
 	}
