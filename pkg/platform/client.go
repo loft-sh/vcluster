@@ -19,9 +19,9 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/auth"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/constants"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -413,7 +413,7 @@ func getRestConfig(host, token string, insecure bool) (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	config.UserAgent = constants.LoftctlUserAgentPrefix + upgrade.GetVersion()
+	config.UserAgent = constants.GetVclusterUserAgent() + upgrade.GetVersion()
 
 	return config, nil
 }
