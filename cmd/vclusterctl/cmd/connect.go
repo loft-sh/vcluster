@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -95,7 +96,14 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	cfg := cmd.LoadedConfig(cmd.Log)
-	if cfg.Manager.Type == config.ManagerPlatform {
+
+	// If manager has been passed as flag use it, otherwise read it from the config file
+	managerType, err := config.ParseManagerType(cmp.Or(cmd.Manager, string(cfg.Manager.Type)))
+	if err != nil {
+		return fmt.Errorf("parse manager type: %w", err)
+	}
+
+	if managerType == config.ManagerPlatform {
 		return cli.ConnectPlatform(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
 	}
 

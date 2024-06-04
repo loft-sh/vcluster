@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
+	"fmt"
 
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
@@ -66,8 +68,13 @@ vcluster pause test --namespace test
 func (cmd *PauseCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.Log)
 
+	// If manager has been passed as flag use it, otherwise read it from the config file
+	managerType, err := config.ParseManagerType(cmp.Or(cmd.Manager, string(cfg.Manager.Type)))
+	if err != nil {
+		return fmt.Errorf("parse manager type: %w", err)
+	}
 	// check if we should create a platform vCluster
-	if cfg.Manager.Type == config.ManagerPlatform {
+	if managerType == config.ManagerPlatform {
 		return cli.PausePlatform(ctx, &cmd.PauseOptions, cfg, args[0], cmd.Log)
 	}
 

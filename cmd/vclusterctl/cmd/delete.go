@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
+	"fmt"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
@@ -67,13 +69,18 @@ vcluster delete test --namespace test
 func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.log)
 
+	// If manager has been passed as flag use it, otherwise read it from the config file
+	managerType, err := config.ParseManagerType(cmp.Or(cmd.Manager, string(cfg.Manager.Type)))
+	if err != nil {
+		return fmt.Errorf("parse manager type: %w", err)
+	}
 	// check if there is a platform client or we skip the info message
-	_, err := platform.InitClientFromConfig(ctx, cfg)
+	_, err = platform.InitClientFromConfig(ctx, cfg)
 	if err == nil {
 		config.PrintManagerInfo("delete", cfg.Manager.Type, cmd.log)
 	}
 
-	if cfg.Manager.Type == config.ManagerPlatform {
+	if managerType == config.ManagerPlatform {
 		return cli.DeletePlatform(ctx, &cmd.DeleteOptions, cfg, args[0], cmd.log)
 	}
 

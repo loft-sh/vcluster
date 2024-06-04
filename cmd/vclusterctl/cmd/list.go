@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"cmp"
+	"fmt"
+
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
@@ -52,10 +55,14 @@ vcluster list --namespace test
 
 // Run executes the functionality
 func (cmd *ListCmd) Run(cobraCmd *cobra.Command) error {
-	// check if we should create a platform vCluster
-
 	cfg := cmd.LoadedConfig(cmd.log)
-	if cfg.Manager.Type == config.ManagerPlatform {
+
+	// If manager has been passed as flag use it, otherwise read it from the config file
+	managerType, err := config.ParseManagerType(cmp.Or(cmd.Manager, string(cfg.Manager.Type)))
+	if err != nil {
+		return fmt.Errorf("parse manager type: %w", err)
+	}
+	if managerType == config.ManagerPlatform {
 		return cli.ListPlatform(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log)
 	}
 
