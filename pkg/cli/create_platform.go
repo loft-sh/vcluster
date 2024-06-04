@@ -13,14 +13,13 @@ import (
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/create"
-	"github.com/loft-sh/loftctl/v4/pkg/config"
-	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/kube"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/strvals"
@@ -77,7 +76,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 		log.Infof("Waiting until virtual cluster is deleted...")
 
 		// wait until the virtual cluster instance is deleted
-		waitErr := wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
+		waitErr := wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), false, func(ctx context.Context) (done bool, err error) {
 			virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(ctx, virtualClusterName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err
@@ -141,7 +140,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	}
 
 	// wait until virtual cluster is ready
-	virtualClusterInstance, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !options.SkipWait, log)
+	virtualClusterInstance, err = platform.WaitForVirtualClusterInstance(ctx, managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !options.SkipWait, log)
 	if err != nil {
 		return err
 	}
@@ -235,16 +234,16 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 	}
 
 	// set links
-	create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
+	kube.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
 	// set labels
-	_, err = create.UpdateLabels(virtualClusterInstance, options.Labels)
+	_, err = kube.UpdateLabels(virtualClusterInstance, options.Labels)
 	if err != nil {
 		return nil, err
 	}
 
 	// set annotations
-	_, err = create.UpdateAnnotations(virtualClusterInstance, options.Annotations)
+	_, err = kube.UpdateAnnotations(virtualClusterInstance, options.Annotations)
 	if err != nil {
 		return nil, err
 	}
@@ -309,16 +308,16 @@ func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client,
 	userChanged := (options.User != "" && virtualClusterInstance.Spec.Owner.User != options.User)
 
 	// set links
-	linksChanged := create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
+	linksChanged := kube.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
 	// set labels
-	labelsChanged, err := create.UpdateLabels(virtualClusterInstance, options.Labels)
+	labelsChanged, err := kube.UpdateLabels(virtualClusterInstance, options.Labels)
 	if err != nil {
 		return nil, err
 	}
 
 	// set annotations
-	annotationsChanged, err := create.UpdateAnnotations(virtualClusterInstance, options.Annotations)
+	annotationsChanged, err := kube.UpdateAnnotations(virtualClusterInstance, options.Annotations)
 	if err != nil {
 		return nil, err
 	}
@@ -444,16 +443,16 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 	}
 
 	// set links
-	create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
+	kube.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
 	// set labels
-	_, err = create.UpdateLabels(virtualClusterInstance, options.Labels)
+	_, err = kube.UpdateLabels(virtualClusterInstance, options.Labels)
 	if err != nil {
 		return nil, err
 	}
 
 	// set annotations
-	_, err = create.UpdateAnnotations(virtualClusterInstance, options.Annotations)
+	_, err = kube.UpdateAnnotations(virtualClusterInstance, options.Annotations)
 	if err != nil {
 		return nil, err
 	}
@@ -509,16 +508,16 @@ func upgradeWithTemplate(ctx context.Context, platformClient platform.Client, op
 	teamChanged := (options.Team != "" && virtualClusterInstance.Spec.Owner.Team != options.Team)
 	userChanged := (options.User != "" && virtualClusterInstance.Spec.Owner.User != options.User)
 
-	linksChanged := create.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
+	linksChanged := kube.SetCustomLinksAnnotation(virtualClusterInstance, options.Links)
 
 	// set labels
-	labelsChanged, err := create.UpdateLabels(virtualClusterInstance, options.Labels)
+	labelsChanged, err := kube.UpdateLabels(virtualClusterInstance, options.Labels)
 	if err != nil {
 		return nil, err
 	}
 
 	// set annotations
-	annotationsChanged, err := create.UpdateAnnotations(virtualClusterInstance, options.Annotations)
+	annotationsChanged, err := kube.UpdateAnnotations(virtualClusterInstance, options.Annotations)
 	if err != nil {
 		return nil, err
 	}

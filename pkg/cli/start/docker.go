@@ -15,10 +15,10 @@ import (
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/hash"
 	"github.com/loft-sh/log/scanner"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/mgutz/ansi"
 	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"

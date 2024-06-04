@@ -8,10 +8,10 @@ import (
 	"time"
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,7 +72,7 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 
 		if isSpace, spaceName := isSpaceContext(cluster); isSpace {
 			var spaceInstance *managementv1.SpaceInstance
-			err := wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
+			err := wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), true, func(ctx context.Context) (bool, error) {
 				var err error
 
 				spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(projectName)).Get(ctx, spaceName, metav1.GetOptions{})
@@ -97,7 +97,7 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 
 		if isVirtualCluster, virtualClusterName := isVirtualClusterContext(cluster); isVirtualCluster {
 			var virtualClusterInstance *managementv1.VirtualClusterInstance
-			err := wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
+			err := wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), true, func(ctx context.Context) (bool, error) {
 				var err error
 
 				virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(projectName)).Get(ctx, virtualClusterName, metav1.GetOptions{})

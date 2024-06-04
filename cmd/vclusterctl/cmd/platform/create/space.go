@@ -10,19 +10,17 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/create"
-	"github.com/loft-sh/loftctl/v4/pkg/config"
-	"github.com/loft-sh/loftctl/v4/pkg/parameters"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
-	"github.com/loft-sh/loftctl/v4/pkg/version"
 	"github.com/loft-sh/log"
 	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
+	"github.com/loft-sh/vcluster/pkg/kube"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -188,7 +186,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 		cmd.Log.Infof("Waiting until space is deleted...")
 
 		// wait until the space instance is deleted
-		waitErr := wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
+		waitErr := wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), false, func(ctx context.Context) (done bool, err error) {
 			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(ctx, spaceName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err
@@ -249,12 +247,12 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 				},
 			},
 		}
-		create.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
-		_, err = create.UpdateLabels(spaceInstance, cmd.Labels)
+		kube.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
+		_, err = kube.UpdateLabels(spaceInstance, cmd.Labels)
 		if err != nil {
 			return err
 		}
-		_, err = create.UpdateAnnotations(spaceInstance, cmd.Annotations)
+		_, err = kube.UpdateAnnotations(spaceInstance, cmd.Annotations)
 		if err != nil {
 			return err
 		}
@@ -281,12 +279,12 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 		templateRefChanged := spaceInstance.Spec.TemplateRef.Name != spaceTemplate.Name
 		paramsChanged := spaceInstance.Spec.Parameters != resolvedParameters
 		versionChanged := (cmd.Version != "" && spaceInstance.Spec.TemplateRef.Version != cmd.Version)
-		linksChanged := create.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
-		labelsChanged, err := create.UpdateLabels(spaceInstance, cmd.Labels)
+		linksChanged := kube.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
+		labelsChanged, err := kube.UpdateLabels(spaceInstance, cmd.Labels)
 		if err != nil {
 			return err
 		}
-		annotationsChanged, err := create.UpdateAnnotations(spaceInstance, cmd.Annotations)
+		annotationsChanged, err := kube.UpdateAnnotations(spaceInstance, cmd.Annotations)
 		if err != nil {
 			return err
 		}
@@ -351,14 +349,14 @@ func (cmd *SpaceCmd) resolveTemplate(ctx context.Context, platformClient platfor
 	var templateParameters []storagev1.AppParameter
 	if len(spaceTemplate.Spec.Versions) > 0 {
 		if cmd.Version == "" {
-			latestVersion := version.GetLatestVersion(spaceTemplate)
+			latestVersion := platform.GetLatestVersion(spaceTemplate)
 			if latestVersion == nil {
 				return nil, "", fmt.Errorf("couldn't find any version in template")
 			}
 
 			templateParameters = latestVersion.(*storagev1.SpaceTemplateVersion).Parameters
 		} else {
-			_, latestMatched, err := version.GetLatestMatchedVersion(spaceTemplate, cmd.Version)
+			_, latestMatched, err := platform.GetLatestMatchedVersion(spaceTemplate, cmd.Version)
 			if err != nil {
 				return nil, "", err
 			} else if latestMatched == nil {
@@ -372,7 +370,7 @@ func (cmd *SpaceCmd) resolveTemplate(ctx context.Context, platformClient platfor
 	}
 
 	// resolve space template parameters
-	resolvedParameters, err := parameters.ResolveTemplateParameters(cmd.Set, templateParameters, cmd.ParametersFile)
+	resolvedParameters, err := platform.ResolveTemplateParameters(cmd.Set, templateParameters, cmd.ParametersFile)
 	if err != nil {
 		return nil, "", err
 	}

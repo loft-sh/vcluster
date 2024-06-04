@@ -19,12 +19,12 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/auth"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/constants"
-	"github.com/loft-sh/loftctl/v4/pkg/kube"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	perrors "github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +58,7 @@ type Client interface {
 
 	Management() (kube.Interface, error)
 	Cluster(cluster string) (kube.Interface, error)
+	VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error)
 
 	Config() *config.CLI
 	Save() error
@@ -201,6 +202,19 @@ func (c *client) ClusterConfig(cluster string) (*rest.Config, error) {
 
 func (c *client) Cluster(cluster string) (kube.Interface, error) {
 	restConfig, err := c.ClusterConfig(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return kube.NewForConfig(restConfig)
+}
+
+func (c *client) VirtualClusterConfig(cluster, namespace, virtualCluster string) (*rest.Config, error) {
+	return c.restConfig("/kubernetes/virtualcluster/" + cluster + "/" + namespace + "/" + virtualCluster)
+}
+
+func (c *client) VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error) {
+	restConfig, err := c.VirtualClusterConfig(cluster, namespace, virtualCluster)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +413,7 @@ func getRestConfig(host, token string, insecure bool) (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	config.UserAgent = constants.LoftctlUserAgentPrefix + upgrade.GetVersion()
+	config.UserAgent = constants.GetVclusterUserAgent() + upgrade.GetVersion()
 
 	return config, nil
 }

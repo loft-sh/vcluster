@@ -10,11 +10,10 @@ import (
 
 	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v4/pkg/config"
-	"github.com/loft-sh/loftctl/v4/pkg/printhelper"
 	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/vcluster/pkg/cli/printhelper"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -195,7 +194,7 @@ func (l *LoftStarter) successRemote(ctx context.Context, host string) error {
 	printhelper.PrintDNSConfiguration(host, l.Log)
 
 	l.Log.Info("Waiting for you to configure DNS, so loft can be reached on https://" + host)
-	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, config.Timeout(), true, func(ctx context.Context) (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, clihelper.Timeout(), true, func(ctx context.Context) (done bool, err error) {
 		return clihelper.IsLoftReachable(ctx, host)
 	})
 	if err != nil {

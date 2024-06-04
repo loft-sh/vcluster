@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 )

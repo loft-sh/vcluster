@@ -17,19 +17,18 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/httputil"
-	"github.com/sirupsen/logrus"
-
-	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/v4/pkg/client/clientset_generated/clientset"
-	"github.com/loft-sh/loftctl/v4/pkg/config"
-	"github.com/loft-sh/loftctl/v4/pkg/portforward"
+	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
+	utilhttp "github.com/loft-sh/vcluster/pkg/util/http"
+	"github.com/loft-sh/vcluster/pkg/util/portforward"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
@@ -57,7 +57,21 @@ const defaultReleaseName = "loft"
 
 const LoftRouterDomainSecret = "loft-router-domain"
 
+const defaultTimeout = 10 * time.Minute
+
+const timeoutEnvVariable = "LOFT_TIMEOUT"
+
 var defaultDeploymentName = "loft"
+
+func Timeout() time.Duration {
+	if timeout := os.Getenv(timeoutEnvVariable); timeout != "" {
+		if parsedTimeout, err := time.ParseDuration(timeout); err == nil {
+			return parsedTimeout
+		}
+	}
+
+	return defaultTimeout
+}
 
 func GetDisplayName(name string, displayName string) string {
 	if displayName != "" {
@@ -87,6 +101,40 @@ func DisplayName(entityInfo *clusterv1.EntityInfo) string {
 	return entityInfo.Name
 }
 
+// GetProKubeConfig builds a pro kube config from options and client
+func GetProKubeConfig(options kubeconfig.ContextOptions) (*clientcmdapi.Config, error) {
+	contextName := options.Name
+	cluster := clientcmdapi.NewCluster()
+	cluster.Server = options.Server
+	cluster.CertificateAuthorityData = options.CaData
+	cluster.InsecureSkipTLSVerify = options.InsecureSkipTLSVerify
+
+	authInfo := clientcmdapi.NewAuthInfo()
+	if options.Token != "" || options.ClientCertificateData != nil || options.ClientKeyData != nil {
+		authInfo.Token = options.Token
+		authInfo.ClientKeyData = options.ClientKeyData
+		authInfo.ClientCertificateData = options.ClientCertificateData
+	}
+
+	config := clientcmdapi.NewConfig()
+	config.Clusters[contextName] = cluster
+	config.AuthInfos[contextName] = authInfo
+
+	// Update kube context
+	kubeContext := clientcmdapi.NewContext()
+	kubeContext.Cluster = contextName
+	kubeContext.AuthInfo = contextName
+	kubeContext.Namespace = options.CurrentNamespace
+
+	config.Contexts[contextName] = kubeContext
+	config.CurrentContext = contextName
+
+	// set kind & version
+	config.APIVersion = "v1"
+	config.Kind = "Config"
+	return config, nil
+}
+
 func GetLoftIngressHost(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (string, error) {
 	ingress, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
 	if err != nil {
@@ -112,7 +160,7 @@ func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, n
 	// wait until we have a running loft pod
 	now := time.Now()
 	pod := &corev1.Pod{}
-	err := wait.PollUntilContextTimeout(ctx, time.Second*2, config.Timeout(), true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second*2, Timeout(), true, func(ctx context.Context) (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})
@@ -273,7 +321,7 @@ type version struct {
 func IsLoftReachable(ctx context.Context, host string) (bool, error) {
 	// wait until loft is reachable at the given url
 	client := &http.Client{
-		Transport: httputil.InsecureTransport(),
+		Transport: utilhttp.InsecureTransport(),
 	}
 	url := "https://" + host + "/version"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

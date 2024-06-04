@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +28,7 @@ func NewPauseCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:     "pause" + loftctlUtil.VClusterNameOnlyUseLine,
+		Use:     "pause" + util.VClusterNameOnlyUseLine,
 		Aliases: []string{"sleep"},
 		Short:   "Pauses a virtual cluster",
 		Long: `#######################################################
@@ -46,7 +46,7 @@ Example:
 vcluster pause test --namespace test
 #######################################################
 	`,
-		Args:              loftctlUtil.VClusterNameOnlyValidator,
+		Args:              util.VClusterNameOnlyValidator,
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
