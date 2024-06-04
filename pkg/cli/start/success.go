@@ -10,11 +10,11 @@ import (
 
 	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/loftctl/v4/pkg/printhelper"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"

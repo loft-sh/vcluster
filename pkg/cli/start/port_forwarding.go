@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v4/pkg/config"
 	"github.com/loft-sh/loftctl/v4/pkg/httputil"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
