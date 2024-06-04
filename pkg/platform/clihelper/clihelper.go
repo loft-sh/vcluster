@@ -22,11 +22,11 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	loftclientset "github.com/loft-sh/api/v4/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/httputil"
 	"github.com/loft-sh/loftctl/v4/pkg/portforward"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
+	utilhttp "github.com/loft-sh/vcluster/pkg/util/http"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -321,7 +321,7 @@ type version struct {
 func IsLoftReachable(ctx context.Context, host string) (bool, error) {
 	// wait until loft is reachable at the given url
 	client := &http.Client{
-		Transport: httputil.InsecureTransport(),
+		Transport: utilhttp.InsecureTransport(),
 	}
 	url := "https://" + host + "/version"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
