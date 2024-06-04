@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 
-	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +28,7 @@ func NewDeleteCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "delete" + loftctlUtil.VClusterNameOnlyUseLine,
+		Use:   "delete" + util.VClusterNameOnlyUseLine,
 		Short: "Deletes a virtual cluster",
 		Long: `#######################################################
 ################### vcluster delete ###################
@@ -39,7 +39,7 @@ Example:
 vcluster delete test --namespace test
 #######################################################
 	`,
-		Args:              loftctlUtil.VClusterNameOnlyValidator,
+		Args:              util.VClusterNameOnlyValidator,
 		Aliases:           []string{"rm"},
 		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {

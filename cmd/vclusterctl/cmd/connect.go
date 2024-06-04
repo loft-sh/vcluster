@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	loftctlUtil "github.com/loft-sh/loftctl/v4/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +27,7 @@ func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Log:         log.GetInstance(),
 	}
 
-	useLine, nameValidator := loftctlUtil.NamedPositionalArgsValidator(true, false, "VCLUSTER_NAME")
+	useLine, nameValidator := util.NamedPositionalArgsValidator(true, false, "VCLUSTER_NAME")
 
 	cobraCmd := &cobra.Command{
 		Use:   "connect" + useLine,
