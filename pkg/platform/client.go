@@ -58,6 +58,7 @@ type Client interface {
 
 	Management() (kube.Interface, error)
 	Cluster(cluster string) (kube.Interface, error)
+	VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error)
 
 	Config() *config.CLI
 	Save() error
@@ -201,6 +202,19 @@ func (c *client) ClusterConfig(cluster string) (*rest.Config, error) {
 
 func (c *client) Cluster(cluster string) (kube.Interface, error) {
 	restConfig, err := c.ClusterConfig(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return kube.NewForConfig(restConfig)
+}
+
+func (c *client) VirtualClusterConfig(cluster, namespace, virtualCluster string) (*rest.Config, error) {
+	return c.restConfig("/kubernetes/virtualcluster/" + cluster + "/" + namespace + "/" + virtualCluster)
+}
+
+func (c *client) VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error) {
+	restConfig, err := c.VirtualClusterConfig(cluster, namespace, virtualCluster)
 	if err != nil {
 		return nil, err
 	}

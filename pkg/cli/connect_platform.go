@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -54,7 +53,7 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 	}
 
 	// wait for vCluster to become ready
-	vCluster.VirtualCluster, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, log)
+	vCluster.VirtualCluster, err = platform.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, log)
 	if err != nil {
 		return err
 	}

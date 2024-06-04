@@ -13,7 +13,6 @@ import (
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
 	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -141,7 +140,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	}
 
 	// wait until virtual cluster is ready
-	virtualClusterInstance, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !options.SkipWait, log)
+	virtualClusterInstance, err = platform.WaitForVirtualClusterInstance(ctx, managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !options.SkipWait, log)
 	if err != nil {
 		return err
 	}
