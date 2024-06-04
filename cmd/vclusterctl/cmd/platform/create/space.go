@@ -10,7 +10,6 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/parameters"
 	"github.com/loft-sh/loftctl/v4/pkg/version"
 	"github.com/loft-sh/log"
 	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
@@ -372,7 +371,7 @@ func (cmd *SpaceCmd) resolveTemplate(ctx context.Context, platformClient platfor
 	}
 
 	// resolve space template parameters
-	resolvedParameters, err := parameters.ResolveTemplateParameters(cmd.Set, templateParameters, cmd.ParametersFile)
+	resolvedParameters, err := platform.ResolveTemplateParameters(cmd.Set, templateParameters, cmd.ParametersFile)
 	if err != nil {
 		return nil, "", err
 	}
