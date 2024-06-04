@@ -71,10 +71,7 @@ vcluster connect test -n test -- kubectl get ns
 	cobraCmd.Flags().BoolVar(&cmd.BackgroundProxy, "background-proxy", false, "If specified, vCluster will create the background proxy in docker [its mainly used for vclusters with no nodeport service.]")
 
 	// platform
-	cobraCmd.Flags().StringVar(&cmd.Cluster, "cluster", "", "[PLATFORM] The cluster to use")
 	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The platform project the vCluster is in")
-	cobraCmd.Flags().StringVar(&cmd.User, "user", "", "[PLATFORM] The user to share the space with. The user needs to have access to the cluster")
-	cobraCmd.Flags().StringVar(&cmd.Team, "team", "", "[PLATFORM] The team to share the space with. The team needs to have access to the cluster")
 
 	// deprecated
 	_ = cobraCmd.Flags().MarkDeprecated("kube-config", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
