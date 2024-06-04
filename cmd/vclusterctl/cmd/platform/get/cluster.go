@@ -32,6 +32,7 @@ type clusterCmd struct {
 func newClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &clusterCmd{
 		GlobalFlags: globalFlags,
+		log:         log.GetInstance(),
 	}
 
 	return &cobra.Command{
