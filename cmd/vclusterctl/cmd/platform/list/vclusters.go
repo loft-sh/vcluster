@@ -21,6 +21,7 @@ type VClustersCmd struct {
 func newVClustersCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &VClustersCmd{
 		GlobalFlags: globalFlags,
+		log:         log.GetInstance(),
 	}
 
 	cobraCmd := &cobra.Command{
