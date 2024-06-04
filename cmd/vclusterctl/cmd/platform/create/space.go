@@ -10,7 +10,6 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/version"
 	"github.com/loft-sh/log"
 	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -350,14 +349,14 @@ func (cmd *SpaceCmd) resolveTemplate(ctx context.Context, platformClient platfor
 	var templateParameters []storagev1.AppParameter
 	if len(spaceTemplate.Spec.Versions) > 0 {
 		if cmd.Version == "" {
-			latestVersion := version.GetLatestVersion(spaceTemplate)
+			latestVersion := platform.GetLatestVersion(spaceTemplate)
 			if latestVersion == nil {
 				return nil, "", fmt.Errorf("couldn't find any version in template")
 			}
 
 			templateParameters = latestVersion.(*storagev1.SpaceTemplateVersion).Parameters
 		} else {
-			_, latestMatched, err := version.GetLatestMatchedVersion(spaceTemplate, cmd.Version)
+			_, latestMatched, err := platform.GetLatestMatchedVersion(spaceTemplate, cmd.Version)
 			if err != nil {
 				return nil, "", err
 			} else if latestMatched == nil {

@@ -16,7 +16,6 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/client/clientset_generated/clientset/scheme"
-	"github.com/loft-sh/loftctl/v4/pkg/version"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
@@ -1234,14 +1233,14 @@ func ResolveVirtualClusterTemplate(
 	var templateParameters []storagev1.AppParameter
 	if len(virtualClusterTemplate.Spec.Versions) > 0 {
 		if templateVersion == "" {
-			latestVersion := version.GetLatestVersion(virtualClusterTemplate)
+			latestVersion := GetLatestVersion(virtualClusterTemplate)
 			if latestVersion == nil {
 				return nil, "", fmt.Errorf("couldn't find any version in template")
 			}
 
 			templateParameters = latestVersion.(*storagev1.VirtualClusterTemplateVersion).Parameters
 		} else {
-			_, latestMatched, err := version.GetLatestMatchedVersion(virtualClusterTemplate, templateVersion)
+			_, latestMatched, err := GetLatestMatchedVersion(virtualClusterTemplate, templateVersion)
 			if err != nil {
 				return nil, "", err
 			} else if latestMatched == nil {
