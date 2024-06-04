@@ -95,7 +95,21 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	cfg := cmd.LoadedConfig(cmd.Log)
-	if cfg.Manager.Type == config.ManagerPlatform {
+
+	// If manager has been passed as flag use it, otherwise read it from the config file
+	var manager string
+	if cmd.Manager != "" {
+		manager = cmd.Manager
+	} else {
+		manager = string(cfg.Manager.Type)
+	}
+
+	managerType, err := config.ParseManagerType(manager)
+	if err != nil {
+		return fmt.Errorf("parse manager type: %w", err)
+	}
+
+	if managerType == config.ManagerPlatform {
 		return cli.ConnectPlatform(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
 	}
 

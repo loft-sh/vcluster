@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
@@ -59,8 +60,21 @@ vcluster resume test --namespace test
 // Run executes the functionality
 func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.Log)
+
+	// If manager has been passed as flag use it, otherwise read it from the config file
+	var manager string
+	if cmd.Manager != "" {
+		manager = cmd.Manager
+	} else {
+		manager = string(cfg.Manager.Type)
+	}
+
+	managerType, err := config.ParseManagerType(manager)
+	if err != nil {
+		return fmt.Errorf("parse manager type: %w", err)
+	}
 	// check if we should resume a platform backed virtual cluster
-	if cfg.Manager.Type == config.ManagerPlatform {
+	if managerType == config.ManagerPlatform {
 		return cli.ResumePlatform(ctx, &cmd.ResumeOptions, cfg, args[0], cmd.Log)
 	}
 
