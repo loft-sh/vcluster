@@ -112,7 +112,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	if useTemplate {
 		if virtualClusterInstance == nil {
 			// create via template
-			virtualClusterInstance, err = createWithTemplate(ctx, platformClient, options, virtualClusterName, log)
+			virtualClusterInstance, err = createWithTemplate(ctx, platformClient, options, virtualClusterName, globalFlags.Namespace, log)
 			if err != nil {
 				return err
 			}
@@ -389,7 +389,7 @@ func shouldCreateWithTemplate(ctx context.Context, platformClient platform.Clien
 	return true, nil
 }
 
-func createWithTemplate(ctx context.Context, platformClient platform.Client, options *CreateOptions, virtualClusterName string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func createWithTemplate(ctx context.Context, platformClient platform.Client, options *CreateOptions, virtualClusterName string, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	err := validateTemplateOptions(options)
 	if err != nil {
 		return nil, err
@@ -430,7 +430,8 @@ func createWithTemplate(ctx context.Context, platformClient platform.Client, opt
 				},
 				ClusterRef: storagev1.VirtualClusterClusterRef{
 					ClusterRef: storagev1.ClusterRef{
-						Cluster: options.Cluster,
+						Cluster:   options.Cluster,
+						Namespace: targetNamespace,
 					},
 				},
 				Parameters: resolvedParameters,
