@@ -770,9 +770,14 @@ func (cmd *ConnectCmd) executeCommand(vKubeConfig clientcmdapi.Config, command [
 func (cmd *ConnectCmd) getLocalVClusterConfig(vKubeConfig clientcmdapi.Config) clientcmdapi.Config {
 	// wait until we can access the virtual cluster
 	vKubeConfig = *vKubeConfig.DeepCopy()
-	for k := range vKubeConfig.Clusters {
-		vKubeConfig.Clusters[k].Server = "https://localhost:" + strconv.Itoa(cmd.LocalPort)
+
+	// update vCluster server address in case of OSS vClusters only
+	if cmd.LocalPort != 0 {
+		for k := range vKubeConfig.Clusters {
+			vKubeConfig.Clusters[k].Server = "https://localhost:" + strconv.Itoa(cmd.LocalPort)
+		}
 	}
+
 	return vKubeConfig
 }
 
