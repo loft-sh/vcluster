@@ -60,6 +60,8 @@ type Client interface {
 	Cluster(cluster string) (kube.Interface, error)
 	VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error)
 
+	ManagementConfig() (*rest.Config, error)
+
 	Config() *config.CLI
 	Save() error
 
