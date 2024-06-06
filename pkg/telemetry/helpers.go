@@ -9,6 +9,7 @@ import (
 	"github.com/denisbrodbeck/machineid"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	homedir "github.com/mitchellh/go-homedir"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
@@ -18,6 +19,14 @@ import (
 
 var (
 	SyncerVersion = "dev"
+
+	// platformVirtualClusterInstanceNamespaceLabel is the label key that holds the namespace of a
+	// virtual cluster an object is associated with.
+	platformVirtualClusterInstanceNamespaceLabel = "loft.sh/vcluster-instance-namespace"
+
+	// platformVirtualClusterInstanceNameLabel is the label key that holds the name of a virtual cluster
+	// an object is associated with.
+	platformVirtualClusterInstanceNameLabel = "loft.sh/vcluster-instance-name"
 )
 
 // getVClusterID provides instance ID based on the UID of the service
@@ -32,6 +41,37 @@ func getVClusterID(ctx context.Context, hostClient kubernetes.Interface, vCluste
 	}
 
 	return string(o.GetUID()), nil
+}
+
+func getVirtualClusterInstanceID(ctx context.Context, platformClient kube.Interface, virtualClusterNamespace, virtualClusterName string) (string, error) {
+	virtualCluster, err := platformClient.Agent().ClusterV1().VirtualClusters(virtualClusterNamespace).Get(ctx, virtualClusterName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("error getting virtual cluster %s/%s", virtualClusterNamespace, virtualClusterName)
+	}
+
+	virtualClusterInstanceNamespace := virtualCluster.GetLabels()[platformVirtualClusterInstanceNamespaceLabel]
+	virtualClusterInstanceName := virtualCluster.GetLabels()[platformVirtualClusterInstanceNameLabel]
+
+	virtualClusterInstance, err := platformClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstanceNamespace).Get(ctx, virtualClusterInstanceName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("error getting virtual cluster instance %s/%s: %w", virtualClusterInstanceNamespace, virtualClusterInstanceName, err)
+	}
+
+	return string(virtualClusterInstance.GetUID()), nil
+}
+
+// getVClusterCreationTimestamp returns the creation timestamp of the vCluster service
+func getVClusterCreationTimestamp(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, vClusterService string) (int64, error) {
+	if hostClient == nil || vClusterService == "" {
+		return 0, fmt.Errorf("kubernetes client or service is undefined")
+	}
+
+	o, err := getUniqueSyncerObject(ctx, hostClient, vClusterNamespace, vClusterService)
+	if err != nil {
+		return 0, err
+	}
+
+	return o.GetCreationTimestamp().Unix(), nil
 }
 
 // returns a Kubernetes resource that can be used to uniquely identify this syncer instance - PVC or Service
