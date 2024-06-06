@@ -46,7 +46,7 @@ vcluster platform wakeup vcluster test --namespace test
 	}
 
 	// Platform flags
-	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The vCluster platform project to use")
+	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "The vCluster platform project to use")
 
 	return cobraCmd
 }

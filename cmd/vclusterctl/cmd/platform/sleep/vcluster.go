@@ -50,8 +50,8 @@ vcluster platform sleep vcluster test --namespace test
 	}
 
 	// Platform flags
-	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The vCluster platform project to use")
-	cobraCmd.Flags().Int64Var(&cmd.ForceDuration, "prevent-wakeup", -1, "[PLATFORM] The amount of seconds this vcluster should sleep until it can be woken up again (use 0 for infinite sleeping). During this time the space can only be woken up by `vcluster resume vcluster`, manually deleting the annotation on the namespace or through the loft UI")
+	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "The vCluster platform project to use")
+	cobraCmd.Flags().Int64Var(&cmd.ForceDuration, "prevent-wakeup", -1, "The amount of seconds this vcluster should sleep until it can be woken up again (use 0 for infinite sleeping). During this time the space can only be woken up by `vcluster resume vcluster`, manually deleting the annotation on the namespace or through the loft UI")
 
 	return cobraCmd
 }
