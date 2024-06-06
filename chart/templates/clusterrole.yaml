@@ -20,6 +20,9 @@ rules:
   - apiGroups: ["cluster.loft.sh", "storage.loft.sh"]
     resources: ["features", "virtualclusters"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["management.loft.sh"]
+    resources: ["virtualclusterinstances"]
+    verbs: ["get"]
   {{- end }}
   {{- if or .Values.pro .Values.sync.fromHost.nodes.enabled }}
   - apiGroups: [""]

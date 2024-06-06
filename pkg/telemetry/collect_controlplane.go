@@ -3,11 +3,13 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"runtime"
 	"time"
 
 	"github.com/loft-sh/analytics-client/client"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -66,6 +68,7 @@ type controlPlaneCollector struct {
 	log loghelper.Logger
 
 	vClusterID                cachedValue[string]
+	virtualClusterInstanceID  cachedValue[string]
 	hostClusterVersion        cachedValue[*KubernetesVersion]
 	virtualClusterVersion     cachedValue[*KubernetesVersion]
 	vClusterCreationTimestamp cachedValue[int64]
@@ -125,6 +128,10 @@ func (d *controlPlaneCollector) RecordStart(ctx context.Context, config *config.
 	if chartInfo != nil {
 		properties["vcluster_k8s_distro"] = chartInfo.Name
 		properties["helm_values"] = chartInfo.Values
+	}
+
+	if config.Telemetry.PlatformInstanceID != "" {
+		properties["virtualclusterinstance_id"] = d.getVirtualClusterInstanceID(ctx, config)
 	}
 
 	// build the event and record
@@ -215,6 +222,22 @@ func (d *controlPlaneCollector) getVClusterID(ctx context.Context) string {
 	}
 
 	return vClusterID
+}
+
+func (d *controlPlaneCollector) getVirtualClusterInstanceID(ctx context.Context, config *config.VirtualClusterConfig) string {
+	virtualClusterInstanceID, err := d.virtualClusterInstanceID.Get(func() (string, error) {
+		platformClient, err := kube.NewForConfig(config.ControlPlaneConfig)
+		if err != nil {
+			return "", fmt.Errorf("error creating platform client: %w", err)
+		}
+
+		return getVirtualClusterInstanceID(ctx, platformClient, config.ControlPlaneNamespace, config.Name)
+	})
+	if err != nil {
+		klog.V(1).ErrorS(err, "Error retrieving virtualClusterInstanceID")
+	}
+
+	return virtualClusterInstanceID
 }
 
 func (d *controlPlaneCollector) getVClusterCreationTimestamp(ctx context.Context) int64 {

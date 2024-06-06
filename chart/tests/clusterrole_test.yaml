@@ -258,7 +258,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
@@ -271,6 +271,12 @@ tests:
             apiGroups: [ "cluster.loft.sh", "storage.loft.sh" ]
             resources: [ "features", "virtualclusters" ]
             verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["management.loft.sh"]
+            resources: ["virtualclusterinstances"]
+            verbs: ["get"]
 
   - it: metrics proxy
     set:
