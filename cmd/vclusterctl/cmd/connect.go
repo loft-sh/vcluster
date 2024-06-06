@@ -7,6 +7,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/completion"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
@@ -46,7 +47,7 @@ vcluster connect test -n test -- kubectl get ns
 #######################################################
 	`,
 		Args:              nameValidator,
-		ValidArgsFunction: newValidVClusterNameFunc(globalFlags),
+		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
