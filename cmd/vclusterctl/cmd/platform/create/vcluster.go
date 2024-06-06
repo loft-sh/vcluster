@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// VClusterCmd holds the login cmd flags
+// VClusterCmd holds the cmd flags
 type VClusterCmd struct {
 	*flags.GlobalFlags
 	cli.CreateOptions
