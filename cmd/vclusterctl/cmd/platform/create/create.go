@@ -16,6 +16,7 @@ func NewCreateCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) 
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}
-	c.AddCommand(NewSpaceCmd(globalFlags, defaults))
+	c.AddCommand(newSpaceCmd(globalFlags, defaults))
+	c.AddCommand(newVClusterCmd(globalFlags))
 	return c
 }
