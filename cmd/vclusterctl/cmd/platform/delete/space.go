@@ -32,8 +32,8 @@ type SpaceCmd struct {
 	Log log.Logger
 }
 
-// NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+// newSpaceCmd creates a new command
+func newSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
