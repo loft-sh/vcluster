@@ -464,14 +464,15 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 
 	// we have to upgrade / install the chart
 	err = helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
-		Chart:       cmd.ChartName,
-		Repo:        cmd.ChartRepo,
-		Version:     cmd.ChartVersion,
-		Path:        cmd.LocalChartDir,
-		Values:      chartValues,
-		ValuesFiles: cmd.Values,
-		SetValues:   cmd.SetValues,
-		Debug:       cmd.Debug,
+		CreateNamespace: cmd.CreateNamespace,
+		Chart:           cmd.ChartName,
+		Repo:            cmd.ChartRepo,
+		Version:         cmd.ChartVersion,
+		Path:            cmd.LocalChartDir,
+		Values:          chartValues,
+		ValuesFiles:     cmd.Values,
+		SetValues:       cmd.SetValues,
+		Debug:           cmd.Debug,
 	})
 	if err != nil {
 		return err
