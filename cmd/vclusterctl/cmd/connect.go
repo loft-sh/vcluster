@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/completion"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags/connect"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
@@ -58,27 +59,8 @@ vcluster connect test -n test -- kubectl get ns
 
 	cobraCmd.Flags().StringVar(&cmd.Manager, "manager", "", "The manager to use for managing the virtual cluster, can be either helm or platform.")
 
-	cobraCmd.Flags().StringVar(&cmd.KubeConfigContextName, "kube-config-context-name", "", "If set, will override the context name of the generated virtual cluster kube config with this name")
-	cobraCmd.Flags().StringVar(&cmd.KubeConfig, "kube-config", "./kubeconfig.yaml", "Writes the created kube config to this file")
-	cobraCmd.Flags().BoolVar(&cmd.UpdateCurrent, "update-current", true, "If true updates the current kube config")
-	cobraCmd.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
-	cobraCmd.Flags().StringVar(&cmd.PodName, "pod", "", "The pod to connect to")
-	cobraCmd.Flags().StringVar(&cmd.Server, "server", "", "The server to connect to")
-	cobraCmd.Flags().IntVar(&cmd.LocalPort, "local-port", 0, "The local port to forward the virtual cluster to. If empty, vCluster will use a random unused port")
-	cobraCmd.Flags().StringVar(&cmd.Address, "address", "", "The local address to start port forwarding under")
-	cobraCmd.Flags().StringVar(&cmd.ServiceAccount, "service-account", "", "If specified, vCluster will create a service account token to connect to the virtual cluster instead of using the default client cert / key. Service account must exist and can be used as namespace/name.")
-	cobraCmd.Flags().StringVar(&cmd.ServiceAccountClusterRole, "cluster-role", "", "If specified, vCluster will create the service account if it does not exist and also add a cluster role binding for the given cluster role to it. Requires --service-account to be set")
-	cobraCmd.Flags().IntVar(&cmd.ServiceAccountExpiration, "token-expiration", 0, "If specified, vCluster will create the service account token for the given duration in seconds. Defaults to eternal")
-	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If specified, vCluster will create the kube config with insecure-skip-tls-verify")
-	cobraCmd.Flags().BoolVar(&cmd.BackgroundProxy, "background-proxy", false, "If specified, vCluster will create the background proxy in docker [its mainly used for vclusters with no nodeport service.]")
-
-	// platform
-	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The platform project the vCluster is in")
-
-	// deprecated
-	_ = cobraCmd.Flags().MarkDeprecated("kube-config", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
-	_ = cobraCmd.Flags().MarkDeprecated("kube-config-context-name", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
-	_ = cobraCmd.Flags().MarkDeprecated("update-current", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
+	connect.AddCommonFlags(cobraCmd, &cmd.ConnectOptions)
+	connect.AddPlatformFlags(cobraCmd, &cmd.ConnectOptions, "[PLATFORM] ")
 
 	return cobraCmd
 }

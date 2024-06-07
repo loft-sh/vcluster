@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/completion"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	flagsdelete "github.com/loft-sh/vcluster/pkg/cli/flags/delete"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/spf13/cobra"
 )
@@ -45,11 +46,8 @@ vcluster platform delete vcluster --namespace test
 		},
 	}
 
-	cobraCmd.Flags().BoolVar(&cmd.Wait, "wait", true, "If enabled, vcluster will wait until the vcluster is deleted")
-	cobraCmd.Flags().BoolVar(&cmd.DeleteContext, "delete-context", true, "If the corresponding kube context should be deleted if there is any")
-
-	// Platform flags
-	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "The vCluster platform project to use")
+	flagsdelete.AddCommonFlags(cobraCmd, &cmd.DeleteOptions)
+	flagsdelete.AddPlatformFlags(cobraCmd, &cmd.DeleteOptions)
 
 	return cobraCmd
 }
