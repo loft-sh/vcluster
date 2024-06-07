@@ -40,7 +40,7 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Shares a vcluster with another Platform user or team",
 		Long: `##########################################################################
-#################### vcluster platform list vclusters ####################
+#################### vcluster platform share vcluster ####################
 ##########################################################################
 Shares a vcluster with another Platform user or team
 
@@ -110,10 +110,10 @@ func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 
 	if cmd.User != "" {
 		cmd.Log.Donef("Successfully granted user %s access to vcluster %s", ansi.Color(cmd.User, "white+b"), ansi.Color(vClusterName, "white+b"))
-		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("loft use vcluster %s --project %s"), vClusterName, cmd.Project), "white+b"))
+		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("vcluster connect %s --project %s"), vClusterName, cmd.Project), "white+b"))
 	} else {
 		cmd.Log.Donef("Successfully granted team %s access to vcluster %s", ansi.Color(cmd.Team, "white+b"), ansi.Color(vClusterName, "white+b"))
-		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("loft use vcluster %s --project %s"), vClusterName, cmd.Project), "white+b"))
+		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("vcluster connect %s --project %s"), vClusterName, cmd.Project), "white+b"))
 	}
 
 	return nil
