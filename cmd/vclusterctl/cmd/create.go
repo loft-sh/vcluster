@@ -71,7 +71,6 @@ vcluster create test --namespace test
 	cobraCmd.Flags().BoolVar(&cmd.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cobraCmd.Flags().BoolVar(&cmd.Connect, "connect", true, "If true will run vcluster connect directly after the vcluster was created")
 	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
-	cobraCmd.Flags().BoolVar(&cmd.Upgrade, "update", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
 
 	// Platform flags
 	cobraCmd.Flags().BoolVar(&cmd.Activate, "activate", true, "[PLATFORM] Activate the vCluster automatically when using helm manager")
