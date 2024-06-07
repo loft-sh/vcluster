@@ -434,6 +434,9 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 	if cmd.Insecure {
 		contextOptions.InsecureSkipTLSVerify = true
 	}
+	if cmd.Server != "" {
+		contextOptions.Server = cmd.Server
+	}
 
 	// build kube config
 	kubeConfig, err := clihelper.GetProKubeConfig(contextOptions)
@@ -444,7 +447,7 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 	// we want to use a service account token in the kube config
 	if cmd.ServiceAccount != "" {
 		// check if its enabled on the pro vcluster
-		if !vCluster.VirtualCluster.Status.VirtualCluster.ForwardToken {
+		if cmd.Server == "" && !vCluster.VirtualCluster.Status.VirtualCluster.ForwardToken {
 			return nil, fmt.Errorf("forward token is not enabled on the vCluster and hence you cannot authenticate with a service account token")
 		}
 
