@@ -204,9 +204,6 @@ func (cmd *ConnectCmd) validateProFlags() error {
 	if cmd.PodName != "" {
 		return fmt.Errorf("cannot use --pod with a pro vCluster")
 	}
-	if cmd.Server != "" {
-		return fmt.Errorf("cannot use --server with a pro vCluster")
-	}
 	if cmd.BackgroundProxy {
 		return fmt.Errorf("cannot use --background-proxy with a pro vCluster")
 	}
@@ -434,9 +431,6 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 	if cmd.Insecure {
 		contextOptions.InsecureSkipTLSVerify = true
 	}
-	if cmd.Server != "" {
-		contextOptions.Server = cmd.Server
-	}
 
 	// build kube config
 	kubeConfig, err := clihelper.GetProKubeConfig(contextOptions)
@@ -451,8 +445,18 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 			return nil, fmt.Errorf("forward token is not enabled on the vCluster and hence you cannot authenticate with a service account token")
 		}
 
+		vRestConfig, err := clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{}).ClientConfig()
+		if err != nil {
+			return nil, errors.Wrap(err, "create virtual rest config")
+		}
+
+		vKubeClient, err := kubernetes.NewForConfig(vRestConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "create virtual kube client")
+		}
+
 		// create service account token
-		token, err := cmd.createServiceAccountToken(ctx, *kubeConfig)
+		token, err := cmd.createServiceAccountToken(ctx, vKubeClient)
 		if err != nil {
 			return nil, err
 		}
@@ -464,6 +468,16 @@ func (cmd *ConnectCmd) getVClusterProKubeConfig(ctx context.Context, proClient p
 				Extensions:           make(map[string]runtime.Object),
 				ImpersonateUserExtra: make(map[string][]string),
 			}
+		}
+	}
+
+	if cmd.Server != "" {
+		if !strings.HasPrefix(cmd.Server, "https://") {
+			cmd.Server = "https://" + cmd.Server
+		}
+
+		for k := range kubeConfig.Clusters {
+			kubeConfig.Clusters[k].Server = cmd.Server
 		}
 	}
 
@@ -576,7 +590,12 @@ func (cmd *ConnectCmd) getVClusterKubeConfig(ctx context.Context, vclusterName s
 
 	// we want to use a service account token in the kube config
 	if cmd.ServiceAccount != "" {
-		token, err := cmd.createServiceAccountToken(ctx, *kubeConfig)
+		vKubeClient, err := cmd.getLocalVClusterClient(*kubeConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		token, err := cmd.createServiceAccountToken(ctx, vKubeClient)
 		if err != nil {
 			return nil, err
 		}
@@ -821,12 +840,7 @@ func (cmd *ConnectCmd) waitForVCluster(ctx context.Context, vKubeConfig clientcm
 	return nil
 }
 
-func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeConfig clientcmdapi.Config) (string, error) {
-	vKubeClient, err := cmd.getLocalVClusterClient(vKubeConfig)
-	if err != nil {
-		return "", err
-	}
-
+func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeClient kubernetes.Interface) (string, error) {
 	var (
 		serviceAccount          = cmd.ServiceAccount
 		serviceAccountNamespace = "kube-system"
@@ -848,7 +862,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeConfi
 	}
 	token := ""
 	cmd.Log.Infof("Create service account token for %s/%s", serviceAccountNamespace, serviceAccount)
-	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*3, false, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*3, false, func(ctx context.Context) (bool, error) {
 		// check if namespace exists
 		_, err := vKubeClient.CoreV1().Namespaces().Get(ctx, serviceAccountNamespace, metav1.GetOptions{})
 		if err != nil {
@@ -856,6 +870,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeConfi
 				return false, err
 			}
 
+			cmd.Log.Debugf("error retrieving namespaces: %v", err)
 			return false, nil
 		}
 
@@ -886,6 +901,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeConfi
 			} else if kerrors.IsForbidden(err) {
 				return false, err
 			} else {
+				cmd.Log.Debugf("error retrieving service account: %v", err)
 				return false, nil
 			}
 		}
@@ -922,6 +938,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeConfi
 				} else if kerrors.IsForbidden(err) {
 					return false, err
 				} else {
+					cmd.Log.Debugf("error retrieving role binding: %v", err)
 					return false, nil
 				}
 			} else {
@@ -949,6 +966,7 @@ func (cmd *ConnectCmd) createServiceAccountToken(ctx context.Context, vKubeConfi
 				return false, err
 			}
 
+			cmd.Log.Debugf("error creating service account token: %v", err)
 			return false, nil
 		}
 
