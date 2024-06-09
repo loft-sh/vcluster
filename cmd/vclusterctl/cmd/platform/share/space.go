@@ -119,10 +119,10 @@ func (cmd *SpaceCmd) shareSpace(ctx context.Context, platformClient platform.Cli
 
 	if cmd.User != "" {
 		cmd.Log.Donef("Successfully granted user %s access to space %s", ansi.Color(cmd.User, "white+b"), ansi.Color(spaceName, "white+b"))
-		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("loft use space %s --project %s"), spaceName, cmd.Project), "white+b"))
+		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("vcluster platform connect space %s --project %s"), spaceName, cmd.Project), "white+b"))
 	} else {
 		cmd.Log.Donef("Successfully granted team %s access to space %s", ansi.Color(cmd.Team, "white+b"), ansi.Color(spaceName, "white+b"))
-		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("loft use space %s --project %s"), spaceName, cmd.Project), "white+b"))
+		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("vcluster platform connect space %s --project %s"), spaceName, cmd.Project), "white+b"))
 	}
 
 	return nil
