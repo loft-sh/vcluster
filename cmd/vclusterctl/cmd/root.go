@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
+	"github.com/loft-sh/vcluster/pkg/cli/completion"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
@@ -147,7 +148,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	rootCmd.AddCommand(credits.NewCreditsCmd())
 
 	// add completion command
-	err = rootCmd.RegisterFlagCompletionFunc("namespace", newNamespaceCompletionFunc(rootCmd.Context()))
+	err = rootCmd.RegisterFlagCompletionFunc("namespace", completion.NewNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
 		return rootCmd, fmt.Errorf("failed to register completion for namespace: %w", err)
 	}

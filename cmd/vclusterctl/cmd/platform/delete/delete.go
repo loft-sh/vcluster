@@ -11,11 +11,13 @@ import (
 func NewDeleteCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	description := product.ReplaceWithHeader("delete", "")
 	c := &cobra.Command{
-		Use:   "delete",
-		Short: product.Replace("Deletes vCluster platform resources"),
-		Long:  description,
-		Args:  cobra.NoArgs,
+		Use:     "delete",
+		Short:   product.Replace("Deletes vCluster platform resources"),
+		Long:    description,
+		Aliases: []string{"rm"},
+		Args:    cobra.NoArgs,
 	}
-	c.AddCommand(NewSpaceCmd(globalFlags, defaults))
+	c.AddCommand(newSpaceCmd(globalFlags, defaults))
+	c.AddCommand(newVClusterCmd(globalFlags))
 	return c
 }

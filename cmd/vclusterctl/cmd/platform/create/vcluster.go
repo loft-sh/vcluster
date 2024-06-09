@@ -1,4 +1,4 @@
-package wakeup
+package create
 
 import (
 	"context"
@@ -6,20 +6,22 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/flags/create"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
 
-// VClusterCmd holds the login cmd flags
+// VClusterCmd holds the cmd flags
 type VClusterCmd struct {
 	*flags.GlobalFlags
-	cli.ResumeOptions
+	cli.CreateOptions
 
 	log log.Logger
 }
 
-// NewVClusterCmd creates a new command
-func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+// newVClusterCmd creates a new command
+func newVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &VClusterCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -27,30 +29,32 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	cobraCmd := &cobra.Command{
 		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
-		Short: "Lists all virtual clusters that are connected to the current platform",
+		Short: "Creates a new virtual cluster",
 		Long: `#########################################################################
-################### vcluster platform wakeup vcluster ###################
+################### vcluster platform create vcluster ###################
 #########################################################################
-Wakeup will start a virtual cluster after it was put to sleep.
-vCluster will recreate all the workloads after it has
-started automatically.
+Creates a new virtual cluster
 
 Example:
-vcluster platform wakeup vcluster test --namespace test
+vcluster platform create vcluster test --namespace test
 #########################################################################
 	`,
 		Args: util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// Check for newer version
+			upgrade.PrintNewerVersionWarning()
+
 			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
-	// Platform flags
-	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "The vCluster platform project to use")
+	create.AddCommonFlags(cobraCmd, &cmd.CreateOptions)
+	create.AddPlatformFlags(cobraCmd, &cmd.CreateOptions)
 
 	return cobraCmd
 }
 
+// Run executes the functionality
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
-	return cli.ResumePlatform(ctx, &cmd.ResumeOptions, cmd.LoadedConfig(cmd.log), args[0], cmd.log)
+	return cli.CreatePlatform(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
 }
