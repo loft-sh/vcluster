@@ -1,3 +1,5 @@
+version: 2
+
 project_name: vcluster
 
 before:
@@ -138,7 +140,7 @@ brews:
     repository:
       owner: loft-sh
       name: homebrew-tap
-    folder: Formula
+    directory: Formula
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
@@ -161,7 +163,7 @@ brews:
     repository:
       owner: loft-sh
       name: homebrew-tap
-    folder: Formula
+    directory: Formula
     homepage: https://www.vcluster.com
     license: Apache-2.0
     description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
