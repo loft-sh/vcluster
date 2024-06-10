@@ -134,7 +134,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// determine cluster name
-	cmd.Cluster, cmd.Project, err = platform.SelectProjectOrCluster(ctx, platformClient, cmd.Cluster, cmd.Project, true, cmd.Log)
+	cmd.Cluster, cmd.Project, err = platform.SelectProjectOrCluster(ctx, platformClient, cmd.Cluster, cmd.Project, false, cmd.Log)
 	if err != nil {
 		return err
 	}
