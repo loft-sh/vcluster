@@ -76,12 +76,7 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 	// set global owner for use in owner references
 	err = SetGlobalOwner(
 		ctx,
-		vConfig.WorkloadClient,
-		vConfig.Experimental.MultiNamespaceMode.Enabled,
-		vConfig.WorkloadNamespace,
-		vConfig.WorkloadTargetNamespace,
-		vConfig.Experimental.SyncSettings.SetOwner,
-		vConfig.WorkloadService,
+		*vConfig,
 	)
 	if err != nil {
 		return errors.Wrap(err, "finding vcluster pod owner")
@@ -309,23 +304,31 @@ func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, n
 
 // SetGlobalOwner fetches the owning service and populates in translate.Owner if: the vcluster is configured to setOwner is,
 // and if the currentNamespace == targetNamespace (because cross namespace owner refs don't work).
-func SetGlobalOwner(ctx context.Context, currentNamespaceClient kubernetes.Interface, multins bool, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
-	if !setOwner {
+func SetGlobalOwner(ctx context.Context, vConfig config.VirtualClusterConfig) error {
+	if !vConfig.Experimental.SyncSettings.SetOwner {
 		return nil
 	}
 
-	if multins {
+	if vConfig.Experimental.MultiNamespaceMode.Enabled {
 		klog.Warningf("Skip setting owner, because multi namespace mode is enabled")
 		return nil
 	}
 
-	if currentNamespace != targetNamespace {
-		klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", currentNamespace, targetNamespace)
+	if vConfig.Experimental.IsolatedControlPlane.Enabled {
+		klog.Warningf("Skip setting owner, because isolated control plane is enabled")
+		return nil
+	}
+
+	currentNamespace := vConfig.WorkloadNamespace
+
+	if currentNamespace != vConfig.WorkloadTargetNamespace {
+		klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", currentNamespace, vConfig.WorkloadTargetNamespace)
 
 		return nil
 	}
 
-	service, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, serviceName, metav1.GetOptions{})
+	currentNamespaceClient := vConfig.WorkloadClient
+	service, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, vConfig.WorkloadService, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "get vcluster service")
 	}
