@@ -45,7 +45,7 @@ jobs:
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.16.0
       - name: Setup GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           install-only: true
           version: latest
@@ -79,7 +79,7 @@ jobs:
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.16.0
       - name: Setup GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           install-only: true
       - name: Build vcluster cli
