@@ -100,7 +100,7 @@ func initialize(
 
 		// create certificates if they are not there yet
 		certificatesDir := "/data/k0s/pki"
-		err = GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+		err = GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options)
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func initialize(
 		if options.ProOptions.EtcdEmbedded && options.ProOptions.EtcdReplicas > 0 {
 			// generate certificates
 			certificatesDir := "/data/pki"
-			err := GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			err := GenerateCertsWithEtcdSans(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
@@ -181,7 +181,7 @@ func initialize(
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.ServerCaCert)
 		if certificatesDir == "/pki" {
-			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
@@ -216,7 +216,7 @@ func initialize(
 		certificatesDir := filepath.Dir(options.ServerCaCert)
 		if certificatesDir == "/pki" {
 			// generate k8s certificates
-			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options.ClusterDomain)
+			err := GenerateK8sCerts(ctx, currentNamespaceClient, vClusterName, currentNamespace, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
@@ -226,18 +226,18 @@ func initialize(
 	return nil
 }
 
-func GenerateCertsWithEtcdSans(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
+func GenerateCertsWithEtcdSans(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir string, options *options.VirtualClusterOptions) error {
 	// generate etcd server and peer sans
 	etcdSans := []string{
 		"localhost",
 		"*." + vClusterName + "-headless",
 		"*." + vClusterName + "-headless" + "." + currentNamespace,
 		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc",
-		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc." + clusterDomain,
+		"*." + vClusterName + "-headless" + "." + currentNamespace + ".svc." + options.ClusterDomain,
 	}
 
 	// generate certificates
-	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans)
+	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, etcdSans, options)
 	if err != nil {
 		return fmt.Errorf("ensure certs: %w", err)
 	}
@@ -245,7 +245,7 @@ func GenerateCertsWithEtcdSans(ctx context.Context, currentNamespaceClient kuber
 	return nil
 }
 
-func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir, clusterDomain string) error {
+func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir string, options *options.VirtualClusterOptions) error {
 	// generate etcd server and peer sans
 	etcdService := vClusterName + "-etcd"
 	etcdSans := []string{
@@ -269,7 +269,7 @@ func GenerateK8sCerts(ctx context.Context, currentNamespaceClient kubernetes.Int
 	}
 
 	// generate certificates
-	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, clusterDomain, etcdSans)
+	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, etcdSans, options)
 	if err != nil {
 		return fmt.Errorf("ensure certs: %w", err)
 	}
