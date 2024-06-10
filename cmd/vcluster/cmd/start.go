@@ -105,14 +105,16 @@ func ExecuteStart(ctx context.Context, options *options.VirtualClusterOptions) e
 		return err
 	}
 
+	isRemote := options.ProOptions.RemoteKubeConfig != ""
 	// // set global owner for use in owner references
 	err = SetGlobalOwner(
 		ctx,
 		workloadClient,
 		options.MultiNamespaceMode,
-		controlPlaneNamespace,
+		workloadNamespace,
 		options.TargetNamespace,
 		options.SetOwner,
+		isRemote,
 		options.ServiceName,
 	)
 	if err != nil {
@@ -194,8 +196,14 @@ func StartLeaderElection(ctx *options.ControllerContext, startLeading func() err
 
 // SetGlobalOwner fetches the owning service and populates in translate.Owner if: the vcluster is configured to setOwner is,
 // and if the currentNamespace == targetNamespace (because cross namespace owner refs don't work).
-func SetGlobalOwner(ctx context.Context, currentNamespaceClient kubernetes.Interface, multins bool, currentNamespace, targetNamespace string, setOwner bool, serviceName string) error {
+func SetGlobalOwner(ctx context.Context, currentNamespaceClient kubernetes.Interface, multins bool, currentNamespace, targetNamespace string, setOwner bool, isRemote bool, serviceName string) error {
 	if !setOwner {
+		return nil
+	}
+
+	if isRemote {
+		klog.Warningf("Skip setting owner, because remote control plane is configured")
+
 		return nil
 	}
 
