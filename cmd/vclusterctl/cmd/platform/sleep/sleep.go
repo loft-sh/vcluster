@@ -11,16 +11,16 @@ import (
 func NewSleepCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
 	description := product.ReplaceWithHeader("sleep", `
 
-Put a virtual cluster / space to sleep.
+Put a virtual cluster / namespace to sleep.
 	`)
 	sleepCmd := &cobra.Command{
 		Use:   "sleep",
-		Short: product.Replace("Put a virtual cluster / space to sleep"),
+		Short: product.Replace("Put a virtual cluster / namespace to sleep"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}
 
 	sleepCmd.AddCommand(NewVClusterCmd(globalFlags))
-	sleepCmd.AddCommand(NewSpaceCmd(globalFlags, defaults))
+	sleepCmd.AddCommand(NewNamespaceCmd(globalFlags, defaults))
 	return sleepCmd
 }

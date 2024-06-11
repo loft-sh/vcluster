@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	SpaceNameOnlyUseLine, SpaceNameOnlyValidator = NamedPositionalArgsValidator(true, true, "SPACE_NAME")
+	SpaceNameOnlyUseLine, SpaceNameOnlyValidator = NamedPositionalArgsValidator(true, true, "NAMESPACE_NAME")
 	VClusterNameOnlyUseLine, VClusterNameOnlyValidator = NamedPositionalArgsValidator(true, true, "VCLUSTER_NAME")
 }
 

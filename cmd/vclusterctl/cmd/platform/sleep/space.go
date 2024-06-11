@@ -22,8 +22,8 @@ import (
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SpaceCmd holds the cmd flags
-type SpaceCmd struct {
+// NamespaceCmd holds the cmd flags
+type NamespaceCmd struct {
 	*flags.GlobalFlags
 
 	Project       string
@@ -33,23 +33,23 @@ type SpaceCmd struct {
 	Log log.Logger
 }
 
-// NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	cmd := &SpaceCmd{
+// NewNamespaceCmd creates a new command
+func NewNamespaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+	cmd := &NamespaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
 
-	description := product.ReplaceWithHeader("sleep space", `
-Sleep puts a space to sleep
+	description := product.ReplaceWithHeader("sleep namespace", `
+Sleep puts a vCluster platform namespace to sleep
 Example:
-vcluster platform sleep space myspace
-vcluster platform sleep space myspace --project myproject
+vcluster platform sleep namespace myspace
+vcluster platform sleep namespace myspace --project myproject
 #######################################################
 	`)
 	c := &cobra.Command{
-		Use:   "space" + util.SpaceNameOnlyUseLine,
-		Short: "Put a space to sleep",
+		Use:   "namespace" + util.SpaceNameOnlyUseLine,
+		Short: "Put a vCluster platform namespace to sleep",
 		Long:  description,
 		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -59,13 +59,13 @@ vcluster platform sleep space myspace --project myproject
 
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
-	c.Flags().Int64Var(&cmd.ForceDuration, "prevent-wakeup", -1, product.Replace("The amount of seconds this space should sleep until it can be woken up again (use 0 for infinite sleeping). During this time the space can only be woken up by `loft wakeup`, manually deleting the annotation on the namespace or through the loft UI"))
+	c.Flags().Int64Var(&cmd.ForceDuration, "prevent-wakeup", -1, product.Replace("The amount of seconds this namespace should sleep until it can be woken up again (use 0 for infinite sleeping). During this time the namespace can only be woken up by `vcluster platform wakeup namespace`, manually deleting the annotation on the namespace or through the loft UI"))
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	return c
 }
 
 // Run executes the functionality
-func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
+func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	return cmd.sleepSpace(ctx, platformClient, spaceName)
 }
 
-func (cmd *SpaceCmd) sleepSpace(ctx context.Context, platformClient platform.Client, spaceName string) error {
+func (cmd *NamespaceCmd) sleepSpace(ctx context.Context, platformClient platform.Client, spaceName string) error {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (cmd *SpaceCmd) sleepSpace(ctx context.Context, platformClient platform.Cli
 	}
 
 	// wait for sleeping
-	cmd.Log.Info("Wait until space is sleeping...")
+	cmd.Log.Info("Wait until namespace is sleeping...")
 	err = wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), false, func(ctx context.Context) (done bool, err error) {
 		spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(cmd.Project)).Get(ctx, spaceName, metav1.GetOptions{})
 		if err != nil {
@@ -124,9 +124,9 @@ func (cmd *SpaceCmd) sleepSpace(ctx context.Context, platformClient platform.Cli
 		return spaceInstance.Status.Phase == storagev1.InstanceSleeping, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for space to start sleeping: %w", err)
+		return fmt.Errorf("error waiting for namespace to start sleeping: %w", err)
 	}
 
-	cmd.Log.Donef("Successfully put space %s to sleep", spaceName)
+	cmd.Log.Donef("Successfully put namespace %s to sleep", spaceName)
 	return nil
 }
