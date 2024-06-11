@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,8 +29,8 @@ func EnsureCerts(
 	currentNamespaceClient kubernetes.Interface,
 	vClusterName string,
 	certificateDir string,
-	clusterDomain string,
 	etcdSans []string,
+	options *config.VirtualClusterConfig,
 ) error {
 	// we create a certificate for up to 20 etcd replicas, this should be sufficient for most use cases. Eventually we probably
 	// want to update this to the actual etcd number, but for now this is the easiest way to allow up and downscaling without
@@ -54,7 +54,7 @@ func EnsureCerts(
 
 		// delete the certs and recreate them
 		klog.Info("removing outdated certs")
-		cfg, err := createConfig(serviceCIDR, vClusterName, certificateDir, clusterDomain, etcdSans)
+		cfg, err := createConfig(serviceCIDR, vClusterName, certificateDir, options.Networking.Advanced.ClusterDomain, etcdSans)
 		if err != nil {
 			return err
 		}
@@ -95,10 +95,30 @@ func EnsureCerts(
 	_, err = os.Stat(filepath.Join(certificateDir, CAKeyName))
 	if errors.Is(err, fs.ErrNotExist) {
 		// try to generate the certificates
-		err = generateCertificates(serviceCIDR, vClusterName, certificateDir, clusterDomain, etcdSans)
+		err = generateCertificates(serviceCIDR, vClusterName, certificateDir, options.Networking.Advanced.ClusterDomain, etcdSans)
 		if err != nil {
 			return err
 		}
+	}
+
+	ownerRef := []metav1.OwnerReference{}
+	if options.Experimental.SyncSettings.SetOwner {
+		// options.ServiceName gets rewritten to the workload service name so we use options.Name as the helm chart
+		// directly uses the release name for the service name
+		controlPlaneService, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, options.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get vcluster service: %w", err)
+		}
+		// client doesn't populate typemeta
+		controlPlaneService.TypeMeta.APIVersion = "v1"
+		controlPlaneService.TypeMeta.Kind = "Service"
+
+		ownerRef = append(ownerRef, metav1.OwnerReference{
+			APIVersion: "v1",
+			Kind:       "Service",
+			Name:       controlPlaneService.Name,
+			UID:        controlPlaneService.UID,
+		})
 	}
 
 	// build secret
@@ -106,7 +126,7 @@ func EnsureCerts(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            secretName,
 			Namespace:       currentNamespace,
-			OwnerReferences: translate.GetOwnerReference(nil),
+			OwnerReferences: ownerRef,
 		},
 		Data: map[string][]byte{},
 	}

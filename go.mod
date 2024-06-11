@@ -1,6 +1,6 @@
 module github.com/loft-sh/vcluster
 
-go 1.22.2
+go 1.22.4
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -16,7 +16,6 @@ require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.2
-	github.com/hashicorp/yamux v0.1.1
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
@@ -26,10 +25,8 @@ require (
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/go-testing-interface v1.0.0
 	github.com/moby/locker v1.0.1
 	github.com/moby/term v0.5.0
-	github.com/oklog/run v1.0.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
@@ -92,10 +89,13 @@ require (
 	github.com/google/cel-go v0.17.7 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
+	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744 // indirect
 	github.com/loft-sh/jspolicy v0.2.2 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
+	github.com/oklog/run v1.0.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/otiai10/copy v1.11.0 // indirect
 	github.com/rivo/uniseg v0.4.6 // indirect
@@ -139,7 +139,7 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
