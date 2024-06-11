@@ -16,28 +16,28 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 )
 
-// SpacesCmd holds the login cmd flags
-type SpacesCmd struct {
+// NamespacesCmd holds the login cmd flags
+type NamespacesCmd struct {
 	*flags.GlobalFlags
 
 	log log.Logger
 }
 
-// newSpacesCmd creates a new spaces command
-func newSpacesCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &SpacesCmd{
+// newNamespacesCmd creates a new spaces command
+func newNamespacesCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	cmd := &NamespacesCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := product.ReplaceWithHeader("list spaces", `
-List the vCluster platform spaces you have access to
+	description := product.ReplaceWithHeader("list namespaces", `
+List the vCluster platform namespaces you have access to
 Example:
-vcluster platform list spaces
+vcluster platform list namespaces
 ########################################################
 	`)
 	listCmd := &cobra.Command{
-		Use:   "spaces",
-		Short: product.Replace("Lists the vCluster platform spaces you have access to"),
+		Use:   "namespaces",
+		Short: product.Replace("Lists the vCluster platform namespaces you have access to"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
@@ -48,7 +48,7 @@ vcluster platform list spaces
 }
 
 // RunSpaces executes the functionality
-func (cmd *SpacesCmd) RunSpaces(ctx context.Context) error {
+func (cmd *NamespacesCmd) RunSpaces(ctx context.Context) error {
 	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		return err
