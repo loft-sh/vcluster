@@ -1,6 +1,6 @@
 module github.com/loft-sh/vcluster
 
-go 1.22.2
+go 1.22.4
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
