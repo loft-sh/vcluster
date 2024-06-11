@@ -237,9 +237,9 @@ jobs:
           --upgrade \
           --local-chart-dir ./chart \
           -f ./test/commonValues.yaml
-          
+
           sleep 20
-          
+
           _out=$(kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s 2>&1)
           if [[ "${_out}" =~ "no matching resources" ]]
           then
