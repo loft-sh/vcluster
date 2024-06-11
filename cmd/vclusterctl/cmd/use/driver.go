@@ -32,7 +32,7 @@ Either use "helm" or "platform" as the deployment method for managing virtual cl
 
 	driverCmd := &cobra.Command{
 		Use:   "driver",
-		Short: "Switch managing method of virtual clusters between platform and helm",
+		Short: "Switch the virtual clusters driver between platform and helm",
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
