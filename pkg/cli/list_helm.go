@@ -76,7 +76,7 @@ func printVClusters(ctx context.Context, options *ListOptions, output []ListVClu
 		values := toValues(output)
 		table.PrintTable(logger, header, values)
 
-		// show use manager command
+		// show use driver command
 		if showPlatform {
 			platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(logger))
 			if err == nil {
@@ -85,8 +85,8 @@ func printVClusters(ctx context.Context, options *ListOptions, output []ListVClu
 
 				proVClusters, _ := platform.ListVClusters(ctx, platformClient, "", "")
 				if len(proVClusters) > 0 {
-					logger.Infof("You also have %d virtual clusters in your platform manager context.", len(proVClusters))
-					logger.Info("If you want to see them, run: 'vcluster list --manager platform' or 'vcluster use manager platform' to change the default")
+					logger.Infof("You also have %d virtual clusters in your platform driver context.", len(proVClusters))
+					logger.Info("If you want to see them, run: 'vcluster list --driver platform' or 'vcluster use driver platform' to change the default")
 				}
 			}
 		} else {
@@ -96,7 +96,7 @@ func printVClusters(ctx context.Context, options *ListOptions, output []ListVClu
 			vClusters, _ := find.ListVClusters(ctx, globalFlags.Context, "", "", log.Discard)
 			if len(vClusters) > 0 {
 				logger.Infof("You also have %d virtual clusters in your current kube-context.", len(vClusters))
-				logger.Info("If you want to see them, run: 'vcluster list --manager helm' or 'vcluster use manager helm' to change the default")
+				logger.Info("If you want to see them, run: 'vcluster list --driver helm' or 'vcluster use driver helm' to change the default")
 			}
 		}
 

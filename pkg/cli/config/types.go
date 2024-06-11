@@ -7,7 +7,7 @@ import (
 )
 
 type CLI struct {
-	Driver            Driver   `json:"manager,omitempty"`
+	Driver            Driver   `json:"driver,omitempty"`
 	PreviousContext   string   `json:"previousContext,omitempty"`
 	path              string   `json:"-"`
 	Platform          Platform `json:"platform,omitempty"`
@@ -15,7 +15,7 @@ type CLI struct {
 }
 
 type Driver struct {
-	// Type is the current manager type that is used, either helm or platform
+	// Type is the current driver type that is used, either helm or platform
 	Type DriverType `json:"type,omitempty"`
 }
 
