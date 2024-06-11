@@ -11,16 +11,16 @@ import (
 func NewWakeupCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
 	description := product.ReplaceWithHeader("wakeup", `
 
-Wake up a virtual cluster / space.
+Wake up a virtual cluster / namespace.
 	`)
 	wakeupCmd := &cobra.Command{
 		Use:   "wakeup",
-		Short: "Wake up a virtual cluster / space",
+		Short: "Wake up a virtual cluster / namespace",
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}
 
 	wakeupCmd.AddCommand(NewVClusterCmd(globalFlags))
-	wakeupCmd.AddCommand(NewSpaceCmd(globalFlags, defaults))
+	wakeupCmd.AddCommand(NewNamespaceCmd(globalFlags, defaults))
 	return wakeupCmd
 }
