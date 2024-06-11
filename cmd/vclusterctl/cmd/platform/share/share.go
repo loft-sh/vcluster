@@ -10,7 +10,7 @@ import (
 func NewShareCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
 	shareCmd := &cobra.Command{
 		Use:   "share",
-		Short: "Shares a vcluster / space with another vCluster platform user or team",
+		Short: "Shares a virtual cluster / namespace with another vCluster platform user or team",
 		Long: `#########################################################
 ################ vcluster platform share ################
 #########################################################
@@ -20,6 +20,6 @@ func NewShareCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *c
 	}
 
 	shareCmd.AddCommand(NewVClusterCmd(globalFlags))
-	shareCmd.AddCommand(NewSpaceCmd(globalFlags, defaults))
+	shareCmd.AddCommand(NewNamespaceCmd(globalFlags, defaults))
 	return shareCmd
 }

@@ -38,11 +38,11 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	cobraCmd := &cobra.Command{
 		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
-		Short: "Shares a vcluster with another Platform user or team",
+		Short: "Shares a virtual cluster with another vCluster platform user or team",
 		Long: `##########################################################################
 #################### vcluster platform share vcluster ####################
 ##########################################################################
-Shares a vcluster with another Platform user or team
+Shares a virtual cluster with another vCluster platform user or team
 
 Example:
 vcluster platform share vcluster myvcluster
