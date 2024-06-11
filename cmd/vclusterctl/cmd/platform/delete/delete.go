@@ -17,7 +17,7 @@ func NewDeleteCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) 
 		Aliases: []string{"rm"},
 		Args:    cobra.NoArgs,
 	}
-	c.AddCommand(newSpaceCmd(globalFlags, defaults))
+	c.AddCommand(newNamespaceCmd(globalFlags, defaults))
 	c.AddCommand(newVClusterCmd(globalFlags))
 	return c
 }

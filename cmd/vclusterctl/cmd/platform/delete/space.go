@@ -20,8 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SpaceCmd holds the cmd flags
-type SpaceCmd struct {
+// NamespaceCmd holds the cmd flags
+type NamespaceCmd struct {
 	*flags.GlobalFlags
 
 	Cluster       string
@@ -32,23 +32,23 @@ type SpaceCmd struct {
 	Log log.Logger
 }
 
-// newSpaceCmd creates a new command
-func newSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	cmd := &SpaceCmd{
+// newNamespaceCmd creates a new command
+func newNamespaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+	cmd := &NamespaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
-	description := product.ReplaceWithHeader("delete space", `
-Deletes a space from a cluster
+	description := product.ReplaceWithHeader("delete namespace", `
+Deletes a vCluster platform namespace from a cluster
 
 Example:
-vcluster platform delete space myspace
-vcluster platform delete space myspace --project myproject
+vcluster platform delete namespace myspace
+vcluster platform delete namespace myspace --project myproject
 ########################################################
 	`)
 	c := &cobra.Command{
-		Use:   "space" + util.SpaceNameOnlyUseLine,
-		Short: "Deletes a space from a cluster",
+		Use:   "namespace" + util.SpaceNameOnlyUseLine,
+		Short: "Deletes a vCluster platform namespace from a cluster",
 		Long:  description,
 		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -63,12 +63,12 @@ vcluster platform delete space myspace --project myproject
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().BoolVar(&cmd.DeleteContext, "delete-context", true, "If the corresponding kube context should be deleted if there is any")
-	c.Flags().BoolVar(&cmd.Wait, "wait", false, "Termination of this command waits for space to be deleted")
+	c.Flags().BoolVar(&cmd.Wait, "wait", false, "Termination of this command waits for namespace to be deleted")
 	return c
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
+func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	return cmd.deleteSpace(ctx, platformClient, spaceName)
 }
 
-func (cmd *SpaceCmd) deleteSpace(ctx context.Context, platformClient platform.Client, spaceName string) error {
+func (cmd *NamespaceCmd) deleteSpace(ctx context.Context, platformClient platform.Client, spaceName string) error {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
@@ -95,10 +95,10 @@ func (cmd *SpaceCmd) deleteSpace(ctx context.Context, platformClient platform.Cl
 
 	err = managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(cmd.Project)).Delete(ctx, spaceName, metav1.DeleteOptions{})
 	if err != nil {
-		return errors.Wrap(err, "delete space")
+		return errors.Wrap(err, "delete namespace")
 	}
 
-	cmd.Log.Donef("Successfully deleted space %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+	cmd.Log.Donef("Successfully deleted namespace %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
 
 	// update kube config
 	if cmd.DeleteContext {
@@ -107,16 +107,16 @@ func (cmd *SpaceCmd) deleteSpace(ctx context.Context, platformClient platform.Cl
 			return err
 		}
 
-		cmd.Log.Donef("Successfully deleted kube context for space %s", ansi.Color(spaceName, "white+b"))
+		cmd.Log.Donef("Successfully deleted kube context for namespace %s", ansi.Color(spaceName, "white+b"))
 	}
 
 	// wait until deleted
 	if cmd.Wait {
-		cmd.Log.Info("Waiting for space to be deleted...")
+		cmd.Log.Info("Waiting for namespace to be deleted...")
 		for isSpaceInstanceStillThere(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName) {
 			time.Sleep(time.Second)
 		}
-		cmd.Log.Done("Space is deleted")
+		cmd.Log.Done("Namespace is deleted")
 	}
 
 	return nil
