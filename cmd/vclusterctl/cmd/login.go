@@ -138,7 +138,7 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// should switch swich
+	// should switch driver
 	if cmd.Driver != "" {
 		err := use.SwitchDriver(ctx, cfg, cmd.Driver, log.GetInstance())
 		if err != nil {
