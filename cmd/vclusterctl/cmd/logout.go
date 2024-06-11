@@ -77,5 +77,5 @@ func (cmd *LogoutCmd) Run(ctx context.Context) error {
 		cmd.Log.Donef(product.Replace("Successfully logged out of loft instance %s"), ansi.Color(configHost, "white+b"))
 	}
 
-	return use.SwitchManager(ctx, cfg, string(config.ManagerHelm), cmd.Log)
+	return use.SwitchDriver(ctx, cfg, string(config.HelmDriver), cmd.Log)
 }

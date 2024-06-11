@@ -12,7 +12,7 @@ import (
 )
 
 type ResumeOptions struct {
-	Manager string
+	Driver string
 
 	Project string
 }

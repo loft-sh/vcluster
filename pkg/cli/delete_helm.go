@@ -28,7 +28,7 @@ import (
 const VirtualClusterServiceUIDLabel = "vcluster.loft.sh/service-uid"
 
 type DeleteOptions struct {
-	Manager string
+	Driver string
 
 	Wait                bool
 	KeepPVC             bool

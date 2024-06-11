@@ -47,7 +47,7 @@ vcluster list --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.Manager, "manager", "", "The manager to use for managing the virtual cluster, can be either helm or platform.")
+	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
 	cobraCmd.Flags().StringVar(&cmd.Output, "output", "table", "Choose the format of the output. [table|json]")
 
 	return cobraCmd
@@ -57,12 +57,12 @@ vcluster list --namespace test
 func (cmd *ListCmd) Run(cobraCmd *cobra.Command) error {
 	cfg := cmd.LoadedConfig(cmd.log)
 
-	// If manager has been passed as flag use it, otherwise read it from the config file
-	managerType, err := config.ParseManagerType(cmp.Or(cmd.Manager, string(cfg.Manager.Type)))
+	// If driver has been passed as flag use it, otherwise read it from the config file
+	driverType, err := config.ParseDriverType(cmp.Or(cmd.Driver, string(cfg.Driver.Type)))
 	if err != nil {
-		return fmt.Errorf("parse manager type: %w", err)
+		return fmt.Errorf("parse driver type: %w", err)
 	}
-	if managerType == config.ManagerPlatform {
+	if driverType == config.PlatformDriver {
 		return cli.ListPlatform(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log)
 	}
 

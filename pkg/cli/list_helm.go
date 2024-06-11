@@ -29,7 +29,7 @@ type ListVCluster struct {
 }
 
 type ListOptions struct {
-	Manager string
+	Driver string
 
 	Output string
 }

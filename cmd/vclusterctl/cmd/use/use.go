@@ -16,6 +16,6 @@ func NewUseCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 
-	useCmd.AddCommand(NewManagerCmd(globalFlags))
+	useCmd.AddCommand(NewDriverCmd(globalFlags))
 	return useCmd
 }

@@ -12,7 +12,7 @@ import (
 )
 
 type PauseOptions struct {
-	Manager string
+	Driver string
 
 	Project       string
 	ForceDuration int64
