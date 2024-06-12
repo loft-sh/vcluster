@@ -47,7 +47,7 @@ vcluster import my-vcluster --cluster connected-cluster \
 		},
 	}
 
-	importCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
+	importCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver for the virtual cluster, can be either helm or platform.")
 	importCmd.Flags().StringVar(&cmd.ClusterName, "cluster", "", "Cluster name of the cluster the virtual cluster is running on")
 	importCmd.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vCluster into")
 	importCmd.Flags().StringVar(&cmd.ImportName, "import-name", "", "The name of the vCluster under projects. If unspecified, will use the vcluster name")
