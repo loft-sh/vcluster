@@ -56,7 +56,7 @@ func SwitchDriver(ctx context.Context, cfg *config.CLI, driver string, log log.L
 	if driverType == config.PlatformDriver {
 		_, err := platform.InitClientFromConfig(ctx, cfg)
 		if err != nil {
-			return fmt.Errorf("cannot switch to platform driver, because seems like you are not logged into a vCluster platform (%w)", err)
+			return fmt.Errorf("cannot switch to platform driver because it seems like you are not logged into a vCluster platform (%w)", err)
 		}
 	}
 
