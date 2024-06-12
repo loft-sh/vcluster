@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	SpaceNameOnlyUseLine   string
-	SpaceNameOnlyValidator cobra.PositionalArgs
+	NamespaceNameOnlyUseLine   string
+	NamespaceNameOnlyValidator cobra.PositionalArgs
 
 	VClusterNameOnlyUseLine string
 
@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	SpaceNameOnlyUseLine, SpaceNameOnlyValidator = NamedPositionalArgsValidator(true, true, "NAMESPACE_NAME")
+	NamespaceNameOnlyUseLine, NamespaceNameOnlyValidator = NamedPositionalArgsValidator(true, true, "NAMESPACE_NAME")
 	VClusterNameOnlyUseLine, VClusterNameOnlyValidator = NamedPositionalArgsValidator(true, true, "VCLUSTER_NAME")
 }
 

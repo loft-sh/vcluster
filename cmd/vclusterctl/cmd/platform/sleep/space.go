@@ -48,10 +48,10 @@ vcluster platform sleep namespace myspace --project myproject
 #######################################################
 	`)
 	c := &cobra.Command{
-		Use:   "namespace" + util.SpaceNameOnlyUseLine,
+		Use:   "namespace" + util.NamespaceNameOnlyUseLine,
 		Short: "Put a vCluster platform namespace to sleep",
 		Long:  description,
-		Args:  util.SpaceNameOnlyValidator,
+		Args:  util.NamespaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
 		},

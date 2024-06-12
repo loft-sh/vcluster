@@ -37,10 +37,10 @@ vcluster platform wakeup namespace myspace --project myproject
 #######################################################
 	`)
 	c := &cobra.Command{
-		Use:   "namespace" + util.SpaceNameOnlyUseLine,
+		Use:   "namespace" + util.NamespaceNameOnlyUseLine,
 		Short: "Wakes up a vCluster platform namespace",
 		Long:  description,
-		Args:  util.SpaceNameOnlyValidator,
+		Args:  util.NamespaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
 		},

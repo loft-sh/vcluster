@@ -47,10 +47,10 @@ vcluster platform share namespace myspace --project myproject --user admin
 ########################################################
 	`)
 	c := &cobra.Command{
-		Use:   "namespace" + util.SpaceNameOnlyUseLine,
+		Use:   "namespace" + util.NamespaceNameOnlyUseLine,
 		Short: product.Replace("Shares a vCluster platform namespace with another platform user or team"),
 		Long:  description,
-		Args:  util.SpaceNameOnlyValidator,
+		Args:  util.NamespaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

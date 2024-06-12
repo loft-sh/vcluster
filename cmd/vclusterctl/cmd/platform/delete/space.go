@@ -47,10 +47,10 @@ vcluster platform delete namespace myspace --project myproject
 ########################################################
 	`)
 	c := &cobra.Command{
-		Use:   "namespace" + util.SpaceNameOnlyUseLine,
+		Use:   "namespace" + util.NamespaceNameOnlyUseLine,
 		Short: "Deletes a vCluster platform namespace from a cluster",
 		Long:  description,
-		Args:  util.SpaceNameOnlyValidator,
+		Args:  util.NamespaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
