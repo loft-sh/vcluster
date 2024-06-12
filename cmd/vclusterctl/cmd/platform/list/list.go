@@ -21,6 +21,6 @@ func NewListCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	listCmd.AddCommand(newSharedSecretsCmd(globalFlags))
 	listCmd.AddCommand(newTeamsCmd(globalFlags))
 	listCmd.AddCommand(newVClustersCmd(globalFlags))
-	listCmd.AddCommand(newSpacesCmd(globalFlags))
+	listCmd.AddCommand(newNamespacesCmd(globalFlags))
 	return listCmd
 }

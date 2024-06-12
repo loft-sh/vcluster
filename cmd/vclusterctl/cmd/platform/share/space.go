@@ -18,8 +18,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SpaceCmd holds the cmd flags
-type SpaceCmd struct {
+// NamespaceCmd holds the cmd flags
+type NamespaceCmd struct {
 	*flags.GlobalFlags
 
 	Project     string
@@ -31,26 +31,26 @@ type SpaceCmd struct {
 	Log log.Logger
 }
 
-// NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	cmd := &SpaceCmd{
+// NewNamespaceCmd creates a new command
+func NewNamespaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+	cmd := &NamespaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
-	description := product.ReplaceWithHeader("share space", `
-Shares a space with another vCluster platform user or team. The user
+	description := product.ReplaceWithHeader("share namespace", `
+Shares a vCluster platform namespace with another platform user or team. The user
 or team need to have access to the cluster.
 Example:
-vcluster platform share space myspace
-vcluster platform share space myspace --project myproject
-vcluster platform share space myspace --project myproject --user admin
+vcluster platform share namespace myspace
+vcluster platform share namespace myspace --project myproject
+vcluster platform share namespace myspace --project myproject --user admin
 ########################################################
 	`)
 	c := &cobra.Command{
-		Use:   "space" + util.SpaceNameOnlyUseLine,
-		Short: product.Replace("Shares a space with another vCluster platform user or team"),
+		Use:   "namespace" + util.NamespaceNameOnlyUseLine,
+		Short: product.Replace("Shares a vCluster platform namespace with another platform user or team"),
 		Long:  description,
-		Args:  util.SpaceNameOnlyValidator,
+		Args:  util.NamespaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
@@ -62,14 +62,14 @@ vcluster platform share space myspace --project myproject --user admin
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
-	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-admin", "The cluster role which is assigned to the user or team for that space")
-	c.Flags().StringVar(&cmd.User, "user", "", "The user to share the space with. The user needs to have access to the cluster")
-	c.Flags().StringVar(&cmd.Team, "team", "", "The team to share the space with. The team needs to have access to the cluster")
+	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-admin", "The cluster role which is assigned to the user or team for that namespace")
+	c.Flags().StringVar(&cmd.User, "user", "", "The user to share the namespace with. The user needs to have access to the cluster")
+	c.Flags().StringVar(&cmd.Team, "team", "", "The team to share the namespace with. The team needs to have access to the cluster")
 	return c
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
+func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	return cmd.shareSpace(ctx, platformClient, spaceName)
 }
 
-func (cmd *SpaceCmd) shareSpace(ctx context.Context, platformClient platform.Client, spaceName string) error {
+func (cmd *NamespaceCmd) shareSpace(ctx context.Context, platformClient platform.Client, spaceName string) error {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
@@ -118,11 +118,11 @@ func (cmd *SpaceCmd) shareSpace(ctx context.Context, platformClient platform.Cli
 	}
 
 	if cmd.User != "" {
-		cmd.Log.Donef("Successfully granted user %s access to space %s", ansi.Color(cmd.User, "white+b"), ansi.Color(spaceName, "white+b"))
-		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("vcluster platform connect space %s --project %s"), spaceName, cmd.Project), "white+b"))
+		cmd.Log.Donef("Successfully granted user %s access to namespace %s", ansi.Color(cmd.User, "white+b"), ansi.Color(spaceName, "white+b"))
+		cmd.Log.Infof("The user can access the namespace now via: %s", ansi.Color(fmt.Sprintf(product.Replace("vcluster platform connect namespace %s --project %s"), spaceName, cmd.Project), "white+b"))
 	} else {
-		cmd.Log.Donef("Successfully granted team %s access to space %s", ansi.Color(cmd.Team, "white+b"), ansi.Color(spaceName, "white+b"))
-		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("vcluster platform connect space %s --project %s"), spaceName, cmd.Project), "white+b"))
+		cmd.Log.Donef("Successfully granted team %s access to namespace %s", ansi.Color(cmd.Team, "white+b"), ansi.Color(spaceName, "white+b"))
+		cmd.Log.Infof("The team can access the namespace now via: %s", ansi.Color(fmt.Sprintf(product.Replace("vcluster platform connect namespace %s --project %s"), spaceName, cmd.Project), "white+b"))
 	}
 
 	return nil

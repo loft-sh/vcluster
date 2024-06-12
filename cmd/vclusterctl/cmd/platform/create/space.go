@@ -34,8 +34,8 @@ const linksHelpText = `Labeled Links to annotate the object with.
 These links will be visible from the UI. When used with update, existing links will be replaced.
 E.g. --link 'Prod=http://exampleprod.com,Dev=http://exampledev.com'`
 
-// SpaceCmd holds the cmd flags
-type SpaceCmd struct {
+// NamespaceCmd holds the cmd flags
+type NamespaceCmd struct {
 	*flags.GlobalFlags
 
 	SleepAfter                   int64
@@ -46,7 +46,7 @@ type SpaceCmd struct {
 	SwitchContext                bool
 	DisableDirectClusterEndpoint bool
 	Template                     string
-	Version                      string
+	TemplateVersion              string
 	Set                          []string
 	ParametersFile               string
 	SkipWait                     bool
@@ -67,26 +67,26 @@ type SpaceCmd struct {
 	Log log.Logger
 }
 
-// newSpaceCmd creates a new command
-func newSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	cmd := &SpaceCmd{
+// newNamespaceCmd creates a new command
+func newNamespaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+	cmd := &NamespaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
-	description := product.ReplaceWithHeader("create space", `
-Creates a new space for the given project, if
+	description := product.ReplaceWithHeader("create namespace", `
+Creates a new vCluster platform namespace for the given project, if
 it does not yet exist.
 Example:
-vcluster platform create space myspace
-vcluster platform create space myspace --project myproject
-vcluster platform create space myspace --project myproject --team myteam
+vcluster platform create namespace myspace
+vcluster platform create namespace myspace --project myproject
+vcluster platform create namespace myspace --project myproject --team myteam
 ########################################################
 	`)
 	c := &cobra.Command{
-		Use:   "space" + util.SpaceNameOnlyUseLine,
-		Short: "Creates a new space in the given cluster",
+		Use:   "namespace" + util.NamespaceNameOnlyUseLine,
+		Short: "Creates a new vCluster platform namespace in the given cluster",
 		Long:  description,
-		Args:  util.SpaceNameOnlyValidator,
+		Args:  util.NamespaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
@@ -96,31 +96,31 @@ vcluster platform create space myspace --project myproject --team myteam
 	}
 
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
-	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this space")
-	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this space")
+	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this namespace")
+	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this namespace")
 	c.Flags().StringSliceVar(&cmd.Links, "link", []string{}, linksHelpText)
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
-	c.Flags().StringSliceVarP(&cmd.Labels, "labels", "l", []string{}, "Comma separated labels to apply to the space")
-	c.Flags().StringSliceVar(&cmd.Annotations, "annotations", []string{}, "Comma separated annotations to apply to the space")
-	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
-	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
-	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, product.Replace("If loft should create a kube context for the space"))
+	c.Flags().StringSliceVarP(&cmd.Labels, "labels", "l", []string{}, "Comma separated labels to apply to the namespace")
+	c.Flags().StringSliceVar(&cmd.Annotations, "annotations", []string{}, "Comma separated annotations to apply to the namespace")
+	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the namespace for")
+	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the namespace for")
+	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, product.Replace("If loft should create a kube context for the namespace"))
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, product.Replace("If loft should switch the current context to the new context"))
-	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the space is running")
-	c.Flags().BoolVar(&cmd.Recreate, "recreate", false, product.Replace("If enabled and there already exists a space with this name, Loft will delete it first"))
-	c.Flags().BoolVar(&cmd.Update, "update", false, "If enabled and a space already exists, will update the template, version and parameters")
-	c.Flags().BoolVar(&cmd.UseExisting, "use", false, product.Replace("If loft should use the space if its already there"))
-	c.Flags().StringVar(&cmd.Template, "template", "", "The space template to use")
-	c.Flags().StringVar(&cmd.Version, "version", "", "The template version to use")
+	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the namespace is running")
+	c.Flags().BoolVar(&cmd.Recreate, "recreate", false, product.Replace("If enabled and there already exists a namespace with this name, Loft will delete it first"))
+	c.Flags().BoolVar(&cmd.Update, "update", false, "If enabled and a namespace already exists, will update the template, version and parameters")
+	c.Flags().BoolVar(&cmd.UseExisting, "use", false, product.Replace("If loft should use the namespace if its already there"))
+	c.Flags().StringVar(&cmd.Template, "template", "", "The namespace template to use")
+	c.Flags().StringVar(&cmd.TemplateVersion, "template-version", "", "The template version to use")
 	c.Flags().StringSliceVar(&cmd.Set, "set", []string{}, "Allows specific template parameters to be set. E.g. --set myParameter=myValue")
 	c.Flags().StringVar(&cmd.ParametersFile, "parameters", "", "The file where the parameter values for the apps are specified")
-	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the space")
+	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the namespace")
 	return c
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
+func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 	spaceName := args[0]
 	cfg := cmd.LoadedConfig(cmd.Log)
 	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
@@ -143,7 +143,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	return cmd.createSpace(ctx, platformClient, spaceName, cfg)
 }
 
-func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Client, spaceName string, cfg *cliconfig.CLI) error {
+func (cmd *NamespaceCmd) createSpace(ctx context.Context, platformClient platform.Client, spaceName string, cfg *cliconfig.CLI) error {
 	spaceNamespace := projectutil.ProjectNamespace(cmd.Project)
 	managementClient, err := platformClient.Management()
 	if err != nil {
@@ -167,12 +167,12 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 	if cmd.Recreate {
 		_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(ctx, spaceName, metav1.GetOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("couldn't retrieve space instance: %w", err)
+			return fmt.Errorf("couldn't retrieve namespace instance: %w", err)
 		} else if err == nil {
 			// delete the space
 			err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Delete(ctx, spaceName, metav1.DeleteOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
-				return fmt.Errorf("couldn't delete space instance: %w", err)
+				return fmt.Errorf("couldn't delete namespace instance: %w", err)
 			}
 		}
 	}
@@ -181,9 +181,9 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 	// make sure we wait until space is deleted
 	spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(ctx, spaceName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("couldn't retrieve space instance: %w", err)
+		return fmt.Errorf("couldn't retrieve namespace instance: %w", err)
 	} else if err == nil && spaceInstance.DeletionTimestamp != nil {
-		cmd.Log.Infof("Waiting until space is deleted...")
+		cmd.Log.Infof("Waiting until namespace is deleted...")
 
 		// wait until the space instance is deleted
 		waitErr := wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), false, func(ctx context.Context) (done bool, err error) {
@@ -197,7 +197,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 			return true, nil
 		})
 		if waitErr != nil {
-			return errors.Wrap(err, "get space instance")
+			return errors.Wrap(err, "get namespace instance")
 		}
 
 		spaceInstance = nil
@@ -207,7 +207,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 
 	// if the space already exists and flag is not set, we terminate
 	if !cmd.Update && !cmd.UseExisting && spaceInstance != nil {
-		return fmt.Errorf("space %s already exists in project %s", spaceName, cmd.Project)
+		return fmt.Errorf("namespace %s already exists in project %s", spaceName, cmd.Project)
 	}
 
 	// create space if necessary
@@ -238,7 +238,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 					},
 					TemplateRef: &storagev1.TemplateRef{
 						Name:    spaceTemplate.Name,
-						Version: cmd.Version,
+						Version: cmd.TemplateVersion,
 					},
 					ClusterRef: storagev1.ClusterRef{
 						Cluster: cmd.Cluster,
@@ -257,10 +257,10 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 			return err
 		}
 		// create space
-		cmd.Log.Infof("Creating space %s in project %s with template %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(spaceTemplate.Name, "white+b"))
+		cmd.Log.Infof("Creating namespace %s in project %s with template %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(spaceTemplate.Name, "white+b"))
 		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Create(ctx, spaceInstance, metav1.CreateOptions{})
 		if err != nil {
-			return errors.Wrap(err, "create space")
+			return errors.Wrap(err, "create namespace")
 		}
 	} else if cmd.Update {
 		// resolve template
@@ -271,14 +271,14 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 
 		// update space instance
 		if spaceInstance.Spec.TemplateRef == nil {
-			return fmt.Errorf("space instance doesn't use a template, cannot update space")
+			return fmt.Errorf("namespace instance doesn't use a template, cannot update space")
 		}
 
 		oldSpace := spaceInstance.DeepCopy()
 
 		templateRefChanged := spaceInstance.Spec.TemplateRef.Name != spaceTemplate.Name
 		paramsChanged := spaceInstance.Spec.Parameters != resolvedParameters
-		versionChanged := (cmd.Version != "" && spaceInstance.Spec.TemplateRef.Version != cmd.Version)
+		versionChanged := (cmd.TemplateVersion != "" && spaceInstance.Spec.TemplateRef.Version != cmd.TemplateVersion)
 		linksChanged := kube.SetCustomLinksAnnotation(spaceInstance, cmd.Links)
 		labelsChanged, err := kube.UpdateLabels(spaceInstance, cmd.Labels)
 		if err != nil {
@@ -292,7 +292,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 		// check if update is needed
 		if templateRefChanged || paramsChanged || versionChanged || linksChanged || labelsChanged || annotationsChanged {
 			spaceInstance.Spec.TemplateRef.Name = spaceTemplate.Name
-			spaceInstance.Spec.TemplateRef.Version = cmd.Version
+			spaceInstance.Spec.TemplateRef.Version = cmd.TemplateVersion
 			spaceInstance.Spec.Parameters = resolvedParameters
 
 			patch := crclient.MergeFrom(oldSpace)
@@ -300,14 +300,14 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 			if err != nil {
 				return errors.Wrap(err, "calculate update patch")
 			}
-			cmd.Log.Infof("Updating space cluster %s in project %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+			cmd.Log.Infof("Updating namespace in cluster %s in project %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
 			cmd.Log.Debugf("Patch data:\n%s\n...", string(patchData))
 			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Patch(ctx, spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 			if err != nil {
-				return errors.Wrap(err, "patch space")
+				return errors.Wrap(err, "patch namespace")
 			}
 		} else {
-			cmd.Log.Infof("Skip updating space...")
+			cmd.Log.Infof("Skip updating namespace...")
 		}
 	}
 
@@ -316,7 +316,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 	if err != nil {
 		return err
 	}
-	cmd.Log.Donef("Successfully created the space %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+	cmd.Log.Donef("Successfully created the namespace %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
 
 	// should we create a kube context for the space
 	if cmd.CreateContext {
@@ -332,13 +332,13 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, platformClient platform.Cl
 			return err
 		}
 
-		cmd.Log.Donef("Successfully updated kube context to use space %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+		cmd.Log.Donef("Successfully updated kube context to use namespace %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
 	}
 
 	return nil
 }
 
-func (cmd *SpaceCmd) resolveTemplate(ctx context.Context, platformClient platform.Client) (*managementv1.SpaceTemplate, string, error) {
+func (cmd *NamespaceCmd) resolveTemplate(ctx context.Context, platformClient platform.Client) (*managementv1.SpaceTemplate, string, error) {
 	// determine space template to use
 	spaceTemplate, err := platform.SelectSpaceTemplate(ctx, platformClient, cmd.Project, cmd.Template, cmd.Log)
 	if err != nil {
@@ -348,7 +348,7 @@ func (cmd *SpaceCmd) resolveTemplate(ctx context.Context, platformClient platfor
 	// get parameters
 	var templateParameters []storagev1.AppParameter
 	if len(spaceTemplate.Spec.Versions) > 0 {
-		if cmd.Version == "" {
+		if cmd.TemplateVersion == "" {
 			latestVersion := platform.GetLatestVersion(spaceTemplate)
 			if latestVersion == nil {
 				return nil, "", fmt.Errorf("couldn't find any version in template")
@@ -356,11 +356,11 @@ func (cmd *SpaceCmd) resolveTemplate(ctx context.Context, platformClient platfor
 
 			templateParameters = latestVersion.(*storagev1.SpaceTemplateVersion).Parameters
 		} else {
-			_, latestMatched, err := platform.GetLatestMatchedVersion(spaceTemplate, cmd.Version)
+			_, latestMatched, err := platform.GetLatestMatchedVersion(spaceTemplate, cmd.TemplateVersion)
 			if err != nil {
 				return nil, "", err
 			} else if latestMatched == nil {
-				return nil, "", fmt.Errorf("couldn't find any matching version to %s", cmd.Version)
+				return nil, "", fmt.Errorf("couldn't find any matching version to %s", cmd.TemplateVersion)
 			}
 
 			templateParameters = latestMatched.(*storagev1.SpaceTemplateVersion).Parameters

@@ -11,7 +11,7 @@ import (
 func NewConnectCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
 	description := product.ReplaceWithHeader("connect", `
 
-Activates a kube context for the given cluster / management / space / vcluster.
+Activates a kube context for the given cluster / management / namespace / vcluster.
 	`)
 	connectCmd := &cobra.Command{
 		Use:   "connect",
@@ -22,7 +22,7 @@ Activates a kube context for the given cluster / management / space / vcluster.
 
 	connectCmd.AddCommand(newClusterCmd(globalFlags))
 	connectCmd.AddCommand(newManagementCmd(globalFlags))
-	connectCmd.AddCommand(newSpaceCmd(globalFlags, defaults))
+	connectCmd.AddCommand(newNamespaceCmd(globalFlags, defaults))
 	connectCmd.AddCommand(newVClusterCmd(globalFlags))
 	return connectCmd
 }

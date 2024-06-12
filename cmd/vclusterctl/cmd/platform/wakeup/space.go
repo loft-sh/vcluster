@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// SpaceCmd holds the cmd flags
-type SpaceCmd struct {
+// NamespaceCmd holds the cmd flags
+type NamespaceCmd struct {
 	*flags.GlobalFlags
 
 	Project string
@@ -22,25 +22,25 @@ type SpaceCmd struct {
 	Log     log.Logger
 }
 
-// NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	cmd := &SpaceCmd{
+// NewNamespaceCmd creates a new command
+func NewNamespaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+	cmd := &NamespaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
 
-	description := product.ReplaceWithHeader("wakeup space", `
-wakeup resumes a sleeping space
+	description := product.ReplaceWithHeader("wakeup namespace", `
+wakeup resumes a sleeping vCluster platform namespace
 Example:
-vcluster platform wakeup space myspace
-vcluster platform wakeup space myspace --project myproject
+vcluster platform wakeup namespace myspace
+vcluster platform wakeup namespace myspace --project myproject
 #######################################################
 	`)
 	c := &cobra.Command{
-		Use:   "space" + util.SpaceNameOnlyUseLine,
-		Short: "Wakes up a space",
+		Use:   "namespace" + util.NamespaceNameOnlyUseLine,
+		Short: "Wakes up a vCluster platform namespace",
 		Long:  description,
-		Args:  util.SpaceNameOnlyValidator,
+		Args:  util.NamespaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
 		},
@@ -53,7 +53,7 @@ vcluster platform wakeup space myspace --project myproject
 }
 
 // Run executes the functionality
-func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
+func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	return cmd.spaceWakeUp(ctx, platformClient, spaceName)
 }
 
-func (cmd *SpaceCmd) spaceWakeUp(ctx context.Context, platformClient platform.Client, spaceName string) error {
+func (cmd *NamespaceCmd) spaceWakeUp(ctx context.Context, platformClient platform.Client, spaceName string) error {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err

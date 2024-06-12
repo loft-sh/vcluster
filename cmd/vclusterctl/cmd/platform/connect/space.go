@@ -18,8 +18,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// SpaceCmd holds the cmd flags
-type SpaceCmd struct {
+// NamespaceCmd holds the cmd flags
+type NamespaceCmd struct {
 	*flags.GlobalFlags
 
 	Cluster                      string
@@ -31,26 +31,26 @@ type SpaceCmd struct {
 	log log.Logger
 }
 
-// newSpaceCmd creates a new command
-func newSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	cmd := &SpaceCmd{
+// newNamespaceCmd creates a new command
+func newNamespaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
+	cmd := &NamespaceCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
 
-	description := product.ReplaceWithHeader("connect space", `
-Creates a new kube context for the given space.
+	description := product.ReplaceWithHeader("connect namespace", `
+Creates a new kube context for the given vCluster platform namespace.
 
 Example:
-vcluster platform connect space
-vcluster platform connect space myspace
-vcluster platform connect space myspace --project myproject
+vcluster platform connect namespace
+vcluster platform connect namespace myspace
+vcluster platform connect namespace myspace --project myproject
 ########################################################
 	`)
 	useLine, validator := util.NamedPositionalArgsValidator(false, false, "SPACE_NAME")
 	c := &cobra.Command{
-		Use:   "space" + useLine,
-		Short: "Creates a kube context for the given space",
+		Use:   "namespace" + useLine,
+		Short: "Creates a kube context for the given vCluster platform namespace",
 		Long:  description,
 		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -67,13 +67,13 @@ vcluster platform connect space myspace --project myproject
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
-	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the space is running")
+	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the namespace is running")
 	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the cluster")
 	return c
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
+func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.log)
 	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
 	if err != nil {
@@ -98,7 +98,7 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	return cmd.connectSpace(ctx, platformClient, spaceName, cfg)
 }
 
-func (cmd *SpaceCmd) connectSpace(ctx context.Context, platformClient platform.Client, spaceName string, cfg *config.CLI) error {
+func (cmd *NamespaceCmd) connectSpace(ctx context.Context, platformClient platform.Client, spaceName string, cfg *config.CLI) error {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ func (cmd *SpaceCmd) connectSpace(ctx context.Context, platformClient platform.C
 			return err
 		}
 
-		cmd.log.Donef("Successfully updated kube context to use space %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+		cmd.log.Donef("Successfully updated kube context to use namespace %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
 	}
 
 	return nil
