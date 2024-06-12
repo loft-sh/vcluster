@@ -51,7 +51,7 @@ vcluster delete test --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.Manager, "manager", "", "The manager to use for managing the virtual cluster, can be either helm or platform.")
+	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
 
 	flagsdelete.AddCommonFlags(cobraCmd, &cmd.DeleteOptions)
 	flagsdelete.AddHelmFlags(cobraCmd, &cmd.DeleteOptions)
@@ -64,18 +64,18 @@ vcluster delete test --namespace test
 func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.log)
 
-	// If manager has been passed as flag use it, otherwise read it from the config file
-	managerType, err := config.ParseManagerType(cmp.Or(cmd.Manager, string(cfg.Manager.Type)))
+	// If driver has been passed as flag use it, otherwise read it from the config file
+	driverType, err := config.ParseDriverType(cmp.Or(cmd.Driver, string(cfg.Driver.Type)))
 	if err != nil {
-		return fmt.Errorf("parse manager type: %w", err)
+		return fmt.Errorf("parse driver type: %w", err)
 	}
 	// check if there is a platform client or we skip the info message
 	_, err = platform.InitClientFromConfig(ctx, cfg)
 	if err == nil {
-		config.PrintManagerInfo("delete", cfg.Manager.Type, cmd.log)
+		config.PrintDriverInfo("delete", cfg.Driver.Type, cmd.log)
 	}
 
-	if managerType == config.ManagerPlatform {
+	if driverType == config.PlatformDriver {
 		return cli.DeletePlatform(ctx, &cmd.DeleteOptions, cfg, args[0], cmd.log)
 	}
 

@@ -7,19 +7,19 @@ import (
 )
 
 type CLI struct {
-	Manager           Manager  `json:"manager,omitempty"`
+	Driver            Driver   `json:"driver,omitempty"`
 	PreviousContext   string   `json:"previousContext,omitempty"`
 	path              string   `json:"-"`
 	Platform          Platform `json:"platform,omitempty"`
 	TelemetryDisabled bool     `json:"telemetryDisabled,omitempty"`
 }
 
-type Manager struct {
-	// Type is the current manager type that is used, either helm or platform
-	Type ManagerType `json:"type,omitempty"`
+type Driver struct {
+	// Type is the current driver type that is used, either helm or platform
+	Type DriverType `json:"type,omitempty"`
 }
 
-type ManagerType string
+type DriverType string
 
 type Platform struct {
 	metav1.TypeMeta `json:",inline"`

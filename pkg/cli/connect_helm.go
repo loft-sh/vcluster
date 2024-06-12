@@ -37,7 +37,7 @@ import (
 )
 
 type ConnectOptions struct {
-	Manager string
+	Driver string
 
 	ServiceAccountClusterRole string
 	PodName                   string

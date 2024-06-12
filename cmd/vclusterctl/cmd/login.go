@@ -35,7 +35,7 @@ type LoginCmd struct {
 
 	Log log.Logger
 
-	Manager     string
+	Driver      string
 	AccessKey   string
 	Insecure    bool
 	DockerLogin bool
@@ -71,7 +71,7 @@ vcluster login https://my-vcluster-platform.com --access-key myaccesskey
 		},
 	}
 
-	loginCmd.Flags().StringVar(&cmd.Manager, "use-manager", "", "Switch managing method of vClusters between platform and helm")
+	loginCmd.Flags().StringVar(&cmd.Driver, "use-driver", "", "Switch vCluster driver between platform and helm")
 	loginCmd.Flags().StringVar(&cmd.AccessKey, "access-key", "", "The access key to use")
 	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", true, product.Replace("Allow login into an insecure Loft instance"))
 	loginCmd.Flags().BoolVar(&cmd.DockerLogin, "docker-login", true, "If true, will log into the docker image registries the user has image pull secrets for")
@@ -138,11 +138,11 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// should switch manager
-	if cmd.Manager != "" {
-		err := use.SwitchManager(ctx, cfg, cmd.Manager, log.GetInstance())
+	// should switch driver
+	if cmd.Driver != "" {
+		err := use.SwitchDriver(ctx, cfg, cmd.Driver, log.GetInstance())
 		if err != nil {
-			return fmt.Errorf("switch manager failed: %w", err)
+			return fmt.Errorf("driver switch failed: %w", err)
 		}
 	}
 

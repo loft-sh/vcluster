@@ -52,7 +52,7 @@ vcluster create test --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.Manager, "manager", "", "The manager to use for managing the virtual cluster, can be either helm or platform.")
+	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
 
 	create.AddCommonFlags(cobraCmd, &cmd.CreateOptions)
 	create.AddHelmFlags(cobraCmd, &cmd.CreateOptions)
@@ -65,19 +65,19 @@ vcluster create test --namespace test
 func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.log)
 
-	// If manager has been passed as flag use it, otherwise read it from the config file
-	managerType, err := config.ParseManagerType(cmp.Or(cmd.Manager, string(cfg.Manager.Type)))
+	// If driver has been passed as flag use it, otherwise read it from the config file
+	driver, err := config.ParseDriverType(cmp.Or(cmd.Driver, string(cfg.Driver.Type)))
 	if err != nil {
-		return fmt.Errorf("parse manager type: %w", err)
+		return fmt.Errorf("parse driver type: %w", err)
 	}
 
 	// check if there is a platform client or we skip the info message
 	_, err = platform.InitClientFromConfig(ctx, cfg)
 	if err == nil {
-		config.PrintManagerInfo("create", cfg.Manager.Type, cmd.log)
+		config.PrintDriverInfo("create", cfg.Driver.Type, cmd.log)
 	}
 	// check if we should create a platform vCluster
-	if managerType == config.ManagerPlatform {
+	if driver == config.PlatformDriver {
 		return cli.CreatePlatform(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
 	}
 

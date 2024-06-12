@@ -43,7 +43,7 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 func AddPlatformFlags(cmd *cobra.Command, options *cli.CreateOptions, prefixes ...string) {
 	prefix := strings.Join(prefixes, "")
 
-	cmd.Flags().BoolVar(&options.Activate, "activate", true, fmt.Sprintf("%sActivate the vCluster automatically when using helm manager", prefix))
+	cmd.Flags().BoolVar(&options.Activate, "activate", true, fmt.Sprintf("%sActivate the vCluster automatically when using helm driver", prefix))
 	cmd.Flags().StringVar(&options.Project, "project", "", fmt.Sprintf("%sThe vCluster platform project to use", prefix))
 	cmd.Flags().StringSliceVarP(&options.Labels, "labels", "l", []string{}, fmt.Sprintf("%sComma separated labels to apply to the virtualclusterinstance", prefix))
 	cmd.Flags().StringSliceVar(&options.Annotations, "annotations", []string{}, fmt.Sprintf("%sComma separated annotations to apply to the virtualclusterinstance", prefix))

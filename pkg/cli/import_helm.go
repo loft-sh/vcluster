@@ -13,7 +13,7 @@ import (
 )
 
 type ImportOptions struct {
-	Manager string
+	Driver string
 
 	ClusterName string
 	Project     string

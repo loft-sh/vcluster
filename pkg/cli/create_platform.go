@@ -99,7 +99,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	if !options.Upgrade && !options.UseExisting && virtualClusterInstance != nil {
 		return fmt.Errorf("virtual cluster %s already exists in project %s", virtualClusterName, options.Project)
 	} else if virtualClusterInstance != nil && virtualClusterInstance.Spec.NetworkPeer {
-		return fmt.Errorf("cannot upgrade a virtual cluster that was created via helm, please run 'vcluster use manager helm' or use the '--manager helm' flag")
+		return fmt.Errorf("cannot upgrade a virtual cluster that was created via helm, please run 'vcluster use driver helm' or use the '--driver helm' flag")
 	}
 
 	// should create via template

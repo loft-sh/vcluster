@@ -17,8 +17,8 @@ const (
 	DirName  = ".vcluster"
 	FileName = "config.json"
 
-	ManagerHelm     ManagerType = "helm"
-	ManagerPlatform ManagerType = "platform"
+	HelmDriver     DriverType = "helm"
+	PlatformDriver DriverType = "platform"
 )
 
 var (
@@ -30,8 +30,8 @@ var (
 func New() *CLI {
 	return &CLI{
 		TelemetryDisabled: false,
-		Manager: Manager{
-			Type: ManagerHelm,
+		Driver: Driver{
+			Type: HelmDriver,
 		},
 		Platform: Platform{
 			TypeMeta: metav1.TypeMeta{
@@ -84,27 +84,27 @@ func Write(path string, c *CLI) error {
 	return nil
 }
 
-func PrintManagerInfo(verb string, manager ManagerType, log log.Logger) {
+func PrintDriverInfo(verb string, driver DriverType, log log.Logger) {
 	// only print this to stderr
 	log = log.ErrorStreamOnly()
 
-	if manager == ManagerHelm {
-		log.Infof("Using vCluster manager 'helm' to %s your virtual clusters, which means the vCluster CLI is running helm commands directly", verb)
-		log.Info("If you prefer to use the vCluster platform API instead, use the flag '--manager platform' or run 'vcluster use manager platform' to change the default")
+	if driver == HelmDriver {
+		log.Infof("Using vCluster driver 'helm' to %s your virtual clusters, which means the vCluster CLI is running helm commands directly", verb)
+		log.Info("If you prefer to use the vCluster platform API instead, use the flag '--driver platform' or run 'vcluster use driver platform' to change the default")
 	} else {
-		log.Infof("Using vCluster manager 'platform' to %s your virtual clusters, which means the CLI is using the vCluster platform API instead of helm", verb)
-		log.Info("If you prefer to use helm instead, use the flag '--manager helm' or run 'vcluster use manager helm' to change the default")
+		log.Infof("Using vCluster driver 'platform' to %s your virtual clusters, which means the CLI is using the vCluster platform API instead of helm", verb)
+		log.Info("If you prefer to use helm instead, use the flag '--driver helm' or run 'vcluster use driver helm' to change the default")
 	}
 }
 
-func ParseManagerType(manager string) (ManagerType, error) {
-	switch manager {
+func ParseDriverType(driver string) (DriverType, error) {
+	switch driver {
 	case "helm":
-		return ManagerHelm, nil
+		return HelmDriver, nil
 	case "platform":
-		return ManagerPlatform, nil
+		return PlatformDriver, nil
 	default:
-		return "", fmt.Errorf("invalid manager type: %q, only \"helm\" or \"platform\" are valid", manager)
+		return "", fmt.Errorf("invalid driver type: %q, only \"helm\" or \"platform\" are valid", driver)
 	}
 }
 

@@ -11,28 +11,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type ManagerCmd struct {
+type DriverCmd struct {
 	*flags.GlobalFlags
 
 	Log log.Logger
 }
 
-func NewManagerCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &ManagerCmd{
+func NewDriverCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	cmd := &DriverCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
 
 	description := `########################################################
-################# vcluster use manager #################
+################# vcluster use driver #################
 ########################################################
 Either use "helm" or "platform" as the deployment method for managing virtual clusters.
 #######################################################
 	`
 
-	managerCmd := &cobra.Command{
-		Use:   "manager",
-		Short: "Switch managing method of virtual clusters between platform and helm",
+	driverCmd := &cobra.Command{
+		Use:   "driver",
+		Short: "Switch the virtual clusters driver between platform and helm",
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -40,32 +40,32 @@ Either use "helm" or "platform" as the deployment method for managing virtual cl
 		},
 	}
 
-	return managerCmd
+	return driverCmd
 }
 
-func (cmd *ManagerCmd) Run(ctx context.Context, args []string) error {
-	return SwitchManager(ctx, cmd.LoadedConfig(cmd.Log), args[0], cmd.Log)
+func (cmd *DriverCmd) Run(ctx context.Context, args []string) error {
+	return SwitchDriver(ctx, cmd.LoadedConfig(cmd.Log), args[0], cmd.Log)
 }
 
-func SwitchManager(ctx context.Context, cfg *config.CLI, manager string, log log.Logger) error {
-	managerType, err := config.ParseManagerType(manager)
+func SwitchDriver(ctx context.Context, cfg *config.CLI, driver string, log log.Logger) error {
+	driverType, err := config.ParseDriverType(driver)
 	if err != nil {
-		return fmt.Errorf("parse manager type: %w", err)
+		return fmt.Errorf("parse driver type: %w", err)
 	}
 
-	if managerType == config.ManagerPlatform {
+	if driverType == config.PlatformDriver {
 		_, err := platform.InitClientFromConfig(ctx, cfg)
 		if err != nil {
-			return fmt.Errorf("cannot switch to platform manager, because seems like you are not logged into a vCluster platform (%w)", err)
+			return fmt.Errorf("cannot switch to platform driver because it seems like you are not logged into a vCluster platform (%w)", err)
 		}
 	}
 
-	cfg.Manager.Type = managerType
+	cfg.Driver.Type = driverType
 	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("save vCluster config: %w", err)
 	}
 
-	log.Donef("Successfully switched manager to %s", manager)
+	log.Donef("Successfully switched driver to %s", driver)
 
 	return nil
 }

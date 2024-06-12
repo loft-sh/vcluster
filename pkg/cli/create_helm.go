@@ -43,7 +43,7 @@ import (
 
 // CreateOptions holds the create cmd options
 type CreateOptions struct {
-	Manager string
+	Driver string
 
 	KubeConfigContextName string
 	ChartVersion          string
