@@ -102,7 +102,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 	}
 
 	var output []VCluster
-	output = append(output, ossToVClusters(vClusters, currentContext)...)
+	output = append(output, ossToVClusters(vClusters, proVClusters, currentContext)...)
 	output = append(output, proToVClusters(proVClusters, currentContext)...)
 
 	if cmd.output == "json" {
@@ -123,9 +123,22 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func ossToVClusters(vClusters []find.VCluster, currentContext string) []VCluster {
+func ossToVClusters(vClusters []find.VCluster, proVClusters []procli.VirtualClusterInstanceProject, currentContext string) []VCluster {
+	// Note all the imported pro vClusters, to omit their OSS counterparts from the listing
+	pvKeys := map[string]bool{}
+	for _, pvCluster := range proVClusters {
+		if pvCluster.VirtualCluster.Annotations["loft.sh/imported-by-agent"] == "true" {
+			clusterRef := pvCluster.VirtualCluster.Spec.ClusterRef
+			pvKeys[clusterRef.VirtualCluster+"/"+clusterRef.Namespace] = true
+		}
+	}
+
 	var output []VCluster
 	for _, vCluster := range vClusters {
+		if pvKeys[vCluster.Name+"/"+vCluster.Namespace] {
+			continue
+		}
+
 		vClusterOutput := VCluster{
 			Name:       vCluster.Name,
 			Namespace:  vCluster.Namespace,
