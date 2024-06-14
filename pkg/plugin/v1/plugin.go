@@ -120,7 +120,7 @@ func (m *Manager) MutateObject(ctx context.Context, obj client.Object, hookType 
 }
 
 func (m *Manager) mutateObject(ctx context.Context, versionKindType plugintypes.VersionKindType, obj []byte, plugin *Plugin) ([]byte, error) {
-	conn, err := grpc.Dial(plugin.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(plugin.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("error dialing plugin %s: %w", plugin.Name, err)
 	}

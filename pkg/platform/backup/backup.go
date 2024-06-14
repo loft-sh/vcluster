@@ -40,15 +40,6 @@ func All(ctx context.Context, client clientpkg.Client, skip []string, infoFn Log
 			objects = append(objects, users...)
 		}
 	}
-	if !contains(skip, "spaceconstraints") {
-		infoFn("Backing up spaceconstraints...")
-		objs, err := spaceConstraints(ctx, client)
-		if err != nil {
-			backupErrors = append(backupErrors, errors.Wrap(err, "backup space constrains"))
-		} else {
-			objects = append(objects, objs...)
-		}
-	}
 	if !contains(skip, "users") {
 		infoFn("Backing up users...")
 		objs, err := users(ctx, client)
@@ -383,28 +374,6 @@ func clusterRoles(ctx context.Context, client clientpkg.Client) ([]runtime.Objec
 	for _, o := range objs.Items {
 		u := o
 		u.Status = storagev1.ClusterRoleTemplateStatus{}
-		err := resetMetadata(client.Scheme(), &u)
-		if err != nil {
-			return nil, err
-		}
-
-		retList = append(retList, &u)
-	}
-
-	return retList, nil
-}
-
-func spaceConstraints(ctx context.Context, client clientpkg.Client) ([]runtime.Object, error) {
-	objs := &storagev1.SpaceConstraintList{}
-	err := client.List(ctx, objs)
-	if err != nil {
-		return nil, err
-	}
-
-	retList := []runtime.Object{}
-	for _, o := range objs.Items {
-		u := o
-		u.Status = storagev1.SpaceConstraintStatus{}
 		err := resetMetadata(client.Scheme(), &u)
 		if err != nil {
 			return nil, err

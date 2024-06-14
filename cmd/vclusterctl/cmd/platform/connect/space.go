@@ -90,7 +90,7 @@ func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 		spaceName = args[0]
 	}
 
-	cmd.Cluster, cmd.Project, spaceName, err = platform.SelectSpaceInstanceOrSpace(ctx, platformClient, spaceName, cmd.Project, cmd.Cluster, cmd.log)
+	cmd.Cluster, cmd.Project, spaceName, err = platform.SelectSpaceInstance(ctx, platformClient, spaceName, cmd.Project, cmd.log)
 	if err != nil {
 		return err
 	}

@@ -13,11 +13,8 @@ import (
 )
 
 type ImportOptions struct {
-	Driver string
-
-	ClusterName string
-	Project     string
-	ImportName  string
+	Project    string
+	ImportName string
 }
 
 func ImportHelm(ctx context.Context, options *ImportOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
